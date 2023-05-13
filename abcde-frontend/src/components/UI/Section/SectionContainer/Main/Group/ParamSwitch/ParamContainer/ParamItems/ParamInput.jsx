@@ -19,15 +19,13 @@ export function ParamInput({
   };
 
   const onBlur = (v, changedByUser = true) => {
-    if (v !== enteredValue) {
-      onChange(v);
-      setParamEnteredValue({
-        sectionId,
-        paramInfoId,
-        value: v,
-        incrementVersion: changedByUser,
-      });
-    }
+    onChange(v);
+    setParamEnteredValue({
+      sectionId,
+      paramInfoId,
+      value: v,
+      incrementVersion: changedByUser,
+    });
   };
 
   useEffect(() => {

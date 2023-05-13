@@ -27,7 +27,6 @@ export function CollectionsSearch({ sectionId }) {
     setSectionUITypeConfig({
       sectionId,
       configProps: { configName: "collections", newValueFn },
-      incrementVersion: true,
     });
   }
 

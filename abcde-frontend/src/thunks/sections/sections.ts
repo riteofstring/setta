@@ -63,7 +63,7 @@ export function setCurrChildren({ sectionId, currChildren }) {
   sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
 }
 
-export function setSelectedItem(sectionId, selectedItem, changedByUser) {
+export function setSelectedItem(sectionId, selectedItem) {
   setSectionConfigAttr({
     sectionId,
     attr: "selectedItem",
@@ -73,16 +73,15 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
     selectedItem,
   ]);
   initializeParam(sectionId, params);
-  maybeIncrementProjectStateVersion(changedByUser);
+  maybeIncrementProjectStateVersion(true);
 }
 
 function setSectionInfoAttr(props) {
   useSectionInfos.getState().setSectionInfoAttr(props);
 }
 
-export function setSectionName(sectionId, name, incrementVersion) {
+export function setSectionName(sectionId, name) {
   setSectionInfoAttr({ sectionId, attr: "name", value: name });
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setSectionSize(sectionId, size) {
