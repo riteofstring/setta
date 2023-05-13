@@ -48,23 +48,17 @@ async function seedBaseUITypes() {
 }
 
 async function seedProjects() {
-  const users: SeedUserType = await loadSpecificTestData({ name: 'Users' });
   const allProjects = await loadAllProjects({ forSavingToBackend: true });
   console.log('seedProjects');
-  for (const user of Object.values(users)) {
-    const usersProjects = allProjects.filter((x) =>
-      user.projects.includes(x.project.id),
-    );
-    for (const p of usersProjects) {
-      // set outputGroupId to null because outputs have not yet been created
-      p.uiTypes = _.cloneDeep(p.uiTypes); // need to clone to avoid null in seedRun (not sure why)
-      _.forEach(p.uiTypes, (u) => {
-        if (u.config.outputGroup) {
-          u.config.outputGroup = null;
-        }
-      });
-      await saveProjectDetails(user.id, p);
-    }
+  for (const p of allProjects) {
+    // set outputGroupId to null because outputs have not yet been created
+    p.uiTypes = _.cloneDeep(p.uiTypes); // need to clone to avoid null in seedRun (not sure why)
+    _.forEach(p.uiTypes, (u) => {
+      if (u.config.outputGroup) {
+        u.config.outputGroup = null;
+      }
+    });
+    await saveProjectDetails(p.project.owner, p);
   }
   console.log('done');
 }
