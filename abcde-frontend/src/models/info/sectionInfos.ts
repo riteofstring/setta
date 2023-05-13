@@ -1,10 +1,8 @@
 import { isListRoot } from "abcde-utils/src/constants";
-import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import {
   SectionInfoStateType,
   SectionInfoZustandType,
 } from "abcde-utils/src/types/section";
-import _ from "lodash";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
@@ -22,26 +20,26 @@ export const useSectionInfos = createProjectState(
     immer<SectionInfoZustandType>((set) => ({
       ...initialState,
 
-      resetAndSetAll: ({ sections, sectionConfigCol, sectionChildren }) => {
-        const sectionInfos = _.mapValues(sections, (x, id) => {
-          let parentId: string | null = null;
-          for (const [k, v] of Object.entries(sectionChildren)) {
-            if (v.includes(id)) {
-              parentId = k;
-              break;
-            }
-          }
-          const y = newSectionInfo({
-            ...x,
-            parentId,
-            configId: sectionConfigCol[id],
-          });
-          return y;
-        });
+      resetAndSetAll: ({ sections, sectionChildren }) => {
+        // const sectionInfos = _.mapValues(sections, (x, id) => {
+        //   let parentId: string | null = null;
+        //   for (const [k, v] of Object.entries(sectionChildren)) {
+        //     if (v.includes(id)) {
+        //       parentId = k;
+        //       break;
+        //     }
+        //   }
+        //   const y = newSectionInfo({
+        //     ...x,
+        //     parentId,
+        //     configId: sectionConfigCol[id],
+        //   });
+        //   return y;
+        // });
         set(
           (state) => ({
             ...state,
-            x: sectionInfos,
+            x: sections,
             allChildren: sectionChildren,
             currChildren: {},
           }),
@@ -61,7 +59,12 @@ export const useSectionInfos = createProjectState(
         set((state) => {
           if (sectionIds) {
             sectionIds.forEach((id) => {
-              valueOrNewValueFn({ obj: state.x[id], attr, value, newValueFn });
+              valueOrNewValueFn({
+                obj: state.x[id],
+                attr,
+                value,
+                newValueFn,
+              });
             });
           } else if (sectionId) {
             valueOrNewValueFn({

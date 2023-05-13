@@ -23,7 +23,6 @@ export function loadProjectState({
   projectConfigCodeInfoMaps,
   sections,
   sectionConfigs,
-  sectionConfigCol,
   sectionChildren,
   sectionDescriptions,
   ev,
@@ -50,7 +49,6 @@ export function loadProjectState({
   useKwargCols.getState().resetAndSetAll(kwargCols);
   useSectionInfos.getState().resetAndSetAll({
     sections,
-    sectionConfigCol,
     sectionChildren,
   });
   useSectionConfigs.getState().resetAndSetAll(sectionConfigs);
