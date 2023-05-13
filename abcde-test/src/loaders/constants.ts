@@ -24,3 +24,21 @@ export const CODE_INFOS = [
   "runcoder",
   "torchmetrics",
 ];
+
+export const PROJECT_STATES = [
+  "ev",
+  "evCols",
+  "kwargCols",
+  "kwargInfo",
+  "projectConfigCodeInfoMaps",
+  "sectionCurrChildren",
+  "sectionChildren",
+  "sectionConfigs",
+  "sectionDescriptions",
+  "sections",
+  "uiTypes",
+  "uiTypeCols",
+  "outputs",
+  "outputGroups",
+  "runs",
+];

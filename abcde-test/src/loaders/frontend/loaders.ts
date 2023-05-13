@@ -1,93 +1,31 @@
 import _ from "lodash";
+import { PROJECT_CONFIG_NAMES, PROJECT_NAMES } from "../constants";
+import { loadOneProject, loadOneProjectMetadata } from "../loaders";
 import {
-  DEFAULT_USER_ID,
-  PROJECT_CONFIG_NAMES,
-  PROJECT_NAMES,
-} from "../constants";
-import {
-  loadGlobalCodeInfo,
-  loadGlobalData,
-  loadOneProjectMetadata,
-  loadProjectSpecificData,
-} from "../loaders";
-import { loadInMemProject } from "./inMem";
-
-export async function loadOneProject({
-  projectName = "simpleTrainTest",
-  subFolderName = "simpleConfig1",
-  forSavingToBackend = false,
-  forCodeGen = false,
-}) {
-  const loaded = await loadOneProjectMetadata({
-    projectName,
-    subFolderName,
-  });
-
-  Object.assign(loaded, await loadGlobalData());
-  Object.assign(
-    loaded,
-    await loadProjectSpecificData({ projectName, subFolderName })
-  );
-  loaded["allCodeInfo"] = await loadGlobalCodeInfo();
-
-  const {
-    allCodeInfo,
-    kwargInfo,
-    uiTypes,
-    baseUITypes,
-    presetUITypes,
-    userCodeInfoMaps,
-    sectionCurrChildren,
-    ...theRest
-  } = loaded as any;
-
-  if (forSavingToBackend) {
-    // For saving a project, we don't need base uitypes
-    return {
-      kwargInfo,
-      uiTypes: { ...uiTypes, ...presetUITypes },
-      ...theRest,
-    };
-  } else if (forCodeGen) {
-    const codeInfo = {
-      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-    };
-    return {
-      codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-      sectionCurrChildren,
-      ...theRest,
-    };
-  } else {
-    // This means we're testing the frontend, so we need everything
-    const codeInfo = {
-      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-    };
-    return {
-      codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-      userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
-      ...theRest,
-    };
-  }
-}
+  IN_MEM_PROJECT_CONFIG_NAMES,
+  IN_MEM_PROJECT_NAMES,
+  loadInMemProject,
+} from "./inMem";
 
 export async function loadAllProjectsMetadata() {
   let output: any[] = [];
-  for (const p of PROJECT_NAMES) {
-    for (const subFolderName of PROJECT_CONFIG_NAMES[p]) {
+  for (const p of [...PROJECT_NAMES, ...IN_MEM_PROJECT_NAMES]) {
+    for (const subFolderName of {
+      ...PROJECT_CONFIG_NAMES,
+      ...IN_MEM_PROJECT_CONFIG_NAMES,
+    }[p]) {
       let loaded;
-      // if (type === "inFile") {
-      loaded = await loadOneProjectMetadata({
-        projectName: p,
-        subFolderName,
-      });
-      // } else {
-      //   loaded = await loadInMemProject({
-      //     projectName: p,
-      //     configName: subFolderName,
-      //   });
-      // }
+      if (PROJECT_NAMES.includes(p)) {
+        loaded = await loadOneProjectMetadata({
+          projectName: p,
+          subFolderName,
+        });
+      } else {
+        loaded = await loadInMemProject({
+          projectName: p,
+          configName: subFolderName,
+        });
+      }
       output.push(loaded);
     }
   }
@@ -100,7 +38,7 @@ export async function loadAllProjectsMetadata() {
   return output;
 }
 
-export async function loadOneProjectByName({ projectName, configName }) {
+export async function loadOneProjectFrontend({ projectName, configName }) {
   if (PROJECT_NAMES.includes(projectName)) {
     return await loadOneProject({
       projectName,

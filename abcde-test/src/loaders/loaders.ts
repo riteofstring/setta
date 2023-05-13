@@ -1,4 +1,4 @@
-import { CODE_INFOS } from "./constants";
+import { CODE_INFOS, DEFAULT_USER_ID, PROJECT_STATES } from "./constants";
 
 export async function loadGlobalData() {
   const output = {};
@@ -27,38 +27,14 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadProjectSpecificData({
-  projectName,
-  subFolderName,
-  type = "inFile",
-}) {
+export async function loadProjectSpecificData({ projectName, subFolderName }) {
   const output = {};
-  for (const k of [
-    "ev",
-    "evCols",
-    "kwargCols",
-    "kwargInfo",
-    "projectConfigCodeInfoMaps",
-    "sectionCurrChildren",
-    "sectionChildren",
-    "sectionConfigs",
-    "sectionDescriptions",
-    "sections",
-    "uiTypes",
-    "uiTypeCols",
-    "outputs",
-    "outputGroups",
-    "runs",
-  ]) {
-    if (type === "inFile") {
-      output[k] = await loadSpecificTestData({
-        name: k,
-        projectName,
-        subFolderName,
-      });
-    } else {
-      output[k] = {};
-    }
+  for (const k of PROJECT_STATES) {
+    output[k] = await loadSpecificTestData({
+      name: k,
+      projectName,
+      subFolderName,
+    });
   }
   return output;
 }
@@ -88,4 +64,64 @@ export async function loadGlobalCodeInfo() {
     );
   }
   return output;
+}
+
+export async function loadOneProject({
+  projectName = "simpleTrainTest",
+  subFolderName = "simpleConfig1",
+  forSavingToBackend = false,
+  forCodeGen = false,
+}) {
+  const loaded = await loadOneProjectMetadata({
+    projectName,
+    subFolderName,
+  });
+
+  Object.assign(loaded, await loadGlobalData());
+  Object.assign(
+    loaded,
+    await loadProjectSpecificData({ projectName, subFolderName })
+  );
+  loaded["allCodeInfo"] = await loadGlobalCodeInfo();
+
+  const {
+    allCodeInfo,
+    kwargInfo,
+    uiTypes,
+    baseUITypes,
+    presetUITypes,
+    userCodeInfoMaps,
+    sectionCurrChildren,
+    ...theRest
+  } = loaded as any;
+
+  if (forSavingToBackend) {
+    // For saving a project, we don't need base uitypes
+    return {
+      kwargInfo,
+      uiTypes: { ...uiTypes, ...presetUITypes },
+      ...theRest,
+    };
+  } else if (forCodeGen) {
+    const codeInfo = {
+      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+    };
+    return {
+      codeInfo,
+      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+      sectionCurrChildren,
+      ...theRest,
+    };
+  } else {
+    // This means we're testing the frontend, so we need everything
+    const codeInfo = {
+      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+    };
+    return {
+      codeInfo,
+      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+      userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
+      ...theRest,
+    };
+  }
 }
