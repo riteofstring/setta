@@ -1,4 +1,4 @@
-import { loadOneProject } from "abcde-test/src/loadTestData";
+import { loadOneProject } from "abcde-test/src/loaders/frontend/loaders";
 import { getProjectData } from "thunks/save";
 import { createMainContainer } from "__tests__utils/createMainContainer";
 

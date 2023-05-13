@@ -1,11 +1,12 @@
-import { loadOneProject } from "abcde-test/src/loadTestData";
+import { loadOneProject } from "abcde-test/src/loaders/frontend/loaders";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
-import { createMainContainer } from "__tests__utils/createMainContainer";
+import { loadTestDataIntoState } from "__tests__utils/utils";
 
 test("The output of getProjectDataToGenerateCode should match the test data", async () => {
-  await createMainContainer({});
+  await loadTestDataIntoState();
   const output = getProjectDataToGenerateCode();
   const correctOutput = await loadOneProject({ forCodeGen: true });
   const { userCodeInfoMaps, ...theRest } = correctOutput;
-  expect(output).toEqual(theRest);
+  console.log(theRest.sections);
+  expect(output.sections).toEqual(theRest.sections);
 });

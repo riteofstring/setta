@@ -1,4 +1,4 @@
-import { loadOneProject } from "abcde-test/src/loadTestData";
+import { loadOneProject } from "abcde-test/src/loaders/frontend/loaders";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { ReactFlowProvider } from "react-flow-renderer";
