@@ -1,6 +1,6 @@
 import { loadSpecificTestData } from 'abcde-test/src/loaders/helpers';
 import { loadTestData } from 'abcde-test/src/loaders/loaders';
-import { LOGIN, PROJECTS } from 'abcde-utils/src/routes';
+import { LOAD_PROJECT, LOGIN, PROJECTS } from 'abcde-utils/src/routes';
 import { app } from 'src/app/app';
 import { loadOne } from 'src/db/projects/load';
 import supertest from 'supertest';
@@ -46,15 +46,15 @@ describe('ProjectsService', () => {
     await checkProject(retrieved, projectName, configName);
   });
 
-  // it('Get a project through middleware', async () => {
-  //   const projectName = 'simpleTrainTest';
-  //   const configName = 'simpleConfig1';
-  //   const { body: retrieved } = await request
-  //     .post(LOAD_PROJECT({ projectName, configName }))
-  //     .expect(200);
+  it('Get a project through middleware', async () => {
+    const projectName = 'simpleTrainTest';
+    const configName = 'simpleConfig1';
+    const { body: retrieved } = await request
+      .post(LOAD_PROJECT({ username: 'Kevin', projectName, configName }))
+      .expect(200);
 
-  //   await checkProject(retrieved, projectName);
-  // });
+    await checkProject(retrieved, projectName, configName);
+  });
 });
 
 async function checkProject(retrieved, projectName, configName) {
@@ -69,23 +69,6 @@ async function checkProject(retrieved, projectName, configName) {
 
   expect(Object.keys(retrieved).sort()).toEqual(Object.keys(theRest).sort());
   for (const k of Object.keys(retrieved)) {
-    if (k === 'codeInfo') {
-      continue;
-    }
     expect(retrieved[k], `${k} doesn't match`).toEqual(correctOutput[k]);
   }
-
-  // expect(theRest.project).toEqual(correctRest.project);
-  // expect(theRest.projectConfig).toEqual(correctRest.projectConfig);
-  // expect(theRest.sectionConfigCol).toEqual(correctRest.sectionConfigCol);
-  // expect(theRest.sections).toEqual(correctRest.sections);
-  // expect(theRest.sectionChildren).toEqual(correctRest.sectionChildren);
-  // expect(theRest.sectionConfigs).toEqual(correctRest.sectionConfigs);
-  // expect(theRest.ev).toEqual(correctRest.ev);
-  // expect(theRest.evCols).toEqual(correctRest.evCols);
-  // expect(theRest.kwargCols).toEqual(correctRest.kwargCols);
-  // expect(theRest.uiTypes).toEqual(correctRest.uiTypes);
-  // expect(theRest.uiTypeCols).toEqual(correctRest.uiTypeCols);
-
-  // expect(retrieved).toEqual(correctRest);
 }
