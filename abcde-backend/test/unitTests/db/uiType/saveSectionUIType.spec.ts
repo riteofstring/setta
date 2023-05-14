@@ -1,7 +1,7 @@
 import {
   loadGlobalCodeInfo,
   loadSpecificTestData,
-} from 'abcde-test/src/loadTestData';
+} from 'abcde-test/src/loaders/helpers';
 import { newSectionInfo } from 'abcde-utils/src/objs/sectionInfo';
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
@@ -17,15 +17,17 @@ describe('Create, update, and copy a section ui type', () => {
   const section = newSectionInfo({
     id: createNewId(),
     name: 'New Section',
+    configId: createNewId(),
     paramInfoId: null,
     sectionChildrenId: createNewId(),
+    size: { width: 100, height: 100 },
   });
 
   beforeAll(async () => {
     await clearDb();
     const loadProps = {
       projectName: 'simpleTrainTest',
-      subFolderName: 'simpleConfig1',
+      configName: 'simpleConfig1',
     };
     uiType = await loadSpecificTestData({ name: 'UITypes', ...loadProps });
     uiType = _.find(uiType, (x) => x.name === 'Model');

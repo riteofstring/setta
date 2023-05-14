@@ -1,3 +1,4 @@
+import { TEXT } from 'abcde-utils/src/constants';
 import { newEV } from 'abcde-utils/src/objs/ev';
 import _ from 'lodash';
 import { copyEV } from 'src/db/enteredValues/copy';
@@ -6,7 +7,8 @@ import { prisma } from 'src/db/prisma';
 import { clearDb } from 'test/clearDb';
 
 describe('Create, update, and copy entered value', () => {
-  const info = newEV({ value: '25', childId: null });
+  const info = newEV({ uiType: TEXT });
+  info.value = '25';
 
   beforeAll(async () => {
     await clearDb();

@@ -1,4 +1,4 @@
-import { loadSpecificTestData } from 'abcde-test/src/loadTestData';
+import { loadSpecificTestData } from 'abcde-test/src/loaders/helpers';
 import { SLIDER } from 'abcde-utils/src/constants';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';

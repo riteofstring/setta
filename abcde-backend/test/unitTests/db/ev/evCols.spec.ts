@@ -1,3 +1,4 @@
+import { TEXT } from 'abcde-utils/src/constants';
 import { newCodeInfo } from 'abcde-utils/src/objs/codeInfo';
 import { newEV } from 'abcde-utils/src/objs/ev';
 import { RCType } from 'abcde-utils/src/types/codeInfo';
@@ -71,9 +72,9 @@ const _codeInfos = ['epochs', 'lr', 'batches'].map((name) =>
 const codeInfos = _.keyBy(_codeInfos, 'id');
 
 const _evs = [
-  newEV({ value: '45', childId: null }),
-  newEV({ value: '100', childId: null }),
-  newEV({ value: '1234', childId: null }),
+  newEV({ uiType: TEXT }),
+  newEV({ uiType: TEXT }),
+  newEV({ uiType: TEXT }),
 ];
 const evs = _.keyBy(_evs, 'id');
 
