@@ -1,4 +1,4 @@
-import { loadOneProject } from "abcde-test/src/loaders/frontend/loaders";
+import { loadTestData } from "abcde-test/src/loaders/loaders";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { ReactFlowProvider } from "react-flow-renderer";
@@ -7,7 +7,11 @@ import { resetAllStores } from "thunks/reset";
 
 export async function loadTestDataIntoState(customValues) {
   resetAllStores();
-  const testData = await loadOneProject({});
+  const testData = await loadTestData({
+    projectName: "simpleTrainTest",
+    configName: "simpleConfig1",
+    format: "loadProjectToFrontend",
+  });
   loadProjectState({ ...testData, ...customValues });
 }
 

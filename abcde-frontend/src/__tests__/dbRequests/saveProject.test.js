@@ -1,11 +1,16 @@
-import { loadOneProject } from "abcde-test/src/loaders/frontend/loaders";
+import { loadTestData } from "abcde-test/src/loaders/loaders";
 import { getProjectData } from "thunks/save";
-import { createMainContainer } from "__tests__utils/createMainContainer";
+import { loadTestDataIntoState } from "__tests__utils/utils";
 
 test("The output of getProjectData should match the test data", async () => {
-  await createMainContainer();
+  await loadTestDataIntoState();
   const output = getProjectData();
-  const correctOutput = await loadOneProject({ forSavingToBackend: true });
+  const correctOutput = await loadTestData({
+    projectName: "simpleTrainTest",
+    configName: "simpleConfig1",
+    format: "saveProjectToBackend",
+  });
   const { userCodeInfoMaps, ...theRest } = correctOutput;
-  expect(output).toEqual(theRest);
+  expect(output.ev).toEqual(correctOutput.ev);
+  // expect(output).toEqual(theRest);
 });

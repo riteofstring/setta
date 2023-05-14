@@ -1,17 +1,19 @@
-import { createInMemProject } from "abcde-test/src/loaders/frontend/inMem";
-import { loadOneProjectFrontend } from "abcde-test/src/loaders/frontend/loaders";
-import { loadAllProjectsMetadata } from "abcde-test/src/loaders/frontend/projectMetadata";
-import { loadOneProject } from "abcde-test/src/loaders/loaders";
+import { createInMemProject } from "abcde-test/src/loaders/createInMem";
+import {
+  loadAllProjectMetadata,
+  loadTestData,
+} from "abcde-test/src/loaders/loaders";
 
 export async function noAuthGetProjects() {
-  return await loadAllProjectsMetadata();
+  return await loadAllProjectMetadata();
 }
 
 export async function noAuthLoadProject({ projectName, configName }) {
-  if (!projectName) {
-    return await loadOneProject({});
-  }
-  return await loadOneProjectFrontend({ projectName, configName });
+  return await loadTestData({
+    projectName,
+    configName,
+    format: "loadProjectToFrontend",
+  });
 }
 
 export async function noAuthCreateProject({ name }) {
