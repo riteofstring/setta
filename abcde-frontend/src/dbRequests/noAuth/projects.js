@@ -1,8 +1,6 @@
 import { createInMemProject } from "abcde-test/src/loaders/frontend/inMem";
-import {
-  loadAllProjectsMetadata,
-  loadOneProjectFrontend,
-} from "abcde-test/src/loaders/frontend/loaders";
+import { loadOneProjectFrontend } from "abcde-test/src/loaders/frontend/loaders";
+import { loadAllProjectsMetadata } from "abcde-test/src/loaders/frontend/projectMetadata";
 import { loadOneProject } from "abcde-test/src/loaders/loaders";
 
 export async function noAuthGetProjects() {
