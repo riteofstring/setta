@@ -16,7 +16,7 @@ function getInitValueFromUIType(uiType) {
 }
 
 // Entered Value
-export function newEV({ id, uiType }): EVType {
+export function newEV({ id, uiType }: { id?: string; uiType: string }): EVType {
   return {
     id: maybeNewId(id),
     value: getInitValueFromUIType(uiType),
