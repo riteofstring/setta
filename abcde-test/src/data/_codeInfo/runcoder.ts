@@ -10,7 +10,7 @@ export default {
     inCodeParentId: null,
     path: "runcoder",
     children: ["4955c05d-a171-4349-beee-ab39092524e3"],
-    returnType: null,
+    returnTypeId: null,
   },
   "4955c05d-a171-4349-beee-ab39092524e3": {
     id: "4955c05d-a171-4349-beee-ab39092524e3",
@@ -23,6 +23,6 @@ export default {
     inCodeParentId: "f0628534-0d78-483c-9d4a-b37fcfcf6544",
     path: "runcoder.Runcoder",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
 };

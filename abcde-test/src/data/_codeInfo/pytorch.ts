@@ -3258,7 +3258,7 @@ export default {
       "878cc0dd-83eb-49d5-b295-e292a952ef7e",
       "db61ccf5-35a8-4e76-b342-18f85862760b",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4": {
     id: "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4",
@@ -3277,7 +3277,7 @@ export default {
       "682c3ea8-0404-4748-9f00-90de9bcebabb",
       "4e535c1d-ed5c-45e9-8587-3d6dc059603f",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "27c97693-87ff-4d72-8509-ce8b81445063": {
     id: "27c97693-87ff-4d72-8509-ce8b81445063",
@@ -3290,7 +3290,7 @@ export default {
     inCodeParentId: "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4",
     path: "torchvision.datasets.Caltech101.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "098148d6-b6d1-4301-94b9-2d8e1f469413": {
     id: "098148d6-b6d1-4301-94b9-2d8e1f469413",
@@ -3303,7 +3303,7 @@ export default {
     inCodeParentId: "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4",
     path: "torchvision.datasets.Caltech101.target_type",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "db5f50ae-29d6-48e3-a87c-59f9eef339da": {
     id: "db5f50ae-29d6-48e3-a87c-59f9eef339da",
@@ -3316,7 +3316,7 @@ export default {
     inCodeParentId: "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4",
     path: "torchvision.datasets.Caltech101.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "682c3ea8-0404-4748-9f00-90de9bcebabb": {
     id: "682c3ea8-0404-4748-9f00-90de9bcebabb",
@@ -3329,7 +3329,7 @@ export default {
     inCodeParentId: "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4",
     path: "torchvision.datasets.Caltech101.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "4e535c1d-ed5c-45e9-8587-3d6dc059603f": {
     id: "4e535c1d-ed5c-45e9-8587-3d6dc059603f",
@@ -3342,7 +3342,7 @@ export default {
     inCodeParentId: "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4",
     path: "torchvision.datasets.Caltech101.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b": {
     id: "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b",
@@ -3360,7 +3360,7 @@ export default {
       "c8c36ca3-d21a-40bb-89b5-d731dede2c9d",
       "979e87d7-a162-4b2e-88b6-8967f1cd08e1",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "76ffb6fc-1562-4246-b5e8-8c1d7fca2706": {
     id: "76ffb6fc-1562-4246-b5e8-8c1d7fca2706",
@@ -3373,7 +3373,7 @@ export default {
     inCodeParentId: "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b",
     path: "torchvision.datasets.Caltech256.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "28fb61ea-92e5-4157-b4ae-ae045b72bebe": {
     id: "28fb61ea-92e5-4157-b4ae-ae045b72bebe",
@@ -3386,7 +3386,7 @@ export default {
     inCodeParentId: "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b",
     path: "torchvision.datasets.Caltech256.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c8c36ca3-d21a-40bb-89b5-d731dede2c9d": {
     id: "c8c36ca3-d21a-40bb-89b5-d731dede2c9d",
@@ -3399,7 +3399,7 @@ export default {
     inCodeParentId: "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b",
     path: "torchvision.datasets.Caltech256.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "979e87d7-a162-4b2e-88b6-8967f1cd08e1": {
     id: "979e87d7-a162-4b2e-88b6-8967f1cd08e1",
@@ -3412,7 +3412,7 @@ export default {
     inCodeParentId: "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b",
     path: "torchvision.datasets.Caltech256.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "be252bd6-75ce-4e6e-8631-cca42a48b8a6": {
     id: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
@@ -3432,7 +3432,7 @@ export default {
       "d5ecb09e-2e21-4bf4-928b-60c2dbadfd99",
       "beb42d52-902e-43e5-9d49-3a639849fd1e",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "719dea56-1bce-4b85-8312-9f21d7faa038": {
     id: "719dea56-1bce-4b85-8312-9f21d7faa038",
@@ -3445,7 +3445,7 @@ export default {
     inCodeParentId: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
     path: "torchvision.datasets.CelebA.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5971cfd0-eba2-475a-9a8a-8ce2daba2197": {
     id: "5971cfd0-eba2-475a-9a8a-8ce2daba2197",
@@ -3458,7 +3458,7 @@ export default {
     inCodeParentId: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
     path: "torchvision.datasets.CelebA.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6a89ec5c-5d1a-4bd8-a69a-21ac9dc39bd3": {
     id: "6a89ec5c-5d1a-4bd8-a69a-21ac9dc39bd3",
@@ -3471,7 +3471,7 @@ export default {
     inCodeParentId: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
     path: "torchvision.datasets.CelebA.target_type",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "fc6b0f2a-f777-4cb5-86f5-d6eaced3261f": {
     id: "fc6b0f2a-f777-4cb5-86f5-d6eaced3261f",
@@ -3484,7 +3484,7 @@ export default {
     inCodeParentId: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
     path: "torchvision.datasets.CelebA.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d5ecb09e-2e21-4bf4-928b-60c2dbadfd99": {
     id: "d5ecb09e-2e21-4bf4-928b-60c2dbadfd99",
@@ -3497,7 +3497,7 @@ export default {
     inCodeParentId: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
     path: "torchvision.datasets.CelebA.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "beb42d52-902e-43e5-9d49-3a639849fd1e": {
     id: "beb42d52-902e-43e5-9d49-3a639849fd1e",
@@ -3510,7 +3510,7 @@ export default {
     inCodeParentId: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
     path: "torchvision.datasets.CelebA.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d71ffc02-1d6a-4399-809a-df7f3381e465": {
     id: "d71ffc02-1d6a-4399-809a-df7f3381e465",
@@ -3534,7 +3534,7 @@ export default {
       "411c0270-e793-49b9-a1da-91e9ba7e13a1",
       "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "e34f4831-9e98-4d2e-ac15-f648842ffe21": {
     id: "e34f4831-9e98-4d2e-ac15-f648842ffe21",
@@ -3547,7 +3547,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR10.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3f041e7e-f814-4e62-b4bc-381af7c4173e": {
     id: "3f041e7e-f814-4e62-b4bc-381af7c4173e",
@@ -3560,7 +3560,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR10.train",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "4f184f39-3224-4c1c-a1d1-09c6742052e5": {
     id: "4f184f39-3224-4c1c-a1d1-09c6742052e5",
@@ -3573,7 +3573,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR10.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c337842a-c546-4c37-9f70-13cbeed11ec5": {
     id: "c337842a-c546-4c37-9f70-13cbeed11ec5",
@@ -3586,7 +3586,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR10.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "1e72d9e8-d229-4736-96d8-7099c5703695": {
     id: "1e72d9e8-d229-4736-96d8-7099c5703695",
@@ -3599,7 +3599,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR10.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "703d58cc-526f-4beb-ac44-5adba8b69a5d": {
     id: "703d58cc-526f-4beb-ac44-5adba8b69a5d",
@@ -3618,7 +3618,7 @@ export default {
       "411c0270-e793-49b9-a1da-91e9ba7e13a1",
       "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "5ef9eace-8756-4861-815e-07c451b998bc": {
     id: "5ef9eace-8756-4861-815e-07c451b998bc",
@@ -3631,7 +3631,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR100.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "43e05346-d85b-49ea-a4a7-b91a65c08c83": {
     id: "43e05346-d85b-49ea-a4a7-b91a65c08c83",
@@ -3644,7 +3644,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR100.train",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b82bb042-1a0c-4bb9-b96d-258fbbc38c6c": {
     id: "b82bb042-1a0c-4bb9-b96d-258fbbc38c6c",
@@ -3657,7 +3657,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR100.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "411c0270-e793-49b9-a1da-91e9ba7e13a1": {
     id: "411c0270-e793-49b9-a1da-91e9ba7e13a1",
@@ -3670,7 +3670,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR100.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c": {
     id: "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c",
@@ -3683,7 +3683,7 @@ export default {
     inCodeParentId: "d71ffc02-1d6a-4399-809a-df7f3381e465",
     path: "torchvision.datasets.CIFAR100.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "379b5cf8-1b4d-4cf1-a606-f307b3680443": {
     id: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
@@ -3703,7 +3703,7 @@ export default {
       "f597b23d-9595-493e-8808-0c1720aafd0c",
       "769215ee-c6b7-4cb8-a74d-3e7d801f3f01",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "cd34b1dc-fcb6-4223-b39f-3d3a4aa76c21": {
     id: "cd34b1dc-fcb6-4223-b39f-3d3a4aa76c21",
@@ -3716,7 +3716,7 @@ export default {
     inCodeParentId: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
     path: "torchvision.datasets.DTD.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "facd7007-8d6e-48e0-aa38-b8bbca20e48c": {
     id: "facd7007-8d6e-48e0-aa38-b8bbca20e48c",
@@ -3729,7 +3729,7 @@ export default {
     inCodeParentId: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
     path: "torchvision.datasets.DTD.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "9fb985b4-ee56-47c1-9982-bd2bc1c4b577": {
     id: "9fb985b4-ee56-47c1-9982-bd2bc1c4b577",
@@ -3742,7 +3742,7 @@ export default {
     inCodeParentId: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
     path: "torchvision.datasets.DTD.partition",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "80074908-ad3f-4828-a8e0-a9f23c23ec02": {
     id: "80074908-ad3f-4828-a8e0-a9f23c23ec02",
@@ -3755,7 +3755,7 @@ export default {
     inCodeParentId: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
     path: "torchvision.datasets.DTD.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f597b23d-9595-493e-8808-0c1720aafd0c": {
     id: "f597b23d-9595-493e-8808-0c1720aafd0c",
@@ -3768,7 +3768,7 @@ export default {
     inCodeParentId: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
     path: "torchvision.datasets.DTD.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "769215ee-c6b7-4cb8-a74d-3e7d801f3f01": {
     id: "769215ee-c6b7-4cb8-a74d-3e7d801f3f01",
@@ -3781,7 +3781,7 @@ export default {
     inCodeParentId: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
     path: "torchvision.datasets.DTD.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "37038274-a347-45da-8951-537d91caa765": {
     id: "37038274-a347-45da-8951-537d91caa765",
@@ -3797,7 +3797,7 @@ export default {
       "c8964c08-15e0-40fb-9b19-189ec33d6cbe",
       "ff2bb838-f020-4020-99b0-f79fb73b3ff9",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "c8964c08-15e0-40fb-9b19-189ec33d6cbe": {
     id: "c8964c08-15e0-40fb-9b19-189ec33d6cbe",
@@ -3810,7 +3810,7 @@ export default {
     inCodeParentId: "37038274-a347-45da-8951-537d91caa765",
     path: "torchvision.datasets.EMNIST.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ff2bb838-f020-4020-99b0-f79fb73b3ff9": {
     id: "ff2bb838-f020-4020-99b0-f79fb73b3ff9",
@@ -3823,7 +3823,7 @@ export default {
     inCodeParentId: "37038274-a347-45da-8951-537d91caa765",
     path: "torchvision.datasets.EMNIST.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c057fa36-c4ee-4e80-a9b0-cf60250b795c": {
     id: "c057fa36-c4ee-4e80-a9b0-cf60250b795c",
@@ -3841,7 +3841,7 @@ export default {
       "c61daa71-b5d0-4a7b-b3ea-03662d9ae2bd",
       "d3f1fe68-930f-4183-bde5-f21035e38483",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "652da725-a53e-4ef4-9321-4238d0488163": {
     id: "652da725-a53e-4ef4-9321-4238d0488163",
@@ -3854,7 +3854,7 @@ export default {
     inCodeParentId: "c057fa36-c4ee-4e80-a9b0-cf60250b795c",
     path: "torchvision.datasets.EuroSAT.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "dca75e77-5b0c-4e44-aca6-59074fa3484d": {
     id: "dca75e77-5b0c-4e44-aca6-59074fa3484d",
@@ -3867,7 +3867,7 @@ export default {
     inCodeParentId: "c057fa36-c4ee-4e80-a9b0-cf60250b795c",
     path: "torchvision.datasets.EuroSAT.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c61daa71-b5d0-4a7b-b3ea-03662d9ae2bd": {
     id: "c61daa71-b5d0-4a7b-b3ea-03662d9ae2bd",
@@ -3880,7 +3880,7 @@ export default {
     inCodeParentId: "c057fa36-c4ee-4e80-a9b0-cf60250b795c",
     path: "torchvision.datasets.EuroSAT.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d3f1fe68-930f-4183-bde5-f21035e38483": {
     id: "d3f1fe68-930f-4183-bde5-f21035e38483",
@@ -3893,7 +3893,7 @@ export default {
     inCodeParentId: "c057fa36-c4ee-4e80-a9b0-cf60250b795c",
     path: "torchvision.datasets.EuroSAT.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "93013843-6ec2-4dc3-9c9f-b2d77cddf851": {
     id: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
@@ -3913,7 +3913,7 @@ export default {
       "01ab1d52-b9b4-4768-a547-791ed490a38b",
       "a44c5cd7-80d0-43da-a66b-cd218ed9ee00",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "35e0198d-b69e-45de-ba6a-8ab59b8daff6": {
     id: "35e0198d-b69e-45de-ba6a-8ab59b8daff6",
@@ -3926,7 +3926,7 @@ export default {
     inCodeParentId: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
     path: "torchvision.datasets.FakeData.size",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "87459880-0c3b-480e-bf74-4ec5a2c7e9b5": {
     id: "87459880-0c3b-480e-bf74-4ec5a2c7e9b5",
@@ -3939,7 +3939,7 @@ export default {
     inCodeParentId: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
     path: "torchvision.datasets.FakeData.image_size",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6a63a3f7-59cf-4f51-9e42-cc10302c4237": {
     id: "6a63a3f7-59cf-4f51-9e42-cc10302c4237",
@@ -3952,7 +3952,7 @@ export default {
     inCodeParentId: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
     path: "torchvision.datasets.FakeData.num_classes",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5c32b32f-cbae-4c39-94a8-6b5c63e976ff": {
     id: "5c32b32f-cbae-4c39-94a8-6b5c63e976ff",
@@ -3965,7 +3965,7 @@ export default {
     inCodeParentId: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
     path: "torchvision.datasets.FakeData.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "01ab1d52-b9b4-4768-a547-791ed490a38b": {
     id: "01ab1d52-b9b4-4768-a547-791ed490a38b",
@@ -3978,7 +3978,7 @@ export default {
     inCodeParentId: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
     path: "torchvision.datasets.FakeData.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a44c5cd7-80d0-43da-a66b-cd218ed9ee00": {
     id: "a44c5cd7-80d0-43da-a66b-cd218ed9ee00",
@@ -3991,7 +3991,7 @@ export default {
     inCodeParentId: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
     path: "torchvision.datasets.FakeData.random_offset",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b47e895e-d607-4400-927b-dcda8b93d09c": {
     id: "b47e895e-d607-4400-927b-dcda8b93d09c",
@@ -4010,7 +4010,7 @@ export default {
       "d7785e92-33b7-41bd-ba9e-49dd25b0b9af",
       "0ec39c3c-4700-4f60-a10b-a00a7ca6960d",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "7cc3bafe-b8f8-46b3-b674-f56014ff39e6": {
     id: "7cc3bafe-b8f8-46b3-b674-f56014ff39e6",
@@ -4023,7 +4023,7 @@ export default {
     inCodeParentId: "b47e895e-d607-4400-927b-dcda8b93d09c",
     path: "torchvision.datasets.FashionMNIST.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "722f6eb9-7203-440c-b2a1-1d0b57e1122e": {
     id: "722f6eb9-7203-440c-b2a1-1d0b57e1122e",
@@ -4036,7 +4036,7 @@ export default {
     inCodeParentId: "b47e895e-d607-4400-927b-dcda8b93d09c",
     path: "torchvision.datasets.FashionMNIST.train",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "874ac7d5-87a8-4847-8d6a-28f69d0b60ac": {
     id: "874ac7d5-87a8-4847-8d6a-28f69d0b60ac",
@@ -4049,7 +4049,7 @@ export default {
     inCodeParentId: "b47e895e-d607-4400-927b-dcda8b93d09c",
     path: "torchvision.datasets.FashionMNIST.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d7785e92-33b7-41bd-ba9e-49dd25b0b9af": {
     id: "d7785e92-33b7-41bd-ba9e-49dd25b0b9af",
@@ -4062,7 +4062,7 @@ export default {
     inCodeParentId: "b47e895e-d607-4400-927b-dcda8b93d09c",
     path: "torchvision.datasets.FashionMNIST.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0ec39c3c-4700-4f60-a10b-a00a7ca6960d": {
     id: "0ec39c3c-4700-4f60-a10b-a00a7ca6960d",
@@ -4075,7 +4075,7 @@ export default {
     inCodeParentId: "b47e895e-d607-4400-927b-dcda8b93d09c",
     path: "torchvision.datasets.FashionMNIST.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ae27e905-398b-4e75-833b-b3a3134859b0": {
     id: "ae27e905-398b-4e75-833b-b3a3134859b0",
@@ -4093,7 +4093,7 @@ export default {
       "65554108-57a4-4fce-8e73-a18ef34e6b04",
       "538e9dd6-01ac-4dfc-9db1-78795b0db2ab",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "d4e90fcf-3d77-480e-b4a3-c583aea2a890": {
     id: "d4e90fcf-3d77-480e-b4a3-c583aea2a890",
@@ -4106,7 +4106,7 @@ export default {
     inCodeParentId: "ae27e905-398b-4e75-833b-b3a3134859b0",
     path: "torchvision.datasets.FER2013.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d4b0c838-53c3-4a4f-aeb4-c488092b71e5": {
     id: "d4b0c838-53c3-4a4f-aeb4-c488092b71e5",
@@ -4119,7 +4119,7 @@ export default {
     inCodeParentId: "ae27e905-398b-4e75-833b-b3a3134859b0",
     path: "torchvision.datasets.FER2013.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "65554108-57a4-4fce-8e73-a18ef34e6b04": {
     id: "65554108-57a4-4fce-8e73-a18ef34e6b04",
@@ -4132,7 +4132,7 @@ export default {
     inCodeParentId: "ae27e905-398b-4e75-833b-b3a3134859b0",
     path: "torchvision.datasets.FER2013.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "538e9dd6-01ac-4dfc-9db1-78795b0db2ab": {
     id: "538e9dd6-01ac-4dfc-9db1-78795b0db2ab",
@@ -4145,7 +4145,7 @@ export default {
     inCodeParentId: "ae27e905-398b-4e75-833b-b3a3134859b0",
     path: "torchvision.datasets.FER2013.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "006683fe-2845-4fe5-8f00-3d04919b8724": {
     id: "006683fe-2845-4fe5-8f00-3d04919b8724",
@@ -4165,7 +4165,7 @@ export default {
       "2e7a34fc-295c-4ad6-b460-af3dcd2b471a",
       "76cd4a8d-c5bf-4d41-9983-e82a5692203f",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "022c1c24-4725-4969-92cd-499ca707f81d": {
     id: "022c1c24-4725-4969-92cd-499ca707f81d",
@@ -4178,7 +4178,7 @@ export default {
     inCodeParentId: "006683fe-2845-4fe5-8f00-3d04919b8724",
     path: "torchvision.datasets.FGVCAircraft.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a0988b03-ef04-4ad7-b36d-a3cd507d2e78": {
     id: "a0988b03-ef04-4ad7-b36d-a3cd507d2e78",
@@ -4191,7 +4191,7 @@ export default {
     inCodeParentId: "006683fe-2845-4fe5-8f00-3d04919b8724",
     path: "torchvision.datasets.FGVCAircraft.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a32572c3-6bf4-4ed4-a71d-1cbb0d82eebf": {
     id: "a32572c3-6bf4-4ed4-a71d-1cbb0d82eebf",
@@ -4204,7 +4204,7 @@ export default {
     inCodeParentId: "006683fe-2845-4fe5-8f00-3d04919b8724",
     path: "torchvision.datasets.FGVCAircraft.annotation_level",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "478353db-1c58-4df2-9dd4-d65638e4f17c": {
     id: "478353db-1c58-4df2-9dd4-d65638e4f17c",
@@ -4217,7 +4217,7 @@ export default {
     inCodeParentId: "006683fe-2845-4fe5-8f00-3d04919b8724",
     path: "torchvision.datasets.FGVCAircraft.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "2e7a34fc-295c-4ad6-b460-af3dcd2b471a": {
     id: "2e7a34fc-295c-4ad6-b460-af3dcd2b471a",
@@ -4230,7 +4230,7 @@ export default {
     inCodeParentId: "006683fe-2845-4fe5-8f00-3d04919b8724",
     path: "torchvision.datasets.FGVCAircraft.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "76cd4a8d-c5bf-4d41-9983-e82a5692203f": {
     id: "76cd4a8d-c5bf-4d41-9983-e82a5692203f",
@@ -4243,7 +4243,7 @@ export default {
     inCodeParentId: "006683fe-2845-4fe5-8f00-3d04919b8724",
     path: "torchvision.datasets.FGVCAircraft.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "2553fba9-aa3a-4782-b886-977a57a46b19": {
     id: "2553fba9-aa3a-4782-b886-977a57a46b19",
@@ -4261,7 +4261,7 @@ export default {
       "20458bfb-375d-4a69-aeb0-ce5c47dbd76f",
       "f83b3883-e57b-4672-a62d-9c3771805a2e",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "8e8babcd-7a35-4055-89b6-58ad6d5374cc": {
     id: "8e8babcd-7a35-4055-89b6-58ad6d5374cc",
@@ -4274,7 +4274,7 @@ export default {
     inCodeParentId: "2553fba9-aa3a-4782-b886-977a57a46b19",
     path: "torchvision.datasets.Flickr8k.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8388e147-4031-402f-ab7b-10652c269930": {
     id: "8388e147-4031-402f-ab7b-10652c269930",
@@ -4287,7 +4287,7 @@ export default {
     inCodeParentId: "2553fba9-aa3a-4782-b886-977a57a46b19",
     path: "torchvision.datasets.Flickr8k.ann_file",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "20458bfb-375d-4a69-aeb0-ce5c47dbd76f": {
     id: "20458bfb-375d-4a69-aeb0-ce5c47dbd76f",
@@ -4300,7 +4300,7 @@ export default {
     inCodeParentId: "2553fba9-aa3a-4782-b886-977a57a46b19",
     path: "torchvision.datasets.Flickr8k.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f83b3883-e57b-4672-a62d-9c3771805a2e": {
     id: "f83b3883-e57b-4672-a62d-9c3771805a2e",
@@ -4313,7 +4313,7 @@ export default {
     inCodeParentId: "2553fba9-aa3a-4782-b886-977a57a46b19",
     path: "torchvision.datasets.Flickr8k.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "75631110-b428-4013-9792-2063bb306752": {
     id: "75631110-b428-4013-9792-2063bb306752",
@@ -4331,7 +4331,7 @@ export default {
       "361910e3-fcae-4ba4-b3b9-07f83026ab72",
       "1198d612-d932-4845-a46b-f538e0f6c9eb",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "b6d35a80-77de-4d05-a736-96bae8804da8": {
     id: "b6d35a80-77de-4d05-a736-96bae8804da8",
@@ -4344,7 +4344,7 @@ export default {
     inCodeParentId: "75631110-b428-4013-9792-2063bb306752",
     path: "torchvision.datasets.Flickr30k.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3a048abb-2510-438c-9741-40d339ade0fb": {
     id: "3a048abb-2510-438c-9741-40d339ade0fb",
@@ -4357,7 +4357,7 @@ export default {
     inCodeParentId: "75631110-b428-4013-9792-2063bb306752",
     path: "torchvision.datasets.Flickr30k.ann_file",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "361910e3-fcae-4ba4-b3b9-07f83026ab72": {
     id: "361910e3-fcae-4ba4-b3b9-07f83026ab72",
@@ -4370,7 +4370,7 @@ export default {
     inCodeParentId: "75631110-b428-4013-9792-2063bb306752",
     path: "torchvision.datasets.Flickr30k.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "1198d612-d932-4845-a46b-f538e0f6c9eb": {
     id: "1198d612-d932-4845-a46b-f538e0f6c9eb",
@@ -4383,7 +4383,7 @@ export default {
     inCodeParentId: "75631110-b428-4013-9792-2063bb306752",
     path: "torchvision.datasets.Flickr30k.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "efe6e090-c431-491e-9444-e32ed1621bef": {
     id: "efe6e090-c431-491e-9444-e32ed1621bef",
@@ -4402,7 +4402,7 @@ export default {
       "0c22b1f5-e01d-4d06-a417-6ae0a2c49a83",
       "bfa6e62d-d27d-4621-97e0-6ffe2ff09a9e",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "f1c94a7e-68f8-4a2d-ba5d-151b03c98754": {
     id: "f1c94a7e-68f8-4a2d-ba5d-151b03c98754",
@@ -4415,7 +4415,7 @@ export default {
     inCodeParentId: "efe6e090-c431-491e-9444-e32ed1621bef",
     path: "torchvision.datasets.Flowers102.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "98a1d7c5-6f31-46b6-bf0f-5aa7d71a2476": {
     id: "98a1d7c5-6f31-46b6-bf0f-5aa7d71a2476",
@@ -4428,7 +4428,7 @@ export default {
     inCodeParentId: "efe6e090-c431-491e-9444-e32ed1621bef",
     path: "torchvision.datasets.Flowers102.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "879c000b-bbce-4485-951a-e1e9256b3507": {
     id: "879c000b-bbce-4485-951a-e1e9256b3507",
@@ -4441,7 +4441,7 @@ export default {
     inCodeParentId: "efe6e090-c431-491e-9444-e32ed1621bef",
     path: "torchvision.datasets.Flowers102.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0c22b1f5-e01d-4d06-a417-6ae0a2c49a83": {
     id: "0c22b1f5-e01d-4d06-a417-6ae0a2c49a83",
@@ -4454,7 +4454,7 @@ export default {
     inCodeParentId: "efe6e090-c431-491e-9444-e32ed1621bef",
     path: "torchvision.datasets.Flowers102.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "bfa6e62d-d27d-4621-97e0-6ffe2ff09a9e": {
     id: "bfa6e62d-d27d-4621-97e0-6ffe2ff09a9e",
@@ -4467,7 +4467,7 @@ export default {
     inCodeParentId: "efe6e090-c431-491e-9444-e32ed1621bef",
     path: "torchvision.datasets.Flowers102.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ca054856-d378-43ca-8f0a-3904167f7386": {
     id: "ca054856-d378-43ca-8f0a-3904167f7386",
@@ -4486,7 +4486,7 @@ export default {
       "772976ad-66b8-4d81-9694-a092b723e73e",
       "bef5d043-1626-4520-8ef0-25767830fc01",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "1c43d884-8d66-4906-b32b-1ac4e7e8f9e3": {
     id: "1c43d884-8d66-4906-b32b-1ac4e7e8f9e3",
@@ -4499,7 +4499,7 @@ export default {
     inCodeParentId: "ca054856-d378-43ca-8f0a-3904167f7386",
     path: "torchvision.datasets.Food101.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c59b7e44-2d6e-470e-b420-d5c289d08245": {
     id: "c59b7e44-2d6e-470e-b420-d5c289d08245",
@@ -4512,7 +4512,7 @@ export default {
     inCodeParentId: "ca054856-d378-43ca-8f0a-3904167f7386",
     path: "torchvision.datasets.Food101.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3e8bdae8-97c0-4d38-9276-29b9f7209d30": {
     id: "3e8bdae8-97c0-4d38-9276-29b9f7209d30",
@@ -4525,7 +4525,7 @@ export default {
     inCodeParentId: "ca054856-d378-43ca-8f0a-3904167f7386",
     path: "torchvision.datasets.Food101.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "772976ad-66b8-4d81-9694-a092b723e73e": {
     id: "772976ad-66b8-4d81-9694-a092b723e73e",
@@ -4538,7 +4538,7 @@ export default {
     inCodeParentId: "ca054856-d378-43ca-8f0a-3904167f7386",
     path: "torchvision.datasets.Food101.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "bef5d043-1626-4520-8ef0-25767830fc01": {
     id: "bef5d043-1626-4520-8ef0-25767830fc01",
@@ -4551,7 +4551,7 @@ export default {
     inCodeParentId: "ca054856-d378-43ca-8f0a-3904167f7386",
     path: "torchvision.datasets.Food101.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0118f877-848f-4f0f-8ed2-906a6aa5abe8": {
     id: "0118f877-848f-4f0f-8ed2-906a6aa5abe8",
@@ -4570,7 +4570,7 @@ export default {
       "77001c47-4213-4080-9876-89a4b8118208",
       "dc9409c8-2403-41cf-8fe2-3704443cf5e2",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "892257e6-fa85-4b37-8ac9-48af9045529a": {
     id: "892257e6-fa85-4b37-8ac9-48af9045529a",
@@ -4583,7 +4583,7 @@ export default {
     inCodeParentId: "0118f877-848f-4f0f-8ed2-906a6aa5abe8",
     path: "torchvision.datasets.GTSRB.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "cb966c0f-3810-4a2c-b05c-e033ed4c7004": {
     id: "cb966c0f-3810-4a2c-b05c-e033ed4c7004",
@@ -4596,7 +4596,7 @@ export default {
     inCodeParentId: "0118f877-848f-4f0f-8ed2-906a6aa5abe8",
     path: "torchvision.datasets.GTSRB.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b1511da9-bba7-41f4-984c-cf967de717db": {
     id: "b1511da9-bba7-41f4-984c-cf967de717db",
@@ -4609,7 +4609,7 @@ export default {
     inCodeParentId: "0118f877-848f-4f0f-8ed2-906a6aa5abe8",
     path: "torchvision.datasets.GTSRB.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "77001c47-4213-4080-9876-89a4b8118208": {
     id: "77001c47-4213-4080-9876-89a4b8118208",
@@ -4622,7 +4622,7 @@ export default {
     inCodeParentId: "0118f877-848f-4f0f-8ed2-906a6aa5abe8",
     path: "torchvision.datasets.GTSRB.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "dc9409c8-2403-41cf-8fe2-3704443cf5e2": {
     id: "dc9409c8-2403-41cf-8fe2-3704443cf5e2",
@@ -4635,7 +4635,7 @@ export default {
     inCodeParentId: "0118f877-848f-4f0f-8ed2-906a6aa5abe8",
     path: "torchvision.datasets.GTSRB.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c279a7be-9ab4-4f42-8d2c-79f322d547f5": {
     id: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
@@ -4655,7 +4655,7 @@ export default {
       "b0792340-8de8-400b-8346-4e79a2a2e51e",
       "5c7125e7-a1db-479b-9e8f-d7b48b8ab046",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "b9ade847-2f2d-48e2-81dc-2442ace15251": {
     id: "b9ade847-2f2d-48e2-81dc-2442ace15251",
@@ -4668,7 +4668,7 @@ export default {
     inCodeParentId: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
     path: "torchvision.datasets.INaturalist.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "436132a5-7b92-4ae5-9e26-b2544528e4ef": {
     id: "436132a5-7b92-4ae5-9e26-b2544528e4ef",
@@ -4681,7 +4681,7 @@ export default {
     inCodeParentId: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
     path: "torchvision.datasets.INaturalist.version",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "759624c5-ef44-4a45-bbd4-7698bf2db95b": {
     id: "759624c5-ef44-4a45-bbd4-7698bf2db95b",
@@ -4694,7 +4694,7 @@ export default {
     inCodeParentId: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
     path: "torchvision.datasets.INaturalist.target_type",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ad9ca80e-2db8-4097-b7f3-569da897d621": {
     id: "ad9ca80e-2db8-4097-b7f3-569da897d621",
@@ -4707,7 +4707,7 @@ export default {
     inCodeParentId: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
     path: "torchvision.datasets.INaturalist.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b0792340-8de8-400b-8346-4e79a2a2e51e": {
     id: "b0792340-8de8-400b-8346-4e79a2a2e51e",
@@ -4720,7 +4720,7 @@ export default {
     inCodeParentId: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
     path: "torchvision.datasets.INaturalist.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5c7125e7-a1db-479b-9e8f-d7b48b8ab046": {
     id: "5c7125e7-a1db-479b-9e8f-d7b48b8ab046",
@@ -4733,7 +4733,7 @@ export default {
     inCodeParentId: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
     path: "torchvision.datasets.INaturalist.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "de473409-2fb1-44b2-a4c7-2ce0be2b1050": {
     id: "de473409-2fb1-44b2-a4c7-2ce0be2b1050",
@@ -4749,7 +4749,7 @@ export default {
       "9477e006-73aa-4f42-bc12-b42d2193e9e8",
       "24551fdf-8835-4ac0-a8af-b0e3ea9e748d",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "9477e006-73aa-4f42-bc12-b42d2193e9e8": {
     id: "9477e006-73aa-4f42-bc12-b42d2193e9e8",
@@ -4762,7 +4762,7 @@ export default {
     inCodeParentId: "de473409-2fb1-44b2-a4c7-2ce0be2b1050",
     path: "torchvision.datasets.ImageNet.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "24551fdf-8835-4ac0-a8af-b0e3ea9e748d": {
     id: "24551fdf-8835-4ac0-a8af-b0e3ea9e748d",
@@ -4775,7 +4775,7 @@ export default {
     inCodeParentId: "de473409-2fb1-44b2-a4c7-2ce0be2b1050",
     path: "torchvision.datasets.ImageNet.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd": {
     id: "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd",
@@ -4794,7 +4794,7 @@ export default {
       "f2cea491-9c1b-4fa5-bc36-46f5b6ba6ffb",
       "d473d449-eac2-4450-967a-3f345ebf3b4d",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "2288d2f4-0ff5-4b0d-b121-f24c7bc33ef9": {
     id: "2288d2f4-0ff5-4b0d-b121-f24c7bc33ef9",
@@ -4807,7 +4807,7 @@ export default {
     inCodeParentId: "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd",
     path: "torchvision.datasets.KMNIST.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "42452c6b-a9e0-44b8-a164-0d9f70584881": {
     id: "42452c6b-a9e0-44b8-a164-0d9f70584881",
@@ -4820,7 +4820,7 @@ export default {
     inCodeParentId: "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd",
     path: "torchvision.datasets.KMNIST.train",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "becbcf39-d4a6-48bd-bec2-1c6ae3e90247": {
     id: "becbcf39-d4a6-48bd-bec2-1c6ae3e90247",
@@ -4833,7 +4833,7 @@ export default {
     inCodeParentId: "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd",
     path: "torchvision.datasets.KMNIST.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f2cea491-9c1b-4fa5-bc36-46f5b6ba6ffb": {
     id: "f2cea491-9c1b-4fa5-bc36-46f5b6ba6ffb",
@@ -4846,7 +4846,7 @@ export default {
     inCodeParentId: "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd",
     path: "torchvision.datasets.KMNIST.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d473d449-eac2-4450-967a-3f345ebf3b4d": {
     id: "d473d449-eac2-4450-967a-3f345ebf3b4d",
@@ -4859,7 +4859,7 @@ export default {
     inCodeParentId: "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd",
     path: "torchvision.datasets.KMNIST.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8ba2c002-ead4-4158-a142-2f5d9b283c4a": {
     id: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
@@ -4879,7 +4879,7 @@ export default {
       "05310560-d6e4-4102-abee-31210480ddf2",
       "8ce85e2a-f4a4-4723-9a77-2558d76bd085",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "dca3ef30-2496-4527-bec7-dcfa85b5f7dd": {
     id: "dca3ef30-2496-4527-bec7-dcfa85b5f7dd",
@@ -4892,7 +4892,7 @@ export default {
     inCodeParentId: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
     path: "torchvision.datasets.LFWPeople.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "48455ad0-a643-47ed-b456-d6745727afbc": {
     id: "48455ad0-a643-47ed-b456-d6745727afbc",
@@ -4905,7 +4905,7 @@ export default {
     inCodeParentId: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
     path: "torchvision.datasets.LFWPeople.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "96d8f5ab-4ddf-4f89-88e2-897f194aaf3f": {
     id: "96d8f5ab-4ddf-4f89-88e2-897f194aaf3f",
@@ -4918,7 +4918,7 @@ export default {
     inCodeParentId: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
     path: "torchvision.datasets.LFWPeople.image_set",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c38b6302-dfca-4b50-9828-b7b1f73fa309": {
     id: "c38b6302-dfca-4b50-9828-b7b1f73fa309",
@@ -4931,7 +4931,7 @@ export default {
     inCodeParentId: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
     path: "torchvision.datasets.LFWPeople.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "05310560-d6e4-4102-abee-31210480ddf2": {
     id: "05310560-d6e4-4102-abee-31210480ddf2",
@@ -4944,7 +4944,7 @@ export default {
     inCodeParentId: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
     path: "torchvision.datasets.LFWPeople.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8ce85e2a-f4a4-4723-9a77-2558d76bd085": {
     id: "8ce85e2a-f4a4-4723-9a77-2558d76bd085",
@@ -4957,7 +4957,7 @@ export default {
     inCodeParentId: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
     path: "torchvision.datasets.LFWPeople.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f8494490-dac3-42a4-97e7-e2f086774df6": {
     id: "f8494490-dac3-42a4-97e7-e2f086774df6",
@@ -4975,7 +4975,7 @@ export default {
       "5236c838-0f6a-4a8f-9996-11c562fc8dd3",
       "c7647a80-7fdb-4d53-a02e-424551929364",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "4decd804-552d-4a75-b439-af1999330bfd": {
     id: "4decd804-552d-4a75-b439-af1999330bfd",
@@ -4988,7 +4988,7 @@ export default {
     inCodeParentId: "f8494490-dac3-42a4-97e7-e2f086774df6",
     path: "torchvision.datasets.LSUN.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "9c1c28bd-09f0-4aa8-a8b1-c45cdde7f460": {
     id: "9c1c28bd-09f0-4aa8-a8b1-c45cdde7f460",
@@ -5001,7 +5001,7 @@ export default {
     inCodeParentId: "f8494490-dac3-42a4-97e7-e2f086774df6",
     path: "torchvision.datasets.LSUN.classes",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5236c838-0f6a-4a8f-9996-11c562fc8dd3": {
     id: "5236c838-0f6a-4a8f-9996-11c562fc8dd3",
@@ -5014,7 +5014,7 @@ export default {
     inCodeParentId: "f8494490-dac3-42a4-97e7-e2f086774df6",
     path: "torchvision.datasets.LSUN.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c7647a80-7fdb-4d53-a02e-424551929364": {
     id: "c7647a80-7fdb-4d53-a02e-424551929364",
@@ -5027,7 +5027,7 @@ export default {
     inCodeParentId: "f8494490-dac3-42a4-97e7-e2f086774df6",
     path: "torchvision.datasets.LSUN.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f021b3ee-957e-4540-aabb-0414baa125d0": {
     id: "f021b3ee-957e-4540-aabb-0414baa125d0",
@@ -5046,7 +5046,7 @@ export default {
       "383eb7bd-f941-4e9a-b9a7-dd8b7b6bede7",
       "5897ca65-1679-4d77-a0ef-efb15cf88067",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "56c07a7e-34ba-43f2-8193-b62e86b4414f": {
     id: "56c07a7e-34ba-43f2-8193-b62e86b4414f",
@@ -5059,7 +5059,7 @@ export default {
     inCodeParentId: "f021b3ee-957e-4540-aabb-0414baa125d0",
     path: "torchvision.datasets.MNIST.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a3cdf2a7-2002-4ddc-8b05-bb81ff7efab6": {
     id: "a3cdf2a7-2002-4ddc-8b05-bb81ff7efab6",
@@ -5072,7 +5072,7 @@ export default {
     inCodeParentId: "f021b3ee-957e-4540-aabb-0414baa125d0",
     path: "torchvision.datasets.MNIST.train",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0533e630-8444-4ea5-a703-2a89fec6449e": {
     id: "0533e630-8444-4ea5-a703-2a89fec6449e",
@@ -5085,7 +5085,7 @@ export default {
     inCodeParentId: "f021b3ee-957e-4540-aabb-0414baa125d0",
     path: "torchvision.datasets.MNIST.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "383eb7bd-f941-4e9a-b9a7-dd8b7b6bede7": {
     id: "383eb7bd-f941-4e9a-b9a7-dd8b7b6bede7",
@@ -5098,7 +5098,7 @@ export default {
     inCodeParentId: "f021b3ee-957e-4540-aabb-0414baa125d0",
     path: "torchvision.datasets.MNIST.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5897ca65-1679-4d77-a0ef-efb15cf88067": {
     id: "5897ca65-1679-4d77-a0ef-efb15cf88067",
@@ -5111,7 +5111,7 @@ export default {
     inCodeParentId: "f021b3ee-957e-4540-aabb-0414baa125d0",
     path: "torchvision.datasets.MNIST.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "09d97a03-23ba-4c90-b33a-4e86d00ae7c1": {
     id: "09d97a03-23ba-4c90-b33a-4e86d00ae7c1",
@@ -5130,7 +5130,7 @@ export default {
       "f0d0bde3-7921-4422-ba94-419832fa2771",
       "bd69235c-8323-4e5e-a99b-a0fccb85a5dc",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "15ddab60-8ccd-4d1e-b405-1284a3751422": {
     id: "15ddab60-8ccd-4d1e-b405-1284a3751422",
@@ -5143,7 +5143,7 @@ export default {
     inCodeParentId: "09d97a03-23ba-4c90-b33a-4e86d00ae7c1",
     path: "torchvision.datasets.Omniglot.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ece13dc6-4d77-4c09-b425-6f35319a4d53": {
     id: "ece13dc6-4d77-4c09-b425-6f35319a4d53",
@@ -5156,7 +5156,7 @@ export default {
     inCodeParentId: "09d97a03-23ba-4c90-b33a-4e86d00ae7c1",
     path: "torchvision.datasets.Omniglot.background",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "56d5f6a9-bea5-4797-b829-cb36b77e3717": {
     id: "56d5f6a9-bea5-4797-b829-cb36b77e3717",
@@ -5169,7 +5169,7 @@ export default {
     inCodeParentId: "09d97a03-23ba-4c90-b33a-4e86d00ae7c1",
     path: "torchvision.datasets.Omniglot.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f0d0bde3-7921-4422-ba94-419832fa2771": {
     id: "f0d0bde3-7921-4422-ba94-419832fa2771",
@@ -5182,7 +5182,7 @@ export default {
     inCodeParentId: "09d97a03-23ba-4c90-b33a-4e86d00ae7c1",
     path: "torchvision.datasets.Omniglot.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "bd69235c-8323-4e5e-a99b-a0fccb85a5dc": {
     id: "bd69235c-8323-4e5e-a99b-a0fccb85a5dc",
@@ -5195,7 +5195,7 @@ export default {
     inCodeParentId: "09d97a03-23ba-4c90-b33a-4e86d00ae7c1",
     path: "torchvision.datasets.Omniglot.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0cd87bd9-c592-4100-8ba9-b1c8ae443c45": {
     id: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
@@ -5216,7 +5216,7 @@ export default {
       "ed3f3fa7-18dc-4990-961f-aee26e685391",
       "89664a54-75db-4384-997b-c3022b22dce3",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "8d1457ed-140f-4379-9e58-404058e5f097": {
     id: "8d1457ed-140f-4379-9e58-404058e5f097",
@@ -5229,7 +5229,7 @@ export default {
     inCodeParentId: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
     path: "torchvision.datasets.OxfordIIITPet.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "e77f1237-b767-420d-ad05-cf09a80b50de": {
     id: "e77f1237-b767-420d-ad05-cf09a80b50de",
@@ -5242,7 +5242,7 @@ export default {
     inCodeParentId: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
     path: "torchvision.datasets.OxfordIIITPet.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "fb7c6937-0097-4966-bcce-c452b34c3bfc": {
     id: "fb7c6937-0097-4966-bcce-c452b34c3bfc",
@@ -5255,7 +5255,7 @@ export default {
     inCodeParentId: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
     path: "torchvision.datasets.OxfordIIITPet.target_types",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "874492a8-8110-4808-a4e6-a28fd1276e66": {
     id: "874492a8-8110-4808-a4e6-a28fd1276e66",
@@ -5268,7 +5268,7 @@ export default {
     inCodeParentId: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
     path: "torchvision.datasets.OxfordIIITPet.transforms",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0c59a96d-5533-4640-ac7b-9642d59235ab": {
     id: "0c59a96d-5533-4640-ac7b-9642d59235ab",
@@ -5281,7 +5281,7 @@ export default {
     inCodeParentId: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
     path: "torchvision.datasets.OxfordIIITPet.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ed3f3fa7-18dc-4990-961f-aee26e685391": {
     id: "ed3f3fa7-18dc-4990-961f-aee26e685391",
@@ -5294,7 +5294,7 @@ export default {
     inCodeParentId: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
     path: "torchvision.datasets.OxfordIIITPet.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "89664a54-75db-4384-997b-c3022b22dce3": {
     id: "89664a54-75db-4384-997b-c3022b22dce3",
@@ -5307,7 +5307,7 @@ export default {
     inCodeParentId: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
     path: "torchvision.datasets.OxfordIIITPet.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "77f7ee8a-bc34-4683-b701-88e463f4ec66": {
     id: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
@@ -5328,7 +5328,7 @@ export default {
       "bb506b83-9ee3-4f1d-a48a-1581b91a9f7e",
       "38066767-6d50-40b2-800d-330bc6ff8420",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "03d2d513-350d-43a2-8e25-71721ecb5ca0": {
     id: "03d2d513-350d-43a2-8e25-71721ecb5ca0",
@@ -5341,7 +5341,7 @@ export default {
     inCodeParentId: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
     path: "torchvision.datasets.Places365.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "2d023488-e791-4917-9da4-2e58a7faac02": {
     id: "2d023488-e791-4917-9da4-2e58a7faac02",
@@ -5354,7 +5354,7 @@ export default {
     inCodeParentId: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
     path: "torchvision.datasets.Places365.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "574a8d32-cccb-41df-9b6b-2252494c8891": {
     id: "574a8d32-cccb-41df-9b6b-2252494c8891",
@@ -5367,7 +5367,7 @@ export default {
     inCodeParentId: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
     path: "torchvision.datasets.Places365.small",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "893acd1c-6a0a-442a-badb-28be8f9a09b4": {
     id: "893acd1c-6a0a-442a-badb-28be8f9a09b4",
@@ -5380,7 +5380,7 @@ export default {
     inCodeParentId: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
     path: "torchvision.datasets.Places365.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "e68dfbfd-1486-480e-b492-cf9179a6b10a": {
     id: "e68dfbfd-1486-480e-b492-cf9179a6b10a",
@@ -5393,7 +5393,7 @@ export default {
     inCodeParentId: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
     path: "torchvision.datasets.Places365.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "bb506b83-9ee3-4f1d-a48a-1581b91a9f7e": {
     id: "bb506b83-9ee3-4f1d-a48a-1581b91a9f7e",
@@ -5406,7 +5406,7 @@ export default {
     inCodeParentId: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
     path: "torchvision.datasets.Places365.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "38066767-6d50-40b2-800d-330bc6ff8420": {
     id: "38066767-6d50-40b2-800d-330bc6ff8420",
@@ -5419,7 +5419,7 @@ export default {
     inCodeParentId: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
     path: "torchvision.datasets.Places365.loader",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9": {
     id: "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9",
@@ -5438,7 +5438,7 @@ export default {
       "f6ae920c-4065-4ba9-81de-da90abf8ed79",
       "7970b3a8-dbb4-4aa6-9d26-018beac78ff8",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "be1a3e72-a2ef-4d3a-b399-f6eb8c332032": {
     id: "be1a3e72-a2ef-4d3a-b399-f6eb8c332032",
@@ -5451,7 +5451,7 @@ export default {
     inCodeParentId: "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9",
     path: "torchvision.datasets.PCAM.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "736a3413-94e7-46ed-97e7-6f33121e9099": {
     id: "736a3413-94e7-46ed-97e7-6f33121e9099",
@@ -5464,7 +5464,7 @@ export default {
     inCodeParentId: "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9",
     path: "torchvision.datasets.PCAM.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "adf510d2-ac24-4799-a7dc-10174bad0e49": {
     id: "adf510d2-ac24-4799-a7dc-10174bad0e49",
@@ -5477,7 +5477,7 @@ export default {
     inCodeParentId: "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9",
     path: "torchvision.datasets.PCAM.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f6ae920c-4065-4ba9-81de-da90abf8ed79": {
     id: "f6ae920c-4065-4ba9-81de-da90abf8ed79",
@@ -5490,7 +5490,7 @@ export default {
     inCodeParentId: "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9",
     path: "torchvision.datasets.PCAM.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "7970b3a8-dbb4-4aa6-9d26-018beac78ff8": {
     id: "7970b3a8-dbb4-4aa6-9d26-018beac78ff8",
@@ -5503,7 +5503,7 @@ export default {
     inCodeParentId: "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9",
     path: "torchvision.datasets.PCAM.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "cfd0adb4-0830-4993-b710-6c329940597f": {
     id: "cfd0adb4-0830-4993-b710-6c329940597f",
@@ -5521,7 +5521,7 @@ export default {
       "621bef21-af16-4458-b37b-643e15524f50",
       "664c3828-d580-47c7-b8a1-40dce269f11c",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "a4eceaac-471f-4ba4-8f15-7f3010ce8a03": {
     id: "a4eceaac-471f-4ba4-8f15-7f3010ce8a03",
@@ -5534,7 +5534,7 @@ export default {
     inCodeParentId: "cfd0adb4-0830-4993-b710-6c329940597f",
     path: "torchvision.datasets.QMNIST.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8aadb53f-3859-4f7a-9359-f35b1113e9a0": {
     id: "8aadb53f-3859-4f7a-9359-f35b1113e9a0",
@@ -5547,7 +5547,7 @@ export default {
     inCodeParentId: "cfd0adb4-0830-4993-b710-6c329940597f",
     path: "torchvision.datasets.QMNIST.what",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "621bef21-af16-4458-b37b-643e15524f50": {
     id: "621bef21-af16-4458-b37b-643e15524f50",
@@ -5560,7 +5560,7 @@ export default {
     inCodeParentId: "cfd0adb4-0830-4993-b710-6c329940597f",
     path: "torchvision.datasets.QMNIST.compat",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "664c3828-d580-47c7-b8a1-40dce269f11c": {
     id: "664c3828-d580-47c7-b8a1-40dce269f11c",
@@ -5573,7 +5573,7 @@ export default {
     inCodeParentId: "cfd0adb4-0830-4993-b710-6c329940597f",
     path: "torchvision.datasets.QMNIST.train",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f": {
     id: "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f",
@@ -5592,7 +5592,7 @@ export default {
       "888398b6-1f73-442b-8fb7-858c4e5c7e32",
       "da211719-beb4-4b69-8ae6-69e942d4b280",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "0e87904f-0c14-4356-abb5-227364864465": {
     id: "0e87904f-0c14-4356-abb5-227364864465",
@@ -5605,7 +5605,7 @@ export default {
     inCodeParentId: "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f",
     path: "torchvision.datasets.RenderedSST2.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "11fb77f3-c33d-45fe-aa43-0297aaccc384": {
     id: "11fb77f3-c33d-45fe-aa43-0297aaccc384",
@@ -5618,7 +5618,7 @@ export default {
     inCodeParentId: "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f",
     path: "torchvision.datasets.RenderedSST2.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d2d8b71c-ffa0-4810-9ec1-132c7be7d9a8": {
     id: "d2d8b71c-ffa0-4810-9ec1-132c7be7d9a8",
@@ -5631,7 +5631,7 @@ export default {
     inCodeParentId: "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f",
     path: "torchvision.datasets.RenderedSST2.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "888398b6-1f73-442b-8fb7-858c4e5c7e32": {
     id: "888398b6-1f73-442b-8fb7-858c4e5c7e32",
@@ -5644,7 +5644,7 @@ export default {
     inCodeParentId: "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f",
     path: "torchvision.datasets.RenderedSST2.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "da211719-beb4-4b69-8ae6-69e942d4b280": {
     id: "da211719-beb4-4b69-8ae6-69e942d4b280",
@@ -5657,7 +5657,7 @@ export default {
     inCodeParentId: "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f",
     path: "torchvision.datasets.RenderedSST2.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555": {
     id: "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555",
@@ -5675,7 +5675,7 @@ export default {
       "5a26db52-7727-49f3-a0a7-e30faea994e3",
       "ad2c0b01-d2f8-4772-9548-db7fbf6fef68",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "653d1d2d-8a4c-4460-8b07-f64808c2ce5a": {
     id: "653d1d2d-8a4c-4460-8b07-f64808c2ce5a",
@@ -5688,7 +5688,7 @@ export default {
     inCodeParentId: "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555",
     path: "torchvision.datasets.SEMEION.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "eb125060-5fea-49af-9184-163dc628f8e2": {
     id: "eb125060-5fea-49af-9184-163dc628f8e2",
@@ -5701,7 +5701,7 @@ export default {
     inCodeParentId: "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555",
     path: "torchvision.datasets.SEMEION.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5a26db52-7727-49f3-a0a7-e30faea994e3": {
     id: "5a26db52-7727-49f3-a0a7-e30faea994e3",
@@ -5714,7 +5714,7 @@ export default {
     inCodeParentId: "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555",
     path: "torchvision.datasets.SEMEION.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ad2c0b01-d2f8-4772-9548-db7fbf6fef68": {
     id: "ad2c0b01-d2f8-4772-9548-db7fbf6fef68",
@@ -5727,7 +5727,7 @@ export default {
     inCodeParentId: "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555",
     path: "torchvision.datasets.SEMEION.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "50adb98c-6427-4af1-91ac-0204475beb6e": {
     id: "50adb98c-6427-4af1-91ac-0204475beb6e",
@@ -5745,7 +5745,7 @@ export default {
       "97a1b4c0-3ff7-4b23-aaa3-5d197d03be56",
       "a6556792-97f2-479d-83c2-60b17ff4813b",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "bfd35bb8-d9ad-49e1-a95b-9d0cec830ee0": {
     id: "bfd35bb8-d9ad-49e1-a95b-9d0cec830ee0",
@@ -5758,7 +5758,7 @@ export default {
     inCodeParentId: "50adb98c-6427-4af1-91ac-0204475beb6e",
     path: "torchvision.datasets.SBU.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "938c2fad-e1ad-41dd-9ecd-f8917031acd4": {
     id: "938c2fad-e1ad-41dd-9ecd-f8917031acd4",
@@ -5771,7 +5771,7 @@ export default {
     inCodeParentId: "50adb98c-6427-4af1-91ac-0204475beb6e",
     path: "torchvision.datasets.SBU.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "97a1b4c0-3ff7-4b23-aaa3-5d197d03be56": {
     id: "97a1b4c0-3ff7-4b23-aaa3-5d197d03be56",
@@ -5784,7 +5784,7 @@ export default {
     inCodeParentId: "50adb98c-6427-4af1-91ac-0204475beb6e",
     path: "torchvision.datasets.SBU.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a6556792-97f2-479d-83c2-60b17ff4813b": {
     id: "a6556792-97f2-479d-83c2-60b17ff4813b",
@@ -5797,7 +5797,7 @@ export default {
     inCodeParentId: "50adb98c-6427-4af1-91ac-0204475beb6e",
     path: "torchvision.datasets.SBU.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a9003f18-468d-4f52-917f-69a84eea884d": {
     id: "a9003f18-468d-4f52-917f-69a84eea884d",
@@ -5816,7 +5816,7 @@ export default {
       "562da3d1-494f-4ac4-b1fb-22f7182e8d1c",
       "e6126aed-0e26-4f0d-a1d8-ab04ba1a5093",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "91989fab-72c2-4f33-b39d-38609dcb1ecc": {
     id: "91989fab-72c2-4f33-b39d-38609dcb1ecc",
@@ -5829,7 +5829,7 @@ export default {
     inCodeParentId: "a9003f18-468d-4f52-917f-69a84eea884d",
     path: "torchvision.datasets.StanfordCars.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "939e994e-f86c-4c45-accc-416cda21b97d": {
     id: "939e994e-f86c-4c45-accc-416cda21b97d",
@@ -5842,7 +5842,7 @@ export default {
     inCodeParentId: "a9003f18-468d-4f52-917f-69a84eea884d",
     path: "torchvision.datasets.StanfordCars.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "919226ed-03f4-45e8-9cdf-59e518b5dd75": {
     id: "919226ed-03f4-45e8-9cdf-59e518b5dd75",
@@ -5855,7 +5855,7 @@ export default {
     inCodeParentId: "a9003f18-468d-4f52-917f-69a84eea884d",
     path: "torchvision.datasets.StanfordCars.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "562da3d1-494f-4ac4-b1fb-22f7182e8d1c": {
     id: "562da3d1-494f-4ac4-b1fb-22f7182e8d1c",
@@ -5868,7 +5868,7 @@ export default {
     inCodeParentId: "a9003f18-468d-4f52-917f-69a84eea884d",
     path: "torchvision.datasets.StanfordCars.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "e6126aed-0e26-4f0d-a1d8-ab04ba1a5093": {
     id: "e6126aed-0e26-4f0d-a1d8-ab04ba1a5093",
@@ -5881,7 +5881,7 @@ export default {
     inCodeParentId: "a9003f18-468d-4f52-917f-69a84eea884d",
     path: "torchvision.datasets.StanfordCars.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "932ceabf-9cbe-45ad-bbe4-556401479eff": {
     id: "932ceabf-9cbe-45ad-bbe4-556401479eff",
@@ -5901,7 +5901,7 @@ export default {
       "5cccfa09-dd11-454e-8291-60a24e0e66a6",
       "7adc5d5a-5afc-401e-92bf-45f01e3b82b6",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "2c33e6b9-4ac4-4fe5-a325-fcac854dc0ed": {
     id: "2c33e6b9-4ac4-4fe5-a325-fcac854dc0ed",
@@ -5914,7 +5914,7 @@ export default {
     inCodeParentId: "932ceabf-9cbe-45ad-bbe4-556401479eff",
     path: "torchvision.datasets.STL10.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "11d91e52-1659-403f-beab-aa9807ff5eeb": {
     id: "11d91e52-1659-403f-beab-aa9807ff5eeb",
@@ -5927,7 +5927,7 @@ export default {
     inCodeParentId: "932ceabf-9cbe-45ad-bbe4-556401479eff",
     path: "torchvision.datasets.STL10.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0043e55b-9d76-4f99-a2f4-efbc0e6f039b": {
     id: "0043e55b-9d76-4f99-a2f4-efbc0e6f039b",
@@ -5940,7 +5940,7 @@ export default {
     inCodeParentId: "932ceabf-9cbe-45ad-bbe4-556401479eff",
     path: "torchvision.datasets.STL10.folds",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b4f19a8f-e6e1-4ae7-93f6-d5b2031cf85f": {
     id: "b4f19a8f-e6e1-4ae7-93f6-d5b2031cf85f",
@@ -5953,7 +5953,7 @@ export default {
     inCodeParentId: "932ceabf-9cbe-45ad-bbe4-556401479eff",
     path: "torchvision.datasets.STL10.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5cccfa09-dd11-454e-8291-60a24e0e66a6": {
     id: "5cccfa09-dd11-454e-8291-60a24e0e66a6",
@@ -5966,7 +5966,7 @@ export default {
     inCodeParentId: "932ceabf-9cbe-45ad-bbe4-556401479eff",
     path: "torchvision.datasets.STL10.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "7adc5d5a-5afc-401e-92bf-45f01e3b82b6": {
     id: "7adc5d5a-5afc-401e-92bf-45f01e3b82b6",
@@ -5979,7 +5979,7 @@ export default {
     inCodeParentId: "932ceabf-9cbe-45ad-bbe4-556401479eff",
     path: "torchvision.datasets.STL10.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8d4fecdd-e453-4b05-bacb-14895e840bcf": {
     id: "8d4fecdd-e453-4b05-bacb-14895e840bcf",
@@ -5997,7 +5997,7 @@ export default {
       "b1597263-d30e-4615-905e-9bf192dd6dff",
       "371269d3-c4fe-49b8-abb8-59365ccab4c2",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "d60e3163-d826-4369-9a37-97793a0dd5be": {
     id: "d60e3163-d826-4369-9a37-97793a0dd5be",
@@ -6010,7 +6010,7 @@ export default {
     inCodeParentId: "8d4fecdd-e453-4b05-bacb-14895e840bcf",
     path: "torchvision.datasets.SUN397.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d12b5fc0-02fb-4be5-a60c-5b9a8fa51d63": {
     id: "d12b5fc0-02fb-4be5-a60c-5b9a8fa51d63",
@@ -6023,7 +6023,7 @@ export default {
     inCodeParentId: "8d4fecdd-e453-4b05-bacb-14895e840bcf",
     path: "torchvision.datasets.SUN397.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b1597263-d30e-4615-905e-9bf192dd6dff": {
     id: "b1597263-d30e-4615-905e-9bf192dd6dff",
@@ -6036,7 +6036,7 @@ export default {
     inCodeParentId: "8d4fecdd-e453-4b05-bacb-14895e840bcf",
     path: "torchvision.datasets.SUN397.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "371269d3-c4fe-49b8-abb8-59365ccab4c2": {
     id: "371269d3-c4fe-49b8-abb8-59365ccab4c2",
@@ -6049,7 +6049,7 @@ export default {
     inCodeParentId: "8d4fecdd-e453-4b05-bacb-14895e840bcf",
     path: "torchvision.datasets.SUN397.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "878cc0dd-83eb-49d5-b295-e292a952ef7e": {
     id: "878cc0dd-83eb-49d5-b295-e292a952ef7e",
@@ -6068,7 +6068,7 @@ export default {
       "1d26a5a2-3f75-41dd-8566-77fb475cb349",
       "52d23b7d-67a4-4913-be3a-a899942ce608",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "19c1eb8d-b590-498c-b4aa-aa5cbf87d028": {
     id: "19c1eb8d-b590-498c-b4aa-aa5cbf87d028",
@@ -6081,7 +6081,7 @@ export default {
     inCodeParentId: "878cc0dd-83eb-49d5-b295-e292a952ef7e",
     path: "torchvision.datasets.SVHN.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "dda52d35-3b2d-4252-8511-62846c6632b7": {
     id: "dda52d35-3b2d-4252-8511-62846c6632b7",
@@ -6094,7 +6094,7 @@ export default {
     inCodeParentId: "878cc0dd-83eb-49d5-b295-e292a952ef7e",
     path: "torchvision.datasets.SVHN.split",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "96c5ee56-9c36-4f49-8266-a4720356a6ee": {
     id: "96c5ee56-9c36-4f49-8266-a4720356a6ee",
@@ -6107,7 +6107,7 @@ export default {
     inCodeParentId: "878cc0dd-83eb-49d5-b295-e292a952ef7e",
     path: "torchvision.datasets.SVHN.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "1d26a5a2-3f75-41dd-8566-77fb475cb349": {
     id: "1d26a5a2-3f75-41dd-8566-77fb475cb349",
@@ -6120,7 +6120,7 @@ export default {
     inCodeParentId: "878cc0dd-83eb-49d5-b295-e292a952ef7e",
     path: "torchvision.datasets.SVHN.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "52d23b7d-67a4-4913-be3a-a899942ce608": {
     id: "52d23b7d-67a4-4913-be3a-a899942ce608",
@@ -6133,7 +6133,7 @@ export default {
     inCodeParentId: "878cc0dd-83eb-49d5-b295-e292a952ef7e",
     path: "torchvision.datasets.SVHN.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "db61ccf5-35a8-4e76-b342-18f85862760b": {
     id: "db61ccf5-35a8-4e76-b342-18f85862760b",
@@ -6152,7 +6152,7 @@ export default {
       "e3a12121-a3cd-426a-903b-723cf66b9bfa",
       "5478913b-2bfe-4076-b613-855fbc6be490",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "bf2922e9-0f6b-4c30-873c-7c33010dc77f": {
     id: "bf2922e9-0f6b-4c30-873c-7c33010dc77f",
@@ -6165,7 +6165,7 @@ export default {
     inCodeParentId: "db61ccf5-35a8-4e76-b342-18f85862760b",
     path: "torchvision.datasets.USPS.root",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8d2f050e-eef8-4872-9bb6-3fb624d1f2f0": {
     id: "8d2f050e-eef8-4872-9bb6-3fb624d1f2f0",
@@ -6178,7 +6178,7 @@ export default {
     inCodeParentId: "db61ccf5-35a8-4e76-b342-18f85862760b",
     path: "torchvision.datasets.USPS.train",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "17e936e3-7507-4b24-86ad-abf9fff06ed5": {
     id: "17e936e3-7507-4b24-86ad-abf9fff06ed5",
@@ -6191,7 +6191,7 @@ export default {
     inCodeParentId: "db61ccf5-35a8-4e76-b342-18f85862760b",
     path: "torchvision.datasets.USPS.transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "e3a12121-a3cd-426a-903b-723cf66b9bfa": {
     id: "e3a12121-a3cd-426a-903b-723cf66b9bfa",
@@ -6204,7 +6204,7 @@ export default {
     inCodeParentId: "db61ccf5-35a8-4e76-b342-18f85862760b",
     path: "torchvision.datasets.USPS.target_transform",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5478913b-2bfe-4076-b613-855fbc6be490": {
     id: "5478913b-2bfe-4076-b613-855fbc6be490",
@@ -6217,7 +6217,7 @@ export default {
     inCodeParentId: "db61ccf5-35a8-4e76-b342-18f85862760b",
     path: "torchvision.datasets.USPS.download",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "53c34f44-2c9a-4cd4-9e7a-904360ad210b": {
     id: "53c34f44-2c9a-4cd4-9e7a-904360ad210b",
@@ -6233,7 +6233,7 @@ export default {
       "867af6c8-3d72-4894-b058-7cd28abfe55d",
       "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "867af6c8-3d72-4894-b058-7cd28abfe55d": {
     id: "867af6c8-3d72-4894-b058-7cd28abfe55d",
@@ -6253,7 +6253,7 @@ export default {
       "14fa5414-1973-4ccf-b2f5-69143f9e9a71",
       "93ea38f9-d410-4128-b5eb-e1e55d4b46f0",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "cc4994d5-3f31-44ad-accc-8e2c0662e9de": {
     id: "cc4994d5-3f31-44ad-accc-8e2c0662e9de",
@@ -6266,7 +6266,7 @@ export default {
     inCodeParentId: "867af6c8-3d72-4894-b058-7cd28abfe55d",
     path: "torch.nn.CrossEntropyLoss.weight",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "55628512-f9fc-4d48-8402-564b4bbe36a4": {
     id: "55628512-f9fc-4d48-8402-564b4bbe36a4",
@@ -6279,7 +6279,7 @@ export default {
     inCodeParentId: "867af6c8-3d72-4894-b058-7cd28abfe55d",
     path: "torch.nn.CrossEntropyLoss.size_average",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "bb045496-3596-4fdc-824c-97895442f270": {
     id: "bb045496-3596-4fdc-824c-97895442f270",
@@ -6292,7 +6292,7 @@ export default {
     inCodeParentId: "867af6c8-3d72-4894-b058-7cd28abfe55d",
     path: "torch.nn.CrossEntropyLoss.ignore_index",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "7fbc6142-d9cd-4540-a5ab-98316c6ff1c5": {
     id: "7fbc6142-d9cd-4540-a5ab-98316c6ff1c5",
@@ -6305,7 +6305,7 @@ export default {
     inCodeParentId: "867af6c8-3d72-4894-b058-7cd28abfe55d",
     path: "torch.nn.CrossEntropyLoss.reduce",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "14fa5414-1973-4ccf-b2f5-69143f9e9a71": {
     id: "14fa5414-1973-4ccf-b2f5-69143f9e9a71",
@@ -6318,7 +6318,7 @@ export default {
     inCodeParentId: "867af6c8-3d72-4894-b058-7cd28abfe55d",
     path: "torch.nn.CrossEntropyLoss.reduction",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "93ea38f9-d410-4128-b5eb-e1e55d4b46f0": {
     id: "93ea38f9-d410-4128-b5eb-e1e55d4b46f0",
@@ -6331,7 +6331,7 @@ export default {
     inCodeParentId: "867af6c8-3d72-4894-b058-7cd28abfe55d",
     path: "torch.nn.CrossEntropyLoss.label_smoothing",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6feb3058-16a1-42a0-a81d-df3d5ccbf01a": {
     id: "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
@@ -6350,7 +6350,7 @@ export default {
       "0c444561-30ab-42ce-b7a8-86f9a8039dd5",
       "61df8d5a-51c1-4a89-826c-af54f964f4be",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "a70c54b3-f47e-44f1-ad12-265035887129": {
     id: "a70c54b3-f47e-44f1-ad12-265035887129",
@@ -6363,7 +6363,7 @@ export default {
     inCodeParentId: "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
     path: "torch.nn.NLLLoss.weight",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6fc3e75a-f0d0-45eb-870a-92e2572130a5": {
     id: "6fc3e75a-f0d0-45eb-870a-92e2572130a5",
@@ -6376,7 +6376,7 @@ export default {
     inCodeParentId: "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
     path: "torch.nn.NLLLoss.size_average",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b99710fe-e492-45ac-a037-cf5d86033fca": {
     id: "b99710fe-e492-45ac-a037-cf5d86033fca",
@@ -6389,7 +6389,7 @@ export default {
     inCodeParentId: "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
     path: "torch.nn.NLLLoss.ignore_index",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0c444561-30ab-42ce-b7a8-86f9a8039dd5": {
     id: "0c444561-30ab-42ce-b7a8-86f9a8039dd5",
@@ -6402,7 +6402,7 @@ export default {
     inCodeParentId: "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
     path: "torch.nn.NLLLoss.reduce",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "61df8d5a-51c1-4a89-826c-af54f964f4be": {
     id: "61df8d5a-51c1-4a89-826c-af54f964f4be",
@@ -6415,7 +6415,7 @@ export default {
     inCodeParentId: "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
     path: "torch.nn.NLLLoss.reduction",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "f591b45a-5f8f-4ccc-ab42-ab34a3330107": {
     id: "f591b45a-5f8f-4ccc-ab42-ab34a3330107",
@@ -6436,7 +6436,7 @@ export default {
       "a2aff932-215e-484a-8a45-0dc1d53abbfb",
       "71dc5e71-8643-45d4-9c84-466a262727cb",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc": {
     id: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
@@ -6456,7 +6456,7 @@ export default {
       "e79f5e5c-490d-4c90-a207-88d8db136370",
       "89d791c0-5b5c-46cf-9703-6f895e9c4df7",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "f35e7ae2-81a4-4536-b3da-80c612e47ff3": {
     id: "f35e7ae2-81a4-4536-b3da-80c612e47ff3",
@@ -6469,7 +6469,7 @@ export default {
     inCodeParentId: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
     path: "torch.optim.lr_scheduler.LinearLR.optimizer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "30548d4b-9fba-4170-b2bc-ac38a373db78": {
     id: "30548d4b-9fba-4170-b2bc-ac38a373db78",
@@ -6482,7 +6482,7 @@ export default {
     inCodeParentId: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
     path: "torch.optim.lr_scheduler.LinearLR.start_factor",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5b63d724-14d9-485c-988e-35e528d5e4b9": {
     id: "5b63d724-14d9-485c-988e-35e528d5e4b9",
@@ -6495,7 +6495,7 @@ export default {
     inCodeParentId: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
     path: "torch.optim.lr_scheduler.LinearLR.end_factor",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "43feae37-6f02-4ebd-aa20-c481757b37e4": {
     id: "43feae37-6f02-4ebd-aa20-c481757b37e4",
@@ -6508,7 +6508,7 @@ export default {
     inCodeParentId: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
     path: "torch.optim.lr_scheduler.LinearLR.total_iters",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "e79f5e5c-490d-4c90-a207-88d8db136370": {
     id: "e79f5e5c-490d-4c90-a207-88d8db136370",
@@ -6521,7 +6521,7 @@ export default {
     inCodeParentId: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
     path: "torch.optim.lr_scheduler.LinearLR.last_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "89d791c0-5b5c-46cf-9703-6f895e9c4df7": {
     id: "89d791c0-5b5c-46cf-9703-6f895e9c4df7",
@@ -6534,7 +6534,7 @@ export default {
     inCodeParentId: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
     path: "torch.optim.lr_scheduler.LinearLR.verbose",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "388f74d8-518f-4f3a-bfaf-313fd8ee3659": {
     id: "388f74d8-518f-4f3a-bfaf-313fd8ee3659",
@@ -6552,7 +6552,7 @@ export default {
       "e0a3dc4b-0732-4d05-9f95-0798dc07fd23",
       "2b5fff5e-3fb9-44e5-8f99-ef2575425c7d",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "1c8dbb03-b7dd-4910-be11-b4abe6e2d745": {
     id: "1c8dbb03-b7dd-4910-be11-b4abe6e2d745",
@@ -6565,7 +6565,7 @@ export default {
     inCodeParentId: "388f74d8-518f-4f3a-bfaf-313fd8ee3659",
     path: "torch.optim.lr_scheduler.ExponentialLR.optimizer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "488b61b9-071c-4088-9ebf-7e456d39cd8e": {
     id: "488b61b9-071c-4088-9ebf-7e456d39cd8e",
@@ -6578,7 +6578,7 @@ export default {
     inCodeParentId: "388f74d8-518f-4f3a-bfaf-313fd8ee3659",
     path: "torch.optim.lr_scheduler.ExponentialLR.gamma",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "e0a3dc4b-0732-4d05-9f95-0798dc07fd23": {
     id: "e0a3dc4b-0732-4d05-9f95-0798dc07fd23",
@@ -6591,7 +6591,7 @@ export default {
     inCodeParentId: "388f74d8-518f-4f3a-bfaf-313fd8ee3659",
     path: "torch.optim.lr_scheduler.ExponentialLR.last_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "2b5fff5e-3fb9-44e5-8f99-ef2575425c7d": {
     id: "2b5fff5e-3fb9-44e5-8f99-ef2575425c7d",
@@ -6604,7 +6604,7 @@ export default {
     inCodeParentId: "388f74d8-518f-4f3a-bfaf-313fd8ee3659",
     path: "torch.optim.lr_scheduler.ExponentialLR.verbose",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ee47d3c8-1863-4039-b227-18842c3ec9e7": {
     id: "ee47d3c8-1863-4039-b227-18842c3ec9e7",
@@ -6623,7 +6623,7 @@ export default {
       "8cc6f942-2864-414d-b95c-439a19325025",
       "8621c190-1436-40ca-be7f-2a7996ef63fc",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "28b67331-2b69-4554-8ecf-03e17f7d7c3a": {
     id: "28b67331-2b69-4554-8ecf-03e17f7d7c3a",
@@ -6636,7 +6636,7 @@ export default {
     inCodeParentId: "ee47d3c8-1863-4039-b227-18842c3ec9e7",
     path: "torch.optim.lr_scheduler.PolynomialLR.optimizer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "9ae83ccb-dfc0-4c28-b542-dc61160081ad": {
     id: "9ae83ccb-dfc0-4c28-b542-dc61160081ad",
@@ -6649,7 +6649,7 @@ export default {
     inCodeParentId: "ee47d3c8-1863-4039-b227-18842c3ec9e7",
     path: "torch.optim.lr_scheduler.PolynomialLR.total_iters",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "62835ee4-cd0e-4e0b-8723-25df5126c085": {
     id: "62835ee4-cd0e-4e0b-8723-25df5126c085",
@@ -6662,7 +6662,7 @@ export default {
     inCodeParentId: "ee47d3c8-1863-4039-b227-18842c3ec9e7",
     path: "torch.optim.lr_scheduler.PolynomialLR.power",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8cc6f942-2864-414d-b95c-439a19325025": {
     id: "8cc6f942-2864-414d-b95c-439a19325025",
@@ -6675,7 +6675,7 @@ export default {
     inCodeParentId: "ee47d3c8-1863-4039-b227-18842c3ec9e7",
     path: "torch.optim.lr_scheduler.PolynomialLR.last_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8621c190-1436-40ca-be7f-2a7996ef63fc": {
     id: "8621c190-1436-40ca-be7f-2a7996ef63fc",
@@ -6688,7 +6688,7 @@ export default {
     inCodeParentId: "ee47d3c8-1863-4039-b227-18842c3ec9e7",
     path: "torch.optim.lr_scheduler.PolynomialLR.verbose",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "989ff039-817a-46c0-90d3-f716aad50495": {
     id: "989ff039-817a-46c0-90d3-f716aad50495",
@@ -6707,7 +6707,7 @@ export default {
       "c1453e84-ab4e-44e1-ab11-546b28839158",
       "3fa07f28-b5cf-4ac1-82ed-f8ebe0c7e492",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "cb3194ae-4b74-4780-8e48-64219d84afab": {
     id: "cb3194ae-4b74-4780-8e48-64219d84afab",
@@ -6720,7 +6720,7 @@ export default {
     inCodeParentId: "989ff039-817a-46c0-90d3-f716aad50495",
     path: "torch.optim.lr_scheduler.CosineAnnealingLR.optimizer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "331a4ef0-80af-4f3d-acdb-7de3c00f26c3": {
     id: "331a4ef0-80af-4f3d-acdb-7de3c00f26c3",
@@ -6733,7 +6733,7 @@ export default {
     inCodeParentId: "989ff039-817a-46c0-90d3-f716aad50495",
     path: "torch.optim.lr_scheduler.CosineAnnealingLR.T_max",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "293e26e7-910c-45c8-8db5-139174c2bc9a": {
     id: "293e26e7-910c-45c8-8db5-139174c2bc9a",
@@ -6746,7 +6746,7 @@ export default {
     inCodeParentId: "989ff039-817a-46c0-90d3-f716aad50495",
     path: "torch.optim.lr_scheduler.CosineAnnealingLR.eta_min",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c1453e84-ab4e-44e1-ab11-546b28839158": {
     id: "c1453e84-ab4e-44e1-ab11-546b28839158",
@@ -6759,7 +6759,7 @@ export default {
     inCodeParentId: "989ff039-817a-46c0-90d3-f716aad50495",
     path: "torch.optim.lr_scheduler.CosineAnnealingLR.last_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3fa07f28-b5cf-4ac1-82ed-f8ebe0c7e492": {
     id: "3fa07f28-b5cf-4ac1-82ed-f8ebe0c7e492",
@@ -6772,7 +6772,7 @@ export default {
     inCodeParentId: "989ff039-817a-46c0-90d3-f716aad50495",
     path: "torch.optim.lr_scheduler.CosineAnnealingLR.verbose",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "e9b32c5b-3bab-4583-a20d-b850ac5ef37b": {
     id: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
@@ -6800,7 +6800,7 @@ export default {
       "0a17be64-ca1a-4f55-8878-402040d5d700",
       "d965143f-c794-4ca2-a587-522fde5462da",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "18e7a3b8-84e7-4277-aa2e-201195bd4522": {
     id: "18e7a3b8-84e7-4277-aa2e-201195bd4522",
@@ -6813,7 +6813,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.optimizer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "af6cbca1-0108-442b-8bd3-475625799c32": {
     id: "af6cbca1-0108-442b-8bd3-475625799c32",
@@ -6826,7 +6826,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.base_lr",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "4b2b3b05-4e66-46d7-b4a7-74ca9141da0a": {
     id: "4b2b3b05-4e66-46d7-b4a7-74ca9141da0a",
@@ -6839,7 +6839,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.max_lr",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6d7f202b-8e24-4b23-8626-42c497a965f5": {
     id: "6d7f202b-8e24-4b23-8626-42c497a965f5",
@@ -6852,7 +6852,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.step_size_up",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "aabfc20f-6f4f-40d4-8121-7634d58ca20f": {
     id: "aabfc20f-6f4f-40d4-8121-7634d58ca20f",
@@ -6865,7 +6865,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.step_size_down",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ebfc9204-f8e1-4eda-ab9c-64187ea56cfa": {
     id: "ebfc9204-f8e1-4eda-ab9c-64187ea56cfa",
@@ -6878,7 +6878,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.mode",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ebdde76a-3d48-4f1d-afd3-ad9d2c1a37b4": {
     id: "ebdde76a-3d48-4f1d-afd3-ad9d2c1a37b4",
@@ -6891,7 +6891,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.gamma",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8556637a-8fe5-40fb-9c46-180c95ab975f": {
     id: "8556637a-8fe5-40fb-9c46-180c95ab975f",
@@ -6904,7 +6904,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.scale_fn",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d17dbdc4-3aed-4239-be1a-aa00b1edaeb5": {
     id: "d17dbdc4-3aed-4239-be1a-aa00b1edaeb5",
@@ -6917,7 +6917,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.scale_mode",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8f1d4370-ea14-4b9c-aca3-0f90635318cf": {
     id: "8f1d4370-ea14-4b9c-aca3-0f90635318cf",
@@ -6930,7 +6930,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.cycle_momentum",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "85c71e8c-a0c1-494c-8ce2-2c03904c67ec": {
     id: "85c71e8c-a0c1-494c-8ce2-2c03904c67ec",
@@ -6943,7 +6943,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.base_momentum",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5e46fab0-baf3-46a4-a209-40b505c81f8b": {
     id: "5e46fab0-baf3-46a4-a209-40b505c81f8b",
@@ -6956,7 +6956,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.max_momentum",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0a17be64-ca1a-4f55-8878-402040d5d700": {
     id: "0a17be64-ca1a-4f55-8878-402040d5d700",
@@ -6969,7 +6969,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.last_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "d965143f-c794-4ca2-a587-522fde5462da": {
     id: "d965143f-c794-4ca2-a587-522fde5462da",
@@ -6982,7 +6982,7 @@ export default {
     inCodeParentId: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
     path: "torch.optim.lr_scheduler.CyclicLR.verbose",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a2aff932-215e-484a-8a45-0dc1d53abbfb": {
     id: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
@@ -7011,7 +7011,7 @@ export default {
       "dc614ee4-e8c6-4fd6-a9f0-20ce0ac206d3",
       "46bd70f9-f448-447e-94ff-ca760d9de8d6",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "78babade-02f1-4e4d-8386-0e9b2b2ef651": {
     id: "78babade-02f1-4e4d-8386-0e9b2b2ef651",
@@ -7024,7 +7024,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.optimizer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "2b9e2f8c-5a1b-492e-ae51-cd4becbd6845": {
     id: "2b9e2f8c-5a1b-492e-ae51-cd4becbd6845",
@@ -7037,7 +7037,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.max_lr",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c785a5fc-ca12-4490-8d12-940e69a46119": {
     id: "c785a5fc-ca12-4490-8d12-940e69a46119",
@@ -7050,7 +7050,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.total_steps",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "aedec2aa-4f1d-430b-844c-57054a0ed384": {
     id: "aedec2aa-4f1d-430b-844c-57054a0ed384",
@@ -7063,7 +7063,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.epochs",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "231cb466-16a0-44d1-925e-f2c60dff6d55": {
     id: "231cb466-16a0-44d1-925e-f2c60dff6d55",
@@ -7076,7 +7076,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.steps_per_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "35e8bbbc-a4aa-4e26-809a-31740b39d453": {
     id: "35e8bbbc-a4aa-4e26-809a-31740b39d453",
@@ -7089,7 +7089,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.pct_start",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "88f474fa-5f51-4351-8446-823c27592531": {
     id: "88f474fa-5f51-4351-8446-823c27592531",
@@ -7102,7 +7102,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.anneal_strategy",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "04909f5e-9c6e-434c-89ff-fde70b51b658": {
     id: "04909f5e-9c6e-434c-89ff-fde70b51b658",
@@ -7115,7 +7115,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.cycle_momentum",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5dfcd62e-e213-4a49-8b26-834d3b514357": {
     id: "5dfcd62e-e213-4a49-8b26-834d3b514357",
@@ -7128,7 +7128,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.base_momentum",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c9bd3875-f366-47c1-ab7b-82ab5375f211": {
     id: "c9bd3875-f366-47c1-ab7b-82ab5375f211",
@@ -7141,7 +7141,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.max_momentum",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "3ebb2d7b-fa82-422e-9c3f-188976f59c5d": {
     id: "3ebb2d7b-fa82-422e-9c3f-188976f59c5d",
@@ -7154,7 +7154,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.div_factor",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "0e3db028-cf6f-4d84-b59b-3c2da988cd56": {
     id: "0e3db028-cf6f-4d84-b59b-3c2da988cd56",
@@ -7167,7 +7167,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.final_div_factor",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "84d91a02-b7f5-4bc7-b418-458cb640574a": {
     id: "84d91a02-b7f5-4bc7-b418-458cb640574a",
@@ -7180,7 +7180,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.three_phase",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "dc614ee4-e8c6-4fd6-a9f0-20ce0ac206d3": {
     id: "dc614ee4-e8c6-4fd6-a9f0-20ce0ac206d3",
@@ -7193,7 +7193,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.last_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "46bd70f9-f448-447e-94ff-ca760d9de8d6": {
     id: "46bd70f9-f448-447e-94ff-ca760d9de8d6",
@@ -7206,7 +7206,7 @@ export default {
     inCodeParentId: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
     path: "torch.optim.lr_scheduler.OneCycleLR.verbose",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "71dc5e71-8643-45d4-9c84-466a262727cb": {
     id: "71dc5e71-8643-45d4-9c84-466a262727cb",
@@ -7226,7 +7226,7 @@ export default {
       "2746b8d7-c70e-46c8-bb22-de524a7f62d6",
       "8eebee52-ef36-4d9d-9c69-270416a629c5",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "87c3cf37-4f88-4313-9a24-629031e63820": {
     id: "87c3cf37-4f88-4313-9a24-629031e63820",
@@ -7239,7 +7239,7 @@ export default {
     inCodeParentId: "71dc5e71-8643-45d4-9c84-466a262727cb",
     path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.optimizer",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "25747362-afb4-4902-b4f4-ebe722fdbe01": {
     id: "25747362-afb4-4902-b4f4-ebe722fdbe01",
@@ -7252,7 +7252,7 @@ export default {
     inCodeParentId: "71dc5e71-8643-45d4-9c84-466a262727cb",
     path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.T_0",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "51970cd8-67a0-4f13-99b4-ee5ed143246d": {
     id: "51970cd8-67a0-4f13-99b4-ee5ed143246d",
@@ -7265,7 +7265,7 @@ export default {
     inCodeParentId: "71dc5e71-8643-45d4-9c84-466a262727cb",
     path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.T_mult",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "6d9d0eff-b8bf-41c3-aa92-21ab99335ecc": {
     id: "6d9d0eff-b8bf-41c3-aa92-21ab99335ecc",
@@ -7278,7 +7278,7 @@ export default {
     inCodeParentId: "71dc5e71-8643-45d4-9c84-466a262727cb",
     path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.eta_min",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "2746b8d7-c70e-46c8-bb22-de524a7f62d6": {
     id: "2746b8d7-c70e-46c8-bb22-de524a7f62d6",
@@ -7291,7 +7291,7 @@ export default {
     inCodeParentId: "71dc5e71-8643-45d4-9c84-466a262727cb",
     path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.last_epoch",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "8eebee52-ef36-4d9d-9c69-270416a629c5": {
     id: "8eebee52-ef36-4d9d-9c69-270416a629c5",
@@ -7304,6 +7304,6 @@ export default {
     inCodeParentId: "71dc5e71-8643-45d4-9c84-466a262727cb",
     path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.verbose",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
 };
