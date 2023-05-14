@@ -38,7 +38,7 @@ export function getChildUITypeId(parentUIType, parentId) {
 }
 
 export function createSectionOriginInfoId(sectionId: string): OriginInfoIdType {
-  return { sectionId, uiTypeColId: null, paramInfoId: null };
+  return { sectionId };
 }
 
 export function createParamOriginInfoId(
@@ -46,7 +46,6 @@ export function createParamOriginInfoId(
   paramInfoId: string
 ): OriginInfoIdType {
   return {
-    sectionId: null,
     uiTypeColId,
     paramInfoId,
   };
@@ -57,7 +56,7 @@ export function cloneNewUIType({
   name = "",
   config,
   presetType = null,
-  originInfoId = { sectionId: null, uiTypeColId: null, paramInfoId: null },
+  originInfoId = {},
   isForChildOfOriginInfoId = false,
 }: Partial<UITypeType> & { uiType: UITypeType }) {
   const newUIType = _.cloneDeep(uiType);
