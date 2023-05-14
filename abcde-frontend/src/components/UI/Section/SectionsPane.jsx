@@ -61,10 +61,6 @@ function _SectionsPane({ initialNodes }) {
     setPositionAndZIndices(nodes);
   }
 
-  function onNodeClick(e, node) {
-    setZIndices([node]);
-  }
-
   function onNodeDragStart(e, node) {
     setZIndices([node]);
   }
@@ -80,7 +76,6 @@ function _SectionsPane({ initialNodes }) {
       style={reactFlowStyle}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
-      onNodeClick={onNodeClick}
       onNodeDragStart={onNodeDragStart}
       onPaneContextMenu={openPaneCtxMenu}
       onSelectionContextMenu={openSelectionCtxMenu}
