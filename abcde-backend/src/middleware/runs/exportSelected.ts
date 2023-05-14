@@ -10,7 +10,7 @@ import {
 import _ from 'lodash';
 
 function getSectionConfig(p, id) {
-  return p.sectionConfigs[p.sectionConfigCol[id]];
+  return p.sectionConfigs[p.sections[id].configId];
 }
 
 function getSectionType(p, id) {
