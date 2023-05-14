@@ -9,11 +9,6 @@ export default {
     value: "",
     childId: null,
   },
-  "07ef5c09-60ae-4562-ace2-140fd9eadc58": {
-    id: "07ef5c09-60ae-4562-ace2-140fd9eadc58",
-    value: "",
-    childId: null,
-  },
   "4eb4693a-631d-423e-9220-58109cbc62f4": {
     id: "4eb4693a-631d-423e-9220-58109cbc62f4",
     value: "70",
