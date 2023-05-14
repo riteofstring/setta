@@ -7,7 +7,7 @@ import { ManyOutputType } from "./output";
 import { ManyOutputGroupType } from "./outputGroup";
 import { ProjectType } from "./project";
 import { ProjectConfigType } from "./projectConfig";
-import { ManySectionType } from "./section";
+import { ManySectionTypeSaveProjectToBackend } from "./section";
 import { ManySectionChildrenType } from "./sectionChildren";
 import { ManySectionConfigType } from "./sectionConfig";
 import { ManySectionDescriptionType } from "./sectionDescription";
@@ -23,7 +23,7 @@ export type ProjectSaveType = {
   uiTypeCols: ManyUITypeColType;
   kwargInfo: ManyCodeInfoType;
   kwargCols: ManyKwargColType;
-  sections: ManySectionType;
+  sections: ManySectionTypeSaveProjectToBackend;
   sectionChildren: ManySectionChildrenType;
   sectionConfigs: ManySectionConfigType;
   sectionDescriptions: ManySectionDescriptionType;
