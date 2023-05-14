@@ -13,7 +13,7 @@ import {
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateCol } from 'src/utils/utils';
+import { deleteThenCreateCol, ifUndefinedThenNull } from 'src/utils/utils';
 import { PrismaUITypeColType } from './types';
 
 async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
@@ -25,9 +25,9 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
       name: x.name,
       presetType: x.presetType,
       isForChildOfOriginInfoId: x.isForChildOfOriginInfoId,
-      originSectionId: x.originInfoId.sectionId,
-      originUITypeColId: x.originInfoId.uiTypeColId,
-      originCodeInfoId: x.originInfoId.paramInfoId,
+      originSectionId: ifUndefinedThenNull(x.originInfoId.sectionId),
+      originUITypeColId: ifUndefinedThenNull(x.originInfoId.uiTypeColId),
+      originCodeInfoId: ifUndefinedThenNull(x.originInfoId.paramInfoId),
     };
   });
 

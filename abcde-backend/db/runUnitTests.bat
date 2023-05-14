@@ -4,4 +4,4 @@ if "%~2" == "--reset" (
     call node %usedotenv% db/resetAndMigrate.bat
 )
 :actualtest
-call node --experimental-vm-modules %usedotenv% -- node_modules/jest/bin/jest.js -i test/unitTests/%1
+call node --experimental-vm-modules %usedotenv% -- node_modules/vitest/vitest.mjs --no-threads test/unitTests/%1
