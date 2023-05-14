@@ -1,15 +1,15 @@
 import { FN } from "abcde-utils/src/constants";
-import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
-import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
-import { useKwargCols } from "models/info/kwargCols";
-import { useSectionToParams } from "models/info/sectionToParams";
 import {
   findAllCallablesOfCallables,
   findAllCallablesOfCollections,
   findAllParameterCollections,
   findAllParameters,
-} from "thunks/codeInfo/getDescendants";
+} from "abcde-utils/src/getDescendants";
+import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
+import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
+import { useKwargCols } from "models/info/kwargCols";
+import { useSectionToParams } from "models/info/sectionToParams";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useOutputValues } from "./useOutputNames";

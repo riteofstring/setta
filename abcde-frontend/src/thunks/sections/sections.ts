@@ -1,10 +1,10 @@
 import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
+import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { findAllParameters } from "thunks/codeInfo/getDescendants";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { initializeParam } from "../initializeParam";
 
