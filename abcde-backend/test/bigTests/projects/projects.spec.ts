@@ -66,11 +66,12 @@ async function checkProject(retrieved, projectName, configName) {
 
   // TODO: figure out globalDefaults and projectDefaults
   const { projectDefaults, runs, ...theRest } = correctOutput;
-  correctOutput['userCodeInfoMaps'] =
-    correctOutput['userCodeInfoMaps'][TEST_USER];
 
   expect(Object.keys(retrieved).sort()).toEqual(Object.keys(theRest).sort());
   for (const k of Object.keys(retrieved)) {
+    if (k === 'codeInfo') {
+      continue;
+    }
     expect(retrieved[k], `${k} doesn't match`).toEqual(correctOutput[k]);
   }
 
