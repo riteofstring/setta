@@ -1,8 +1,8 @@
+import { loadAllProjects } from 'abcde-test/src/loaders/backend/loaders';
 import {
-  loadAllProjects,
   loadGlobalCodeInfo,
   loadSpecificTestData,
-} from 'abcde-test/src/loadTestData';
+} from 'abcde-test/src/loaders/loaders';
 import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/save';
@@ -48,7 +48,7 @@ async function seedBaseUITypes() {
 }
 
 async function seedProjects() {
-  const allProjects = await loadAllProjects({ forSavingToBackend: true });
+  const allProjects = await loadAllProjects();
   console.log('seedProjects');
   for (const p of allProjects) {
     // set outputGroupId to null because outputs have not yet been created
@@ -75,7 +75,7 @@ async function seedUserCodeInfoMaps() {
 }
 
 async function seedRuns() {
-  const allProjects = await loadAllProjects({ forSavingToBackend: true });
+  const allProjects = await loadAllProjects();
   console.log('seedRuns');
   for (const project of Object.values(allProjects)) {
     const { projectConfig, runs, outputGroups, outputs } = project;
