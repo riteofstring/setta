@@ -63,6 +63,10 @@ function getParamVarName(paramVarNames) {
   return name;
 }
 
+function noEnteredValue(value) {
+  return _.isNil(value) || value === '';
+}
+
 export function exportSelected(p) {
   const e = new Exporter(p);
   e.export();
@@ -129,7 +133,7 @@ class Exporter {
 
   exportParam(sectionId, id) {
     const value = this.exportParamValue(sectionId, id);
-    if (_.isNil(value)) {
+    if (noEnteredValue(value)) {
       return null;
     }
     const varName = getParamVarName(this.paramVarNames);
