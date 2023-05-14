@@ -7,7 +7,7 @@ export function newUIType({
   name = "",
   config = {},
   presetType = null,
-  originInfoId = { sectionId: null, uiTypeColId: null, paramInfoId: null },
+  originInfoId = {},
   isForChildOfOriginInfoId = false,
 }: UITypeType): UITypeType {
   return {

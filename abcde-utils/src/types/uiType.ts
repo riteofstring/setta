@@ -37,9 +37,9 @@ export enum PresetType {
 }
 
 export type OriginInfoIdType = {
-  sectionId: string | null;
-  uiTypeColId: string | null;
-  paramInfoId: string | null;
+  sectionId?: string;
+  uiTypeColId?: string;
+  paramInfoId?: string;
 };
 
 export type ManyUITypeType = ManyOf<UITypeType>;
