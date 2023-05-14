@@ -125,6 +125,8 @@ export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
   const inDbFormat: PrismaUITypeColType[] = [];
   for (const idid of ids) {
     for (const [codeInfoId, uiTypeId] of Object.entries(uiTypeCols[idid])) {
+      console.log("uiTypeId", uiTypeId)
+      prisma.uIType.findUnique({ where: { id: uiTypeId } });
       inDbFormat.push({
         idid,
         codeInfoId,

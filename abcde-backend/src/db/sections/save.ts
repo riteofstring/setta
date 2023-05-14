@@ -1,4 +1,4 @@
-import { ManySectionType } from 'abcde-utils/src/types/section';
+import { ManySectionTypeSaveProjectToBackend } from 'abcde-utils/src/types/section';
 import {
   ManySectionChildrenType,
   TopLevelSectionChildrenType,
@@ -27,7 +27,7 @@ function convertSize(x) {
 }
 
 export async function saveSections(
-  sections: ManySectionType,
+  sections: ManySectionTypeSaveProjectToBackend,
   sectionChildren: ManySectionChildrenType,
 ) {
   await prisma.sectionChildrenId.createMany({
@@ -137,7 +137,10 @@ function assembleSectionConfigCol(
   return inDbFormat;
 }
 
-export async function saveSectionConfigCol(sections: ManySectionType, colId) {
+export async function saveSectionConfigCol(
+  sections: ManySectionTypeSaveProjectToBackend,
+  colId,
+) {
   await prisma.sectionConfigColId.createMany({
     data: [{ id: colId }],
     skipDuplicates: true,

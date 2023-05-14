@@ -1,4 +1,4 @@
-import { ManySectionType } from 'abcde-utils/src/types/section';
+import { ManySectionTypeSaveProjectToBackend } from 'abcde-utils/src/types/section';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import _ from 'lodash';
 import { createIdMap, renameKeys } from 'src/utils/utils';
@@ -20,7 +20,10 @@ export function copySectionConfigs(
   return { newSectionConfigs, sectionConfigIdMap };
 }
 
-export function copySections(sections: ManySectionType, sectionConfigIdMap) {
+export function copySections(
+  sections: ManySectionTypeSaveProjectToBackend,
+  sectionConfigIdMap,
+) {
   const newSections = _.cloneDeep(sections);
   for (const section of Object.values(newSections)) {
     if (section.configId in sectionConfigIdMap) {

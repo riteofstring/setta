@@ -1,7 +1,10 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import { ManySectionType } from 'abcde-utils/src/types/section';
+import {
+  ManySectionType,
+  ManySectionTypeSaveProjectToBackend,
+} from 'abcde-utils/src/types/section';
 import { ManySectionChildrenType } from 'abcde-utils/src/types/sectionChildren';
 import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
 import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
@@ -189,6 +192,8 @@ function getParentId(
   return null;
 }
 
-export function getSectionConfigCol(sections: ManySectionType) {
+export function getSectionConfigCol(
+  sections: ManySectionType | ManySectionTypeSaveProjectToBackend,
+) {
   return _.mapValues(sections, (v) => v.configId);
 }

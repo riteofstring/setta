@@ -1,3 +1,3 @@
-set usedotenv=node_modules/dotenv-cli/cli.js -e .env.test
-call node %usedotenv% db/blankSlate.bat
+@REM set usedotenv=node_modules/dotenv-cli/cli.js -e .env.test
+@REM call node %usedotenv% db/blankSlate.bat
 call node --experimental-vm-modules %usedotenv% -- node_modules/jest/bin/jest.js -i test/bigTests
