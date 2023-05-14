@@ -7,6 +7,7 @@ import {
 import { codeGen } from "./formats/codeGen";
 import { loadProjectToFrontend } from "./formats/loadProjectToFrontend";
 import { saveProjectToBackend } from "./formats/saveProjectToBackend";
+import { seeding } from "./formats/seeding";
 import {
   loadGlobalCodeInfo,
   loadGlobalData,
@@ -24,6 +25,8 @@ export async function loadTestData({ projectName, configName, format }) {
       return saveProjectToBackend(loaded);
     case "codeGen":
       return codeGen(loaded);
+    case "seeding":
+      return seeding(loaded);
     default:
       return {};
   }
@@ -69,14 +72,15 @@ export async function loadAllProjectMetadata() {
   return output;
 }
 
-export async function loadAllProjects() {
+export async function loadAllProjects(format) {
   const output: any[] = [];
   for (const p of PROJECT_NAMES) {
     for (const configName of PROJECT_CONFIG_NAMES[p]) {
       output.push(
-        await _loadTestData({
+        await loadTestData({
           projectName: p,
           configName,
+          format,
         })
       );
     }
