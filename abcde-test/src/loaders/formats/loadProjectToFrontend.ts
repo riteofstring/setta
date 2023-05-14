@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { loadCodeInfoForProject } from "./utils";
 
 export function loadProjectToFrontend(loaded) {
   const {
@@ -13,13 +14,19 @@ export function loadProjectToFrontend(loaded) {
     ...theRest
   } = loaded;
 
+  const allUITypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
+
   const codeInfo = {
-    allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+    allCodeInfo: {
+      ...loadCodeInfoForProject(allCodeInfo, allUITypes),
+      ...kwargInfo,
+    },
   };
+
   return {
     project: processProject(project),
     codeInfo,
-    uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+    uiTypes: allUITypes,
     userCodeInfoMaps: userCodeInfoMaps[loaded.project.owner],
     ...theRest,
   };
