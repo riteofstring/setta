@@ -1,8 +1,7 @@
 import { ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
 import { ManyKwargColType } from "abcde-utils/src/types/kwargCol";
 import { ProjectSaveType } from "abcde-utils/src/types/projectSaveLoad";
-import { ManySectionCoreType } from "abcde-utils/src/types/section";
-import { SectionConfigColType } from "abcde-utils/src/types/sectionConfigCol";
+import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/section";
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
 import {
   isBasePreset,
@@ -42,24 +41,23 @@ export function getProjectData(): ProjectSaveType {
   const kwargInfo = assembleKwargInfos(kwargCols);
 
   const sectionInfosState = useSectionInfos.getState();
-  const sections: ManySectionCoreType = _.mapValues(sectionInfosState.x, (x) =>
-    _.pick(x, [
-      "id",
-      "name",
-      "paramInfoId",
-      "sectionChildrenId",
-      "initialPosition",
-      "size",
-      "chainedFrom",
-    ])
+  const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
+    sectionInfosState.x,
+    (x) =>
+      _.pick(x, [
+        "id",
+        "name",
+        "configId",
+        "paramInfoId",
+        "sectionChildrenId",
+        "initialPosition",
+        "size",
+        "chainedFrom",
+      ])
   );
 
   const sectionChildren = sectionInfosState.allChildren;
   const sectionConfigs = useSectionConfigs.getState().x;
-  const sectionConfigCol: SectionConfigColType = _.mapValues(
-    sectionInfosState.x,
-    (v) => v.configId
-  );
   const sectionDescriptions = useSectionDescription.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
@@ -78,7 +76,6 @@ export function getProjectData(): ProjectSaveType {
     sections,
     sectionChildren,
     sectionConfigs,
-    sectionConfigCol,
     sectionDescriptions,
     projectConfigCodeInfoMaps,
   };

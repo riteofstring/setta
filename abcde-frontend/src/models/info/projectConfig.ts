@@ -37,7 +37,6 @@ export const useProjectConfig = createProjectState(
         "childrenId",
         "children",
         "isDefault",
-        "version",
       ]),
   }))
 );
