@@ -4,6 +4,7 @@ import {
   IN_MEM_PROJECT_CONFIG_NAMES,
   IN_MEM_PROJECT_NAMES,
 } from "./createInMem";
+import { codeGen } from "./formats/codeGen";
 import { loadProjectToFrontend } from "./formats/loadProjectToFrontend";
 import { saveProjectToBackend } from "./formats/saveProjectToBackend";
 import {
@@ -21,6 +22,8 @@ export async function loadTestData({ projectName, configName, format }) {
       return loadProjectToFrontend(loaded);
     case "saveProjectToBackend":
       return saveProjectToBackend(loaded);
+    case "codeGen":
+      return codeGen(loaded);
     default:
       return {};
   }
