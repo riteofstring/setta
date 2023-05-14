@@ -1,14 +1,10 @@
-import { useStoreApi } from "react-flow-renderer";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { setZIndices } from "thunks/sections/sectionPositions";
 import { getHighestAncestor } from "thunks/sections/sectionSizes";
 
 export function useSetReactFlowActiveSectionOnClick(sectionId) {
-  const store = useStoreApi();
-
   return () => {
     const topMostAncestor = getHighestAncestor(sectionId);
-    store.setState((x) => {
-      x.addSelectedNodes([topMostAncestor]);
-      return x;
-    });
+    setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
   };
 }
