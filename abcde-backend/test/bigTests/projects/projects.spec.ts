@@ -2,8 +2,8 @@ import { loadSpecificTestData } from 'abcde-test/src/loaders/helpers';
 import { loadTestData } from 'abcde-test/src/loaders/loaders';
 import { LOGIN, PROJECTS } from 'abcde-utils/src/routes';
 import { app } from 'src/app/app';
+import { loadOne } from 'src/db/projects/load';
 import supertest from 'supertest';
-import { loadOne } from '../../../src/db/projects/load';
 
 const TEST_USER = '25961114-6655-4e2c-b70f-e2e3aaa84131';
 
