@@ -251,8 +251,6 @@ export default {
     },
     originInfoId: {
       sectionId: "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
-      uiTypeColId: null,
-      paramInfoId: null,
     },
     isForChildOfOriginInfoId: false,
   },
