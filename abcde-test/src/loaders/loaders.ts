@@ -1,110 +1,106 @@
-import { CODE_INFOS, NON_PROJECT_STATES, PROJECT_STATES } from "./constants";
+import _ from "lodash";
+import { PROJECT_CONFIG_NAMES, PROJECT_NAMES } from "./constants";
+import {
+  IN_MEM_PROJECT_CONFIG_NAMES,
+  IN_MEM_PROJECT_NAMES,
+} from "./createInMem";
+import { loadProjectToFrontend } from "./formats/loadProjectToFrontend";
+import { saveProjectToBackend } from "./formats/saveProjectToBackend";
+import {
+  loadGlobalCodeInfo,
+  loadGlobalData,
+  loadProjectMetadata,
+  loadProjectSpecificData,
+} from "./helpers";
 
-export async function loadGlobalData() {
-  const output = {};
-  for (const k of NON_PROJECT_STATES) {
-    output[k] = await loadSpecificTestData({ name: k });
+export async function loadTestData({ projectName, configName, format }) {
+  const loaded = await _loadTestData({ projectName, configName });
+
+  switch (format) {
+    case "loadProjectToFrontend":
+      return loadProjectToFrontend(loaded);
+    case "saveProjectToBackend":
+      return saveProjectToBackend(loaded);
+    default:
+      return {};
   }
-  return output;
 }
 
-export async function loadSpecificTestData({
-  name,
-  projectName = "",
-  subFolderName = "",
-}) {
-  const ext = ".ts";
-
-  try {
-    const output = (
-      await import(
-        /* @vite-ignore */ `../data/${projectName}/${subFolderName}/${name}${ext}`
-      )
-    ).default;
-    return output;
-  } catch (e) {
-    return {};
-  }
-}
-
-export async function loadProjectSpecificData({ projectName, subFolderName }) {
-  const output = {};
-  for (const k of PROJECT_STATES) {
-    output[k] = await loadSpecificTestData({
-      name: k,
-      projectName,
-      subFolderName,
-    });
-  }
-  return output;
-}
-
-export async function loadOneProjectMetadata({ projectName, subFolderName }) {
-  const loaded = {};
-
-  loaded["project"] = await loadSpecificTestData({
-    name: "project",
+async function _loadTestData({ projectName, configName }) {
+  const loaded = await loadProjectMetadata({
     projectName,
-  });
-  loaded["projectConfig"] = await loadSpecificTestData({
-    name: "projectConfig",
-    projectName,
-    subFolderName,
-  });
-
-  return loaded;
-}
-
-export async function loadGlobalCodeInfo() {
-  const output: any = {};
-  for (const k of CODE_INFOS) {
-    Object.assign(
-      output,
-      await loadSpecificTestData({ name: k, projectName: "_codeInfo" })
-    );
-  }
-  return output;
-}
-
-export async function loadOneProject({
-  projectName = "simpleTrainTest",
-  subFolderName = "simpleConfig1",
-}) {
-  const loaded = await loadOneProjectMetadata({
-    projectName,
-    subFolderName,
+    configName,
   });
 
   Object.assign(loaded, await loadGlobalData());
   Object.assign(
     loaded,
-    await loadProjectSpecificData({ projectName, subFolderName })
+    await loadProjectSpecificData({ projectName, configName })
   );
   loaded["allCodeInfo"] = await loadGlobalCodeInfo();
 
   return loaded;
-
-  // const {
-  //   allCodeInfo,
-  //   kwargInfo,
-  //   uiTypes,
-  //   baseUITypes,
-  //   presetUITypes,
-  //   userCodeInfoMaps,
-  //   sectionCurrChildren,
-  //   ...theRest
-  // } = loaded as any;
-
-  // } else if (forCodeGen) {
-  //   const codeInfo = {
-  //     allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-  //   };
-  //   return {
-  //     codeInfo,
-  //     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-  //     sectionCurrChildren,
-  //     ...theRest,
-  //   };
-  // }
-  // }
 }
+
+export async function loadAllProjectMetadata() {
+  let output: any[] = [];
+  for (const p of [...PROJECT_NAMES, ...IN_MEM_PROJECT_NAMES]) {
+    for (const configName of {
+      ...PROJECT_CONFIG_NAMES,
+      ...IN_MEM_PROJECT_CONFIG_NAMES,
+    }[p]) {
+      const loaded = await loadProjectMetadata({
+        projectName: p,
+        configName,
+      });
+      output.push(loaded);
+    }
+  }
+
+  // groupby project id, and put configs into a list for each project
+  output = _.groupBy(output, (v) => v.project.id);
+  for (const [k, v] of Object.entries(output)) {
+    output[k] = { ...v[0].project, configs: v.map((x) => x.projectConfig) };
+  }
+  return output;
+}
+
+export async function loadAllProjects() {
+  const output: any[] = [];
+  for (const p of PROJECT_NAMES) {
+    for (const configName of PROJECT_CONFIG_NAMES[p]) {
+      output.push(
+        await loadTestData({
+          projectName: p,
+          configName,
+          format: "saveProjectToBackend",
+        })
+      );
+    }
+  }
+  return output;
+}
+
+// const {
+//   allCodeInfo,
+//   kwargInfo,
+//   uiTypes,
+//   baseUITypes,
+//   presetUITypes,
+//   userCodeInfoMaps,
+//   sectionCurrChildren,
+//   ...theRest
+// } = loaded as any;
+
+// } else if (forCodeGen) {
+//   const codeInfo = {
+//     allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+//   };
+//   return {
+//     codeInfo,
+//     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+//     sectionCurrChildren,
+//     ...theRest,
+//   };
+// }
+// }

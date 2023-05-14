@@ -1,11 +1,9 @@
 import { createNewId } from "abcde-utils/src/utils";
-import { PROJECT_STATES } from "../constants";
-import { loadGlobalData } from "../loaders";
 
 export const IN_MEM_PROJECT_NAMES = [];
 export const IN_MEM_PROJECT_CONFIG_NAMES = {};
-const IN_MEM_PROJECTS = {};
-const IN_MEM_PROJECT_CONFIGS = {};
+export const IN_MEM_PROJECTS = {};
+export const IN_MEM_PROJECT_CONFIGS = {};
 
 export function createInMemProject(name) {
   let project, projectConfig;
@@ -38,21 +36,4 @@ export function createInMemProject(name) {
   }
 
   return { ...project, configs: [projectConfig] };
-}
-
-export async function loadInMemProject({ projectName, configName }) {
-  const project = IN_MEM_PROJECTS[projectName];
-  const projectConfig = IN_MEM_PROJECT_CONFIGS[projectName][configName];
-  const loaded = { project, projectConfig };
-  Object.assign(loaded, await loadGlobalData());
-  Object.assign(loaded, loadProjectSpecificDataInMem());
-  return loaded;
-}
-
-function loadProjectSpecificDataInMem() {
-  const output = {};
-  for (const k of PROJECT_STATES) {
-    output[k] = {};
-  }
-  return output;
 }
