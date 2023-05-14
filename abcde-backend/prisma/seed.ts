@@ -1,8 +1,8 @@
-import { loadAllProjects } from 'abcde-test/src/loaders/backend/loaders';
 import {
   loadGlobalCodeInfo,
   loadSpecificTestData,
-} from 'abcde-test/src/loaders/loaders';
+} from 'abcde-test/src/loaders/helpers';
+import { loadAllProjects } from 'abcde-test/src/loaders/loaders';
 import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/save';

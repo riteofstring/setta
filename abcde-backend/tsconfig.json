@@ -18,9 +18,10 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "paths": {"abcde-utils/*": ["../abcde-utils/*"]}
+    "paths": { "abcde-utils/*": ["../abcde-utils/*"] }
   },
   "ts-node": {
-    "require": ["tsconfig-paths/register"]
+    "require": ["tsconfig-paths/register"],
+    "transpileOnly": true
   }
 }
