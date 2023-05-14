@@ -44,7 +44,7 @@ function processUIType(uiType) {
         'refUIType',
       ].includes(key)
     ) {
-      output = { ...output, ...processSpecificUITypeConfig(val) };
+      output = { ...output, ...processSpecificUITypeConfig(key, val) };
     } else if (key !== 'ownerId') {
       output[key] = val;
     }
@@ -52,14 +52,13 @@ function processUIType(uiType) {
   return reshapeOriginInfoId(output);
 }
 
-function processSpecificUITypeConfig(uiTypeConfig) {
+function processSpecificUITypeConfig(uiTypeType: string, uiTypeConfig) {
   if (uiTypeConfig) {
     const { idid, ...config } = uiTypeConfig;
-    if ('collections' in config) {
+    if (uiTypeType === 'sectionUIType') {
       config.collections = config.collections.map((x) => x.id);
-    }
-    if ('outputGroupId' in config) {
       config.outputGroup = config.outputGroupId;
+      config.social = null; //TODO actually load this instead of just setting to null
       delete config.outputGroupId;
     }
     return { config };
