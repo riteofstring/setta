@@ -1,8 +1,9 @@
-import { DEFAULT_USER_ID } from "../constants";
+import _ from "lodash";
 
 export function loadProjectToFrontend(loaded) {
   const {
     allCodeInfo,
+    project,
     kwargInfo,
     uiTypes,
     baseUITypes,
@@ -16,9 +17,14 @@ export function loadProjectToFrontend(loaded) {
     allCodeInfo: { ...allCodeInfo, ...kwargInfo },
   };
   return {
+    project: processProject(project),
     codeInfo,
     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-    userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
+    userCodeInfoMaps: userCodeInfoMaps[loaded.project.owner],
     ...theRest,
   };
+}
+
+function processProject(project) {
+  return _.pick(project, ["id", "name"]);
 }

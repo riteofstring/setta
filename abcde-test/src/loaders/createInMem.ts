@@ -1,11 +1,11 @@
 import { createNewId } from "abcde-utils/src/utils";
 
-export const IN_MEM_PROJECT_NAMES = [];
+export const IN_MEM_PROJECT_NAMES: string[] = [];
 export const IN_MEM_PROJECT_CONFIG_NAMES = {};
 export const IN_MEM_PROJECTS = {};
 export const IN_MEM_PROJECT_CONFIGS = {};
 
-export function createInMemProject(name) {
+export function createInMemProject(name: string) {
   let project, projectConfig;
   const configName = "config1";
   if (IN_MEM_PROJECT_NAMES.includes(name)) {

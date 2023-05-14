@@ -216,7 +216,7 @@ export default {
     },
     initialPosition: {
       x: 870.1704827357134,
-      y: 12.761321374011231,
+      y: 12.76132137401123,
     },
     chainedFrom: null,
   },

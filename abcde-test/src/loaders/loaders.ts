@@ -48,6 +48,7 @@ async function _loadTestData({ projectName, configName }) {
 export async function loadAllProjectMetadata() {
   let output: any[] = [];
   for (const p of [...PROJECT_NAMES, ...IN_MEM_PROJECT_NAMES]) {
+    // @ts-ignore
     for (const configName of {
       ...PROJECT_CONFIG_NAMES,
       ...IN_MEM_PROJECT_CONFIG_NAMES,
@@ -73,10 +74,9 @@ export async function loadAllProjects() {
   for (const p of PROJECT_NAMES) {
     for (const configName of PROJECT_CONFIG_NAMES[p]) {
       output.push(
-        await loadTestData({
+        await _loadTestData({
           projectName: p,
           configName,
-          format: "saveProjectToBackend",
         })
       );
     }
