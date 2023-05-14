@@ -1,53 +1,43 @@
-import _ from "lodash";
-import { PROJECT_CONFIG_NAMES, PROJECT_NAMES } from "../constants";
-import { loadOneProject, loadOneProjectMetadata } from "../loaders";
-import {
-  IN_MEM_PROJECT_CONFIG_NAMES,
-  IN_MEM_PROJECT_NAMES,
-  loadInMemProject,
-} from "./inMem";
-
-export async function loadAllProjectsMetadata() {
-  let output: any[] = [];
-  for (const p of [...PROJECT_NAMES, ...IN_MEM_PROJECT_NAMES]) {
-    for (const subFolderName of {
-      ...PROJECT_CONFIG_NAMES,
-      ...IN_MEM_PROJECT_CONFIG_NAMES,
-    }[p]) {
-      let loaded;
-      if (PROJECT_NAMES.includes(p)) {
-        loaded = await loadOneProjectMetadata({
-          projectName: p,
-          subFolderName,
-        });
-      } else {
-        loaded = await loadInMemProject({
-          projectName: p,
-          configName: subFolderName,
-        });
-      }
-      output.push(loaded);
-    }
-  }
-
-  // groupby project id, and put configs into a list for each project
-  output = _.groupBy(output, (v) => v.project.id);
-  for (const [k, v] of Object.entries(output)) {
-    output[k] = { ...v[0].project, configs: v.map((x) => x.projectConfig) };
-  }
-  return output;
-}
+import { DEFAULT_USER_ID, PROJECT_NAMES } from "../constants";
+import { loadOneProject } from "../loaders";
+import { loadInMemProject } from "./inMem";
 
 export async function loadOneProjectFrontend({ projectName, configName }) {
+  let loaded;
   if (PROJECT_NAMES.includes(projectName)) {
-    return await loadOneProject({
+    loaded = await loadOneProject({
       projectName,
       subFolderName: configName,
     });
   } else {
-    return await loadInMemProject({
+    loaded = await loadInMemProject({
       projectName,
       configName: configName,
     });
   }
+
+  return forFrontend(loaded);
+}
+
+function forFrontend(loaded) {
+  const {
+    allCodeInfo,
+    kwargInfo,
+    uiTypes,
+    baseUITypes,
+    presetUITypes,
+    userCodeInfoMaps,
+    sectionCurrChildren,
+    ...theRest
+  } = loaded;
+
+  const codeInfo = {
+    allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+  };
+  return {
+    codeInfo,
+    uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+    userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
+    ...theRest,
+  };
 }

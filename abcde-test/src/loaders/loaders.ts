@@ -1,8 +1,8 @@
-import { CODE_INFOS, DEFAULT_USER_ID, PROJECT_STATES } from "./constants";
+import { CODE_INFOS, NON_PROJECT_STATES, PROJECT_STATES } from "./constants";
 
 export async function loadGlobalData() {
   const output = {};
-  for (const k of ["baseUITypes", "userCodeInfoMaps", "presetUITypes"]) {
+  for (const k of NON_PROJECT_STATES) {
     output[k] = await loadSpecificTestData({ name: k });
   }
   return output;
@@ -69,8 +69,6 @@ export async function loadGlobalCodeInfo() {
 export async function loadOneProject({
   projectName = "simpleTrainTest",
   subFolderName = "simpleConfig1",
-  forSavingToBackend = false,
-  forCodeGen = false,
 }) {
   const loaded = await loadOneProjectMetadata({
     projectName,
@@ -84,44 +82,29 @@ export async function loadOneProject({
   );
   loaded["allCodeInfo"] = await loadGlobalCodeInfo();
 
-  const {
-    allCodeInfo,
-    kwargInfo,
-    uiTypes,
-    baseUITypes,
-    presetUITypes,
-    userCodeInfoMaps,
-    sectionCurrChildren,
-    ...theRest
-  } = loaded as any;
+  return loaded;
 
-  if (forSavingToBackend) {
-    // For saving a project, we don't need base uitypes
-    return {
-      kwargInfo,
-      uiTypes: { ...uiTypes, ...presetUITypes },
-      ...theRest,
-    };
-  } else if (forCodeGen) {
-    const codeInfo = {
-      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-    };
-    return {
-      codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-      sectionCurrChildren,
-      ...theRest,
-    };
-  } else {
-    // This means we're testing the frontend, so we need everything
-    const codeInfo = {
-      allCodeInfo: { ...allCodeInfo, ...kwargInfo },
-    };
-    return {
-      codeInfo,
-      uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-      userCodeInfoMaps: userCodeInfoMaps[DEFAULT_USER_ID],
-      ...theRest,
-    };
-  }
+  // const {
+  //   allCodeInfo,
+  //   kwargInfo,
+  //   uiTypes,
+  //   baseUITypes,
+  //   presetUITypes,
+  //   userCodeInfoMaps,
+  //   sectionCurrChildren,
+  //   ...theRest
+  // } = loaded as any;
+
+  // } else if (forCodeGen) {
+  //   const codeInfo = {
+  //     allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+  //   };
+  //   return {
+  //     codeInfo,
+  //     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+  //     sectionCurrChildren,
+  //     ...theRest,
+  //   };
+  // }
+  // }
 }

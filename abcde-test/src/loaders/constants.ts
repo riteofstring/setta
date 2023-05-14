@@ -42,3 +42,9 @@ export const PROJECT_STATES = [
   "outputGroups",
   "runs",
 ];
+
+export const NON_PROJECT_STATES = [
+  "baseUITypes",
+  "userCodeInfoMaps",
+  "presetUITypes",
+];
