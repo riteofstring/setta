@@ -1,6 +1,7 @@
 import { loadSpecificTestData } from 'abcde-test/src/loaders/helpers';
 import { loadTestData } from 'abcde-test/src/loaders/loaders';
 import { LOAD_PROJECT, LOGIN, PROJECTS } from 'abcde-utils/src/routes';
+import { compareObjs } from 'abcde-utils/src/testUtils';
 import { app } from 'src/app/app';
 import { loadOne } from 'src/db/projects/load';
 import supertest from 'supertest';
@@ -67,8 +68,5 @@ async function checkProject(retrieved, projectName, configName) {
   // TODO: figure out globalDefaults and projectDefaults
   const { projectDefaults, runs, ...theRest } = correctOutput;
 
-  expect(Object.keys(retrieved).sort()).toEqual(Object.keys(theRest).sort());
-  for (const k of Object.keys(retrieved)) {
-    expect(retrieved[k], `${k} doesn't match`).toEqual(correctOutput[k]);
-  }
+  compareObjs(expect, retrieved, theRest);
 }
