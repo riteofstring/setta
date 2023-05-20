@@ -3,11 +3,12 @@ import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
-  const [topLevelIds, topLevelPositions] = useTopLevelSectionPositions();
-  const initialNodes = topLevelIds.map((x, idx) => ({
+  const { ids, initialPositions, zIndices } = useTopLevelSectionPositions();
+  const initialNodes = ids.map((x, idx) => ({
     id: x,
-    position: topLevelPositions[idx],
+    position: initialPositions[idx],
     type: "sectionContainerNode",
+    zIndex: zIndices[idx],
   }));
 
   return (

@@ -1,8 +1,9 @@
 import _ from "lodash";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 
-export function setPositionState(nodes) {
+export function setPositionState(nodes, incrementVersion) {
   const newValues = {};
   const si = useSectionInfos.getState();
   for (const n of nodes) {
@@ -12,6 +13,30 @@ export function setPositionState(nodes) {
   }
   if (_.size(newValues) > 0) {
     si.setSectionInfoAttrObjInput({ newValues });
-    maybeIncrementProjectStateVersion(true);
+    maybeIncrementProjectStateVersion(incrementVersion);
   }
+}
+
+export function setZIndices(nodes, incrementVersion) {
+  const topLevelIds = new Set(useProjectConfig.getState().children);
+  nodes.forEach((n) => topLevelIds.delete(n.id));
+  const si = useSectionInfos.getState();
+  const topLevelInfos = Object.values(_.pick(si.x, [...topLevelIds]));
+  topLevelInfos.sort((a, b) => a.zIndex - b.zIndex); //sort in increasing order of zindex
+
+  const newValues = {};
+  for (let i = 0; i < topLevelInfos.length; i++) {
+    newValues[topLevelInfos[i].id] = { zIndex: i };
+  }
+  for (let i = 0; i < nodes.length; i++) {
+    newValues[nodes[i].id] = { zIndex: i + topLevelInfos.length };
+  }
+
+  si.setSectionInfoAttrObjInput({ newValues });
+  maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+export function setPositionAndZIndices(nodes) {
+  setPositionState(nodes, false);
+  setZIndices(nodes, true);
 }

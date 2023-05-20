@@ -42,7 +42,7 @@ export function ResponsiveControls() {
       })
     );
 
-    setPositionState(Array.from(store.getState().nodeInternals.values()));
+    setPositionState(Array.from(store.getState().nodeInternals.values()), true);
   }
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
