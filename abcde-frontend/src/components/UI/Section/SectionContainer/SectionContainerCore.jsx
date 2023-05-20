@@ -11,10 +11,7 @@ import {
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
-import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
-import { setZIndices } from "thunks/sections/sectionPositions";
-import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
@@ -29,12 +26,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const setActiveSection = useActiveSection((x) => x.setId);
   const toggleDescVis = useToggleSectionDescription(sectionId);
 
-  function onClick() {
-    setActiveSection(sectionId);
-    const topMostAncestor = getHighestAncestor(sectionId);
-    setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
-  }
-
   const boxShadow = isActiveSection
     ? "shadow-2xl"
     : "shadow-md active:shadow-2xl";
@@ -42,7 +33,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   return (
     <div
       className={`rounded-xl bg-white ${boxShadow} dndline w-min  transition-all duration-150`}
-      onClick={onClick}
+      onClick={() => setActiveSection(sectionId)}
       data-testid={`${sectionId} section core`}
     >
       <SectionContainerCoreResizable

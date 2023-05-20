@@ -1,4 +1,5 @@
 import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
+import { useSetReactFlowActiveSectionOnClick } from "hooks/useSetReactFlowActiveSectionOnClick";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useStoreApi } from "react-flow-renderer";
@@ -14,6 +15,7 @@ export function RefInputConfig() {
 export function RefInput({ sectionId, value, onBlur, className }) {
   // TODO set an equalityFn here to reduce renders
   const availableSections = useSectionInfos((x) => x.x);
+  const onClick = useSetReactFlowActiveSectionOnClick(sectionId);
   const allItems = [
     { group: "sections", items: Object.values(availableSections) },
   ];
@@ -35,6 +37,7 @@ export function RefInput({ sectionId, value, onBlur, className }) {
         onSelectedItemChange={onBlur}
         className={className}
         small={true}
+        onClick={onClick}
       />
       <div>
         <button

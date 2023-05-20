@@ -9,8 +9,7 @@ export function useTopLevelSectionPositions() {
     topLevelSectionIds,
     "initialPosition"
   );
-  const zIndices = useGetManySectionInfos(topLevelSectionIds, "zIndex");
-  return { ids, initialPositions, zIndices };
+  return [ids, initialPositions];
 }
 
 export function useIsTopLevelSection(sectionId: string) {
