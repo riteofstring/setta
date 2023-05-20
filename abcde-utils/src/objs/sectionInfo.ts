@@ -13,6 +13,7 @@ export function newSectionInfo({
   parentId = null,
   parentName = "",
   chainedFrom = null,
+  zIndex = 0,
 }: Partial<SectionType> & {
   parentName?: string;
   size: SizeType;
@@ -27,5 +28,6 @@ export function newSectionInfo({
     size,
     initialPosition,
     chainedFrom,
+    zIndex,
   };
 }

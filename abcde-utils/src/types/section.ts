@@ -16,6 +16,7 @@ export type SectionType = {
   size: SizeType;
   initialPosition: SectionPositionType;
   chainedFrom: string | null;
+  zIndex: number;
 };
 
 export type ManySectionType = ManyOf<SectionType>;
