@@ -15,6 +15,7 @@ export default {
       y: 58.3125,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3": {
     id: "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3",
@@ -32,6 +33,7 @@ export default {
       y: 188.3125,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "716d7af5-ea92-4285-aaf5-adf988d051f7": {
     id: "716d7af5-ea92-4285-aaf5-adf988d051f7",
@@ -49,6 +51,7 @@ export default {
       y: 33.06637302451537,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "de2caec1-254d-486e-aa86-b00029a52683": {
     id: "de2caec1-254d-486e-aa86-b00029a52683",
@@ -66,6 +69,7 @@ export default {
       y: 999.9433029745574,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "7f6aca35-b44c-489e-80f8-261c80f61405": {
     id: "7f6aca35-b44c-489e-80f8-261c80f61405",
@@ -83,6 +87,7 @@ export default {
       y: 577.397219199873,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "c49578eb-dd0a-43bd-ba4a-9bf687d04b14": {
     id: "c49578eb-dd0a-43bd-ba4a-9bf687d04b14",
@@ -100,6 +105,7 @@ export default {
       y: 0,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "7b3c47ac-a773-4733-86f9-041ce9d5a3c8": {
     id: "7b3c47ac-a773-4733-86f9-041ce9d5a3c8",
@@ -117,6 +123,7 @@ export default {
       y: 1147.0704429363243,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "a90d6038-24c8-40c3-a9d7-fc10c8128f05": {
     id: "a90d6038-24c8-40c3-a9d7-fc10c8128f05",
@@ -134,6 +141,7 @@ export default {
       y: 49.496427947724584,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
   "03dedf55-ebf8-4529-bc10-4333c7fa769f": {
     id: "03dedf55-ebf8-4529-bc10-4333c7fa769f",
@@ -151,5 +159,6 @@ export default {
       y: 68.05797498560713,
     },
     chainedFrom: null,
+    zIndex: 0,
   },
 };
