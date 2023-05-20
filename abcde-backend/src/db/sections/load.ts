@@ -52,6 +52,7 @@ export async function getSections(sectionConfigCol: SectionConfigColType) {
     chainedFrom: v.chainedFromId,
     configId: sectionConfigCol[v.id],
     parentId: getParentId(v.id, sectionChildren),
+    zIndex: v.zIndex,
   }));
 
   _.forEach(idsAsKeys, (v) => {

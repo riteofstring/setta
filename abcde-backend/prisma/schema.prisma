@@ -75,6 +75,7 @@ model Section {
   chainedFrom    Section?           @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
   chainedTo      Section[]          @relation("SectionChainedFrom")
   chainedFromId  String?            @db.Uuid
+  zIndex         Int
 }
 
 model SectionDescription {
