@@ -1,7 +1,7 @@
 import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
-import { useReactFlow, useStoreApi } from "react-flow-renderer";
+import { useReactFlow, useStoreApi } from "reactflow";
 import { OVERVIEW, PANEID } from "utils/constants";
 
 export function relativePos(sectionId) {

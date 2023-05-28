@@ -7,7 +7,7 @@ import {
   Controls,
   useReactFlow,
   useStoreApi,
-} from "react-flow-renderer";
+} from "reactflow";
 import { RiLayoutFill } from "react-icons/ri";
 import { setPositionState } from "thunks/sections/sectionPositions";
 import { OVERVIEW } from "utils/constants";
