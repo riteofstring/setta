@@ -1246,29 +1246,29 @@
   dependencies:
     "@babel/runtime" "^7.13.10"
 
-"@reactflow/background@11.0.3":
-  version "11.0.3"
-  resolved "https://registry.yarnpkg.com/@reactflow/background/-/background-11.0.3.tgz#de27bbf1484b7f349db0d99b1ba284c5a97b539e"
-  integrity sha512-y4xiyhy1mN/vjipY1c2VGHrU20FPjTT3R2aEdSE3XhmP+tKWtTYTgOGlkHmpWA8oFJjTtup2qOOY/Zp/g9XY1Q==
+"@reactflow/background@11.0.5":
+  version "11.0.5"
+  resolved "https://registry.yarnpkg.com/@reactflow/background/-/background-11.0.5.tgz#9d086809251b46269cf69f72d2897d6101e11bfc"
+  integrity sha512-rQKqD3gCjhsy6tuKkRrSuCgZj66tdfdX6t58d73+84+lud1O3f+vj/JfFZC9ee5ZY4R/5kVzOpKOAPaGQZmhig==
   dependencies:
     "@babel/runtime" "^7.18.9"
-    "@reactflow/core" "11.1.2"
+    "@reactflow/core" "11.3.0"
     classcat "^5.0.3"
     zustand "^4.1.1"
 
-"@reactflow/controls@11.0.3":
-  version "11.0.3"
-  resolved "https://registry.yarnpkg.com/@reactflow/controls/-/controls-11.0.3.tgz#0fccb1a4e8a2bf06c99aa088429810bf515c95f3"
-  integrity sha512-O0oqRigrPk+5dFsvzdFi8eu964XBnZARbNrEIh07hHDBTF7pqCIq+NDwYmTLvnhyLjb/xAKM9d5/d3afe2x7tQ==
+"@reactflow/controls@11.0.5":
+  version "11.0.5"
+  resolved "https://registry.yarnpkg.com/@reactflow/controls/-/controls-11.0.5.tgz#d8204dd8bc579c5795c8fbaaf4c43a7bfce4112b"
+  integrity sha512-a8rWtFnEZk7HyWbaWWjsaFssr5q++p9iCKVzuvYUuXFveJwTofRdkjq2nKlrszrMJLNeNZwDi9mYIwVqqds9aQ==
   dependencies:
     "@babel/runtime" "^7.18.9"
-    "@reactflow/core" "11.1.2"
+    "@reactflow/core" "11.3.0"
     classcat "^5.0.3"
 
-"@reactflow/core@11.1.2":
-  version "11.1.2"
-  resolved "https://registry.yarnpkg.com/@reactflow/core/-/core-11.1.2.tgz#fbd7161393854e406d390eddf7498991ae45be21"
-  integrity sha512-tq3jA88c+uZqLvyBarU6q9v+Yh0l507tb3A2JRKB9ms10EAKlfoZttkquvxXtqeSTpdeWYoenf7yZ34CFLAcdg==
+"@reactflow/core@11.3.0":
+  version "11.3.0"
+  resolved "https://registry.yarnpkg.com/@reactflow/core/-/core-11.3.0.tgz#321d47d9edfc15b41e85268563ae0e9407062dac"
+  integrity sha512-RmxP/Vy7aImu4WfFYcvG25zWJirriMupaz25qX+75jbtakTKZHCTurA7jI6NgubUY1OlwcXqG9surCQgSu6+hQ==
   dependencies:
     "@types/d3" "^7.4.0"
     "@types/d3-drag" "^3.0.1"
@@ -1280,13 +1280,27 @@
     d3-zoom "^3.0.0"
     zustand "^4.1.1"
 
-"@reactflow/minimap@11.0.3":
-  version "11.0.3"
-  resolved "https://registry.yarnpkg.com/@reactflow/minimap/-/minimap-11.0.3.tgz#f1fdc10fda42fe7258de2ab23720d825f27746c3"
-  integrity sha512-A89VCUh7MALueLo4EZsKL+eLyVEn1EdBm5NF5ly3DNN6dYkPviKnLLgsPKE8Hy5pcUrjqDxter/dwnUxqFPf3A==
+"@reactflow/minimap@11.2.0":
+  version "11.2.0"
+  resolved "https://registry.yarnpkg.com/@reactflow/minimap/-/minimap-11.2.0.tgz#e635df2b6de88b13ecb614a695d648d14a58f3f4"
+  integrity sha512-CORkxIVI+LNOk1fHRPSwiBFBXglt6gfHU+V5hBzF8ZsOhs0gxgHDTw+2ktvMsRkSKnnT58uPXEvdseksVonI2g==
   dependencies:
     "@babel/runtime" "^7.18.9"
-    "@reactflow/core" "11.1.2"
+    "@reactflow/core" "11.3.0"
+    "@types/d3-selection" "^3.0.3"
+    "@types/d3-zoom" "^3.0.1"
+    classcat "^5.0.3"
+    d3-selection "^3.0.0"
+    d3-zoom "^3.0.0"
+    zustand "^4.1.1"
+
+"@reactflow/node-toolbar@1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@reactflow/node-toolbar/-/node-toolbar-1.0.0.tgz#f9870cbb8e57ebafba4678d3ba8c6281012e752c"
+  integrity sha512-UP/X7Y9rfPVDEipOPP/MXWOK02+Yzuo3PIEPFDebDtUPDLu5EKeTENKAgpihy/YG5X2Bi2eh5XRs0bc3CsmRiw==
+  dependencies:
+    "@babel/runtime" "^7.18.9"
+    "@reactflow/core" "11.3.0"
     classcat "^5.0.3"
     zustand "^4.1.1"
 
@@ -5616,15 +5630,16 @@ react@18.2.0:
   dependencies:
     loose-envify "^1.1.0"
 
-reactflow@11.1.2:
-  version "11.1.2"
-  resolved "https://registry.yarnpkg.com/reactflow/-/reactflow-11.1.2.tgz#c816913422becd84a62794d79a88f7c0a9b8f42c"
-  integrity sha512-cvGcm4qfO/I6TpVzPYq0ya7aurdqH5BPjp9bU4EO572Uwo7/qFX6KJUFWDzBUYPPMnmUoQiEXcTdiENLkn9JKQ==
+reactflow@11.3.0:
+  version "11.3.0"
+  resolved "https://registry.yarnpkg.com/reactflow/-/reactflow-11.3.0.tgz#68d91c4fd2c1ee0d5c1305c6fb8d898339c35de0"
+  integrity sha512-KU3Uwww0hjvF0Er5sA0Qy+e3KPJOn5bLpyxVooyef0MLDk/W5ybCmMvKKnML705GtJWChzHPNzHST5hCf5OflA==
   dependencies:
-    "@reactflow/background" "11.0.3"
-    "@reactflow/controls" "11.0.3"
-    "@reactflow/core" "11.1.2"
-    "@reactflow/minimap" "11.0.3"
+    "@reactflow/background" "11.0.5"
+    "@reactflow/controls" "11.0.5"
+    "@reactflow/core" "11.3.0"
+    "@reactflow/minimap" "11.2.0"
+    "@reactflow/node-toolbar" "1.0.0"
 
 read-cache@^1.0.0:
   version "1.0.0"
