@@ -300,27 +300,27 @@
   dependencies:
     tslib "^2.0.0"
 
-"@dnd-kit/core@6.0.5":
-  version "6.0.5"
-  resolved "https://registry.yarnpkg.com/@dnd-kit/core/-/core-6.0.5.tgz#5670ad0dcc83cd51dbf2fa8c6a5c8af4ac0c1989"
-  integrity sha512-3nL+Zy5cT+1XwsWdlXIvGIFvbuocMyB4NBxTN74DeBaBqeWdH9JsnKwQv7buZQgAHmAH+eIENfS1ginkvW6bCw==
+"@dnd-kit/core@6.0.8":
+  version "6.0.8"
+  resolved "https://registry.yarnpkg.com/@dnd-kit/core/-/core-6.0.8.tgz#040ae13fea9787ee078e5f0361f3b49b07f3f005"
+  integrity sha512-lYaoP8yHTQSLlZe6Rr9qogouGUz9oRUj4AHhDQGQzq/hqaJRpFo65X+JKsdHf8oUFBzx5A+SJPUvxAwTF2OabA==
   dependencies:
     "@dnd-kit/accessibility" "^3.0.0"
-    "@dnd-kit/utilities" "^3.2.0"
+    "@dnd-kit/utilities" "^3.2.1"
     tslib "^2.0.0"
 
-"@dnd-kit/modifiers@6.0.0":
-  version "6.0.0"
-  resolved "https://registry.yarnpkg.com/@dnd-kit/modifiers/-/modifiers-6.0.0.tgz#61d8834132f791a68e9e93be5426becbcd45c078"
-  integrity sha512-V3+JSo6/BTcgPRHiNUTSKgqVv/doKXg+T4Z0QvKiiXp+uIyJTUtPkQOBRQApUWi3ApBhnoWljyt/3xxY4fTd0Q==
+"@dnd-kit/modifiers@6.0.1":
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/@dnd-kit/modifiers/-/modifiers-6.0.1.tgz#9e39b25fd6e323659604cc74488fe044d33188c8"
+  integrity sha512-rbxcsg3HhzlcMHVHWDuh9LCjpOVAgqbV78wLGI8tziXY3+qcMQ61qVXIvNKQFuhj75dSfD+o+PYZQ/NUk2A23A==
   dependencies:
-    "@dnd-kit/utilities" "^3.2.0"
+    "@dnd-kit/utilities" "^3.2.1"
     tslib "^2.0.0"
 
-"@dnd-kit/sortable@7.0.1":
-  version "7.0.1"
-  resolved "https://registry.yarnpkg.com/@dnd-kit/sortable/-/sortable-7.0.1.tgz#99c6012bbab4d8bb726c0eef7b921a338c404fdb"
-  integrity sha512-n77qAzJQtMMywu25sJzhz3gsHnDOUlEjTtnRl8A87rWIhnu32zuP+7zmFjwGgvqfXmRufqiHOSlH7JPC/tnJ8Q==
+"@dnd-kit/sortable@7.0.2":
+  version "7.0.2"
+  resolved "https://registry.yarnpkg.com/@dnd-kit/sortable/-/sortable-7.0.2.tgz#791d550872457f3f3c843e00d159b640f982011c"
+  integrity sha512-wDkBHHf9iCi1veM834Gbk1429bd4lHX4RpAwT0y2cHLf246GAvU2sVw/oxWNpPKQNQRQaeGXhAVgrOl1IT+iyA==
   dependencies:
     "@dnd-kit/utilities" "^3.2.0"
     tslib "^2.0.0"
@@ -329,6 +329,13 @@
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/@dnd-kit/utilities/-/utilities-3.2.0.tgz#b3e956ea63a1347c9d0e1316b037ddcc6140acda"
   integrity sha512-h65/pn2IPCCIWwdlR2BMLqRkDxpTEONA+HQW3n765HBijLYGyrnTCLa2YQt8VVjjSQD6EfFlTE6aS2Q/b6nb2g==
+  dependencies:
+    tslib "^2.0.0"
+
+"@dnd-kit/utilities@^3.2.1":
+  version "3.2.1"
+  resolved "https://registry.yarnpkg.com/@dnd-kit/utilities/-/utilities-3.2.1.tgz#53f9e2016fd2506ec49e404c289392cfff30332a"
+  integrity sha512-OOXqISfvBw/1REtkSK2N3Fi2EQiLMlWUlqnOK/UpOISqBZPWpE6TqL+jcPtMOkE8TqYGiURvRdPSI9hltNUjEA==
   dependencies:
     tslib "^2.0.0"
 
@@ -2021,14 +2028,14 @@
     "@uiw/react-markdown-preview" "^4.1.5"
     rehype "~12.0.1"
 
-"@visx/axis@3.0.0":
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/@visx/axis/-/axis-3.0.0.tgz#79e93aa6b69bac06a494591f2d07b1863f470e73"
-  integrity sha512-5vvTPPFUcIZ78ttd8MJLlWuwT+UmvO/sBZIzY2TYETda7ebDiMT/IkFHhIMtr1j/ugvqmcHKVW5jlAJCTnrOCw==
+"@visx/axis@3.1.0":
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/@visx/axis/-/axis-3.1.0.tgz#775b221e5abfdec25304c607eeae8cda1a8bade6"
+  integrity sha512-JDj/1VYx0JO0pHFtwoFtYcnqdoZFh/dpHImEl169S5nTslSFlIoNTXA/ekpBP6ELkEZ59gmF1X5k29x6MFBwCA==
   dependencies:
     "@types/react" "*"
     "@visx/group" "3.0.0"
-    "@visx/point" "3.0.0"
+    "@visx/point" "3.0.1"
     "@visx/scale" "3.0.0"
     "@visx/shape" "3.0.0"
     "@visx/text" "3.0.0"
@@ -2052,13 +2059,13 @@
     "@types/d3-shape" "^1.3.1"
     d3-shape "^1.0.6"
 
-"@visx/event@3.0.0":
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/@visx/event/-/event-3.0.0.tgz#5f624b63c4e178c3303f327fd357a1278c386a4c"
-  integrity sha512-Jr1+HwyfaTfhzsge75PiMc/ug1V9ip2t/yg9ckDWwzT8kcdk0BHCkxKqSrXKokKd2XNJ8XrJVwZZVcQaFg0ctA==
+"@visx/event@3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@visx/event/-/event-3.0.1.tgz#d5358f52ff5ef30036d955bd2b68b96472ff2d6f"
+  integrity sha512-tK1EUYQLLStBuoCMbm8LJ3VbDyCVI8HjT0pMRQxm+C75FSIVWvrThgrfrC9sWOFnEMEYWspZO7hI5zjsPKjLQA==
   dependencies:
     "@types/react" "*"
-    "@visx/point" "3.0.0"
+    "@visx/point" "3.0.1"
 
 "@visx/group@3.0.0":
   version "3.0.0"
@@ -2080,10 +2087,10 @@
     classnames "^2.3.1"
     prop-types "^15.5.10"
 
-"@visx/point@3.0.0":
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/@visx/point/-/point-3.0.0.tgz#45ee074f4700a1586bf88e86dd562fc763e97f60"
-  integrity sha512-OWGTC9KZK63PSCXHpfFzez7InHW+eMdofVVyPUCtB3FG8Xr8qZbH8Ho17PH4e45AvGebOGW1F6ww391I1AV5fw==
+"@visx/point@3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@visx/point/-/point-3.0.1.tgz#77587ddaabf6f3023f09f8a0ce33a2c27c9d64c8"
+  integrity sha512-S5WOBMgEP2xHcgs3A2BFB2vwzrk0tMmn3PGZAbQJ+lu4HlnalDP72klUnxLTH8xclNNvpUHtHM5eLIJXyHx6Pw==
 
 "@visx/responsive@3.0.0":
   version "3.0.0"
@@ -2137,10 +2144,10 @@
     prop-types "^15.7.2"
     reduce-css-calc "^1.3.0"
 
-"@visx/tooltip@3.0.0":
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/@visx/tooltip/-/tooltip-3.0.0.tgz#9076f0d43e74c7f307b0320b0ec2460cc7fdbedf"
-  integrity sha512-a+ZzlE/vVxQgW83k/Ypj721K09IKG4JRHVb7YDxiQnAawkJe9rkTxGoAIXD6PrqvERa+rSISgUWHAxuee5MnhA==
+"@visx/tooltip@3.1.2":
+  version "3.1.2"
+  resolved "https://registry.yarnpkg.com/@visx/tooltip/-/tooltip-3.1.2.tgz#6c7bb36a296f4501adb99b59487412e39fe06f44"
+  integrity sha512-p46qztGRNkEDbxzc3V1virahvz3UQ29TzddUjA0oaTIBCrOd9UJuLvv1Tq9OpeUYPdbrO/ZRwaEeri2pbwv04Q==
   dependencies:
     "@types/react" "*"
     "@visx/bounds" "3.0.0"
