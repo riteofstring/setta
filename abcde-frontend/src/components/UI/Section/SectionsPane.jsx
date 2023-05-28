@@ -2,7 +2,8 @@ import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActi
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
-import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
+import ReactFlow, { Background, useNodesState } from "reactflow";
+import "reactflow/dist/style.css";
 import colors from "tailwindcss/colors";
 import {
   setPositionAndZIndices,
