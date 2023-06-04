@@ -2,13 +2,8 @@ import { motion } from "framer-motion";
 import _ from "lodash";
 import { usePanes } from "models/panes";
 import potpack from "potpack";
-import {
-  ControlButton,
-  Controls,
-  useReactFlow,
-  useStoreApi,
-} from "reactflow";
 import { RiLayoutFill } from "react-icons/ri";
+import { ControlButton, Controls, useReactFlow, useStoreApi } from "reactflow";
 import { setPositionState } from "thunks/sections/sectionPositions";
 import { OVERVIEW } from "utils/constants";
 
