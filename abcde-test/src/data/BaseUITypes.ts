@@ -155,4 +155,19 @@ export default {
     originInfoId: {},
     isForChildOfOriginInfoId: false,
   },
+  "e172e84a-e95e-4145-ac40-4109f806600d": {
+    id: "e172e84a-e95e-4145-ac40-4109f806600d",
+    type: "USER_SPECIFIED_OBJECT",
+    name: "",
+    presetType: "BASE",
+    config: {
+      collections: [],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+    },
+    originInfoId: {},
+    isForChildOfOriginInfoId: false,
+  },
 };
