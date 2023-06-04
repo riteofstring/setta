@@ -14,6 +14,7 @@ export const OUTPUT = "OUTPUT";
 export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
 export const FN = "FN";
+export const USER_SPECIFIED_OBJECT = "USER_SPECIFIED_OBJECT";
 export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
@@ -22,6 +23,7 @@ export const SECTION_TYPE_NAMES = [
   INFO,
   SOCIAL,
   FN,
+  USER_SPECIFIED_OBJECT,
 ];
 
 export const NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac";
@@ -62,5 +64,6 @@ export function isSectionUIType(
     INFO,
     SOCIAL,
     FN,
+    USER_SPECIFIED_OBJECT,
   ].includes(uiType.type);
 }
