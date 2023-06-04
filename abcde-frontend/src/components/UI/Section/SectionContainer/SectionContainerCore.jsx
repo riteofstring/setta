@@ -8,6 +8,7 @@ import {
   useIsRoot,
   useIsSeriesElement,
   useIsSocial,
+  useIsUserSpecifiedObject,
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
@@ -23,6 +24,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isOutput = useIsOutput(sectionId);
   const isSocial = useIsSocial(sectionId);
   const isInfo = useIsInfo(sectionId);
+  const isUserSpecifiedObject = useIsUserSpecifiedObject(sectionId)
   const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
@@ -54,6 +56,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         isOutput={isOutput}
         isSocial={isSocial}
         isInfo={isInfo}
+        isUserSpecifiedObject={isUserSpecifiedObject}
         hasNested={hasNested}
         hasDescription={hasDescription}
         isActiveSection={isActiveSection}
