@@ -86,7 +86,14 @@ export function SectionContainerCoreResizable({
   );
 }
 
-function AreaSwitch({ sectionId, isOutput, isSocial, isRoot, isInfo,isUserSpecifiedObject }) {
+function AreaSwitch({
+  sectionId,
+  isOutput,
+  isSocial,
+  isRoot,
+  isInfo,
+  isUserSpecifiedObject,
+}) {
   if (isOutput) {
     return <OutputArea sectionId={sectionId} />;
   }
@@ -96,8 +103,8 @@ function AreaSwitch({ sectionId, isOutput, isSocial, isRoot, isInfo,isUserSpecif
   if (isInfo) {
     return <SectionDescription sectionId={sectionId} card={true} />;
   }
-  if (isUserSpecifiedObject){
-    return <UserSpecifiedObjectArea sectionId={sectionId}/>
+  if (isUserSpecifiedObject) {
+    return <UserSpecifiedObjectArea sectionId={sectionId} />;
   }
   if (!isRoot) {
     return <InputArea sectionId={sectionId} />;

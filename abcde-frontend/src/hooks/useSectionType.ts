@@ -76,6 +76,6 @@ export function useIsFn(sectionId: string) {
   return useIsType(sectionId, FN);
 }
 
-export function useIsUserSpecifiedObject(sectionId: string){
+export function useIsUserSpecifiedObject(sectionId: string) {
   return useIsType(sectionId, USER_SPECIFIED_OBJECT);
 }

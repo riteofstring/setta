@@ -45,7 +45,7 @@ export const uiTypesToPretty = Object.freeze(
       [INFO]: "Info",
       [SOCIAL]: "Social",
       [FN]: "Function",
-      [USER_SPECIFIED_OBJECT]: "User Specified Object"
+      [USER_SPECIFIED_OBJECT]: "User Specified Object",
     })
   )
 );

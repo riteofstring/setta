@@ -24,7 +24,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isOutput = useIsOutput(sectionId);
   const isSocial = useIsSocial(sectionId);
   const isInfo = useIsInfo(sectionId);
-  const isUserSpecifiedObject = useIsUserSpecifiedObject(sectionId)
+  const isUserSpecifiedObject = useIsUserSpecifiedObject(sectionId);
   const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
