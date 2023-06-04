@@ -1,4 +1,5 @@
 import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useCodeInfo } from "models/info/codeInfo";
 import React, { useState } from "react";
 import { StandardInput } from "utils/atoms/input/StandardInput";
 import { ParamGroupContainer } from "./Main/Group/GroupContainer";
@@ -21,8 +22,11 @@ function _UserSpecifiedObjectArea({ sectionId }) {
 
 export const UserSpecifiedObjectArea = React.memo(_UserSpecifiedObjectArea);
 
-function UserSpecifiedObjectName() {
+function UserSpecifiedObjectName({ selectedItem }) {
   const [value, setValue] = useState("");
+  function onBlur(v) {
+    useCodeInfo.getState().setName({ id: selectedItem, name: v });
+  }
 
   return (
     <StandardInput
