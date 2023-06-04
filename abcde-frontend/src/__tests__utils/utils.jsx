@@ -1,7 +1,7 @@
 import { loadTestData } from "abcde-test/src/loaders/loaders";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { ReactFlowProvider } from "react-flow-renderer";
+import { ReactFlowProvider } from "reactflow";
 import { loadProjectState } from "thunks/loadProjectState";
 import { resetAllStores } from "thunks/reset";
 

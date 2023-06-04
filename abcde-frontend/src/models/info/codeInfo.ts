@@ -34,9 +34,7 @@ export const useCodeInfo = createProjectState(
         }),
       updateInfos: (payload) =>
         set((state) => {
-          for (const k of Object.keys(initialState)) {
-            state[k] = { ...state[k], ...payload[k] };
-          }
+          state.allCodeInfo = { ...state.allCodeInfo, ...payload.allCodeInfo };
         }),
     }))
   )

@@ -2,7 +2,7 @@ import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
 import { useRef } from "react";
-import { useReactFlow } from "react-flow-renderer";
+import { useReactFlow } from "reactflow";
 import { moveSection } from "thunks/sections/sectionOps";
 import { getSectionParentId, setAllChildren } from "thunks/sections/sections";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
