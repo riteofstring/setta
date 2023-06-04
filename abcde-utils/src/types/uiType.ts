@@ -29,7 +29,6 @@ export type SectionUITypeConfigType = {
   childUITypeId: string | null;
   outputGroup: string | null;
   social: string | null;
-  userSpecifiedObjectId: string | null;
 };
 
 export enum PresetType {
