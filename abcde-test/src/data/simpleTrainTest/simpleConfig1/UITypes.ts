@@ -13,7 +13,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "acd83563-2337-44c2-9b4d-db3641fcbc97",
@@ -31,7 +30,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
@@ -49,7 +47,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "306550d9-1a80-42c6-b853-512a22e4d796",
@@ -67,7 +64,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "ac23d151-2df2-436f-b146-3893806ffb1d",
@@ -85,7 +81,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
@@ -103,7 +98,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "3b4bd093-351f-4bec-af52-935d50953ebd",
@@ -121,7 +115,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
@@ -139,7 +132,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "4e2bf130-390b-4299-8054-aa54b7740a60",
@@ -157,7 +149,6 @@ export default {
       childUITypeId: null,
       outputGroup: "67863f2c-9916-4d9b-9c60-b7ed3781f49d",
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {
       sectionId: "02d30f19-1160-4050-a2d7-390d36b3637e",

@@ -28,7 +28,6 @@ export default {
       childUITypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {},
     isForChildOfOriginInfoId: false,
@@ -43,7 +42,6 @@ export default {
       subType: "LIST",
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     presetType: "USER",
     originInfoId: {
@@ -62,7 +60,6 @@ export default {
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
     },
     originInfoId: {},
     isForChildOfOriginInfoId: false,
