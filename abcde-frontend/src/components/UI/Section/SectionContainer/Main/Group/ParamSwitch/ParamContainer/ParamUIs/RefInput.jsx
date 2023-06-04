@@ -1,7 +1,7 @@
 import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useStoreApi } from "reactflow";
+import { useStoreApi } from "react-flow-renderer";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionConfig, getSectionName } from "thunks/sections/sections";
 import { setSectionUITypeConfig } from "thunks/uiTypes";

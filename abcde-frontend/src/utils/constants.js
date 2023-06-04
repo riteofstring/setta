@@ -12,7 +12,6 @@ import {
   SOCIAL,
   SWITCH,
   TEXT,
-  USER_SPECIFIED_OBJECT,
 } from "abcde-utils/src/constants";
 
 export const NO_AUTH = ["sna", "snancm"].includes(import.meta.env.MODE);
@@ -45,7 +44,6 @@ export const uiTypesToPretty = Object.freeze(
       [INFO]: "Info",
       [SOCIAL]: "Social",
       [FN]: "Function",
-      [USER_SPECIFIED_OBJECT]: "User Specified Object",
     })
   )
 );

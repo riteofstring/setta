@@ -9,7 +9,7 @@ export function UIPage() {
     position: initialPositions[idx],
     type: "sectionContainerNode",
     zIndex: zIndices[idx],
-    style: { visibility: "visible" }, // needed to prevent flickering
+    style: { visibility: "visible" }, // needed to prevent flickering in v10.3.17. Doesn't work for v11.x
   }));
 
   return (

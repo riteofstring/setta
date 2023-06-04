@@ -2,10 +2,12 @@ import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActi
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
-import ReactFlow, { Background, useNodesState } from "reactflow";
-import "reactflow/dist/style.css";
+import ReactFlow, { Background, useNodesState } from "react-flow-renderer";
 import colors from "tailwindcss/colors";
-import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
+import {
+  setPositionAndZIndices,
+  setZIndices,
+} from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
@@ -51,12 +53,16 @@ function _SectionsPane({ initialNodes }) {
     setActiveSection(null);
   }
 
-  function onNodeDragStop(e, node, nodes) {
-    setPositionAndZIndices(nodes);
+  function onNodeDragStop(e, node) {
+    setPositionAndZIndices([node]);
   }
 
   function onSelectionDragStop(e, nodes) {
     setPositionAndZIndices(nodes);
+  }
+
+  function onNodeDragStart(e, node) {
+    setZIndices([node]);
   }
 
   return (
@@ -70,6 +76,7 @@ function _SectionsPane({ initialNodes }) {
       style={reactFlowStyle}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
+      onNodeDragStart={onNodeDragStart}
       onPaneContextMenu={openPaneCtxMenu}
       onSelectionContextMenu={openSelectionCtxMenu}
       onNodeContextMenu={openNodeCtxMenu}

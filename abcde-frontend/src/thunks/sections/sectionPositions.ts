@@ -11,13 +11,10 @@ export function setPositionState(nodes, incrementVersion) {
       newValues[n.id] = { initialPosition: n.position };
     }
   }
-
-  const positionsChanged = _.size(newValues) > 0;
-  if (positionsChanged) {
+  if (_.size(newValues) > 0) {
     si.setSectionInfoAttrObjInput({ newValues });
     maybeIncrementProjectStateVersion(incrementVersion);
   }
-  return positionsChanged;
 }
 
 export function setZIndices(nodes, incrementVersion) {
@@ -40,6 +37,6 @@ export function setZIndices(nodes, incrementVersion) {
 }
 
 export function setPositionAndZIndices(nodes) {
-  const positionsChanged = setPositionState(nodes, false);
-  setZIndices(nodes, positionsChanged);
+  setPositionState(nodes, false);
+  setZIndices(nodes, true);
 }

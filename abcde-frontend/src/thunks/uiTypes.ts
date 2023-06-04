@@ -1,9 +1,4 @@
-import {
-  isSeriesElement,
-  USER_SPECIFIED_OBJECT_UI_TYPE_ID,
-} from "abcde-utils/src/constants";
-import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
-import { RCType } from "abcde-utils/src/types/codeInfo";
+import { isSeriesElement } from "abcde-utils/src/constants";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
@@ -14,9 +9,7 @@ import { useUITypes } from "models/info/uiTypes";
 import {
   getSectionConfig,
   getSectionType,
-  getSectionTypeConfig,
   setSectionConfigAttr,
-  setSelectedItem,
 } from "thunks/sections/sections";
 import { requiresNestedSection } from "utils/constants";
 import {
@@ -43,20 +36,6 @@ export function setSectionUITypeId({
 
   if (paramInfoId) {
     setParamUITypeId({ sectionId: parentId, paramInfoId, uiTypeId });
-  }
-
-  if (uiTypeId === USER_SPECIFIED_OBJECT_UI_TYPE_ID) {
-    let { userSpecifiedObjectId } = getSectionTypeConfig(sectionId);
-    if (!userSpecifiedObjectId) {
-      const newObj = newCodeInfo({
-        rcType: RCType.CALLABLE,
-      });
-      userSpecifiedObjectId = newObj.id;
-      useCodeInfo
-        .getState()
-        .updateInfos({ allCodeInfo: { [newObj.id]: newObj } });
-    }
-    setSelectedItem(sectionId, userSpecifiedObjectId, false);
   }
 
   maybeIncrementProjectStateVersion(incrementVersion);
