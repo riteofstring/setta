@@ -30,7 +30,7 @@ export function HomePage() {
 
 function RightColumn({ projects, createProject }) {
   async function onClick() {
-    const newProject = await createProject({ name: "NewProject" });
+    const newProject = await createProject({});
     goToDefaultConfig(newProject);
   }
 

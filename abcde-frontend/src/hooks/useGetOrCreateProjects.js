@@ -1,5 +1,11 @@
 import { createProject, getProjects } from "dbRequests/projects";
 import { useState } from "react";
+import {
+  adjectives,
+  animals,
+  colors,
+  uniqueNamesGenerator,
+} from "unique-names-generator";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
@@ -7,7 +13,8 @@ export function useGetOrCreateProjects() {
     setProjects(await getProjects());
   };
   const fnCreateProject = async ({ name }) => {
-    const newProject = await createProject({ name });
+    const actualName = name ?? createProjectName();
+    const newProject = await createProject({ name: actualName });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
     return newProject;
   };
@@ -17,4 +24,10 @@ export function useGetOrCreateProjects() {
     getProjects: fnGetProjects,
     createProject: fnCreateProject,
   };
+}
+
+function createProjectName() {
+  return uniqueNamesGenerator({
+    dictionaries: [adjectives, colors, animals],
+  });
 }
