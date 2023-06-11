@@ -1,4 +1,5 @@
 import { createNewId } from "abcde-utils/src/utils";
+import { DEFAULT_USER_ID } from "./constants";
 
 export const IN_MEM_PROJECT_NAMES: string[] = [];
 export const IN_MEM_PROJECT_CONFIG_NAMES = {};
@@ -20,6 +21,7 @@ export function createInMemProject(name: string) {
     project = {
       id: fakeId,
       name,
+      owner: DEFAULT_USER_ID,
     };
 
     projectConfig = {
