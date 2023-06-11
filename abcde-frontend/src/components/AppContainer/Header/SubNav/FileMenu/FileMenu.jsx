@@ -26,9 +26,10 @@ export function FileMenu() {
     currProjectName,
   });
 
-  function onClickLoadProject({ projectName, configName }) {
+  function onClickLoadProject(selected) {
+    const {foldername, filename} = selected
     const username = useAuth.getState().username
-    router.navigate(`${username}/${projectName}/${configName}`);
+    router.navigate(`${username}/${foldername}/${filename}`);
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
