@@ -53,6 +53,7 @@ export function getProjectData(): ProjectSaveType {
         "initialPosition",
         "size",
         "chainedFrom",
+        "zIndex"
       ])
   );
 
