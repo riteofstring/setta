@@ -17,7 +17,7 @@ import { router } from "utils/Routes/router";
 
 export function FileMenu() {
   const username = useAuth((x) => x.username);
-  const { projects: rawProjects, getProjects } = useGetOrCreateProjects();
+  const { projects: rawProjects, getProjects, createAndGoToProject } = useGetOrCreateProjects();
   const { projectName: currProjectName, configName: currConfigName } =
     useCurrProjectName();
   const [modalType, setModalType] = useState("");
@@ -26,6 +26,10 @@ export function FileMenu() {
     modalType,
     currProjectName,
   });
+
+  async function onClickNewProject(){
+    await createAndGoToProject({})
+  }
 
   function onClickSave() {
     saveProject();
@@ -78,6 +82,7 @@ export function FileMenu() {
       >
         <MenuDropdown trigger="File">
           <Items
+            onClickNewProject={onClickNewProject}
             onClickLoad={onClickLoad}
             onClickSave={onClickSave}
             onClickSaveAs={onClickSaveAs}
@@ -88,12 +93,12 @@ export function FileMenu() {
   );
 }
 
-function Items({ onClickLoad, onClickSave, onClickSaveAs }) {
+function Items({ onClickNewProject, onClickLoad, onClickSave, onClickSaveAs }) {
   return (
     <>
-      <DialogMenuBarTriggerItem shortcut="Ctrl + Shift + N">
+      <MenuItem onClick={onClickNewProject} shortcut="Ctrl + Shift + N">
         New Project
-      </DialogMenuBarTriggerItem>
+      </MenuItem>
       <DialogMenuBarTriggerItem onClick={onClickLoad} shortcut="Ctrl + L">
         Load
       </DialogMenuBarTriggerItem>
