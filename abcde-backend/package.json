@@ -50,8 +50,5 @@
     "tsconfig-paths": "4.1.0",
     "typescript": "4.3.5",
     "vitest": "0.31.0"
-  },
-  "prisma": {
-    "seed": "node_modules/.bin/ts-node --esm prisma/seed.ts"
   }
 }

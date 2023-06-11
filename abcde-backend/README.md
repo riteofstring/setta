@@ -1,11 +1,17 @@
-## PostgreSQL setup
+# PostgreSQL setup
 
 - Install PostgreSQL from here: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
 - No need to install Stack Builder or pgadmin using the Postgres installer.
 - Set password to 123
 
-### Add postgres to path
-Add `%PROGRAMFILES%\PostgreSQL\14\bin` to the PATH environment variable.
+## Add postgres to path
+
+### Windows:
+Add `%PROGRAMFILES%\PostgreSQL\15\bin` to the PATH environment variable.
+
+### Mac:
+Add this to the .zshrc file:
+`export PATH=/Library/PostgreSQL/15/bin:$PATH`
 
 The following command should now work:
 
