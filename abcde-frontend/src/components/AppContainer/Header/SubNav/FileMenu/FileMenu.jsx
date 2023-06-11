@@ -16,7 +16,6 @@ import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
-  const username = useAuth((x) => x.username);
   const { projects: rawProjects, getProjects, createAndGoToProject } = useGetOrCreateProjects();
   const { projectName: currProjectName, configName: currConfigName } =
     useCurrProjectName();
@@ -27,25 +26,8 @@ export function FileMenu() {
     currProjectName,
   });
 
-  async function onClickNewProject(){
-    await createAndGoToProject({})
-  }
-
-  function onClickSave() {
-    saveProject();
-  }
-
-  function onClickLoad() {
-    setModalType("Load");
-    getProjects();
-  }
-
-  function onClickSaveAs() {
-    setModalType("Save As");
-    getProjects();
-  }
-
   function onClickLoadProject({ projectName, configName }) {
+    const username = useAuth.getState().username
     router.navigate(`${username}/${projectName}/${configName}`);
   }
 
@@ -66,6 +48,7 @@ export function FileMenu() {
             newConfigName,
           });
 
+      const username = useAuth.getState().username
       router.navigate(`${username}/${projectName}/${configName}`, {
         state: { newProjectConfig },
       });
@@ -81,19 +64,34 @@ export function FileMenu() {
         onClickSaveAsProject={onClickSaveAsProject}
       >
         <MenuDropdown trigger="File">
-          <Items
-            onClickNewProject={onClickNewProject}
-            onClickLoad={onClickLoad}
-            onClickSave={onClickSave}
-            onClickSaveAs={onClickSaveAs}
-          />
+          <Items setModalType={setModalType} getProjects={getProjects} createAndGoToProject={createAndGoToProject}/>
         </MenuDropdown>
       </ProjectSaveLoadModal>
     </>
   );
 }
 
-function Items({ onClickNewProject, onClickLoad, onClickSave, onClickSaveAs }) {
+function Items({setModalType, getProjects, createAndGoToProject}) {
+
+  async function onClickNewProject(){
+    await createAndGoToProject({})
+  }
+
+  function onClickSave() {
+    saveProject();
+  }
+
+  function onClickLoad() {
+    setModalType("Load");
+    getProjects();
+  }
+
+  function onClickSaveAs() {
+    setModalType("Save As");
+    getProjects();
+  }
+
+
   return (
     <>
       <MenuItem onClick={onClickNewProject} shortcut="Ctrl + Shift + N">
