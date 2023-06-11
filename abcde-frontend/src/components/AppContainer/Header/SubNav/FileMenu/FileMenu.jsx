@@ -1,7 +1,8 @@
 import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
-import { useCurrProjectName } from "hooks/useProject";
 import _ from "lodash";
 import { useAuth } from "models/auth";
+import { useProject } from "models/info/project";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useState } from "react";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
@@ -16,29 +17,32 @@ import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
-  const { projects: rawProjects, getProjects, createAndGoToProject } = useGetOrCreateProjects();
-  const { projectName: currProjectName, configName: currConfigName } =
-    useCurrProjectName();
+  const {
+    projects: rawProjects,
+    getProjects,
+    createAndGoToProject,
+  } = useGetOrCreateProjects();
   const [modalType, setModalType] = useState("");
   const projects = convertRawProjectsToFolderFormat({
     rawProjects,
     modalType,
-    currProjectName,
   });
 
   function onClickLoadProject(selected) {
-    const {foldername, filename} = selected
-    const username = useAuth.getState().username
+    const { foldername, filename } = selected;
+    const username = useAuth.getState().username;
     router.navigate(`${username}/${foldername}/${filename}`);
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
-    const { projectName, configName } = selected;
+    const { foldername: projectName, filename: configName } = selected;
+    const currProjectName = useProject.getState().name;
+    const currConfigName = useProjectConfig.getState().name;
     const currProject = _.find(projects, (x) => x.name === currProjectName);
     if (configName === currConfigName) {
       onClickSave();
     } else {
-      const matchingConfig = currProject.configs.find(
+      const matchingConfig = currProject.files.find(
         (x) => x.name === configName
       );
       const newProjectConfig = matchingConfig
@@ -49,7 +53,7 @@ export function FileMenu() {
             newConfigName,
           });
 
-      const username = useAuth.getState().username
+      const username = useAuth.getState().username;
       router.navigate(`${username}/${projectName}/${configName}`, {
         state: { newProjectConfig },
       });
@@ -65,17 +69,20 @@ export function FileMenu() {
         onClickSaveAsProject={onClickSaveAsProject}
       >
         <MenuDropdown trigger="File">
-          <Items setModalType={setModalType} getProjects={getProjects} createAndGoToProject={createAndGoToProject}/>
+          <Items
+            setModalType={setModalType}
+            getProjects={getProjects}
+            createAndGoToProject={createAndGoToProject}
+          />
         </MenuDropdown>
       </ProjectSaveLoadModal>
     </>
   );
 }
 
-function Items({setModalType, getProjects, createAndGoToProject}) {
-
-  async function onClickNewProject(){
-    await createAndGoToProject({})
+function Items({ setModalType, getProjects, createAndGoToProject }) {
+  async function onClickNewProject() {
+    await createAndGoToProject({});
   }
 
   function onClickSave() {
@@ -91,7 +98,6 @@ function Items({setModalType, getProjects, createAndGoToProject}) {
     setModalType("Save As");
     getProjects();
   }
-
 
   return (
     <>
@@ -116,16 +122,13 @@ function Items({setModalType, getProjects, createAndGoToProject}) {
   );
 }
 
-function convertRawProjectsToFolderFormat({
-  rawProjects,
-  modalType,
-  currProjectName,
-}) {
+function convertRawProjectsToFolderFormat({ rawProjects, modalType }) {
   const projects = Object.values(rawProjects).map((x) => ({
     name: x.name,
     files: x.configs.map((c) => c.name),
   }));
   if (modalType === "Save As") {
+    const currProjectName = useProject.getState().name;
     const currProject = projects.find((x) => x.name === currProjectName);
     return currProject ? [currProject] : [];
   }
