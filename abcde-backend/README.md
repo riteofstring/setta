@@ -27,29 +27,19 @@ yarn linkutils && yarn linktest
 
 ### Create db, create tables, add data
 ```bash
-./db/blankSlate.bat
-```
-
-### Start server
-```bash
-./start.bat
-```
-
-### Kill postgres
-```bash
-./db/kill.bat
+./db/blankSlate.sh
 ```
 
 ### Open psql and view the database
 ```bash
-./db/login.bat
+./db/login.sh
 ```
 
 ### Just seed the database
 
 Seed all the tables
 ```bash
-./db/seed.bat
+./db/seed.sh
 ```
 
 ### Run tests

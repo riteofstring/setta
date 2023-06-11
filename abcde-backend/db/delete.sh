@@ -1,0 +1,1 @@
+PGPASSWORD=123 psql -U postgres -c "drop database abcde"
