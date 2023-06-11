@@ -9,13 +9,13 @@ import { Badge } from "utils/atoms/badges/badge";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
-import { router } from "utils/Routes/router";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 
 export function HomePage() {
-  const { projects, getProjects, createProject } = useGetOrCreateProjects();
+  const { projects, getProjects, createAndGoToProject } =
+    useGetOrCreateProjects();
 
   useEffect(() => {
     getProjects();
@@ -23,15 +23,17 @@ export function HomePage() {
 
   return (
     <GridWrapper gridStyles="bg-slate-100">
-      <RightColumn projects={projects} createProject={createProject} />
+      <RightColumn
+        projects={projects}
+        createAndGoToProject={createAndGoToProject}
+      />
     </GridWrapper>
   );
 }
 
-function RightColumn({ projects, createProject }) {
+function RightColumn({ projects, createAndGoToProject }) {
   async function onClick() {
-    const newProject = await createProject({});
-    goToDefaultConfig(newProject);
+    await createAndGoToProject({});
   }
 
   const stdbtnStyles =
@@ -150,20 +152,6 @@ function DefaultConfigBadge({ config }) {
       <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
     )
   );
-}
-
-function goToProject({ project, configId }) {
-  const username = useAuth.getState().username;
-  const configName = project.configs.find((x) => x.id === configId).name;
-  const address = `${username}/${project.name}/${configName}`;
-  router.navigate(address);
-}
-
-function goToDefaultConfig(project) {
-  goToProject({
-    project,
-    configId: project.configs.find((x) => x.isDefault).id,
-  });
 }
 
 function useConfigAddress({ project, configId }) {

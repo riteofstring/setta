@@ -1,4 +1,5 @@
 import { createProject, getProjects } from "dbRequests/projects";
+import { useAuth } from "models/auth";
 import { useState } from "react";
 import {
   adjectives,
@@ -6,28 +7,43 @@ import {
   colors,
   uniqueNamesGenerator,
 } from "unique-names-generator";
+import { router } from "utils/Routes/router";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
   const fnGetProjects = async () => {
     setProjects(await getProjects());
   };
-  const fnCreateProject = async ({ name }) => {
+  const fnCreateAndGoToProject = async ({ name }) => {
     const actualName = name ?? createProjectName();
     const newProject = await createProject({ name: actualName });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
-    return newProject;
+    goToDefaultConfig(newProject);
   };
 
   return {
     projects,
     getProjects: fnGetProjects,
-    createProject: fnCreateProject,
+    createAndGoToProject: fnCreateAndGoToProject,
   };
 }
 
 function createProjectName() {
   return uniqueNamesGenerator({
     dictionaries: [adjectives, colors, animals],
+  });
+}
+
+function goToProject({ project, configId }) {
+  const username = useAuth.getState().username;
+  const configName = project.configs.find((x) => x.id === configId).name;
+  const address = `${username}/${project.name}/${configName}`;
+  router.navigate(address);
+}
+
+function goToDefaultConfig(project) {
+  goToProject({
+    project,
+    configId: project.configs.find((x) => x.isDefault).id,
   });
 }
