@@ -51,7 +51,7 @@ yarn unittest
 
 Specific unit tests
 ```
-yarn unittest user/createUser
+yarn unittest db/user/createUser
 ```
 
 First reset test db
