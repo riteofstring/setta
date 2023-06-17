@@ -14,6 +14,8 @@ export type ProjectActionType = {
 
   setAll: (payload: ProjectType) => void;
 
+  setName: (payload: string) => void;
+
   reset: () => void;
 
   getAll: () => ProjectType;
