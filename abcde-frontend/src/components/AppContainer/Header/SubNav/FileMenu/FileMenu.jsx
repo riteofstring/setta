@@ -14,6 +14,10 @@ import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
+import {
+  NEW_PROJECT,
+  SAME_PROJECT_NEW_PROJECT_CONFIG,
+} from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
@@ -31,7 +35,9 @@ export function FileMenu() {
   function onClickLoadProject(selected) {
     const { foldername, filename } = selected;
     const username = useAuth.getState().username;
-    router.navigate(`${username}/${foldername}/${filename}`);
+    router.navigate(`${username}/${foldername}/${filename}`, {
+      state: { pageLoadType: NEW_PROJECT },
+    });
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
@@ -55,7 +61,10 @@ export function FileMenu() {
 
       const username = useAuth.getState().username;
       router.navigate(`${username}/${projectName}/${configName}`, {
-        state: { newProjectConfig },
+        state: {
+          newProjectConfig,
+          pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG,
+        },
       });
     }
   }

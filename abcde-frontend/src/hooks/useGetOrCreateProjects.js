@@ -7,6 +7,7 @@ import {
   colors,
   uniqueNamesGenerator,
 } from "unique-names-generator";
+import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
 export function useGetOrCreateProjects() {
@@ -38,7 +39,7 @@ function goToProject({ project, configId }) {
   const username = useAuth.getState().username;
   const configName = project.configs.find((x) => x.id === configId).name;
   const address = `${username}/${project.name}/${configName}`;
-  router.navigate(address);
+  router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });
 }
 
 function goToDefaultConfig(project) {

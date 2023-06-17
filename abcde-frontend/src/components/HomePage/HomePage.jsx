@@ -9,6 +9,7 @@ import { Badge } from "utils/atoms/badges/badge";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
+import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
@@ -87,7 +88,7 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
 
   return (
     <div ref={forwardedRef} className={itemStyles}>
-      <Link to={defaultConfigAddress}>
+      <Link to={defaultConfigAddress} state={{ pageLoadType: NEW_PROJECT }}>
         <ThumbnailArea
           onClickConfigsButton={onClickConfigsButton}
           project={project}
@@ -137,7 +138,7 @@ function Body({ project, configs }) {
 function ConfigItem({ project, config }) {
   const configAddress = useConfigAddress({ project, configId: config.id });
   return (
-    <Link to={configAddress}>
+    <Link to={configAddress} state={{ pageLoadType: NEW_PROJECT }}>
       <Item className="flex flex-row">
         {config.name}
         <DefaultConfigBadge config={config} />
