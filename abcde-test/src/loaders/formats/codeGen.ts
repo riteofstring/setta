@@ -37,7 +37,6 @@ function processSections(sections) {
       "id",
       "name",
       "paramInfoId",
-      "sectionChildrenId",
       "initialPosition",
       "size",
       "chainedFrom",

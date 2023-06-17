@@ -27,7 +27,6 @@ export function createInMemProject(name: string) {
     projectConfig = {
       id: fakeId,
       name: configName,
-      childrenId: fakeId,
       children: [],
       isDefault: true,
     };

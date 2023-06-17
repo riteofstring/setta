@@ -2,7 +2,6 @@ export default {
   "0c10e6ff-215c-4f48-b7a8-cb10f990dc27": {
     id: "0c10e6ff-215c-4f48-b7a8-cb10f990dc27",
     name: "Model",
-    sectionChildrenId: "41302b27-b547-4f35-9a48-107a9dcac8d2",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -25,7 +24,6 @@ export default {
   "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3": {
     id: "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3",
     name: "Dataloader",
-    sectionChildrenId: "c125f3b2-e3d7-4e68-b666-f79175077fe9",
     parentId: "a90d6038-24c8-40c3-a9d7-fc10c8128f05",
     paramInfoId: null,
     size: {
@@ -48,7 +46,6 @@ export default {
   "716d7af5-ea92-4285-aaf5-adf988d051f7": {
     id: "716d7af5-ea92-4285-aaf5-adf988d051f7",
     name: "Dataset",
-    sectionChildrenId: "26612e65-48c2-4122-87c8-ff29b8c4f866",
     parentId: "a90d6038-24c8-40c3-a9d7-fc10c8128f05",
     paramInfoId: null,
     size: {
@@ -71,7 +68,6 @@ export default {
   "de2caec1-254d-486e-aa86-b00029a52683": {
     id: "de2caec1-254d-486e-aa86-b00029a52683",
     name: "Trainer",
-    sectionChildrenId: "d1510431-ba94-47a9-86b9-5cdf2f9de258",
     parentId: "03dedf55-ebf8-4529-bc10-4333c7fa769f",
     paramInfoId: null,
     size: {
@@ -94,7 +90,6 @@ export default {
   "7f6aca35-b44c-489e-80f8-261c80f61405": {
     id: "7f6aca35-b44c-489e-80f8-261c80f61405",
     name: "Entry",
-    sectionChildrenId: "946f1341-75a1-40dc-abfa-3d04638079db",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -117,7 +112,6 @@ export default {
   "c49578eb-dd0a-43bd-ba4a-9bf687d04b14": {
     id: "c49578eb-dd0a-43bd-ba4a-9bf687d04b14",
     name: "transform",
-    sectionChildrenId: "8f034016-ceb6-40e3-9e10-0d3df1df4ee5",
     parentId: "716d7af5-ea92-4285-aaf5-adf988d051f7",
     paramInfoId: "0533e630-8444-4ea5-a703-2a89fec6449e",
     size: {
@@ -140,7 +134,6 @@ export default {
   "7b3c47ac-a773-4733-86f9-041ce9d5a3c8": {
     id: "7b3c47ac-a773-4733-86f9-041ce9d5a3c8",
     name: "Logger",
-    sectionChildrenId: "7236fb0e-d205-4e2e-8f05-9779c40032a1",
     parentId: "03dedf55-ebf8-4529-bc10-4333c7fa769f",
     paramInfoId: null,
     size: {
@@ -163,7 +156,6 @@ export default {
   "a90d6038-24c8-40c3-a9d7-fc10c8128f05": {
     id: "a90d6038-24c8-40c3-a9d7-fc10c8128f05",
     name: "Data config",
-    sectionChildrenId: "9bf5a4bf-2b53-48cc-9341-bb44417e1063",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -186,7 +178,6 @@ export default {
   "03dedf55-ebf8-4529-bc10-4333c7fa769f": {
     id: "03dedf55-ebf8-4529-bc10-4333c7fa769f",
     name: "Trainer config",
-    sectionChildrenId: "230c5e45-cae1-4edb-8be6-b67be1d27241",
     parentId: null,
     paramInfoId: null,
     size: {

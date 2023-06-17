@@ -2,7 +2,6 @@ export default {
   "bf1fbb88-d022-4eb7-a1a2-3663d3e562f6": {
     id: "bf1fbb88-d022-4eb7-a1a2-3663d3e562f6",
     name: "Model",
-    sectionChildrenId: "c35aacf5-f541-4b4e-bf83-d9d8e80e0b34",
     parentId: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
     paramInfoId: null,
     size: {
@@ -25,7 +24,6 @@ export default {
   "6ef48cbf-dba5-4ba9-b98d-91d3a512a387": {
     id: "6ef48cbf-dba5-4ba9-b98d-91d3a512a387",
     name: "Optimizer",
-    sectionChildrenId: "a852ae5e-4d9a-4ede-852f-749c0b026117",
     parentId: "8f6b5dd4-ba63-4259-af49-77ea52c4ea99",
     paramInfoId: null,
     size: {
@@ -48,7 +46,6 @@ export default {
   "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284": {
     id: "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284",
     name: "Model.Fn()",
-    sectionChildrenId: "4e3d7a2d-389f-4197-be98-d50b9ef8b2c9",
     parentId: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
     paramInfoId: null,
     size: {
@@ -71,7 +68,6 @@ export default {
   "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42": {
     id: "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
     name: "Training Dataset",
-    sectionChildrenId: "064d8168-2a56-4bd1-aafd-7e04fa78d4ae",
     parentId: "5d890f43-1ff0-4e47-950d-23c43e160e8c",
     paramInfoId: null,
     size: {
@@ -94,7 +90,6 @@ export default {
   "90a654d6-b1bd-4e29-9327-113f75b8f2fa": {
     id: "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
     name: "Training Dataloader",
-    sectionChildrenId: "c813bf2d-3ba4-4f0a-8ed1-2cb6da535d4a",
     parentId: "5d890f43-1ff0-4e47-950d-23c43e160e8c",
     paramInfoId: null,
     size: {
@@ -117,7 +112,6 @@ export default {
   "b4026079-d0ca-4524-8ee4-4aae614cfec3": {
     id: "b4026079-d0ca-4524-8ee4-4aae614cfec3",
     name: "Validation Dataset",
-    sectionChildrenId: "ccb7350f-4a08-4fa8-8be6-458643cffda5",
     parentId: "aa2078ab-8613-4498-951a-8c990f56be44",
     paramInfoId: null,
     size: {
@@ -140,7 +134,6 @@ export default {
   "6621cd83-3be9-4f37-8b9e-6201a124ea28": {
     id: "6621cd83-3be9-4f37-8b9e-6201a124ea28",
     name: "Validation Dataloader",
-    sectionChildrenId: "4d78e963-5261-48eb-bac0-7fb3611b9c3f",
     parentId: "aa2078ab-8613-4498-951a-8c990f56be44",
     paramInfoId: null,
     size: {
@@ -163,7 +156,6 @@ export default {
   "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d": {
     id: "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
     name: "Training Transform",
-    sectionChildrenId: "b55c232e-5a26-40ad-a143-cff5e955442e",
     parentId: "5d890f43-1ff0-4e47-950d-23c43e160e8c",
     paramInfoId: null,
     size: {
@@ -186,7 +178,6 @@ export default {
   "d182ccf0-07b2-4061-bf10-7e0dc25234da": {
     id: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
     name: "transforms",
-    sectionChildrenId: "3a12f1c3-4c83-415d-8a46-61a12f650389",
     parentId: "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
     paramInfoId: "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f",
     size: {
@@ -209,7 +200,6 @@ export default {
   "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e": {
     id: "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
     name: "Validation Transform",
-    sectionChildrenId: "cf9c207f-05bb-4fdc-82fb-6979afd7b1b5",
     parentId: "aa2078ab-8613-4498-951a-8c990f56be44",
     paramInfoId: null,
     size: {
@@ -232,7 +222,6 @@ export default {
   "6da834af-b00d-492e-aa31-51be3f93b61f": {
     id: "6da834af-b00d-492e-aa31-51be3f93b61f",
     name: "transforms",
-    sectionChildrenId: "bc863afc-d160-4ce2-9ffc-8d55456da8ff",
     parentId: "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
     paramInfoId: "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f",
     size: {
@@ -255,7 +244,6 @@ export default {
   "a40d457b-1eab-4417-9767-0a65faa2b9e6": {
     id: "a40d457b-1eab-4417-9767-0a65faa2b9e6",
     name: "[3]",
-    sectionChildrenId: "cf06782b-53ed-4c49-931f-09490c12ec9b",
     parentId: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
     paramInfoId: null,
     size: {
@@ -278,7 +266,6 @@ export default {
   "1765a450-ca77-41ae-a482-16c18e03f895": {
     id: "1765a450-ca77-41ae-a482-16c18e03f895",
     name: "[2]",
-    sectionChildrenId: "b7996b9b-4968-4ac4-a9be-f74df8d7cf8e",
     parentId: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
     paramInfoId: null,
     size: {
@@ -301,7 +288,6 @@ export default {
   "0fd7ce2c-962c-41f8-b512-05f989dc5dc8": {
     id: "0fd7ce2c-962c-41f8-b512-05f989dc5dc8",
     name: "[1]",
-    sectionChildrenId: "29b7c973-1853-4d60-b1e8-ef8636eef7e6",
     parentId: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
     paramInfoId: null,
     size: {
@@ -324,7 +310,6 @@ export default {
   "64aeb27b-8a7a-4a0b-a761-26b606817d1e": {
     id: "64aeb27b-8a7a-4a0b-a761-26b606817d1e",
     name: "[0]",
-    sectionChildrenId: "a3c4f46e-4d2c-4fe1-be29-db072d8481e0",
     parentId: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
     paramInfoId: null,
     size: {
@@ -347,7 +332,6 @@ export default {
   "6352b363-2800-427a-a98e-424b03750f94": {
     id: "6352b363-2800-427a-a98e-424b03750f94",
     name: "[4]",
-    sectionChildrenId: "28df90fe-5fbb-44d5-a751-7d77f6aa9e0d",
     parentId: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
     paramInfoId: null,
     size: {
@@ -370,7 +354,6 @@ export default {
   "3dab4514-ad65-416e-aa3b-038314ef119f": {
     id: "3dab4514-ad65-416e-aa3b-038314ef119f",
     name: "[3]",
-    sectionChildrenId: "32a8d36a-59e7-44e3-abb7-3e6cf8d5ae5d",
     parentId: "6da834af-b00d-492e-aa31-51be3f93b61f",
     paramInfoId: null,
     size: {
@@ -393,7 +376,6 @@ export default {
   "2983b469-c363-4332-83f8-3d3991f2d8f9": {
     id: "2983b469-c363-4332-83f8-3d3991f2d8f9",
     name: "[2]",
-    sectionChildrenId: "10d854ea-22fc-491b-8ca9-57bf45335fe3",
     parentId: "6da834af-b00d-492e-aa31-51be3f93b61f",
     paramInfoId: null,
     size: {
@@ -416,7 +398,6 @@ export default {
   "486afb30-ed4b-43db-acbc-097f3d575f40": {
     id: "486afb30-ed4b-43db-acbc-097f3d575f40",
     name: "[1]",
-    sectionChildrenId: "61a14cdb-4664-4b5a-8d4b-e8c7c130bf76",
     parentId: "6da834af-b00d-492e-aa31-51be3f93b61f",
     paramInfoId: null,
     size: {
@@ -439,7 +420,6 @@ export default {
   "fe23c7d7-15ae-4137-836d-0b16defdbe51": {
     id: "fe23c7d7-15ae-4137-836d-0b16defdbe51",
     name: "[0]",
-    sectionChildrenId: "0a8bf243-f2f2-4f6d-a29d-bb428e4907ff",
     parentId: "6da834af-b00d-492e-aa31-51be3f93b61f",
     paramInfoId: null,
     size: {
@@ -462,7 +442,6 @@ export default {
   "8b584fd6-f495-4b1a-b9c0-b640f5931336": {
     id: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
     name: "Model + Loss",
-    sectionChildrenId: "33e516af-dfe2-4891-a511-29ebd754b30e",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -485,7 +464,6 @@ export default {
   "5d890f43-1ff0-4e47-950d-23c43e160e8c": {
     id: "5d890f43-1ff0-4e47-950d-23c43e160e8c",
     name: "Training",
-    sectionChildrenId: "9e0898a3-1911-4a70-9b71-5e0a0c660951",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -508,7 +486,6 @@ export default {
   "aa2078ab-8613-4498-951a-8c990f56be44": {
     id: "aa2078ab-8613-4498-951a-8c990f56be44",
     name: "Validation",
-    sectionChildrenId: "d9e22eca-fcbf-44e0-a06b-6d4ef112b577",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -531,7 +508,6 @@ export default {
   "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9": {
     id: "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
     name: "train",
-    sectionChildrenId: "fd74d8cf-4c7a-48cb-983d-e84bb1194faf",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -554,7 +530,6 @@ export default {
   "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa": {
     id: "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa",
     name: "Logger",
-    sectionChildrenId: "227edf00-28cb-4616-b5a2-af75ed28e7ab",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -577,7 +552,6 @@ export default {
   "915d5594-d78e-4b96-ad91-6003462fa969": {
     id: "915d5594-d78e-4b96-ad91-6003462fa969",
     name: "Loss Fn",
-    sectionChildrenId: "18de3a3c-7f5a-4c0a-aada-2a50d1824d79",
     parentId: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
     paramInfoId: null,
     size: {
@@ -600,7 +574,6 @@ export default {
   "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61": {
     id: "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
     name: "Metrics",
-    sectionChildrenId: "9a43154a-7c97-43c1-9f37-741b02ac392b",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -623,7 +596,6 @@ export default {
   "379a611c-6584-4db0-85bd-5c419bbd110d": {
     id: "379a611c-6584-4db0-85bd-5c419bbd110d",
     name: "[1]",
-    sectionChildrenId: "fa5075a3-1a8b-4bc5-9f95-d0eab59a1c91",
     parentId: "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
     paramInfoId: null,
     size: {
@@ -646,7 +618,6 @@ export default {
   "5c0517cb-28e2-4a69-b066-4872a0cd6f22": {
     id: "5c0517cb-28e2-4a69-b066-4872a0cd6f22",
     name: "[0]",
-    sectionChildrenId: "77ab1531-31ee-42b4-a229-db029e0f8cc4",
     parentId: "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
     paramInfoId: null,
     size: {
@@ -669,7 +640,6 @@ export default {
   "73c7f2c5-1c05-49ee-9812-2fbd27a849c3": {
     id: "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
     name: "LR Scheduler",
-    sectionChildrenId: "15828e95-708d-4122-b353-517f458b90b6",
     parentId: "8f6b5dd4-ba63-4259-af49-77ea52c4ea99",
     paramInfoId: null,
     size: {
@@ -692,7 +662,6 @@ export default {
   "8f6b5dd4-ba63-4259-af49-77ea52c4ea99": {
     id: "8f6b5dd4-ba63-4259-af49-77ea52c4ea99",
     name: "Optimizer + LR Scheduler",
-    sectionChildrenId: "8ef7e264-652d-44e2-b409-49d9518c33cd",
     parentId: null,
     paramInfoId: null,
     size: {
@@ -715,7 +684,6 @@ export default {
   "7af597f1-f9e2-4988-8b73-70c147c4b769": {
     id: "7af597f1-f9e2-4988-8b73-70c147c4b769",
     name: "Readme",
-    sectionChildrenId: "854d9ab8-0128-43fe-9f0e-9e265e06bf05",
     parentId: null,
     paramInfoId: null,
     size: {
