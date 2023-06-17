@@ -30,7 +30,10 @@ export function useLoadProject({
       setDoneLoading(result);
     }
 
-    if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG) {
+    // The first if-statement triggers for a page refresh or navigating to a different project
+    if (!doneLoading || pageLoadType === NEW_PROJECT) {
+      loadAllProjectData();
+    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG) {
       loadProjectIntoState({
         projectInfo: newProjectConfig,
         excludeCodeInfo: true,
@@ -39,8 +42,6 @@ export function useLoadProject({
       useProject.getState().setName(projectName);
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
       useProjectConfig.getState().setName(configName);
-    } else if (pageLoadType === NEW_PROJECT) {
-      loadAllProjectData();
     }
   }, [username, projectName, configName]);
 
