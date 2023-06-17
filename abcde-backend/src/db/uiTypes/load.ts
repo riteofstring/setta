@@ -59,6 +59,7 @@ function processSpecificUITypeConfig(uiTypeType: string, uiTypeConfig) {
       config.collections = config.collections.map((x) => x.id);
       config.outputGroup = config.outputGroupId;
       config.social = null; //TODO actually load this instead of just setting to null
+      config.userSpecifiedObjectId = null; //TODO actually load this instead of just setting to null
       delete config.outputGroupId;
     }
     return { config };
