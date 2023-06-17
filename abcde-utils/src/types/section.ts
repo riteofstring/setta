@@ -9,7 +9,6 @@ import { ManyOf } from "./utils";
 export type SectionType = {
   id: string;
   name: string;
-  configId: string;
   sectionChildrenId: string;
   parentId: string | null;
   paramInfoId: string | null;
@@ -17,6 +16,12 @@ export type SectionType = {
   initialPosition: SectionPositionType;
   chainedFrom: string | null;
   zIndex: number;
+  uiTypeId: string;
+  evColId: string;
+  kwargColId: string;
+  uiTypeColId: string;
+  selectedItem: string;
+  descriptionId: string;
 };
 
 export type ManySectionType = ManyOf<SectionType>;

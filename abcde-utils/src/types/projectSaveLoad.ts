@@ -9,7 +9,6 @@ import { ProjectType } from "./project";
 import { ProjectConfigType } from "./projectConfig";
 import { ManySectionTypeSaveProjectToBackend } from "./section";
 import { ManySectionChildrenType } from "./sectionChildren";
-import { ManySectionConfigType } from "./sectionConfig";
 import { ManySectionDescriptionType } from "./sectionDescription";
 import { ManyUITypeType } from "./uiType";
 import { ManyUITypeColType } from "./uiTypeCol";
@@ -25,7 +24,6 @@ export type ProjectSaveType = {
   kwargCols: ManyKwargColType;
   sections: ManySectionTypeSaveProjectToBackend;
   sectionChildren: ManySectionChildrenType;
-  sectionConfigs: ManySectionConfigType;
   sectionDescriptions: ManySectionDescriptionType;
   projectConfigCodeInfoMaps: CodeInfoMapStateType;
 };

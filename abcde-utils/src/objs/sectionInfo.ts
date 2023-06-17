@@ -1,3 +1,4 @@
+import { NULL_OBJ_ID } from "src/constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";
 import { maybeNewId } from "../utils";
@@ -5,7 +6,6 @@ import { maybeNewId } from "../utils";
 export function newSectionInfo({
   id,
   name,
-  configId,
   sectionChildrenId,
   paramInfoId = null,
   size,
@@ -14,6 +14,12 @@ export function newSectionInfo({
   parentName = "",
   chainedFrom = null,
   zIndex = 0,
+  uiTypeId,
+  evColId,
+  kwargColId,
+  uiTypeColId,
+  selectedItem = NULL_OBJ_ID,
+  descriptionId,
 }: Partial<SectionType> & {
   parentName?: string;
   size: SizeType;
@@ -21,7 +27,6 @@ export function newSectionInfo({
   return {
     id: maybeNewId(id),
     name: name ? name : parentName,
-    configId: maybeNewId(configId),
     sectionChildrenId: maybeNewId(sectionChildrenId),
     parentId,
     paramInfoId,
@@ -29,5 +34,11 @@ export function newSectionInfo({
     initialPosition,
     chainedFrom,
     zIndex,
+    uiTypeId: maybeNewId(uiTypeId),
+    evColId: maybeNewId(evColId),
+    kwargColId: maybeNewId(kwargColId),
+    uiTypeColId: maybeNewId(uiTypeColId),
+    selectedItem,
+    descriptionId: maybeNewId(descriptionId),
   };
 }
