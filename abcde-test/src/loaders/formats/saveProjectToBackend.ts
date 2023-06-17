@@ -24,7 +24,7 @@ export function saveProjectToBackend(loaded) {
 }
 
 function processProject(project) {
-  return _.pick(project, ["id", "name"]);
+  return _.pick(project, ["id", "name", "defaultConfigId"]);
 }
 
 function processSections(sections) {

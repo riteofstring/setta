@@ -22,13 +22,13 @@ export function createInMemProject(name: string) {
       id: fakeId,
       name,
       owner: DEFAULT_USER_ID,
+      defaultConfigId: fakeId,
     };
 
     projectConfig = {
       id: fakeId,
       name: configName,
       children: [],
-      isDefault: true,
     };
 
     IN_MEM_PROJECTS[name] = project;
