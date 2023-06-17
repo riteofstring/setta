@@ -30,11 +30,11 @@ model CodeInfo {
   returnType                CodeInfo?                  @relation("ReturnType", fields: [returnTypeId], references: [id])
   returnTypeOf              CodeInfo[]                 @relation("ReturnType")
   returnTypeId              String?                    @db.Uuid
-  sections                  Section[] // Section.paramInfo
+  sectionsParamInfo         Section[]                  @relation("SectionsParamInfo") // Section.paramInfo
   kwargOwner                KwargCol[]                 @relation("KwargOwner") // KwargCol.codeInfo
   kwarg                     KwargCol[]                 @relation("Kwarg") // KwargCol.kwargInfo
   evOwner                   EVCol[] // EVCol.codeInfo
-  sectionConfigs            SectionConfig[] //SectionConfig.selectedItem
+  sectionsSelectedItem      Section[]                  @relation("SectionsSelectedItem") //Section.selectedItem
   uiTypeOrigins             UIType[] //UIType.originCodeInfo
   uiTypeCols                UITypeCol[] //UITypeCol.codeInfo
   sectionUITypes            SectionUIType[] //SectionUIType.collections
@@ -69,7 +69,7 @@ model User {
 model Section {
   id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name           String             @db.VarChar(255)
-  paramInfo      CodeInfo?          @relation(fields: [paramInfoId], references: [id])
+  paramInfo      CodeInfo?          @relation("SectionsParamInfo", fields: [paramInfoId], references: [id])
   paramInfoId    String?            @db.Uuid
   children       SectionChildrenId  @relation(fields: [childrenId], references: [id])
   childrenId     String             @db.Uuid
@@ -77,20 +77,31 @@ model Section {
   height         Int
   siblings       SectionChildren[] //SectionChildren.section
   evChildren     EV[] //EV.child
-  sectionConfigs SectionConfigCol[] //SectionConfigCol.section
-  uiTypeOrigins  UIType[] //UIType.originSection
+  uiTypeOrigins  UIType[]           @relation("UITypeOrigins") //UIType.originSection
   chainedFrom    Section?           @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
   chainedTo      Section[]          @relation("SectionChainedFrom")
   chainedFromId  String?            @db.Uuid
   zIndex         Int
+  evCol          EVColId            @relation(fields: [evColId], references: [id])
+  evColId        String             @db.Uuid
+  kwargCol       KwargColId         @relation(fields: [kwargColId], references: [id])
+  kwargColId     String             @db.Uuid
+  selectedItem   CodeInfo           @relation("SectionsSelectedItem", fields: [selectedItemId], references: [id])
+  selectedItemId String             @db.Uuid
+  uiType         UIType             @relation(fields: [uiTypeId], references: [id])
+  uiTypeId       String             @db.Uuid
+  uiTypeCol      UITypeColId        @relation(fields: [uiTypeColId], references: [id])
+  uiTypeColId    String             @db.Uuid
+  description    SectionDescription @relation(fields: [descriptionId], references: [id])
+  descriptionId  String             @db.Uuid
 }
 
 model SectionDescription {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  value          String          @db.Text
-  height         Int
-  visible        Boolean
-  sectionConfigs SectionConfig[]
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  value    String    @db.Text
+  height   Int
+  visible  Boolean
+  sections Section[] //Section.descriptionId
 }
 
 model SectionChildrenId {
@@ -113,9 +124,9 @@ model SectionChildren {
 }
 
 model KwargColId {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  children       KwargCol[]
-  sectionConfigs SectionConfig[] //SectionConfig.kwargCol
+  id       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  children KwargCol[]
+  sections Section[] //Section.kwargColId
 }
 
 model KwargCol {
@@ -131,9 +142,9 @@ model KwargCol {
 }
 
 model EVColId {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  children       EVCol[]
-  sectionConfigs SectionConfig[] //SectionConfig.evCol
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  children EVCol[]
+  sections Section[] //Section.evColId
 }
 
 model EVCol {
@@ -155,40 +166,6 @@ model EV {
   evCol   EVCol[] //EVCol.ev
 }
 
-model SectionConfigColId {
-  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  children       SectionConfigCol[]
-  projectConfigs ProjectConfig[] //ProjectConfig.sectionConfigCol
-}
-
-model SectionConfigCol {
-  id        SectionConfigColId @relation(fields: [idid], references: [id])
-  idid      String             @db.Uuid
-  section   Section            @relation(fields: [sectionId], references: [id])
-  sectionId String             @db.Uuid
-  config    SectionConfig      @relation(fields: [configId], references: [id])
-  configId  String             @db.Uuid
-
-  @@id([idid, sectionId]) // composite key
-}
-
-model SectionConfig {
-  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  evCol          EVColId            @relation(fields: [evColId], references: [id])
-  evColId        String             @db.Uuid
-  kwargCol       KwargColId         @relation(fields: [kwargColId], references: [id])
-  kwargColId     String             @db.Uuid
-  selectedItem   CodeInfo           @relation(fields: [selectedItemId], references: [id])
-  selectedItemId String             @db.Uuid
-  uiType         UIType             @relation(fields: [uiTypeId], references: [id])
-  uiTypeId       String             @db.Uuid
-  uiTypeCol      UITypeColId        @relation(fields: [uiTypeColId], references: [id])
-  uiTypeColId    String             @db.Uuid
-  description    SectionDescription @relation(fields: [descriptionId], references: [id])
-  descriptionId  String             @db.Uuid
-  configCol      SectionConfigCol[] //SectionConfigCol.config
-}
-
 model UIType {
   id                            String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                          String                         @db.VarChar(255)
@@ -196,14 +173,14 @@ model UIType {
   ownerId                       String?                        @db.Uuid
   type                          String                         @db.VarChar(255)
   presetType                    String?                        @db.VarChar(255)
-  originSection                 Section?                       @relation(fields: [originSectionId], references: [id])
+  originSection                 Section?                       @relation("UITypeOrigins", fields: [originSectionId], references: [id])
   originSectionId               String?                        @db.Uuid
   originUITypeCol               UITypeColId?                   @relation(fields: [originUITypeColId], references: [id])
   originUITypeColId             String?                        @db.Uuid
   originCodeInfo                CodeInfo?                      @relation(fields: [originCodeInfoId], references: [id])
   originCodeInfoId              String?                        @db.Uuid
   isForChildOfOriginInfoId      Boolean
-  sectionConfigs                SectionConfig[] //SectionConfig.uiType
+  sections                      Section[] //Section.uiTypeId
   uiTypeCols                    UITypeCol[] //UITypeCol.uiType
   sectionUIType                 SectionUIType? //SectionUIType.id
   sliderUIType                  SliderUIType? //SliderUIType.id
@@ -217,10 +194,10 @@ model UIType {
 }
 
 model UITypeColId {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  children       UITypeCol[]
-  uiTypeOrigins  UIType[] //UIType.originUITypeCol
-  sectionConfigs SectionConfig[] //SectionConfig.uiTypeCol
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  children      UITypeCol[]
+  uiTypeOrigins UIType[] //UIType.originUITypeCol
+  sections      Section[] //Section.uiTypeColId
 }
 
 model UITypeCol {
@@ -290,18 +267,16 @@ model Project {
 }
 
 model ProjectConfig {
-  id                 String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String                         @db.VarChar(255)
-  sectionConfigCol   SectionConfigColId             @relation(fields: [sectionConfigColId], references: [id])
-  sectionConfigColId String                         @db.Uuid
-  sectionChildren    SectionChildrenId              @relation(fields: [sectionChildrenId], references: [id])
-  sectionChildrenId  String                         @db.Uuid
-  project            Project                        @relation("configs", fields: [projectId], references: [id])
-  projectId          String                         @db.Uuid
-  isDefault          Boolean
-  codeInfoTypeMaps   ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
-  codeInfoMaps       ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
-  runs               Run[]
+  id                String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String                         @db.VarChar(255)
+  sectionChildren   SectionChildrenId              @relation(fields: [sectionChildrenId], references: [id])
+  sectionChildrenId String                         @db.Uuid
+  project           Project                        @relation("configs", fields: [projectId], references: [id])
+  projectId         String                         @db.Uuid
+  isDefault         Boolean
+  codeInfoTypeMaps  ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
+  codeInfoMaps      ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
+  runs              Run[]
 
   @@unique([name, projectId])
 }
