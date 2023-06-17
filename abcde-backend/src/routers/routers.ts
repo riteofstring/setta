@@ -13,6 +13,7 @@ import {
   SAVE_AS_NEW_PROJECT_CONFIG,
   SAVE_COLLECTIONS,
   SAVE_PROJECT,
+  SET_PROJECT_NAME,
 } from 'abcde-utils/src/routes';
 import express from 'express';
 import { login } from 'src/middleware/auth/login';
@@ -28,6 +29,7 @@ import { loadOneProject } from 'src/middleware/projects/loadOneProject';
 import { saveAsExistingProjectConfig } from 'src/middleware/projects/saveAsExistingProjectConfig';
 import { saveAsNewProjectConfig } from 'src/middleware/projects/saveAsNewProjectConfig';
 import { saveProject } from 'src/middleware/projects/saveProject';
+import { setProjectName } from 'src/middleware/projects/setProjectName';
 import { generateCode } from 'src/middleware/runs/generateCode';
 import { getCode } from 'src/middleware/runs/getCode';
 
@@ -54,4 +56,5 @@ router.post(SAVE_COLLECTIONS, saveCollections);
 router.post(GET_COLLECTION_DETAILS, getCollectionDetails);
 router.post(GENERATE_CODE, generateCode);
 router.post(GET_CODE, getCode);
+router.post(SET_PROJECT_NAME, setProjectName);
 router.post('/logging', logData);
