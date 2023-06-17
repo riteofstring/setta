@@ -2,7 +2,6 @@ export type ProjectConfigType = {
   id: string;
   name: string;
   children: string[];
-  isDefault: boolean;
 };
 
 export type ProjectConfigFrontendType = ProjectConfigType & {
