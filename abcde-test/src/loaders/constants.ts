@@ -33,7 +33,6 @@ export const PROJECT_STATES = [
   "projectConfigCodeInfoMaps",
   "sectionCurrChildren",
   "sectionChildren",
-  "sectionConfigs",
   "sectionDescriptions",
   "sections",
   "uiTypes",

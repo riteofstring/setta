@@ -1,7 +1,6 @@
 export default {
   id: "c93ebe70-7582-434b-a6ba-df7604f51a4d",
   name: "mnistConfig1",
-  sectionConfigCol: "a4ba62b8-2b23-4ebe-94d0-8a9679fb4c99",
   childrenId: "f0c546ec-5a09-40a9-a592-9a0bce02b5f5",
   children: [
     "0c10e6ff-215c-4f48-b7a8-cb10f990dc27",

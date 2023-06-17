@@ -32,7 +32,6 @@ function processSections(sections) {
     _.pick(x, [
       "id",
       "name",
-      "configId",
       "paramInfoId",
       "sectionChildrenId",
       "initialPosition",
