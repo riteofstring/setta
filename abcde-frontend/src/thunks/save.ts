@@ -48,7 +48,6 @@ export function getProjectData(): ProjectSaveType {
         "name",
         "configId",
         "paramInfoId",
-        "sectionChildrenId",
         "initialPosition",
         "size",
         "chainedFrom",
