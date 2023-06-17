@@ -4,8 +4,7 @@ import { prisma } from 'src/db/prisma';
 import { saveSectionChildren } from 'src/db/sections/save';
 
 async function assembleProjectConfig(config: ProjectConfigType, sections) {
-  const { id, name, sectionConfigCol, children, childrenId, isDefault } =
-    config;
+  const { id, name, children, childrenId, isDefault } = config;
   const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
   await prisma.sectionChildrenId.createMany({
     data: [{ id: childrenId }],
@@ -20,7 +19,6 @@ async function assembleProjectConfig(config: ProjectConfigType, sections) {
   return {
     id,
     name,
-    sectionConfigColId: sectionConfigCol,
     sectionChildrenId: childrenId,
     isDefault,
   };

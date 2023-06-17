@@ -1,13 +1,8 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import {
-  ManySectionType,
-  ManySectionTypeSaveProjectToBackend,
-} from 'abcde-utils/src/types/section';
+import { ManySectionType } from 'abcde-utils/src/types/section';
 import { ManySectionChildrenType } from 'abcde-utils/src/types/sectionChildren';
-import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
-import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
 import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
 import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
@@ -22,8 +17,7 @@ function convertSize(x) {
   return x === -1 ? 'auto' : x;
 }
 
-export async function getSections(sectionConfigCol: SectionConfigColType) {
-  const ids = Object.keys(sectionConfigCol);
+export async function getSections(ids: string[]) {
   const s = await prisma.section.findMany({
     where: { id: { in: ids } },
     include: {
@@ -34,39 +28,6 @@ export async function getSections(sectionConfigCol: SectionConfigColType) {
           },
         },
       },
-    },
-  });
-  const idsAsKeys = _.keyBy(s, 'id');
-
-  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
-    getOrderedChildren(v.children.children, 'sectionId'),
-  );
-
-  const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
-    id: v.id,
-    name: v.name,
-    paramInfoId: v.paramInfoId,
-    sectionChildrenId: v.childrenId,
-    initialPosition: { x: 0, y: 0 },
-    size: { width: convertSize(v.width), height: convertSize(v.height) },
-    chainedFrom: v.chainedFromId,
-    configId: sectionConfigCol[v.id],
-    parentId: getParentId(v.id, sectionChildren),
-    zIndex: v.zIndex,
-  }));
-
-  _.forEach(idsAsKeys, (v) => {
-    const s = getSectionPositions(v.children.children);
-    setSectionPositions(sections, s);
-  });
-
-  return { sections, sectionChildren };
-}
-
-export async function getSectionConfigs(ids) {
-  const s = await prisma.sectionConfig.findMany({
-    where: { id: { in: ids } },
-    include: {
       evCol: {
         select: {
           children: { select: { codeInfoId: true, evId: true, ev: true } },
@@ -95,6 +56,34 @@ export async function getSectionConfigs(ids) {
       },
     },
   });
+  const idsAsKeys = _.keyBy(s, 'id');
+
+  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
+    getOrderedChildren(v.children.children, 'sectionId'),
+  );
+
+  const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
+    id: v.id,
+    name: v.name,
+    paramInfoId: v.paramInfoId,
+    sectionChildrenId: v.childrenId,
+    initialPosition: { x: 0, y: 0 },
+    size: { width: convertSize(v.width), height: convertSize(v.height) },
+    chainedFrom: v.chainedFromId,
+    parentId: getParentId(v.id, sectionChildren),
+    zIndex: v.zIndex,
+    evColId: v.evColId,
+    uiTypeId: v.uiTypeId,
+    kwargColId: v.kwargColId,
+    uiTypeColId: v.uiTypeColId,
+    selectedItem: v.selectedItemId,
+    descriptionId: v.descriptionId,
+  }));
+
+  _.forEach(idsAsKeys, (v) => {
+    const sPos = getSectionPositions(v.children.children);
+    setSectionPositions(sections, sPos);
+  });
 
   const sectionUITypes = await getUITypesByWhere(
     {
@@ -102,19 +91,6 @@ export async function getSectionConfigs(ids) {
     },
     UITypeNames.sectionUIType,
   );
-
-  const sectionConfigs: ManySectionConfigType = {};
-  for (const x of s) {
-    sectionConfigs[x.id] = {
-      id: x.id,
-      uiTypeId: x.uiTypeId,
-      evColId: x.evColId,
-      kwargColId: x.kwargColId,
-      uiTypeColId: x.uiTypeColId,
-      selectedItem: x.selectedItemId,
-      descriptionId: x.descriptionId,
-    };
-  }
 
   const ev: ManyEVType = {};
   for (const config of s) {
@@ -154,7 +130,8 @@ export async function getSectionConfigs(ids) {
   }
 
   return {
-    sectionConfigs,
+    sections,
+    sectionChildren,
     ev,
     evCols,
     kwargCols,
@@ -191,10 +168,4 @@ function getParentId(
     }
   }
   return null;
-}
-
-export function getSectionConfigCol(
-  sections: ManySectionType | ManySectionTypeSaveProjectToBackend,
-) {
-  return _.mapValues(sections, (v) => v.configId);
 }

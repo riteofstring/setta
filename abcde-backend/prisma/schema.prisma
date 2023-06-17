@@ -67,33 +67,33 @@ model User {
 }
 
 model Section {
-  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name           String             @db.VarChar(255)
-  paramInfo      CodeInfo?          @relation("SectionsParamInfo", fields: [paramInfoId], references: [id])
-  paramInfoId    String?            @db.Uuid
-  children       SectionChildrenId  @relation(fields: [childrenId], references: [id])
-  childrenId     String             @db.Uuid
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String              @db.VarChar(255)
+  paramInfo      CodeInfo?           @relation("SectionsParamInfo", fields: [paramInfoId], references: [id])
+  paramInfoId    String?             @db.Uuid
+  children       SectionChildrenId   @relation(fields: [childrenId], references: [id])
+  childrenId     String              @db.Uuid
   width          Int
   height         Int
   siblings       SectionChildren[] //SectionChildren.section
   evChildren     EV[] //EV.child
-  uiTypeOrigins  UIType[]           @relation("UITypeOrigins") //UIType.originSection
-  chainedFrom    Section?           @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
-  chainedTo      Section[]          @relation("SectionChainedFrom")
-  chainedFromId  String?            @db.Uuid
+  uiTypeOrigins  UIType[]            @relation("UITypeOrigins") //UIType.originSection
+  chainedFrom    Section?            @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
+  chainedTo      Section[]           @relation("SectionChainedFrom")
+  chainedFromId  String?             @db.Uuid
   zIndex         Int
-  evCol          EVColId            @relation(fields: [evColId], references: [id])
-  evColId        String             @db.Uuid
-  kwargCol       KwargColId         @relation(fields: [kwargColId], references: [id])
-  kwargColId     String             @db.Uuid
-  selectedItem   CodeInfo           @relation("SectionsSelectedItem", fields: [selectedItemId], references: [id])
-  selectedItemId String             @db.Uuid
-  uiType         UIType             @relation(fields: [uiTypeId], references: [id])
-  uiTypeId       String             @db.Uuid
-  uiTypeCol      UITypeColId        @relation(fields: [uiTypeColId], references: [id])
-  uiTypeColId    String             @db.Uuid
-  description    SectionDescription @relation(fields: [descriptionId], references: [id])
-  descriptionId  String             @db.Uuid
+  evCol          EVColId?            @relation(fields: [evColId], references: [id])
+  evColId        String?             @db.Uuid
+  kwargCol       KwargColId?         @relation(fields: [kwargColId], references: [id])
+  kwargColId     String?             @db.Uuid
+  selectedItem   CodeInfo?           @relation("SectionsSelectedItem", fields: [selectedItemId], references: [id])
+  selectedItemId String?             @db.Uuid
+  uiType         UIType?             @relation(fields: [uiTypeId], references: [id])
+  uiTypeId       String?             @db.Uuid
+  uiTypeCol      UITypeColId?        @relation(fields: [uiTypeColId], references: [id])
+  uiTypeColId    String?             @db.Uuid
+  description    SectionDescription? @relation(fields: [descriptionId], references: [id])
+  descriptionId  String?             @db.Uuid
 }
 
 model SectionDescription {

@@ -5,11 +5,7 @@ import { getProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/projectConfig/
 import { getUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/load';
 import { prisma } from 'src/db/prisma';
 import { getProjectConfig } from 'src/db/projectConfigs/load';
-import {
-  getSectionConfigs,
-  getSections,
-  setSectionPositions,
-} from 'src/db/sections/load';
+import { getSections, setSectionPositions } from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 import { getRuns } from '../runs/load';
 
@@ -52,18 +48,17 @@ export async function loadOne({
   });
 
   const project = await getProject(projectId);
-  const { projectConfig, sectionConfigCol, sectionPositions } =
-    await getProjectConfig(configId);
-  const { sections, sectionChildren } = await getSections(sectionConfigCol);
+  const { projectConfig, sectionPositions } = await getProjectConfig(configId);
   const {
-    sectionConfigs,
+    sections,
+    sectionChildren,
     ev,
     evCols,
     kwargCols,
     uiTypeCols,
     sectionUITypes,
     sectionDescriptions,
-  } = await getSectionConfigs(Object.values(sectionConfigCol));
+  } = await getSections(projectConfig.children);
 
   const baseUITypes = await getBaseUITypes();
   const presetUITypes = await getPresetUITypes(reqUserId);
@@ -85,7 +80,6 @@ export async function loadOne({
     projectConfig,
     sections,
     sectionChildren,
-    sectionConfigs,
     sectionDescriptions,
     ev,
     evCols,

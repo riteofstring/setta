@@ -17,7 +17,6 @@ describe('Create, update, and copy a section ui type', () => {
   const section = newSectionInfo({
     id: createNewId(),
     name: 'New Section',
-    configId: createNewId(),
     paramInfoId: null,
     sectionChildrenId: createNewId(),
     size: { width: 100, height: 100 },

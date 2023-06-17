@@ -6,24 +6,22 @@ import { saveKwargCols, saveKwargInfo } from 'src/db/kwargs/save';
 import { prisma } from 'src/db/prisma';
 import { saveProjectConfig } from 'src/db/projectConfigs/save';
 import {
-  saveSectionConfigCol,
-  saveSectionConfigs,
   saveSectionDescriptions,
   saveSections,
+  updateSectionsWithDetails,
 } from 'src/db/sections/save';
 import { saveUITypeCols, saveUITypes } from 'src/db/uiTypes/save';
 
 export async function saveProjectDetails(userId, p: ProjectSaveType) {
+  await saveSections(p.sections, p.sectionChildren);
   await saveKwargInfo(p.kwargInfo);
   await saveKwargCols(p.kwargCols);
-  await saveSections(p.sections, p.sectionChildren);
   await saveEV(p.ev);
   await saveEVCols(p.evCols);
   await saveUITypes(userId, p.uiTypes);
   await saveUITypeCols(p.uiTypeCols);
   await saveSectionDescriptions(p.sectionDescriptions);
-  await saveSectionConfigs(p.sectionConfigs);
-  await saveSectionConfigCol(p.sections, p.projectConfig.sectionConfigCol);
+  await updateSectionsWithDetails(p.sections);
   await saveProject(userId, p.project);
   await saveProjectConfig(p.project.id, p.projectConfig, p.sections);
   await saveAllProjectConfigCodeInfoMaps(
@@ -56,7 +54,6 @@ export async function createProject(userId, name: string) {
   await prisma.projectConfig.create({
     data: {
       name: 'config1',
-      sectionConfigCol: { create: {} },
       sectionChildren: { create: {} },
       project: { connect: { id: project.id } },
       isDefault: true,
