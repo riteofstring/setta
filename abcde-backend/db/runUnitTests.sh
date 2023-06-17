@@ -1,3 +1,4 @@
+#!/bin/sh
 usedotenv="node_modules/dotenv-cli/cli.js -e .env.test"
 if [[ "$2" == "--reset" ]]
 then
