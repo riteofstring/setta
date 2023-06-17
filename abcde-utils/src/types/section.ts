@@ -9,7 +9,6 @@ import { ManyOf } from "./utils";
 export type SectionType = {
   id: string;
   name: string;
-  sectionChildrenId: string;
   parentId: string | null;
   paramInfoId: string | null;
   size: SizeType;

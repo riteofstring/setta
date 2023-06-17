@@ -1,7 +1,6 @@
 export type ProjectConfigType = {
   id: string;
   name: string;
-  childrenId: string;
   children: string[];
   isDefault: boolean;
 };
