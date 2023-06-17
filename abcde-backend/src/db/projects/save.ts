@@ -43,6 +43,13 @@ export async function saveProject(userId, project: ProjectType) {
   });
 }
 
+export async function updateDefaultProjectConfig(userId, project: ProjectType) {
+  await prisma.project.update({
+    where: { name_ownerId: { name: project.name, ownerId: userId } },
+    data: { defaultConfigId: project.defaultConfigId },
+  });
+}
+
 export async function createProject(userId, name: string) {
   const project = await prisma.project.create({
     data: {
@@ -55,7 +62,7 @@ export async function createProject(userId, name: string) {
     data: {
       name: 'config1',
       project: { connect: { id: project.id } },
-      isDefault: true,
+      isDefaultFor: { connect: { id: project.id } },
     },
   });
 

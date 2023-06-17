@@ -23,7 +23,7 @@ async function getIds({ username, projectName, configName }) {
 export async function getProject(id: string) {
   return await prisma.project.findUniqueOrThrow({
     where: { id },
-    select: { id: true, name: true },
+    select: { id: true, name: true, defaultConfigId: true },
   });
 }
 

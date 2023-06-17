@@ -7,7 +7,10 @@ import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/save';
 import { prisma } from 'src/db/prisma';
-import { saveProjectDetails } from 'src/db/projects/save';
+import {
+  saveProjectDetails,
+  updateDefaultProjectConfig,
+} from 'src/db/projects/save';
 import { saveRunsAndOutputs } from 'src/db/runs/save';
 import {
   extractSectionUITypes,
@@ -59,6 +62,11 @@ async function seedProjects() {
       }
     });
     await saveProjectDetails(p.project.owner, p);
+  }
+
+  // update defaultConfigId afterwards
+  for (const p of allProjects) {
+    await updateDefaultProjectConfig(p.project.owner, p.project);
   }
   console.log('done');
 }

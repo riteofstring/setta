@@ -11,7 +11,6 @@ export async function getProjectConfig(id) {
       sections: {
         select: { childId: true, order: true, x: true, y: true },
       },
-      isDefault: true,
     },
   });
 
@@ -21,7 +20,6 @@ export async function getProjectConfig(id) {
     id: p.id,
     name: p.name,
     children: getOrderedChildren(p.sections, 'childId'),
-    isDefault: p.isDefault,
   };
 
   return { projectConfig, sectionPositions };
