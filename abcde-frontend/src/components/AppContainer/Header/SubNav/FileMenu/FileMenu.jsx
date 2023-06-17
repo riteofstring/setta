@@ -40,7 +40,7 @@ export function FileMenu() {
     const currConfigName = useProjectConfig.getState().name;
     const currProject = _.find(projects, (x) => x.name === currProjectName);
     if (configName === currConfigName) {
-      onClickSave();
+      saveProject();
     } else {
       const matchingConfig = currProject.files.find(
         (x) => x.name === configName
@@ -85,10 +85,6 @@ function Items({ setModalType, getProjects, createAndGoToProject }) {
     await createAndGoToProject({});
   }
 
-  function onClickSave() {
-    saveProject();
-  }
-
   function onClickLoad() {
     setModalType("Load");
     getProjects();
@@ -107,7 +103,7 @@ function Items({ setModalType, getProjects, createAndGoToProject }) {
       <DialogMenuBarTriggerItem onClick={onClickLoad} shortcut="Ctrl + L">
         Load
       </DialogMenuBarTriggerItem>
-      <MenuItem onClick={onClickSave} shortcut="Ctrl + S">
+      <MenuItem onClick={saveProject} shortcut="Ctrl + S">
         <VscSave />
         Save
       </MenuItem>
