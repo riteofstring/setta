@@ -141,17 +141,15 @@ function ConfigItem({ project, config }) {
     <Link to={configAddress} state={{ pageLoadType: NEW_PROJECT }}>
       <Item className="flex flex-row">
         {config.name}
-        <DefaultConfigBadge config={config} />
+        <DefaultConfigBadge isDefault={project.defaultConfigId === config.id} />
       </Item>
     </Link>
   );
 }
 
-function DefaultConfigBadge({ config }) {
+function DefaultConfigBadge({ isDefault }) {
   return (
-    config.isDefault && (
-      <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
-    )
+    isDefault && <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
   );
 }
 
@@ -162,7 +160,7 @@ function useConfigAddress({ project, configId }) {
 }
 
 function useDefaultConfigAddress(project) {
-  const configId = project.configs.find((x) => x.isDefault).id;
+  const configId = project.defaultConfigId;
   return useConfigAddress({ project, configId });
 }
 

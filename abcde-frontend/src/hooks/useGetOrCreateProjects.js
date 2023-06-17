@@ -45,6 +45,6 @@ function goToProject({ project, configId }) {
 function goToDefaultConfig(project) {
   goToProject({
     project,
-    configId: project.configs.find((x) => x.isDefault).id,
+    configId: project.defaultConfigId,
   });
 }

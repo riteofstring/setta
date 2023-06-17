@@ -10,7 +10,6 @@ const initialState: ProjectConfigFrontendType = {
   id: "",
   name: "",
   children: [],
-  isDefault: false,
   version: 0,
 };
 
@@ -27,7 +26,7 @@ export const useProjectConfig = createProjectState(
         children: state.children.filter((x) => !payload.includes(x)),
       })),
     setName: (name) => set({ name }), //TODO, need to update db
-    getAll: () => _.pick(get(), ["id", "name", "children", "isDefault"]),
+    getAll: () => _.pick(get(), ["id", "name", "children"]),
   }))
 );
 
