@@ -3,9 +3,9 @@ import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { getOrderedChildren } from 'src/utils/utils';
+import { getChildrenRecursively, getOrderedChildren } from 'src/utils/utils';
 import { createAllInfo } from './infoFactory';
-import { ChildMapType, ParentChildPairsType } from './types';
+import { ChildMapType } from './types';
 
 export async function getCodeInfoForSectionsAndKwargs(
   sectionUITypes,
@@ -27,12 +27,10 @@ export async function getCodeInfoForSectionsAndKwargs(
 }
 
 export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
-  const collectionIds = new Set(ids);
-  let childMap = {};
-  const allIds = new Set(collectionIds);
-
-  for (const c of collectionIds) {
-    const parentChildPairs: ParentChildPairsType = await prisma.$queryRaw`
+  const { childMap, allIds } = await getChildrenRecursively(
+    ids,
+    async (c) =>
+      await prisma.$queryRaw`
           with recursive descendants as (
               select "parentId", "childId", "order"
               from "CodeInfoChildren"
@@ -42,15 +40,11 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
               from "CodeInfoChildren" x
               join descendants on x."parentId" = descendants."childId"
           )
-          select * from descendants;`;
-
-    const currChildMap = _.groupBy(parentChildPairs, (v) => v.parentId);
-    childMap = { ...childMap, ...currChildMap };
-    parentChildPairs.forEach((x) => allIds.add(x.childId));
-  }
+          select * from descendants;`,
+  );
 
   const codeInfo = await prisma.codeInfo.findMany({
-    where: { id: { in: Array.from(allIds) } },
+    where: { id: { in: allIds } },
   });
   const output = {};
   codeInfo.forEach((x) => {
