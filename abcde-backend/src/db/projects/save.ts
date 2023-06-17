@@ -54,7 +54,6 @@ export async function createProject(userId, name: string) {
   await prisma.projectConfig.create({
     data: {
       name: 'config1',
-      sectionChildren: { create: {} },
       project: { connect: { id: project.id } },
       isDefault: true,
     },

@@ -3,36 +3,22 @@ import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { saveSectionChildren } from 'src/db/sections/save';
 
-async function assembleProjectConfig(config: ProjectConfigType, sections) {
-  const { id, name, children, childrenId, isDefault } = config;
-  const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
-  await prisma.sectionChildrenId.createMany({
-    data: [{ id: childrenId }],
-    skipDuplicates: true,
-  });
-  await saveSectionChildren(
-    { null: children },
-    { null: childrenId },
-    { null: sectionPositions },
-  );
-
-  return {
-    id,
-    name,
-    sectionChildrenId: childrenId,
-    isDefault,
-  };
-}
-
 export async function saveProjectConfig(
   projectId: string,
   config: ProjectConfigType,
   sections,
 ) {
-  const data = await assembleProjectConfig(config, sections);
+  const { children, ...theRest } = config;
   await prisma.projectConfig.upsert({
-    where: { id: data.id },
-    create: { ...data, projectId },
-    update: { ...data, projectId },
+    where: { id: theRest.id },
+    create: { ...theRest, projectId },
+    update: { ...theRest, projectId },
   });
+
+  const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
+  await saveSectionChildren(
+    { [theRest.id]: children },
+    { [theRest.id]: sectionPositions },
+    prisma.projectConfigChildren,
+  );
 }

@@ -22,11 +22,7 @@ export async function getSections(ids: string[]) {
     where: { id: { in: ids } },
     include: {
       children: {
-        select: {
-          children: {
-            select: { order: true, sectionId: true, x: true, y: true },
-          },
-        },
+        select: { order: true, childId: true, x: true, y: true },
       },
       evCol: {
         select: {
@@ -59,14 +55,13 @@ export async function getSections(ids: string[]) {
   const idsAsKeys = _.keyBy(s, 'id');
 
   const sectionChildren = _.mapValues(idsAsKeys, (v) =>
-    getOrderedChildren(v.children.children, 'sectionId'),
+    getOrderedChildren(v.children, 'childId'),
   );
 
   const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
     id: v.id,
     name: v.name,
     paramInfoId: v.paramInfoId,
-    sectionChildrenId: v.childrenId,
     initialPosition: { x: 0, y: 0 },
     size: { width: convertSize(v.width), height: convertSize(v.height) },
     chainedFrom: v.chainedFromId,
@@ -81,7 +76,7 @@ export async function getSections(ids: string[]) {
   }));
 
   _.forEach(idsAsKeys, (v) => {
-    const sPos = getSectionPositions(v.children.children);
+    const sPos = getSectionPositions(v.children);
     setSectionPositions(sections, sPos);
   });
 
@@ -142,9 +137,9 @@ export async function getSections(ids: string[]) {
 }
 
 export function getSectionPositions(
-  children: Omit<PrismaSectionChildrenType, 'idid'>[],
+  children: Omit<PrismaSectionChildrenType, 'parentId'>[],
 ) {
-  const byId = _.keyBy(children, (s) => s.sectionId);
+  const byId = _.keyBy(children, (s) => s.childId);
   return _.mapValues(byId, (s) => ({ x: s.x, y: s.y }));
 }
 

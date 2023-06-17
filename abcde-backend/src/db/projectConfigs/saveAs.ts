@@ -31,7 +31,6 @@ export async function saveAsExistingProjectConfig(
   const existingProjectConfig = {
     id: x.id,
     name: x.name,
-    childrenId: x.sectionChildrenId,
     children: projectToSave.projectConfig.children,
     isDefault: projectToSave.projectConfig.isDefault,
   };

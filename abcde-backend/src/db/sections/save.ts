@@ -8,9 +8,8 @@ import {
   ChildrenSectionPositionType,
   TopLevelSectionPositionType,
 } from 'abcde-utils/src/types/sectionPosition';
-import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateCol } from 'src/utils/utils';
+import { deleteThenCreateChildren } from 'src/utils/utils';
 import {
   PrismaSectionChildrenType,
   PrismaSectionDescriptionType,
@@ -26,17 +25,11 @@ export async function saveSections(
   sections: ManySectionTypeSaveProjectToBackend,
   sectionChildren: ManySectionChildrenType,
 ) {
-  await prisma.sectionChildrenId.createMany({
-    data: Object.values(sections).map((x) => ({ id: x.sectionChildrenId })),
-    skipDuplicates: true,
-  });
-
   const inDbFormat: PrismaSectionType[] = [];
   for (const [id, v] of Object.entries(sections)) {
     inDbFormat.push({
       id,
       name: v.name,
-      childrenId: v.sectionChildrenId,
       paramInfoId: null,
       width: convertSize(v.size.width),
       height: convertSize(v.size.height),
@@ -61,10 +54,7 @@ export async function saveSections(
     ),
   );
 
-  await saveSectionChildren(
-    sectionChildren,
-    _.mapValues(sections, (v) => v.sectionChildrenId),
-  );
+  await saveSectionChildren(sectionChildren);
 }
 
 export async function updateSectionsWithDetails(
@@ -97,12 +87,11 @@ export async function updateSectionsWithDetails(
 
 export async function saveSectionChildren(
   sectionChildren: ManySectionChildrenType | TopLevelSectionChildrenType,
-  sectionChildrenIds,
   sectionPositions:
     | ChildrenSectionPositionType
     | TopLevelSectionPositionType = {},
+  db: any = prisma.sectionChildren,
 ) {
-  const allColIds = Object.values(sectionChildrenIds);
   const inDbFormat: PrismaSectionChildrenType[] = [];
   for (const [parentSectionId, currChildren] of Object.entries(
     sectionChildren,
@@ -110,15 +99,15 @@ export async function saveSectionChildren(
     for (const [order, sectionId] of currChildren.entries()) {
       const position = sectionPositions[parentSectionId]?.[sectionId];
       inDbFormat.push({
-        idid: sectionChildrenIds[parentSectionId],
-        sectionId,
+        parentId: parentSectionId,
+        childId: sectionId,
         order,
         x: position?.x,
         y: position?.y,
       });
     }
   }
-  await deleteThenCreateCol(prisma.sectionChildren, allColIds, inDbFormat);
+  await deleteThenCreateChildren(db, inDbFormat);
 }
 
 function assembleSectionDescription(

@@ -24,6 +24,16 @@ export async function deleteThenCreateCol(db, allColIds, data) {
   ]);
 }
 
+export async function deleteThenCreateChildren(db, data) {
+  await prisma.$transaction([
+    db.deleteMany({
+      where: { parentId: { in: data.map((x) => x.parentId) } },
+    }),
+
+    db.createMany({ data }),
+  ]);
+}
+
 export function getOrderedChildren<
   T extends { order: number },
   K extends keyof T,

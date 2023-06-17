@@ -12,7 +12,6 @@ export function copyProjectConfig({
   doCreateNewId?: boolean;
 }) {
   const newProjectConfig = _.cloneDeep(projectConfig);
-  newProjectConfig.childrenId = createNewId();
   if (newConfigName) {
     newProjectConfig.name = newConfigName;
   }
