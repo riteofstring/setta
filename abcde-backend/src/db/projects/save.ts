@@ -51,6 +51,7 @@ export async function createProject(userId, name: string) {
       owner: { connect: { id: userId } },
       name,
     },
+    include: { configs: true },
   });
 
   await prisma.projectConfig.create({
@@ -63,8 +64,5 @@ export async function createProject(userId, name: string) {
     },
   });
 
-  return await prisma.project.findFirst({
-    where: { id: project.id },
-    include: { configs: true },
-  });
+  return project;
 }

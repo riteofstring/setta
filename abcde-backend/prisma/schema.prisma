@@ -8,13 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Session {
-  id        String   @id
-  sid       String   @unique
-  data      String
-  expiresAt DateTime
-}
-
 model CodeInfo {
   id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                      String                     @db.VarChar(255)
