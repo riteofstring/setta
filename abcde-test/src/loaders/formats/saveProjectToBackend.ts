@@ -36,6 +36,13 @@ function processSections(sections) {
       "initialPosition",
       "size",
       "chainedFrom",
+      "zIndex",
+      "uiTypeId",
+      "evColId",
+      "kwargColId",
+      "uiTypeColId",
+      "selectedItem",
+      "descriptionId",
     ])
   );
 }
