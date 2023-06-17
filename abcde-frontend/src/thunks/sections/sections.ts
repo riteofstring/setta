@@ -2,32 +2,25 @@ import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useSectionConfigs } from "models/info/sectionConfigs";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { initializeParam } from "../initializeParam";
 
-function getSectionConfigId(sectionId) {
-  return useSectionInfos.getState().x[sectionId].configId;
+export function getSectionInfo(sectionId) {
+  return useSectionInfos.getState().x[sectionId];
 }
 
 export function getSectionParentId(sectionId) {
-  return useSectionInfos.getState().x[sectionId].parentId;
+  return getSectionInfo(sectionId).parentId;
 }
 
 export function getSectionName(sectionId) {
-  return useSectionInfos.getState().x[sectionId].name;
-}
-
-export function getSectionConfig(sectionId) {
-  const configId = getSectionConfigId(sectionId);
-  return useSectionConfigs.getState().x[configId];
+  return getSectionInfo(sectionId).name;
 }
 
 export function getSectionType(sectionId) {
-  const config = getSectionConfig(sectionId);
-  const sectionTypeId = config.uiTypeId;
+  const sectionTypeId = getSectionInfo(sectionId).uiTypeId;
   return useUITypes.getState().x[sectionTypeId];
 }
 
@@ -51,11 +44,6 @@ export function getSectionIsDeck(sectionId) {
   return getSectionType(sectionId).type === DECK;
 }
 
-export function setSectionConfigAttr({ sectionId, attr, value }) {
-  const configId = getSectionConfigId(sectionId);
-  useSectionConfigs.getState().setSectionConfigAttr({ configId, attr, value });
-}
-
 export function setCurrChildren({ sectionId, currChildren }) {
   const sectionInfosState = useSectionInfos.getState();
   sectionInfosState.setCurrChildren({ sectionId, currChildren });
@@ -64,7 +52,7 @@ export function setCurrChildren({ sectionId, currChildren }) {
 }
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
-  setSectionConfigAttr({
+  setSectionInfoAttr({
     sectionId,
     attr: "selectedItem",
     value: selectedItem,
@@ -76,7 +64,7 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
   maybeIncrementProjectStateVersion(changedByUser);
 }
 
-function setSectionInfoAttr(props) {
+export function setSectionInfoAttr(props) {
   useSectionInfos.getState().setSectionInfoAttr(props);
 }
 

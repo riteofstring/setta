@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
-import { useGetSectionConfig } from "./useSectionConfig";
+import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useGetParamUIType(sectionId: string, paramInfoId: string) {
   const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
@@ -11,7 +11,7 @@ export function useGetParamUIType(sectionId: string, paramInfoId: string) {
 }
 
 export function useParamUITypeId(sectionId: string, paramInfoId: string) {
-  const uiTypeColId = useGetSectionConfig(sectionId, "uiTypeColId");
+  const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   return useParamInfos((x) => x.y[uiTypeColId][paramInfoId]);
 }
 
@@ -20,7 +20,7 @@ export function useGetManyParamUITypeIds(
   paramInfos: string[] | CodeInfoType[],
   inputsAreIds: boolean
 ) {
-  const uiTypeColId = useGetSectionConfig(sectionId, "uiTypeColId");
+  const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   return useParamInfos(
     (x) => paramInfos.map((p) => x.y[uiTypeColId][inputsAreIds ? p : p.id]),
     _.isEqual

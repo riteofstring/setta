@@ -2,11 +2,11 @@ import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
-import { getSectionConfig } from "./sections/sections";
+import { getSectionInfo } from "./sections/sections";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function getParamEVId(sectionId, paramInfoId) {
-  const { evColId } = getSectionConfig(sectionId);
+  const { evColId } = getSectionInfo(sectionId);
   return useParamInfos.getState().x[evColId][paramInfoId];
 }
 
@@ -16,7 +16,7 @@ export function getParamChildId(sectionId, paramInfoId) {
 }
 
 export function getParamUITypeId(sectionId, paramInfoId) {
-  const { uiTypeColId } = getSectionConfig(sectionId);
+  const { uiTypeColId } = getSectionInfo(sectionId);
   return useParamInfos.getState().y[uiTypeColId][paramInfoId];
 }
 

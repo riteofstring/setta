@@ -14,12 +14,12 @@ import {
 } from "abcde-utils/src/types/uiType";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
-import { useGetSectionConfig } from "./useSectionConfig";
+import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useGetSectionTypeConfig<
   K extends keyof SectionUITypeConfigType
 >(sectionId: string, key: K) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const equalityFn = key === "collections" ? _.isEqual : undefined;
   return useUITypes(
     (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key],
@@ -31,14 +31,14 @@ export function useGetSectionType<K extends keyof SectionUITypeType>(
   sectionId: string,
   key: K
 ) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const nonScalars: (keyof SectionUITypeType)[] = ["config", "originInfoId"];
   const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
 }
 
 export function useIsSeriesElement(sectionId: string) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) =>
     isSeriesElement(
       (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType
@@ -47,12 +47,12 @@ export function useIsSeriesElement(sectionId: string) {
 }
 
 function useIsType(sectionId: string, type) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) => x.x[uiTypeId].type === type);
 }
 
 export function useIsRoot(sectionId: string) {
-  const uiTypeId = useGetSectionConfig(sectionId, "uiTypeId");
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) => isRoot(x.x[uiTypeId].type));
 }
 

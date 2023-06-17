@@ -1,10 +1,10 @@
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useSectionToParams } from "models/info/sectionToParams";
-import { getSectionConfig, getSectionName } from "./sections";
+import { getSectionInfo, getSectionName } from "./sections";
 
 function getCurrObjParamKwargInfos(sectionId) {
-  const { selectedItem } = getSectionConfig(sectionId);
+  const { selectedItem } = getSectionInfo(sectionId);
   const paramInfos = getParamInfos(sectionId);
   const kwargInfos = getKwargInfos(sectionId, selectedItem);
   return [...paramInfos, ...kwargInfos];
@@ -19,7 +19,7 @@ function getParamInfos(sectionId) {
 }
 
 export function getKwargIds(sectionId, objInfoId) {
-  const { kwargColId } = getSectionConfig(sectionId);
+  const { kwargColId } = getSectionInfo(sectionId);
   const kwargCol = useKwargCols.getState().x[kwargColId];
   return objInfoId in kwargCol ? kwargCol[objInfoId] : [];
 }

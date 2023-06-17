@@ -24,7 +24,7 @@ import {
 import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getParamWithSameName } from "./sectionContents";
 import {
-  getSectionConfig,
+  getSectionInfo,
   getSectionName,
   getSectionType,
   setAllChildren,
@@ -215,7 +215,7 @@ function maybeChangeNewParamUIType({
 
   if (behaviorDropType === BehaviorDropType.NEW_ARG) {
     const sectionName = getSectionName(sectionId);
-    const { selectedItem } = getSectionConfig(newParentId);
+    const { selectedItem } = getSectionInfo(newParentId);
     paramIdToLinkTo = addKwarg({
       sectionId: newParentId,
       objInfoId: selectedItem,
@@ -236,7 +236,7 @@ function maybeChangeNewParamUIType({
 }
 
 function linkParamToSection({ parentId, paramInfoId, sectionId }) {
-  const { uiTypeId } = getSectionConfig(sectionId);
+  const { uiTypeId } = getSectionInfo(sectionId);
   const oldChildId = getParamChildId(parentId, paramInfoId);
   if (oldChildId) {
     deleteSections({ sectionIds: [oldChildId] });
@@ -256,7 +256,7 @@ function linkParamToSection({ parentId, paramInfoId, sectionId }) {
 }
 
 function unlinkParamFromSection({ parentId, sectionId }) {
-  const { paramInfoId } = useSectionInfos.getState().x[sectionId];
+  const { paramInfoId } = getSectionInfo(sectionId);
   if (!paramInfoId) {
     return;
   }

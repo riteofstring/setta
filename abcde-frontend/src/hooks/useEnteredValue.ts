@@ -1,6 +1,6 @@
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
-import { useGetSectionConfig } from "./useSectionConfig";
+import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useGetParamEnteredValue(
   sectionId: string,
@@ -19,6 +19,6 @@ export function useGetParamEnteredValueId(
   sectionId: string,
   paramInfoId: string
 ) {
-  const evColId = useGetSectionConfig(sectionId, "evColId");
+  const evColId = useGetSectionInfo(sectionId, "evColId");
   return useParamInfos((x) => x.x[evColId][paramInfoId]);
 }

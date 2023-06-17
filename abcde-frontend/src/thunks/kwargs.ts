@@ -8,7 +8,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
-import { getSectionConfig } from "./sections/sections";
+import { getSectionInfo } from "./sections/sections";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
@@ -24,7 +24,7 @@ export function addKwarg({
   name = "",
   incrementVersion = false,
 }: AddKwargPayload) {
-  const { kwargColId } = getSectionConfig(sectionId);
+  const { kwargColId } = getSectionInfo(sectionId);
   const kwargInfo = newCodeInfo({
     name,
     rcType: RCType.PARAMETER,
@@ -56,8 +56,8 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
-  const { evColId, kwargColId } = getSectionConfig(sectionId);
-  const { uiTypeColId } = getSectionConfig(sectionId);
+  const { evColId, kwargColId } = getSectionInfo(sectionId);
+  const { uiTypeColId } = getSectionInfo(sectionId);
   if (deleteLast) {
     const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
     const numKwargs = kwargIds.length;
@@ -83,7 +83,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
 }
 
 export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
-  const { kwargColId } = getSectionConfig(sectionId);
+  const { kwargColId } = getSectionInfo(sectionId);
   const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
   const collection = newCodeInfo({
     name,

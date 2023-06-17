@@ -1,11 +1,11 @@
-import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import React from "react";
 import { ParamGroupContainer } from "./Main/Group/GroupContainer";
 import { KwargsControls } from "./Main/KwargsControls/KwargsControls";
 import { SectionSearch } from "./Main/Search/Search";
 
 function _InputArea({ sectionId }) {
-  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
+  const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
 
   return (
     <>

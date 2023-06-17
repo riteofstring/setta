@@ -1,5 +1,5 @@
 import { useIsTopLevelSection } from "hooks/useProjectConfig";
-import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { setSectionUITypeId } from "thunks/uiTypes";
 import {
   NestedSectionUITypeCombobox,
@@ -7,7 +7,7 @@ import {
 } from "utils/Combobox/UITypeCombobox";
 
 export function SectionConfigTypeSelection({ sectionId }) {
-  const selectedId = useGetSectionConfig(sectionId, "uiTypeId");
+  const selectedId = useGetSectionInfo(sectionId, "uiTypeId");
   const isTopLevel = useIsTopLevelSection(sectionId);
 
   const onDropdownSelect = (e) => {

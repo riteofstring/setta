@@ -3,7 +3,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useStoreApi } from "reactflow";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
-import { getSectionConfig, getSectionName } from "thunks/sections/sections";
+import { getSectionInfo, getSectionName } from "thunks/sections/sections";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
@@ -78,7 +78,7 @@ function addAttrSection({
     isTopLevel: true,
   });
 
-  const { selectedItem } = getSectionConfig(refSectionId);
+  const { selectedItem } = getSectionInfo(refSectionId);
   const { returnTypeId } = useCodeInfo.getState().allCodeInfo[selectedItem];
   setSectionUITypeConfig({
     sectionId: newId,

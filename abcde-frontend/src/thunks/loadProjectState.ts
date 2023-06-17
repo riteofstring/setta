@@ -9,7 +9,6 @@ import { useOutputs } from "../models/info/outputs";
 import { useParamInfos } from "../models/info/paramInfos";
 import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
-import { useSectionConfigs } from "../models/info/sectionConfigs";
 import { useSectionDescription } from "../models/info/sectionDescription";
 import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
@@ -22,7 +21,6 @@ export function loadProjectState({
   userCodeInfoMaps,
   projectConfigCodeInfoMaps,
   sections,
-  sectionConfigs,
   sectionChildren,
   sectionDescriptions,
   ev,
@@ -51,7 +49,6 @@ export function loadProjectState({
     sections,
     sectionChildren,
   });
-  useSectionConfigs.getState().resetAndSetAll(sectionConfigs);
   useSectionDescription.getState().resetAndSetAll(sectionDescriptions);
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);

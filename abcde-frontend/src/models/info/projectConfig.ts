@@ -9,7 +9,6 @@ import { createProjectState } from "../utils";
 const initialState: ProjectConfigFrontendType = {
   id: "",
   name: "",
-  sectionConfigCol: "",
   childrenId: "",
   children: [],
   isDefault: false,
@@ -30,14 +29,7 @@ export const useProjectConfig = createProjectState(
       })),
     setName: (name) => set({ name }), //TODO, need to update db
     getAll: () =>
-      _.pick(get(), [
-        "id",
-        "name",
-        "sectionConfigCol",
-        "childrenId",
-        "children",
-        "isDefault",
-      ]),
+      _.pick(get(), ["id", "name", "childrenId", "children", "isDefault"]),
   }))
 );
 

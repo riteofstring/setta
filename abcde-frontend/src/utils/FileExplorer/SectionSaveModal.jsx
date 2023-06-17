@@ -1,5 +1,5 @@
 import { getCollectionsAndModulesFn } from "dbRequests/sectionConfig";
-import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useEffect, useState } from "react";
 import { saveKwargsAsCollection } from "thunks/kwargs";
 import { SaveLoadModal } from "./SaveLoadModal";
@@ -41,7 +41,7 @@ function useFiles(type) {
 }
 
 function useOnClickActionButton({ sectionId, type }) {
-  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
+  const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
 
   return (selected, filename) => {
     saveKwargsAsCollection({

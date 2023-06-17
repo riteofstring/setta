@@ -1,4 +1,4 @@
-import { useGetSectionConfig } from "hooks/useSectionConfig";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useCodeInfo } from "models/info/codeInfo";
 import React, { useState } from "react";
 import { StandardInput } from "utils/atoms/input/StandardInput";
@@ -6,7 +6,7 @@ import { ParamGroupContainer } from "./Main/Group/GroupContainer";
 import { KwargsControls } from "./Main/KwargsControls/KwargsControls";
 
 function _UserSpecifiedObjectArea({ sectionId }) {
-  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
+  const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
 
   return (
     <>

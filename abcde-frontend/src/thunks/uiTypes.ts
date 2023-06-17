@@ -12,10 +12,10 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import {
-  getSectionConfig,
+  getSectionInfo,
   getSectionType,
   getSectionTypeConfig,
-  setSectionConfigAttr,
+  setSectionInfoAttr,
   setSelectedItem,
 } from "thunks/sections/sections";
 import { requiresNestedSection } from "utils/constants";
@@ -33,9 +33,9 @@ export function setSectionUITypeId({
   sectionId,
   incrementVersion = false,
 }) {
-  const { parentId, paramInfoId } = useSectionInfos.getState().x[sectionId];
+  const { parentId, paramInfoId } = getSectionInfo(sectionId);
 
-  setSectionConfigAttr({
+  setSectionInfoAttr({
     sectionId,
     attr: "uiTypeId",
     value: uiTypeId,
@@ -68,7 +68,7 @@ export function setParamUITypeId({
   paramInfoId,
   incrementVersion = false,
 }) {
-  const { uiTypeColId } = getSectionConfig(sectionId);
+  const { uiTypeColId } = getSectionInfo(sectionId);
 
   useParamInfos.getState().setUITypeId({
     collectionId: uiTypeColId,
@@ -90,7 +90,7 @@ export function setParamUITypeId({
       { [paramInfoId]: evId }
     );
 
-    setSectionConfigAttr({
+    setSectionInfoAttr({
       sectionId: paramIdToChildId[paramInfoId],
       attr: "uiTypeId",
       value: uiTypeId,
@@ -114,10 +114,7 @@ export function setSectionUITypeConfig({
   const currUIType = getSectionType(sectionId);
 
   const originInfoId = paramInfoId
-    ? createParamOriginInfoId(
-        getSectionConfig(parentId).uiTypeColId,
-        paramInfoId
-      )
+    ? createParamOriginInfoId(getSectionInfo(parentId).uiTypeColId, paramInfoId)
     : createSectionOriginInfoId(sectionId);
 
   const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
@@ -141,7 +138,7 @@ export function setParamUITypeConfig({
   configProps,
 }) {
   const defaultName = useCodeInfo.getState().allCodeInfo[paramInfoId].name;
-  const uiTypeColId = getSectionConfig(sectionId).uiTypeColId;
+  const uiTypeColId = getSectionInfo(sectionId).uiTypeColId;
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
   const originInfoId = createParamOriginInfoId(uiTypeColId, paramInfoId);

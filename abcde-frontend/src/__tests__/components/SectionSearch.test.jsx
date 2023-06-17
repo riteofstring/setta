@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { SectionSearch } from "components/UI/Section/SectionContainer/Main/Search/Search";
 import { useCodeInfo } from "models/info/codeInfo";
-import { getSectionConfig, setSelectedItem } from "thunks/sections/sections";
+import { getSectionInfo, setSelectedItem } from "thunks/sections/sections";
 import {
   getReactFlowProvider,
   loadTestDataIntoState,
@@ -23,7 +23,7 @@ test("Test SectionSearch", async () => {
   });
 
   // Expect that this section doesn't have any selection
-  let { selectedItem } = getSectionConfig(sectionId);
+  let { selectedItem } = getSectionInfo(sectionId);
   expect(selectedItem).toEqual(NULL_OBJ_ID);
 
   // search box should be empty
@@ -37,6 +37,6 @@ test("Test SectionSearch", async () => {
   expect(searchBox.value).toEqual("SGD");
 
   // Expect that the SGD object is now selected
-  ({ selectedItem } = getSectionConfig(sectionId));
+  ({ selectedItem } = getSectionInfo(sectionId));
   expect(useCodeInfo.getState().allCodeInfo[selectedItem].name).toEqual("SGD");
 });

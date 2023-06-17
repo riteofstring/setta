@@ -13,11 +13,11 @@ import { useSectionToParams } from "models/info/sectionToParams";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useOutputValues } from "./useOutputNames";
-import { useGetSectionConfig } from "./useSectionConfig";
+import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType, useGetSectionTypeConfig } from "./useSectionType";
 
 export function useGetCurrObjParamKwargInfos(sectionId: string) {
-  const selectedItem = useGetSectionConfig(sectionId, "selectedItem");
+  const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
   const paramInfos = useGetParamInfos(sectionId, selectedItem);
   const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
   return [...paramInfos, ...kwargInfos];
@@ -45,7 +45,7 @@ function useGetAllParamCollections(sectionId: string) {
 }
 
 function useGetKwargIds(sectionId: string, objInfoId: string) {
-  const kwargColId = useGetSectionConfig(sectionId, "kwargColId");
+  const kwargColId = useGetSectionInfo(sectionId, "kwargColId");
   return useKwargCols(
     (x) => (objInfoId in x.x[kwargColId] ? x.x[kwargColId][objInfoId] : []),
     _.isEqual

@@ -13,7 +13,6 @@ import {
   createSectionOriginInfoId,
 } from "utils/uiTypeUtils";
 import { useGetParamChildId } from "./useEnteredValue";
-import { useGetSectionConfig } from "./useSectionConfig";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 
@@ -107,7 +106,7 @@ export function useAvailableUITypesForNestedSection(
   const parentId = useGetSectionInfo(sectionId, "parentId") as string;
   const parentOriginInfoId = useGetSectionType(parentId, "originInfoId");
   const parentUITypeType = useGetSectionType(parentId, "type");
-  const parentUITypeColId = useGetSectionConfig(parentId, "uiTypeColId");
+  const parentUITypeColId = useGetSectionInfo(parentId, "uiTypeColId");
   const paramInfoId = useGetSectionInfo(sectionId, "paramInfoId");
   const originInfoId = createSectionOriginInfoId(sectionId);
 
@@ -144,7 +143,7 @@ export function useAvailableUITypesForUIConfig(
   paramInfoId: string,
   selectedId: string
 ) {
-  const uiTypeColId = useGetSectionConfig(sectionId, "uiTypeColId");
+  const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   const childId = useGetParamChildId(sectionId, paramInfoId);
   const originInfoId = createParamOriginInfoId(uiTypeColId, paramInfoId);
 
