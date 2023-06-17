@@ -1,4 +1,4 @@
-import { NULL_OBJ_ID } from "src/constants";
+import { NULL_OBJ_ID } from "../constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";
 import { maybeNewId } from "../utils";
