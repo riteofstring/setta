@@ -52,6 +52,12 @@ export function getProjectData(): ProjectSaveType {
         "size",
         "chainedFrom",
         "zIndex",
+        "uiTypeId",
+        "evColId",
+        "kwargColId",
+        "uiTypeColId",
+        "selectedItem",
+        "descriptionId",
       ])
   );
 
