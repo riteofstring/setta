@@ -77,15 +77,15 @@ export default {
   "861265e9-2701-42dd-821b-d80734ec0db1": {
     id: "861265e9-2701-42dd-821b-d80734ec0db1",
     name: "ValDataset",
-    type: "SECTION",
+    type: "USER_SPECIFIED_OBJECT",
     presetType: null,
     config: {
-      collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
+      collections: [],
       subType: null,
       childUITypeId: null,
       outputGroup: null,
       social: null,
-      userSpecifiedObjectId: null,
+      userSpecifiedObjectId: "75104bc2-63ce-4742-b35b-1948409c5cac",
     },
     originInfoId: {
       sectionId: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",

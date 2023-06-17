@@ -106,7 +106,7 @@ export default {
     evColId: "6f4c33cd-ee7e-461e-85ba-d6ffca593419",
     kwargColId: "05b595f9-0c73-4443-a32d-93a46e44378c",
     uiTypeColId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
-    selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
+    selectedItem: "75104bc2-63ce-4742-b35b-1948409c5cac",
     descriptionId: "a68bccf2-44b1-4e51-bbe1-3a4c209f7e2c",
   },
   "3b4bd093-351f-4bec-af52-935d50953ebd": {

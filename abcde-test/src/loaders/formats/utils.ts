@@ -8,6 +8,9 @@ export function loadCodeInfoForProject(allCodeInfo, uiTypes) {
     if ("collections" in u.config) {
       allCollectionIds.push(...u.config.collections);
     }
+    if ("userSpecifiedObjectId" in u.config) {
+      allCollectionIds.push(u.config.userSpecifiedObjectId);
+    }
   }
   const output = findAllDescendants(allCodeInfo, allCollectionIds);
   return _.keyBy(output, "id");

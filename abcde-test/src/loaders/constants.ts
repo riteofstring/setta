@@ -23,6 +23,7 @@ export const CODE_INFOS = [
   "pytorchTraining",
   "runcoder",
   "torchmetrics",
+  "userSpecifiedObjects",
 ];
 
 export const PROJECT_STATES = [
