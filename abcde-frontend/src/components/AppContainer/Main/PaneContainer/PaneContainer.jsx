@@ -73,39 +73,34 @@ export function PaneContainer({
   const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
 
   return (
-    <div
-      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 ${rightCondition} transition-all [&>div]:flex [&>div]:flex-grow [&>div]:flex-col [&>div]:border-r  [&>div]:border-slate-200 [&>div]:bg-slate-50 [&>div]:py-8 [&>div]:px-[2.66rem] [&>div]:shadow-md`}
+    <Resizable
+      size={{ width, height }}
+      as="aside"
+      onResizeStop={localOnResizeStop}
+      maxWidth={vMax}
+      minWidth={vMin}
+      enable={{
+        top: false,
+        right: vis && !right,
+        bottom: false,
+        left: vis && right,
+        topRight: false,
+        bottomRight: false,
+        bottomLeft: false,
+        topLeft: false,
+      }}
+      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 flex-grow flex-col border-r border-slate-200 bg-slate-50 py-8 px-[2.66rem] shadow-md ${rightCondition} transition-all`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
       aria-label={`${paneTitle} Pane`}
     >
-      <Resizable
-        size={{ width, height }}
-        onResizeStop={localOnResizeStop}
-        maxWidth={vMax}
-        minWidth={vMin}
-        enable={{
-          top: false,
-          right: vis && !right,
-          bottom: false,
-          left: vis && right,
-          topRight: false,
-          bottomRight: false,
-          bottomLeft: false,
-          topLeft: false,
-        }}
+      {children}
+      <Button
+        twClasses={`text-slate-500 hover:bg-slate-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+        tabIndex="-1"
+        onClick={uiToggle}
       >
-        {/* <h2 className="pb-3 text-base font-bold  uppercase tracking-widest text-slate-400">
-          {paneTitle}
-        </h2> */}
-        {children}
-        <Button
-          twClasses={`text-slate-500 hover:bg-slate-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
-          tabIndex="-1"
-          onClick={uiToggle}
-        >
-          {btnDir ? <HiChevronRight /> : <HiChevronLeft />}
-        </Button>
-      </Resizable>
-    </div>
+        {btnDir ? <HiChevronRight /> : <HiChevronLeft />}
+      </Button>
+    </Resizable>
   );
 }

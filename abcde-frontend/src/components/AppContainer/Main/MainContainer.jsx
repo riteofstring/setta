@@ -7,12 +7,12 @@ import { UiEditor } from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export function MainContainer() {
   const { username, projectName, configName } = useParams();
-  const { newProjectConfig } = useLocation();
+  const { state } = useLocation();
   const doneLoading = useLoadProject({
     username,
     projectName,
     configName,
-    newProjectConfig,
+    ...state,
   });
 
   return (
