@@ -11,9 +11,5 @@ import { RouterProvider } from "react-router-dom";
 import { router } from "utils/Routes/router";
 
 export function App() {
-  return (
-    <div className="flex h-screen w-screen flex-col items-center font-body">
-      <RouterProvider router={router} />
-    </div>
-  );
+  return <RouterProvider router={router} />;
 }

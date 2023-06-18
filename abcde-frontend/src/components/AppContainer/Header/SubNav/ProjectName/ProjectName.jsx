@@ -44,26 +44,27 @@ export function ProjectName() {
     "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
 
   return (
-    <div className="w-full" {...infoViewHandlers}>
-      <div className="mb-2 flex flex-col flex-wrap font-heading  tracking-tight ">
-        <ProjectNameCore
-          name={name}
-          setName={setName}
-          titleProps={{
-            editing: `${editing} text-xl text-slate-900 font-bold `,
-            notEditing: `${notEditing} text-xl text-slate-900 font-bold `,
-          }}
-        />
-        <ProjectNameCore
-          name={configName}
-          setName={setConfigName}
-          titleProps={{
-            editing: `${editing} text-md text-slate-600 mt-1 mb-4 font-medium`,
-            notEditing: `${notEditing} text-md text-slate-600 mt-1 mb-4 font-medium`,
-          }}
-        />
-      </div>
-    </div>
+    <header
+      className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
+      {...infoViewHandlers}
+    >
+      <ProjectNameCore
+        name={name}
+        setName={setName}
+        titleProps={{
+          editing: `${editing} text-xl text-slate-900 font-bold `,
+          notEditing: `${notEditing} text-xl text-slate-900 font-bold `,
+        }}
+      />
+      <ProjectNameCore
+        name={configName}
+        setName={setConfigName}
+        titleProps={{
+          editing: `${editing} text-md text-slate-600 mt-1 mb-4 font-medium`,
+          notEditing: `${notEditing} text-md text-slate-600 mt-1 mb-4 font-medium`,
+        }}
+      />
+    </header>
   );
 }
 
