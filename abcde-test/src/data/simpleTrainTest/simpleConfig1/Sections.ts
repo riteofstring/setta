@@ -20,6 +20,9 @@ export default {
     uiTypeColId: "b5778288-2163-4212-8f0f-4744644c62b5",
     selectedItem: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
     descriptionId: "029d31d8-7280-4203-a383-4b7e067ecdad",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "66adb1cc-ce9e-4885-81a6-bf3e7a66644e": {
     id: "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
@@ -42,6 +45,9 @@ export default {
     uiTypeColId: "1163ccbb-cffb-4210-9f85-196cc45eab6e",
     selectedItem: "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
     descriptionId: "c61eda2b-92f9-479d-9882-1febcdbdcd87",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "306550d9-1a80-42c6-b853-512a22e4d796": {
     id: "306550d9-1a80-42c6-b853-512a22e4d796",
@@ -64,6 +70,9 @@ export default {
     uiTypeColId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "cbe28b2a-0cfc-45d7-afd3-175d3d8ff15f",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "ac23d151-2df2-436f-b146-3893806ffb1d": {
     id: "ac23d151-2df2-436f-b146-3893806ffb1d",
@@ -86,6 +95,9 @@ export default {
     uiTypeColId: "76e6a946-446b-4fcb-a803-db01482ed97e",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "9283707a-494a-49d2-bd02-243ca58b7791",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4": {
     id: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
@@ -108,6 +120,9 @@ export default {
     uiTypeColId: "4a64dce9-07ee-42b9-8d9e-c418c174b499",
     selectedItem: "75104bc2-63ce-4742-b35b-1948409c5cac",
     descriptionId: "a68bccf2-44b1-4e51-bbe1-3a4c209f7e2c",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: "75104bc2-63ce-4742-b35b-1948409c5cac",
   },
   "3b4bd093-351f-4bec-af52-935d50953ebd": {
     id: "3b4bd093-351f-4bec-af52-935d50953ebd",
@@ -130,6 +145,9 @@ export default {
     uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "c6c350df-5bda-436c-af2d-408344039314",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "78651b57-73ab-4205-a8d7-4b9fb3b9f51b": {
     id: "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
@@ -152,6 +170,9 @@ export default {
     uiTypeColId: "5fd29aed-89b2-42cb-be2e-35548aabb99a",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "50598c39-043a-4ded-8999-677bfa3fc204",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "4e2bf130-390b-4299-8054-aa54b7740a60": {
     id: "4e2bf130-390b-4299-8054-aa54b7740a60",
@@ -174,6 +195,9 @@ export default {
     uiTypeColId: "a5f6d766-0233-4677-bc7d-81137b9fa15a",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "58e6414c-0675-4051-a34d-48f28dceb8a9",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "cc98ba55-6a04-4d79-b7f7-47442f174736": {
     id: "cc98ba55-6a04-4d79-b7f7-47442f174736",
@@ -196,6 +220,9 @@ export default {
     uiTypeColId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
     selectedItem: "ac679940-4a07-4fc0-9fa4-4b5498405693",
     descriptionId: "9cc19089-b111-4a5b-8eaf-70e42adc5c01",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "e304954a-d52d-47fc-8c79-c47c6e53e752": {
     id: "e304954a-d52d-47fc-8c79-c47c6e53e752",
@@ -218,6 +245,9 @@ export default {
     uiTypeColId: "55220afb-c43e-4c79-8d27-a0dd592e2add",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "85c154d4-934f-40ed-906f-6c21e3c1e5ef",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "80f921cd-f88f-4612-92f3-219a89834e13": {
     id: "80f921cd-f88f-4612-92f3-219a89834e13",
@@ -240,6 +270,9 @@ export default {
     uiTypeColId: "a1d7dfeb-d18e-48cd-bcc8-563ca7d6c524",
     selectedItem: "fe8ec1e4-e978-40b2-8764-146b39e62269",
     descriptionId: "1cc2d4ea-0592-4819-be90-0ccd7ad59ca0",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "7394ac29-c8c0-433c-8bee-fa97c617b05d": {
     id: "7394ac29-c8c0-433c-8bee-fa97c617b05d",
@@ -262,6 +295,9 @@ export default {
     uiTypeColId: "037a26ac-5585-45d7-9000-5d49590ebb6c",
     kwargColId: "e60f0507-7e25-4049-ae2f-16fc33a0a1fa",
     descriptionId: "0f8fc56f-56c1-455c-bcae-b130658449d5",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
   "02d30f19-1160-4050-a2d7-390d36b3637e": {
     id: "02d30f19-1160-4050-a2d7-390d36b3637e",
@@ -284,6 +320,9 @@ export default {
     uiTypeColId: "debfa4c7-53c6-41d5-8ac1-eb4417e47eed",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "5ef13e3c-84c6-489c-b68c-851ac9d6f4ae",
+    social: null,
+    outputGroup: "67863f2c-9916-4d9b-9c60-b7ed3781f49d",
+    userSpecifiedObjectId: null,
   },
   "f5eb514b-6731-4289-946b-0470628c08c4": {
     id: "f5eb514b-6731-4289-946b-0470628c08c4",
@@ -306,5 +345,8 @@ export default {
     uiTypeColId: "b26496bf-d3a2-4fa8-8990-38a1e245fb3d",
     selectedItem: "c838c2c2-0a33-4738-8307-dd01179fbeac",
     descriptionId: "c9b3bdd8-fc6a-454b-abfc-a8a005570438",
+    social: null,
+    outputGroup: null,
+    userSpecifiedObjectId: null,
   },
 };
