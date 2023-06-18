@@ -62,21 +62,6 @@ export default {
     },
     isForChildOfOriginInfoId: false,
   },
-  "861265e9-2701-42dd-821b-d80734ec0db1": {
-    id: "861265e9-2701-42dd-821b-d80734ec0db1",
-    name: "ValDataset",
-    type: "USER_SPECIFIED_OBJECT",
-    presetType: null,
-    config: {
-      collections: [],
-      subType: null,
-      childUITypeId: null,
-    },
-    originInfoId: {
-      sectionId: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
-    },
-    isForChildOfOriginInfoId: false,
-  },
   "2b157b97-4424-4831-83a5-836c7dc17a6e": {
     id: "2b157b97-4424-4831-83a5-836c7dc17a6e",
     name: "OtherParameters",
@@ -119,21 +104,6 @@ export default {
     },
     originInfoId: {
       sectionId: "4e2bf130-390b-4299-8054-aa54b7740a60",
-    },
-    isForChildOfOriginInfoId: false,
-  },
-  "f07e5f4f-3302-4676-acff-adf159c3f942": {
-    id: "f07e5f4f-3302-4676-acff-adf159c3f942",
-    type: "OUTPUT",
-    name: "New Section",
-    presetType: null,
-    config: {
-      collections: [],
-      subType: null,
-      childUITypeId: null,
-    },
-    originInfoId: {
-      sectionId: "02d30f19-1160-4050-a2d7-390d36b3637e",
     },
     isForChildOfOriginInfoId: false,
   },
