@@ -22,7 +22,6 @@ import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { xnor } from "utils/utils";
@@ -58,11 +57,11 @@ export function getProjectData(): ProjectSaveType {
         "kwargColId",
         "uiTypeColId",
         "selectedItem",
-        "descriptionId",
+        "description",
+        "descriptionHeight",
+        "descriptionVisible",
       ])
   );
-
-  const sectionDescriptions = useSectionDescription.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
     .getState()
@@ -78,7 +77,6 @@ export function getProjectData(): ProjectSaveType {
     kwargInfo,
     kwargCols,
     sections,
-    sectionDescriptions,
     projectConfigCodeInfoMaps,
   };
   // console.log(output);

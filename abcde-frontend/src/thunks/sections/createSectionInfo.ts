@@ -6,7 +6,6 @@ import _ from "lodash";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUITypeId } from "utils/uiTypeUtils";
@@ -73,10 +72,6 @@ export function addSectionsToState(
 
   useKwargCols.getState().initManyKwargColIds({
     collectionIds: _.map(sectionInfos, (x) => x.kwargColId),
-  });
-
-  useSectionDescription.getState().initDescriptions({
-    descriptionIds: _.map(sectionInfos, (x) => x.descriptionId),
   });
 
   if (isTopLevel) {
