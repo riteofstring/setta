@@ -87,6 +87,6 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
 }
 
 export function useGetSelectedOutputValues(sectionId: string) {
-  const groupId = useGetSectionTypeConfig(sectionId, "outputGroup");
+  const groupId = useGetSectionInfo(sectionId, "outputGroup");
   return useOutputValues(groupId);
 }

@@ -14,7 +14,6 @@ import { useUITypes } from "models/info/uiTypes";
 import {
   getSectionInfo,
   getSectionType,
-  getSectionTypeConfig,
   setSectionInfoAttr,
   setSelectedItem,
 } from "thunks/sections/sections";
@@ -46,12 +45,17 @@ export function setSectionUITypeId({
   }
 
   if (uiTypeId === USER_SPECIFIED_OBJECT_UI_TYPE_ID) {
-    let { userSpecifiedObjectId } = getSectionTypeConfig(sectionId);
+    let { userSpecifiedObjectId } = getSectionInfo(sectionId);
     if (!userSpecifiedObjectId) {
       const newObj = newCodeInfo({
         rcType: RCType.CALLABLE,
       });
       userSpecifiedObjectId = newObj.id;
+      setSectionInfoAttr({
+        sectionId,
+        attr: "userSpecifiedObjectId",
+        value: userSpecifiedObjectId,
+      });
       useCodeInfo
         .getState()
         .updateInfos({ allCodeInfo: { [newObj.id]: newObj } });

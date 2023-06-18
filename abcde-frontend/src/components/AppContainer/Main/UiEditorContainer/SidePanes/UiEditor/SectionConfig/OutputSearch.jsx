@@ -1,8 +1,11 @@
 import { useAllOutputNames } from "hooks/useOutputNames";
-import { useGetSectionTypeConfig } from "hooks/useSectionType";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { setSectionName, setSectionSize } from "thunks/sections/sections";
-import { setSectionUITypeConfig } from "thunks/uiTypes";
+import {
+  setSectionInfoAttr,
+  setSectionName,
+  setSectionSize,
+} from "thunks/sections/sections";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { Expandable } from "./Expandable";
@@ -10,12 +13,13 @@ import { SectionConfigSearch } from "./SectionConfigSearch";
 
 export function OutputsSearch({ sectionId }) {
   const outputGroups = useAllOutputNames();
-  const selected = useGetSectionTypeConfig(sectionId, "outputGroup");
+  const selected = useGetSectionInfo(sectionId, "outputGroup");
 
   function onSelectionChange({ id, newValueFn }) {
-    setSectionUITypeConfig({
+    setSectionInfoAttr({
       sectionId,
-      configProps: { configName: "outputGroup", newValueFn },
+      attr: "outputGroup",
+      newValueFn,
     });
     setSectionName(sectionId, outputGroups[id].name);
     const currSize = useSectionInfos.getState().x[sectionId].size;
