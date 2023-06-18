@@ -1,10 +1,59 @@
-import { useGetSectionTypeConfig } from "hooks/useSectionType";
+import getYouTubeID from "get-youtube-id";
+import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
-import { SocialEmbeds } from "utils/embeds/socialembeds";
+import { Tweet } from "react-twitter-widgets";
+import YouTube from "react-youtube";
 
 function _SocialArea({ sectionId }) {
-  const type = useGetSectionTypeConfig(sectionId, "social");
-  return <SocialEmbeds sectionId={sectionId} type={type} />;
+  const size = useSectionInfos((x) => x.x[sectionId].size);
+  const url = useSectionInfos((x) => x.x[sectionId].social);
+  if (!url) {
+    return null;
+  }
+
+  if (linkIsYouTube(url)) {
+    return <YoutubeEmbed size={size} url={url} />;
+  } else if (linkIsTwitter(url)) {
+    return <TwitterEmbed url={url}/>;
+  }
 }
 
 export const SocialArea = React.memo(_SocialArea);
+
+function YoutubeEmbed({ size, url }) {
+  const id = getYouTubeID(url, { fuzzy: false });
+  const sizeWithMargin = { width: size.width - 50, height: size.height - 100 };
+
+  return (
+    <div
+      className="grid h-full w-full place-items-center
+py-4 px-9 [&>div]:overflow-hidden [&>div]:rounded-xl [&>div]:border [&>div]:border-solid [&>div]:border-white [&>div]:shadow-lg [&_.twitter-tweet]:!m-0 "
+    >
+      <YouTube videoId={id} opts={sizeWithMargin} />
+    </div>
+  );
+}
+
+function TwitterEmbed({ url }) {
+  const id = _.last(url.split("/")).split("?")[0];
+
+  return (
+    id && (
+      <div
+        className="grid h-full w-full place-items-center
+py-4 px-9 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-solid [&_.twitter-tweet]:border-white [&_.twitter-tweet]:shadow-lg [&_div:has(.twitter-tweet)]:contents"
+      >
+        <Tweet tweetId={id} />
+      </div>
+    )
+  );
+}
+
+function linkIsYouTube(x) {
+  return x.includes("youtube");
+}
+
+function linkIsTwitter(x) {
+  return x.includes("twitter");
+}
