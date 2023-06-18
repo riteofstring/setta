@@ -1,7 +1,3 @@
-import {
-  ManySectionChildrenType,
-  SectionChildrenType,
-} from "./sectionChildren";
 import { SectionPositionType } from "./sectionPosition";
 import { SizeType } from "./size";
 import { ManyOf } from "./utils";
@@ -9,6 +5,8 @@ import { ManyOf } from "./utils";
 export type SectionType = {
   id: string;
   name: string;
+  children: string[];
+  currChildren: string[];
   parentId: string | null;
   paramInfoId: string | null;
   size: SizeType;
@@ -34,16 +32,11 @@ export type ManySectionTypeSaveProjectToBackend =
 
 export type SectionInfoStateType = {
   x: ManySectionType;
-  allChildren: ManySectionChildrenType;
-  currChildren: ManySectionChildrenType;
   version: number;
 };
 
 export type SectionInfoActionType = {
-  resetAndSetAll: (payload: {
-    sections: ManySectionType;
-    sectionChildren: ManySectionChildrenType;
-  }) => void;
+  resetAndSetAll: (payload: { sections: ManySectionType }) => void;
 
   setSectionInfo: (
     newStateFn: (currState: ManySectionType) => ManySectionType
@@ -61,23 +54,19 @@ export type SectionInfoActionType = {
     newValues: { [id: string]: Partial<SectionType> };
   }) => void;
 
-  initManyAllChildren: (payload: { sectionIds: string[] }) => void;
-
   setAllChildren: (payload: {
     sectionId: string;
-    newStateFn: (currState: SectionChildrenType) => SectionChildrenType;
+    newStateFn: (currState: string[]) => string[];
   }) => void;
 
   setCurrChildrenNames: (payload: {
-    currChildren: SectionChildrenType;
+    currChildren: string[];
     sectionType: any;
   }) => void;
 
-  initManyCurrChildren: (payload: { sectionIds: string[] }) => void;
-
   setCurrChildren: (payload: {
     sectionId: string;
-    currChildren: SectionChildrenType;
+    currChildren: string[];
   }) => void;
 
   removeSectionInfos: (payload: string[]) => void;

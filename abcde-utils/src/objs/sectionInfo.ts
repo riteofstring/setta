@@ -6,6 +6,8 @@ import { maybeNewId } from "../utils";
 export function newSectionInfo({
   id,
   name,
+  children = [],
+  currChildren = [],
   paramInfoId = null,
   size,
   initialPosition = { x: 0, y: 0 },
@@ -29,6 +31,8 @@ export function newSectionInfo({
   return {
     id: maybeNewId(id),
     name: name ? name : parentName,
+    children,
+    currChildren,
     parentId,
     paramInfoId,
     size,
