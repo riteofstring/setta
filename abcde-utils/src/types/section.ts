@@ -18,10 +18,12 @@ export type SectionType = {
   kwargColId: string;
   uiTypeColId: string;
   selectedItem: string;
-  descriptionId: string;
   social: string | null;
   outputGroup: string | null;
   userSpecifiedObjectId: string | null;
+  description: string;
+  descriptionHeight: number;
+  descriptionVisible: boolean;
 };
 
 export type ManySectionType = ManyOf<SectionType>;

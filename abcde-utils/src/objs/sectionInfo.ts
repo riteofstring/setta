@@ -20,10 +20,12 @@ export function newSectionInfo({
   kwargColId,
   uiTypeColId,
   selectedItem = NULL_OBJ_ID,
-  descriptionId,
   social = null,
   outputGroup = null,
   userSpecifiedObjectId = null,
+  description = "",
+  descriptionHeight = 100,
+  descriptionVisible = false,
 }: Partial<SectionType> & {
   parentName?: string;
   size: SizeType;
@@ -44,9 +46,11 @@ export function newSectionInfo({
     kwargColId: maybeNewId(kwargColId),
     uiTypeColId: maybeNewId(uiTypeColId),
     selectedItem,
-    descriptionId: maybeNewId(descriptionId),
     social,
     outputGroup,
     userSpecifiedObjectId,
+    description,
+    descriptionHeight,
+    descriptionVisible,
   };
 }
