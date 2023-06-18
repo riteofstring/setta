@@ -19,6 +19,9 @@ export function newSectionInfo({
   uiTypeColId,
   selectedItem = NULL_OBJ_ID,
   descriptionId,
+  social = null,
+  outputGroup = null,
+  userSpecifiedObjectId = null,
 }: Partial<SectionType> & {
   parentName?: string;
   size: SizeType;
@@ -38,5 +41,8 @@ export function newSectionInfo({
     uiTypeColId: maybeNewId(uiTypeColId),
     selectedItem,
     descriptionId: maybeNewId(descriptionId),
+    social,
+    outputGroup,
+    userSpecifiedObjectId,
   };
 }

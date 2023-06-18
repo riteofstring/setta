@@ -21,6 +21,9 @@ export type SectionType = {
   uiTypeColId: string;
   selectedItem: string;
   descriptionId: string;
+  social: string | null;
+  outputGroup: string | null;
+  userSpecifiedObjectId: string | null;
 };
 
 export type ManySectionType = ManyOf<SectionType>;
