@@ -21,7 +21,7 @@ export function codeGen(loaded) {
     sections,
     codeInfo,
     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-    sectionCurrChildren: _.cloneDeep(_.pick(sections, ["children"])),
+    sectionCurrChildren: _.cloneDeep(_.mapValues(sections, (v) => v.children)),
     ...theRest,
   };
 }
