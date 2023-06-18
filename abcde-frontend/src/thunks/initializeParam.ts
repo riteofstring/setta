@@ -31,12 +31,10 @@ export function initializeParamsOfSectionsWithUITypes(
 
 export function initializeChildParams(
   sectionId: string,
-  codeInfoIds: string[]
+  codeInfoIds: string[],
+  childFinder = findAllParameters
 ) {
-  const params = findAllParameters(
-    useCodeInfo.getState().allCodeInfo,
-    codeInfoIds
-  );
+  const params = childFinder(useCodeInfo.getState().allCodeInfo, codeInfoIds);
   initializeParam(sectionId, params);
 }
 
