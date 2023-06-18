@@ -32,7 +32,6 @@ export const PROJECT_STATES = [
   "kwargCols",
   "kwargInfo",
   "projectConfigCodeInfoMaps",
-  "sectionCurrChildren",
   "sectionChildren",
   "sectionDescriptions",
   "sections",
