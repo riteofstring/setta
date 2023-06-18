@@ -1,27 +1,18 @@
-import { useGetSectionInfo } from "./useSectionInfo";
-import { useIsSocial } from "./useSectionType";
+import { useGetSectionTypeConfig, useIsSocial } from "./useSectionType";
 
 // youtube is 16/9. Make it 16/12 because of padding
 export const youtubeSectionAspectRatio = 16 / 12;
 
-function useIsX(sectionId, fn) {
+function useIsX(sectionId, x) {
   const isSocial = useIsSocial(sectionId);
-  const url = useGetSectionInfo(sectionId, "social");
-  return isSocial && fn(url);
+  const selectedSocial = useGetSectionTypeConfig(sectionId, "social");
+  return isSocial && selectedSocial === x;
 }
 
 export function useIsTwitter(sectionId) {
-  return useIsX(sectionId, linkIsTwitter);
+  return useIsX(sectionId, "twitter");
 }
 
 export function useIsYouTube(sectionId) {
-  return useIsX(sectionId, linkIsYouTube);
-}
-
-export function linkIsYouTube(x) {
-  return x && x.includes("youtube");
-}
-
-export function linkIsTwitter(x) {
-  return x && x.includes("twitter");
+  return useIsX(sectionId, "youtube");
 }

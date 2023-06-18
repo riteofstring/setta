@@ -1,5 +1,4 @@
 import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
-import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { ManySectionType } from "abcde-utils/src/types/section";
 import _ from "lodash";
@@ -8,9 +7,8 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUITypeId } from "utils/uiTypeUtils";
-import { getSectionType, getSectionTypeConfig } from "./sections";
+import { getSectionType } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];
@@ -67,11 +65,6 @@ export function addSectionsToState(
   useParamInfos.getState().initManyUITypeColIds({
     collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
   });
-
-  for (const s of sectionIds) {
-    const { collections } = getSectionTypeConfig(s);
-    initializeChildParams(s, collections, findAllParameterCollections);
-  }
 
   useKwargCols.getState().initManyKwargColIds({
     collectionIds: _.map(sectionInfos, (x) => x.kwargColId),

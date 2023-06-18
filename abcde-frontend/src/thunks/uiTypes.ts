@@ -14,6 +14,7 @@ import { useUITypes } from "models/info/uiTypes";
 import {
   getSectionInfo,
   getSectionType,
+  getSectionTypeConfig,
   setSectionInfoAttr,
   setSelectedItem,
 } from "thunks/sections/sections";
@@ -23,11 +24,7 @@ import {
   createParamOriginInfoId,
   createSectionOriginInfoId,
 } from "utils/uiTypeUtils";
-import {
-  initializeChild,
-  initializeChildParams,
-  initializeParamsOfSectionsWithUITypes,
-} from "./initializeParam";
+import { initializeChild } from "./initializeParam";
 import { getParamEVId, getParamUIType } from "./paramInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -49,7 +46,17 @@ export function setSectionUITypeId({
   }
 
   if (uiTypeId === USER_SPECIFIED_OBJECT_UI_TYPE_ID) {
-    initializeUserSpecifiedObject(sectionId);
+    let { userSpecifiedObjectId } = getSectionTypeConfig(sectionId);
+    if (!userSpecifiedObjectId) {
+      const newObj = newCodeInfo({
+        rcType: RCType.CALLABLE,
+      });
+      userSpecifiedObjectId = newObj.id;
+      useCodeInfo
+        .getState()
+        .updateInfos({ allCodeInfo: { [newObj.id]: newObj } });
+    }
+    setSelectedItem(sectionId, userSpecifiedObjectId, false);
   }
 
   maybeIncrementProjectStateVersion(incrementVersion);
@@ -99,12 +106,6 @@ export function setSectionUITypeConfig({
   configProps,
   incrementVersion = false,
 }) {
-  const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-  setConfigAndChildConfig(uiType, configProps);
-  maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   const {
     name: defaultName,
     parentId,
@@ -118,13 +119,16 @@ function maybeCloneSectionUIType({ sectionId, settingPreset }) {
 
   const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
 
-  return maybeCloneUIType({
+  setUITypeConfigAndMaybeClone({
     defaultName,
     currUIType,
     settingPreset,
     originInfoId,
     setUITypeId,
+    configProps,
   });
+
+  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function setParamUITypeConfig({
@@ -133,15 +137,6 @@ export function setParamUITypeConfig({
   settingPreset = false,
   configProps,
 }) {
-  const uiType = maybeCloneParamUIType({
-    sectionId,
-    paramInfoId,
-    settingPreset,
-  });
-  setConfigAndChildConfig(uiType, configProps);
-}
-
-function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
   const defaultName = useCodeInfo.getState().allCodeInfo[paramInfoId].name;
   const uiTypeColId = getSectionInfo(sectionId).uiTypeColId;
   const currUIType = getParamUIType(sectionId, paramInfoId);
@@ -150,29 +145,35 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
   const setUITypeId = (uiTypeId) =>
     setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
 
-  return maybeCloneUIType({
+  setUITypeConfigAndMaybeClone({
     defaultName,
     currUIType,
     settingPreset,
     originInfoId,
     setUITypeId,
+    configProps,
   });
 }
 
-function maybeCloneUIType({
+function setUITypeConfigAndMaybeClone({
   defaultName,
   currUIType,
   settingPreset,
   originInfoId,
   setUITypeId,
+  configProps,
 }) {
+  const uiTypesState = useUITypes.getState();
+  const setConfig = uiTypesState.setOneConfig;
+  const setUIType = uiTypesState.setUIType;
+
   // If it's a preset but we're not "saving as",
   // then use existing non-preset, or copy into a new non-preset ui type.
   let maybeNewUIType = currUIType;
   if (shouldCloneUIType(currUIType, settingPreset)) {
     // Try using existing non-preset (uiType with same originInfoId and type)
     const possibleMatch = existingNonPresetMatchingType(
-      useUITypes.getState().x,
+      uiTypesState.x,
       currUIType,
       originInfoId
     );
@@ -184,7 +185,7 @@ function maybeCloneUIType({
         name: defaultName,
         originInfoId,
       });
-      useUITypes.getState().setUIType({ uiType: maybeNewUIType });
+      setUIType({ uiType: maybeNewUIType });
     } else {
       maybeNewUIType = possibleMatch;
     }
@@ -192,19 +193,10 @@ function maybeCloneUIType({
     setUITypeId(maybeNewUIType.id);
   }
 
-  return maybeNewUIType;
-}
+  setConfig({ uiTypeId: maybeNewUIType.id, ...configProps });
 
-function setConfigAndChildConfig(uiType, configProps) {
-  useUITypes.getState().setOneConfig({ uiTypeId: uiType.id, ...configProps });
-
-  const childUITypeId = uiType.config.childUITypeId;
   // Changing a root config should also change its child config
-  if (childUITypeId) {
-    useUITypes
-      .getState()
-      .setOneConfig({ uiTypeId: childUITypeId, ...configProps });
-  }
+  setChildUITypeConfig(maybeNewUIType, configProps, setConfig);
 }
 
 function existingNonPresetMatchingType(allUITypes, uiType, originInfoId) {
@@ -224,49 +216,9 @@ function shouldCloneUIType(uiType, settingPreset) {
   return isPresetNotSettingPreset || _isSeriesElement;
 }
 
-function initializeUserSpecifiedObject(sectionId) {
-  let { userSpecifiedObjectId } = getSectionInfo(sectionId);
-  if (!userSpecifiedObjectId) {
-    const newObj = newCodeInfo({
-      rcType: RCType.CALLABLE,
-    });
-    userSpecifiedObjectId = newObj.id;
-    setSectionInfoAttr({
-      sectionId,
-      attr: "userSpecifiedObjectId",
-      value: userSpecifiedObjectId,
-    });
-    useCodeInfo
-      .getState()
-      .updateInfos({ allCodeInfo: { [newObj.id]: newObj } });
+function setChildUITypeConfig(uiType, props, setConfig) {
+  const { childUITypeId } = uiType.config;
+  if (childUITypeId) {
+    setConfig({ uiTypeId: childUITypeId, ...props });
   }
-  setSelectedItem(sectionId, userSpecifiedObjectId, false);
-}
-
-export function setCollections({
-  sectionId,
-  settingPreset = false,
-  id,
-  checked,
-  newValueFn,
-  incrementVersion,
-}) {
-  const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-
-  if (checked) {
-    if (uiType.config.childUITypeId) {
-      initializeParamsOfSectionsWithUITypes(
-        [uiType.id, uiType.config.childUITypeId],
-        [id]
-      );
-    } else {
-      initializeChildParams(sectionId, [id]);
-    }
-  }
-
-  setSectionUITypeConfig({
-    sectionId,
-    configProps: { configName: "collections", newValueFn },
-    incrementVersion,
-  });
 }

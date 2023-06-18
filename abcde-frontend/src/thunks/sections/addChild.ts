@@ -47,7 +47,8 @@ export function addChildForParam({
   paramInfoId,
 }: any) {
   const newId = createManySectionInfo({
-    sectionProps: { name, parentId, paramInfoId, uiTypeId },
+    sectionProps: { name, parentId, paramInfoId },
+    configProps: { uiTypeId },
     numChildren: 1,
   })[0];
 

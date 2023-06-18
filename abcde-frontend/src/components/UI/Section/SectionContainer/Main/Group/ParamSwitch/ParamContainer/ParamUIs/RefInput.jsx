@@ -66,11 +66,15 @@ function addAttrSection({
       y: sectionPosition.y,
     },
     chainedFrom: refSectionId,
+  };
+
+  const configProps = {
     uiTypeId: FN_UI_TYPE_ID,
   };
 
   const [newId] = createDefaultSectionInfo({
     sectionProps,
+    configProps,
     isTopLevel: true,
   });
 
