@@ -1,4 +1,5 @@
 import getYouTubeID from "get-youtube-id";
+import { linkIsTwitter, linkIsYouTube } from "hooks/useSocialUtils";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
@@ -8,14 +9,11 @@ import YouTube from "react-youtube";
 function _SocialArea({ sectionId }) {
   const size = useSectionInfos((x) => x.x[sectionId].size);
   const url = useSectionInfos((x) => x.x[sectionId].social);
-  if (!url) {
-    return null;
-  }
 
   if (linkIsYouTube(url)) {
     return <YoutubeEmbed size={size} url={url} />;
   } else if (linkIsTwitter(url)) {
-    return <TwitterEmbed url={url}/>;
+    return <TwitterEmbed url={url} />;
   }
 }
 
@@ -48,12 +46,4 @@ py-4 px-9 [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:overflow-h
       </div>
     )
   );
-}
-
-function linkIsYouTube(x) {
-  return x.includes("youtube");
-}
-
-function linkIsTwitter(x) {
-  return x.includes("twitter");
 }

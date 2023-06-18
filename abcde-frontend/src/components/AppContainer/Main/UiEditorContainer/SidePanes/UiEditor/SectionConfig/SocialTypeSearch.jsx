@@ -1,12 +1,19 @@
 import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { linkIsTwitter, youtubeSectionAspectRatio } from "hooks/useSocialUtils";
 import { useState } from "react";
-import { setSectionInfoAttr } from "thunks/sections/sections";
+import { setSectionInfoAttr, setSectionSize } from "thunks/sections/sections";
 
 export function SocialTypeSearch({ sectionId }) {
   const url = useGetSectionInfo(sectionId, "social");
   const [value, setValue] = useState(url ?? "");
   function onBlur() {
     setSectionInfoAttr({ sectionId, attr: "social", value });
+
+    const width = 550;
+    const height = linkIsTwitter(value)
+      ? "auto"
+      : 500 * (1 / youtubeSectionAspectRatio);
+    setSectionSize(sectionId, { width, height });
   }
 
   return (
