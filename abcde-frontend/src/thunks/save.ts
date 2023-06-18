@@ -47,6 +47,7 @@ export function getProjectData(): ProjectSaveType {
         "id",
         "name",
         "configId",
+        "children",
         "paramInfoId",
         "initialPosition",
         "size",
@@ -61,7 +62,6 @@ export function getProjectData(): ProjectSaveType {
       ])
   );
 
-  const sectionChildren = sectionInfosState.allChildren;
   const sectionDescriptions = useSectionDescription.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
@@ -78,7 +78,6 @@ export function getProjectData(): ProjectSaveType {
     kwargInfo,
     kwargCols,
     sections,
-    sectionChildren,
     sectionDescriptions,
     projectConfigCodeInfoMaps,
   };

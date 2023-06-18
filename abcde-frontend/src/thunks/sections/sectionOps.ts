@@ -52,13 +52,12 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
 
 function getIdsToDelete(sectionId) {
   const sectionInfosState = useSectionInfos.getState();
-  const allChildren = sectionInfosState.allChildren;
   const idsToDelete = [sectionId];
   let idx = 0;
   while (idx < idsToDelete.length) {
-    const currChildren = allChildren[idsToDelete[idx]];
-    if (currChildren) {
-      idsToDelete.push(...currChildren);
+    const idxChildren = sectionInfosState.x[idsToDelete[idx]].children;
+    if (idxChildren) {
+      idsToDelete.push(...idxChildren);
     }
     idx += 1;
   }
@@ -177,7 +176,7 @@ function setSectionSize({ newParentId, sectionId }) {
 
   // if new parent is a deck and the deck has children
   if (isDeck) {
-    const deckChildren = s.currChildren[newParentId];
+    const deckChildren = s.x[newParentId].currChildren;
     if (deckChildren.length > 0) {
       const width = s.x[deckChildren[0]].size.width;
       setAllChildrenWidths({ sectionId, width });

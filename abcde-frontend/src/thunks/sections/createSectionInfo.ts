@@ -57,8 +57,6 @@ export function addSectionsToState(
   siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
   const sectionIds = _.map(sectionInfos, (x) => x.id);
-  siState.initManyAllChildren({ sectionIds });
-  siState.initManyCurrChildren({ sectionIds });
 
   useParamInfos.getState().initManyEvColIds({
     collectionIds: _.map(sectionInfos, (x) => x.evColId),

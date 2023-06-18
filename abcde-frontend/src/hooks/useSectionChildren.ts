@@ -10,11 +10,11 @@ import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 import { useGetManySectionInfos } from "./useSectionInfo";
 
 export function useHasNested(sectionId: string) {
-  return useSectionInfos((x) => x.currChildren[sectionId]?.length > 0);
+  return useSectionInfos((x) => x.x[sectionId].currChildren?.length > 0);
 }
 
 export function useGetAllChildren(sectionId: string) {
-  return useSectionInfos((x) => x.allChildren[sectionId], _.isEqual);
+  return useSectionInfos((x) => x.x[sectionId].children, _.isEqual);
 }
 
 export function useGetCurrChildren(sectionId: string) {
