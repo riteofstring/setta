@@ -5,9 +5,8 @@ import {
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
 import { useState } from "react";
-import { initializeParam } from "thunks/initializeParam";
+import { initializeChildParams } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
@@ -23,7 +22,7 @@ export function CollectionsSearch({ sectionId }) {
   async function onSelectionChange({ newValueFn, id }) {
     // collection needs to be retrieved from db
     await getCollectionDetails(id);
-    initializeParam(sectionId, [useCodeInfo.getState().allCodeInfo[id]]);
+    initializeChildParams(sectionId, id);
     setSectionUITypeConfig({
       sectionId,
       configProps: { configName: "collections", newValueFn },
