@@ -23,6 +23,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "66adb1cc-ce9e-4885-81a6-bf3e7a66644e": {
     id: "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
@@ -48,6 +49,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "306550d9-1a80-42c6-b853-512a22e4d796": {
     id: "306550d9-1a80-42c6-b853-512a22e4d796",
@@ -73,6 +75,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "ac23d151-2df2-436f-b146-3893806ffb1d": {
     id: "ac23d151-2df2-436f-b146-3893806ffb1d",
@@ -98,6 +101,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4": {
     id: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
@@ -123,6 +127,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: "75104bc2-63ce-4742-b35b-1948409c5cac",
+    children: [],
   },
   "3b4bd093-351f-4bec-af52-935d50953ebd": {
     id: "3b4bd093-351f-4bec-af52-935d50953ebd",
@@ -148,6 +153,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "78651b57-73ab-4205-a8d7-4b9fb3b9f51b": {
     id: "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
@@ -173,6 +179,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "4e2bf130-390b-4299-8054-aa54b7740a60": {
     id: "4e2bf130-390b-4299-8054-aa54b7740a60",
@@ -198,6 +205,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: ["7394ac29-c8c0-433c-8bee-fa97c617b05d"],
   },
   "cc98ba55-6a04-4d79-b7f7-47442f174736": {
     id: "cc98ba55-6a04-4d79-b7f7-47442f174736",
@@ -223,6 +231,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: ["e304954a-d52d-47fc-8c79-c47c6e53e752"],
   },
   "e304954a-d52d-47fc-8c79-c47c6e53e752": {
     id: "e304954a-d52d-47fc-8c79-c47c6e53e752",
@@ -248,6 +257,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: ["80f921cd-f88f-4612-92f3-219a89834e13"],
   },
   "80f921cd-f88f-4612-92f3-219a89834e13": {
     id: "80f921cd-f88f-4612-92f3-219a89834e13",
@@ -273,6 +283,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "7394ac29-c8c0-433c-8bee-fa97c617b05d": {
     id: "7394ac29-c8c0-433c-8bee-fa97c617b05d",
@@ -298,6 +309,7 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
   "02d30f19-1160-4050-a2d7-390d36b3637e": {
     id: "02d30f19-1160-4050-a2d7-390d36b3637e",
@@ -323,6 +335,7 @@ export default {
     social: null,
     outputGroup: "67863f2c-9916-4d9b-9c60-b7ed3781f49d",
     userSpecifiedObjectId: null,
+    children: [],
   },
   "f5eb514b-6731-4289-946b-0470628c08c4": {
     id: "f5eb514b-6731-4289-946b-0470628c08c4",
@@ -348,5 +361,6 @@ export default {
     social: null,
     outputGroup: null,
     userSpecifiedObjectId: null,
+    children: [],
   },
 };

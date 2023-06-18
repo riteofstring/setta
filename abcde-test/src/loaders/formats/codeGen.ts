@@ -3,6 +3,7 @@ import _ from "lodash";
 export function codeGen(loaded) {
   const {
     project,
+    sections,
     allCodeInfo,
     kwargInfo,
     uiTypes,
@@ -17,9 +18,10 @@ export function codeGen(loaded) {
   };
   return {
     project: processProject(project),
+    sections,
     codeInfo,
     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-    sectionCurrChildren: _.cloneDeep(loaded.sectionChildren),
+    sectionCurrChildren: _.cloneDeep(_.pick(sections, ["children"])),
     ...theRest,
   };
 }
