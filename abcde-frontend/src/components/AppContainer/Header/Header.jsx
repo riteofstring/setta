@@ -18,11 +18,11 @@ export function HeaderContainer() {
 
 function FlexContainer({ children }) {
   return (
-    <section
+    <div
       className={`min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center bg-white px-11 shadow-md`}
     >
       {children}
-    </section>
+    </div>
   );
 }
 

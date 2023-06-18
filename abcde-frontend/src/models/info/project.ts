@@ -5,7 +5,6 @@ import { createProjectState } from "../utils";
 const initialState: ProjectType = {
   id: "",
   name: "",
-  defaultConfigId: null,
 };
 
 export const useProject = createProjectState<ProjectZustandType>(
@@ -19,6 +18,6 @@ export const useProject = createProjectState<ProjectZustandType>(
     setName: (name) => set({ name }), //TODO, need to update db
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
-    getAll: () => _.pick(get(), ["id", "name", "defaultConfigId"]),
+    getAll: () => _.pick(get(), ["id", "name"]),
   })
 );

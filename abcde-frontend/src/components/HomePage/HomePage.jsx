@@ -9,7 +9,6 @@ import { Badge } from "utils/atoms/badges/badge";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
-import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
@@ -88,7 +87,7 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
 
   return (
     <div ref={forwardedRef} className={itemStyles}>
-      <Link to={defaultConfigAddress} state={{ pageLoadType: NEW_PROJECT }}>
+      <Link to={defaultConfigAddress}>
         <ThumbnailArea
           onClickConfigsButton={onClickConfigsButton}
           project={project}
@@ -138,18 +137,20 @@ function Body({ project, configs }) {
 function ConfigItem({ project, config }) {
   const configAddress = useConfigAddress({ project, configId: config.id });
   return (
-    <Link to={configAddress} state={{ pageLoadType: NEW_PROJECT }}>
+    <Link to={configAddress}>
       <Item className="flex flex-row">
         {config.name}
-        <DefaultConfigBadge isDefault={project.defaultConfigId === config.id} />
+        <DefaultConfigBadge config={config} />
       </Item>
     </Link>
   );
 }
 
-function DefaultConfigBadge({ isDefault }) {
+function DefaultConfigBadge({ config }) {
   return (
-    isDefault && <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
+    config.isDefault && (
+      <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
+    )
   );
 }
 
@@ -160,7 +161,7 @@ function useConfigAddress({ project, configId }) {
 }
 
 function useDefaultConfigAddress(project) {
-  const configId = project.defaultConfigId;
+  const configId = project.configs.find((x) => x.isDefault).id;
   return useConfigAddress({ project, configId });
 }
 

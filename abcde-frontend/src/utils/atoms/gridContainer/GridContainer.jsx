@@ -1,9 +1,9 @@
 export function GridContainer({ children, overflow = "overflow-hidden" }) {
   return (
-    <section
+    <main
       className={`grid h-full w-screen grid-cols-[1fr] grid-rows-[min-content] ${overflow}`}
     >
       {children}
-    </section>
+    </main>
   );
 }
