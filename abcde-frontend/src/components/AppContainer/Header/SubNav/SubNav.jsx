@@ -10,9 +10,9 @@ import { UndoButton } from "./UndoButton/UndoButton";
 
 export function SubNav() {
   return (
-    <nav className="flex space-x-2">
+    <div className="flex space-x-2">
       <NavSwitch />
-    </nav>
+    </div>
   );
 }
 

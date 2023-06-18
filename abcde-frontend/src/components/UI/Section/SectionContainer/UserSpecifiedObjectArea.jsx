@@ -10,7 +10,9 @@ function _UserSpecifiedObjectArea({ sectionId }) {
 
   return (
     <>
-      <UserSpecifiedObjectName selectedItem={selectedItem} />
+      <div className="px-6">
+        <UserSpecifiedObjectName selectedItem={selectedItem} />
+      </div>
 
       <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
       <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />

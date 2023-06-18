@@ -1,16 +1,42 @@
 import { DEFAULT_BASE_UI_TYPE_ID } from "abcde-utils/src/constants";
+import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
 import { ManyOf } from "abcde-utils/src/types/utils";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
 import { addChildForParam } from "./sections/addChild";
 import { getSectionInfo } from "./sections/sections";
+
+export function initializeParamsOfSectionsWithUITypes(
+  uiTypeIds: string[],
+  codeInfoIds: string[]
+) {
+  if (uiTypeIds.length === 0 || codeInfoIds.length === 0) {
+    return;
+  }
+  for (const s of Object.values(useSectionInfos.getState().x)) {
+    if (uiTypeIds.includes(s.uiTypeId)) {
+      initializeChildParams(s.id, codeInfoIds);
+    }
+  }
+}
+
+export function initializeChildParams(
+  sectionId: string,
+  codeInfoIds: string[],
+  childFinder = findAllParameters
+) {
+  const params = childFinder(useCodeInfo.getState().allCodeInfo, codeInfoIds);
+  initializeParam(sectionId, params);
+}
 
 export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");
