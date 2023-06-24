@@ -1,4 +1,4 @@
-import { isRoot, SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
+import { SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import {
   isBasePreset,
@@ -8,6 +8,7 @@ import {
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { uiTypesToPretty } from "utils/constants";
+import { useGetParamChildNonPresetUITypeIds } from "./useEnteredValue";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
 
@@ -19,46 +20,12 @@ function createName(uiType) {
   return x;
 }
 
-function isFromSelf(v: UITypeType, nonPresetUITypeIds: string[]) {
+function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
   return nonPresetUITypeIds.includes(v.id);
 }
 
-function isFromChild(v: UITypeType, childId: string | null) {
-  return (
-    childId &&
-    _.isEqual(v.originInfoId, createSectionOriginInfoId(childId)) &&
-    !v.isForChildOfOriginInfoId
-  );
-}
-
-function isFromParam(
-  v: UITypeType,
-  parentUITypeColId: string,
-  paramInfoId: string | null
-) {
-  return (
-    paramInfoId &&
-    _.isEqual(
-      v.originInfoId,
-      createParamOriginInfoId(parentUITypeColId, paramInfoId)
-    )
-  );
-}
-
-function isFromRoot(
-  v: UITypeType,
-  parentOriginInfoId: OriginInfoIdType,
-  parentUITypeType: string
-) {
-  return (
-    _.isEqual(v.originInfoId, parentOriginInfoId) &&
-    isRoot(parentUITypeType) &&
-    v.isForChildOfOriginInfoId
-  );
-}
-
 export function isFromSelfAndMatchesType(v, nonPresetUITypeIds, type) {
-  return isFromSelf(v, nonPresetUITypeIds) && v.type === type;
+  return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
 }
 
 function isSectionType(v) {
@@ -72,7 +39,6 @@ function filterUITypes(
   selectedId
 ) {
   const nonPresets = _.filter(uiTypes, nonPresetFilterFn);
-  console.log("nonPresets", nonPresets);
   const typesOfNonPresets = _.map(nonPresets, (v) => v.type);
 
   // include presets + base presets of types that aren't already included in typesOfMatchesOrigin
@@ -96,35 +62,14 @@ function filterUITypes(
   }));
 }
 
-// export function useAvailableUITypesForNestedSection(
-//   sectionId: string,
-//   selectedId: string
-// ) {
-//   const parentId = useGetSectionInfo(sectionId, "parentId") as string;
-//   const parentUITypeType = useGetSectionType(parentId, "type");
-//   const parentUITypeColId = useGetSectionInfo(parentId, "uiTypeColId");
-//   const paramInfoId = useGetSectionInfo(sectionId, "paramInfoId");
-
-//   const generalFilterFn = isSectionType;
-//   const originFilterFn = (uiType: UITypeType) =>
-//     isFromSelf(uiType, originInfoId) ||
-//     isFromParam(uiType, parentUITypeColId, paramInfoId) ||
-//     isFromRoot(uiType, parentOriginInfoId, parentUITypeType);
-
-//   return useUITypes(
-//     (x) => filterUITypes(x.x, generalFilterFn, originFilterFn, selectedId),
-//     _.isEqual
-//   );
-// }
-
-export function useAvailableUITypesForTopLevelSection(
+export function useAvailableUITypesForSection(
   sectionId: string,
   selectedId: string
 ) {
   const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
   const generalFilterFn = isSectionType;
   const nonPresetFilterFn = (uiType: UITypeType) =>
-    isFromSelf(uiType, nonPresetUITypeIds);
+    isAmongNonPresets(uiType, nonPresetUITypeIds);
 
   return useUITypes(
     (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
@@ -132,24 +77,23 @@ export function useAvailableUITypesForTopLevelSection(
   );
 }
 
-export function useAvailableUITypesForUIConfig(
+export function useAvailableUITypesForParam(
   sectionId: string,
   paramInfoId: string,
   selectedId: string
 ) {
   const nonPresetUITypeIds = useParamNonPresetUITypeIds(sectionId, paramInfoId);
-  // const childId = useGetParamChildId(sectionId, paramInfoId);
-  // const childNonPresetUITypeIds = useGetSectionInfo(
-  //   childId,
-  //   "nonPresetUITypeIds"
-  // );
-
-  console.log("nonPresetUITypeIds", nonPresetUITypeIds);
+  const childNonPresetUITypeIds = useGetParamChildNonPresetUITypeIds(
+    sectionId,
+    paramInfoId
+  );
 
   const generalFilterFn = () => true;
   const nonPresetFilterFn = (uiType: UITypeType) =>
-    isFromSelf(uiType, nonPresetUITypeIds);
-  //|| isFromChild(uiType, childId);
+    isAmongNonPresets(uiType, [
+      ...nonPresetUITypeIds,
+      ...childNonPresetUITypeIds,
+    ]);
 
   return useUITypes(
     (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),

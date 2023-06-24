@@ -1,5 +1,6 @@
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useGetParamEnteredValue(
@@ -13,6 +14,16 @@ export function useGetParamEnteredValue(
 export function useGetParamChildId(sectionId: string, paramInfoId: string) {
   const enteredValueId = useGetParamEnteredValueId(sectionId, paramInfoId);
   return useEnteredValues((x) => x.x[enteredValueId].childId);
+}
+
+export function useGetParamChildNonPresetUITypeIds(
+  sectionId: string,
+  paramInfoId: string
+) {
+  const childId = useGetParamChildId(sectionId, paramInfoId);
+  return useSectionInfos((x) =>
+    childId ? x.x[childId].nonPresetUITypeIds : []
+  );
 }
 
 export function useGetParamEnteredValueId(
