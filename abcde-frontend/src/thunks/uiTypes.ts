@@ -9,7 +9,6 @@ import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import {
   getSectionInfo,
@@ -18,7 +17,7 @@ import {
   setSelectedItem,
 } from "thunks/sections/sections";
 import { requiresNestedSection } from "utils/constants";
-import { cloneNewUIType } from "utils/uiTypeUtils";
+import { createNonPreset } from "utils/uiTypeUtils";
 import {
   initializeChild,
   initializeChildParams,
@@ -101,19 +100,17 @@ export function setSectionUITypeConfig({
 }
 
 function maybeCloneSectionUIType({ sectionId, settingPreset }) {
-  const {
-    name: defaultName,
-    parentId,
-    paramInfoId,
-  } = useSectionInfos.getState().x[sectionId];
+  const { name: defaultName, nonPresetUITypeIds } = getSectionInfo(sectionId);
   const currUIType = getSectionType(sectionId);
 
   const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
 
   return maybeCloneUIType({
+    sectionId,
     defaultName,
     currUIType,
     settingPreset,
+    nonPresetUITypeIds,
     setUITypeId,
   });
 }
@@ -134,7 +131,7 @@ export function setParamUITypeConfig({
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
   const defaultName = useCodeInfo.getState().allCodeInfo[paramInfoId].name;
-  const uiTypeColId = getSectionInfo(sectionId).uiTypeColId;
+  const { nonPresetUITypeIds } = getSectionInfo(sectionId);
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
   const setUITypeId = (uiTypeId) =>
@@ -144,14 +141,17 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
     defaultName,
     currUIType,
     settingPreset,
+    nonPresetUITypeIds,
     setUITypeId,
   });
 }
 
 function maybeCloneUIType({
+  sectionId,
   defaultName,
   currUIType,
   settingPreset,
+  nonPresetUITypeIds,
   setUITypeId,
 }) {
   // If it's a preset but we're not "saving as",
@@ -161,16 +161,13 @@ function maybeCloneUIType({
     // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypeIds)
     const possibleMatch = existingNonPresetMatchingType(
       useUITypes.getState().x,
-      currUIType
+      currUIType,
+      nonPresetUITypeIds
     );
 
     // There's no match, so clone the preset into a non-preset
     if (!possibleMatch) {
-      maybeNewUIType = cloneNewUIType({
-        uiType: currUIType,
-        name: defaultName,
-      });
-      useUITypes.getState().setUIType({ uiType: maybeNewUIType });
+      maybeNewUIType = createNonPreset({ sectionId, currUIType, defaultName });
     } else {
       maybeNewUIType = possibleMatch;
     }
@@ -193,9 +190,9 @@ function setConfigAndChildConfig(uiType, configProps) {
   }
 }
 
-function existingNonPresetMatchingType(allUITypes, uiType) {
+function existingNonPresetMatchingType(allUITypes, uiType, nonPresetUITypeIds) {
   const matches = _.filter(allUITypes, (v) =>
-    isFromSelfAndMatchesType(v, uiType.type)
+    isFromSelfAndMatchesType(v, nonPresetUITypeIds, uiType.type)
   );
   return matches.length > 0 ? matches[0] : null;
 }

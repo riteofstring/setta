@@ -3,6 +3,7 @@ import { UITypeType } from "abcde-utils/src/types/uiType";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
+import { setSectionInfoAttr } from "thunks/sections/sections";
 
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
@@ -48,6 +49,20 @@ export function cloneNewUIType({
   if (!_.isNil(config)) {
     newUIType.config = config;
   }
+  return newUIType;
+}
+
+export function createNonPreset({ sectionId, currUIType, defaultName }) {
+  const newUIType = cloneNewUIType({
+    uiType: currUIType,
+    name: defaultName,
+  });
+  useUITypes.getState().setUIType({ uiType: newUIType });
+  setSectionInfoAttr({
+    sectionId,
+    attr: "nonPresetUITypeIds",
+    newValueFn: (v) => [...v, newUIType.id],
+  });
   return newUIType;
 }
 

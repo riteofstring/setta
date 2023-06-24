@@ -56,8 +56,8 @@ function isFromRoot(
   );
 }
 
-export function isFromSelfAndMatchesType(v, originInfoId, type) {
-  return isFromSelf(v, originInfoId) && v.type === type;
+export function isFromSelfAndMatchesType(v, nonPresetUITypeIds, type) {
+  return isFromSelf(v, nonPresetUITypeIds) && v.type === type;
 }
 
 function isSectionType(v) {
@@ -67,11 +67,12 @@ function isSectionType(v) {
 function filterUITypes(
   uiTypes,
   generalFilterFn,
-  nonPresetFilterFn,
+  nonPresetFilterFn: (x: UITypeType) => boolean,
   selectedId
 ) {
-  const matchesOriginOrIsSelected = _.filter(uiTypes, nonPresetFilterFn);
-  const typesOfMatchesOrigin = _.map(matchesOriginOrIsSelected, (v) => v.type);
+  const nonPresets = _.filter(uiTypes, nonPresetFilterFn);
+  console.log("nonPresets", nonPresets);
+  const typesOfNonPresets = _.map(nonPresets, (v) => v.type);
 
   // include presets + base presets of types that aren't already included in typesOfMatchesOrigin
   const presetsFiltered = _.filter(
@@ -81,17 +82,13 @@ function filterUITypes(
       isPreset(v) &&
       isNotDeck(v) &&
       (!isBasePreset(v) ||
-        (isBasePreset(v) && !typesOfMatchesOrigin.includes(v.type)))
+        (isBasePreset(v) && !typesOfNonPresets.includes(v.type)))
   );
 
   // always include the selected uiType
   const selected = _.filter(uiTypes, (v) => v.id === selectedId);
 
-  return _.uniq([
-    ...presetsFiltered,
-    ...matchesOriginOrIsSelected,
-    ...selected,
-  ]).map((v) => ({
+  return _.uniq([...presetsFiltered, ...nonPresets, ...selected]).map((v) => ({
     id: v.id,
     name: createName(v),
     presetType: v.presetType,
