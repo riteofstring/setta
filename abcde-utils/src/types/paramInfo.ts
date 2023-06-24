@@ -39,6 +39,12 @@ export type ParamInfoActionType = {
     uiTypeId: string;
   }) => void;
 
+  setNonPresetUITypeIds: (payload: {
+    collectionId: string;
+    paramInfoId: string;
+    newValueFn: (curr: string[]) => string[];
+  }) => void;
+
   deleteParamInfo: (payload: {
     evColId: string;
     uiTypeColId: string;
