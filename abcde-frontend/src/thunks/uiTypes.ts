@@ -158,7 +158,7 @@ function maybeCloneUIType({
   // then use existing non-preset, or copy into a new non-preset ui type.
   let maybeNewUIType = currUIType;
   if (shouldCloneUIType(currUIType, settingPreset)) {
-    // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypes)
+    // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypeIds)
     const possibleMatch = existingNonPresetMatchingType(
       useUITypes.getState().x,
       currUIType

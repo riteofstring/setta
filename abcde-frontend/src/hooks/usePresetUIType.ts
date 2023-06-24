@@ -18,8 +18,8 @@ function createName(uiType) {
   return x;
 }
 
-function isFromSelf(v: UITypeType, nonPresetUITypes: string[]) {
-  return nonPresetUITypes.includes(v.id);
+function isFromSelf(v: UITypeType, nonPresetUITypeIds: string[]) {
+  return nonPresetUITypeIds.includes(v.id);
 }
 
 function isFromChild(v: UITypeType, childId: string | null) {
@@ -123,10 +123,10 @@ export function useAvailableUITypesForTopLevelSection(
   sectionId: string,
   selectedId: string
 ) {
-  const nonPresetUITypes = useGetSectionInfo(sectionId, "nonPresetUITypes");
+  const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
   const generalFilterFn = isSectionType;
   const nonPresetFilterFn = (uiType: UITypeType) =>
-    isFromSelf(uiType, nonPresetUITypes);
+    isFromSelf(uiType, nonPresetUITypeIds);
 
   return useUITypes(
     (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
