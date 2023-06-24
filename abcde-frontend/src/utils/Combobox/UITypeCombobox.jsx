@@ -1,8 +1,4 @@
-import {
-  useAvailableUITypesForNestedSection,
-  useAvailableUITypesForTopLevelSection,
-  useAvailableUITypesForUIConfig,
-} from "hooks/usePresetUIType";
+import { useAvailableUITypesForTopLevelSection } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
@@ -46,17 +42,18 @@ export function NestedSectionUITypeCombobox({
   selectedId,
   ...props
 }) {
-  const availableUITypes = useAvailableUITypesForNestedSection(
-    sectionId,
-    selectedId
-  );
-  return (
-    <UITypeCombobox
-      availableUITypes={availableUITypes}
-      selectedId={selectedId}
-      {...props}
-    />
-  );
+  // const availableUITypes = useAvailableUITypesForNestedSection(
+  //   sectionId,
+  //   selectedId
+  // );
+  // return (
+  //   <UITypeCombobox
+  //     availableUITypes={availableUITypes}
+  //     selectedId={selectedId}
+  //     {...props}
+  //   />
+  // );
+  return null;
 }
 
 export function UIConfigUITypeCombobox({
@@ -65,16 +62,17 @@ export function UIConfigUITypeCombobox({
   selectedId,
   ...props
 }) {
-  const availableUITypes = useAvailableUITypesForUIConfig(
-    sectionId,
-    paramInfoId,
-    selectedId
-  );
-  return (
-    <UITypeCombobox
-      availableUITypes={availableUITypes}
-      selectedId={selectedId}
-      {...props}
-    />
-  );
+  // const availableUITypes = useAvailableUITypesForUIConfig(
+  //   sectionId,
+  //   paramInfoId,
+  //   selectedId
+  // );
+  // return (
+  //   <UITypeCombobox
+  //     availableUITypes={availableUITypes}
+  //     selectedId={selectedId}
+  //     {...props}
+  //   />
+  // );
+  return null;
 }
