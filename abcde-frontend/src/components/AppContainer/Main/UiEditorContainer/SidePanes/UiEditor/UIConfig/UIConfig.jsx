@@ -10,11 +10,12 @@ import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiPencil } from "react-icons/bi";
-import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
+import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
+import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
+import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { cloneNewUIType } from "utils/uiTypeUtils";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 

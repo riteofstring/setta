@@ -4,7 +4,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useStoreApi } from "reactflow";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionInfo, getSectionName } from "thunks/sections/sections";
-import { setSectionUITypeConfig } from "thunks/uiTypes";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export function RefInputConfig() {

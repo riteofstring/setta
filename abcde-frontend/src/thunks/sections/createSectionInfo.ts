@@ -8,7 +8,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
-import { getChildUITypeId } from "utils/uiTypeUtils";
+import { getChildUITypeId } from "thunks/uiTypes/getChildUITypeId";
 import { getSectionType, getSectionTypeConfig } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {

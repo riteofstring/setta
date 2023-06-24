@@ -1,6 +1,6 @@
 import { useIsTopLevelSection } from "hooks/useProjectConfig";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { setSectionUITypeId } from "thunks/uiTypes";
+import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";
 import {
   NestedSectionUITypeCombobox,
   TopLevelSectionUITypeCombobox,

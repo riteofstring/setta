@@ -12,6 +12,8 @@ import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
+import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
@@ -21,7 +23,6 @@ import {
   setParamChildId,
   setParamEnteredValue,
 } from "../paramInfos";
-import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getParamWithSameName } from "./sectionContents";
 import {
   getSectionInfo,
