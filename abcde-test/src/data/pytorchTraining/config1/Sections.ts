@@ -26,6 +26,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["371fdc0d-35db-47a2-8b61-05a06a29f5c3"],
   },
   "6ef48cbf-dba5-4ba9-b98d-91d3a512a387": {
     id: "6ef48cbf-dba5-4ba9-b98d-91d3a512a387",
@@ -54,6 +55,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["e8cb2bee-45d2-476d-8cac-ca6f5adcc6bd"],
   },
   "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284": {
     id: "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284",
@@ -82,6 +84,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["7a5a399d-7d57-4f6d-9cf3-8e7893c561ce"],
   },
   "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42": {
     id: "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
@@ -110,6 +113,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["086f477d-87b7-4e5d-9999-e0c9bf601d1b"],
   },
   "90a654d6-b1bd-4e29-9327-113f75b8f2fa": {
     id: "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
@@ -138,6 +142,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["e4e12b6a-1212-4faa-a049-dabfba99bcfb"],
   },
   "b4026079-d0ca-4524-8ee4-4aae614cfec3": {
     id: "b4026079-d0ca-4524-8ee4-4aae614cfec3",
@@ -166,6 +171,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["e4b153f3-77db-4d47-a638-ca508af906ee"],
   },
   "6621cd83-3be9-4f37-8b9e-6201a124ea28": {
     id: "6621cd83-3be9-4f37-8b9e-6201a124ea28",
@@ -194,6 +200,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["ff509491-22c9-43ab-9ae6-2d62c73df36a"],
   },
   "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d": {
     id: "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
@@ -222,6 +229,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["9eb15d74-d986-498b-9692-8a236ace33d6"],
   },
   "d182ccf0-07b2-4061-bf10-7e0dc25234da": {
     id: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
@@ -256,6 +264,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e": {
     id: "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
@@ -284,6 +293,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["7d7b9546-3a8f-4846-a497-0ad09f34014b"],
   },
   "6da834af-b00d-492e-aa31-51be3f93b61f": {
     id: "6da834af-b00d-492e-aa31-51be3f93b61f",
@@ -317,6 +327,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "a40d457b-1eab-4417-9767-0a65faa2b9e6": {
     id: "a40d457b-1eab-4417-9767-0a65faa2b9e6",
@@ -345,6 +356,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "1765a450-ca77-41ae-a482-16c18e03f895": {
     id: "1765a450-ca77-41ae-a482-16c18e03f895",
@@ -373,6 +385,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "0fd7ce2c-962c-41f8-b512-05f989dc5dc8": {
     id: "0fd7ce2c-962c-41f8-b512-05f989dc5dc8",
@@ -401,6 +414,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "64aeb27b-8a7a-4a0b-a761-26b606817d1e": {
     id: "64aeb27b-8a7a-4a0b-a761-26b606817d1e",
@@ -429,6 +443,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "6352b363-2800-427a-a98e-424b03750f94": {
     id: "6352b363-2800-427a-a98e-424b03750f94",
@@ -457,6 +472,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "3dab4514-ad65-416e-aa3b-038314ef119f": {
     id: "3dab4514-ad65-416e-aa3b-038314ef119f",
@@ -485,6 +501,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "2983b469-c363-4332-83f8-3d3991f2d8f9": {
     id: "2983b469-c363-4332-83f8-3d3991f2d8f9",
@@ -513,6 +530,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "486afb30-ed4b-43db-acbc-097f3d575f40": {
     id: "486afb30-ed4b-43db-acbc-097f3d575f40",
@@ -541,6 +559,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "fe23c7d7-15ae-4137-836d-0b16defdbe51": {
     id: "fe23c7d7-15ae-4137-836d-0b16defdbe51",
@@ -569,6 +588,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "8b584fd6-f495-4b1a-b9c0-b640f5931336": {
     id: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
@@ -601,6 +621,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "5d890f43-1ff0-4e47-950d-23c43e160e8c": {
     id: "5d890f43-1ff0-4e47-950d-23c43e160e8c",
@@ -633,6 +654,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "aa2078ab-8613-4498-951a-8c990f56be44": {
     id: "aa2078ab-8613-4498-951a-8c990f56be44",
@@ -665,6 +687,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9": {
     id: "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
@@ -694,6 +717,7 @@ export default {
       "## Argument descriptions\n\n| Argument | Description |\n| --- | --- |\nmodel | Predicts the class of each image\noptimizer | Updates the model's parameters\nlr_scheduler | Updates the optimizer's learning rate\nloss_fn | Tells the model how it's doing\nmetrics | A list of functions used for evaluating the model\ntrain_dataloader | Returns images from the training dataset\nval_dataloader | Returns images from the validation dataset\nlogger | Logs experiment data so that it can be viewed later\nepochs | Number of passes through the training dataset\nval_interval | How frequently the model should be evaluated\nlog_interval | How frequently experiment data should be logged",
     descriptionHeight: 620,
     descriptionVisible: false,
+    nonPresetUITypes: ["2276d785-6f3e-43c3-9134-3890952f608e"],
   },
   "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa": {
     id: "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa",
@@ -722,6 +746,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["b1af0031-d5df-434b-b12e-b5d69d99ba06"],
   },
   "915d5594-d78e-4b96-ad91-6003462fa969": {
     id: "915d5594-d78e-4b96-ad91-6003462fa969",
@@ -750,6 +775,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["7241905d-c8b9-4f77-a360-cdd3b5e8e8d6"],
   },
   "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61": {
     id: "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
@@ -781,6 +807,10 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [
+      "d0a1935a-3964-4aed-be15-470a02cf8fb9",
+      "1208c3e6-43a6-46fa-afc0-67c552e05298",
+    ],
   },
   "379a611c-6584-4db0-85bd-5c419bbd110d": {
     id: "379a611c-6584-4db0-85bd-5c419bbd110d",
@@ -809,6 +839,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "5c0517cb-28e2-4a69-b066-4872a0cd6f22": {
     id: "5c0517cb-28e2-4a69-b066-4872a0cd6f22",
@@ -837,6 +868,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "73c7f2c5-1c05-49ee-9812-2fbd27a849c3": {
     id: "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
@@ -865,6 +897,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: ["1ca9a940-382c-456f-a8dd-7767799a4b26"],
   },
   "8f6b5dd4-ba63-4259-af49-77ea52c4ea99": {
     id: "8f6b5dd4-ba63-4259-af49-77ea52c4ea99",
@@ -896,6 +929,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
   "7af597f1-f9e2-4988-8b73-70c147c4b769": {
     id: "7af597f1-f9e2-4988-8b73-70c147c4b769",
@@ -925,5 +959,6 @@ export default {
       "# Training a Machine Learning Model with Runcoder + PyTorch\n\n\n## Steps\n\n1. Configure the training run using this UI.\n2. Click Generate. The generated command should look something like:\n```\nruncoder run 7fcb602c-d078-4c42-b8b2-a94abf33a2c5\n```\n3. Paste into your command line and run.\n\n",
     descriptionHeight: 100,
     descriptionVisible: false,
+    nonPresetUITypes: [],
   },
 };
