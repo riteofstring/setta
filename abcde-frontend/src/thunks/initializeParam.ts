@@ -13,6 +13,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "utils/constants";
+import { getParamChildId } from "./paramInfos";
 import { addChildForParam } from "./sections/addChild";
 import { getSectionInfo } from "./sections/sections";
 
@@ -42,12 +43,8 @@ export function initializeChildParams(
 export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");
   const paramIdToUITypeId = initializeParamUIType(sectionId, paramInfosAsObj);
-  const paramIdToEvId = initializeParamEnteredValue(
-    sectionId,
-    paramInfosAsObj,
-    paramIdToUITypeId
-  );
-  initializeChild(sectionId, paramInfosAsObj, paramIdToUITypeId, paramIdToEvId);
+  initializeParamEnteredValue(sectionId, paramInfosAsObj, paramIdToUITypeId);
+  initializeChild(sectionId, paramInfosAsObj, paramIdToUITypeId);
 }
 
 function getEnteredValueIds(sectionId: string, paramInfos: ManyCodeInfoType) {
@@ -160,19 +157,17 @@ function initializeParamUIType(
   return paramIdToUITypeId;
 }
 
-function getChildIds(paramIdToEvId) {
-  const evState = useEnteredValues.getState();
-  return _.mapValues(paramIdToEvId, (v) => evState.x[v].childId);
+function getChildIds(sectionId: string, paramInfos: ManyCodeInfoType) {
+  return _.mapValues(paramInfos, (p) => getParamChildId(sectionId, p));
 }
 
 export function initializeChild(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
-  paramIdToUITypeId: { [id: string]: string },
-  paramIdToEvId: { [id: string]: string }
+  paramIdToUITypeId: { [id: string]: string }
 ) {
   const uiTypesState = useUITypes.getState();
-  const paramIdToChildId = getChildIds(paramIdToEvId);
+  const paramIdToChildId = getChildIds(sectionId, paramInfos);
   const newUITypeIds: ManyOf<string> = {};
 
   for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {

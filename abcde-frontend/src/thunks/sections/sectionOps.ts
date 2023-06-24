@@ -18,11 +18,7 @@ import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import {
-  getParamChildId,
-  setParamChildId,
-  setParamEnteredValue,
-} from "../paramInfos";
+import { getParamChildId, setParamEnteredValue } from "../paramInfos";
 import { getParamWithSameName } from "./sectionContents";
 import {
   getSectionInfo,
@@ -241,13 +237,7 @@ function linkParamToSection({ parentId, paramInfoId, sectionId }) {
   if (oldChildId) {
     deleteSections({ sectionIds: [oldChildId] });
   }
-
   setSectionParamInfoId(sectionId, paramInfoId);
-  setParamChildId({
-    sectionId: parentId,
-    paramInfoId,
-    childId: sectionId,
-  });
   setParamUITypeId({
     uiTypeId,
     sectionId: parentId,
@@ -261,11 +251,6 @@ function unlinkParamFromSection({ parentId, sectionId }) {
     return;
   }
   setSectionParamInfoId(sectionId, null);
-  setParamChildId({
-    sectionId: parentId,
-    paramInfoId,
-    childId: null,
-  });
   setParamUITypeId({
     uiTypeId: REF_UI_TYPE_ID,
     sectionId: parentId,

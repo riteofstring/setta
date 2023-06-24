@@ -1,4 +1,3 @@
-import { setParamChildId } from "thunks/paramInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { insertIntoArrayOrXpend } from "utils/utils";
 import {
@@ -52,12 +51,6 @@ export function addChildForParam({
   })[0];
 
   setAllChildren(parentId, getNewStateFn(null, [newId]));
-
-  setParamChildId({
-    sectionId: parentId,
-    paramInfoId,
-    childId: newId,
-  });
 
   return newId;
 }

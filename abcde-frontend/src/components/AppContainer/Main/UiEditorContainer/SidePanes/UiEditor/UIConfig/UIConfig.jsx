@@ -1,7 +1,6 @@
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
-import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
@@ -62,7 +61,6 @@ function _UIElement({ sectionId, paramInfo }) {
   const setUIType = useUITypes((x) => x.setUIType);
   const deleteUIType = useUITypes((x) => x.deleteUIType);
   const paramInfoId = paramInfo.id;
-  const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const paramName = paramInfo.name;
 
@@ -112,10 +110,7 @@ function _UIElement({ sectionId, paramInfo }) {
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
           <InfoViewDescription paramInfoId={paramInfoId} />
-          <SaveUITypeConfig
-            paramChildId={paramChildId}
-            onSubmit={onSaveAsSubmit}
-          />
+          <SaveUITypeConfig onSubmit={onSaveAsSubmit} />
         </div>
       </div>
 
@@ -127,9 +122,12 @@ function _UIElement({ sectionId, paramInfo }) {
         savedConfig={uiType.config}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
-        paramChildId={paramChildId}
       />
-      <ButtonGoToSectionConfig uiType={uiType} paramChildId={paramChildId} />
+      <ButtonGoToSectionConfig
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        uiType={uiType}
+      />
     </div>
   );
 }

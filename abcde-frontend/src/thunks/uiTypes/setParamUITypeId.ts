@@ -4,7 +4,6 @@ import { useUITypes } from "models/info/uiTypes";
 import { getSectionInfo, setSectionInfoAttr } from "thunks/sections/sections";
 import { requiresNestedSection } from "utils/constants";
 import { initializeChild } from "../initializeParam";
-import { getParamEVId } from "../paramInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function setParamUITypeId({
@@ -32,12 +31,10 @@ export function setParamUITypeId({
 
   if (isNested) {
     const paramInfo = useCodeInfo.getState().allCodeInfo[paramInfoId];
-    const evId = getParamEVId(sectionId, paramInfoId);
     const { paramIdToChildId } = initializeChild(
       sectionId,
       { [paramInfoId]: paramInfo },
-      { [paramInfoId]: uiTypeId },
-      { [paramInfoId]: evId }
+      { [paramInfoId]: uiTypeId }
     );
 
     setSectionInfoAttr({
