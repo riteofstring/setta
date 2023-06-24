@@ -1,6 +1,5 @@
 import { SLIDER, SWITCH, TEXT } from "../constants";
 import { EVType } from "../types/ev";
-import { maybeNewId } from "../utils";
 
 function getInitValueFromUIType(uiType) {
   switch (uiType) {
@@ -16,10 +15,6 @@ function getInitValueFromUIType(uiType) {
 }
 
 // Entered Value
-export function newEV({ id, uiType }: { id?: string; uiType: string }): EVType {
-  return {
-    id: maybeNewId(id),
-    value: getInitValueFromUIType(uiType),
-    childId: null,
-  };
+export function newEV(uiType: string): EVType {
+  return getInitValueFromUIType(uiType);
 }
