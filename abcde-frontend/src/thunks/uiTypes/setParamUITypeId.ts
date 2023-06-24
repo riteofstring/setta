@@ -12,6 +12,11 @@ export function setParamUITypeId({
   sectionId,
   paramInfoId,
   incrementVersion = false,
+}: {
+  uiTypeId: string;
+  sectionId: string;
+  paramInfoId: string;
+  incrementVersion?: boolean;
 }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
 

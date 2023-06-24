@@ -62,7 +62,7 @@ function getEnteredValueIds(sectionId: string, paramInfos: ManyCodeInfoType) {
 function initializeParamEnteredValue(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
-  paramIdToUITypeId: UITypeColType
+  paramIdToUITypeId: { [id: string]: string }
 ) {
   const { paramIdToEvId, evColId } = getEnteredValueIds(sectionId, paramInfos);
 
@@ -73,8 +73,7 @@ function initializeParamEnteredValue(
     if (!evId) {
       const newId = createNewId();
       newIds[paramId] = newId;
-      newEVToUITypes[newId] =
-        uiTypeState.x[paramIdToUITypeId[paramId].uiTypeId].type;
+      newEVToUITypes[newId] = uiTypeState.x[paramIdToUITypeId[paramId]].type;
       paramIdToEvId[paramId] = newId;
     }
   }
@@ -94,7 +93,10 @@ function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const uiTypeCol = useParamInfos.getState().y[uiTypeColId];
   return {
-    paramIdToUITypeId: _.mapValues(paramInfos, (v) => uiTypeCol[v.id]),
+    paramIdToUITypeId: _.mapValues(
+      paramInfos,
+      (v) => uiTypeCol[v.id]?.uiTypeId
+    ),
     uiTypeColId,
   };
 }
@@ -146,7 +148,7 @@ function initializeParamUIType(
         newId = DEFAULT_BASE_UI_TYPE_ID;
       }
       newIds[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
-      paramIdToUITypeId[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
+      paramIdToUITypeId[paramId] = newId;
     }
   }
 
@@ -166,18 +168,18 @@ function getChildIds(paramIdToEvId) {
 export function initializeChild(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
-  paramIdToUITypeId: UITypeColType,
+  paramIdToUITypeId: { [id: string]: string },
   paramIdToEvId: { [id: string]: string }
 ) {
   const uiTypesState = useUITypes.getState();
   const paramIdToChildId = getChildIds(paramIdToEvId);
   const newUITypeIds: ManyOf<string> = {};
 
-  for (const [paramId, u] of Object.entries(paramIdToUITypeId)) {
-    const uiType = uiTypesState.x[u.uiTypeId];
+  for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
+    const uiType = uiTypesState.x[uiTypeId];
     if (requiresNestedSection(uiType.type)) {
       if (!paramIdToChildId[paramId]) {
-        newUITypeIds[paramId] = u.uiTypeId;
+        newUITypeIds[paramId] = uiTypeId;
       }
     }
   }
