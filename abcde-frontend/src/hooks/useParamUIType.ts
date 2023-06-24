@@ -12,17 +12,20 @@ export function useGetParamUIType(sectionId: string, paramInfoId: string) {
 
 export function useParamUITypeId(sectionId: string, paramInfoId: string) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
-  return useParamInfos((x) => x.y[uiTypeColId][paramInfoId]);
+  return useParamInfos((x) => x.y[uiTypeColId][paramInfoId].uiTypeId);
 }
 
 export function useGetManyParamUITypeIds(
   sectionId: string,
-  paramInfos: string[] | CodeInfoType[],
+  paramInfos: (string | CodeInfoType | null)[],
   inputsAreIds: boolean
 ) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   return useParamInfos(
-    (x) => paramInfos.map((p) => x.y[uiTypeColId][inputsAreIds ? p : p.id]),
+    (x) =>
+      paramInfos.map((p) =>
+        p ? x.y[uiTypeColId][inputsAreIds ? p : p.id].uiTypeId : undefined
+      ),
     _.isEqual
   );
 }

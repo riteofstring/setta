@@ -1,6 +1,7 @@
 import { DEFAULT_BASE_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
+import { UITypeColType } from "abcde-utils/src/types/uiTypeCol";
 import { ManyOf } from "abcde-utils/src/types/utils";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
@@ -61,7 +62,7 @@ function getEnteredValueIds(sectionId: string, paramInfos: ManyCodeInfoType) {
 function initializeParamEnteredValue(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
-  paramIdToUITypeId
+  paramIdToUITypeId: UITypeColType
 ) {
   const { paramIdToEvId, evColId } = getEnteredValueIds(sectionId, paramInfos);
 
@@ -72,7 +73,8 @@ function initializeParamEnteredValue(
     if (!evId) {
       const newId = createNewId();
       newIds[paramId] = newId;
-      newEVToUITypes[newId] = uiTypeState.x[paramIdToUITypeId[paramId]].type;
+      newEVToUITypes[newId] =
+        uiTypeState.x[paramIdToUITypeId[paramId].uiTypeId].type;
       paramIdToEvId[paramId] = newId;
     }
   }
@@ -118,7 +120,7 @@ function initializeParamUIType(
   const pCodeMaps = useProjectConfigCodeInfoMaps.getState();
   const userCodeMaps = useUserCodeInfoMaps.getState();
 
-  const newIds: ManyOf<string> = {};
+  const newIds: UITypeColType = {};
   for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
     if (!uiTypeId) {
       const projectDefaultUIType = getDefaultUIType({
@@ -143,8 +145,8 @@ function initializeParamUIType(
       } else {
         newId = DEFAULT_BASE_UI_TYPE_ID;
       }
-      newIds[paramId] = newId;
-      paramIdToUITypeId[paramId] = newId;
+      newIds[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
+      paramIdToUITypeId[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
     }
   }
 
@@ -164,18 +166,18 @@ function getChildIds(paramIdToEvId) {
 export function initializeChild(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
-  paramIdToUITypeId: { [id: string]: string },
+  paramIdToUITypeId: UITypeColType,
   paramIdToEvId: { [id: string]: string }
 ) {
   const uiTypesState = useUITypes.getState();
   const paramIdToChildId = getChildIds(paramIdToEvId);
   const newUITypeIds: ManyOf<string> = {};
 
-  for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
-    const uiType = uiTypesState.x[uiTypeId];
+  for (const [paramId, u] of Object.entries(paramIdToUITypeId)) {
+    const uiType = uiTypesState.x[u.uiTypeId];
     if (requiresNestedSection(uiType.type)) {
       if (!paramIdToChildId[paramId]) {
-        newUITypeIds[paramId] = uiTypeId;
+        newUITypeIds[paramId] = u.uiTypeId;
       }
     }
   }

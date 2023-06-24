@@ -17,7 +17,7 @@ export function getParamChildId(sectionId, paramInfoId) {
 
 export function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionInfo(sectionId);
-  return useParamInfos.getState().y[uiTypeColId][paramInfoId];
+  return useParamInfos.getState().y[uiTypeColId][paramInfoId].uiTypeId;
 }
 
 export function getParamUIType(sectionId, paramInfoId) {
