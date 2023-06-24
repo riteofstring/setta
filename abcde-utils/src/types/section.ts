@@ -24,6 +24,7 @@ export type SectionType = {
   description: string;
   descriptionHeight: number;
   descriptionVisible: boolean;
+  nonPresetUITypes: string[];
 };
 
 export type ManySectionType = ManyOf<SectionType>;
