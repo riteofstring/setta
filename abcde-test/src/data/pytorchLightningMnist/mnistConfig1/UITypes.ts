@@ -4,7 +4,6 @@ export default {
     name: "Model",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -16,7 +15,6 @@ export default {
     name: "Dataloader",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -28,7 +26,6 @@ export default {
     name: "Dataset",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -40,7 +37,6 @@ export default {
     name: "Trainer",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -52,7 +48,6 @@ export default {
     name: "Entry",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -64,15 +59,10 @@ export default {
     name: "transform",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
       collections: ["978f9dd3-f675-47f1-b37a-bae12d45c194"],
-    },
-    originInfoId: {
-      uiTypeColId: "0d7cb175-dd61-4806-8f4f-b9b25f1d9bde",
-      paramInfoId: "0533e630-8444-4ea5-a703-2a89fec6449e",
     },
   },
   "e44ede4f-9ff4-4208-8612-79226ee0f2fa": {
@@ -80,7 +70,6 @@ export default {
     name: "Logger",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,

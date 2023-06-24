@@ -12,7 +12,6 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
   "aca715a7-e487-4151-8099-5823b9f54637": {
     id: "aca715a7-e487-4151-8099-5823b9f54637",
@@ -24,7 +23,6 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
   "4dfce153-7c8a-427e-bc86-31802494166d": {
     id: "4dfce153-7c8a-427e-bc86-31802494166d",
@@ -36,7 +34,6 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
   "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5": {
     id: "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5",
@@ -48,7 +45,6 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
   "2b157b97-4424-4831-83a5-836c7dc17a6e": {
     id: "2b157b97-4424-4831-83a5-836c7dc17a6e",
@@ -60,7 +56,6 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
   "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9": {
     id: "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9",
@@ -72,7 +67,6 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
   "58f123d7-8a82-44d8-9d83-06d1659052c7": {
     id: "58f123d7-8a82-44d8-9d83-06d1659052c7",
@@ -84,6 +78,5 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
 };

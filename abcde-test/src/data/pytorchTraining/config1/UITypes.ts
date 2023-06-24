@@ -4,7 +4,6 @@ export default {
     name: "Model",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -16,7 +15,6 @@ export default {
     name: "Optimizer",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -28,7 +26,6 @@ export default {
     name: "Model.Fn()",
     type: "FN",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -40,7 +37,6 @@ export default {
     name: "Training Dataset",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -52,7 +48,6 @@ export default {
     name: "Training Dataloader",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -64,7 +59,6 @@ export default {
     name: "Validation Dataset",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -76,7 +70,6 @@ export default {
     name: "Validation Dataloader",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -88,7 +81,6 @@ export default {
     name: "Training Transform",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -100,7 +92,6 @@ export default {
     name: "Validation Transform",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -112,7 +103,6 @@ export default {
     name: "train",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -124,7 +114,6 @@ export default {
     name: "Logger",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -136,7 +125,6 @@ export default {
     name: "Loss Fn",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: null,
@@ -148,7 +136,6 @@ export default {
     name: "Metrics",
     type: "LIST_ROOT",
     presetType: null,
-    isForChildOfOriginInfoId: false,
     config: {
       subType: null,
       childUITypeId: "1208c3e6-43a6-46fa-afc0-67c552e05298",
@@ -160,7 +147,6 @@ export default {
     name: "Metrics",
     type: "SECTION",
     presetType: null,
-    isForChildOfOriginInfoId: true,
     config: {
       subType: "LIST",
       childUITypeId: null,
@@ -177,6 +163,5 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-    isForChildOfOriginInfoId: false,
   },
 };
