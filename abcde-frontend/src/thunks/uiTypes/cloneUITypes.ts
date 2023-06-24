@@ -22,26 +22,17 @@ export function maybeCloneUIType({
   let maybeNewUIType = currUIType;
   if (shouldCloneUIType(currUIType, settingPreset)) {
     // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypeIds)
-    const possibleMatch = existingNonPresetMatchingType(
-      useUITypes.getState().x,
-      currUIType,
-      nonPresetUITypeIds
+    const matches = _.filter(useUITypes.getState().x, (v) =>
+      isFromSelfAndMatchesType(v, nonPresetUITypeIds, currUIType.type)
     );
 
-    // There's no match, so clone the preset into a non-preset
-    maybeNewUIType = possibleMatch ?? createNonPreset();
+    // If there's no match, create a non-preset
+    maybeNewUIType = matches.length > 0 ? matches[0] : createNonPreset();
     // In both cases, make the section or param to use the new or existing id
     setUITypeId(maybeNewUIType.id);
   }
 
   return maybeNewUIType;
-}
-
-function existingNonPresetMatchingType(allUITypes, uiType, nonPresetUITypeIds) {
-  const matches = _.filter(allUITypes, (v) =>
-    isFromSelfAndMatchesType(v, nonPresetUITypeIds, uiType.type)
-  );
-  return matches.length > 0 ? matches[0] : null;
 }
 
 function shouldCloneUIType(uiType, settingPreset) {
