@@ -6,7 +6,7 @@ import {
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { createNewId } from "abcde-utils/src/utils";
-import { isFromSelfAndMatchesType } from "hooks/usePresetUIType";
+import { isAmongNonPresetsAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 
@@ -23,7 +23,7 @@ export function maybeCloneUIType({
   if (shouldCloneUIType(currUIType, settingPreset)) {
     // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypeIds)
     const matches = _.filter(useUITypes.getState().x, (v) =>
-      isFromSelfAndMatchesType(v, nonPresetUITypeIds, currUIType.type)
+      isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, currUIType.type)
     );
 
     // If there's no match, create a non-preset

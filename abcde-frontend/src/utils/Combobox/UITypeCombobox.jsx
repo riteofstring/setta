@@ -6,7 +6,7 @@ import _ from "lodash";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
-  const grouped = _.groupBy(availableUITypes, "presetType");
+  const grouped = _.groupBy(availableUITypes, "displayType");
   const groupedAsList = Object.keys(grouped).map((k) => ({
     group: k,
     items: grouped[k],

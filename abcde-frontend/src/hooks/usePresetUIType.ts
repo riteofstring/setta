@@ -1,9 +1,14 @@
 import { SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
-import { UITypeType } from "abcde-utils/src/types/uiType";
+import {
+  ManyUITypeType,
+  PresetType,
+  UITypeType,
+} from "abcde-utils/src/types/uiType";
 import {
   isBasePreset,
   isNotDeck,
   isPreset,
+  isUserPreset,
 } from "abcde-utils/src/uiTypeConstants";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
@@ -14,7 +19,7 @@ import { useGetSectionInfo } from "./useSectionInfo";
 
 function createName(uiType) {
   const x = uiTypesToPretty.get(uiType.type);
-  if (uiType.name) {
+  if (isUserPreset(uiType)) {
     return `${uiType.name} - (${x})`;
   }
   return x;
@@ -24,7 +29,7 @@ function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
   return nonPresetUITypeIds.includes(v.id);
 }
 
-export function isFromSelfAndMatchesType(v, nonPresetUITypeIds, type) {
+export function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type) {
   return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
 }
 
@@ -33,32 +38,41 @@ function isSectionType(v) {
 }
 
 function filterUITypes(
-  uiTypes,
+  uiTypes: ManyUITypeType,
   generalFilterFn,
   nonPresetFilterFn: (x: UITypeType) => boolean,
   selectedId
 ) {
+  const output: UITypeType[] = [];
+
   const nonPresets = _.filter(uiTypes, nonPresetFilterFn);
-  const typesOfNonPresets = _.map(nonPresets, (v) => v.type);
 
-  // include presets + base presets of types that aren't already included in typesOfMatchesOrigin
-  const presetsFiltered = _.filter(
-    uiTypes,
-    (v) =>
-      generalFilterFn(v) &&
-      isPreset(v) &&
-      isNotDeck(v) &&
-      (!isBasePreset(v) ||
-        (isBasePreset(v) && !typesOfNonPresets.includes(v.type)))
-  );
+  for (const u of Object.values(uiTypes)) {
+    // skip if it doesn't pass the general filter or it's not a preset
+    if (!generalFilterFn(u) || !isPreset(u) || !isNotDeck(u)) {
+      continue;
+    }
 
-  // always include the selected uiType
-  const selected = _.filter(uiTypes, (v) => v.id === selectedId);
+    // replace base presets with non-presets of the same type
+    if (isBasePreset(u)) {
+      // add base no matter what, if it's selected
+      if (u.id === selectedId) {
+        output.push(u);
+      } else {
+        // otherwise, maybe replace it with a non-preset
+        const match = nonPresets.find((v) => v.type === u.type);
+        output.push(match ?? u);
+      }
+    } else {
+      output.push(u);
+    }
+  }
 
-  return _.uniq([...presetsFiltered, ...nonPresets, ...selected]).map((v) => ({
+  return output.map((v) => ({
     id: v.id,
     name: createName(v),
     presetType: v.presetType,
+    displayType: v.presetType ?? PresetType.BASE, // display non-preset types as "base" types
   }));
 }
 
