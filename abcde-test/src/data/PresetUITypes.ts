@@ -5,7 +5,6 @@ export default {
     type: "SWITCH",
     presetType: "USER",
     config: {},
-
     isForChildOfOriginInfoId: false,
   },
   "796ac83d-bb70-489d-89ed-13c73094982f": {
@@ -14,7 +13,6 @@ export default {
     type: "SLIDER",
     presetType: "USER",
     config: { min: 10, max: 100, step: 10 },
-
     isForChildOfOriginInfoId: false,
   },
   "846a8370-fbfc-4d99-a249-40dbdaac4cd3": {
@@ -27,7 +25,6 @@ export default {
       subType: null,
       childUITypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
     },
-
     isForChildOfOriginInfoId: false,
   },
   "eb52c8be-fe8b-4439-b74c-e755135c8415": {
@@ -55,7 +52,6 @@ export default {
       subType: null,
       childUITypeId: null,
     },
-
     isForChildOfOriginInfoId: false,
   },
 };
