@@ -17,7 +17,10 @@ import {
   setSelectedItem,
 } from "thunks/sections/sections";
 import { requiresNestedSection } from "utils/constants";
-import { createNonPreset } from "utils/uiTypeUtils";
+import {
+  createNonPresetForParam,
+  createNonPresetForSection,
+} from "utils/uiTypeUtils";
 import {
   initializeChild,
   initializeChildParams,
@@ -104,12 +107,13 @@ function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   const currUIType = getSectionType(sectionId);
 
   const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
+  const createNonPreset = () =>
+    createNonPresetForSection({ sectionId, currUIType, defaultName });
 
   return maybeCloneUIType({
-    sectionId,
-    defaultName,
     currUIType,
     settingPreset,
+    createNonPreset,
     nonPresetUITypeIds,
     setUITypeId,
   });
@@ -136,22 +140,28 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
 
   const setUITypeId = (uiTypeId) =>
     setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
+  const createNonPreset = () =>
+    createNonPresetForParam({
+      sectionId,
+      paramInfoId,
+      currUIType,
+      defaultName,
+    });
 
   return maybeCloneUIType({
-    defaultName,
     currUIType,
     settingPreset,
+    createNonPreset,
     nonPresetUITypeIds,
     setUITypeId,
   });
 }
 
 function maybeCloneUIType({
-  sectionId,
-  defaultName,
   currUIType,
   settingPreset,
   nonPresetUITypeIds,
+  createNonPreset,
   setUITypeId,
 }) {
   // If it's a preset but we're not "saving as",
@@ -166,11 +176,7 @@ function maybeCloneUIType({
     );
 
     // There's no match, so clone the preset into a non-preset
-    if (!possibleMatch) {
-      maybeNewUIType = createNonPreset({ sectionId, currUIType, defaultName });
-    } else {
-      maybeNewUIType = possibleMatch;
-    }
+    maybeNewUIType = possibleMatch ?? createNonPreset();
     // In both cases, make the section or param to use the new or existing id
     setUITypeId(maybeNewUIType.id);
   }

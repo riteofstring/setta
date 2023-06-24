@@ -2,8 +2,9 @@ import { rootTypeToChildSubType, SECTION } from "abcde-utils/src/constants";
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
+import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { setSectionInfoAttr } from "thunks/sections/sections";
+import { getSectionInfo, setSectionInfoAttr } from "thunks/sections/sections";
 
 function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
@@ -52,7 +53,11 @@ export function cloneNewUIType({
   return newUIType;
 }
 
-export function createNonPreset({ sectionId, currUIType, defaultName }) {
+export function createNonPresetForSection({
+  sectionId,
+  currUIType,
+  defaultName,
+}) {
   const newUIType = cloneNewUIType({
     uiType: currUIType,
     name: defaultName,
@@ -61,6 +66,27 @@ export function createNonPreset({ sectionId, currUIType, defaultName }) {
   setSectionInfoAttr({
     sectionId,
     attr: "nonPresetUITypeIds",
+    newValueFn: (v) => [...v, newUIType.id],
+  });
+  return newUIType;
+}
+
+export function createNonPresetForParam({
+  sectionId,
+  paramInfoId,
+  currUIType,
+  defaultName,
+}) {
+  const newUIType = cloneNewUIType({
+    uiType: currUIType,
+    name: defaultName,
+  });
+  useUITypes.getState().setUIType({ uiType: newUIType });
+
+  const { uiTypeColId } = getSectionInfo(sectionId);
+  useParamInfos.getState().setNonPresetUITypeIds({
+    collectionId: uiTypeColId,
+    paramInfoId,
     newValueFn: (v) => [...v, newUIType.id],
   });
   return newUIType;

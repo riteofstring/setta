@@ -8,6 +8,7 @@ import {
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { uiTypesToPretty } from "utils/constants";
+import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
 
 function createName(uiType) {
@@ -131,20 +132,27 @@ export function useAvailableUITypesForTopLevelSection(
   );
 }
 
-// export function useAvailableUITypesForUIConfig(
-//   sectionId: string,
-//   paramInfoId: string,
-//   selectedId: string
-// ) {
-//   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
-//   const childId = useGetParamChildId(sectionId, paramInfoId);
+export function useAvailableUITypesForUIConfig(
+  sectionId: string,
+  paramInfoId: string,
+  selectedId: string
+) {
+  const nonPresetUITypeIds = useParamNonPresetUITypeIds(sectionId, paramInfoId);
+  // const childId = useGetParamChildId(sectionId, paramInfoId);
+  // const childNonPresetUITypeIds = useGetSectionInfo(
+  //   childId,
+  //   "nonPresetUITypeIds"
+  // );
 
-//   const generalFilterFn = () => true;
-//   const originFilterFn = (uiType: UITypeType) =>
-//     isFromSelf(uiType, originInfoId) || isFromChild(uiType, childId);
+  console.log("nonPresetUITypeIds", nonPresetUITypeIds);
 
-//   return useUITypes(
-//     (x) => filterUITypes(x.x, generalFilterFn, originFilterFn, selectedId),
-//     _.isEqual
-//   );
-// }
+  const generalFilterFn = () => true;
+  const nonPresetFilterFn = (uiType: UITypeType) =>
+    isFromSelf(uiType, nonPresetUITypeIds);
+  //|| isFromChild(uiType, childId);
+
+  return useUITypes(
+    (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
+    _.isEqual
+  );
+}
