@@ -5,7 +5,7 @@ import { prisma } from 'src/db/prisma';
 import { clearDb } from 'test/clearDb';
 
 describe('Create, update, and copy entered value', () => {
-  const info = { id: createNewId(), value: "25" };
+  const info = { id: createNewId(), value: '25' };
 
   beforeAll(async () => {
     await clearDb();

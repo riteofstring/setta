@@ -54,8 +54,10 @@ export async function loadOne({
 
   const baseUITypes = await getBaseUITypes();
   const presetUITypes = await getPresetUITypes(reqUserId);
+  const uiTypes = { ...baseUITypes, ...presetUITypes, ...nonPresetUITypes };
   const codeInfo = await getCodeInfoForSectionsAndKwargs(
-    nonPresetUITypes,
+    sections,
+    uiTypes,
     kwargCols,
   );
   const userCodeInfoMaps = await getUserCodeInfoMaps(reqUserId);
@@ -71,7 +73,7 @@ export async function loadOne({
     ev,
     evCols,
     kwargCols,
-    uiTypes: { ...baseUITypes, ...presetUITypes, ...nonPresetUITypes },
+    uiTypes,
     uiTypeCols,
     codeInfo,
     userCodeInfoMaps,

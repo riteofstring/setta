@@ -66,13 +66,7 @@ async function checkProject(retrieved, projectName, configName) {
   });
 
   // TODO: figure out globalDefaults and projectDefaults
-  const {
-    projectDefaults,
-    runs,
-    codeInfo: codeInfo1,
-    ...theRest
-  } = correctOutput;
-  const { codeInfo: codeInfo2, ...theRestRetrieved } = retrieved;
+  const { projectDefaults, runs, ...theRest } = correctOutput;
 
-  compareObjs(expect, theRestRetrieved, theRest);
+  compareObjs(expect, retrieved, theRest);
 }

@@ -1,4 +1,4 @@
-import { NULL_OBJ_ID } from 'abcde-utils/src/constants';
+import { isSectionUIType, NULL_OBJ_ID } from 'abcde-utils/src/constants';
 import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import _ from 'lodash';
@@ -8,9 +8,15 @@ import { createAllInfo } from './infoFactory';
 import { ChildMapType } from './types';
 
 export async function getCodeInfoForSectionsAndKwargs(
-  sectionUITypes,
+  sections,
+  uiTypes,
   kwargCols: ManyKwargColType,
 ) {
+  const sectionUITypes = _.pickBy(uiTypes, (v) => isSectionUIType(v));
+  const userSpecifiedObjectIds = _.filter(
+    sections,
+    (s) => s.userSpecifiedObjectId,
+  ).map((x) => x.userSpecifiedObjectId);
   const collectionIds = [].concat(
     ..._.map(sectionUITypes, (x) => x.config.collections),
   );
@@ -19,6 +25,7 @@ export async function getCodeInfoForSectionsAndKwargs(
     _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
   );
   const allCodeInfo = await getCodeInfo([
+    ...userSpecifiedObjectIds,
     ...collectionIds,
     ...kwargIds,
     NULL_OBJ_ID,
