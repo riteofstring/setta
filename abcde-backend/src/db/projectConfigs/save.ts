@@ -8,16 +8,11 @@ export async function saveProjectConfig(
   config: ProjectConfigType,
   sections: ManySectionType,
 ) {
-  const upsert: Prisma.ProjectConfigUpsertArgs['create'] = {
+  const create: Prisma.ProjectConfigUpsertArgs['create'] = {
     id: config['id'],
     name: config['name'],
     projectId: projectId,
-  };
-
-  const update: Prisma.ProjectConfigUpdateArgs['data'] = {
-    ...upsert,
     sections: {
-      deleteMany: {},
       create: config.children.map((x, idx) => ({
         childId: x,
         ...sections[x].initialPosition,
@@ -25,15 +20,17 @@ export async function saveProjectConfig(
     },
   };
 
-  await prisma.$transaction([
-    prisma.projectConfig.upsert({
-      where: { id: upsert.id },
-      create: upsert,
-      update: upsert,
-    }),
-    prisma.projectConfig.update({
-      where: { id: update.id as string },
-      data: update,
-    }),
-  ]);
+  const update: Prisma.ProjectConfigUpdateArgs['data'] = {
+    ...create,
+    sections: {
+      deleteMany: {},
+      ...create.sections,
+    },
+  };
+
+  await prisma.projectConfig.upsert({
+    where: { id: create.id },
+    create,
+    update,
+  });
 }
