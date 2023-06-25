@@ -34,5 +34,5 @@ export function loadProjectToFrontend(loaded) {
 }
 
 function processProject(project) {
-  return _.pick(project, ["id", "name"]);
+  return _.pick(project, ["id", "name", "defaultConfigId"]);
 }
