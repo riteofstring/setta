@@ -44,7 +44,14 @@ export function processUIType(uiType) {
       ].includes(key)
     ) {
       output = { ...output, ...processSpecificUITypeConfig(key, val) };
-    } else if (key !== 'ownerId') {
+    } else if (
+      ![
+        'ownerId',
+        'asNonPresetForSectionId',
+        'asNonPresetForUITypeColId',
+        'asNonPresetForCodeInfoId',
+      ].includes(key)
+    ) {
       output[key] = val;
     }
   }
