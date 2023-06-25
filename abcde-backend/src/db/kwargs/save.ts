@@ -10,7 +10,7 @@ export async function saveKwargInfo(kwargInfo: ManyCodeInfoType) {
 
 export async function saveKwargCols(kwargCols: ManyKwargColType) {
   const ids = Object.keys(kwargCols);
-  const inDbFormat: Prisma.KwargColCreateManyInput[] = [];
+  const inDbFormat: Prisma.KwargColCreateManyArgs['data'] = [];
   for (const idid of ids) {
     for (const [codeInfoId, kwargInfoList] of Object.entries(kwargCols[idid])) {
       for (const [order, kwargInfoId] of kwargInfoList.entries()) {
