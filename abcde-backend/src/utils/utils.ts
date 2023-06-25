@@ -14,16 +14,6 @@ export function renameKeys<T>(x: T, toRename: object) {
   return output;
 }
 
-export async function deleteThenCreateCol(db, allColIds, data) {
-  await prisma.$transaction([
-    db.deleteMany({
-      where: { idid: { in: allColIds } },
-    }),
-
-    db.createMany({ data }),
-  ]);
-}
-
 export async function deleteThenCreateColNonBatched(db, allColIds, data) {
   await prisma.$transaction([
     db.deleteMany({
@@ -31,16 +21,6 @@ export async function deleteThenCreateColNonBatched(db, allColIds, data) {
     }),
 
     ...data.map((x) => db.create({ data: x })),
-  ]);
-}
-
-export async function deleteThenCreateChildren(db, data) {
-  await prisma.$transaction([
-    db.deleteMany({
-      where: { parentId: { in: data.map((x) => x.parentId) } },
-    }),
-
-    db.createMany({ data }),
   ]);
 }
 

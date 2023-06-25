@@ -272,7 +272,6 @@ model ProjectConfigChildren {
   parentId String        @db.Uuid
   child    Section       @relation("ProjectConfigChildren", fields: [childId], references: [id])
   childId  String        @db.Uuid
-  order    Int
   x        Float         @default(0)
   y        Float         @default(0)
 

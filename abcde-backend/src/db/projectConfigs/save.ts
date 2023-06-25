@@ -1,24 +1,39 @@
+import { Prisma } from '@prisma/client';
 import { ProjectConfigType } from 'abcde-utils/src/types/projectConfig';
-import _ from 'lodash';
+import { ManySectionType } from 'abcde-utils/src/types/section';
 import { prisma } from 'src/db/prisma';
-import { saveSectionChildren } from 'src/db/sections/save';
 
 export async function saveProjectConfig(
   projectId: string,
   config: ProjectConfigType,
-  sections,
+  sections: ManySectionType,
 ) {
-  const { children, ...theRest } = config;
-  await prisma.projectConfig.upsert({
-    where: { id: theRest.id },
-    create: { ...theRest, projectId },
-    update: { ...theRest, projectId },
-  });
+  const upsert: Prisma.ProjectConfigUpsertArgs['create'] = {
+    id: config['id'],
+    name: config['name'],
+    projectId: projectId,
+  };
 
-  const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
-  await saveSectionChildren(
-    { [theRest.id]: children },
-    { [theRest.id]: sectionPositions },
-    prisma.projectConfigChildren,
-  );
+  const update: Prisma.ProjectConfigUpdateArgs['data'] = {
+    ...upsert,
+    sections: {
+      deleteMany: {},
+      create: config.children.map((x, idx) => ({
+        childId: x,
+        ...sections[x].initialPosition,
+      })),
+    },
+  };
+
+  await prisma.$transaction([
+    prisma.projectConfig.upsert({
+      where: { id: upsert.id },
+      create: upsert,
+      update: upsert,
+    }),
+    prisma.projectConfig.update({
+      where: { id: update.id as string },
+      data: update,
+    }),
+  ]);
 }
