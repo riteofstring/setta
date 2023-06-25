@@ -1,18 +1,12 @@
+import { Prisma } from '@prisma/client';
 import { ManyCodeInfoType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateCol } from 'src/utils/utils';
-import { PrismaKwargColType } from './types';
 
 export async function saveKwargCols(kwargCols: ManyKwargColType) {
   const ids = Object.keys(kwargCols);
-  await prisma.kwargColId.createMany({
-    data: ids.map((x) => ({ id: x })),
-    skipDuplicates: true,
-  });
-
-  const inDbFormat: PrismaKwargColType[] = [];
+  const inDbFormat: Prisma.KwargColCreateManyInput[] = [];
   for (const idid of ids) {
     for (const [codeInfoId, kwargInfoList] of Object.entries(kwargCols[idid])) {
       for (const [order, kwargInfoId] of kwargInfoList.entries()) {
@@ -26,7 +20,16 @@ export async function saveKwargCols(kwargCols: ManyKwargColType) {
     }
   }
 
-  await deleteThenCreateCol(prisma.kwargCol, ids, inDbFormat);
+  await prisma.$transaction([
+    prisma.kwargColId.createMany({
+      data: ids.map((x) => ({ id: x })),
+      skipDuplicates: true,
+    }),
+    prisma.kwargCol.deleteMany({
+      where: { idid: { in: ids } },
+    }),
+    prisma.kwargCol.createMany({ data: inDbFormat }),
+  ]);
 }
 
 export async function saveKwargInfo(kwargInfo: ManyCodeInfoType) {
