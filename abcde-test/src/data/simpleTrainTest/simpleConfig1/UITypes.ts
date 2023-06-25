@@ -79,4 +79,15 @@ export default {
       childUITypeId: null,
     },
   },
+  "555d4648-418f-402b-87c9-4cbc6a6c5de0": {
+    id: "555d4648-418f-402b-87c9-4cbc6a6c5de0",
+    name: "TransformNum2",
+    type: "SECTION",
+    presetType: null,
+    config: {
+      collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
+      subType: null,
+      childUITypeId: null,
+    },
+  },
 };

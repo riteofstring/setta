@@ -246,7 +246,7 @@ export default {
     },
     chainedFrom: null,
     zIndex: 0,
-    uiTypeId: "4dfce153-7c8a-427e-bc86-31802494166d",
+    uiTypeId: "555d4648-418f-402b-87c9-4cbc6a6c5de0",
     evColId: "e4fb1cd9-a548-4883-8cbe-02f98b35345b",
     kwargColId: "31a4580d-c6c8-439e-8b04-e98b3893c4ad",
     uiTypeColId: "5ffb4bd0-fa6b-42bc-866e-ed8c674626eb",
@@ -258,7 +258,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
-    nonPresetUITypeIds: ["4dfce153-7c8a-427e-bc86-31802494166d"],
+    nonPresetUITypeIds: ["555d4648-418f-402b-87c9-4cbc6a6c5de0"],
   },
   "e304954a-d52d-47fc-8c79-c47c6e53e752": {
     id: "e304954a-d52d-47fc-8c79-c47c6e53e752",
