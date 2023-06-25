@@ -6,7 +6,7 @@ import { ChildrenSectionPositionType } from 'abcde-utils/src/types/sectionPositi
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateChildren } from 'src/utils/utils';
-import { PrismaSectionChildrenType, PrismaSectionType } from './types';
+import { PrismaSectionChildrenType } from './types';
 
 function convertSize(x) {
   return x === 'auto' ? -1 : x;
@@ -15,29 +15,27 @@ function convertSize(x) {
 export async function saveSections(
   sections: ManySectionTypeSaveProjectToBackend,
 ) {
-  const inDbFormat: PrismaSectionType[] = [];
-  for (const [id, v] of Object.entries(sections)) {
-    inDbFormat.push({
-      id,
-      name: v.name,
-      paramInfoId: v.paramInfoId,
-      width: convertSize(v.size.width),
-      height: convertSize(v.size.height),
-      chainedFromId: v.chainedFrom,
-      zIndex: v.zIndex,
-      evColId: v.evColId,
-      uiTypeId: v.uiTypeId,
-      kwargColId: v.kwargColId,
-      uiTypeColId: v.uiTypeColId,
-      selectedItemId: v.selectedItem,
-      social: v.social,
-      outputGroupId: v.outputGroup,
-      userSpecifiedObjectId: v.userSpecifiedObjectId,
-      description: v.description,
-      descriptionHeight: v.descriptionHeight,
-      descriptionVisible: v.descriptionVisible,
-    });
-  }
+  const inDbFormat = Object.values(sections).map((v) => ({
+    id: v.id,
+    name: v.name,
+    paramInfoId: v.paramInfoId,
+    width: convertSize(v.size.width),
+    height: convertSize(v.size.height),
+    chainedFromId: v.chainedFrom,
+    zIndex: v.zIndex,
+    evColId: v.evColId,
+    uiTypeId: v.uiTypeId,
+    kwargColId: v.kwargColId,
+    uiTypeColId: v.uiTypeColId,
+    selectedItemId: v.selectedItem,
+    social: v.social,
+    outputGroupId: v.outputGroup,
+    userSpecifiedObjectId: v.userSpecifiedObjectId,
+    nonPresetUITypes: { connect: v.nonPresetUITypeIds.map((x) => ({ id: x })) },
+    description: v.description,
+    descriptionHeight: v.descriptionHeight,
+    descriptionVisible: v.descriptionVisible,
+  }));
 
   await prisma.$transaction(
     inDbFormat.map((v) =>
