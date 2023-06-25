@@ -7,7 +7,7 @@ export async function saveEV(ev: ManyEVType) {
   await prisma.$transaction(
     Object.keys(ev).map((id) => {
       const value = ev[id];
-      const x = { id, value: convertValue(value) };
+      const x = { id, value: value !== null ? value.toString() : null };
       return prisma.eV.upsert({
         where: { id: x.id },
         create: x,
@@ -36,8 +36,4 @@ export async function saveEVCols(evCols: ManyEVColType) {
     }),
     prisma.eVCol.createMany({ data: inDbFormat }),
   ]);
-}
-
-function convertValue(value) {
-  return value !== null ? value.toString() : null;
 }
