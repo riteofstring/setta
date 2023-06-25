@@ -31,7 +31,7 @@ export async function getUITypesByWhere<T extends UITypeNames>(
   return output;
 }
 
-function processUIType(uiType) {
+export function processUIType(uiType) {
   let output = {};
   for (const [key, val] of Object.entries(uiType)) {
     if (

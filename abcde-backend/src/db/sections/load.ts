@@ -2,16 +2,16 @@ import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManySectionType } from 'abcde-utils/src/types/section';
+import { ManySectionUITypeType } from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { getUITypesByWhere } from 'src/db/uiTypes/load';
 import {
   getChildrenRecursively,
   getOrderedChildren,
   getOrderedChildrenFull,
 } from 'src/utils/utils';
-import { UITypeNames } from '../uiTypes/types';
+import { processUIType } from '../uiTypes/load';
 
 export async function getSections(projectConfig: {
   id: string;
@@ -63,6 +63,15 @@ export async function getSections(projectConfig: {
         where: { parentId: projectConfig.id },
         select: { x: true, y: true },
       },
+      nonPresetUITypes: {
+        include: {
+          sectionUIType: {
+            include: {
+              collections: { select: { id: true } },
+            },
+          },
+        },
+      },
     },
   });
   const idsAsKeys = _.keyBy(s, 'id');
@@ -85,17 +94,11 @@ export async function getSections(projectConfig: {
     social: v.social,
     outputGroup: v.outputGroupId,
     userSpecifiedObjectId: v.userSpecifiedObjectId,
+    nonPresetUITypeIds: v.nonPresetUITypes.map((x) => x.id),
     description: v.description,
     descriptionHeight: v.descriptionHeight,
     descriptionVisible: v.descriptionVisible,
   }));
-
-  const sectionUITypes = await getUITypesByWhere(
-    {
-      id: { in: s.map((x) => x.uiTypeId) },
-    },
-    UITypeNames.sectionUIType,
-  );
 
   const ev: ManyEVType = {};
   for (const config of s) {
@@ -127,6 +130,14 @@ export async function getSections(projectConfig: {
       _.keyBy(config.uiTypeCol.children, 'codeInfoId'),
       (x) => x.uiTypeId,
     );
+  }
+
+  const sectionUITypes: ManySectionUITypeType = {};
+  for (const config of s) {
+    const currUITypes = config.nonPresetUITypes;
+    for (const u of currUITypes) {
+      sectionUITypes[u.id] = processUIType(u);
+    }
   }
 
   return {
