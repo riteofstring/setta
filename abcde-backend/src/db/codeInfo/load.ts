@@ -4,7 +4,6 @@ import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getChildrenRecursively, getOrderedChildren } from 'src/utils/utils';
-import { createAllInfo } from './infoFactory';
 import { ChildMapType } from './types';
 
 export async function getCodeInfoForSectionsAndKwargs(
@@ -30,7 +29,7 @@ export async function getCodeInfoForSectionsAndKwargs(
     ...kwargIds,
     NULL_OBJ_ID,
   ]);
-  return createAllInfo(allCodeInfo);
+  return { allCodeInfo };
 }
 
 export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
