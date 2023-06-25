@@ -13,7 +13,7 @@ import {
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateCol, ifUndefinedThenNull } from 'src/utils/utils';
+import { deleteThenCreateCol } from 'src/utils/utils';
 import { PrismaUITypeColType } from './types';
 
 async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
@@ -24,23 +24,8 @@ async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
       type: x.type,
       name: x.name,
       presetType: x.presetType,
-      isForChildOfOriginInfoId: x.isForChildOfOriginInfoId,
-      originSectionId: ifUndefinedThenNull(x.originInfoId.sectionId),
-      originUITypeColId: ifUndefinedThenNull(x.originInfoId.uiTypeColId),
-      originCodeInfoId: ifUndefinedThenNull(x.originInfoId.paramInfoId),
     };
   });
-
-  // create any missing uiTypeCols because saveUITypeCols is usually called later
-  const originUITypeCols = data
-    .map((v) => v.originUITypeColId)
-    .filter((v): v is string => !!v);
-  await prisma.$transaction(
-    originUITypeCols.map((v) => {
-      const where = { id: v };
-      return prisma.uITypeColId.upsert({ where, create: where, update: where });
-    }),
-  );
 
   await prisma.$transaction(
     data.map((v) =>

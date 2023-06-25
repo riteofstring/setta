@@ -1,5 +1,4 @@
 import { PresetType } from 'abcde-utils/src/types/uiType';
-import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { ManyXUITypeType, UITypeNames, UITypeNameToIncludeObj } from './types';
 
@@ -49,7 +48,7 @@ function processUIType(uiType) {
       output[key] = val;
     }
   }
-  return reshapeOriginInfoId(output);
+  return output;
 }
 
 function processSpecificUITypeConfig(uiTypeType: string, uiTypeConfig) {
@@ -65,18 +64,4 @@ function processSpecificUITypeConfig(uiTypeType: string, uiTypeConfig) {
     return { config };
   }
   return {};
-}
-
-export function reshapeOriginInfoId(uiType) {
-  const originInfoId = {
-    sectionId: uiType.originSectionId,
-    uiTypeColId: uiType.originUITypeColId,
-    paramInfoId: uiType.originCodeInfoId,
-  };
-  // filter out nulls
-  uiType.originInfoId = _.pickBy(originInfoId, (x) => x);
-  ['originSectionId', 'originUITypeColId', 'originCodeInfoId'].forEach(
-    (x) => delete uiType[x],
-  );
-  return uiType;
 }

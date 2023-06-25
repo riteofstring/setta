@@ -29,7 +29,6 @@ describe('Create, update, and copy a section ui type', () => {
     };
     uiType = await loadSpecificTestData({ name: 'UITypes', ...loadProps });
     uiType = _.find(uiType, (x) => x.name === 'Model');
-    uiType.originInfoId.sectionId = section.id;
     user = await loadSpecificTestData({ name: 'Users' });
     user = _.find(user, (x) => x.name === 'Kevin');
     codeInfo = await loadGlobalCodeInfo();
