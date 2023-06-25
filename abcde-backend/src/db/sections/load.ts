@@ -75,7 +75,7 @@ export async function getSections(projectConfig: {
     initialPosition: getPosition(v.projectConfigs),
     size: { width: convertSize(v.width), height: convertSize(v.height) },
     chainedFrom: v.chainedFromId,
-    parentId: v.asChild?.parentId,
+    parentId: v.asChild ? v.asChild.parentId : null,
     zIndex: v.zIndex,
     evColId: v.evColId,
     uiTypeId: v.uiTypeId,
