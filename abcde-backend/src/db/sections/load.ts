@@ -1,9 +1,10 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import { ManySectionType } from 'abcde-utils/src/types/section';
-import { ManySectionChildrenType } from 'abcde-utils/src/types/sectionChildren';
-import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
+import {
+  ManySectionChildrenType,
+  ManySectionType,
+} from 'abcde-utils/src/types/section';
 import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
@@ -63,13 +64,6 @@ export async function getSections(ids: string[]) {
           },
         },
       },
-      description: {
-        select: {
-          value: true,
-          height: true,
-          visible: true,
-        },
-      },
     },
   });
   const idsAsKeys = _.keyBy(s, 'id');
@@ -81,6 +75,7 @@ export async function getSections(ids: string[]) {
   const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
     id: v.id,
     name: v.name,
+    children: sectionChildren,
     paramInfoId: v.paramInfoId,
     initialPosition: { x: 0, y: 0 },
     size: { width: convertSize(v.width), height: convertSize(v.height) },
@@ -92,7 +87,9 @@ export async function getSections(ids: string[]) {
     kwargColId: v.kwargColId,
     uiTypeColId: v.uiTypeColId,
     selectedItem: v.selectedItemId,
-    descriptionId: v.descriptionId,
+    description: v.description,
+    descriptionHeight: v.descriptionHeight,
+    descriptionVisible: v.descriptionVisible,
   }));
 
   _.forEach(idsAsKeys, (v) => {
@@ -139,20 +136,13 @@ export async function getSections(ids: string[]) {
     );
   }
 
-  const sectionDescriptions: ManySectionDescriptionType = {};
-  for (const config of s) {
-    sectionDescriptions[config.descriptionId] = config.description;
-  }
-
   return {
     sections,
-    sectionChildren,
     ev,
     evCols,
     kwargCols,
     uiTypeCols,
     sectionUITypes,
-    sectionDescriptions,
   };
 }
 

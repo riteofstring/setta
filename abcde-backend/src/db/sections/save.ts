@@ -1,18 +1,13 @@
-import { ManySectionTypeSaveProjectToBackend } from 'abcde-utils/src/types/section';
 import {
   ManySectionChildrenType,
-  TopLevelSectionChildrenType,
-} from 'abcde-utils/src/types/sectionChildren';
-import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
-import {
-  ChildrenSectionPositionType,
-  TopLevelSectionPositionType,
-} from 'abcde-utils/src/types/sectionPosition';
+  ManySectionTypeSaveProjectToBackend,
+} from 'abcde-utils/src/types/section';
+import { ChildrenSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateChildren } from 'src/utils/utils';
 import {
   PrismaSectionChildrenType,
-  PrismaSectionDescriptionType,
   PrismaSectionDetailsType,
   PrismaSectionType,
 } from './types';
@@ -23,7 +18,6 @@ function convertSize(x) {
 
 export async function saveSections(
   sections: ManySectionTypeSaveProjectToBackend,
-  sectionChildren: ManySectionChildrenType,
 ) {
   const inDbFormat: PrismaSectionType[] = [];
   for (const [id, v] of Object.entries(sections)) {
@@ -40,7 +34,9 @@ export async function saveSections(
       kwargColId: null,
       uiTypeColId: null,
       selectedItemId: null,
-      descriptionId: null,
+      description: v.description,
+      descriptionHeight: v.descriptionHeight,
+      descriptionVisible: v.descriptionVisible,
     });
   }
 
@@ -54,7 +50,8 @@ export async function saveSections(
     ),
   );
 
-  await saveSectionChildren(sectionChildren);
+  const sectionChildren = _.mapValues(sections, (s) => s.children);
+  await saveSectionChildren(sectionChildren, {});
 }
 
 export async function updateSectionsWithDetails(
@@ -70,7 +67,6 @@ export async function updateSectionsWithDetails(
       kwargColId: v.kwargColId,
       uiTypeColId: v.uiTypeColId,
       selectedItemId: v.selectedItem,
-      descriptionId: v.descriptionId,
     });
   }
 
@@ -86,10 +82,8 @@ export async function updateSectionsWithDetails(
 }
 
 export async function saveSectionChildren(
-  sectionChildren: ManySectionChildrenType | TopLevelSectionChildrenType,
-  sectionPositions:
-    | ChildrenSectionPositionType
-    | TopLevelSectionPositionType = {},
+  sectionChildren: ManySectionChildrenType,
+  sectionPositions: ChildrenSectionPositionType,
   db: any = prisma.sectionChildren,
 ) {
   const inDbFormat: PrismaSectionChildrenType[] = [];
@@ -108,34 +102,4 @@ export async function saveSectionChildren(
     }
   }
   await deleteThenCreateChildren(db, inDbFormat);
-}
-
-function assembleSectionDescription(
-  sectionDescriptions: ManySectionDescriptionType,
-) {
-  const inDbFormat: PrismaSectionDescriptionType[] = [];
-  for (const [k, v] of Object.entries(sectionDescriptions)) {
-    inDbFormat.push({
-      id: k,
-      value: v.value,
-      height: v.height,
-      visible: v.visible,
-    });
-  }
-  return inDbFormat;
-}
-
-export async function saveSectionDescriptions(
-  sectionDescriptions: ManySectionDescriptionType,
-) {
-  const inDbFormat = assembleSectionDescription(sectionDescriptions);
-  await prisma.$transaction(
-    inDbFormat.map((v) =>
-      prisma.sectionDescription.upsert({
-        where: { id: v.id },
-        create: v,
-        update: v,
-      }),
-    ),
-  );
 }
