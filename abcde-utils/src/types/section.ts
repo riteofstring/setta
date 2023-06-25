@@ -28,6 +28,7 @@ export type SectionType = {
 };
 
 export type ManySectionType = ManyOf<SectionType>;
+export type ManySectionChildrenType = ManyOf<string[]>;
 
 export type SectionTypeSaveProjectToBackend = Omit<SectionType, "parentId">;
 export type ManySectionTypeSaveProjectToBackend =
