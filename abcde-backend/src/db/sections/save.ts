@@ -6,11 +6,7 @@ import { ChildrenSectionPositionType } from 'abcde-utils/src/types/sectionPositi
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateChildren } from 'src/utils/utils';
-import {
-  PrismaSectionChildrenType,
-  PrismaSectionDetailsType,
-  PrismaSectionType,
-} from './types';
+import { PrismaSectionChildrenType, PrismaSectionType } from './types';
 
 function convertSize(x) {
   return x === 'auto' ? -1 : x;
@@ -24,16 +20,16 @@ export async function saveSections(
     inDbFormat.push({
       id,
       name: v.name,
-      paramInfoId: null,
+      paramInfoId: v.paramInfoId,
       width: convertSize(v.size.width),
       height: convertSize(v.size.height),
       chainedFromId: v.chainedFrom,
       zIndex: v.zIndex,
-      evColId: null,
-      uiTypeId: null,
-      kwargColId: null,
-      uiTypeColId: null,
-      selectedItemId: null,
+      evColId: v.evColId,
+      uiTypeId: v.uiTypeId,
+      kwargColId: v.kwargColId,
+      uiTypeColId: v.uiTypeColId,
+      selectedItemId: v.selectedItem,
       description: v.description,
       descriptionHeight: v.descriptionHeight,
       descriptionVisible: v.descriptionVisible,
@@ -52,33 +48,6 @@ export async function saveSections(
 
   const sectionChildren = _.mapValues(sections, (s) => s.children);
   await saveSectionChildren(sectionChildren, {});
-}
-
-export async function updateSectionsWithDetails(
-  sections: ManySectionTypeSaveProjectToBackend,
-) {
-  const inDbFormat: PrismaSectionDetailsType[] = [];
-  for (const [id, v] of Object.entries(sections)) {
-    inDbFormat.push({
-      id,
-      paramInfoId: v.paramInfoId,
-      evColId: v.evColId,
-      uiTypeId: v.uiTypeId,
-      kwargColId: v.kwargColId,
-      uiTypeColId: v.uiTypeColId,
-      selectedItemId: v.selectedItem,
-    });
-  }
-
-  await prisma.$transaction(
-    inDbFormat.map((v) => {
-      const { id, ...theRest } = v;
-      return prisma.section.update({
-        where: { id },
-        data: theRest,
-      });
-    }),
-  );
 }
 
 export async function saveSectionChildren(
