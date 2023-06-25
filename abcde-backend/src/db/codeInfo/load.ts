@@ -15,8 +15,8 @@ export async function getCodeInfoForSectionsAndKwargs(
     sections,
     (s) => s.userSpecifiedObjectId,
   ).filter((s) => s);
-  const collectionIds = [].concat(
-    ..._.map(sectionUITypes, (x) => x.config.collections),
+  const collectionIds = _.flatten(
+    _.map(sectionUITypes, (x) => x.config.collections),
   );
   const kwargIds: string[] = [];
   _.forEach(kwargCols, (x) =>

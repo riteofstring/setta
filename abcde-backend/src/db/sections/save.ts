@@ -2,10 +2,6 @@ import { Prisma } from '@prisma/client';
 import { ManySectionTypeSaveProjectToBackend } from 'abcde-utils/src/types/section';
 import { prisma } from 'src/db/prisma';
 
-function convertSize(x) {
-  return x === 'auto' ? -1 : x;
-}
-
 export async function saveSections(
   sections: ManySectionTypeSaveProjectToBackend,
 ) {
@@ -61,4 +57,8 @@ export async function saveSections(
       prisma.section.update({ where: { id: v.id as string }, data: v }),
     ),
   ]);
+}
+
+function convertSize(x) {
+  return x === 'auto' ? -1 : x;
 }
