@@ -12,14 +12,12 @@ global.ResizeObserver = ResizeObserver;
 
 describe("Incrementer", () => {
   beforeAll(async () => {
-    await loadTestDataIntoState({ sections: {}, sectionChildren: {} });
+    await loadTestDataIntoState({ sections: {} });
   });
 
   afterEach(() => {
     cleanup(); //get rid of rendered components
-    useSectionInfos
-      .getState()
-      .resetAndSetAll({ sections: {}, sectionChildren: {} });
+    useSectionInfos.getState().resetAndSetAll({ sections: {} });
   });
 
   test("Adding sibling N times", async () => {
