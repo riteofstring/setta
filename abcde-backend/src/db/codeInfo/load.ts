@@ -11,10 +11,10 @@ export async function getCodeInfoForSectionsAndKwargs(
   kwargCols: ManyKwargColType,
 ) {
   const sectionUITypes = _.pickBy(uiTypes, (v) => isSectionUIType(v));
-  const userSpecifiedObjectIds = _.filter(
+  const userSpecifiedObjectIds = _.map(
     sections,
     (s) => s.userSpecifiedObjectId,
-  ).map((x) => x.userSpecifiedObjectId);
+  ).filter((s) => s);
   const collectionIds = [].concat(
     ..._.map(sectionUITypes, (x) => x.config.collections),
   );
