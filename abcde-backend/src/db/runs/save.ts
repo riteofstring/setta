@@ -9,11 +9,11 @@ import { saveOutputGroupsAndOutputs } from '../outputs/save';
 export async function saveRuns(runs: ManyRunType, projectConfigId: string) {
   await prisma.$transaction(
     Object.entries(runs).map(([id, v]) => {
-      const x: Prisma.RunCreateInput = {
+      const x: Prisma.RunUpsertArgs['create'] = {
         id,
         name: v.name,
-        projectConfig: { connect: { id: projectConfigId } },
-        owner: { connect: { id: v.ownerId } },
+        projectConfigId,
+        ownerId: v.ownerId,
         code: v.code,
       };
       return prisma.run.upsert({

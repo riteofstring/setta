@@ -1,13 +1,13 @@
 import { Prisma } from '@prisma/client';
 import { ProjectConfigType } from 'abcde-utils/src/types/projectConfig';
-import { ManySectionType } from 'abcde-utils/src/types/section';
+import { ManySectionTypeSaveProjectToBackend } from 'abcde-utils/src/types/section';
 import { prisma } from 'src/db/prisma';
 import { deleteManyFirst } from 'src/utils/utils';
 
 export async function saveProjectConfig(
   projectId: string,
   config: ProjectConfigType,
-  sections: ManySectionType,
+  sections: ManySectionTypeSaveProjectToBackend,
 ) {
   const create: Prisma.ProjectConfigUpsertArgs['create'] = {
     id: config['id'],
