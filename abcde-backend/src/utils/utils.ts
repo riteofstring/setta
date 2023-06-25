@@ -1,6 +1,5 @@
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
-import { ParentChildPairsType } from 'src/db/codeInfo/types';
 import { prisma } from 'src/db/prisma';
 
 export function renameKeys<T>(x: T, toRename: object) {
@@ -66,6 +65,8 @@ export function createIdMap(oldIds: string[]) {
 export function ifUndefinedThenNull(x) {
   return x === undefined ? null : x;
 }
+
+type ParentChildPairsType = { parentId: string; childId: string }[];
 
 export async function getChildrenRecursively(ids: string[], queryFn) {
   const collectionIds = new Set(ids);
