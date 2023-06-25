@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { ProjectConfigType } from 'abcde-utils/src/types/projectConfig';
 import { ManySectionType } from 'abcde-utils/src/types/section';
 import { prisma } from 'src/db/prisma';
+import { deleteManyFirst } from 'src/utils/utils';
 
 export async function saveProjectConfig(
   projectId: string,
@@ -20,17 +21,9 @@ export async function saveProjectConfig(
     },
   };
 
-  const update: Prisma.ProjectConfigUpdateArgs['data'] = {
-    ...create,
-    sections: {
-      deleteMany: {},
-      ...create.sections,
-    },
-  };
-
   await prisma.projectConfig.upsert({
     where: { id: create.id },
     create,
-    update,
+    update: deleteManyFirst(create, 'sections'),
   });
 }

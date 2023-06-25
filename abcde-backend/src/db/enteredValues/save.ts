@@ -2,41 +2,45 @@ import { Prisma } from '@prisma/client';
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { prisma } from 'src/db/prisma';
+import { deleteManyFirst } from 'src/utils/utils';
 
 export async function saveEV(ev: ManyEVType) {
+  const upsert = Object.keys(ev).map((id): Prisma.EVUpsertArgs['create'] => {
+    const value = ev[id];
+    return { id, value: value !== null ? value.toString() : null };
+  });
+
   await prisma.$transaction(
-    Object.keys(ev).map((id) => {
-      const value = ev[id];
-      const x: Prisma.EVCreateInput = {
-        id,
-        value: value !== null ? value.toString() : null,
-      };
-      return prisma.eV.upsert({
-        where: { id: x.id },
-        create: x,
-        update: x,
-      });
-    }),
+    upsert.map((v) =>
+      prisma.eV.upsert({
+        where: { id: v.id },
+        create: v,
+        update: v,
+      }),
+    ),
   );
 }
 
 export async function saveEVCols(evCols: ManyEVColType) {
-  const ids = Object.keys(evCols);
-  const inDbFormat: Prisma.EVColCreateManyInput[] = [];
-  for (const [idid, evCol] of Object.entries(evCols)) {
-    for (const [codeInfoId, evId] of Object.entries(evCol)) {
-      inDbFormat.push({ idid, codeInfoId, evId });
-    }
-  }
+  const create = Object.entries(evCols).map(
+    ([id, evCol]): Prisma.EVColIdUpsertArgs['create'] => ({
+      id,
+      children: {
+        create: Object.entries(evCol).map(([codeInfoId, evId]) => ({
+          codeInfoId,
+          evId,
+        })),
+      },
+    }),
+  );
 
-  await prisma.$transaction([
-    prisma.eVColId.createMany({
-      data: ids.map((x) => ({ id: x })),
-      skipDuplicates: true,
-    }),
-    prisma.eVCol.deleteMany({
-      where: { idid: { in: ids } },
-    }),
-    prisma.eVCol.createMany({ data: inDbFormat }),
-  ]);
+  await prisma.$transaction(
+    create.map((v) =>
+      prisma.eVColId.upsert({
+        where: { id: v.id as string },
+        create: v,
+        update: deleteManyFirst(v, 'children'),
+      }),
+    ),
+  );
 }

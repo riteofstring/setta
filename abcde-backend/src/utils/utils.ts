@@ -34,17 +34,22 @@ export function createIdMap(oldIds: string[]) {
   return _.fromPairs(oldIds.map((x) => [x, createNewId()]));
 }
 
-export function ifUndefinedThenNull(x) {
-  return x === undefined ? null : x;
-}
-
-type ParentChildPairsType = { parentId: string; childId: string }[];
-
 export async function getChildrenRecursively(ids: string[], queryFn) {
   const allIds = new Set(ids);
   for (const c of ids) {
-    const parentChildPairs: ParentChildPairsType = await queryFn(c);
+    const parentChildPairs: { parentId: string; childId: string }[] =
+      await queryFn(c);
     parentChildPairs.forEach((x) => allIds.add(x.childId));
   }
   return Array.from(allIds);
+}
+
+export function deleteManyFirst<T, K extends keyof T>(v: T, key: K) {
+  return {
+    ...v,
+    [key]: {
+      deleteMany: {},
+      ...v[key],
+    },
+  };
 }
