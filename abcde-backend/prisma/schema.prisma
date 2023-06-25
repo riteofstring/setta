@@ -89,6 +89,7 @@ model Section {
   description        String?
   descriptionHeight  Float
   descriptionVisible Boolean
+  nonPresetUITypes   UIType[]                @relation("sectionNonPresetUITypes")
   children           SectionChildren[]       @relation("SectionParent") // SectionChildren.parent
   parents            SectionChildren[]       @relation("SectionChildren") // SectionChildren.child
   projectConfigs     ProjectConfigChildren[] @relation("ProjectConfigChildren") // ProjectConfigChildren.child
@@ -165,6 +166,11 @@ model UIType {
   projectConfigCodeInfoTypeMaps ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMaps.uiTypeId
   userCodeInfoMaps              UserCodeInfoMap[] //UserCodeInfoMap.uiTypeId
   projectConfigCodeInfoMaps     ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.uiTypeId
+  asNonPresetForSection         Section                        @relation("sectionNonPresetUITypes", references: [id], fields: [asNonPresetForSectionId]) //Section.nonPresetUITypes
+  asNonPresetForSectionId       String
+  asNonPresetForUITypeCol       UITypeCol                      @relation("uiTypeColNonPresetUITypes", references: [idid, codeInfoId], fields: [asNonPresetForUITypeColId, asNonPresetForCodeInfoId]) //UITypeCol.nonPresetUITypes
+  asNonPresetForUITypeColId     String //UITypeCol.idid
+  asNonPresetForCodeInfoId      String //UITypeCol.codeInfoId
 }
 
 model UITypeColId {
@@ -174,12 +180,13 @@ model UITypeColId {
 }
 
 model UITypeCol {
-  id         UITypeColId @relation(fields: [idid], references: [id])
-  idid       String      @db.Uuid
-  codeInfo   CodeInfo    @relation(fields: [codeInfoId], references: [id])
-  codeInfoId String      @db.Uuid
-  uiType     UIType      @relation(fields: [uiTypeId], references: [id])
-  uiTypeId   String      @db.Uuid
+  id               UITypeColId @relation(fields: [idid], references: [id])
+  idid             String      @db.Uuid
+  codeInfo         CodeInfo    @relation(fields: [codeInfoId], references: [id])
+  codeInfoId       String      @db.Uuid
+  uiType           UIType      @relation(fields: [uiTypeId], references: [id])
+  uiTypeId         String      @db.Uuid
+  nonPresetUITypes UIType[]    @relation("uiTypeColNonPresetUITypes")
 
   @@id([idid, codeInfoId]) // composite key
 }
