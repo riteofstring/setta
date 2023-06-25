@@ -1,10 +1,9 @@
 import { isSectionUIType, NULL_OBJ_ID } from 'abcde-utils/src/constants';
-import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
+import { CodeInfoStateType, RCType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { getChildrenRecursively, getOrderedChildren } from 'src/utils/utils';
-import { ChildMapType } from './types';
+import { getChildrenRecursively } from 'src/utils/utils';
 
 export async function getCodeInfoForSectionsAndKwargs(
   sections,
@@ -23,26 +22,25 @@ export async function getCodeInfoForSectionsAndKwargs(
   _.forEach(kwargCols, (x) =>
     _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
   );
-  const allCodeInfo = await getCodeInfo([
+  return await getCodeInfo([
     ...userSpecifiedObjectIds,
     ...collectionIds,
     ...kwargIds,
     NULL_OBJ_ID,
   ]);
-  return { allCodeInfo };
 }
 
-export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
-  const { childMap, allIds } = await getChildrenRecursively(
+export async function getCodeInfo(ids: string[]): Promise<CodeInfoStateType> {
+  const allIds = await getChildrenRecursively(
     ids,
     async (c) =>
       await prisma.$queryRaw`
           with recursive descendants as (
-              select "parentId", "childId", "order"
+              select "parentId", "childId"
               from "CodeInfoChildren"
               where "parentId" = ${c}::uuid
             union
-              select x."parentId", x."childId", x."order"
+              select x."parentId", x."childId"
               from "CodeInfoChildren" x
               join descendants on x."parentId" = descendants."childId"
           )
@@ -51,21 +49,21 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
 
   const codeInfo = await prisma.codeInfo.findMany({
     where: { id: { in: allIds } },
+    include: {
+      asParent: {
+        select: { childId: true },
+        orderBy: { order: 'asc' },
+      },
+    },
   });
+
   const output = {};
   codeInfo.forEach((x) => {
-    output[x.id] = processCodeInfo(x, childMap);
+    const { asParent, ...theRest } = x;
+    output[x.id] = { ...theRest, children: asParent.map((y) => y.childId) };
   });
 
-  return output;
-}
-
-export function processCodeInfo(codeInfo, childMap: ChildMapType) {
-  let children: string[] = [];
-  if (codeInfo.id in childMap) {
-    children = getOrderedChildren(childMap[codeInfo.id], 'childId');
-  }
-  return { ...codeInfo, children };
+  return { allCodeInfo: output };
 }
 
 export async function getCollectionsAndModules(searchTerm: string) {

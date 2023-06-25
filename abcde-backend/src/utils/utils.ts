@@ -24,14 +24,6 @@ export async function deleteThenCreateColNonBatched(db, allColIds, data) {
   ]);
 }
 
-export function getOrderedChildren<
-  T extends { order: number },
-  K extends keyof T,
->(children: T[], toReturn: K) {
-  const output = getOrderedChildrenFull(children);
-  return output.map((x) => x[toReturn]);
-}
-
 export function getOrderedChildrenFull<T extends { order: number }>(
   children: T[],
 ) {
@@ -49,16 +41,10 @@ export function ifUndefinedThenNull(x) {
 type ParentChildPairsType = { parentId: string; childId: string }[];
 
 export async function getChildrenRecursively(ids: string[], queryFn) {
-  const collectionIds = new Set(ids);
-  let childMap = {};
-  const allIds = new Set(collectionIds);
-
-  for (const c of collectionIds) {
+  const allIds = new Set(ids);
+  for (const c of ids) {
     const parentChildPairs: ParentChildPairsType = await queryFn(c);
-    const currChildMap = _.groupBy(parentChildPairs, (v) => v.parentId);
-    childMap = { ...childMap, ...currChildMap };
     parentChildPairs.forEach((x) => allIds.add(x.childId));
   }
-
-  return { allIds: Array.from(allIds), childMap };
+  return Array.from(allIds);
 }

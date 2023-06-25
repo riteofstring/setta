@@ -7,7 +7,6 @@ import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import {
   getChildrenRecursively,
-  getOrderedChildren,
   getOrderedChildrenFull,
 } from 'src/utils/utils';
 import { getUITypesByWhere } from '../uiTypes/load';
@@ -17,16 +16,16 @@ export async function getSections(projectConfig: {
   id: string;
   children: string[];
 }) {
-  const { allIds } = await getChildrenRecursively(
+  const allIds = await getChildrenRecursively(
     projectConfig.children,
     async (c) =>
       await prisma.$queryRaw`
           with recursive descendants as (
-              select "parentId", "childId", "order", "x", "y"
+              select "parentId", "childId"
               from "SectionChildren"
               where "parentId" = ${c}::uuid
             union
-              select other."parentId", other."childId", other."order", other."x", other."y"
+              select other."parentId", other."childId"
               from "SectionChildren" other
               join descendants on other."parentId" = descendants."childId"
           )
@@ -37,7 +36,8 @@ export async function getSections(projectConfig: {
     where: { id: { in: allIds } },
     include: {
       children: {
-        select: { order: true, childId: true },
+        select: { childId: true },
+        orderBy: { order: 'asc' },
       },
       asChild: { select: { parentId: true } },
       evCol: {
@@ -77,7 +77,7 @@ export async function getSections(projectConfig: {
   const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
     id: v.id,
     name: v.name,
-    children: getOrderedChildren(v.children, 'childId'),
+    children: v.children.map((x) => x.childId),
     paramInfoId: v.paramInfoId,
     initialPosition: getPosition(v.projectConfigs),
     size: { width: convertSize(v.width), height: convertSize(v.height) },
