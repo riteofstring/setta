@@ -2,29 +2,19 @@ import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { prisma } from 'src/db/prisma';
 import { deleteThenCreateCol } from 'src/utils/utils';
-import { PrismaEVColType, PrismaEVType } from './types';
-
-function assembleEV(ev: ManyEVType) {
-  const inDbFormat: PrismaEVType[] = [];
-  for (const [id, v] of Object.entries(ev)) {
-    inDbFormat.push({
-      id,
-      value: v !== null ? v.toString() : null,
-    });
-  }
-  return inDbFormat;
-}
+import { PrismaEVColType } from './types';
 
 export async function saveEV(ev: ManyEVType) {
-  const inDbFormat = assembleEV(ev);
   await prisma.$transaction(
-    inDbFormat.map((v) =>
-      prisma.eV.upsert({
-        where: { id: v.id },
-        create: v,
-        update: v,
-      }),
-    ),
+    Object.keys(ev).map((id) => {
+      const value = ev[id];
+      const x = { id, value: value !== null ? value.toString() : null };
+      return prisma.eV.upsert({
+        where: { id: x.id },
+        create: x,
+        update: x,
+      });
+    }),
   );
 }
 
