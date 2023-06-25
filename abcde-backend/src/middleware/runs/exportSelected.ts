@@ -30,9 +30,14 @@ function getParamIds(p, id) {
   return Object.keys(p.evCols[evColId]);
 }
 
-function getParamUIType(p, sectionId, id) {
+function getParamUITypeId(p, sectionId, id) {
   const { uiTypeColId } = p.sections[sectionId];
-  const uiType = p.uiTypes[p.uiTypeCols[uiTypeColId][id]];
+  return p.uiTypeCols[uiTypeColId][id].uiTypeId;
+}
+
+function getParamUIType(p, sectionId, id) {
+  const uiTypeId = getParamUITypeId(p, sectionId, id);
+  const uiType = p.uiTypes[uiTypeId];
   if (isSectionUIType(uiType)) {
     return REF;
   }
@@ -40,8 +45,15 @@ function getParamUIType(p, sectionId, id) {
 }
 
 function getOriginalParamUIType(p, sectionId, id) {
-  const { uiTypeColId } = p.sections[sectionId];
-  return p.uiTypes[p.uiTypeCols[uiTypeColId][id]].type;
+  const uiTypeId = getParamUITypeId(p, sectionId, id);
+  return p.uiTypes[uiTypeId].type;
+}
+
+function getParamChildId(p, sectionId, id) {
+  return _.find(
+    p.sections,
+    (s) => s.paramInfoId === id && s.parentId === sectionId,
+  );
 }
 
 function getSectionVarName(sectionVarNames, id) {
@@ -144,11 +156,12 @@ class Exporter {
   exportParamValue(sectionId, id) {
     const { evColId } = this.p.sections[sectionId];
     const evId = this.p.evCols[evColId][id];
-    const { value, childId } = this.p.ev[evId];
+    const value = this.p.ev[evId];
     const originalType = getOriginalParamUIType(this.p, sectionId, id);
     const sectionChildren = this.p.sectionCurrChildren[sectionId];
-    if (sectionChildren.includes(childId)) {
-      return this.exportSection(childId);
+    const possibleChild = getParamChildId(this.p, sectionId, id);
+    if (sectionChildren.includes(possibleChild?.id)) {
+      return this.exportSection(possibleChild.id);
     } else if (value && originalType === REF) {
       return this.exportSection(value);
     }
