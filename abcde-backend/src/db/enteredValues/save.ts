@@ -1,14 +1,13 @@
+import { Prisma } from '@prisma/client';
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateCol } from 'src/utils/utils';
-import { PrismaEVColType } from './types';
 
 export async function saveEV(ev: ManyEVType) {
   await prisma.$transaction(
     Object.keys(ev).map((id) => {
       const value = ev[id];
-      const x = { id, value: value !== null ? value.toString() : null };
+      const x = { id, value: convertValue(value) };
       return prisma.eV.upsert({
         where: { id: x.id },
         create: x,
@@ -18,23 +17,32 @@ export async function saveEV(ev: ManyEVType) {
   );
 }
 
+export async function saveEVCols(evCols: ManyEVColType) {
+  const ids = Object.keys(evCols);
+  const inDbFormat = assembleEVCols(evCols);
+
+  await prisma.$transaction([
+    prisma.eVColId.createMany({
+      data: ids.map((x) => ({ id: x })),
+      skipDuplicates: true,
+    }),
+    prisma.eVCol.deleteMany({
+      where: { idid: { in: ids } },
+    }),
+    prisma.eVCol.createMany({ data: inDbFormat }),
+  ]);
+}
+
+function convertValue(value) {
+  return value !== null ? value.toString() : null;
+}
+
 function assembleEVCols(evCols: ManyEVColType) {
-  const inDbFormat: PrismaEVColType[] = [];
+  const inDbFormat: Prisma.EVColCreateManyInput[] = [];
   for (const [idid, evCol] of Object.entries(evCols)) {
     for (const [codeInfoId, evId] of Object.entries(evCol)) {
       inDbFormat.push({ idid, codeInfoId, evId });
     }
   }
   return inDbFormat;
-}
-
-export async function saveEVCols(evCols: ManyEVColType) {
-  const ids = Object.keys(evCols);
-  await prisma.eVColId.createMany({
-    data: ids.map((x) => ({ id: x })),
-    skipDuplicates: true,
-  });
-
-  const inDbFormat = assembleEVCols(evCols);
-  await deleteThenCreateCol(prisma.eVCol, ids, inDbFormat);
 }
