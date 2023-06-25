@@ -5,7 +5,7 @@ import { getProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/projectConfig/
 import { getUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/load';
 import { prisma } from 'src/db/prisma';
 import { getProjectConfig } from 'src/db/projectConfigs/load';
-import { getSections, setSectionPositions } from 'src/db/sections/load';
+import { getSections } from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 import { getRuns } from '../runs/load';
 
@@ -48,9 +48,9 @@ export async function loadOne({
   });
 
   const project = await getProject(projectId);
-  const { projectConfig, sectionPositions } = await getProjectConfig(configId);
+  const projectConfig = await getProjectConfig(configId);
   const { sections, ev, evCols, kwargCols, uiTypeCols, sectionUITypes } =
-    await getSections(projectConfig.children);
+    await getSections(projectConfig);
 
   const baseUITypes = await getBaseUITypes();
   const presetUITypes = await getPresetUITypes(reqUserId);
@@ -63,9 +63,6 @@ export async function loadOne({
     projectConfig.id,
   );
   const { outputGroups, outputs } = await getRuns(configId);
-
-  // put top-level initialPosition into sections
-  setSectionPositions(sections, sectionPositions);
 
   return {
     project,

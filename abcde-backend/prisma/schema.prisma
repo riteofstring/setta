@@ -35,7 +35,7 @@ model CodeInfo {
   kwarg                     KwargCol[]                 @relation("Kwarg") // KwargCol.kwargInfo
   evOwner                   EVCol[] // EVCol.codeInfo
   sectionsSelectedItem      Section[]                  @relation("SectionsSelectedItem") //Section.selectedItem
-  asUserSpecifiedObject     Section[] //Section.userSpecifiedObject
+  asUserSpecifiedObject     Section[]                  @relation("SectionUserSpecifiedObject") //Section.userSpecifiedObject
   uiTypeCols                UITypeCol[] //UITypeCol.codeInfo
   sectionUITypes            SectionUIType[] //SectionUIType.collections
   asParent                  CodeInfoChildren[]         @relation("CodeInfoParent") // CodeInfoChildren.parent
@@ -90,8 +90,8 @@ model Section {
   social                String?
   outputGroup           OutputGroup?            @relation(references: [id], fields: [outputGroupId])
   outputGroupId         String?                 @db.Uuid
-  userSpecifiedObject   CodeInfo?               @relation(references: [id], fields: [userSpecifiedObjectId])
-  userSpecifiedObjectId String?
+  userSpecifiedObject   CodeInfo?               @relation("SectionUserSpecifiedObject", references: [id], fields: [userSpecifiedObjectId])
+  userSpecifiedObjectId String?                 @db.Uuid
   description           String?
   descriptionHeight     Float
   descriptionVisible    Boolean
@@ -173,11 +173,11 @@ model UIType {
   projectConfigCodeInfoTypeMaps ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMaps.uiTypeId
   userCodeInfoMaps              UserCodeInfoMap[] //UserCodeInfoMap.uiTypeId
   projectConfigCodeInfoMaps     ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.uiTypeId
-  asNonPresetForSection         Section                        @relation("sectionNonPresetUITypes", references: [id], fields: [asNonPresetForSectionId]) //Section.nonPresetUITypes
-  asNonPresetForSectionId       String
-  asNonPresetForUITypeCol       UITypeCol                      @relation("uiTypeColNonPresetUITypes", references: [idid, codeInfoId], fields: [asNonPresetForUITypeColId, asNonPresetForCodeInfoId]) //UITypeCol.nonPresetUITypes
-  asNonPresetForUITypeColId     String //UITypeCol.idid
-  asNonPresetForCodeInfoId      String //UITypeCol.codeInfoId
+  asNonPresetForSection         Section?                       @relation("sectionNonPresetUITypes", references: [id], fields: [asNonPresetForSectionId]) //Section.nonPresetUITypes
+  asNonPresetForSectionId       String?                        @db.Uuid
+  asNonPresetForUITypeCol       UITypeCol?                     @relation("uiTypeColNonPresetUITypes", references: [idid, codeInfoId], fields: [asNonPresetForUITypeColId, asNonPresetForCodeInfoId]) //UITypeCol.nonPresetUITypes
+  asNonPresetForUITypeColId     String?                        @db.Uuid //UITypeCol.idid 
+  asNonPresetForCodeInfoId      String?                        @db.Uuid //UITypeCol.codeInfoId
 }
 
 model UITypeColId {

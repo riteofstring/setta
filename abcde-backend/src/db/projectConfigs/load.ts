@@ -1,6 +1,4 @@
 import { prisma } from 'src/db/prisma';
-import { getSectionPositions } from 'src/db/sections/load';
-import { getOrderedChildren } from 'src/utils/utils';
 
 export async function getProjectConfig(id) {
   const p = await prisma.projectConfig.findUniqueOrThrow({
@@ -9,20 +7,18 @@ export async function getProjectConfig(id) {
       id: true,
       name: true,
       sections: {
-        select: { childId: true, order: true, x: true, y: true },
+        select: { childId: true },
       },
     },
   });
 
-  const sectionPositions = getSectionPositions(p.sections);
-
   const projectConfig = {
     id: p.id,
     name: p.name,
-    children: getOrderedChildren(p.sections, 'childId'),
+    children: p.sections.map((x) => x.childId),
   };
 
-  return { projectConfig, sectionPositions };
+  return projectConfig;
 }
 
 export async function getPathnameFromProjectConfigId(id) {

@@ -1,11 +1,7 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import {
-  ManySectionChildrenType,
-  ManySectionType,
-} from 'abcde-utils/src/types/section';
-import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
+import { ManySectionType } from 'abcde-utils/src/types/section';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
@@ -16,15 +12,13 @@ import {
   getOrderedChildrenFull,
 } from 'src/utils/utils';
 import { UITypeNames } from '../uiTypes/types';
-import { PrismaSectionChildrenType } from './types';
 
-function convertSize(x) {
-  return x === -1 ? 'auto' : x;
-}
-
-export async function getSections(ids: string[]) {
+export async function getSections(projectConfig: {
+  id: string;
+  children: string[];
+}) {
   const { allIds } = await getChildrenRecursively(
-    ids,
+    projectConfig.children,
     async (c) =>
       await prisma.$queryRaw`
           with recursive descendants as (
@@ -43,8 +37,9 @@ export async function getSections(ids: string[]) {
     where: { id: { in: allIds } },
     include: {
       children: {
-        select: { order: true, childId: true, x: true, y: true },
+        select: { order: true, childId: true },
       },
+      asChild: { select: { parentId: true } },
       evCol: {
         select: {
           children: { select: { codeInfoId: true, evId: true, ev: true } },
@@ -64,38 +59,36 @@ export async function getSections(ids: string[]) {
           },
         },
       },
+      projectConfigs: {
+        where: { parentId: projectConfig.id },
+        select: { x: true, y: true },
+      },
     },
   });
   const idsAsKeys = _.keyBy(s, 'id');
 
-  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
-    getOrderedChildren(v.children, 'childId'),
-  );
-
   const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
     id: v.id,
     name: v.name,
-    children: sectionChildren,
+    children: getOrderedChildren(v.children, 'childId'),
     paramInfoId: v.paramInfoId,
-    initialPosition: { x: 0, y: 0 },
+    initialPosition: getPosition(v.projectConfigs),
     size: { width: convertSize(v.width), height: convertSize(v.height) },
     chainedFrom: v.chainedFromId,
-    parentId: getParentId(v.id, sectionChildren),
+    parentId: v.asChild?.parentId,
     zIndex: v.zIndex,
     evColId: v.evColId,
     uiTypeId: v.uiTypeId,
     kwargColId: v.kwargColId,
     uiTypeColId: v.uiTypeColId,
     selectedItem: v.selectedItemId,
+    social: v.social,
+    outputGroup: v.outputGroupId,
+    userSpecifiedObjectId: v.userSpecifiedObjectId,
     description: v.description,
     descriptionHeight: v.descriptionHeight,
     descriptionVisible: v.descriptionVisible,
   }));
-
-  _.forEach(idsAsKeys, (v) => {
-    const sPos = getSectionPositions(v.children);
-    setSectionPositions(sections, sPos);
-  });
 
   const sectionUITypes = await getUITypesByWhere(
     {
@@ -146,31 +139,14 @@ export async function getSections(ids: string[]) {
   };
 }
 
-export function getSectionPositions(
-  children: Omit<PrismaSectionChildrenType, 'parentId'>[],
-) {
-  const byId = _.keyBy(children, (s) => s.childId);
-  return _.mapValues(byId, (s) => ({ x: s.x, y: s.y }));
+function convertSize(x) {
+  return x === -1 ? 'auto' : x;
 }
 
-export function setSectionPositions(
-  sections: ManySectionType,
-  sectionPositions: SiblingSectionPositionType,
-) {
-  _.forEach(
-    sectionPositions,
-    (pos, id) => (sections[id].initialPosition = pos),
-  );
-}
-
-function getParentId(
-  sectionId: string,
-  sectionChildren: ManySectionChildrenType,
-) {
-  for (const [k, v] of Object.entries(sectionChildren)) {
-    if (v.includes(sectionId)) {
-      return k;
-    }
+function getPosition(projectConfigs) {
+  if (projectConfigs.length === 0) {
+    return { x: 0, y: 0 };
+  } else {
+    return projectConfigs[0];
   }
-  return null;
 }
