@@ -19,7 +19,12 @@ export async function saveEV(ev: ManyEVType) {
 
 export async function saveEVCols(evCols: ManyEVColType) {
   const ids = Object.keys(evCols);
-  const inDbFormat = assembleEVCols(evCols);
+  const inDbFormat: Prisma.EVColCreateManyInput[] = [];
+  for (const [idid, evCol] of Object.entries(evCols)) {
+    for (const [codeInfoId, evId] of Object.entries(evCol)) {
+      inDbFormat.push({ idid, codeInfoId, evId });
+    }
+  }
 
   await prisma.$transaction([
     prisma.eVColId.createMany({
@@ -35,14 +40,4 @@ export async function saveEVCols(evCols: ManyEVColType) {
 
 function convertValue(value) {
   return value !== null ? value.toString() : null;
-}
-
-function assembleEVCols(evCols: ManyEVColType) {
-  const inDbFormat: Prisma.EVColCreateManyInput[] = [];
-  for (const [idid, evCol] of Object.entries(evCols)) {
-    for (const [codeInfoId, evId] of Object.entries(evCol)) {
-      inDbFormat.push({ idid, codeInfoId, evId });
-    }
-  }
-  return inDbFormat;
 }
