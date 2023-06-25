@@ -1,5 +1,5 @@
 import { prisma } from 'src/db/prisma';
-import { sendToUser } from 'src/server';
+import { sendToUser } from 'src/websocket/utils';
 
 async function findIds(runId, group, key) {
   const result = await prisma.outputGroup.findUnique({

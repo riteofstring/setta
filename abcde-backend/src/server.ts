@@ -3,6 +3,7 @@ import http from 'http';
 import { app, passportSession } from './app/app';
 import { sessionParser } from './app/sessionParser';
 import { allSockets } from './websocket/allSockets';
+import { wsReceiveMessage } from './websocket/utils';
 import { wss } from './websocket/websocket';
 
 const server = http.createServer(app);
@@ -39,23 +40,4 @@ function runPassportAuth(req, socket, head) {
       wss.emit('connection', ws, req);
     });
   });
-}
-
-export function sendToUser(user, message) {
-  if (user in allSockets) {
-    for (const s of allSockets[user]) {
-      if (s.currPage === message.pathname) {
-        s.send(JSON.stringify(message));
-      }
-    }
-  }
-}
-
-function wsReceiveMessage(ws) {
-  return (data) => {
-    const x = JSON.parse(data);
-    if ('currPage' in x) {
-      ws.currPage = x.currPage;
-    }
-  };
 }
