@@ -25,6 +25,16 @@ export async function deleteThenCreateCol(db, allColIds, data) {
   ]);
 }
 
+export async function deleteThenCreateColNonBatched(db, allColIds, data) {
+  await prisma.$transaction([
+    db.deleteMany({
+      where: { idid: { in: allColIds } },
+    }),
+
+    ...data.map((x) => db.create({ data: x })),
+  ]);
+}
+
 export async function deleteThenCreateChildren(db, data) {
   await prisma.$transaction([
     db.deleteMany({

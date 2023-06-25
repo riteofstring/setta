@@ -13,8 +13,7 @@ import {
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateCol } from 'src/utils/utils';
-import { PrismaUITypeColType } from './types';
+import { deleteThenCreateColNonBatched } from 'src/utils/utils';
 
 async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
   const data = Object.values(uiTypes).map((x) => {
@@ -51,7 +50,6 @@ export async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
         where: { idid: v.id },
         data: {
           collections: { set: v.config.collections.map((x) => ({ id: x })) },
-          outputGroupId: v.config.outputGroup,
           childUITypeId: v.config.childUITypeId,
           subType: v.config.subType,
         },
@@ -107,17 +105,20 @@ export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
     skipDuplicates: true,
   });
 
-  const inDbFormat: PrismaUITypeColType[] = [];
+  const inDbFormat: any[] = [];
   for (const idid of ids) {
-    for (const [codeInfoId, uiTypeId] of Object.entries(uiTypeCols[idid])) {
+    for (const [codeInfoId, uiInfo] of Object.entries(uiTypeCols[idid])) {
       inDbFormat.push({
         idid,
         codeInfoId,
-        uiTypeId,
+        uiTypeId: uiInfo.uiTypeId,
+        nonPresetUITypes: {
+          connect: uiInfo.nonPresetUITypeIds.map((x) => ({ id: x })),
+        },
       });
     }
   }
-  await deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
+  await deleteThenCreateColNonBatched(prisma.uITypeCol, ids, inDbFormat);
 }
 
 export function extractSectionUITypes(uiTypes: ManyUITypeType) {
