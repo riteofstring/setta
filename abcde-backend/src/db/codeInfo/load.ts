@@ -18,10 +18,8 @@ export async function getCodeInfoForSectionsAndKwargs(
   const collectionIds = _.flatten(
     _.map(sectionUITypes, (x) => x.config.collections),
   );
-  const kwargIds: string[] = [];
-  _.forEach(kwargCols, (x) =>
-    _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
-  );
+  const kwargIds = _.flattenDeep(_.map(kwargCols, (x) => Object.values(x)));
+
   return await getCodeInfo([
     ...userSpecifiedObjectIds,
     ...collectionIds,

@@ -10,11 +10,11 @@ export async function saveOutputs(
 ) {
   await prisma.$transaction(
     Object.entries(outputs).map(([id, v]) => {
-      const x: Prisma.OutputCreateInput = {
+      const x: Prisma.OutputUpsertArgs['create'] = {
         id,
         name: v.name,
         values: v.values,
-        outputGroup: { connect: { id: outputGroupId } },
+        outputGroupId,
       };
       return prisma.output.upsert({
         where: { id: x.id },
@@ -31,10 +31,10 @@ export async function saveOutputGroups(
 ) {
   await prisma.$transaction(
     Object.entries(outputGroups).map(([id, v]) => {
-      const x: Prisma.OutputGroupCreateInput = {
+      const x: Prisma.OutputGroupUpsertArgs['create'] = {
         id,
         name: v.name,
-        run: { connect: { id: runId } },
+        runId,
       };
       return prisma.outputGroup.upsert({
         where: { id: x.id },
