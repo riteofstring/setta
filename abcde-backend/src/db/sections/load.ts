@@ -2,7 +2,6 @@ import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManySectionType } from 'abcde-utils/src/types/section';
-import { ManySectionUITypeType } from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
@@ -11,7 +10,8 @@ import {
   getOrderedChildren,
   getOrderedChildrenFull,
 } from 'src/utils/utils';
-import { processUIType } from '../uiTypes/load';
+import { getUITypesByWhere } from '../uiTypes/load';
+import { UITypeNames } from '../uiTypes/types';
 
 export async function getSections(projectConfig: {
   id: string;
@@ -55,7 +55,11 @@ export async function getSections(projectConfig: {
       uiTypeCol: {
         select: {
           children: {
-            select: { codeInfoId: true, uiTypeId: true },
+            select: {
+              codeInfoId: true,
+              uiTypeId: true,
+              nonPresetUITypes: { select: { id: true } },
+            },
           },
         },
       },
@@ -64,13 +68,7 @@ export async function getSections(projectConfig: {
         select: { x: true, y: true },
       },
       nonPresetUITypes: {
-        include: {
-          sectionUIType: {
-            include: {
-              collections: { select: { id: true } },
-            },
-          },
-        },
+        select: { id: true },
       },
     },
   });
@@ -128,17 +126,27 @@ export async function getSections(projectConfig: {
   for (const config of s) {
     uiTypeCols[config.uiTypeColId] = _.mapValues(
       _.keyBy(config.uiTypeCol.children, 'codeInfoId'),
-      (x) => x.uiTypeId,
+      (x) => ({
+        uiTypeId: x.uiTypeId,
+        nonPresetUITypeIds: x.nonPresetUITypes.map((x) => x.id),
+      }),
     );
   }
 
-  const sectionUITypes: ManySectionUITypeType = {};
-  for (const config of s) {
-    const currUITypes = config.nonPresetUITypes;
-    for (const u of currUITypes) {
-      sectionUITypes[u.id] = processUIType(u);
+  const nonPresetUITypeIds: string[] = [];
+  for (const s of Object.values(sections)) {
+    nonPresetUITypeIds.push(...s.nonPresetUITypeIds);
+  }
+  for (const u of Object.values(uiTypeCols)) {
+    for (const c of Object.values(u)) {
+      nonPresetUITypeIds.push(...c.nonPresetUITypeIds);
     }
   }
+
+  const nonPresetUITypes = await getUITypesByWhere(
+    { id: { in: nonPresetUITypeIds } },
+    UITypeNames.all,
+  );
 
   return {
     sections,
@@ -146,7 +154,7 @@ export async function getSections(projectConfig: {
     evCols,
     kwargCols,
     uiTypeCols,
-    sectionUITypes,
+    nonPresetUITypes,
   };
 }
 

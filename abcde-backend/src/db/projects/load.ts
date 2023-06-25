@@ -49,13 +49,13 @@ export async function loadOne({
 
   const project = await getProject(projectId);
   const projectConfig = await getProjectConfig(configId);
-  const { sections, ev, evCols, kwargCols, uiTypeCols, sectionUITypes } =
+  const { sections, ev, evCols, kwargCols, uiTypeCols, nonPresetUITypes } =
     await getSections(projectConfig);
 
   const baseUITypes = await getBaseUITypes();
   const presetUITypes = await getPresetUITypes(reqUserId);
   const codeInfo = await getCodeInfoForSectionsAndKwargs(
-    sectionUITypes,
+    nonPresetUITypes,
     kwargCols,
   );
   const userCodeInfoMaps = await getUserCodeInfoMaps(reqUserId);
@@ -71,7 +71,7 @@ export async function loadOne({
     ev,
     evCols,
     kwargCols,
-    uiTypes: { ...baseUITypes, ...presetUITypes, ...sectionUITypes },
+    uiTypes: { ...baseUITypes, ...presetUITypes, ...nonPresetUITypes },
     uiTypeCols,
     codeInfo,
     userCodeInfoMaps,
