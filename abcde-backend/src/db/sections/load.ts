@@ -111,7 +111,7 @@ export async function getSections(ids: string[]) {
   for (const config of s) {
     const allCurrEvs = config.evCol.children.map((x) => x.ev);
     const keyByEVId = _.keyBy(allCurrEvs, 'id');
-    _.forEach(keyByEVId, (v, id) => (ev[id] = v));
+    _.forEach(keyByEVId, (v, id) => (ev[id] = v.value));
   }
 
   const evCols: ManyEVColType = {};

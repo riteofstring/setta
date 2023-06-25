@@ -73,7 +73,6 @@ model Section {
   paramInfoId    String?                 @db.Uuid
   width          Int
   height         Int
-  evChildren     EV[] //EV.child
   uiTypeOrigins  UIType[]                @relation("UITypeOrigins") //UIType.originSection
   chainedFrom    Section?                @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
   chainedTo      Section[]               @relation("SectionChainedFrom")
@@ -152,11 +151,9 @@ model EVCol {
 }
 
 model EV {
-  id      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  value   String?  @db.VarChar(255)
-  child   Section? @relation(fields: [childId], references: [id])
-  childId String?  @db.Uuid
-  evCol   EVCol[] //EVCol.ev
+  id    String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  value String? @db.VarChar(255)
+  evCol EVCol[] //EVCol.ev
 }
 
 model UIType {

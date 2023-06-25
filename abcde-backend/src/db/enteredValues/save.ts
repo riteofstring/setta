@@ -9,8 +9,7 @@ function assembleEV(ev: ManyEVType) {
   for (const [id, v] of Object.entries(ev)) {
     inDbFormat.push({
       id,
-      value: v.value !== null ? v.value.toString() : null,
-      childId: v.childId,
+      value: v !== null ? v.toString() : null,
     });
   }
   return inDbFormat;
