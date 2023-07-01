@@ -29,7 +29,7 @@ function UserSpecifiedObjectName({ selectedItem }) {
   return (
     <StandardInput
       placeholder={""}
-      twClasses="px-9"
+      twClasses="mx-9"
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={(e) => onBlur(e.target.value)}
