@@ -1,4 +1,0 @@
-uitypes with no child uitypes or subtypes
-
-
-A list root and its children all point to the same ui type. Each section looks at

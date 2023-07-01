@@ -1,4 +1,8 @@
-import { SECTION } from "abcde-utils/src/constants";
+import {
+  isSeriesElement,
+  rootTypeToChildSubType,
+  SECTION,
+} from "abcde-utils/src/constants";
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { createNewId } from "abcde-utils/src/utils";
@@ -37,7 +41,8 @@ function shouldCloneUIType(uiType, settingPreset) {
   // The uiType is a list element (a child of a list root).
   // Changing its config shouldn't affect its siblings.
   // Plus it should become indepedent from the root config.
-  return isPresetNotSettingPreset;
+  const _isSeriesElement = isSeriesElement(uiType.config.subType);
+  return isPresetNotSettingPreset || _isSeriesElement;
 }
 
 export function cloneRootUIType(parentUIType, parentId) {
@@ -45,6 +50,7 @@ export function cloneRootUIType(parentUIType, parentId) {
   uiType.id = createNewId();
   uiType.type = SECTION;
   uiType.config.uiTypeColId = createNewId();
+  uiType.config.subType = rootTypeToChildSubType[parentUIType.type];
   uiType.presetType = null;
   return uiType;
 }

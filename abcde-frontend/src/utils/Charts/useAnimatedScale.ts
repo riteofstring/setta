@@ -1,6 +1,5 @@
 import { scaleLinear } from "@visx/scale";
 import { animate, useMotionValue } from "framer-motion";
-import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 
 export function useAnimatedScale({
@@ -9,8 +8,8 @@ export function useAnimatedScale({
   attr,
   pixelRangeIncreases,
 }) {
-  const allValues: number[] = _.flatten(
-    series.map((s) => s.values.map((v) => v[attr]))
+  const allValues: number[] = [].concat(
+    ...series.map((s) => s.values.map((v) => v[attr]))
   );
 
   const lowerBound = useScaleMotionValue({ isMin: true, allValues });

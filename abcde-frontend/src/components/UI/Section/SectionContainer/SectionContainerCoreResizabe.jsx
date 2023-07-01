@@ -15,6 +15,7 @@ export function SectionContainerCoreResizable({
   sectionId,
   parentId,
   nextId,
+  isSeriesElement,
   isRoot,
   isOutput,
   isSocial,
@@ -49,6 +50,7 @@ export function SectionContainerCoreResizable({
                 sectionId={sectionId}
                 parentId={parentId}
                 nextId={nextId}
+                isSeriesElement={isSeriesElement}
                 isRoot={isRoot}
                 hasNested={hasNested}
                 isActiveSection={isActiveSection}

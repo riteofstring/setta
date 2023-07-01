@@ -1,9 +1,11 @@
+import { requiresKeyInput } from "utils/constants";
 import { useGetSectionInfo } from "./useSectionInfo";
-import { useIsOutput } from "./useSectionType";
+import { useGetSectionTypeConfig, useIsOutput } from "./useSectionType";
 
 export function useTitleIsEditable(sectionId: string) {
   const paramInfoId = useGetSectionInfo(sectionId, "paramInfoId");
+  const sectionSubType = useGetSectionTypeConfig(sectionId, "subType");
   const isOutput = useIsOutput(sectionId);
 
-  return !paramInfoId && !isOutput;
+  return requiresKeyInput(sectionSubType) && !paramInfoId && !isOutput;
 }

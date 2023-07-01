@@ -1,9 +1,19 @@
-import { DECK, REF_UI_TYPE_ID } from "abcde-utils/src/constants";
+import {
+  DECK,
+  isRoot,
+  REF_UI_TYPE_ID,
+  rootTypeToChildSubType,
+} from "abcde-utils/src/constants";
+import {
+  SectionUITypeConfigType,
+  UITypeSetOneConfigPayloadType,
+} from "abcde-utils/src/types/uiType";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
@@ -86,6 +96,11 @@ export function moveSection({
 
   unlinkParamFromSection({ parentId: oldParentId, sectionId });
 
+  maybeChangeSectionSubtype({
+    newParentId,
+    sectionId,
+  });
+
   setChildrenAndParent({
     oldParentId,
     newParentId,
@@ -125,6 +140,28 @@ function setChildrenAndParent({
   }
 
   setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
+}
+
+function maybeChangeSectionSubtype({ newParentId, sectionId }) {
+  const newParentUIType =
+    newParentId === PANEID ? null : getSectionType(newParentId);
+
+  let configProps: Partial<
+    UITypeSetOneConfigPayloadType<SectionUITypeConfigType["subType"]>
+  >;
+  if (newParentUIType && isRoot(newParentUIType.type)) {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
+    };
+  } else {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => null,
+    };
+  }
+
+  setSectionUITypeConfig({ sectionId, configProps });
 }
 
 function setSectionSize({ newParentId, sectionId }) {
