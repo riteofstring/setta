@@ -69,3 +69,30 @@ export function isSectionUIType(
     USER_SPECIFIED_OBJECT,
   ].includes(uiType.type);
 }
+
+export const uiTypesToPretty = Object.freeze(
+  new Map(
+    Object.entries({
+      [TEXT]: "Text",
+      [SLIDER]: "Slider",
+      [SWITCH]: "Switch",
+      [SECTION]: "Object",
+      [LIST_ROOT]: "List of Objects",
+      [DICT_ROOT]: "Dict of Objects",
+      [OUTPUT]: "Program Output",
+      [REF]: "Reference to Object",
+      [INFO]: "Info",
+      [SOCIAL]: "Social",
+      [FN]: "Function",
+      [USER_SPECIFIED_OBJECT]: "User Specified Object",
+    })
+  )
+);
+
+export function requiresNestedSection(uiTypeType) {
+  return SECTION_TYPE_NAMES.includes(uiTypeType);
+}
+
+export function requiresKeyInput(sectionSubTypeName) {
+  return [null, DICT].includes(sectionSubTypeName);
+}
