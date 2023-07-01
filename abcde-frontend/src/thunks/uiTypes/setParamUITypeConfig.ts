@@ -26,8 +26,6 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
   const { nonPresetUITypeIds, uiSubType } = getSectionInfo(sectionId);
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
-  const setUITypeId = (uiTypeId) =>
-    setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
   const createNonPreset = () =>
     createNonPresetForParam({
       sectionId,
@@ -42,7 +40,6 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
     settingPreset,
     createNonPreset,
     nonPresetUITypeIds,
-    setUITypeId,
   });
 }
 
@@ -64,5 +61,7 @@ function createNonPresetForParam({
     paramInfoId,
     newValueFn: (v) => [...v, newUIType.id],
   });
+  setParamUITypeId({ uiTypeId: newUIType.id, sectionId, paramInfoId });
+
   return newUIType;
 }

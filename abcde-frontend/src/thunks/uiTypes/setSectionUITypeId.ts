@@ -2,6 +2,7 @@ import { USER_SPECIFIED_OBJECT_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useSectionInfos } from "models/info/sectionInfos";
 import {
   getSectionInfo,
   setSectionInfoAttr,
@@ -51,4 +52,15 @@ function initializeUserSpecifiedObject(sectionId) {
       .updateInfos({ allCodeInfo: { [newObj.id]: newObj } });
   }
   setSelectedItem(sectionId, userSpecifiedObjectId, false);
+}
+
+export function updateUITypeIdOfSectionsWithUITypeId({
+  oldUITypeId,
+  newUITypeId,
+}) {
+  for (const s of Object.values(useSectionInfos.getState().x)) {
+    if (s.uiTypeId === oldUITypeId) {
+      setSectionUITypeId({ uiTypeId: newUITypeId, sectionId: s.id });
+    }
+  }
 }

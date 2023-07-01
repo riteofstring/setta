@@ -12,7 +12,6 @@ export function maybeCloneUIType({
   settingPreset,
   nonPresetUITypeIds,
   createNonPreset,
-  setUITypeId,
 }) {
   // If it's a preset but we're not "saving as",
   // then use existing non-preset, or copy into a new non-preset ui type.
@@ -25,8 +24,6 @@ export function maybeCloneUIType({
 
     // If there's no match, create a non-preset
     maybeNewUIType = matches.length > 0 ? matches[0] : createNonPreset();
-    // In both cases, make the section or param to use the new or existing id
-    setUITypeId(maybeNewUIType.id);
   }
 
   return maybeNewUIType;

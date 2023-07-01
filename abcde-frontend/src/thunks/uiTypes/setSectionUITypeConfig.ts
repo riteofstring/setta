@@ -6,7 +6,7 @@ import {
 } from "thunks/sections/sections";
 import { cloneNewUIType, maybeCloneUIType } from "thunks/uiTypes/cloneUITypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { setSectionUITypeId } from "./setSectionUITypeId";
+import { updateUITypeIdOfSectionsWithUITypeId } from "./setSectionUITypeId";
 
 export function setSectionUITypeConfig({
   sectionId,
@@ -27,7 +27,6 @@ export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   } = getSectionInfo(sectionId);
   const currUIType = getSectionType(sectionId);
 
-  const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
   const createNonPreset = () =>
     createNonPresetForSection({ sectionId, currUIType, defaultName });
 
@@ -37,7 +36,6 @@ export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
     settingPreset,
     createNonPreset,
     nonPresetUITypeIds,
-    setUITypeId,
   });
 }
 
@@ -51,6 +49,10 @@ function createNonPresetForSection({ sectionId, currUIType, defaultName }) {
     sectionId,
     attr: "nonPresetUITypeIds",
     newValueFn: (v) => [...v, newUIType.id],
+  });
+  updateUITypeIdOfSectionsWithUITypeId({
+    oldUITypeId: currUIType.id,
+    newUITypeId: newUIType.id,
   });
   return newUIType;
 }
