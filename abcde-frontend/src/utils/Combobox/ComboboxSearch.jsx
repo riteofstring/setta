@@ -17,6 +17,7 @@ export function ComboboxSearch({
   small,
   onClick,
   position,
+  comboboxInputClasses,
 }) {
   const {
     sizeRef,
@@ -59,7 +60,7 @@ export function ComboboxSearch({
     <div
       className={`flex ${
         small ? "h-7" : "h-10"
-      } w-full flex-col items-stretch overflow-visible`}
+      } w-full flex-col items-stretch overflow-visible ${comboboxInputClasses}`}
       {...getComboboxProps({ ref: sizeRef })}
     >
       <ComboboxInput
@@ -70,23 +71,19 @@ export function ComboboxSearch({
         onClick={onClick}
       />
 
-      <div className="flex min-w-[150px] flex-col items-stretch">
-        <ComboboxList
-          isOpen={isOpen}
-          getMenuProps={getMenuProps}
-          width={width}
-          position={position}
-        >
-          <div className="m-3 max-h-full w-full overflow-x-hidden overflow-y-scroll">
-            <ComboboxItems
-              filteredItems={filteredItems}
-              getItemProps={getItemProps}
-              highlightedIndex={highlightedIndex}
-              itemToString={itemToString}
-            />
-          </div>
-        </ComboboxList>
-      </div>
+      <ComboboxList
+        isOpen={isOpen}
+        getMenuProps={getMenuProps}
+        width={width}
+        position={position}
+      >
+        <ComboboxItems
+          filteredItems={filteredItems}
+          getItemProps={getItemProps}
+          highlightedIndex={highlightedIndex}
+          itemToString={itemToString}
+        />
+      </ComboboxList>
     </div>
   );
 }
@@ -101,10 +98,10 @@ function ComboboxItems({
   return filteredItems.reduce(
     (result, group, groupIndex) => {
       result.groups.push(
-        <div key={groupIndex}>
-          <p className="mx-5 mb-2 truncate border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+        <dl key={groupIndex}>
+          <dt className="mx-5 mb-2 truncate border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
             {group.group}
-          </p>
+          </dt>
           {group.items.map((item, itemIndex) => {
             const globalIndex = result.itemIndex++;
             return (
@@ -118,7 +115,7 @@ function ComboboxItems({
               />
             );
           })}
-        </div>
+        </dl>
       );
 
       return result;

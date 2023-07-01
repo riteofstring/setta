@@ -41,15 +41,13 @@ export function ComboboxList({
   const display = isOpen ? "flex" : "hidden";
 
   return (
-    <div className="relative">
-      <div
-        className={`nowheel nodrag ${display} ${position} z-20 mt-2 max-h-96 flex-1 items-stretch !overflow-visible rounded-3xl bg-white shadow-xl`}
-        {...getMenuProps()}
-        style={{ width }}
-      >
-        {children}
-      </div>
-    </div>
+    <dl
+      className={`nowheel nodrag relative flex w-full min-w-[150px] flex-col overflow-x-hidden overflow-y-scroll p-3 ${display} ${position} z-20 mt-2 max-h-96 flex-1 items-stretch !overflow-visible rounded-3xl bg-white shadow-xl`}
+      {...getMenuProps()}
+      style={{ width }}
+    >
+      {children}
+    </dl>
   );
 }
 
@@ -63,13 +61,13 @@ function _ComboboxItem({
 }) {
   const bg = isHighlighted ? "bg-slate-100" : "";
   return (
-    <p
+    <dd
       className={`mx-1 my-0.5 cursor-pointer truncate rounded-xl px-4 py-2 text-sm ${bg} ${itemStyle}`}
       {...getItemProps({ item, index })}
       data-testid={"ComboboxListItem"}
     >
       {itemString}
-    </p>
+    </dd>
   );
 }
 
