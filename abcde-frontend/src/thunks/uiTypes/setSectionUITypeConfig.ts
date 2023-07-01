@@ -20,7 +20,11 @@ export function setSectionUITypeConfig({
 }
 
 export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
-  const { name: defaultName, nonPresetUITypeIds } = getSectionInfo(sectionId);
+  const {
+    name: defaultName,
+    nonPresetUITypeIds,
+    uiSubType,
+  } = getSectionInfo(sectionId);
   const currUIType = getSectionType(sectionId);
 
   const setUITypeId = (uiTypeId) => setSectionUITypeId({ uiTypeId, sectionId });
@@ -29,6 +33,7 @@ export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
 
   return maybeCloneUIType({
     currUIType,
+    currUISubtype: uiSubType,
     settingPreset,
     createNonPreset,
     nonPresetUITypeIds,

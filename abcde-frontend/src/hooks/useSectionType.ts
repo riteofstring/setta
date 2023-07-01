@@ -13,6 +13,7 @@ import {
   SectionUITypeType,
 } from "abcde-utils/src/types/uiType";
 import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useGetSectionInfo } from "./useSectionInfo";
 
@@ -38,12 +39,7 @@ export function useGetSectionType<K extends keyof SectionUITypeType>(
 }
 
 export function useIsSeriesElement(sectionId: string) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) =>
-    isSeriesElement(
-      (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType
-    )
-  );
+  return useSectionInfos((x) => isSeriesElement(x.x[sectionId].uiSubType));
 }
 
 function useIsType(sectionId: string, type) {

@@ -23,7 +23,7 @@ export function setParamUITypeConfig({
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
   const defaultName = useCodeInfo.getState().allCodeInfo[paramInfoId].name;
-  const { nonPresetUITypeIds } = getSectionInfo(sectionId);
+  const { nonPresetUITypeIds, uiSubType } = getSectionInfo(sectionId);
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
   const setUITypeId = (uiTypeId) =>
@@ -38,6 +38,7 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
 
   return maybeCloneUIType({
     currUIType,
+    currUISubtype: uiSubType,
     settingPreset,
     createNonPreset,
     nonPresetUITypeIds,
