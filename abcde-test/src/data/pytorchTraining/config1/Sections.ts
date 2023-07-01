@@ -22,6 +22,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["371fdc0d-35db-47a2-8b61-05a06a29f5c3"],
+    uiSubType: null,
   },
   "6ef48cbf-dba5-4ba9-b98d-91d3a512a387": {
     id: "6ef48cbf-dba5-4ba9-b98d-91d3a512a387",
@@ -46,6 +47,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["e8cb2bee-45d2-476d-8cac-ca6f5adcc6bd"],
+    uiSubType: null,
   },
   "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284": {
     id: "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284",
@@ -70,6 +72,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["7a5a399d-7d57-4f6d-9cf3-8e7893c561ce"],
+    uiSubType: null,
   },
   "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42": {
     id: "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
@@ -94,6 +97,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["086f477d-87b7-4e5d-9999-e0c9bf601d1b"],
+    uiSubType: null,
   },
   "90a654d6-b1bd-4e29-9327-113f75b8f2fa": {
     id: "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
@@ -118,6 +122,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["e4e12b6a-1212-4faa-a049-dabfba99bcfb"],
+    uiSubType: null,
   },
   "b4026079-d0ca-4524-8ee4-4aae614cfec3": {
     id: "b4026079-d0ca-4524-8ee4-4aae614cfec3",
@@ -142,6 +147,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["e4b153f3-77db-4d47-a638-ca508af906ee"],
+    uiSubType: null,
   },
   "6621cd83-3be9-4f37-8b9e-6201a124ea28": {
     id: "6621cd83-3be9-4f37-8b9e-6201a124ea28",
@@ -166,6 +172,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["ff509491-22c9-43ab-9ae6-2d62c73df36a"],
+    uiSubType: null,
   },
   "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d": {
     id: "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
@@ -190,6 +197,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["9eb15d74-d986-498b-9692-8a236ace33d6"],
+    uiSubType: null,
   },
   "d182ccf0-07b2-4061-bf10-7e0dc25234da": {
     id: "d182ccf0-07b2-4061-bf10-7e0dc25234da",
@@ -220,6 +228,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e": {
     id: "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
@@ -244,6 +253,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["7d7b9546-3a8f-4846-a497-0ad09f34014b"],
+    uiSubType: null,
   },
   "6da834af-b00d-492e-aa31-51be3f93b61f": {
     id: "6da834af-b00d-492e-aa31-51be3f93b61f",
@@ -273,6 +283,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "a40d457b-1eab-4417-9767-0a65faa2b9e6": {
     id: "a40d457b-1eab-4417-9767-0a65faa2b9e6",
@@ -284,7 +295,7 @@ export default {
       height: 138,
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "f305da4f-7658-4838-b30a-7aea116a6ffb",
     kwargColId: "1c964808-bb6e-4061-9689-21f82105bacb",
     uiTypeColId: "842de424-b32a-40dc-a505-773010e3449d",
@@ -297,6 +308,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "1765a450-ca77-41ae-a482-16c18e03f895": {
     id: "1765a450-ca77-41ae-a482-16c18e03f895",
@@ -308,7 +320,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "d734a3be-8c05-4991-9342-4d905bd37003",
     kwargColId: "8265e002-4309-4c08-9f91-958a3c32121c",
     uiTypeColId: "88dbf41a-bda6-49e5-90f9-a254dc2e15d2",
@@ -321,6 +333,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "0fd7ce2c-962c-41f8-b512-05f989dc5dc8": {
     id: "0fd7ce2c-962c-41f8-b512-05f989dc5dc8",
@@ -332,7 +345,7 @@ export default {
       height: 227,
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "e4259792-19f8-4540-bcdd-63adda11d5b4",
     kwargColId: "e2c4df9c-6bf3-48b2-bbd1-035bbc3865b6",
     uiTypeColId: "3f767d89-db9c-411c-bd0d-41d54f5e74b0",
@@ -345,6 +358,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "64aeb27b-8a7a-4a0b-a761-26b606817d1e": {
     id: "64aeb27b-8a7a-4a0b-a761-26b606817d1e",
@@ -356,7 +370,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "be504ad2-b043-43d4-861e-e36d68a4f5ef",
     kwargColId: "4a9610c5-c20a-4e84-a70f-a20e6d1ef299",
     uiTypeColId: "8cd40f78-6799-45ef-971c-4f2b600fa251",
@@ -369,6 +383,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "6352b363-2800-427a-a98e-424b03750f94": {
     id: "6352b363-2800-427a-a98e-424b03750f94",
@@ -380,7 +395,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "4a47860d-05d7-40f6-a6fa-c169fab64b4e",
     kwargColId: "335738d9-f8d8-42d4-83a6-cc13c5b5308e",
     uiTypeColId: "d2e1fecf-3f81-4f12-a18b-4213d1a960c7",
@@ -393,6 +408,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "3dab4514-ad65-416e-aa3b-038314ef119f": {
     id: "3dab4514-ad65-416e-aa3b-038314ef119f",
@@ -404,7 +420,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "c22c4b1f-8f8b-4817-bed6-4feb0f4aee05",
     kwargColId: "2e48ee1d-f0de-432a-9679-444978b769fd",
     uiTypeColId: "63d93e60-16e0-463a-b424-1db8b3a8c1ab",
@@ -417,6 +433,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "2983b469-c363-4332-83f8-3d3991f2d8f9": {
     id: "2983b469-c363-4332-83f8-3d3991f2d8f9",
@@ -428,7 +445,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "7b80085e-972b-48e4-a272-0596c8899607",
     kwargColId: "33938217-3312-40d2-b745-8c3106c1d455",
     uiTypeColId: "619f3067-df45-4db5-ad6b-d5154b7e3937",
@@ -441,6 +458,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "486afb30-ed4b-43db-acbc-097f3d575f40": {
     id: "486afb30-ed4b-43db-acbc-097f3d575f40",
@@ -452,7 +470,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "931586be-c585-4e64-814c-40efcd10027a",
     kwargColId: "b57118d5-daac-493b-9225-46ac750ff008",
     uiTypeColId: "d9be5ad8-00bb-4d0d-a2f5-d0a45a0ad710",
@@ -465,6 +483,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "fe23c7d7-15ae-4137-836d-0b16defdbe51": {
     id: "fe23c7d7-15ae-4137-836d-0b16defdbe51",
@@ -476,7 +495,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
+    uiTypeId: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     evColId: "d286f4a7-7b3b-49e5-aa44-2ef85bda01b7",
     kwargColId: "1e4b94a8-fcf8-4664-aa75-047a694a35c9",
     uiTypeColId: "2af32d3e-0472-4691-9e0b-6d7813086cc6",
@@ -489,6 +508,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "8b584fd6-f495-4b1a-b9c0-b640f5931336": {
     id: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
@@ -517,6 +537,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "5d890f43-1ff0-4e47-950d-23c43e160e8c": {
     id: "5d890f43-1ff0-4e47-950d-23c43e160e8c",
@@ -545,6 +566,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "aa2078ab-8613-4498-951a-8c990f56be44": {
     id: "aa2078ab-8613-4498-951a-8c990f56be44",
@@ -573,6 +595,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9": {
     id: "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
@@ -598,6 +621,7 @@ export default {
     descriptionHeight: 620,
     descriptionVisible: false,
     nonPresetUITypeIds: ["2276d785-6f3e-43c3-9134-3890952f608e"],
+    uiSubType: null,
   },
   "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa": {
     id: "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa",
@@ -622,6 +646,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["b1af0031-d5df-434b-b12e-b5d69d99ba06"],
+    uiSubType: null,
   },
   "915d5594-d78e-4b96-ad91-6003462fa969": {
     id: "915d5594-d78e-4b96-ad91-6003462fa969",
@@ -646,6 +671,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["7241905d-c8b9-4f77-a360-cdd3b5e8e8d6"],
+    uiSubType: null,
   },
   "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61": {
     id: "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
@@ -676,6 +702,7 @@ export default {
       "d0a1935a-3964-4aed-be15-470a02cf8fb9",
       "1208c3e6-43a6-46fa-afc0-67c552e05298",
     ],
+    uiSubType: null,
   },
   "379a611c-6584-4db0-85bd-5c419bbd110d": {
     id: "379a611c-6584-4db0-85bd-5c419bbd110d",
@@ -687,7 +714,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "1208c3e6-43a6-46fa-afc0-67c552e05298",
+    uiTypeId: "d0a1935a-3964-4aed-be15-470a02cf8fb9",
     evColId: "eb9216bd-b646-4251-9921-4d0300304b1f",
     kwargColId: "a115b837-90ba-4f7c-b250-a3579f50bdfa",
     uiTypeColId: "4f253b41-a40d-44eb-a492-901dc39fd6b6",
@@ -700,6 +727,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "5c0517cb-28e2-4a69-b066-4872a0cd6f22": {
     id: "5c0517cb-28e2-4a69-b066-4872a0cd6f22",
@@ -711,7 +739,7 @@ export default {
       height: "auto",
     },
     chainedFrom: null,
-    uiTypeId: "1208c3e6-43a6-46fa-afc0-67c552e05298",
+    uiTypeId: "d0a1935a-3964-4aed-be15-470a02cf8fb9",
     evColId: "0fdaaa90-04f0-42fb-a8af-2ba15e048aef",
     kwargColId: "115c86b9-af5e-4adc-820d-32e2367576aa",
     uiTypeColId: "a781419c-a2a1-4723-b2d2-591ab3207b96",
@@ -724,6 +752,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: "LIST",
   },
   "73c7f2c5-1c05-49ee-9812-2fbd27a849c3": {
     id: "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
@@ -748,6 +777,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["1ca9a940-382c-456f-a8dd-7767799a4b26"],
+    uiSubType: null,
   },
   "8f6b5dd4-ba63-4259-af49-77ea52c4ea99": {
     id: "8f6b5dd4-ba63-4259-af49-77ea52c4ea99",
@@ -775,6 +805,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "7af597f1-f9e2-4988-8b73-70c147c4b769": {
     id: "7af597f1-f9e2-4988-8b73-70c147c4b769",
@@ -800,5 +831,6 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
 };

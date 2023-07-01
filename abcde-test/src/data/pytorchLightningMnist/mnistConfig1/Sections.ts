@@ -22,6 +22,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["81ee0a64-ca39-4676-a1c7-8f017ace888f"],
+    uiSubType: null,
   },
   "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3": {
     id: "5a8b80ce-b3f8-4be5-8cc7-caf2a697f4a3",
@@ -46,6 +47,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["d23fae1c-c113-4648-8f51-0e15ee78322a"],
+    uiSubType: null,
   },
   "716d7af5-ea92-4285-aaf5-adf988d051f7": {
     id: "716d7af5-ea92-4285-aaf5-adf988d051f7",
@@ -70,6 +72,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["655bf82b-24e1-4283-bab3-77dc86a5eda0"],
+    uiSubType: null,
   },
   "de2caec1-254d-486e-aa86-b00029a52683": {
     id: "de2caec1-254d-486e-aa86-b00029a52683",
@@ -94,6 +97,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["e51351bb-731b-40f1-a4d8-63b1ab1a3fa6"],
+    uiSubType: null,
   },
   "7f6aca35-b44c-489e-80f8-261c80f61405": {
     id: "7f6aca35-b44c-489e-80f8-261c80f61405",
@@ -118,6 +122,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["452ce274-77e7-40a9-b205-88ffb5a6f3a1"],
+    uiSubType: null,
   },
   "c49578eb-dd0a-43bd-ba4a-9bf687d04b14": {
     id: "c49578eb-dd0a-43bd-ba4a-9bf687d04b14",
@@ -142,6 +147,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "7b3c47ac-a773-4733-86f9-041ce9d5a3c8": {
     id: "7b3c47ac-a773-4733-86f9-041ce9d5a3c8",
@@ -166,6 +172,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: ["e44ede4f-9ff4-4208-8612-79226ee0f2fa"],
+    uiSubType: null,
   },
   "a90d6038-24c8-40c3-a9d7-fc10c8128f05": {
     id: "a90d6038-24c8-40c3-a9d7-fc10c8128f05",
@@ -193,6 +200,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
   "03dedf55-ebf8-4529-bc10-4333c7fa769f": {
     id: "03dedf55-ebf8-4529-bc10-4333c7fa769f",
@@ -220,5 +228,6 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
+    uiSubType: null,
   },
 };

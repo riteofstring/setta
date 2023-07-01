@@ -11,7 +11,11 @@ export default {
     type: "SLIDER",
     name: "",
     presetType: "BASE",
-    config: { min: null, max: null, step: null },
+    config: {
+      min: null,
+      max: null,
+      step: null,
+    },
   },
   "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
     id: "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
@@ -34,8 +38,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
@@ -45,8 +47,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "623a9242-53e9-4b42-b695-431e9754a836": {
@@ -56,8 +56,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "0e050316-06ca-48f4-92c1-9845abdf85f7": {
@@ -67,8 +65,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "06b511f3-dced-43be-97d7-1ceaddc763d5": {
@@ -78,8 +74,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "2b06a83b-b96a-490d-a2d7-3631619e6495": {
@@ -89,8 +83,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "76cd4b19-cc63-4e2c-8214-5a4246ca637c": {
@@ -100,8 +92,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "51470547-1f60-4933-952c-ac8745b30b22": {
@@ -111,8 +101,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
   "e172e84a-e95e-4145-ac40-4109f806600d": {
@@ -122,8 +110,6 @@ export default {
     presetType: "BASE",
     config: {
       collections: [],
-      subType: null,
-      childUITypeId: null,
     },
   },
 };
