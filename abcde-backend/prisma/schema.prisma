@@ -76,7 +76,6 @@ model Section {
   chainedFrom           Section?                @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
   chainedTo             Section[]               @relation("SectionChainedFrom")
   chainedFromId         String?                 @db.Uuid
-  zIndex                Int
   evCol                 EVColId?                @relation(fields: [evColId], references: [id])
   evColId               String?                 @db.Uuid
   kwargCol              KwargColId?             @relation(fields: [kwargColId], references: [id])
@@ -108,8 +107,6 @@ model SectionChildren {
   parent   Section @relation("SectionParent", fields: [parentId], references: [id])
   parentId String  @db.Uuid
   order    Int
-  x        Float   @default(0)
-  y        Float   @default(0)
 
   @@id([childId])
 }
@@ -234,6 +231,7 @@ model ProjectConfigChildren {
   childId  String        @db.Uuid
   x        Float         @default(0)
   y        Float         @default(0)
+  zIndex   Float         @default(0)
 
   @@id([parentId, childId]) // composite key
 }

@@ -11,12 +11,9 @@ import {
 } from 'src/utils/utils';
 import { getUITypesByWhere } from '../uiTypes/load';
 
-export async function getSections(projectConfig: {
-  id: string;
-  children: string[];
-}) {
+export async function getSections(ids) {
   const allIds = await getChildrenRecursively(
-    projectConfig.children,
+    ids,
     async (c) =>
       await prisma.$queryRaw`
           with recursive descendants as (
@@ -62,10 +59,6 @@ export async function getSections(projectConfig: {
           },
         },
       },
-      projectConfigs: {
-        where: { parentId: projectConfig.id },
-        select: { x: true, y: true },
-      },
       nonPresetUITypes: {
         select: { id: true },
       },
@@ -78,11 +71,9 @@ export async function getSections(projectConfig: {
     name: v.name,
     children: v.children.map((x) => x.childId),
     paramInfoId: v.paramInfoId,
-    initialPosition: getPosition(v.projectConfigs),
     size: { width: convertSize(v.width), height: convertSize(v.height) },
     chainedFrom: v.chainedFromId,
     parentId: v.asChild ? v.asChild.parentId : null,
-    zIndex: v.zIndex,
     evColId: v.evColId,
     uiTypeId: v.uiTypeId,
     kwargColId: v.kwargColId,
@@ -158,12 +149,4 @@ export async function getSections(projectConfig: {
 
 function convertSize(x) {
   return x === -1 ? 'auto' : x;
-}
-
-function getPosition(projectConfigs) {
-  if (projectConfigs.length === 0) {
-    return { x: 0, y: 0 };
-  } else {
-    return projectConfigs[0];
-  }
 }

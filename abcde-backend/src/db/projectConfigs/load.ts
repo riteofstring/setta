@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 
 export async function getProjectConfig(id) {
@@ -7,7 +8,7 @@ export async function getProjectConfig(id) {
       id: true,
       name: true,
       sections: {
-        select: { childId: true },
+        select: { childId: true, x: true, y: true, zIndex: true },
       },
     },
   });
@@ -15,7 +16,9 @@ export async function getProjectConfig(id) {
   const projectConfig = {
     id: p.id,
     name: p.name,
-    children: p.sections.map((x) => x.childId),
+    children: _.mapValues(_.keyBy(p.sections, 'childId'), (x) =>
+      _.omit(x, 'childId'),
+    ),
   };
 
   return projectConfig;
