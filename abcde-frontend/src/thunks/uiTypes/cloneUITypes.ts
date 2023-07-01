@@ -1,8 +1,7 @@
-import { isSeriesElement } from "abcde-utils/src/constants";
+import { isRoot, isSeriesElement, SECTION } from "abcde-utils/src/constants";
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { createNewId } from "abcde-utils/src/utils";
-import { isAmongNonPresetsAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 
@@ -46,10 +45,11 @@ function shouldCloneUIType(uiType, currUISubtype, settingPreset) {
 
 export function cloneNewUIType({
   uiType,
+  uiSubType,
   name = "",
   config,
   presetType = null,
-}: Partial<UITypeType> & { uiType: UITypeType }) {
+}: Partial<UITypeType> & { uiType: UITypeType; uiSubType: string }) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
   newUIType.name = name;
@@ -57,5 +57,19 @@ export function cloneNewUIType({
   if (!_.isNil(config)) {
     newUIType.config = config;
   }
+  if (isRoot(uiType.type) && isSeriesElement(uiSubType)) {
+    newUIType.type = SECTION;
+  }
   return newUIType;
+}
+
+export function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
+  return nonPresetUITypeIds.includes(v.id);
+}
+
+function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type, subType) {
+  if (isRoot(type) && isSeriesElement(subType)) {
+    return false;
+  }
+  return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
 }

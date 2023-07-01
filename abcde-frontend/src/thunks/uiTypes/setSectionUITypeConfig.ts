@@ -1,9 +1,17 @@
+import { isRoot, isSeriesElement } from "abcde-utils/src/constants";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionInfo, getSectionType } from "thunks/sections/sections";
+import {
+  getSectionInfo,
+  getSectionType,
+  setSectionInfoAttr,
+} from "thunks/sections/sections";
 import { cloneNewUIType, maybeCloneUIType } from "thunks/uiTypes/cloneUITypes";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { initializeParamsOfSectionsWithUITypes } from "../initializeParam";
-import { updateUITypeIdOfSectionsWithUITypeId } from "./setSectionUITypeId";
+import {
+  setSectionUITypeId,
+  updateUITypeIdOfSectionsWithUITypeId,
+} from "./setSectionUITypeId";
 
 export function setSectionCollections({
   sectionId,
@@ -14,6 +22,8 @@ export function setSectionCollections({
   incrementVersion,
 }) {
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
+
+  console.log("uiType", uiType);
 
   if (checked) {
     initializeParamsOfSectionsWithUITypes([uiType.id], [id]);
@@ -27,7 +37,7 @@ export function setSectionCollections({
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
+function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   const {
     name: defaultName,
     nonPresetUITypeIds,
@@ -36,7 +46,12 @@ export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   const currUIType = getSectionType(sectionId);
 
   const createNonPreset = () =>
-    createNonPresetForSection({ currUIType, defaultName });
+    createNonPresetForSection({
+      sectionId,
+      currUIType,
+      defaultName,
+      uiSubType,
+    });
 
   return maybeCloneUIType({
     currUIType,
@@ -47,15 +62,32 @@ export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   });
 }
 
-function createNonPresetForSection({ currUIType, defaultName }) {
+function createNonPresetForSection({
+  sectionId,
+  currUIType,
+  defaultName,
+  uiSubType,
+}) {
   const newUIType = cloneNewUIType({
     uiType: currUIType,
+    uiSubType,
     name: defaultName,
   });
   useUITypes.getState().setUIType({ uiType: newUIType });
-  updateUITypeIdOfSectionsWithUITypeId({
-    oldUITypeId: currUIType.id,
-    newUITypeId: newUIType.id,
-  });
+
+  if (isRoot(currUIType.type) && !isSeriesElement(uiSubType)) {
+    updateUITypeIdOfSectionsWithUITypeId({
+      oldUITypeId: currUIType.id,
+      newUITypeId: newUIType.id,
+    });
+  } else {
+    setSectionInfoAttr({
+      sectionId,
+      attr: "nonPresetUITypeIds",
+      newValueFn: (v) => [...v, newUIType.id],
+    });
+    setSectionUITypeId({ uiTypeId: newUIType.id, sectionId });
+  }
+
   return newUIType;
 }

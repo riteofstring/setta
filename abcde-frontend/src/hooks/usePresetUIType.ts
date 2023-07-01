@@ -1,8 +1,4 @@
-import {
-  isRoot,
-  isSeriesElement,
-  SECTION_TYPE_NAMES,
-} from "abcde-utils/src/constants";
+import { SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
 import {
   ManyUITypeType,
   PresetType,
@@ -16,6 +12,7 @@ import {
 } from "abcde-utils/src/uiTypeConstants";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
+import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";
 import { uiTypesToPretty } from "utils/constants";
 import { useGetParamChildNonPresetUITypeIds } from "./useEnteredValue";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
@@ -27,22 +24,6 @@ function createName(uiType) {
     return `${uiType.name} - (${x})`;
   }
   return x;
-}
-
-function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
-  return nonPresetUITypeIds.includes(v.id);
-}
-
-export function isAmongNonPresetsAndMatchesType(
-  v,
-  nonPresetUITypeIds,
-  type,
-  subType
-) {
-  if (isRoot(type) && isSeriesElement(subType)) {
-    return false;
-  }
-  return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
 }
 
 function isSectionType(v) {
