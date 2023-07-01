@@ -136,11 +136,7 @@ function setChildrenAndParent({
 }
 
 function maybeChangeSectionSubtype({ newParentId, sectionId }) {
-  const newParentUIType =
-    newParentId === PANEID ? null : getSectionType(newParentId);
-
-  const value = getUISubType(newParentUIType);
-
+  const value = getUISubType(newParentId !== PANEID ? newParentId : null);
   setSectionInfoAttr({ sectionId, attr: "uiSubType", value });
 }
 

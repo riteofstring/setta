@@ -15,7 +15,7 @@ import { getSectionType, getSectionTypeConfig } from "./sections";
 export function createChildForSeries({ parentId, numChildren }) {
   const { name } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
-  const uiSubType = getUISubType(parentUIType);
+  const uiSubType = getUISubType(parentId);
   const nonPresetUITypeIds = !parentUIType.presetType ? [parentUIType.id] : [];
 
   return createManySectionInfo({
