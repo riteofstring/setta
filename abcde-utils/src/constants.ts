@@ -57,17 +57,7 @@ export const rootTypeToChildSubType = {
 export function isSectionUIType(
   uiType: UITypeType
 ): uiType is SectionUITypeType {
-  return [
-    SECTION,
-    LIST_ROOT,
-    DICT_ROOT,
-    DECK,
-    OUTPUT,
-    INFO,
-    SOCIAL,
-    FN,
-    USER_SPECIFIED_OBJECT,
-  ].includes(uiType.type);
+  return SECTION_TYPE_NAMES.includes(uiType.type);
 }
 
 export const uiTypesToPretty = Object.freeze(
