@@ -33,8 +33,8 @@ export function SectionContainerCoreResizable({
     ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
-  const inputClasses = `outline outline-4 border border-white bg-slate-100 ${outlineColor} flex h-full flex-grow flex-col gap-2 py-4 rounded-xl ${
-    hasDescription && "pb-11"
+  const inputClasses = `outline outline-4 border border-white gap-2 bg-slate-100 ${outlineColor} pt-4 flex h-full flex-grow flex-col rounded-xl ${
+    hasDescription && "test"
   } ${isActiveSection ? "z-[150]" : "z-10"}`;
 
   return (
@@ -43,6 +43,7 @@ export function SectionContainerCoreResizable({
         sectionId={sectionId}
         setLocalWidth={setLocalWidth}
         inputClasses={inputClasses}
+        as="section"
       >
         <SectionHeader
           sectionId={sectionId}

@@ -74,7 +74,7 @@ function MotionDiv({ sectionId, height, children }) {
   return noDiv ? (
     children
   ) : (
-    <motion.div
+    <motion.section
       layout="position"
       className="flex overflow-hidden"
       variants={variants}
@@ -83,7 +83,7 @@ function MotionDiv({ sectionId, height, children }) {
       onAnimationComplete={onAnimationComplete}
     >
       {children}
-    </motion.div>
+    </motion.section>
   );
 }
 
