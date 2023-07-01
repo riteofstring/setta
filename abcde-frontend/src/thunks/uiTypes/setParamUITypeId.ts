@@ -1,8 +1,8 @@
+import { requiresNestedSection } from "abcde-utils/src/constants";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionInfo, setSectionInfoAttr } from "thunks/sections/sections";
-import { requiresNestedSection } from "utils/constants";
 import { initializeChild } from "../initializeParam";
 import { maybeIncrementProjectStateVersion } from "../undo";
 

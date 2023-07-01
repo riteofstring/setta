@@ -1,4 +1,4 @@
-import { SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
+import { SECTION_TYPE_NAMES, uiTypesToPretty } from "abcde-utils/src/constants";
 import {
   ManyUITypeType,
   PresetType,
@@ -13,7 +13,6 @@ import {
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";
-import { uiTypesToPretty } from "utils/constants";
 import { useGetParamChildNonPresetUITypeIds } from "./useEnteredValue";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
