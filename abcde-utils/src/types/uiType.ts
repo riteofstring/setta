@@ -21,7 +21,11 @@ export type EmptyUITypeConfigType = {};
 
 export type SliderUITypeConfigType = { min: number; max: number; step: number };
 
-export type SectionUITypeConfigType = { collections: string[] };
+export type SectionUITypeConfigType = {
+  collections: string[];
+  subType: string | null;
+  childUITypeId: string | null;
+};
 
 export enum PresetType {
   BASE = "BASE",

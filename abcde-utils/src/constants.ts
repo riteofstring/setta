@@ -5,6 +5,8 @@ export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
 export const REF = "REF";
 export const SECTION = "SECTION";
+export const LIST = "LIST";
+export const DICT = "DICT";
 export const DECK = "DECK";
 export const LIST_ROOT = "LIST_ROOT";
 export const DICT_ROOT = "DICT_ROOT";
@@ -41,6 +43,16 @@ export function isRoot(sectionTypeName) {
 export function isListRoot(sectionTypeName) {
   return sectionTypeName === LIST_ROOT;
 }
+
+export function isSeriesElement(sectionSubTypeName) {
+  return [LIST, DICT].includes(sectionSubTypeName);
+}
+
+export const rootTypeToChildSubType = {
+  [LIST_ROOT]: LIST,
+  [DICT_ROOT]: DICT,
+  [DECK]: null,
+};
 
 export function isSectionUIType(
   uiType: UITypeType
