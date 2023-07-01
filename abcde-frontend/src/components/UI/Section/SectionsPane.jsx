@@ -1,7 +1,7 @@
 import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
 import { useActiveSection } from "models/activeSection";
-import React from "react";
+import React, { useState } from "react";
 import ReactFlow, { Background, useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
 import colors from "tailwindcss/colors";
@@ -19,16 +19,12 @@ import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
-const reactFlowStyle = {
-  background: "#94a3b8",
-  height: "100%",
-  userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
-};
-
 function _SectionsPane({ initialNodes }) {
   const reactFlowRef = useSectionRefAndInit(PANEID);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const setActiveSection = useActiveSection((x) => x.setId);
+  const { onSelectionStart, onSelectionEnd, reactFlowStyle } =
+    useReactFlowStyle();
   useGroupSectionsOnKeyActivation();
 
   useDeepCompareEffect(() => {
@@ -79,6 +75,8 @@ function _SectionsPane({ initialNodes }) {
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
+      onSelectionStart={onSelectionStart}
+      onSelectionEnd={onSelectionEnd}
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}
@@ -102,3 +100,24 @@ function _SectionsPane({ initialNodes }) {
 }
 
 export const SectionsPane = React.memo(_SectionsPane);
+
+// To prevent text from being selected when user does shift-click selection
+function useReactFlowStyle() {
+  const [select, setSelect] = useState(false);
+
+  function onSelectionStart() {
+    setSelect(true);
+  }
+
+  function onSelectionEnd() {
+    setSelect(false);
+  }
+
+  const reactFlowStyle = {
+    background: "#94a3b8",
+    height: "100%",
+    userSelect: select ? "none" : "all",
+  };
+
+  return { onSelectionStart, onSelectionEnd, reactFlowStyle };
+}

@@ -1,6 +1,6 @@
 import {
-  toggleSectionDescription,
   useSectionHasDescription,
+  useToggleSectionDescription,
 } from "hooks/useSectionDescription";
 import {
   useIsInfo,
@@ -29,6 +29,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
+  const toggleDescVis = useToggleSectionDescription(sectionId);
 
   function onClick() {
     setActiveSection(sectionId);
@@ -59,7 +60,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         hasNested={hasNested}
         hasDescription={hasDescription}
         isActiveSection={isActiveSection}
-        toggleDescVis={() => toggleSectionDescription(sectionId)}
+        toggleDescVis={toggleDescVis}
       />
     </div>
   );

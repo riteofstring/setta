@@ -1,9 +1,11 @@
 import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
+import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { initializeChildParams } from "../initializeParam";
+import { initializeParam } from "../initializeParam";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -55,7 +57,10 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
     attr: "selectedItem",
     value: selectedItem,
   });
-  initializeChildParams(sectionId, [selectedItem]);
+  const params = findAllParameters(useCodeInfo.getState().allCodeInfo, [
+    selectedItem,
+  ]);
+  initializeParam(sectionId, params);
   maybeIncrementProjectStateVersion(changedByUser);
 }
 

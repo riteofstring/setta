@@ -6,9 +6,12 @@ import {
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
+import { initValue } from "./utils";
 
 const initialState: SectionInfoStateType = {
   x: {},
+  allChildren: {},
+  currChildren: {},
   version: 0,
 };
 
@@ -17,11 +20,13 @@ export const useSectionInfos = createProjectState(
     immer<SectionInfoZustandType>((set) => ({
       ...initialState,
 
-      resetAndSetAll: ({ sections }) => {
+      resetAndSetAll: ({ sections, sectionChildren }) => {
         set(
           (state) => ({
             ...state,
             x: sections,
+            allChildren: sectionChildren,
+            currChildren: {},
           }),
           true
         );
@@ -68,7 +73,16 @@ export const useSectionInfos = createProjectState(
 
       setAllChildren: ({ sectionId, newStateFn }) =>
         set((state) => {
-          state.x[sectionId].children = newStateFn(state.x[sectionId].children);
+          state.allChildren[sectionId] = newStateFn(
+            state.allChildren[sectionId]
+          );
+        }),
+
+      initManyAllChildren: ({ sectionIds }) =>
+        set((state) => {
+          sectionIds.forEach((id) => {
+            initValue(state.allChildren, id, []);
+          });
         }),
 
       setCurrChildrenNames: ({ currChildren, sectionType }) =>
@@ -80,20 +94,27 @@ export const useSectionInfos = createProjectState(
           }
         }),
 
+      initManyCurrChildren: ({ sectionIds }) =>
+        set((state) => {
+          sectionIds.forEach((id) => {
+            initValue(state.currChildren, id, []);
+          });
+        }),
+
       setCurrChildren: ({ sectionId, currChildren }) =>
         set((state) => {
-          state.x[sectionId].currChildren = currChildren;
+          state.currChildren[sectionId] = currChildren;
         }),
 
       removeSectionInfos: (payload) =>
         set((state) => {
           payload.forEach((y) => {
             delete state.x[y];
+            delete state.allChildren[y];
+            delete state.currChildren[y];
           });
-          for (const [k, v] of Object.entries(state.x)) {
-            state.x[k].children = v.children.filter(
-              (x) => !payload.includes(x)
-            );
+          for (const [k, v] of Object.entries(state.allChildren)) {
+            state.allChildren[k] = v.filter((x) => !payload.includes(x));
           }
         }),
     }))

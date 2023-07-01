@@ -1,23 +1,33 @@
-import { DECK, REF_UI_TYPE_ID } from "abcde-utils/src/constants";
-import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
+import {
+  DECK,
+  isRoot,
+  REF_UI_TYPE_ID,
+  rootTypeToChildSubType,
+} from "abcde-utils/src/constants";
+import {
+  SectionUITypeConfigType,
+  UITypeSetOneConfigPayloadType,
+} from "abcde-utils/src/types/uiType";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
-import { getUISubType } from "thunks/uiTypes/getUISubType";
-import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import { getParamChildId, setParamEnteredValue } from "../paramInfos";
+import {
+  getParamChildId,
+  setParamChildId,
+  setParamEnteredValue,
+} from "../paramInfos";
+import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
 import { getParamWithSameName } from "./sectionContents";
 import {
   getSectionInfo,
   getSectionName,
   getSectionType,
   setAllChildren,
-  setSectionInfoAttr,
   setSectionParamInfoId,
   setSectionParentId,
 } from "./sections";
@@ -42,12 +52,13 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
 
 function getIdsToDelete(sectionId) {
   const sectionInfosState = useSectionInfos.getState();
+  const allChildren = sectionInfosState.allChildren;
   const idsToDelete = [sectionId];
   let idx = 0;
   while (idx < idsToDelete.length) {
-    const idxChildren = sectionInfosState.x[idsToDelete[idx]].children;
-    if (idxChildren) {
-      idsToDelete.push(...idxChildren);
+    const currChildren = allChildren[idsToDelete[idx]];
+    if (currChildren) {
+      idsToDelete.push(...currChildren);
     }
     idx += 1;
   }
@@ -99,10 +110,11 @@ export function moveSection({
     newParentId,
     sectionId,
     newIndex,
-    position,
   });
 
   maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
+
+  maybeSetInitialPosition({ newParentId, sectionId, position });
 
   setSectionSize({ newParentId, sectionId });
 
@@ -114,7 +126,6 @@ function setChildrenAndParent({
   newParentId,
   sectionId,
   newIndex,
-  position,
 }) {
   const p = useProjectConfig.getState();
   // Remove child from old parent's list
@@ -126,7 +137,7 @@ function setChildrenAndParent({
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    p.addChildren({ [sectionId]: newSectionPosition(position) });
+    p.addChildren([sectionId]);
   } else {
     // Add child to new parent's list
     setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
@@ -139,9 +150,22 @@ function maybeChangeSectionSubtype({ newParentId, sectionId }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(newParentId);
 
-  const value = getUISubType(newParentUIType);
+  let configProps: Partial<
+    UITypeSetOneConfigPayloadType<SectionUITypeConfigType["subType"]>
+  >;
+  if (newParentUIType && isRoot(newParentUIType.type)) {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
+    };
+  } else {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => null,
+    };
+  }
 
-  setSectionInfoAttr({ sectionId, attr: "uiSubType", value });
+  setSectionUITypeConfig({ sectionId, configProps });
 }
 
 function setSectionSize({ newParentId, sectionId }) {
@@ -153,7 +177,7 @@ function setSectionSize({ newParentId, sectionId }) {
 
   // if new parent is a deck and the deck has children
   if (isDeck) {
-    const deckChildren = s.x[newParentId].currChildren;
+    const deckChildren = s.currChildren[newParentId];
     if (deckChildren.length > 0) {
       const width = s.x[deckChildren[0]].size.width;
       setAllChildrenWidths({ sectionId, width });
@@ -161,6 +185,16 @@ function setSectionSize({ newParentId, sectionId }) {
   } else {
     const width = s.x[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
+  }
+}
+
+function maybeSetInitialPosition({ newParentId, sectionId, position }) {
+  if (newParentId === PANEID && position) {
+    useSectionInfos.getState().setSectionInfoAttr({
+      sectionId,
+      attr: "initialPosition",
+      value: position,
+    });
   }
 }
 
@@ -207,7 +241,13 @@ function linkParamToSection({ parentId, paramInfoId, sectionId }) {
   if (oldChildId) {
     deleteSections({ sectionIds: [oldChildId] });
   }
+
   setSectionParamInfoId(sectionId, paramInfoId);
+  setParamChildId({
+    sectionId: parentId,
+    paramInfoId,
+    childId: sectionId,
+  });
   setParamUITypeId({
     uiTypeId,
     sectionId: parentId,
@@ -221,6 +261,11 @@ function unlinkParamFromSection({ parentId, sectionId }) {
     return;
   }
   setSectionParamInfoId(sectionId, null);
+  setParamChildId({
+    sectionId: parentId,
+    paramInfoId,
+    childId: null,
+  });
   setParamUITypeId({
     uiTypeId: REF_UI_TYPE_ID,
     sectionId: parentId,
