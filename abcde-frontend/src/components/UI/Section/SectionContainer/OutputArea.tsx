@@ -17,7 +17,7 @@ function OneChart({ series, title }) {
     values: s.values.map((y, i) => ({ x: i, y })),
   }));
   return (
-    <div className="h-full">
+    <figure className="h-full">
       <ParentSize
         className="-my-5 flex flex-1 flex-col px-8 pt-6"
         debounceTime={0}
@@ -30,7 +30,7 @@ function OneChart({ series, title }) {
           />
         )}
       </ParentSize>
-    </div>
+    </figure>
   );
 }
 
