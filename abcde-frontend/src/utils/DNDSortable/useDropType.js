@@ -133,7 +133,7 @@ function getBehaviorDropType({ newParentId }) {
     return BehaviorDropType.INVALID;
   }
 
-  if (getSectionIsSeriesRoot(newParentId)) {
+  if (getSectionIsSeriesRoot(newParentId) || getSectionIsDeck(newParentId)) {
     // dropping withint same list
     if (getSectionParentId(activeId) === newParentId) {
       return BehaviorDropType.DROP_HERE;
