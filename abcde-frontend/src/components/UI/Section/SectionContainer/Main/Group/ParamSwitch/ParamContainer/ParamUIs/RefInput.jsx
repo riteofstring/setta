@@ -1,4 +1,5 @@
 import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
+import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useStoreApi } from "reactflow";
@@ -61,17 +62,16 @@ function addAttrSection({
 
   const sectionProps = {
     name: `${refSectionName}.Fn()`,
-    initialPosition: {
-      x: sectionPosition.x + sectionWidth,
-      y: sectionPosition.y,
-    },
     chainedFrom: refSectionId,
     uiTypeId: FN_UI_TYPE_ID,
   };
 
   const [newId] = createDefaultSectionInfo({
     sectionProps,
-    isTopLevel: true,
+    topLevelPosition: newSectionPosition({
+      x: sectionPosition.x + sectionWidth,
+      y: sectionPosition.y,
+    }),
   });
 
   const { selectedItem } = getSectionInfo(refSectionId);

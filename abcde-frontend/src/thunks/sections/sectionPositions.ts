@@ -1,41 +1,43 @@
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 
 export function setPositionState(nodes, incrementVersion) {
   const newValues = {};
-  const si = useSectionInfos.getState();
+  const pc = useProjectConfig.getState();
   for (const n of nodes) {
-    if (!_.isEqual(si.x[n.id].initialPosition, n.position)) {
-      newValues[n.id] = { initialPosition: n.position };
+    const position = pc.children[n.id];
+    if (position.x !== n.position.x || position.y !== n.position.y) {
+      newValues[n.id] = n.position;
     }
   }
 
   const positionsChanged = _.size(newValues) > 0;
   if (positionsChanged) {
-    si.setSectionInfoAttrObjInput({ newValues });
+    pc.updatePositions(newValues);
     maybeIncrementProjectStateVersion(incrementVersion);
   }
   return positionsChanged;
 }
 
 export function setZIndices(nodes, incrementVersion) {
-  const topLevelIds = new Set(useProjectConfig.getState().children);
-  nodes.forEach((n) => topLevelIds.delete(n.id));
-  const si = useSectionInfos.getState();
-  const topLevelInfos = Object.values(_.pick(si.x, [...topLevelIds]));
-  topLevelInfos.sort((a, b) => a.zIndex - b.zIndex); //sort in increasing order of zindex
+  const topLevelPositions = useProjectConfig.getState().children;
+  nodes.forEach((n) => delete topLevelPositions[n.id]);
+  const posWithIds = _.map(topLevelPositions, (v, k) => ({
+    id: k,
+    ...v,
+  }));
+  posWithIds.sort((a, b) => a.zIndex - b.zIndex); //sort in increasing order of zindex
 
   const newValues = {};
-  for (let i = 0; i < topLevelInfos.length; i++) {
-    newValues[topLevelInfos[i].id] = { zIndex: i };
+  for (let i = 0; i < posWithIds.length; i++) {
+    newValues[posWithIds[i].id] = { zIndex: i };
   }
   for (let i = 0; i < nodes.length; i++) {
-    newValues[nodes[i].id] = { zIndex: i + topLevelInfos.length };
+    newValues[nodes[i].id] = { zIndex: i + posWithIds.length };
   }
 
-  si.setSectionInfoAttrObjInput({ newValues });
+  useProjectConfig.getState().updatePositions(newValues);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

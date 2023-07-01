@@ -2,6 +2,7 @@ import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { ManySectionType } from "abcde-utils/src/types/section";
+import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import _ from "lodash";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
@@ -25,7 +26,7 @@ export function createChildForSeries({ parentId, numChildren }) {
 export function createManySectionInfo({
   sectionProps,
   numChildren = 1,
-  isTopLevel = false,
+  topLevelPosition = null,
 }) {
   const newInfos = {};
   sectionProps["size"] = { width: "auto", height: "auto" };
@@ -33,7 +34,7 @@ export function createManySectionInfo({
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos, isTopLevel);
+  addSectionsToState(newInfos, topLevelPosition);
   return Object.keys(newInfos);
 }
 
@@ -50,7 +51,7 @@ export function createDefaultSectionInfo({ sectionProps, ...props }) {
 
 export function addSectionsToState(
   sectionInfos: ManySectionType,
-  isTopLevel: boolean
+  topLevelPosition: SectionPositionType | null
 ) {
   const siState = useSectionInfos.getState();
   siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
@@ -74,7 +75,9 @@ export function addSectionsToState(
     collectionIds: _.map(sectionInfos, (x) => x.kwargColId),
   });
 
-  if (isTopLevel) {
-    useProjectConfig.getState().addChildren(sectionIds);
+  if (topLevelPosition) {
+    useProjectConfig
+      .getState()
+      .addChildren(_.mapValues(sectionInfos, () => topLevelPosition));
   }
 }

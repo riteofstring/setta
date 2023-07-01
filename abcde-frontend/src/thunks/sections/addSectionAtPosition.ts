@@ -8,18 +8,16 @@ type callbackBeforeExitType = (newId: string) => void;
 
 export function addSectionAtPosition({
   isDeck,
-  initialPosition,
+  topLevelPosition,
   callbackBeforeExit = () => undefined,
   incrementVersion = false,
 }: {
   isDeck: boolean;
-  initialPosition: SectionPositionType;
+  topLevelPosition: SectionPositionType;
   callbackBeforeExit?: callbackBeforeExitType;
   incrementVersion?: boolean;
 }) {
-  const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {
-    initialPosition,
-  };
+  const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {};
   if (isDeck) {
     sectionProps.name = "Group";
     sectionProps.uiTypeId = DECK_UI_TYPE_ID;
@@ -27,6 +25,7 @@ export function addSectionAtPosition({
   const [newId] = createDefaultSectionInfo({
     sectionProps,
     isTopLevel: true,
+    topLevelPosition,
   });
   callbackBeforeExit(newId);
   maybeIncrementProjectStateVersion(incrementVersion);

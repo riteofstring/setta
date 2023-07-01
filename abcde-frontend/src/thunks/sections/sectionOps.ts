@@ -4,6 +4,7 @@ import {
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
 } from "abcde-utils/src/constants";
+import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
@@ -106,11 +107,10 @@ export function moveSection({
     newParentId,
     sectionId,
     newIndex,
+    position,
   });
 
   maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
-
-  maybeSetInitialPosition({ newParentId, sectionId, position });
 
   setSectionSize({ newParentId, sectionId });
 
@@ -122,6 +122,7 @@ function setChildrenAndParent({
   newParentId,
   sectionId,
   newIndex,
+  position,
 }) {
   const p = useProjectConfig.getState();
   // Remove child from old parent's list
@@ -133,7 +134,7 @@ function setChildrenAndParent({
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    p.addChildren([sectionId]);
+    p.addChildren({ [sectionId]: newSectionPosition(position) });
   } else {
     // Add child to new parent's list
     setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
@@ -181,16 +182,6 @@ function setSectionSize({ newParentId, sectionId }) {
   } else {
     const width = s.x[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
-  }
-}
-
-function maybeSetInitialPosition({ newParentId, sectionId, position }) {
-  if (newParentId === PANEID && position) {
-    useSectionInfos.getState().setSectionInfoAttr({
-      sectionId,
-      attr: "initialPosition",
-      value: position,
-    });
   }
 }
 

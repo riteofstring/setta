@@ -9,7 +9,7 @@ import { createProjectState } from "../utils";
 const initialState: ProjectConfigFrontendType = {
   id: "",
   name: "",
-  children: [],
+  children: {},
   version: 0,
 };
 
@@ -20,11 +20,20 @@ export const useProjectConfig = createProjectState(
       set((state) => ({ ...state, ...payload }), true);
     },
     addChildren: (payload) =>
-      set((state) => ({ children: _.uniq([...state.children, ...payload]) })),
+      set((state) => {
+        state.children = { ...state.children, ...payload };
+      }),
     deleteChildren: (payload) =>
-      set((state) => ({
-        children: state.children.filter((x) => !payload.includes(x)),
-      })),
+      set((state) => {
+        state.children = _.omit(state.children, payload);
+      }),
+    updatePositions: (payload) =>
+      set((state) => {
+        _.forEach(
+          payload,
+          (v, k) => (state.children[k] = { ...state.children[k], ...v })
+        );
+      }),
     setName: (name) => set({ name }), //TODO, need to update db
     getAll: () => _.pick(get(), ["id", "name", "children"]),
   }))
