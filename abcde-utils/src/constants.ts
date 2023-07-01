@@ -44,16 +44,6 @@ export function isListRoot(sectionTypeName) {
   return sectionTypeName === LIST_ROOT;
 }
 
-export function isSeriesElement(sectionSubTypeName) {
-  return [LIST, DICT].includes(sectionSubTypeName);
-}
-
-export const rootTypeToChildSubType = {
-  [LIST_ROOT]: LIST,
-  [DICT_ROOT]: DICT,
-  [DECK]: null,
-};
-
 export function isSectionUIType(
   uiType: UITypeType
 ): uiType is SectionUITypeType {
