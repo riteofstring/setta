@@ -1,24 +1,28 @@
 import { SectionUITypeType, UITypeType } from "./types/uiType";
 
+//uitypes
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
 export const REF = "REF";
+//section uitypes
 export const SECTION = "SECTION";
 export const LIST = "LIST";
 export const DICT = "DICT";
 export const DECK = "DECK";
-export const LIST_ROOT = "LIST_ROOT";
-export const DICT_ROOT = "DICT_ROOT";
 export const OUTPUT = "OUTPUT";
 export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
 export const FN = "FN";
 export const USER_SPECIFIED_OBJECT = "USER_SPECIFIED_OBJECT";
+
+//section uiSubTypes
+export const SERIES_ELEMENT = "SERIES_ELEMENT";
+
 export const SECTION_TYPE_NAMES = [
   SECTION,
-  LIST_ROOT,
-  DICT_ROOT,
+  LIST,
+  DICT,
   OUTPUT,
   INFO,
   SOCIAL,
@@ -36,21 +40,25 @@ export const FN_UI_TYPE_ID = "51470547-1f60-4933-952c-ac8745b30b22";
 export const USER_SPECIFIED_OBJECT_UI_TYPE_ID =
   "e172e84a-e95e-4145-ac40-4109f806600d";
 
-export function isRoot(sectionTypeName) {
-  return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
+export function isSeriesElement(uiSubType) {
+  return uiSubType === SERIES_ELEMENT;
 }
 
-export function isListRoot(sectionTypeName) {
-  return sectionTypeName === LIST_ROOT;
+export function isSeriesRoot(uiTypeName, uiSubType) {
+  return [LIST, DICT].includes(uiTypeName) && !isSeriesElement(uiSubType);
 }
 
-export function isSeriesElement(sectionSubTypeName) {
-  return [LIST, DICT].includes(sectionSubTypeName);
+export function isListRoot(uiTypeName, uiSubType) {
+  return uiTypeName === LIST && !isSeriesElement(uiSubType);
+}
+
+export function noParamsPossible(uiTypeName, uiSubType) {
+  return isSeriesRoot(uiTypeName, uiSubType) || uiTypeName === DECK;
 }
 
 export const rootTypeToChildSubType = {
-  [LIST_ROOT]: LIST,
-  [DICT_ROOT]: DICT,
+  [LIST]: SERIES_ELEMENT,
+  [DICT]: SERIES_ELEMENT,
   [DECK]: null,
 };
 
@@ -67,8 +75,8 @@ export const uiTypesToPretty = Object.freeze(
       [SLIDER]: "Slider",
       [SWITCH]: "Switch",
       [SECTION]: "Object",
-      [LIST_ROOT]: "List of Objects",
-      [DICT_ROOT]: "Dict of Objects",
+      [LIST]: "List of Objects",
+      [DICT]: "Dict of Objects",
       [OUTPUT]: "Program Output",
       [REF]: "Reference to Object",
       [INFO]: "Info",
