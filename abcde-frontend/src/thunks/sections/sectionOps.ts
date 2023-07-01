@@ -1,14 +1,10 @@
-import {
-  DECK,
-  isRoot,
-  REF_UI_TYPE_ID,
-  rootTypeToChildSubType,
-} from "abcde-utils/src/constants";
+import { DECK, REF_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
+import { getUISubType } from "thunks/uiTypes/getUISubType";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
@@ -143,10 +139,7 @@ function maybeChangeSectionSubtype({ newParentId, sectionId }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(newParentId);
 
-  const value =
-    newParentUIType && isRoot(newParentUIType.type)
-      ? rootTypeToChildSubType[newParentUIType.type]
-      : null;
+  const value = getUISubType(newParentUIType);
 
   setSectionInfoAttr({ sectionId, attr: "uiSubType", value });
 }
