@@ -1,29 +1,24 @@
 import { SectionUITypeType, UITypeType } from "./types/uiType";
 
-//uitypes
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
 export const REF = "REF";
-//section uitypes
 export const SECTION = "SECTION";
 export const LIST = "LIST";
 export const DICT = "DICT";
 export const DECK = "DECK";
+export const LIST_ROOT = "LIST_ROOT";
+export const DICT_ROOT = "DICT_ROOT";
 export const OUTPUT = "OUTPUT";
 export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
 export const FN = "FN";
 export const USER_SPECIFIED_OBJECT = "USER_SPECIFIED_OBJECT";
-
-//section uiSubTypes
-export const DEPENDENT_SERIES_ELEMENT = "DEPENDENT_SERIES_ELEMENT";
-export const INDEPENDENT_SERIES_ELEMENT = "INDEPENDENT_SERIES_ELEMENT";
-
 export const SECTION_TYPE_NAMES = [
   SECTION,
-  LIST,
-  DICT,
+  LIST_ROOT,
+  DICT_ROOT,
   OUTPUT,
   INFO,
   SOCIAL,
@@ -41,67 +36,36 @@ export const FN_UI_TYPE_ID = "51470547-1f60-4933-952c-ac8745b30b22";
 export const USER_SPECIFIED_OBJECT_UI_TYPE_ID =
   "e172e84a-e95e-4145-ac40-4109f806600d";
 
-export function isDependentSeriesElement(uiSubType) {
-  return uiSubType === DEPENDENT_SERIES_ELEMENT;
+export function isRoot(sectionTypeName) {
+  return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
 }
 
-export function isIndependentSeriesElement(uiSubType) {
-  return uiSubType === INDEPENDENT_SERIES_ELEMENT;
+export function isListRoot(sectionTypeName) {
+  return sectionTypeName === LIST_ROOT;
 }
 
-export function isSeriesElement(uiSubType) {
-  return (
-    isDependentSeriesElement(uiSubType) || isIndependentSeriesElement(uiSubType)
-  );
-}
-
-export function isSeriesRoot(uiTypeName, uiSubType) {
-  return [LIST, DICT].includes(uiTypeName) && !isSeriesElement(uiSubType);
-}
-
-export function isListRoot(uiTypeName, uiSubType) {
-  return uiTypeName === LIST && !isSeriesElement(uiSubType);
-}
-
-export function noParamsPossible(uiTypeName, uiSubType) {
-  return isSeriesRoot(uiTypeName, uiSubType) || uiTypeName === DECK;
+export function isSeriesElement(sectionSubTypeName) {
+  return [LIST, DICT].includes(sectionSubTypeName);
 }
 
 export const rootTypeToChildSubType = {
-  [LIST]: DEPENDENT_SERIES_ELEMENT,
-  [DICT]: DEPENDENT_SERIES_ELEMENT,
+  [LIST_ROOT]: LIST,
+  [DICT_ROOT]: DICT,
   [DECK]: null,
 };
 
 export function isSectionUIType(
   uiType: UITypeType
 ): uiType is SectionUITypeType {
-  return SECTION_TYPE_NAMES.includes(uiType.type);
-}
-
-export const uiTypesToPretty = Object.freeze(
-  new Map(
-    Object.entries({
-      [TEXT]: "Text",
-      [SLIDER]: "Slider",
-      [SWITCH]: "Switch",
-      [SECTION]: "Object",
-      [LIST]: "List of Objects",
-      [DICT]: "Dict of Objects",
-      [OUTPUT]: "Program Output",
-      [REF]: "Reference to Object",
-      [INFO]: "Info",
-      [SOCIAL]: "Social",
-      [FN]: "Function",
-      [USER_SPECIFIED_OBJECT]: "User Specified Object",
-    })
-  )
-);
-
-export function requiresNestedSection(uiTypeType) {
-  return SECTION_TYPE_NAMES.includes(uiTypeType);
-}
-
-export function requiresKeyInput(sectionSubTypeName) {
-  return [null, DICT].includes(sectionSubTypeName);
+  return [
+    SECTION,
+    LIST_ROOT,
+    DICT_ROOT,
+    DECK,
+    OUTPUT,
+    INFO,
+    SOCIAL,
+    FN,
+    USER_SPECIFIED_OBJECT,
+  ].includes(uiType.type);
 }

@@ -11,7 +11,6 @@ export type SectionType = {
   size: SizeType;
   chainedFrom: string | null;
   uiTypeId: string;
-  uiSubType: string | null;
   evColId: string;
   kwargColId: string;
   uiTypeColId: string;
@@ -62,7 +61,6 @@ export type SectionInfoActionType = {
   }) => void;
 
   setCurrChildrenNames: (payload: {
-    sectionId: string;
     currChildren: string[];
     sectionType: any;
   }) => void;
