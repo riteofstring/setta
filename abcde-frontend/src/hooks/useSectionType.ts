@@ -2,8 +2,9 @@ import {
   DECK,
   FN,
   INFO,
-  isRoot,
   isSeriesElement,
+  isSeriesRoot,
+  noParamsPossible,
   OUTPUT,
   SOCIAL,
   USER_SPECIFIED_OBJECT,
@@ -47,11 +48,20 @@ function useIsType(sectionId: string, type) {
   return useUITypes((x) => x.x[uiTypeId].type === type);
 }
 
-export function useIsRoot(sectionId: string) {
+export function useUITypeIdAndSubType(sectionId: string) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const uiTypeIsRoot = useUITypes((x) => isRoot(x.x[uiTypeId].type));
-  const uiSubTypeIsSeries = useIsSeriesElement(sectionId);
-  return uiTypeIsRoot && !uiSubTypeIsSeries;
+  const uiSubType = useGetSectionInfo(sectionId, "uiSubType");
+  return { uiTypeId, uiSubType };
+}
+
+export function useIsSeriesRoot(sectionId: string) {
+  const { uiTypeId, uiSubType } = useUITypeIdAndSubType(sectionId);
+  return useUITypes((x) => isSeriesRoot(x.x[uiTypeId].type, uiSubType));
+}
+
+export function useNoParamsPossible(sectionId: string) {
+  const { uiTypeId, uiSubType } = useUITypeIdAndSubType(sectionId);
+  return useUITypes((x) => noParamsPossible(x.x[uiTypeId].type, uiSubType));
 }
 
 export function useIsDeck(sectionId: string) {

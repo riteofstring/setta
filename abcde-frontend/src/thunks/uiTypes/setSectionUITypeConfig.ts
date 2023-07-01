@@ -1,4 +1,4 @@
-import { isRoot, isSeriesElement } from "abcde-utils/src/constants";
+import { isSeriesRoot } from "abcde-utils/src/constants";
 import { useUITypes } from "models/info/uiTypes";
 import {
   getSectionInfo,
@@ -70,12 +70,11 @@ function createNonPresetForSection({
 }) {
   const newUIType = cloneNewUIType({
     uiType: currUIType,
-    uiSubType,
     name: defaultName,
   });
   useUITypes.getState().setUIType({ uiType: newUIType });
 
-  if (isRoot(currUIType.type) && !isSeriesElement(uiSubType)) {
+  if (isSeriesRoot(currUIType.type, uiSubType)) {
     updateUITypeIdOfSectionsWithUITypeId({
       oldUITypeId: currUIType.id,
       newUITypeId: newUIType.id,

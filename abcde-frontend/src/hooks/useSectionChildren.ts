@@ -1,5 +1,5 @@
 import { requiresNestedSection } from "abcde-utils/src/constants";
-import { useIsRoot } from "hooks/useSectionType";
+import { useNoParamsPossible } from "hooks/useSectionType";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -24,7 +24,7 @@ export function useGetCurrChildren(sectionId: string) {
     sectionId,
     allParamInfoIds
   );
-  const currChildren = useIsRoot(sectionId)
+  const currChildren = useNoParamsPossible(sectionId)
     ? // keep sections that aren't associated with any parameter
       allChildrenIds.filter((x, idx) => !allParamInfoIds[idx])
     : // keep sections that are associated with current parameters

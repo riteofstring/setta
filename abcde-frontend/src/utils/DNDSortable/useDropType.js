@@ -8,7 +8,7 @@ import {
   getSectionCanHaveNested,
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
-  getSectionIsRoot,
+  getSectionIsSeriesRoot,
   getSectionParentId,
 } from "thunks/sections/sections";
 import {
@@ -133,7 +133,7 @@ function getBehaviorDropType({ newParentId }) {
     return BehaviorDropType.INVALID;
   }
 
-  if (getSectionIsRoot(newParentId)) {
+  if (getSectionIsSeriesRoot(newParentId)) {
     // dropping withint same list
     if (getSectionParentId(activeId) === newParentId) {
       return BehaviorDropType.DROP_HERE;

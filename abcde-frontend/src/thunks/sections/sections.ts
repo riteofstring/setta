@@ -1,4 +1,10 @@
-import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
+import {
+  DECK,
+  INFO,
+  isSeriesRoot,
+  OUTPUT,
+  SOCIAL,
+} from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -22,8 +28,11 @@ export function getSectionType(sectionId) {
   return useUITypes.getState().x[sectionTypeId];
 }
 
-export function getSectionIsRoot(sectionId) {
-  return isRoot(getSectionType(sectionId).type);
+export function getSectionIsSeriesRoot(sectionId) {
+  return isSeriesRoot(
+    getSectionType(sectionId).type,
+    getSectionInfo(sectionId).uiSubType
+  );
 }
 
 export function getSectionTypeConfig(sectionId) {

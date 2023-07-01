@@ -1,6 +1,6 @@
 import {
-  DICT_ROOT,
-  LIST_ROOT,
+  DICT,
+  LIST,
   REF,
   SECTION,
   SLIDER,
@@ -22,8 +22,8 @@ export function ParamUIConfig({ name, ...props }) {
     case REF:
       return <RefInputConfig {...props} />;
     case SECTION:
-    case LIST_ROOT:
-    case DICT_ROOT:
+    case LIST:
+    case DICT:
       return null;
   }
 }

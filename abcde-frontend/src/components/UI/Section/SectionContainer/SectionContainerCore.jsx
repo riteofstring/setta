@@ -5,8 +5,8 @@ import {
 import {
   useIsInfo,
   useIsOutput,
-  useIsRoot,
   useIsSeriesElement,
+  useIsSeriesRoot,
   useIsSocial,
   useIsUserSpecifiedObject,
 } from "hooks/useSectionType";
@@ -20,7 +20,7 @@ import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
-  const isRoot = useIsRoot(sectionId);
+  const isRoot = useIsSeriesRoot(sectionId);
   const isOutput = useIsOutput(sectionId);
   const isSocial = useIsSocial(sectionId);
   const isInfo = useIsInfo(sectionId);
