@@ -13,14 +13,14 @@ import { getUISubType } from "thunks/uiTypes/getUISubType";
 import { getSectionType, getSectionTypeConfig } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
-  const { name: parentName } = useSectionInfos.getState().x[parentId];
+  const { name } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
   const uiSubType = getUISubType(parentUIType);
 
   return createManySectionInfo({
     sectionProps: {
       parentId,
-      parentName,
+      name,
       uiTypeId: parentUIType.id,
       uiSubType,
     },
