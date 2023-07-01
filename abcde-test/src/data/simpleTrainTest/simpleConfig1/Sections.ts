@@ -272,7 +272,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "SERIES_ELEMENT",
+    uiSubType: "DEPENDENT_SERIES_ELEMENT",
   },
   "7394ac29-c8c0-433c-8bee-fa97c617b05d": {
     id: "7394ac29-c8c0-433c-8bee-fa97c617b05d",
