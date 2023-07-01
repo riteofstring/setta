@@ -20,6 +20,8 @@ export default {
     presetType: "USER",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
+      subType: null,
+      childUITypeId: "eb52c8be-fe8b-4439-b74c-e755135c8415",
     },
   },
   "eb52c8be-fe8b-4439-b74c-e755135c8415": {
@@ -28,6 +30,8 @@ export default {
     name: "torchvision transforms",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
+      childUITypeId: null,
+      subType: "LIST",
     },
     presetType: "USER",
   },
@@ -38,6 +42,8 @@ export default {
     presetType: "USER",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
+      subType: null,
+      childUITypeId: null,
     },
   },
 };
