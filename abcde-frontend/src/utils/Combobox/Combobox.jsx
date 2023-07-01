@@ -1,5 +1,6 @@
 import React from "react";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
+import ScrollingArea from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
 
@@ -40,14 +41,15 @@ export function ComboboxList({
 }) {
   const display = isOpen ? "flex" : "hidden";
 
+  // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
-    <dl
-      className={`nowheel nodrag relative flex w-full min-w-[150px] flex-col overflow-x-hidden overflow-y-scroll p-3 ${display} ${position} z-20 mt-2 max-h-96 flex-1 items-stretch !overflow-visible rounded-3xl bg-white shadow-xl`}
+    <div
+      className={`nowheel nodrag relative w-full min-w-[150px]   p-3 ${display} ${position} z-20 mt-2 max-h-96  rounded-3xl bg-white shadow-xl`}
       {...getMenuProps()}
       style={{ width }}
     >
-      {children}
-    </dl>
+      <ScrollingArea>{children}</ScrollingArea>
+    </div>
   );
 }
 
