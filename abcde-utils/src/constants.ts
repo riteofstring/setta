@@ -17,7 +17,8 @@ export const FN = "FN";
 export const USER_SPECIFIED_OBJECT = "USER_SPECIFIED_OBJECT";
 
 //section uiSubTypes
-export const SERIES_ELEMENT = "SERIES_ELEMENT";
+export const DEPENDENT_SERIES_ELEMENT = "DEPENDENT_SERIES_ELEMENT";
+export const INDEPENDENT_SERIES_ELEMENT = "INDEPENDENT_SERIES_ELEMENT";
 
 export const SECTION_TYPE_NAMES = [
   SECTION,
@@ -40,8 +41,18 @@ export const FN_UI_TYPE_ID = "51470547-1f60-4933-952c-ac8745b30b22";
 export const USER_SPECIFIED_OBJECT_UI_TYPE_ID =
   "e172e84a-e95e-4145-ac40-4109f806600d";
 
+export function isDependentSeriesElement(uiSubType) {
+  return uiSubType === DEPENDENT_SERIES_ELEMENT;
+}
+
+export function isIndependentSeriesElement(uiSubType) {
+  return uiSubType === INDEPENDENT_SERIES_ELEMENT;
+}
+
 export function isSeriesElement(uiSubType) {
-  return uiSubType === SERIES_ELEMENT;
+  return (
+    isDependentSeriesElement(uiSubType) || isIndependentSeriesElement(uiSubType)
+  );
 }
 
 export function isSeriesRoot(uiTypeName, uiSubType) {
@@ -57,8 +68,8 @@ export function noParamsPossible(uiTypeName, uiSubType) {
 }
 
 export const rootTypeToChildSubType = {
-  [LIST]: SERIES_ELEMENT,
-  [DICT]: SERIES_ELEMENT,
+  [LIST]: DEPENDENT_SERIES_ELEMENT,
+  [DICT]: DEPENDENT_SERIES_ELEMENT,
   [DECK]: null,
 };
 

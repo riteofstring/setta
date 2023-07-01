@@ -62,6 +62,7 @@ export type SectionInfoActionType = {
   }) => void;
 
   setCurrChildrenNames: (payload: {
+    sectionId: string;
     currChildren: string[];
     sectionType: any;
   }) => void;
