@@ -1,4 +1,4 @@
-import { isSeriesElement } from "abcde-utils/src/constants";
+import { isDependentSeriesElement } from "abcde-utils/src/constants";
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { createNewId } from "abcde-utils/src/utils";
@@ -18,12 +18,7 @@ export function maybeCloneUIType({
   if (shouldCloneUIType(currUIType, currUISubtype, settingPreset)) {
     // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypeIds)
     const matches = _.filter(useUITypes.getState().x, (v) =>
-      isAmongNonPresetsAndMatchesType(
-        v,
-        nonPresetUITypeIds,
-        currUIType.type,
-        currUISubtype
-      )
+      matchingNonPresets(v, nonPresetUITypeIds, currUIType.type, currUISubtype)
     );
 
     // If there's no match, create a non-preset
@@ -39,7 +34,7 @@ function shouldCloneUIType(uiType, currUISubtype, settingPreset) {
   // The uiType is a list element (a child of a list root).
   // Changing its config shouldn't affect its siblings.
   // Plus it should become indepedent from the root config.
-  const _isSeriesElement = isSeriesElement(currUISubtype);
+  const _isSeriesElement = isDependentSeriesElement(currUISubtype);
   return isPresetNotSettingPreset || _isSeriesElement;
 }
 
@@ -63,8 +58,9 @@ export function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
   return nonPresetUITypeIds.includes(v.id);
 }
 
-function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type, subType) {
-  if (isSeriesElement(subType)) {
+function matchingNonPresets(v, nonPresetUITypeIds, type, subType) {
+  // a series element that is using its parent ui type should not match to its parent ui type
+  if (isDependentSeriesElement(subType)) {
     return false;
   }
   return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;

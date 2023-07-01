@@ -71,9 +71,9 @@ export const useSectionInfos = createProjectState(
           state.x[sectionId].children = newStateFn(state.x[sectionId].children);
         }),
 
-      setCurrChildrenNames: ({ currChildren, sectionType }) =>
+      setCurrChildrenNames: ({ sectionId, currChildren, sectionType }) =>
         set((state) => {
-          if (isListRoot(sectionType.type)) {
+          if (isListRoot(sectionType.type, state.x[sectionId].uiSubType)) {
             for (let idx = 0; idx < currChildren.length; idx++) {
               state.x[currChildren[idx]].name = `[${idx}]`;
             }

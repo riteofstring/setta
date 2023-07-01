@@ -1,4 +1,9 @@
-import { isSeriesRoot } from "abcde-utils/src/constants";
+import {
+  INDEPENDENT_SERIES_ELEMENT,
+  isDependentSeriesElement,
+  isSeriesRoot,
+} from "abcde-utils/src/constants";
+import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import {
   getSectionInfo,
@@ -22,8 +27,6 @@ export function setSectionCollections({
   incrementVersion,
 }) {
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-
-  console.log("uiType", uiType);
 
   if (checked) {
     initializeParamsOfSectionsWithUITypes([uiType.id], [id]);
@@ -83,9 +86,17 @@ function createNonPresetForSection({
     setSectionInfoAttr({
       sectionId,
       attr: "nonPresetUITypeIds",
-      newValueFn: (v) => [...v, newUIType.id],
+      newValueFn: (v) =>
+        _.filter([...v, newUIType.id], (x) => x !== currUIType.id),
     });
     setSectionUITypeId({ uiTypeId: newUIType.id, sectionId });
+    if (isDependentSeriesElement(uiSubType)) {
+      setSectionInfoAttr({
+        sectionId,
+        attr: "uiSubType",
+        value: INDEPENDENT_SERIES_ELEMENT,
+      });
+    }
   }
 
   return newUIType;

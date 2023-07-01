@@ -55,7 +55,11 @@ export function setCurrChildren({ sectionId, currChildren }) {
   const sectionInfosState = useSectionInfos.getState();
   sectionInfosState.setCurrChildren({ sectionId, currChildren });
   const sectionType = getSectionType(sectionId);
-  sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
+  sectionInfosState.setCurrChildrenNames({
+    sectionId,
+    currChildren,
+    sectionType,
+  });
 }
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
