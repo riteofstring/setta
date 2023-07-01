@@ -49,7 +49,9 @@ function useIsType(sectionId: string, type) {
 
 export function useIsRoot(sectionId: string) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => isRoot(x.x[uiTypeId].type));
+  const uiTypeIsRoot = useUITypes((x) => isRoot(x.x[uiTypeId].type));
+  const uiSubTypeIsSeries = useIsSeriesElement(sectionId);
+  return uiTypeIsRoot && !uiSubTypeIsSeries;
 }
 
 export function useIsDeck(sectionId: string) {
