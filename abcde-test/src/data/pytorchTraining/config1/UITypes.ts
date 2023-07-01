@@ -5,8 +5,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["0e49b6d7-4b1c-41ed-ad5c-87b8db2a0ee0"],
     },
   },
@@ -16,8 +14,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["40bdbe50-f8e1-42e1-bf23-a81e12d8bf91"],
     },
   },
@@ -27,8 +23,6 @@ export default {
     type: "FN",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["88413938-51d4-4d8c-a1b6-94861e07eb22"],
     },
   },
@@ -38,8 +32,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
     },
   },
@@ -49,8 +41,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
     },
   },
@@ -60,8 +50,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
     },
   },
@@ -71,8 +59,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
     },
   },
@@ -82,8 +68,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
     },
   },
@@ -93,8 +77,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
     },
   },
@@ -104,8 +86,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["a1ed7b85-78c6-491e-ace0-97942d27e50e"],
     },
   },
@@ -115,8 +95,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["f0628534-0d78-483c-9d4a-b37fcfcf6544"],
     },
   },
@@ -126,8 +104,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: null,
       collections: ["53c34f44-2c9a-4cd4-9e7a-904360ad210b"],
     },
   },
@@ -137,8 +113,6 @@ export default {
     type: "LIST_ROOT",
     presetType: null,
     config: {
-      subType: null,
-      childUITypeId: "1208c3e6-43a6-46fa-afc0-67c552e05298",
       collections: ["011b492a-eab7-4e00-941a-7b9ee74ebc10"],
     },
   },
@@ -148,8 +122,6 @@ export default {
     type: "SECTION",
     presetType: null,
     config: {
-      subType: "LIST",
-      childUITypeId: null,
       collections: ["011b492a-eab7-4e00-941a-7b9ee74ebc10"],
     },
   },
@@ -160,8 +132,6 @@ export default {
     presetType: null,
     config: {
       collections: ["f591b45a-5f8f-4ccc-ab42-ab34a3330107"],
-      subType: null,
-      childUITypeId: null,
     },
   },
 };
