@@ -5,13 +5,12 @@ import { maybeNewId } from "../utils";
 
 export function newSectionInfo({
   id,
-  name,
+  name = "",
   children = [],
   currChildren = [],
   paramInfoId = null,
   size,
   parentId = null,
-  parentName = "",
   chainedFrom = null,
   uiTypeId,
   uiSubType = null,
@@ -27,12 +26,11 @@ export function newSectionInfo({
   descriptionVisible = false,
   nonPresetUITypeIds = [],
 }: Partial<SectionType> & {
-  parentName?: string;
   size: SizeType;
 }): SectionType {
   return {
     id: maybeNewId(id),
-    name: name ? name : parentName,
+    name,
     children,
     currChildren,
     parentId,
