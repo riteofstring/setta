@@ -1,4 +1,3 @@
-import { SectionPositionType } from "./sectionPosition";
 import { SizeType } from "./size";
 import { ManyOf } from "./utils";
 
@@ -10,9 +9,7 @@ export type SectionType = {
   parentId: string | null;
   paramInfoId: string | null;
   size: SizeType;
-  initialPosition: SectionPositionType;
   chainedFrom: string | null;
-  zIndex: number;
   uiTypeId: string;
   evColId: string;
   kwargColId: string;
