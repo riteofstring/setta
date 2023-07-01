@@ -166,7 +166,7 @@ model UIType {
   sectionConfigSubType          String?                        @db.VarChar(255)
   sectionConfigChildUIType      UIType?                        @relation("ChildUIType", fields: [sectionConfigChildUITypeId], references: [id])
   sectionConfigChildUITypeId    String?                        @unique @db.Uuid
-  sectionConfigparentUIType     UIType?                        @relation("ChildUIType")
+  sectionConfigParentUIType     UIType?                        @relation("ChildUIType")
   sliderConfigMin               Float?
   sliderConfigMax               Float?
   sliderConfigStep              Float?
