@@ -10,7 +10,6 @@ import {
   getOrderedChildrenFull,
 } from 'src/utils/utils';
 import { getUITypesByWhere } from '../uiTypes/load';
-import { UITypeNames } from '../uiTypes/types';
 
 export async function getSections(projectConfig: {
   id: string;
@@ -143,10 +142,9 @@ export async function getSections(projectConfig: {
     }
   }
 
-  const nonPresetUITypes = await getUITypesByWhere(
-    { id: { in: nonPresetUITypeIds } },
-    UITypeNames.all,
-  );
+  const nonPresetUITypes = await getUITypesByWhere({
+    id: { in: nonPresetUITypeIds },
+  });
 
   return {
     sections,

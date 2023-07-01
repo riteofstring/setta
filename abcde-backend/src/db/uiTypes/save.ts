@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { SECTION, SLIDER } from 'abcde-utils/src/constants';
+import { isSectionUIType, SLIDER } from 'abcde-utils/src/constants';
 import { ManyUITypeType } from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import { prisma } from 'src/db/prisma';
@@ -20,7 +20,7 @@ export async function saveUITypes(userId, uiTypes: ManyUITypeType) {
     (x): Prisma.UITypeUpdateArgs['data'] => ({
       id: x.id,
       ownerId: userId,
-      ...processConfig(x.type, x.config),
+      ...processConfig(x),
     }),
   );
 
@@ -41,11 +41,9 @@ export async function saveUITypes(userId, uiTypes: ManyUITypeType) {
   ]);
 }
 
-function processConfig(
-  type: string,
-  config,
-): Partial<Prisma.UITypeUpdateArgs['data']> {
-  if (type === SECTION) {
+function processConfig(uiType): Partial<Prisma.UITypeUpdateArgs['data']> {
+  const { config, type } = uiType;
+  if (isSectionUIType(uiType)) {
     return {
       sectionConfigSubType: config.subType,
       sectionConfigCollections: {
