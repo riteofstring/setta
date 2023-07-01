@@ -60,6 +60,11 @@ export function updateUITypeIdOfSectionsWithUITypeId({
 }) {
   for (const s of Object.values(useSectionInfos.getState().x)) {
     if (s.uiTypeId === oldUITypeId) {
+      setSectionInfoAttr({
+        sectionId: s.id,
+        attr: "nonPresetUITypeIds",
+        newValueFn: (v) => [...v, newUITypeId],
+      });
       setSectionUITypeId({ uiTypeId: newUITypeId, sectionId: s.id });
     }
   }

@@ -1,9 +1,5 @@
 import { useUITypes } from "models/info/uiTypes";
-import {
-  getSectionInfo,
-  getSectionType,
-  setSectionInfoAttr,
-} from "thunks/sections/sections";
+import { getSectionInfo, getSectionType } from "thunks/sections/sections";
 import { cloneNewUIType, maybeCloneUIType } from "thunks/uiTypes/cloneUITypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { updateUITypeIdOfSectionsWithUITypeId } from "./setSectionUITypeId";
@@ -45,11 +41,6 @@ function createNonPresetForSection({ sectionId, currUIType, defaultName }) {
     name: defaultName,
   });
   useUITypes.getState().setUIType({ uiType: newUIType });
-  setSectionInfoAttr({
-    sectionId,
-    attr: "nonPresetUITypeIds",
-    newValueFn: (v) => [...v, newUIType.id],
-  });
   updateUITypeIdOfSectionsWithUITypeId({
     oldUITypeId: currUIType.id,
     newUITypeId: newUIType.id,
