@@ -110,7 +110,7 @@ export default {
   "d0a1935a-3964-4aed-be15-470a02cf8fb9": {
     id: "d0a1935a-3964-4aed-be15-470a02cf8fb9",
     name: "Metrics",
-    type: "LIST_ROOT",
+    type: "LIST",
     presetType: null,
     config: {
       collections: ["011b492a-eab7-4e00-941a-7b9ee74ebc10"],

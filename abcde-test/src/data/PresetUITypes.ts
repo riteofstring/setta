@@ -20,7 +20,7 @@ export default {
   "846a8370-fbfc-4d99-a249-40dbdaac4cd3": {
     id: "846a8370-fbfc-4d99-a249-40dbdaac4cd3",
     name: "torchvision transforms",
-    type: "LIST_ROOT",
+    type: "LIST",
     presetType: "USER",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],
@@ -29,7 +29,7 @@ export default {
   "a23ffe0c-3052-4964-843b-d84aa352b611": {
     id: "a23ffe0c-3052-4964-843b-d84aa352b611",
     name: "my preset for testing",
-    type: "LIST_ROOT",
+    type: "LIST",
     presetType: "USER",
     config: {
       collections: ["1ec242dd-688e-4f71-a0de-cc13752461ce"],

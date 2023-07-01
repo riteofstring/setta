@@ -308,7 +308,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "1765a450-ca77-41ae-a482-16c18e03f895": {
     id: "1765a450-ca77-41ae-a482-16c18e03f895",
@@ -333,7 +333,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "0fd7ce2c-962c-41f8-b512-05f989dc5dc8": {
     id: "0fd7ce2c-962c-41f8-b512-05f989dc5dc8",
@@ -358,7 +358,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "64aeb27b-8a7a-4a0b-a761-26b606817d1e": {
     id: "64aeb27b-8a7a-4a0b-a761-26b606817d1e",
@@ -383,7 +383,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "6352b363-2800-427a-a98e-424b03750f94": {
     id: "6352b363-2800-427a-a98e-424b03750f94",
@@ -408,7 +408,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "3dab4514-ad65-416e-aa3b-038314ef119f": {
     id: "3dab4514-ad65-416e-aa3b-038314ef119f",
@@ -433,7 +433,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "2983b469-c363-4332-83f8-3d3991f2d8f9": {
     id: "2983b469-c363-4332-83f8-3d3991f2d8f9",
@@ -458,7 +458,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "486afb30-ed4b-43db-acbc-097f3d575f40": {
     id: "486afb30-ed4b-43db-acbc-097f3d575f40",
@@ -483,7 +483,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "fe23c7d7-15ae-4137-836d-0b16defdbe51": {
     id: "fe23c7d7-15ae-4137-836d-0b16defdbe51",
@@ -508,7 +508,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "8b584fd6-f495-4b1a-b9c0-b640f5931336": {
     id: "8b584fd6-f495-4b1a-b9c0-b640f5931336",
@@ -727,7 +727,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "5c0517cb-28e2-4a69-b066-4872a0cd6f22": {
     id: "5c0517cb-28e2-4a69-b066-4872a0cd6f22",
@@ -752,7 +752,7 @@ export default {
     descriptionHeight: 100,
     descriptionVisible: false,
     nonPresetUITypeIds: [],
-    uiSubType: "LIST",
+    uiSubType: "SERIES_ELEMENT",
   },
   "73c7f2c5-1c05-49ee-9812-2fbd27a849c3": {
     id: "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",

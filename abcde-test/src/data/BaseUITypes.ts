@@ -42,7 +42,7 @@ export default {
   },
   "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
     id: "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
-    type: "LIST_ROOT",
+    type: "LIST",
     name: "",
     presetType: "BASE",
     config: {
@@ -51,7 +51,7 @@ export default {
   },
   "623a9242-53e9-4b42-b695-431e9754a836": {
     id: "623a9242-53e9-4b42-b695-431e9754a836",
-    type: "DICT_ROOT",
+    type: "DICT",
     name: "",
     presetType: "BASE",
     config: {
