@@ -38,9 +38,9 @@ export function Overview() {
         {...infoViewHandlersSearch}
       />
 
-      <div className="flex-grow overflow-y-auto" {...infoViewHandlers}>
+      <ul className="flex-grow overflow-y-auto" {...infoViewHandlers}>
         <SectionListItems listOfSectionIdsAndNames={filteredList} />
-      </div>
+      </ul>
       <InfoView />
     </PaneContainer>
   );

@@ -51,10 +51,12 @@ function TabsVisible({ sectionId }) {
       value={tab}
       onValueChange={setTab}
     >
-      <Tabs.List className="flex gap-4">
-        {requiredTabs.map((x) => (
-          <TabItem name={tabNameToPretty.get(x)} value={x} key={x} />
-        ))}
+      <Tabs.List asChild>
+        <nav className="flex gap-4">
+          {requiredTabs.map((x) => (
+            <TabItem name={tabNameToPretty.get(x)} value={x} key={x} />
+          ))}
+        </nav>
       </Tabs.List>
       {requiredTabs.map((x) => (
         <TabContentSelector sectionId={sectionId} tabName={x} key={x} />
