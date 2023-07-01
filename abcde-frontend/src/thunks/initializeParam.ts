@@ -158,7 +158,7 @@ function initializeParamUIType(
 }
 
 function getChildIds(sectionId: string, paramInfos: ManyCodeInfoType) {
-  return _.mapValues(paramInfos, (p) => getParamChildId(sectionId, p));
+  return _.mapValues(paramInfos, (p) => getParamChildId(sectionId, p.id));
 }
 
 export function initializeChild(

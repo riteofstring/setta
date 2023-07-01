@@ -11,7 +11,7 @@ export function getParamEVId(sectionId, paramInfoId) {
   return useParamInfos.getState().x[evColId][paramInfoId];
 }
 
-export function getParamChildId(sectionId, paramInfoId) {
+export function getParamChildId(sectionId: string, paramInfoId: string) {
   const s = useSectionInfos.getState().x;
   const possibleChildren = s[sectionId].children;
   for (const c of possibleChildren) {
