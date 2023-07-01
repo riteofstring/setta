@@ -60,8 +60,8 @@ export function ProjectName() {
         name={configName}
         setName={setConfigName}
         titleProps={{
-          editing: `${editing} text-md text-slate-600 mt-1 mb-4 font-medium`,
-          notEditing: `${notEditing} text-md text-slate-600 mt-1 mb-4 font-medium`,
+          editing: `${editing} text-md text-slate-600 mt-1 mb-2 font-medium`,
+          notEditing: `${notEditing} text-md text-slate-600 mt-1 mb-2 font-medium`,
         }}
       />
     </header>

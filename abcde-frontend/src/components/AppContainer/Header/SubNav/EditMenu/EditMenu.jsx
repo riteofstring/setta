@@ -1,6 +1,7 @@
 import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
+import { redoProjectState, undoProjectState } from "thunks/undo";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
@@ -23,6 +24,12 @@ function Items() {
       <MenuItem onClick={addGroup} shortcut="Ctrl + G">
         <AiOutlineGroup className="h-4 w-4" />
         Group
+      </MenuItem>
+      <MenuItem onClick={undoProjectState} shortcut="Ctrl + Z">
+        Undo
+      </MenuItem>
+      <MenuItem onClick={redoProjectState} shortcut="Ctrl + Shift + Z">
+        Redo
       </MenuItem>
     </>
   );
