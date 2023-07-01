@@ -29,12 +29,6 @@ export function insertIntoArrayOrXpend(arr, index, prepend, ...newItems) {
   }
 }
 
-export function curryAction(action, args, key) {
-  return (newState) => {
-    return action({ ...args, [key]: newState });
-  };
-}
-
 export function updateWithArrayMove(active, over) {
   return (x) => {
     const activeIndex = x.indexOf(active.id);

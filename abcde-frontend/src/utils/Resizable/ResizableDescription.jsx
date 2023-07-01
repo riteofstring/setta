@@ -1,18 +1,15 @@
 import { motion } from "framer-motion";
-import {
-  useGetSectionDescription,
-  useSetSectionDescriptionHeight,
-} from "hooks/useSectionDescription";
+import { setSectionDescriptionHeight } from "hooks/useSectionDescription";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
 import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
 
 export function ResizableDescription({ sectionId, width, children }) {
-  const height = useGetSectionDescription(sectionId, "height");
-  const setHeight = useSetSectionDescriptionHeight(sectionId);
+  const height = useSectionInfos((x) => x.x[sectionId].descriptionHeight);
 
   function onResizeStop(e, direction, ref, d) {
-    setHeight(height + d.height);
+    setSectionDescriptionHeight({ sectionId, height: height + d.height });
   }
 
   const minHeight = 50;
@@ -41,7 +38,7 @@ export function ResizableDescription({ sectionId, width, children }) {
 }
 
 function MotionDiv({ sectionId, height, children }) {
-  const descVis = useGetSectionDescription(sectionId, "visible");
+  const descVis = useSectionInfos((x) => x.x[sectionId].descriptionVisible);
   const localDescVis = useRef(descVis);
   const [noDiv, setNoDiv] = useState(descVis);
   const [initial, setInitial] = useState(
@@ -74,7 +71,7 @@ function MotionDiv({ sectionId, height, children }) {
   return noDiv ? (
     children
   ) : (
-    <motion.section
+    <motion.div
       layout="position"
       className="flex overflow-hidden"
       variants={variants}
@@ -83,7 +80,7 @@ function MotionDiv({ sectionId, height, children }) {
       onAnimationComplete={onAnimationComplete}
     >
       {children}
-    </motion.section>
+    </motion.div>
   );
 }
 

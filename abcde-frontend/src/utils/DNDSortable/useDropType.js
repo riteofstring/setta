@@ -8,7 +8,7 @@ import {
   getSectionCanHaveNested,
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
-  getSectionIsRoot,
+  getSectionIsSeriesRoot,
   getSectionParentId,
 } from "thunks/sections/sections";
 import {
@@ -95,7 +95,7 @@ function getPositionDropType({ centerYCondition, leftDistCondition }) {
     return [PositionDropType.INTO, overId, 0];
   }
 
-  const siblings = s.currChildren[overParentId];
+  const siblings = s.x[overParentId].currChildren;
   const overIndex = siblings.indexOf(overId);
 
   // Is effectively sorting
@@ -133,7 +133,7 @@ function getBehaviorDropType({ newParentId }) {
     return BehaviorDropType.INVALID;
   }
 
-  if (getSectionIsRoot(newParentId)) {
+  if (getSectionIsSeriesRoot(newParentId) || getSectionIsDeck(newParentId)) {
     // dropping withint same list
     if (getSectionParentId(activeId) === newParentId) {
       return BehaviorDropType.DROP_HERE;

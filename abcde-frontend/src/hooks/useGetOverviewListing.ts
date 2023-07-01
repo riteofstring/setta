@@ -6,8 +6,14 @@ import { useMatchSorterFilter } from "./useMatchSorterFilter";
 import { useSectionInfoNames } from "./useSectionInfo";
 
 export function useGetOverviewListing() {
-  const topLevelSectionIds = useProjectConfig((x) => x.children, _.isEqual);
-  const currChildren = useSectionInfos((x) => x.currChildren, _.isEqual);
+  const topLevelSectionIds = useProjectConfig(
+    (x) => Object.keys(x.children),
+    _.isEqual
+  );
+  const currChildren = useSectionInfos(
+    (x) => _.mapValues(x.x, (v) => v.currChildren),
+    _.isEqual
+  );
   const idNames = useSectionInfoNames();
 
   const sectionList = getOverviewListing(

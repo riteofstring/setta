@@ -1,18 +1,17 @@
 import { useGetKwargInfos, useGetParamInfos } from "hooks/useSectionContents";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef, useState } from "react";
-import ScrollingArea from "utils/atoms/scrollingarea/scrollingarea";
+import useDeepCompareEffect from "use-deep-compare-effect";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
-  // const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
+  const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
 
   // border-b border-solid border-slate-100
   return (
-    // <div className={`overflow-hidden ${noWheel}`} >
-    <ScrollingArea
-      viewportStyle={`mr-6 flex flex-col gap-2`}
-      // ref={ref}
+    <div
+      className={`mr-6 flex flex-col gap-2 overflow-y-auto ${noWheel}`}
+      ref={ref}
     >
       {isGroup && (
         <p className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-slate-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-slate-400 ">
@@ -22,24 +21,23 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
       <GetParams
         sectionId={sectionId}
         objInfoId={objInfoId}
-        // setDidUpdate={setDidUpdate}
+        setDidUpdate={setDidUpdate}
       />
       <GetKwargs
         sectionId={sectionId}
         objInfoId={objInfoId}
-        // setDidUpdate={setDidUpdate}
+        setDidUpdate={setDidUpdate}
       />
-    </ScrollingArea>
-    // </div>
+    </div>
   );
 }
 
 function GetParams({ sectionId, objInfoId, setDidUpdate }) {
   const params = useGetParamInfos(sectionId, objInfoId);
 
-  // useDeepCompareEffect(() => {
-  //   setDidUpdate(true);
-  // }, [params]);
+  useDeepCompareEffect(() => {
+    setDidUpdate(true);
+  }, [params]);
 
   return (
     <GetParamSwitch
@@ -54,9 +52,9 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
 function GetKwargs({ sectionId, objInfoId, setDidUpdate }) {
   const kwargs = useGetKwargInfos(sectionId, objInfoId);
 
-  // useDeepCompareEffect(() => {
-  //   setDidUpdate(true);
-  // }, [kwargs]);
+  useDeepCompareEffect(() => {
+    setDidUpdate(true);
+  }, [kwargs]);
 
   return (
     <GetParamSwitch

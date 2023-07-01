@@ -6,12 +6,9 @@ import {
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
-import { initValue } from "./utils";
 
 const initialState: SectionInfoStateType = {
   x: {},
-  allChildren: {},
-  currChildren: {},
   version: 0,
 };
 
@@ -20,13 +17,11 @@ export const useSectionInfos = createProjectState(
     immer<SectionInfoZustandType>((set) => ({
       ...initialState,
 
-      resetAndSetAll: ({ sections, sectionChildren }) => {
+      resetAndSetAll: ({ sections }) => {
         set(
           (state) => ({
             ...state,
             x: sections,
-            allChildren: sectionChildren,
-            currChildren: {},
           }),
           true
         );
@@ -73,48 +68,32 @@ export const useSectionInfos = createProjectState(
 
       setAllChildren: ({ sectionId, newStateFn }) =>
         set((state) => {
-          state.allChildren[sectionId] = newStateFn(
-            state.allChildren[sectionId]
-          );
+          state.x[sectionId].children = newStateFn(state.x[sectionId].children);
         }),
 
-      initManyAllChildren: ({ sectionIds }) =>
+      setCurrChildrenNames: ({ sectionId, currChildren, sectionType }) =>
         set((state) => {
-          sectionIds.forEach((id) => {
-            initValue(state.allChildren, id, []);
-          });
-        }),
-
-      setCurrChildrenNames: ({ currChildren, sectionType }) =>
-        set((state) => {
-          if (isListRoot(sectionType.type)) {
+          if (isListRoot(sectionType.type, state.x[sectionId].uiSubType)) {
             for (let idx = 0; idx < currChildren.length; idx++) {
               state.x[currChildren[idx]].name = `[${idx}]`;
             }
           }
         }),
 
-      initManyCurrChildren: ({ sectionIds }) =>
-        set((state) => {
-          sectionIds.forEach((id) => {
-            initValue(state.currChildren, id, []);
-          });
-        }),
-
       setCurrChildren: ({ sectionId, currChildren }) =>
         set((state) => {
-          state.currChildren[sectionId] = currChildren;
+          state.x[sectionId].currChildren = currChildren;
         }),
 
       removeSectionInfos: (payload) =>
         set((state) => {
           payload.forEach((y) => {
             delete state.x[y];
-            delete state.allChildren[y];
-            delete state.currChildren[y];
           });
-          for (const [k, v] of Object.entries(state.allChildren)) {
-            state.allChildren[k] = v.filter((x) => !payload.includes(x));
+          for (const [k, v] of Object.entries(state.x)) {
+            state.x[k].children = v.children.filter(
+              (x) => !payload.includes(x)
+            );
           }
         }),
     }))

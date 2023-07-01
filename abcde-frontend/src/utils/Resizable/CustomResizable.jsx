@@ -22,13 +22,7 @@ const SIZE_MODE = {
   manual_only: "manual_only",
 };
 
-export function CustomResizable({
-  sectionId,
-  setLocalWidth,
-  children,
-  inputClasses,
-  as,
-}) {
+export function CustomResizable({ sectionId, setLocalWidth, children }) {
   const minHeight = useMinSectionHeight(sectionId);
   const minWidth = useMinSectionWidth(sectionId);
   const maxWidth = useMaxSectionWidth(sectionId);
@@ -39,8 +33,6 @@ export function CustomResizable({
       minWidth={minWidth}
       maxWidth={maxWidth}
       setLocalWidth={setLocalWidth}
-      inputClasses={inputClasses}
-      as={as}
     >
       {children}
     </CustomResizableCore>
@@ -53,9 +45,7 @@ function CustomResizableCore({
   minWidth,
   maxWidth,
   setLocalWidth,
-  inputClasses = "",
   children,
-  as,
 }) {
   const sizeMode = useSizeMode(sectionId);
   const size = useSectionInfos((x) => x.x[sectionId].size);
@@ -84,7 +74,6 @@ function CustomResizableCore({
 
   return (
     <ResizableWithScale
-      as={as}
       size={size}
       minHeight={minHeight}
       minWidth={minWidth}
@@ -92,7 +81,7 @@ function CustomResizableCore({
       onResize={onResize}
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
-      handleWrapperClass="absolute bottom-0 w-full nodrag [&>div]:z-20"
+      handleWrapperClass="nodrag [&>div]:z-20"
       enable={{
         top: false,
         left: false,
@@ -100,7 +89,7 @@ function CustomResizableCore({
         right: widthResizable,
         bottomRight: heightResizable && widthResizable,
       }}
-      className={`flex flex-col items-stretch ${inputClasses}`}
+      className="flex flex-col items-stretch"
       handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}

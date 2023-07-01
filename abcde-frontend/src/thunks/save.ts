@@ -22,7 +22,6 @@ import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { xnor } from "utils/utils";
@@ -47,22 +46,20 @@ export function getProjectData(): ProjectSaveType {
         "id",
         "name",
         "configId",
+        "children",
         "paramInfoId",
-        "initialPosition",
         "size",
         "chainedFrom",
-        "zIndex",
         "uiTypeId",
         "evColId",
         "kwargColId",
         "uiTypeColId",
         "selectedItem",
-        "descriptionId",
+        "description",
+        "descriptionHeight",
+        "descriptionVisible",
       ])
   );
-
-  const sectionChildren = sectionInfosState.allChildren;
-  const sectionDescriptions = useSectionDescription.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
     .getState()
@@ -78,8 +75,6 @@ export function getProjectData(): ProjectSaveType {
     kwargInfo,
     kwargCols,
     sections,
-    sectionChildren,
-    sectionDescriptions,
     projectConfigCodeInfoMaps,
   };
   // console.log(output);

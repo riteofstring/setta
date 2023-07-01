@@ -5,7 +5,6 @@ import {
   findAllParameterCollections,
   findAllParameters,
 } from "abcde-utils/src/getDescendants";
-import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
@@ -25,10 +24,7 @@ export function useGetCurrObjParamKwargInfos(sectionId: string) {
 
 function useGetCollectionChildren(sectionId: string, fn) {
   const collectionIds = useGetSectionTypeConfig(sectionId, "collections");
-  return useCodeInfo(
-    (x) => ([] as CodeInfoType[]).concat(fn(x.allCodeInfo, collectionIds)),
-    _.isEqual
-  );
+  return useCodeInfo((x) => fn(x.allCodeInfo, collectionIds), _.isEqual);
 }
 
 export function useGetAllCallables(sectionId: string) {
@@ -87,6 +83,6 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
 }
 
 export function useGetSelectedOutputValues(sectionId: string) {
-  const groupId = useGetSectionTypeConfig(sectionId, "outputGroup");
+  const groupId = useGetSectionInfo(sectionId, "outputGroup");
   return useOutputValues(groupId);
 }

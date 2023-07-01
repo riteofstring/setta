@@ -1,6 +1,5 @@
 import React from "react";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
-import ScrollingArea from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
 
@@ -41,14 +40,15 @@ export function ComboboxList({
 }) {
   const display = isOpen ? "flex" : "hidden";
 
-  // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
-    <div
-      className={`nowheel nodrag relative w-full min-w-[150px]   p-3 ${display} ${position} z-20 mt-2 max-h-96  rounded-3xl bg-white shadow-xl`}
-      {...getMenuProps()}
-      style={{ width }}
-    >
-      <ScrollingArea>{children}</ScrollingArea>
+    <div className="relative">
+      <div
+        className={`nowheel nodrag ${display} ${position} z-20 mt-2 max-h-96 flex-1 items-stretch !overflow-visible rounded-3xl bg-white shadow-xl`}
+        {...getMenuProps()}
+        style={{ width }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -63,13 +63,13 @@ function _ComboboxItem({
 }) {
   const bg = isHighlighted ? "bg-slate-100" : "";
   return (
-    <dd
+    <p
       className={`mx-1 my-0.5 cursor-pointer truncate rounded-xl px-4 py-2 text-sm ${bg} ${itemStyle}`}
       {...getItemProps({ item, index })}
       data-testid={"ComboboxListItem"}
     >
       {itemString}
-    </dd>
+    </p>
   );
 }
 

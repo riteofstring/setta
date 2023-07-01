@@ -1,11 +1,15 @@
-import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
-import { findAllParameters } from "abcde-utils/src/getDescendants";
+import {
+  DECK,
+  INFO,
+  isSeriesRoot,
+  OUTPUT,
+  SOCIAL,
+} from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
-import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { initializeParam } from "../initializeParam";
+import { initializeChildParams } from "../initializeParam";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -24,8 +28,11 @@ export function getSectionType(sectionId) {
   return useUITypes.getState().x[sectionTypeId];
 }
 
-export function getSectionIsRoot(sectionId) {
-  return isRoot(getSectionType(sectionId).type);
+export function getSectionIsSeriesRoot(sectionId) {
+  return isSeriesRoot(
+    getSectionType(sectionId).type,
+    getSectionInfo(sectionId).uiSubType
+  );
 }
 
 export function getSectionTypeConfig(sectionId) {
@@ -48,7 +55,11 @@ export function setCurrChildren({ sectionId, currChildren }) {
   const sectionInfosState = useSectionInfos.getState();
   sectionInfosState.setCurrChildren({ sectionId, currChildren });
   const sectionType = getSectionType(sectionId);
-  sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
+  sectionInfosState.setCurrChildrenNames({
+    sectionId,
+    currChildren,
+    sectionType,
+  });
 }
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
@@ -57,10 +68,7 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
     attr: "selectedItem",
     value: selectedItem,
   });
-  const params = findAllParameters(useCodeInfo.getState().allCodeInfo, [
-    selectedItem,
-  ]);
-  initializeParam(sectionId, params);
+  initializeChildParams(sectionId, [selectedItem]);
   maybeIncrementProjectStateVersion(changedByUser);
 }
 

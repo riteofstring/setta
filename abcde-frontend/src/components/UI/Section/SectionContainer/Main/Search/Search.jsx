@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/sections";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
-export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
+export function SectionSearch({ sectionId, initialSelection }) {
   const searchableItems = useGetAllCallables(sectionId);
   const groupedItems = useGroupedObjInfos(searchableItems);
   const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
@@ -31,7 +31,6 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
         allItems={groupedItemsAsList}
         onSelectedItemChange={onSelectedItemChange}
         initialSelection={initialSelection}
-        inputClasses={inputClasses}
       />
     )
   );

@@ -2,8 +2,9 @@ import {
   DECK,
   FN,
   INFO,
-  isRoot,
   isSeriesElement,
+  isSeriesRoot,
+  noParamsPossible,
   OUTPUT,
   SOCIAL,
   USER_SPECIFIED_OBJECT,
@@ -13,6 +14,7 @@ import {
   SectionUITypeType,
 } from "abcde-utils/src/types/uiType";
 import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useGetSectionInfo } from "./useSectionInfo";
 
@@ -32,18 +34,13 @@ export function useGetSectionType<K extends keyof SectionUITypeType>(
   key: K
 ) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const nonScalars: (keyof SectionUITypeType)[] = ["config", "originInfoId"];
+  const nonScalars: (keyof SectionUITypeType)[] = ["config"];
   const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
 }
 
 export function useIsSeriesElement(sectionId: string) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) =>
-    isSeriesElement(
-      (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType
-    )
-  );
+  return useSectionInfos((x) => isSeriesElement(x.x[sectionId].uiSubType));
 }
 
 function useIsType(sectionId: string, type) {
@@ -51,9 +48,20 @@ function useIsType(sectionId: string, type) {
   return useUITypes((x) => x.x[uiTypeId].type === type);
 }
 
-export function useIsRoot(sectionId: string) {
+export function useUITypeIdAndSubType(sectionId: string) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => isRoot(x.x[uiTypeId].type));
+  const uiSubType = useGetSectionInfo(sectionId, "uiSubType");
+  return { uiTypeId, uiSubType };
+}
+
+export function useIsSeriesRoot(sectionId: string) {
+  const { uiTypeId, uiSubType } = useUITypeIdAndSubType(sectionId);
+  return useUITypes((x) => isSeriesRoot(x.x[uiTypeId].type, uiSubType));
+}
+
+export function useNoParamsPossible(sectionId: string) {
+  const { uiTypeId, uiSubType } = useUITypeIdAndSubType(sectionId);
+  return useUITypes((x) => noParamsPossible(x.x[uiTypeId].type, uiSubType));
 }
 
 export function useIsDeck(sectionId: string) {
