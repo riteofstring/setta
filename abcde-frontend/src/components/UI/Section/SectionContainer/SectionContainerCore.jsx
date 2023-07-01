@@ -6,7 +6,6 @@ import {
   useIsInfo,
   useIsOutput,
   useIsRoot,
-  useIsSeriesElement,
   useIsSocial,
   useIsUserSpecifiedObject,
 } from "hooks/useSectionType";
@@ -26,7 +25,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isInfo = useIsInfo(sectionId);
   const isUserSpecifiedObject = useIsUserSpecifiedObject(sectionId);
   const hasDescription = useSectionHasDescription(sectionId);
-  const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
 
@@ -50,7 +48,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         sectionId={sectionId}
         parentId={parentId}
         nextId={nextId}
-        isSeriesElement={isSeriesElement}
         isRoot={isRoot}
         isOutput={isOutput}
         isSocial={isSocial}

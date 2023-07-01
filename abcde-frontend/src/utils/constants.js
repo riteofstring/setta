@@ -1,5 +1,4 @@
 import {
-  DICT,
   DICT_ROOT,
   FN,
   INFO,
@@ -25,10 +24,6 @@ export const UI_EDITOR = "uiEditor";
 
 export function requiresNestedSection(uiTypeType) {
   return SECTION_TYPE_NAMES.includes(uiTypeType);
-}
-
-export function requiresKeyInput(sectionSubTypeName) {
-  return [null, DICT].includes(sectionSubTypeName);
 }
 
 export const uiTypesToPretty = Object.freeze(

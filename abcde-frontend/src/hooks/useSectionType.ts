@@ -3,7 +3,6 @@ import {
   FN,
   INFO,
   isRoot,
-  isSeriesElement,
   OUTPUT,
   SOCIAL,
   USER_SPECIFIED_OBJECT,
@@ -35,15 +34,6 @@ export function useGetSectionType<K extends keyof SectionUITypeType>(
   const nonScalars: (keyof SectionUITypeType)[] = ["config"];
   const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
-}
-
-export function useIsSeriesElement(sectionId: string) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) =>
-    isSeriesElement(
-      (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType
-    )
-  );
 }
 
 function useIsType(sectionId: string, type) {

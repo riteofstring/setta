@@ -10,7 +10,6 @@ function _SectionHeader({
   sectionId,
   parentId,
   nextId,
-  isSeriesElement,
   isRoot,
   hasNested,
   isActiveSection,
@@ -31,7 +30,7 @@ function _SectionHeader({
           <SaveButton sectionId={sectionId} />
         </div>
       )}
-      {(isSeriesElement || isRoot) && (
+      {isRoot && (
         <Incrementer
           sectionId={sectionId}
           parentId={parentId}
