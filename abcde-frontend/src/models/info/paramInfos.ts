@@ -45,13 +45,7 @@ export const useParamInfos = createProjectState(
         }),
       setUITypeId: ({ collectionId, paramInfoId, uiTypeId }) =>
         set((state) => {
-          state.y[collectionId][paramInfoId].uiTypeId = uiTypeId;
-        }),
-      setNonPresetUITypeIds: ({ collectionId, paramInfoId, newValueFn }) =>
-        set((state) => {
-          state.y[collectionId][paramInfoId].nonPresetUITypeIds = newValueFn(
-            state.y[collectionId][paramInfoId].nonPresetUITypeIds
-          );
+          state.y[collectionId][paramInfoId] = uiTypeId;
         }),
       deleteParamInfo: ({ evColId, uiTypeColId, ids }) =>
         set((state) => {

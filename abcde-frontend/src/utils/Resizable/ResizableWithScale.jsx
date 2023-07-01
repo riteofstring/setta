@@ -1,7 +1,7 @@
 import { Resizable } from "re-resizable";
 import { useSetScaleOnResizeStart } from "./useSetScaleOnResizeStart";
 
-export function ResizableWithScale({ children, onResizeStart, ...props }) {
+export function ResizableWithScale({ children, onResizeStart, as, ...props }) {
   const { scale, onResizeStart: onResizeStart_ } = useSetScaleOnResizeStart();
 
   function localOnResizeStart(props) {
@@ -10,7 +10,12 @@ export function ResizableWithScale({ children, onResizeStart, ...props }) {
   }
 
   return (
-    <Resizable {...props} scale={scale} onResizeStart={localOnResizeStart}>
+    <Resizable
+      {...props}
+      scale={scale}
+      as={as}
+      onResizeStart={localOnResizeStart}
+    >
       {children}
     </Resizable>
   );

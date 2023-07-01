@@ -14,11 +14,14 @@ export function InfoView() {
       type="single"
       defaultValue="item-1"
       collapsible
+      asChild
     >
-      <AccordionItem value="item-1">
-        <AccordionTrigger>Quick Help</AccordionTrigger>
-        <AccordionContent>{currInfoView}</AccordionContent>
-      </AccordionItem>
+      <aside>
+        <AccordionItem value="item-1">
+          <AccordionTrigger>Quick Help</AccordionTrigger>
+          <AccordionContent>{currInfoView}</AccordionContent>
+        </AccordionItem>
+      </aside>
     </Accordion.Root>
   );
 }
@@ -69,7 +72,7 @@ const AccordionContent = React.forwardRef(
       {...props}
       ref={forwardedRef}
     >
-      <div className="max-h-full py-4 px-5 ">{children}</div>
+      <aside className="max-h-full py-4 px-5 ">{children}</aside>
     </Accordion.Content>
   )
 );

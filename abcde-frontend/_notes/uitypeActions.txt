@@ -1,9 +1,0 @@
-setSectionUITypeId
--> useSectionInfos.getState().setSectionInfoAttr
--> setParamUITypeId 
-   -> useParamInfos.getState().setUITypeId
-   -> initializeChild
-      -> addChildForParam
-         -> createManySectionInfo
-         -> setAllChildren
-         -> setSectionUITypeId

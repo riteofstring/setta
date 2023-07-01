@@ -1,20 +1,20 @@
-import { requiresNestedSection } from "abcde-utils/src/constants";
-import { useNoParamsPossible } from "hooks/useSectionType";
+import { useIsRoot } from "hooks/useSectionType";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useEffect } from "react";
 import { setCurrChildren } from "thunks/sections/sections";
+import { requiresNestedSection } from "utils/constants";
 import { useGetManyParamUITypeIds } from "./useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "./useSectionContents";
 import { useGetManySectionInfos } from "./useSectionInfo";
 
 export function useHasNested(sectionId: string) {
-  return useSectionInfos((x) => x.x[sectionId].currChildren?.length > 0);
+  return useSectionInfos((x) => x.currChildren[sectionId]?.length > 0);
 }
 
 export function useGetAllChildren(sectionId: string) {
-  return useSectionInfos((x) => x.x[sectionId].children, _.isEqual);
+  return useSectionInfos((x) => x.allChildren[sectionId], _.isEqual);
 }
 
 export function useGetCurrChildren(sectionId: string) {
@@ -24,7 +24,7 @@ export function useGetCurrChildren(sectionId: string) {
     sectionId,
     allParamInfoIds
   );
-  const currChildren = useNoParamsPossible(sectionId)
+  const currChildren = useIsRoot(sectionId)
     ? // keep sections that aren't associated with any parameter
       allChildrenIds.filter((x, idx) => !allParamInfoIds[idx])
     : // keep sections that are associated with current parameters

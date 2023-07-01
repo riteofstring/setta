@@ -1,10 +1,12 @@
 import MDEditor from "@uiw/react-md-editor";
-import { useSetSectionDescription } from "hooks/useSectionDescription";
-import { useSectionInfos } from "models/info/sectionInfos";
+import {
+  useGetSectionDescription,
+  useSetSectionDescription,
+} from "hooks/useSectionDescription";
 import React from "react";
 
 const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
-  const description = useSectionInfos((x) => x.x[sectionId].description);
+  const description = useGetSectionDescription(sectionId, "value");
   const setDescription = useSetSectionDescription(sectionId);
 
   return (
@@ -13,7 +15,7 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
       className="flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl border border-solid border-slate-300 [&_.w-md-editor-bar]:hidden [&_.w-md-editor-text_*]:font-code"
     >
       <MDEditor
-        value={description}
+        value={description || ""}
         onChange={setDescription}
         preview="edit"
         textareaProps={{ resize: "none" }}

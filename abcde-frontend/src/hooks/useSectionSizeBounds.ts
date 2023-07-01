@@ -4,12 +4,12 @@ import {
   useGetAllCallables,
   useGetCurrObjParamKwargInfos,
 } from "./useSectionContents";
-import { useIsOutput, useIsSeriesRoot } from "./useSectionType";
+import { useIsOutput, useIsRoot } from "./useSectionType";
 import { useIsTwitter } from "./useSocialUtils";
 
 export function useMinSectionHeight(sectionId) {
   const isOutput = useIsOutput(sectionId);
-  const isRoot = useIsSeriesRoot(sectionId);
+  const isRoot = useIsRoot(sectionId);
   const hasTitle = true;
   const hasSearch = useGetAllCallables(sectionId).length > 0 && !isRoot;
   const paramsAndKwargs = useGetCurrObjParamKwargInfos(sectionId);

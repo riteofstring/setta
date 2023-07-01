@@ -1,3 +1,4 @@
+import { ManySectionChildrenType } from "abcde-utils/src/types/sectionChildren";
 import { ManyOf } from "abcde-utils/src/types/utils";
 
 type OverviewType = {
@@ -10,7 +11,7 @@ type IdNamesType = ManyOf<string>;
 
 export const getOverviewListing = (
   topLevelIds: string[],
-  currChildren: { [id: string]: string[] },
+  currChildren: ManySectionChildrenType,
   idNames: IdNamesType
 ) => {
   const outputList: OverviewType[] = [];
@@ -24,7 +25,7 @@ export const getOverviewListing = (
 
 const getOverviewListingHelper = (
   sectionId: string,
-  currChildren: { [id: string]: string[] },
+  currChildren: ManySectionChildrenType,
   idNames: IdNamesType,
   depth: number
 ) => {

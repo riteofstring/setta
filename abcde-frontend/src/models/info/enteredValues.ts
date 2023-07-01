@@ -18,12 +18,16 @@ export const useEnteredValues = createProjectState(
         set((state) => {
           _.forEach(
             evIdsToUITypes,
-            (uiType, id) => (state.x[id] = newEV(uiType))
+            (uiType, id) => (state.x[id] = newEV({ id, uiType }))
           );
         }),
       setEnteredValue: ({ enteredValueId, value }) =>
         set((state) => {
-          state.x[enteredValueId] = value;
+          state.x[enteredValueId].value = value;
+        }),
+      setChildId: ({ enteredValueId, childId }) =>
+        set((state) => {
+          state.x[enteredValueId].childId = childId;
         }),
     }))
   )

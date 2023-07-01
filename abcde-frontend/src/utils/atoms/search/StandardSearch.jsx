@@ -49,6 +49,6 @@ function MaybeForm({ onFormSubmit, children, outerClasses }) {
       {children}
     </form>
   ) : (
-    <div className={styles}>{children}</div>
+    <section className={styles}>{children}</section>
   );
 }
