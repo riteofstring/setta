@@ -1,17 +1,29 @@
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionInfo, getSectionType } from "thunks/sections/sections";
 import { cloneNewUIType, maybeCloneUIType } from "thunks/uiTypes/cloneUITypes";
-import { maybeIncrementProjectStateVersion } from "../undo";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { initializeParamsOfSectionsWithUITypes } from "../initializeParam";
 import { updateUITypeIdOfSectionsWithUITypeId } from "./setSectionUITypeId";
 
-export function setSectionUITypeConfig({
+export function setSectionCollections({
   sectionId,
   settingPreset = false,
-  configProps,
-  incrementVersion = false,
+  id,
+  checked,
+  newValueFn,
+  incrementVersion,
 }) {
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-  useUITypes.getState().setOneConfig({ uiTypeId: uiType.id, ...configProps });
+
+  if (checked) {
+    initializeParamsOfSectionsWithUITypes([uiType.id], [id]);
+  }
+
+  useUITypes.getState().setOneConfig({
+    uiTypeId: uiType.id,
+    configName: "collections",
+    newValueFn,
+  });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

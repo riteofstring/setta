@@ -1,4 +1,8 @@
-import { SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
+import {
+  isRoot,
+  isSeriesElement,
+  SECTION_TYPE_NAMES,
+} from "abcde-utils/src/constants";
 import {
   ManyUITypeType,
   PresetType,
@@ -29,7 +33,15 @@ function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
   return nonPresetUITypeIds.includes(v.id);
 }
 
-export function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type) {
+export function isAmongNonPresetsAndMatchesType(
+  v,
+  nonPresetUITypeIds,
+  type,
+  subType
+) {
+  if (isRoot(type) && isSeriesElement(subType)) {
+    return false;
+  }
   return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
 }
 

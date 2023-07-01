@@ -5,7 +5,6 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useStoreApi } from "reactflow";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionInfo, getSectionName } from "thunks/sections/sections";
-import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 export function RefInputConfig() {
@@ -76,13 +75,13 @@ function addAttrSection({
 
   const { selectedItem } = getSectionInfo(refSectionId);
   const { returnTypeId } = useCodeInfo.getState().allCodeInfo[selectedItem];
-  setSectionUITypeConfig({
-    sectionId: newId,
-    configProps: {
-      configName: "collections",
-      newValueFn: () => [returnTypeId],
-    },
-  });
+  // setSectionUITypeConfig({
+  //   sectionId: newId,
+  //   configProps: {
+  //     configName: "collections",
+  //     newValueFn: () => [returnTypeId],
+  //   },
+  // });
 
   onCreation(newId);
 }
