@@ -24,7 +24,7 @@ export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   const currUIType = getSectionType(sectionId);
 
   const createNonPreset = () =>
-    createNonPresetForSection({ sectionId, currUIType, defaultName });
+    createNonPresetForSection({ currUIType, defaultName });
 
   return maybeCloneUIType({
     currUIType,
@@ -35,7 +35,7 @@ export function maybeCloneSectionUIType({ sectionId, settingPreset }) {
   });
 }
 
-function createNonPresetForSection({ sectionId, currUIType, defaultName }) {
+function createNonPresetForSection({ currUIType, defaultName }) {
   const newUIType = cloneNewUIType({
     uiType: currUIType,
     name: defaultName,
