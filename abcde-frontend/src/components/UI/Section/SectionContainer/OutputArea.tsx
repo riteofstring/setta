@@ -19,7 +19,7 @@ function OneChart({ series, title }) {
   return (
     <div className="h-full">
       <ParentSize
-        className="-my-2 flex flex-1 flex-col px-8 pt-2"
+        className="-my-5 flex flex-1 flex-col px-8 pt-6"
         debounceTime={0}
       >
         {(parent) => (
