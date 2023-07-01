@@ -1,3 +1,4 @@
+import { SectionType } from "abcde-utils/src/types/section";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
@@ -20,9 +21,11 @@ export function setPositionState(nodes, incrementVersion) {
   return positionsChanged;
 }
 
-export function setZIndices(nodes, incrementVersion) {
-  const topLevelPositions = useProjectConfig.getState().children;
-  nodes.forEach((n) => delete topLevelPositions[n.id]);
+export function setZIndices(nodes: SectionType[], incrementVersion) {
+  const topLevelPositions = _.omit(
+    useProjectConfig.getState().children,
+    nodes.map((x) => x.id)
+  );
   const posWithIds = _.map(topLevelPositions, (v, k) => ({
     id: k,
     ...v,
