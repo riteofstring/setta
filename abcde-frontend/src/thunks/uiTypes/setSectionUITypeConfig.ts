@@ -6,7 +6,6 @@ import {
 } from "thunks/sections/sections";
 import { cloneNewUIType, maybeCloneUIType } from "thunks/uiTypes/cloneUITypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setSectionUITypeId } from "./setSectionUITypeId";
 
 export function setSectionUITypeConfig({
@@ -16,7 +15,7 @@ export function setSectionUITypeConfig({
   incrementVersion = false,
 }) {
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-  setConfigAndChildConfig(uiType, configProps);
+  useUITypes.getState().setOneConfig({ uiTypeId: uiType.id, ...configProps });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

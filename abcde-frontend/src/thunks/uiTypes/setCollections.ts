@@ -1,7 +1,4 @@
-import {
-  initializeChildParams,
-  initializeParamsOfSectionsWithUITypes,
-} from "../initializeParam";
+import { initializeParamsOfSectionsWithUITypes } from "../initializeParam";
 import {
   maybeCloneSectionUIType,
   setSectionUITypeConfig,
@@ -18,14 +15,7 @@ export function setCollections({
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
 
   if (checked) {
-    if (uiType.config.childUITypeId) {
-      initializeParamsOfSectionsWithUITypes(
-        [uiType.id, uiType.config.childUITypeId],
-        [id]
-      );
-    } else {
-      initializeChildParams(sectionId, [id]);
-    }
+    initializeParamsOfSectionsWithUITypes([uiType.id], [id]);
   }
 
   setSectionUITypeConfig({

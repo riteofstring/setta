@@ -5,7 +5,6 @@ import { getSectionInfo } from "thunks/sections/sections";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
-import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
 
 export function setParamUITypeConfig({
@@ -19,7 +18,7 @@ export function setParamUITypeConfig({
     paramInfoId,
     settingPreset,
   });
-  setConfigAndChildConfig(uiType, configProps);
+  useUITypes.getState().setOneConfig({ uiTypeId: uiType.id, ...configProps });
 }
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
