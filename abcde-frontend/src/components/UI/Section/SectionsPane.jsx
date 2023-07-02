@@ -1,5 +1,6 @@
 import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
+import { useUndoRedoOnKeyActivation } from "hooks/useUndoOnKeyActivation";
 import { useActiveSection } from "models/activeSection";
 import React from "react";
 import ReactFlow, { Background, useNodesState } from "reactflow";
@@ -30,6 +31,7 @@ function _SectionsPane({ initialNodes }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const setActiveSection = useActiveSection((x) => x.setId);
   useGroupSectionsOnKeyActivation();
+  useUndoRedoOnKeyActivation();
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
