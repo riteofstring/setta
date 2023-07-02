@@ -30,14 +30,9 @@ function getParamIds(p, id) {
   return Object.keys(p.evCols[evColId]);
 }
 
-function getParamUITypeId(p, sectionId, id) {
-  const { uiTypeColId } = p.sections[sectionId];
-  return p.uiTypeCols[uiTypeColId][id].uiTypeId;
-}
-
 function getParamUIType(p, sectionId, id) {
-  const uiTypeId = getParamUITypeId(p, sectionId, id);
-  const uiType = p.uiTypes[uiTypeId];
+  const { uiTypeColId } = p.sections[sectionId];
+  const uiType = p.uiTypes[p.uiTypeCols[uiTypeColId][id]];
   if (isSectionUIType(uiType)) {
     return REF;
   }
@@ -45,18 +40,8 @@ function getParamUIType(p, sectionId, id) {
 }
 
 function getOriginalParamUIType(p, sectionId, id) {
-  const uiTypeId = getParamUITypeId(p, sectionId, id);
-  return p.uiTypes[uiTypeId].type;
-}
-
-function getParamChildId(p, sectionId, id) {
-  const sectionChildren = p.sectionCurrChildren[sectionId];
-  for (const s of sectionChildren) {
-    if (p.sections[s].paramInfoId === id) {
-      return s;
-    }
-  }
-  return null;
+  const { uiTypeColId } = p.sections[sectionId];
+  return p.uiTypes[p.uiTypeCols[uiTypeColId][id]].type;
 }
 
 function getSectionVarName(sectionVarNames, id) {
@@ -98,7 +83,7 @@ class Exporter {
   }
 
   export() {
-    this.exportSections(Object.keys(this.p.projectConfig.children));
+    this.exportSections(this.p.projectConfig.children);
   }
 
   exportSections(ids) {
@@ -159,11 +144,11 @@ class Exporter {
   exportParamValue(sectionId, id) {
     const { evColId } = this.p.sections[sectionId];
     const evId = this.p.evCols[evColId][id];
-    const value = this.p.ev[evId];
+    const { value, childId } = this.p.ev[evId];
     const originalType = getOriginalParamUIType(this.p, sectionId, id);
-    const possibleChildId = getParamChildId(this.p, sectionId, id);
-    if (possibleChildId) {
-      return this.exportSection(possibleChildId);
+    const sectionChildren = this.p.sectionCurrChildren[sectionId];
+    if (sectionChildren.includes(childId)) {
+      return this.exportSection(childId);
     } else if (value && originalType === REF) {
       return this.exportSection(value);
     }

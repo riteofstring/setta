@@ -5,19 +5,25 @@ import { saveEV, saveEVCols } from 'src/db/enteredValues/save';
 import { saveKwargCols, saveKwargInfo } from 'src/db/kwargs/save';
 import { prisma } from 'src/db/prisma';
 import { saveProjectConfig } from 'src/db/projectConfigs/save';
-import { saveSections } from 'src/db/sections/save';
+import {
+  saveSectionDescriptions,
+  saveSections,
+  updateSectionsWithDetails,
+} from 'src/db/sections/save';
 import { saveUITypeCols, saveUITypes } from 'src/db/uiTypes/save';
 
 export async function saveProjectDetails(userId, p: ProjectSaveType) {
+  await saveSections(p.sections, p.sectionChildren);
   await saveKwargInfo(p.kwargInfo);
   await saveKwargCols(p.kwargCols);
   await saveEV(p.ev);
   await saveEVCols(p.evCols);
   await saveUITypes(userId, p.uiTypes);
   await saveUITypeCols(p.uiTypeCols);
-  await saveSections(p.sections);
+  await saveSectionDescriptions(p.sectionDescriptions);
+  await updateSectionsWithDetails(p.sections);
   await saveProject(userId, p.project);
-  await saveProjectConfig(p.project.id, p.projectConfig);
+  await saveProjectConfig(p.project.id, p.projectConfig, p.sections);
   await saveAllProjectConfigCodeInfoMaps(
     p.projectConfig.id,
     p.projectConfigCodeInfoMaps,

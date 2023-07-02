@@ -5,7 +5,7 @@ import { getProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/projectConfig/
 import { getUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/load';
 import { prisma } from 'src/db/prisma';
 import { getProjectConfig } from 'src/db/projectConfigs/load';
-import { getSections } from 'src/db/sections/load';
+import { getSections, setSectionPositions } from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 import { getRuns } from '../runs/load';
 
@@ -48,24 +48,22 @@ export async function loadOne({
   });
 
   const project = await getProject(projectId);
-  const projectConfig = await getProjectConfig(configId);
+  const { projectConfig, sectionPositions } = await getProjectConfig(configId);
   const {
     sections,
+    sectionChildren,
     ev,
     evCols,
     kwargCols,
     uiTypeCols,
-    nonPresetUITypes,
-    outputGroups: sectionOutputGroups,
-    outputs: sectionOutputs,
-  } = await getSections(Object.keys(projectConfig.children));
+    sectionUITypes,
+    sectionDescriptions,
+  } = await getSections(projectConfig.children);
 
   const baseUITypes = await getBaseUITypes();
   const presetUITypes = await getPresetUITypes(reqUserId);
-  const uiTypes = { ...baseUITypes, ...presetUITypes, ...nonPresetUITypes };
   const codeInfo = await getCodeInfoForSectionsAndKwargs(
-    sections,
-    uiTypes,
+    sectionUITypes,
     kwargCols,
   );
   const userCodeInfoMaps = await getUserCodeInfoMaps(reqUserId);
@@ -74,19 +72,24 @@ export async function loadOne({
   );
   const { outputGroups, outputs } = await getRuns(configId);
 
+  // put top-level initialPosition into sections
+  setSectionPositions(sections, sectionPositions);
+
   return {
     project,
     projectConfig,
     sections,
+    sectionChildren,
+    sectionDescriptions,
     ev,
     evCols,
     kwargCols,
-    uiTypes,
+    uiTypes: { ...baseUITypes, ...presetUITypes, ...sectionUITypes },
     uiTypeCols,
     codeInfo,
     userCodeInfoMaps,
     projectConfigCodeInfoMaps,
-    outputGroups: { ...outputGroups, ...sectionOutputGroups },
-    outputs: { ...outputs, ...sectionOutputs },
+    outputGroups,
+    outputs,
   };
 }

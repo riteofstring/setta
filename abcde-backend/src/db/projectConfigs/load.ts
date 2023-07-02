@@ -1,27 +1,28 @@
-import { ProjectConfigType } from 'abcde-utils/src/types/projectConfig';
-import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
+import { getSectionPositions } from 'src/db/sections/load';
+import { getOrderedChildren } from 'src/utils/utils';
 
 export async function getProjectConfig(id) {
   const p = await prisma.projectConfig.findUniqueOrThrow({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      name: true,
       sections: {
-        select: { childId: true, x: true, y: true, zIndex: true },
+        select: { childId: true, order: true, x: true, y: true },
       },
     },
   });
 
-  const projectConfig: ProjectConfigType = {
+  const sectionPositions = getSectionPositions(p.sections);
+
+  const projectConfig = {
     id: p.id,
     name: p.name,
-    children: _.mapValues(_.keyBy(p.sections, 'childId'), (x) =>
-      _.omit(x, 'childId'),
-    ),
-    viewport: { x: p.x, y: p.y, zoom: p.zoom },
+    children: getOrderedChildren(p.sections, 'childId'),
   };
 
-  return projectConfig;
+  return { projectConfig, sectionPositions };
 }
 
 export async function getPathnameFromProjectConfigId(id) {

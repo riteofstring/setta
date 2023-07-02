@@ -1,30 +1,27 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
-import { remapIds, renameKeys } from 'src/utils/utils';
+import { createIdMap, renameKeys } from 'src/utils/utils';
 
 export function copyEV(ev: ManyEVType) {
-  const { newIds: newEv, idMap: evIdMap } = remapIds(ev);
+  const oldIds = Object.keys(ev);
+  const evIdMap = createIdMap(oldIds);
+  const newEv = renameKeys(ev, evIdMap);
+  for (const [newId, x] of Object.entries(newEv)) {
+    x.id = newId;
+  }
   return { newEv, evIdMap };
 }
 
-export function copyEVCols({
-  evCols,
-  evIdMap,
-  kwargInfoIdMap,
-}: {
-  evCols: ManyEVColType;
-  evIdMap;
-  kwargInfoIdMap;
-}) {
-  const { newIds: newEvCols, idMap: evColIdMap } = remapIds(evCols);
+export function copyEVCols(evCols: ManyEVColType, evIdMap) {
+  const oldIds = Object.keys(evCols);
+  const evColIdMap = createIdMap(oldIds);
+  const newEvCols = renameKeys(evCols, evColIdMap);
 
   // replace ev ids
-  for (const id of Object.keys(newEvCols)) {
-    newEvCols[id] = renameKeys(newEvCols[id], kwargInfoIdMap);
-    const col = newEvCols[id];
-    for (const [codeInfoId, evId] of Object.entries(col)) {
+  for (const newEvCol of Object.values(newEvCols)) {
+    for (const [codeInfoId, evId] of Object.entries(newEvCol)) {
       if (evId in evIdMap) {
-        col[codeInfoId] = evIdMap[evId];
+        newEvCol[codeInfoId] = evIdMap[evId];
       }
     }
   }

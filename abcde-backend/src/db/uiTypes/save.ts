@@ -1,65 +1,118 @@
-import { Prisma } from '@prisma/client';
-import { isSectionUIType, SLIDER } from 'abcde-utils/src/constants';
-import { ManyUITypeType } from 'abcde-utils/src/types/uiType';
+import {
+  isSectionUIType,
+  REF,
+  SLIDER,
+  SWITCH,
+  TEXT,
+} from 'abcde-utils/src/constants';
+import {
+  ManyUITypeType,
+  SectionUITypeType,
+  UITypeType,
+} from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
+import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { deleteThenCreateColNonBatched } from 'src/utils/utils';
+import { deleteThenCreateCol, ifUndefinedThenNull } from 'src/utils/utils';
+import { PrismaUITypeColType } from './types';
 
-export async function saveUITypes(userId, uiTypes: ManyUITypeType) {
-  const create = Object.values(uiTypes).map(
-    (x): Prisma.UITypeUpsertArgs['create'] => ({
+async function saveCoreUITypes(userId: string | null, uiTypes: ManyUITypeType) {
+  const data = Object.values(uiTypes).map((x) => {
+    return {
       id: x.id,
       ownerId: userId,
       type: x.type,
       name: x.name,
       presetType: x.presetType,
+      isForChildOfOriginInfoId: x.isForChildOfOriginInfoId,
+      originSectionId: ifUndefinedThenNull(x.originInfoId.sectionId),
+      originUITypeColId: ifUndefinedThenNull(x.originInfoId.uiTypeColId),
+      originCodeInfoId: ifUndefinedThenNull(x.originInfoId.paramInfoId),
+    };
+  });
+
+  // create any missing uiTypeCols because saveUITypeCols is usually called later
+  const originUITypeCols = data
+    .map((v) => v.originUITypeColId)
+    .filter((v): v is string => !!v);
+  await prisma.$transaction(
+    originUITypeCols.map((v) => {
+      const where = { id: v };
+      return prisma.uITypeColId.upsert({ where, create: where, update: where });
     }),
   );
 
-  const update = Object.values(uiTypes).map(
-    (x): Prisma.UITypeUpdateArgs['data'] => ({
-      id: x.id,
-      ownerId: userId,
-      ...processConfig(x),
-    }),
-  );
-
-  await prisma.$transaction([
-    ...create.map((v) =>
+  await prisma.$transaction(
+    data.map((v) =>
       prisma.uIType.upsert({
-        where: { id: v.id, ownerId: v.ownerId },
+        where: { id: v.id, ownerId: userId },
         create: v,
         update: v,
       }),
     ),
-    ...update.map((v) =>
-      prisma.uIType.update({
-        where: { id: v.id as string, ownerId: v.ownerId as string },
-        data: v,
-      }),
-    ),
-  ]);
+  );
 }
 
-function processConfig(uiType): Partial<Prisma.UITypeUpdateArgs['data']> {
-  const { config, type } = uiType;
-  if (isSectionUIType(uiType)) {
-    return {
-      sectionConfigSubType: config.subType,
-      sectionConfigCollections: {
-        set: config.collections.map((x) => ({ id: x })),
-      },
-      sectionConfigChildUITypeId: config.childUITypeId,
-    };
-  } else if (type === SLIDER) {
-    return {
-      sliderConfigMin: config.min,
-      sliderConfigMax: config.max,
-      sliderConfigStep: config.step,
-    };
-  } else {
-    return {};
+export async function saveSectionUITypes(sectionUITypes: SectionUITypeType[]) {
+  const data = sectionUITypes.map((x) => ({
+    idid: x.id,
+  }));
+
+  await prisma.sectionUIType.createMany({ data, skipDuplicates: true });
+
+  await prisma.$transaction(
+    sectionUITypes.map((v) =>
+      prisma.sectionUIType.update({
+        where: { idid: v.id },
+        data: {
+          collections: { set: v.config.collections.map((x) => ({ id: x })) },
+          outputGroupId: v.config.outputGroup,
+          childUITypeId: v.config.childUITypeId,
+          subType: v.config.subType,
+        },
+      }),
+    ),
+  );
+}
+
+async function saveRegularUIType(db, uiTypes: UITypeType[]) {
+  if (uiTypes.length === 0) {
+    return;
   }
+  const data = uiTypes.map((x) => ({
+    idid: x.id,
+    ...x.config,
+  }));
+  await prisma.$transaction(
+    data.map((v) =>
+      db.upsert({
+        where: { idid: v.idid },
+        create: v,
+        update: v,
+      }),
+    ),
+  );
+}
+
+export async function saveUITypes(userId, uiTypes: ManyUITypeType) {
+  await saveCoreUITypes(userId, uiTypes);
+  await saveSectionUITypes(extractSectionUITypes(uiTypes));
+  await saveRegularUIType(
+    prisma.sliderUIType,
+    _.filter(uiTypes, (v) => v.type === SLIDER),
+  );
+  await saveRegularUIType(
+    prisma.textUIType,
+    _.filter(uiTypes, (v) => v.type === TEXT),
+  );
+  await saveRegularUIType(
+    prisma.switchUIType,
+    _.filter(uiTypes, (v) => v.type === SWITCH),
+  );
+  await saveRegularUIType(
+    prisma.refUIType,
+    _.filter(uiTypes, (v) => v.type === REF),
+  );
 }
 
 export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
@@ -69,18 +122,25 @@ export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
     skipDuplicates: true,
   });
 
-  const inDbFormat: any[] = [];
+  const inDbFormat: PrismaUITypeColType[] = [];
   for (const idid of ids) {
-    for (const [codeInfoId, uiInfo] of Object.entries(uiTypeCols[idid])) {
+    for (const [codeInfoId, uiTypeId] of Object.entries(uiTypeCols[idid])) {
       inDbFormat.push({
         idid,
         codeInfoId,
-        uiTypeId: uiInfo.uiTypeId,
-        nonPresetUITypes: {
-          connect: uiInfo.nonPresetUITypeIds.map((x) => ({ id: x })),
-        },
+        uiTypeId,
       });
     }
   }
-  await deleteThenCreateColNonBatched(prisma.uITypeCol, ids, inDbFormat);
+  await deleteThenCreateCol(prisma.uITypeCol, ids, inDbFormat);
+}
+
+export function extractSectionUITypes(uiTypes: ManyUITypeType) {
+  const sectionUITypes: SectionUITypeType[] = [];
+  _.forEach(uiTypes, (v) => {
+    if (isSectionUIType(v)) {
+      sectionUITypes.push(v);
+    }
+  });
+  return sectionUITypes;
 }

@@ -1,44 +1,42 @@
-import { isSectionUIType, NULL_OBJ_ID } from 'abcde-utils/src/constants';
-import { CodeInfoStateType, RCType } from 'abcde-utils/src/types/codeInfo';
+import { NULL_OBJ_ID } from 'abcde-utils/src/constants';
+import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { getChildrenRecursively } from 'src/utils/utils';
+import { getChildrenRecursively, getOrderedChildren } from 'src/utils/utils';
+import { createAllInfo } from './infoFactory';
+import { ChildMapType } from './types';
 
 export async function getCodeInfoForSectionsAndKwargs(
-  sections,
-  uiTypes,
+  sectionUITypes,
   kwargCols: ManyKwargColType,
 ) {
-  const sectionUITypes = _.pickBy(uiTypes, (v) => isSectionUIType(v));
-  const userSpecifiedObjectIds = _.map(
-    sections,
-    (s) => s.userSpecifiedObjectId,
-  ).filter((s) => s);
-  const collectionIds = _.flatten(
-    _.map(sectionUITypes, (x) => x.config.collections),
+  const collectionIds = [].concat(
+    ..._.map(sectionUITypes, (x) => x.config.collections),
   );
-  const kwargIds = _.flattenDeep(_.map(kwargCols, (x) => Object.values(x)));
-
-  return await getCodeInfo([
-    ...userSpecifiedObjectIds,
+  const kwargIds: string[] = [];
+  _.forEach(kwargCols, (x) =>
+    _.forEach(Object.values(x), (y) => kwargIds.push(...y)),
+  );
+  const allCodeInfo = await getCodeInfo([
     ...collectionIds,
     ...kwargIds,
     NULL_OBJ_ID,
   ]);
+  return createAllInfo(allCodeInfo);
 }
 
-export async function getCodeInfo(ids: string[]): Promise<CodeInfoStateType> {
-  const allIds = await getChildrenRecursively(
+export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
+  const { childMap, allIds } = await getChildrenRecursively(
     ids,
     async (c) =>
       await prisma.$queryRaw`
           with recursive descendants as (
-              select "parentId", "childId"
+              select "parentId", "childId", "order"
               from "CodeInfoChildren"
               where "parentId" = ${c}::uuid
             union
-              select x."parentId", x."childId"
+              select x."parentId", x."childId", x."order"
               from "CodeInfoChildren" x
               join descendants on x."parentId" = descendants."childId"
           )
@@ -47,21 +45,21 @@ export async function getCodeInfo(ids: string[]): Promise<CodeInfoStateType> {
 
   const codeInfo = await prisma.codeInfo.findMany({
     where: { id: { in: allIds } },
-    include: {
-      asParent: {
-        select: { childId: true },
-        orderBy: { order: 'asc' },
-      },
-    },
   });
-
   const output = {};
   codeInfo.forEach((x) => {
-    const { asParent, ...theRest } = x;
-    output[x.id] = { ...theRest, children: asParent.map((y) => y.childId) };
+    output[x.id] = processCodeInfo(x, childMap);
   });
 
-  return { allCodeInfo: output };
+  return output;
+}
+
+export function processCodeInfo(codeInfo, childMap: ChildMapType) {
+  let children: string[] = [];
+  if (codeInfo.id in childMap) {
+    children = getOrderedChildren(childMap[codeInfo.id], 'childId');
+  }
+  return { ...codeInfo, children };
 }
 
 export async function getCollectionsAndModules(searchTerm: string) {

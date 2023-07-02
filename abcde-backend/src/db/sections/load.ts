@@ -1,29 +1,37 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import { ManyOutputType } from 'abcde-utils/src/types/output';
-import { ManyOutputGroupType } from 'abcde-utils/src/types/outputGroup';
 import { ManySectionType } from 'abcde-utils/src/types/section';
+import { ManySectionChildrenType } from 'abcde-utils/src/types/sectionChildren';
+import { ManySectionDescriptionType } from 'abcde-utils/src/types/sectionDescription';
+import { SiblingSectionPositionType } from 'abcde-utils/src/types/sectionPosition';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
+import { getUITypesByWhere } from 'src/db/uiTypes/load';
 import {
   getChildrenRecursively,
+  getOrderedChildren,
   getOrderedChildrenFull,
 } from 'src/utils/utils';
-import { getUITypesByWhere } from '../uiTypes/load';
+import { UITypeNames } from '../uiTypes/types';
+import { PrismaSectionChildrenType } from './types';
 
-export async function getSections(ids) {
-  const allIds = await getChildrenRecursively(
+function convertSize(x) {
+  return x === -1 ? 'auto' : x;
+}
+
+export async function getSections(ids: string[]) {
+  const { allIds } = await getChildrenRecursively(
     ids,
     async (c) =>
       await prisma.$queryRaw`
           with recursive descendants as (
-              select "parentId", "childId"
+              select "parentId", "childId", "order", "x", "y"
               from "SectionChildren"
               where "parentId" = ${c}::uuid
             union
-              select other."parentId", other."childId"
+              select other."parentId", other."childId", other."order", other."x", other."y"
               from "SectionChildren" other
               join descendants on other."parentId" = descendants."childId"
           )
@@ -34,10 +42,8 @@ export async function getSections(ids) {
     where: { id: { in: allIds } },
     include: {
       children: {
-        select: { childId: true },
-        orderBy: { order: 'asc' },
+        select: { order: true, childId: true, x: true, y: true },
       },
-      asChild: { select: { parentId: true } },
       evCol: {
         select: {
           children: { select: { codeInfoId: true, evId: true, ev: true } },
@@ -53,55 +59,59 @@ export async function getSections(ids) {
       uiTypeCol: {
         select: {
           children: {
-            select: {
-              codeInfoId: true,
-              uiTypeId: true,
-              nonPresetUITypes: { select: { id: true } },
-            },
+            select: { codeInfoId: true, uiTypeId: true },
           },
         },
       },
-      nonPresetUITypes: {
-        select: { id: true },
-      },
-      outputGroup: {
+      description: {
         select: {
-          id: true,
-          name: true,
-          children: { select: { id: true, name: true, values: true } },
+          value: true,
+          height: true,
+          visible: true,
         },
       },
     },
   });
   const idsAsKeys = _.keyBy(s, 'id');
 
+  const sectionChildren = _.mapValues(idsAsKeys, (v) =>
+    getOrderedChildren(v.children, 'childId'),
+  );
+
   const sections: ManySectionType = _.mapValues(idsAsKeys, (v) => ({
     id: v.id,
     name: v.name,
-    children: v.children.map((x) => x.childId),
     paramInfoId: v.paramInfoId,
+    initialPosition: { x: 0, y: 0 },
     size: { width: convertSize(v.width), height: convertSize(v.height) },
     chainedFrom: v.chainedFromId,
-    parentId: v.asChild ? v.asChild.parentId : null,
+    parentId: getParentId(v.id, sectionChildren),
+    zIndex: v.zIndex,
     evColId: v.evColId,
     uiTypeId: v.uiTypeId,
     kwargColId: v.kwargColId,
     uiTypeColId: v.uiTypeColId,
     selectedItem: v.selectedItemId,
-    social: v.social,
-    outputGroup: v.outputGroupId,
-    userSpecifiedObjectId: v.userSpecifiedObjectId,
-    nonPresetUITypeIds: v.nonPresetUITypes.map((x) => x.id),
-    description: v.description,
-    descriptionHeight: v.descriptionHeight,
-    descriptionVisible: v.descriptionVisible,
+    descriptionId: v.descriptionId,
   }));
+
+  _.forEach(idsAsKeys, (v) => {
+    const sPos = getSectionPositions(v.children);
+    setSectionPositions(sections, sPos);
+  });
+
+  const sectionUITypes = await getUITypesByWhere(
+    {
+      id: { in: s.map((x) => x.uiTypeId) },
+    },
+    UITypeNames.sectionUIType,
+  );
 
   const ev: ManyEVType = {};
   for (const config of s) {
     const allCurrEvs = config.evCol.children.map((x) => x.ev);
     const keyByEVId = _.keyBy(allCurrEvs, 'id');
-    _.forEach(keyByEVId, (v, id) => (ev[id] = v.value));
+    _.forEach(keyByEVId, (v, id) => (ev[id] = v));
   }
 
   const evCols: ManyEVColType = {};
@@ -125,55 +135,52 @@ export async function getSections(ids) {
   for (const config of s) {
     uiTypeCols[config.uiTypeColId] = _.mapValues(
       _.keyBy(config.uiTypeCol.children, 'codeInfoId'),
-      (x) => ({
-        uiTypeId: x.uiTypeId,
-        nonPresetUITypeIds: x.nonPresetUITypes.map((x) => x.id),
-      }),
+      (x) => x.uiTypeId,
     );
   }
 
-  const nonPresetUITypeIds: string[] = [];
-  for (const s of Object.values(sections)) {
-    nonPresetUITypeIds.push(...s.nonPresetUITypeIds);
-  }
-  for (const u of Object.values(uiTypeCols)) {
-    for (const c of Object.values(u)) {
-      nonPresetUITypeIds.push(...c.nonPresetUITypeIds);
-    }
-  }
-
-  const nonPresetUITypes = await getUITypesByWhere({
-    id: { in: nonPresetUITypeIds },
-  });
-
-  const outputGroups: ManyOutputGroupType = {};
-  const outputs: ManyOutputType = {};
+  const sectionDescriptions: ManySectionDescriptionType = {};
   for (const config of s) {
-    const og = config.outputGroup;
-    if (og) {
-      outputGroups[og.id] = {
-        id: og.id,
-        name: og.name,
-        children: og.children.map((x) => x.id),
-      };
-      for (const c of og.children) {
-        outputs[c.id] = c;
-      }
-    }
+    sectionDescriptions[config.descriptionId] = config.description;
   }
 
   return {
     sections,
+    sectionChildren,
     ev,
     evCols,
     kwargCols,
     uiTypeCols,
-    nonPresetUITypes,
-    outputGroups,
-    outputs,
+    sectionUITypes,
+    sectionDescriptions,
   };
 }
 
-function convertSize(x) {
-  return x === -1 ? 'auto' : x;
+export function getSectionPositions(
+  children: Omit<PrismaSectionChildrenType, 'parentId'>[],
+) {
+  const byId = _.keyBy(children, (s) => s.childId);
+  return _.mapValues(byId, (s) => ({ x: s.x, y: s.y }));
+}
+
+export function setSectionPositions(
+  sections: ManySectionType,
+  sectionPositions: SiblingSectionPositionType,
+) {
+  _.forEach(
+    sectionPositions,
+    (pos, id) => (sections[id].initialPosition = pos),
+  );
+}
+
+function getParentId(
+  sectionId: string,
+  sectionChildren: ManySectionChildrenType,
+) {
+  for (const [k, v] of Object.entries(sectionChildren)) {
+    if (v.includes(sectionId)) {
+      return k;
+    }
+  }
+  return null;
 }
