@@ -1,7 +1,13 @@
+import {
+  ManySectionPositionType,
+  SectionPositionType,
+} from "./sectionPosition";
+import { ManyOf } from "./utils";
+
 export type ProjectConfigType = {
   id: string;
   name: string;
-  children: string[];
+  children: ManySectionPositionType;
 };
 
 export type ProjectConfigFrontendType = ProjectConfigType & {
@@ -11,9 +17,11 @@ export type ProjectConfigFrontendType = ProjectConfigType & {
 export type ProjectConfigActionType = {
   resetAndSetAll: (payload: ProjectConfigType) => void;
 
-  addChildren: (payload: string[]) => void;
+  addChildren: (payload: ManySectionPositionType) => void;
 
   deleteChildren: (payload: string[]) => void;
+
+  updatePositions: (payload: ManyOf<Partial<SectionPositionType>>) => void;
 
   setName: (payload: string) => void;
 
