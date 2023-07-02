@@ -9,7 +9,16 @@ export default {
         "0671b39c-8479-4831-8627-8b37f12ef635",
         "bb751616-d554-4ec8-84c1-8760078956d3",
       ],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "acd83563-2337-44c2-9b4d-db3641fcbc97",
+    },
+    isForChildOfOriginInfoId: false,
   },
   "aca715a7-e487-4151-8099-5823b9f54637": {
     id: "aca715a7-e487-4151-8099-5823b9f54637",
@@ -18,7 +27,16 @@ export default {
     presetType: null,
     config: {
       collections: ["93cd43f3-218c-4542-ad03-406a5b77aab5"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "66adb1cc-ce9e-4885-81a6-bf3e7a66644e",
+    },
+    isForChildOfOriginInfoId: false,
   },
   "4dfce153-7c8a-427e-bc86-31802494166d": {
     id: "4dfce153-7c8a-427e-bc86-31802494166d",
@@ -27,7 +45,16 @@ export default {
     presetType: null,
     config: {
       collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "306550d9-1a80-42c6-b853-512a22e4d796",
+    },
+    isForChildOfOriginInfoId: false,
   },
   "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5": {
     id: "fcbf8218-0d13-44a0-8ee4-6ec66423c3e5",
@@ -36,7 +63,34 @@ export default {
     presetType: null,
     config: {
       collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "ac23d151-2df2-436f-b146-3893806ffb1d",
+    },
+    isForChildOfOriginInfoId: false,
+  },
+  "861265e9-2701-42dd-821b-d80734ec0db1": {
+    id: "861265e9-2701-42dd-821b-d80734ec0db1",
+    name: "ValDataset",
+    type: "USER_SPECIFIED_OBJECT",
+    presetType: null,
+    config: {
+      collections: [],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: "75104bc2-63ce-4742-b35b-1948409c5cac",
+    },
+    originInfoId: {
+      sectionId: "2b120b7c-6e63-4ae2-80c4-0a96c56bf0c4",
+    },
+    isForChildOfOriginInfoId: false,
   },
   "2b157b97-4424-4831-83a5-836c7dc17a6e": {
     id: "2b157b97-4424-4831-83a5-836c7dc17a6e",
@@ -45,7 +99,16 @@ export default {
     presetType: null,
     config: {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "3b4bd093-351f-4bec-af52-935d50953ebd",
+    },
+    isForChildOfOriginInfoId: false,
   },
   "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9": {
     id: "7217d009-74c2-4c2d-aa4b-aa6d69aed0d9",
@@ -54,7 +117,16 @@ export default {
     presetType: null,
     config: {
       collections: ["253cd8a8-a95a-4d15-b98b-73318b3632a1"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "78651b57-73ab-4205-a8d7-4b9fb3b9f51b",
+    },
+    isForChildOfOriginInfoId: false,
   },
   "58f123d7-8a82-44d8-9d83-06d1659052c7": {
     id: "58f123d7-8a82-44d8-9d83-06d1659052c7",
@@ -63,15 +135,33 @@ export default {
     presetType: null,
     config: {
       collections: ["f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86"],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: null,
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "4e2bf130-390b-4299-8054-aa54b7740a60",
+    },
+    isForChildOfOriginInfoId: false,
   },
-  "555d4648-418f-402b-87c9-4cbc6a6c5de0": {
-    id: "555d4648-418f-402b-87c9-4cbc6a6c5de0",
-    name: "TransformNum2",
-    type: "SECTION",
+  "f07e5f4f-3302-4676-acff-adf159c3f942": {
+    id: "f07e5f4f-3302-4676-acff-adf159c3f942",
+    type: "OUTPUT",
+    name: "New Section",
     presetType: null,
     config: {
-      collections: ["69405361-0296-4321-9361-bd5b35aa2e5e"],
+      collections: [],
+      subType: null,
+      childUITypeId: null,
+      outputGroup: "67863f2c-9916-4d9b-9c60-b7ed3781f49d",
+      social: null,
+      userSpecifiedObjectId: null,
     },
+    originInfoId: {
+      sectionId: "02d30f19-1160-4050-a2d7-390d36b3637e",
+    },
+    isForChildOfOriginInfoId: false,
   },
 };

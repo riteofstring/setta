@@ -87,3 +87,27 @@ export async function loadAllProjects(format) {
   }
   return output;
 }
+
+// const {
+//   allCodeInfo,
+//   kwargInfo,
+//   uiTypes,
+//   baseUITypes,
+//   presetUITypes,
+//   userCodeInfoMaps,
+//   sectionCurrChildren,
+//   ...theRest
+// } = loaded as any;
+
+// } else if (forCodeGen) {
+//   const codeInfo = {
+//     allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+//   };
+//   return {
+//     codeInfo,
+//     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
+//     sectionCurrChildren,
+//     ...theRest,
+//   };
+// }
+// }
