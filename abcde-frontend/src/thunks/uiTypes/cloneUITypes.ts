@@ -6,7 +6,6 @@ import {
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { createNewId } from "abcde-utils/src/utils";
-import { isAmongNonPresetsAndMatchesType } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 
@@ -69,6 +68,14 @@ export function cloneNewUIType({
     newUIType.config = config;
   }
   return newUIType;
+}
+
+export function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
+  return nonPresetUITypeIds.includes(v.id);
+}
+
+function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type) {
+  return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
 }
 
 // Root sections and child behavior:

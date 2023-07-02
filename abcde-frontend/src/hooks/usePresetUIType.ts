@@ -1,4 +1,4 @@
-import { SECTION_TYPE_NAMES, uiTypesToPretty } from "abcde-utils/src/constants";
+import { isSectionUIType, uiTypesToPretty } from "abcde-utils/src/constants";
 import {
   ManyUITypeType,
   PresetType,
@@ -22,18 +22,6 @@ function createName(uiType) {
     return `${uiType.name} - (${x})`;
   }
   return x;
-}
-
-function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
-  return nonPresetUITypeIds.includes(v.id);
-}
-
-export function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type) {
-  return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
-}
-
-function isSectionType(v) {
-  return SECTION_TYPE_NAMES.includes(v.type);
 }
 
 function filterUITypes(
@@ -80,7 +68,7 @@ export function useAvailableUITypesForSection(
   selectedId: string
 ) {
   const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
-  const generalFilterFn = isSectionType;
+  const generalFilterFn = isSectionUIType;
   const nonPresetFilterFn = (uiType: UITypeType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
