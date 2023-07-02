@@ -1,6 +1,6 @@
 import { ManyUITypeType } from 'abcde-utils/src/types/uiType';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
-import { remapIds } from 'src/utils/utils';
+import { remapIds, renameKeys } from 'src/utils/utils';
 
 export function copyUITypes(uiTypes: ManyUITypeType) {
   const { newIds: newUITypes, idMap: uiTypeIdMap } = remapIds(uiTypes);
@@ -12,16 +12,26 @@ export function copyUITypes(uiTypes: ManyUITypeType) {
   return { newUITypes, uiTypeIdMap };
 }
 
-export function copyUITypeCols(uiTypeCols: ManyUITypeColType, uiTypeIdMap) {
+export function copyUITypeCols({
+  uiTypeCols,
+  uiTypeIdMap,
+  kwargInfoIdMap,
+}: {
+  uiTypeCols: ManyUITypeColType;
+  uiTypeIdMap;
+  kwargInfoIdMap;
+}) {
   const { newIds: newUITypeCols, idMap: uiTypeColIdMap } = remapIds(uiTypeCols);
 
   // replace ev ids
-  for (const newUITypeCol of Object.values(newUITypeCols)) {
-    for (const [codeInfoId, u] of Object.entries(newUITypeCol)) {
+  for (const id of Object.keys(newUITypeCols)) {
+    newUITypeCols[id] = renameKeys(newUITypeCols[id], kwargInfoIdMap);
+    const col = newUITypeCols[id];
+    for (const [codeInfoId, u] of Object.entries(col)) {
       if (u.uiTypeId in uiTypeIdMap) {
-        newUITypeCol[codeInfoId].uiTypeId = uiTypeIdMap[u.uiTypeId];
+        col[codeInfoId].uiTypeId = uiTypeIdMap[u.uiTypeId];
       }
-      newUITypeCol[codeInfoId].nonPresetUITypeIds = newUITypeCol[
+      col[codeInfoId].nonPresetUITypeIds = col[
         codeInfoId
       ].nonPresetUITypeIds.map((x) => uiTypeIdMap[x] ?? x);
     }
