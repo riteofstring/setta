@@ -4,14 +4,12 @@ import _ from 'lodash';
 
 export function copyProjectConfig({
   projectConfig,
-  newConfigName,
-  doCreateNewId,
-  sectionIdMap,
+  newConfigName = null,
+  doCreateNewId = true,
 }: {
   projectConfig: ProjectConfigType;
   newConfigName?: string | null;
   doCreateNewId?: boolean;
-  sectionIdMap: Record<string, string> | null;
 }) {
   const newProjectConfig = _.cloneDeep(projectConfig);
   if (newConfigName) {
@@ -19,15 +17,6 @@ export function copyProjectConfig({
   }
   if (doCreateNewId) {
     newProjectConfig.id = createNewId();
-  }
-  if (sectionIdMap) {
-    for (const sectionId of Object.keys(newProjectConfig.children)) {
-      if (sectionId in sectionIdMap) {
-        newProjectConfig.children[sectionIdMap[sectionId]] =
-          newProjectConfig.children[sectionId];
-        delete newProjectConfig.children[sectionId];
-      }
-    }
   }
   return newProjectConfig;
 }

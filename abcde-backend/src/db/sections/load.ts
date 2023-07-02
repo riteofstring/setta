@@ -1,8 +1,6 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
-import { ManyOutputType } from 'abcde-utils/src/types/output';
-import { ManyOutputGroupType } from 'abcde-utils/src/types/outputGroup';
 import { ManySectionType } from 'abcde-utils/src/types/section';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
@@ -12,10 +10,14 @@ import {
   getOrderedChildrenFull,
 } from 'src/utils/utils';
 import { getUITypesByWhere } from '../uiTypes/load';
+import { UITypeNames } from '../uiTypes/types';
 
-export async function getSections(ids) {
+export async function getSections(projectConfig: {
+  id: string;
+  children: string[];
+}) {
   const allIds = await getChildrenRecursively(
-    ids,
+    projectConfig.children,
     async (c) =>
       await prisma.$queryRaw`
           with recursive descendants as (
@@ -61,15 +63,12 @@ export async function getSections(ids) {
           },
         },
       },
+      projectConfigs: {
+        where: { parentId: projectConfig.id },
+        select: { x: true, y: true },
+      },
       nonPresetUITypes: {
         select: { id: true },
-      },
-      outputGroup: {
-        select: {
-          id: true,
-          name: true,
-          children: { select: { id: true, name: true, values: true } },
-        },
       },
     },
   });
@@ -80,9 +79,11 @@ export async function getSections(ids) {
     name: v.name,
     children: v.children.map((x) => x.childId),
     paramInfoId: v.paramInfoId,
+    initialPosition: getPosition(v.projectConfigs),
     size: { width: convertSize(v.width), height: convertSize(v.height) },
     chainedFrom: v.chainedFromId,
     parentId: v.asChild ? v.asChild.parentId : null,
+    zIndex: v.zIndex,
     evColId: v.evColId,
     uiTypeId: v.uiTypeId,
     kwargColId: v.kwargColId,
@@ -142,25 +143,10 @@ export async function getSections(ids) {
     }
   }
 
-  const nonPresetUITypes = await getUITypesByWhere({
-    id: { in: nonPresetUITypeIds },
-  });
-
-  const outputGroups: ManyOutputGroupType = {};
-  const outputs: ManyOutputType = {};
-  for (const config of s) {
-    const og = config.outputGroup;
-    if (og) {
-      outputGroups[og.id] = {
-        id: og.id,
-        name: og.name,
-        children: og.children.map((x) => x.id),
-      };
-      for (const c of og.children) {
-        outputs[c.id] = c;
-      }
-    }
-  }
+  const nonPresetUITypes = await getUITypesByWhere(
+    { id: { in: nonPresetUITypeIds } },
+    UITypeNames.all,
+  );
 
   return {
     sections,
@@ -169,11 +155,17 @@ export async function getSections(ids) {
     kwargCols,
     uiTypeCols,
     nonPresetUITypes,
-    outputGroups,
-    outputs,
   };
 }
 
 function convertSize(x) {
   return x === -1 ? 'auto' : x;
+}
+
+function getPosition(projectConfigs) {
+  if (projectConfigs.length === 0) {
+    return { x: 0, y: 0 };
+  } else {
+    return projectConfigs[0];
+  }
 }

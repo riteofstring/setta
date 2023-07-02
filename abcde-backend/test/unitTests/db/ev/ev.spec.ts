@@ -26,7 +26,7 @@ describe('Create, update, and copy entered value', () => {
 
   test('copy ev', async () => {
     const { newEv, evIdMap } = copyEV({ [info.id]: info.value });
-    expect(evIdMap[info.id]).not.toEqual(info.id); // should map to a new, different id
-    expect(newEv[evIdMap[info.id]]).toEqual(info.value); // new ev should have the same value
+    expect(evIdMap[info.id]).not.toEqual(info.id);
+    expect(newEv[evIdMap[info.id]]).toEqual(info.value);
   });
 });

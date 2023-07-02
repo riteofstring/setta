@@ -50,11 +50,7 @@ describe('Create, update, and copy entered value collections', () => {
   test('Copy an ev collection', async () => {
     // copy evs and the evcol
     const { evIdMap } = copyEV(evs);
-    const { newEvCols, evColIdMap } = copyEVCols({
-      evCols,
-      evIdMap,
-      kwargInfoIdMap: {},
-    });
+    const { newEvCols, evColIdMap } = copyEVCols(evCols, evIdMap);
     const newEvColId = Object.keys(newEvCols)[0];
 
     // codeInfoIds should stil match, but not evIds

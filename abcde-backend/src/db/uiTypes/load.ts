@@ -1,55 +1,70 @@
-import { isSectionUIType, SLIDER } from 'abcde-utils/src/constants';
 import { PresetType } from 'abcde-utils/src/types/uiType';
 import { prisma } from 'src/db/prisma';
+import { ManyXUITypeType, UITypeNames, UITypeNameToIncludeObj } from './types';
 
 export async function getBaseUITypes() {
-  return await getUITypesByWhere({ presetType: PresetType.BASE });
+  return await getUITypesByWhere(
+    { presetType: PresetType.BASE },
+    UITypeNames.all,
+  );
 }
 
 export async function getPresetUITypes(ownerId: string) {
-  return await getUITypesByWhere({ presetType: PresetType.USER, ownerId });
+  return await getUITypesByWhere(
+    { presetType: PresetType.USER, ownerId },
+    UITypeNames.all,
+  );
 }
 
-export async function getUITypesByWhere(where) {
+export async function getUITypesByWhere<T extends UITypeNames>(
+  where,
+  include: T,
+) {
   const uiTypes = await prisma.uIType.findMany({
     where,
-    include: { sectionConfigCollections: { select: { id: true } } },
+    include: UITypeNameToIncludeObj(include),
   });
-  const output = {};
+  const output: ManyXUITypeType<T> = {};
   for (const u of uiTypes) {
     output[u.id] = processUIType(u);
   }
   return output;
 }
 
-function processUIType(uiType) {
-  const {
-    sectionConfigSubType,
-    sectionConfigCollections,
-    sectionConfigChildUITypeId,
-    sliderConfigMin,
-    sliderConfigMax,
-    sliderConfigStep,
-    ownerId,
-    asNonPresetForSectionId,
-    asNonPresetForUITypeColId,
-    asNonPresetForCodeInfoId,
-    ...theRest
-  } = uiType;
-
-  let config = {};
-  if (isSectionUIType(uiType)) {
-    config = {
-      subType: sectionConfigSubType,
-      collections: sectionConfigCollections.map((x) => x.id),
-      childUITypeId: sectionConfigChildUITypeId,
-    };
-  } else if (uiType.type === SLIDER) {
-    config = {
-      min: sliderConfigMin,
-      max: sliderConfigMax,
-      step: sliderConfigStep,
-    };
+export function processUIType(uiType) {
+  let output = {};
+  for (const [key, val] of Object.entries(uiType)) {
+    if (
+      [
+        'sectionUIType',
+        'sliderUIType',
+        'switchUIType',
+        'textUIType',
+        'refUIType',
+      ].includes(key)
+    ) {
+      output = { ...output, ...processSpecificUITypeConfig(key, val) };
+    } else if (
+      ![
+        'ownerId',
+        'asNonPresetForSectionId',
+        'asNonPresetForUITypeColId',
+        'asNonPresetForCodeInfoId',
+      ].includes(key)
+    ) {
+      output[key] = val;
+    }
   }
-  return { ...theRest, config };
+  return output;
+}
+
+function processSpecificUITypeConfig(uiTypeType: string, uiTypeConfig) {
+  if (uiTypeConfig) {
+    const { idid, ...config } = uiTypeConfig;
+    if (uiTypeType === 'sectionUIType') {
+      config.collections = config.collections.map((x) => x.id);
+    }
+    return { config };
+  }
+  return {};
 }

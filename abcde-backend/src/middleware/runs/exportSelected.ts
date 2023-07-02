@@ -98,7 +98,7 @@ class Exporter {
   }
 
   export() {
-    this.exportSections(Object.keys(this.p.projectConfig.children));
+    this.exportSections(this.p.projectConfig.children);
   }
 
   exportSections(ids) {
