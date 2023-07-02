@@ -18,6 +18,7 @@ export async function saveProjectConfig(
         ...v,
       })),
     },
+    ...config.viewport,
   };
 
   await prisma.projectConfig.upsert({

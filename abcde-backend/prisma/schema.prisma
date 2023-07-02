@@ -215,6 +215,9 @@ model ProjectConfig {
   name             String                         @db.VarChar(255)
   project          Project                        @relation("configs", fields: [projectId], references: [id])
   projectId        String                         @db.Uuid
+  x                Float                          @default(0)
+  y                Float                          @default(0)
+  zoom             Float                          @default(1)
   codeInfoTypeMaps ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
   codeInfoMaps     ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
   runs             Run[]
