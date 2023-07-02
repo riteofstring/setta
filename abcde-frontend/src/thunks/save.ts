@@ -3,11 +3,7 @@ import { ManyKwargColType } from "abcde-utils/src/types/kwargCol";
 import { ProjectSaveType } from "abcde-utils/src/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/section";
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
-import {
-  isBasePreset,
-  isPreset,
-  isUserPreset,
-} from "abcde-utils/src/uiTypeConstants";
+import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
@@ -15,7 +11,6 @@ import {
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
-import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useKwargCols } from "models/info/kwargCols";
@@ -104,21 +99,7 @@ export async function saveAsExistingProjectConfig({ configId }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   const x = assembleProject();
-  const newProjectConfig = await fn({ ...x, ...otherArgs });
-  const uiTypesState = useUITypes.getState();
-  // load base and preset ui types from memory
-  // because these weren't sent during saving
-  // and therefore aren't returned
-  newProjectConfig.baseUITypes = _.pickBy(uiTypesState.x, (x) =>
-    isBasePreset(x)
-  );
-  newProjectConfig.presetUITypes = _.pickBy(uiTypesState.x, (x) =>
-    isUserPreset(x)
-  );
-  newProjectConfig.userCodeInfoMaps = useUserCodeInfoMaps
-    .getState()
-    .exportForDb();
-  return newProjectConfig;
+  await fn({ ...x, ...otherArgs });
 }
 
 function assembleProject() {

@@ -27,11 +27,8 @@ export function loadProjectState({
   kwargCols,
   outputs,
   outputGroups,
-  excludeCodeInfo,
-}: ProjectLoadType & { excludeCodeInfo: boolean }) {
-  if (!excludeCodeInfo) {
-    useCodeInfo.getState().resetAndSetAll(codeInfo);
-  }
+}: ProjectLoadType) {
+  useCodeInfo.getState().resetAndSetAll(codeInfo);
   useProject.getState().resetAndSetAll(project);
   useProjectConfig.getState().resetAndSetAll(projectConfig);
   useUITypes.getState().resetAndSetAll(uiTypes);

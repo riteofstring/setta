@@ -4,14 +4,11 @@ import { loadProjectState } from "thunks/loadProjectState";
 
 export function loadProjectIntoState({
   projectInfo,
-  excludeCodeInfo = false,
 }: {
   projectInfo: ProjectLoadType;
-  excludeCodeInfo?: boolean;
 }) {
   loadProjectState({
     ...projectInfo,
-    excludeCodeInfo,
   });
   return true;
 }
