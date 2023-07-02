@@ -4,19 +4,35 @@ const initialState = {
   isSorting: false,
   isMovingFree: false,
   groupSections: false,
+  undo: false,
+  redo: false,
 };
+
+function preventDefault(fn) {
+  return (e) => {
+    const output = fn(e);
+    if (output) {
+      e.preventDefault();
+    }
+    return output;
+  };
+}
+
+function ctrlPlus(key: string) {
+  return preventDefault((e) => e.ctrlKey && e.key === key);
+}
+
+function ctrlShiftPlus(key: string) {
+  return preventDefault((e) => e.ctrlKey && e.shiftKey && e.key === key);
+}
 
 function attachEventListeners(state) {
   const conditions = {
     isSorting: (e) => e.key === "Control",
     isMovingFree: (e) => e.key === "Alt",
-    groupSections: (e) => {
-      const output = e.ctrlKey && e.key === "g";
-      if (output) {
-        e.preventDefault();
-      }
-      return output;
-    },
+    groupSections: ctrlPlus("g"),
+    undo: ctrlPlus("z"),
+    redo: ctrlShiftPlus("Z"), // has to be capital because of shift
   };
 
   for (const [attrName, cond] of Object.entries(conditions)) {
