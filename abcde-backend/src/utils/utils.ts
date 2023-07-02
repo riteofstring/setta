@@ -14,22 +14,14 @@ export function renameKeys<T>(x: T, toRename: object) {
   return output;
 }
 
-export async function deleteThenCreateCol(db, allColIds, data) {
+export async function deleteThenCreateColNonBatched(db, allColIds, data) {
   await prisma.$transaction([
     db.deleteMany({
       where: { idid: { in: allColIds } },
     }),
 
-    db.createMany({ data }),
+    ...data.map((x) => db.create({ data: x })),
   ]);
-}
-
-export function getOrderedChildren<
-  T extends { order: number },
-  K extends keyof T,
->(children: T[], toReturn: K) {
-  const output = getOrderedChildrenFull(children);
-  return output.map((x) => x[toReturn]);
 }
 
 export function getOrderedChildrenFull<T extends { order: number }>(
@@ -40,4 +32,34 @@ export function getOrderedChildrenFull<T extends { order: number }>(
 
 export function createIdMap(oldIds: string[]) {
   return _.fromPairs(oldIds.map((x) => [x, createNewId()]));
+}
+
+export function remapIds<T>(x: T): {
+  newIds: T;
+  idMap: Record<string, string>;
+} {
+  const oldIds = Object.keys(x);
+  const idMap = createIdMap(oldIds);
+  const newIds = renameKeys(x, idMap);
+  return { newIds, idMap };
+}
+
+export async function getChildrenRecursively(ids: string[], queryFn) {
+  const allIds = new Set(ids);
+  for (const c of ids) {
+    const parentChildPairs: { parentId: string; childId: string }[] =
+      await queryFn(c);
+    parentChildPairs.forEach((x) => allIds.add(x.childId));
+  }
+  return Array.from(allIds);
+}
+
+export function deleteManyFirst<T, K extends keyof T>(v: T, key: K) {
+  return {
+    ...v,
+    [key]: {
+      deleteMany: {},
+      ...v[key],
+    },
+  };
 }

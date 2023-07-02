@@ -9,34 +9,35 @@ import {
 } from 'abcde-utils/src/constants';
 import _ from 'lodash';
 
-function getSectionConfig(p, id) {
-  return p.sectionConfigs[p.sectionConfigCol[id]];
-}
-
 function getSectionType(p, id) {
-  const { uiTypeId } = getSectionConfig(p, id);
+  const { uiTypeId } = p.sections[id];
   return p.uiTypes[uiTypeId].type;
 }
 
 function getSelectedItem(p, id) {
-  const { selectedItem } = getSectionConfig(p, id);
+  const { selectedItem } = p.sections[id];
   return p.codeInfo.allCodeInfo[selectedItem].path;
 }
 
 function getChainedSelectedItem(p, chainedFromVarName, id) {
-  const { selectedItem } = getSectionConfig(p, id);
+  const { selectedItem } = p.sections[id];
   const { name } = p.codeInfo.allCodeInfo[selectedItem];
   return `${chainedFromVarName}.${name}`;
 }
 
 function getParamIds(p, id) {
-  const { evColId } = getSectionConfig(p, id);
+  const { evColId } = p.sections[id];
   return Object.keys(p.evCols[evColId]);
 }
 
+function getParamUITypeId(p, sectionId, id) {
+  const { uiTypeColId } = p.sections[sectionId];
+  return p.uiTypeCols[uiTypeColId][id].uiTypeId;
+}
+
 function getParamUIType(p, sectionId, id) {
-  const { uiTypeColId } = getSectionConfig(p, sectionId);
-  const uiType = p.uiTypes[p.uiTypeCols[uiTypeColId][id]];
+  const uiTypeId = getParamUITypeId(p, sectionId, id);
+  const uiType = p.uiTypes[uiTypeId];
   if (isSectionUIType(uiType)) {
     return REF;
   }
@@ -44,8 +45,18 @@ function getParamUIType(p, sectionId, id) {
 }
 
 function getOriginalParamUIType(p, sectionId, id) {
-  const { uiTypeColId } = getSectionConfig(p, sectionId);
-  return p.uiTypes[p.uiTypeCols[uiTypeColId][id]].type;
+  const uiTypeId = getParamUITypeId(p, sectionId, id);
+  return p.uiTypes[uiTypeId].type;
+}
+
+function getParamChildId(p, sectionId, id) {
+  const sectionChildren = p.sectionCurrChildren[sectionId];
+  for (const s of sectionChildren) {
+    if (p.sections[s].paramInfoId === id) {
+      return s;
+    }
+  }
+  return null;
 }
 
 function getSectionVarName(sectionVarNames, id) {
@@ -61,6 +72,10 @@ function getParamVarName(paramVarNames) {
   const name = `p${paramVarNames.size}`;
   paramVarNames.add(name);
   return name;
+}
+
+function noEnteredValue(value) {
+  return _.isNil(value) || value === '';
 }
 
 export function exportSelected(p) {
@@ -83,7 +98,7 @@ class Exporter {
   }
 
   export() {
-    this.exportSections(this.p.projectConfig.children);
+    this.exportSections(Object.keys(this.p.projectConfig.children));
   }
 
   exportSections(ids) {
@@ -129,7 +144,7 @@ class Exporter {
 
   exportParam(sectionId, id) {
     const value = this.exportParamValue(sectionId, id);
-    if (_.isNil(value)) {
+    if (noEnteredValue(value)) {
       return null;
     }
     const varName = getParamVarName(this.paramVarNames);
@@ -142,13 +157,13 @@ class Exporter {
   }
 
   exportParamValue(sectionId, id) {
-    const { evColId } = getSectionConfig(this.p, sectionId);
+    const { evColId } = this.p.sections[sectionId];
     const evId = this.p.evCols[evColId][id];
-    const { value, childId } = this.p.ev[evId];
+    const value = this.p.ev[evId];
     const originalType = getOriginalParamUIType(this.p, sectionId, id);
-    const sectionChildren = this.p.sectionCurrChildren[sectionId];
-    if (sectionChildren.includes(childId)) {
-      return this.exportSection(childId);
+    const possibleChildId = getParamChildId(this.p, sectionId, id);
+    if (possibleChildId) {
+      return this.exportSection(possibleChildId);
     } else if (value && originalType === REF) {
       return this.exportSection(value);
     }

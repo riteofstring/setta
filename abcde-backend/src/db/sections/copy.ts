@@ -1,34 +1,38 @@
-import { ManySectionConfigType } from 'abcde-utils/src/types/sectionConfig';
-import { SectionConfigColType } from 'abcde-utils/src/types/sectionConfigCol';
-import _ from 'lodash';
-import { createIdMap, renameKeys } from 'src/utils/utils';
+import { ManySectionTypeSaveProjectToBackend } from 'abcde-utils/src/types/section';
+import { remapIds } from 'src/utils/utils';
 
-export function copySectionConfigs(
-  sectionConfigs: ManySectionConfigType,
+export function copySections({
+  sections,
+  kwargInfoIdMap,
+  kwargColIdMap,
   evColIdMap,
-) {
-  const oldIds = Object.keys(sectionConfigs);
-  const sectionConfigIdMap = createIdMap(oldIds);
-  const newSectionConfigs = renameKeys(sectionConfigs, sectionConfigIdMap);
-
-  for (const curr of Object.values(newSectionConfigs)) {
-    curr.id = sectionConfigIdMap[curr.id];
-    if (curr.evColId in evColIdMap) {
-      curr.evColId = evColIdMap[curr.evColId];
+  uiTypeIdMap,
+  uiTypeColIdMap,
+}: {
+  sections: ManySectionTypeSaveProjectToBackend;
+  kwargInfoIdMap;
+  kwargColIdMap;
+  evColIdMap;
+  uiTypeIdMap;
+  uiTypeColIdMap;
+}) {
+  const { newIds: newSections, idMap: sectionIdMap } = remapIds(sections);
+  for (const section of Object.values(newSections)) {
+    section.id = sectionIdMap[section.id];
+    section.children = section.children.map((x) => sectionIdMap[x]);
+    if (section.paramInfoId) {
+      section.paramInfoId =
+        kwargInfoIdMap[section.paramInfoId] ?? section.paramInfoId;
     }
+    section.kwargColId =
+      kwargColIdMap[section.kwargColId] ?? section.kwargColId;
+    section.evColId = evColIdMap[section.evColId] ?? section.evColId;
+    section.uiTypeId = uiTypeIdMap[section.uiTypeId] ?? section.uiTypeId;
+    section.uiTypeColId =
+      uiTypeColIdMap[section.uiTypeColId] ?? section.uiTypeColId;
+    section.nonPresetUITypeIds = section.nonPresetUITypeIds.map(
+      (x) => uiTypeIdMap[x] ?? x,
+    );
   }
-  return { newSectionConfigs, sectionConfigIdMap };
-}
-
-export function copySectionConfigCol(
-  sectionConfigCol: SectionConfigColType,
-  sectionConfigIdMap,
-) {
-  const newSectionConfigCol = _.cloneDeep(sectionConfigCol);
-  for (const [sectionId, configId] of Object.entries(newSectionConfigCol)) {
-    if (configId in sectionConfigIdMap) {
-      newSectionConfigCol[sectionId] = sectionConfigIdMap[configId];
-    }
-  }
-  return newSectionConfigCol;
+  return { newSections, sectionIdMap };
 }

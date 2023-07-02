@@ -1,7 +1,7 @@
-import { loadSpecificTestData } from 'abcde-test/src/loadTestData';
+import { loadSpecificTestData } from 'abcde-test/src/loaders/helpers';
 import { SLIDER } from 'abcde-utils/src/constants';
 import _ from 'lodash';
-import { prisma } from 'src/db/prisma';
+import { getUITypesByWhere } from 'src/db/uiTypes/load';
 import { saveUITypes } from 'src/db/uiTypes/save';
 import { seedUsers } from 'src/db/user/save';
 import { clearDb } from 'test/clearDb';
@@ -22,12 +22,10 @@ describe('Create, update, and copy a ui type', () => {
     await seedUsers({ [user.id]: user });
     await saveUITypes(user.id, { [uiType.id]: uiType });
 
-    const uiTypes = await prisma.uIType.findMany();
-    expect(uiTypes.map((x) => x.id)).toEqual([uiType.id]);
+    const uiTypes = await getUITypesByWhere({});
+    expect(_.map(uiTypes, (x) => x.id)).toEqual([uiType.id]);
 
-    const sliderUITypes = await prisma.sliderUIType.findMany();
-    expect(sliderUITypes.map((x) => x.idid)).toEqual([uiType.id]);
-    expect(_.pick(sliderUITypes[0], ['min', 'max', 'step'])).toEqual({
+    expect(Object.values(uiTypes)[0]['config']).toEqual({
       min: 10,
       max: 100,
       step: 10,
@@ -40,11 +38,9 @@ describe('Create, update, and copy a ui type', () => {
     updated.config = newConfig;
     await saveUITypes(user.id, { [updated.id]: updated });
 
-    const uiTypes = await prisma.uIType.findMany();
-    expect(uiTypes.map((x) => x.id)).toEqual([updated.id]);
+    const uiTypes = await getUITypesByWhere({});
+    expect(_.map(uiTypes, (x) => x.id)).toEqual([updated.id]);
 
-    const sliderUITypes = await prisma.sliderUIType.findMany();
-    expect(sliderUITypes.map((x) => x.idid)).toEqual([updated.id]);
-    expect(_.pick(sliderUITypes[0], ['min', 'max', 'step'])).toEqual(newConfig);
+    expect(Object.values(uiTypes)[0]['config']).toEqual(newConfig);
   });
 });

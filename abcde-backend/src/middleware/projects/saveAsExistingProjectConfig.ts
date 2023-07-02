@@ -6,11 +6,11 @@ export async function saveAsExistingProjectConfig(req, res) {
     res.sendStatus(401);
     return;
   }
-  const { project, configId } = req.body;
+  const { project, configName } = req.body;
   const savedProject = await saveAsExistingProjectConfigFn(
     userId,
     project,
-    configId,
+    configName,
   );
   res.json(savedProject);
 }

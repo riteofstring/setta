@@ -15,7 +15,7 @@ describe('Create and Update User', () => {
     await createUser(info);
     const users = await prisma.user.findMany();
     expect(users.length).toEqual(1);
-    expect(users[0].name).toEqual('Tom');
+    expect(users[0].name).toEqual('tom');
   });
 
   test('password should be hashed', async () => {
