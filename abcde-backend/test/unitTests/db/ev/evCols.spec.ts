@@ -27,7 +27,7 @@ describe('Create, update, and copy entered value collections', () => {
       new Set(_codeInfos.map((x) => x.id)),
     );
     expect(new Set(evCol.map((x) => x.evId))).toEqual(
-      new Set(_evs.map((x) => x.id)),
+      new Set(Object.keys(evs)),
     );
   });
 
@@ -35,7 +35,9 @@ describe('Create, update, and copy entered value collections', () => {
     // update the evcol so that it only has 2 evs
 
     const _newEvCols = {};
-    _.range(2).forEach((x) => (_newEvCols[_codeInfos[x].id] = _evs[x].id));
+    _.range(2).forEach(
+      (x) => (_newEvCols[_codeInfos[x].id] = Object.keys(evs)[x]),
+    );
     const newEvCols = { [originalEvColId]: _newEvCols };
     await saveEVCols(newEvCols);
 
@@ -48,7 +50,11 @@ describe('Create, update, and copy entered value collections', () => {
   test('Copy an ev collection', async () => {
     // copy evs and the evcol
     const { evIdMap } = copyEV(evs);
-    const { newEvCols, evColIdMap } = copyEVCols(evCols, evIdMap);
+    const { newEvCols, evColIdMap } = copyEVCols({
+      evCols,
+      evIdMap,
+      kwargInfoIdMap: {},
+    });
     const newEvColId = Object.keys(newEvCols)[0];
 
     // codeInfoIds should stil match, but not evIds
@@ -71,15 +77,14 @@ const _codeInfos = ['epochs', 'lr', 'batches'].map((name) =>
 );
 const codeInfos = _.keyBy(_codeInfos, 'id');
 
-const _evs = [
-  newEV({ uiType: TEXT }),
-  newEV({ uiType: TEXT }),
-  newEV({ uiType: TEXT }),
-];
-const evs = _.keyBy(_evs, 'id');
+const evs = {
+  [createNewId()]: newEV(TEXT),
+  [createNewId()]: newEV(TEXT),
+  [createNewId()]: newEV(TEXT),
+};
 
 const _evCols = {};
-_.range(3).forEach((x) => (_evCols[_codeInfos[x].id] = _evs[x].id));
+_.range(3).forEach((x) => (_evCols[_codeInfos[x].id] = Object.keys(evs)[x]));
 const evCols = { [createNewId()]: _evCols };
 
 const originalEvColId = Object.keys(evCols)[0];

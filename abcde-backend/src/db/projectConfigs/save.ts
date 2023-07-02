@@ -1,24 +1,29 @@
+import { Prisma } from '@prisma/client';
 import { ProjectConfigType } from 'abcde-utils/src/types/projectConfig';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { saveSectionChildren } from 'src/db/sections/save';
+import { deleteManyFirst } from 'src/utils/utils';
 
 export async function saveProjectConfig(
   projectId: string,
   config: ProjectConfigType,
-  sections,
 ) {
-  const { children, ...theRest } = config;
-  await prisma.projectConfig.upsert({
-    where: { id: theRest.id },
-    create: { ...theRest, projectId },
-    update: { ...theRest, projectId },
-  });
+  const create: Prisma.ProjectConfigUpsertArgs['create'] = {
+    id: config['id'],
+    name: config['name'],
+    projectId: projectId,
+    sections: {
+      create: _.map(config.children, (v, k) => ({
+        childId: k,
+        ...v,
+      })),
+    },
+    ...config.viewport,
+  };
 
-  const sectionPositions = _.mapValues(sections, (x) => x.initialPosition);
-  await saveSectionChildren(
-    { [theRest.id]: children },
-    { [theRest.id]: sectionPositions },
-    prisma.projectConfigChildren,
-  );
+  await prisma.projectConfig.upsert({
+    where: { id: create.id },
+    create,
+    update: deleteManyFirst(create, 'sections'),
+  });
 }
