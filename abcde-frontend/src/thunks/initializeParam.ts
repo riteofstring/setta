@@ -21,15 +21,14 @@ import { getSectionInfo } from "./sections/sections";
 
 export function initializeParamsOfSectionsWithUITypes(
   uiTypeIds: string[],
-  codeInfoIds: string[],
-  childFinder = findAllParameters
+  codeInfoIds: string[]
 ) {
   if (uiTypeIds.length === 0 || codeInfoIds.length === 0) {
     return;
   }
   for (const s of Object.values(useSectionInfos.getState().x)) {
     if (uiTypeIds.includes(s.uiTypeId)) {
-      initializeChildParams(s.id, codeInfoIds, childFinder);
+      initializeChildParams(s.id, codeInfoIds);
     }
   }
 }

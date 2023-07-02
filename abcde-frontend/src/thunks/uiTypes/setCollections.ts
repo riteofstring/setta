@@ -1,4 +1,3 @@
-import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
 import {
   initializeChildParams,
   initializeParamsOfSectionsWithUITypes,
@@ -19,15 +18,13 @@ export function setCollections({
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
 
   if (checked) {
-    const childFinder = findAllParameterCollections;
     if (uiType.config.childUITypeId) {
       initializeParamsOfSectionsWithUITypes(
         [uiType.id, uiType.config.childUITypeId],
-        [id],
-        childFinder
+        [id]
       );
     } else {
-      initializeChildParams(sectionId, [id], childFinder);
+      initializeChildParams(sectionId, [id]);
     }
   }
 
