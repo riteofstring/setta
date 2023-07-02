@@ -6,7 +6,6 @@ export function seeding(loaded) {
     baseUITypes,
     presetUITypes,
     userCodeInfoMaps,
-    sectionCurrChildren,
     ...theRest
   } = loaded as any;
 

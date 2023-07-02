@@ -5,12 +5,12 @@ export function loadProjectToFrontend(loaded) {
   const {
     allCodeInfo,
     project,
+    sections,
     kwargInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
     userCodeInfoMaps,
-    sectionCurrChildren,
     ...theRest
   } = loaded;
 
@@ -18,7 +18,7 @@ export function loadProjectToFrontend(loaded) {
 
   const codeInfo = {
     allCodeInfo: {
-      ...loadCodeInfoForProject(allCodeInfo, allUITypes),
+      ...loadCodeInfoForProject(allCodeInfo, sections, allUITypes),
       ...kwargInfo,
     },
   };
@@ -26,6 +26,7 @@ export function loadProjectToFrontend(loaded) {
   return {
     project: processProject(project),
     codeInfo,
+    sections,
     uiTypes: allUITypes,
     userCodeInfoMaps: userCodeInfoMaps[loaded.project.owner],
     ...theRest,
@@ -33,5 +34,5 @@ export function loadProjectToFrontend(loaded) {
 }
 
 function processProject(project) {
-  return _.pick(project, ["id", "name"]);
+  return _.pick(project, ["id", "name", "defaultConfigId"]);
 }

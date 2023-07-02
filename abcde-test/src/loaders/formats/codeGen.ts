@@ -10,7 +10,6 @@ export function codeGen(loaded) {
     baseUITypes,
     presetUITypes,
     userCodeInfoMaps,
-    sectionCurrChildren,
     ...theRest
   } = loaded;
 
@@ -19,34 +18,14 @@ export function codeGen(loaded) {
   };
   return {
     project: processProject(project),
-    sections: processSections(sections),
+    sections,
     codeInfo,
     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-    sectionCurrChildren,
+    sectionCurrChildren: _.cloneDeep(_.mapValues(sections, (v) => v.children)),
     ...theRest,
   };
 }
 
 function processProject(project) {
   return _.pick(project, ["id", "name"]);
-}
-
-function processSections(sections) {
-  return _.mapValues(sections, (x) =>
-    _.pick(x, [
-      "id",
-      "name",
-      "paramInfoId",
-      "initialPosition",
-      "size",
-      "chainedFrom",
-      "zIndex",
-      "uiTypeId",
-      "evColId",
-      "kwargColId",
-      "uiTypeColId",
-      "selectedItem",
-      "descriptionId",
-    ])
-  );
 }
