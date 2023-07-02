@@ -17,6 +17,7 @@ import "./react-flow-css.css";
 import { ResponsiveControls } from "./ResponsiveControls";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
+import { useSaveProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
@@ -32,6 +33,7 @@ function _SectionsPane({ initialNodes }) {
   const setActiveSection = useActiveSection((x) => x.setId);
   useGroupSectionsOnKeyActivation();
   useUndoRedoOnKeyActivation();
+  useSaveProjectOnKeyActivation();
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
