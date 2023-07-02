@@ -93,12 +93,12 @@ function SearchItem({
       />
 
       <DetailsComponent id={id} details={details} checked={checked} name={name}>
-        <div className="w-full">
+        <label htmlFor={name} className="w-full">
           <div className="flex cursor-pointer flex-col self-stretch">
             <p className="text-md font-semibold text-slate-800">{name}</p>
             {description && <p className="mt-1 text-sm">{description}</p>}
           </div>
-        </div>
+        </label>
       </DetailsComponent>
     </li>
   );

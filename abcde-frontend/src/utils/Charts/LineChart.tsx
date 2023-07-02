@@ -123,7 +123,7 @@ export function LineChart({
         style={{ height: legendHeight, display: "flex" }}
       >
         {(labels) => (
-          <figcaption className="flex gap-2">
+          <div className="flex gap-2">
             {labels.map((label, i) => (
               <LegendItem key={`legend-quantile-${i}`} margin="0 5px">
                 <svg width={legendGlyphSize} height={legendGlyphSize}>
@@ -145,7 +145,7 @@ export function LineChart({
                 </LegendLabel>
               </LegendItem>
             ))}
-          </figcaption>
+          </div>
         )}
       </LegendOrdinal>
     </div>

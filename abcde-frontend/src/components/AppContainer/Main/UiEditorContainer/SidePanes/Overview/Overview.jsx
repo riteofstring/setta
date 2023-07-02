@@ -32,16 +32,15 @@ export function Overview() {
 
       <StandardSearch
         inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300  focus-visible:border-blue-300 pl-7 py-1"
-        outerClasses="pb-4"
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
         aria-label="Overview Search"
         {...infoViewHandlersSearch}
       />
 
-      <ul className="flex-grow overflow-y-auto" {...infoViewHandlers}>
+      <div className="flex-grow overflow-y-auto" {...infoViewHandlers}>
         <SectionListItems listOfSectionIdsAndNames={filteredList} />
-      </ul>
+      </div>
       <InfoView />
     </PaneContainer>
   );

@@ -13,8 +13,8 @@ export function MainSideMenu() {
   };
 
   return (
-    <DropdownMenu.Root asChild>
-      <section className="flex flex-1 content-center justify-end">
+    <div className="flex flex-1 content-center justify-end">
+      <DropdownMenu.Root>
         <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-slate-500 transition-colors duration-150 hover:bg-slate-200 focus-visible:ring-2">
           <FiMenu />
         </DropdownMenu.Trigger>
@@ -26,8 +26,8 @@ export function MainSideMenu() {
             <Items onClickLogout={onClickLogout} />
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
-      </section>
-    </DropdownMenu.Root>
+      </DropdownMenu.Root>
+    </div>
   );
 }
 
