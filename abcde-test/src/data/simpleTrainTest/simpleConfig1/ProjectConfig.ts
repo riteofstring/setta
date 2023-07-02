@@ -1,6 +1,7 @@
 export default {
   id: "439f5590-fa98-4564-8f63-ec75b6dc89b2",
   name: "simpleConfig1",
+  viewport: { x: 350, y: 0, zoom: 0.5 },
   children: {
     "acd83563-2337-44c2-9b4d-db3641fcbc97": {
       x: 375,

@@ -1,6 +1,7 @@
 export default {
   id: "cdf921ee-5fd8-4cb9-84e8-a5a26e0d0b84",
   name: "config1",
+  viewport: { x: 0, y: 0, zoom: 1 },
   children: {
     "8b584fd6-f495-4b1a-b9c0-b640f5931336": {
       x: -424.0190832651891,

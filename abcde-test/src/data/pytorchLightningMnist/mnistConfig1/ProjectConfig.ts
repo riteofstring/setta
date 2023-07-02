@@ -1,6 +1,7 @@
 export default {
   id: "c93ebe70-7582-434b-a6ba-df7604f51a4d",
   name: "mnistConfig1",
+  viewport: { x: 0, y: 0, zoom: 1 },
   children: {
     "0c10e6ff-215c-4f48-b7a8-cb10f990dc27": {
       x: 847,
