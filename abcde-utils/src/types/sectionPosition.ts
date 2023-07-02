@@ -1,9 +1,5 @@
-export type SectionPositionType = { x: number; y: number };
+import { ManyOf } from "./utils";
 
-export type SiblingSectionPositionType = { [id: string]: SectionPositionType };
+export type SectionPositionType = { x: number; y: number; zIndex: number };
 
-export type ChildrenSectionPositionType = {
-  [id: string]: SiblingSectionPositionType;
-};
-
-export type TopLevelSectionPositionType = { null: SiblingSectionPositionType };
+export type ManySectionPositionType = ManyOf<SectionPositionType>;

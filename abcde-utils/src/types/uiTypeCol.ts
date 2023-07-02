@@ -1,7 +1,7 @@
 import { ManyOf } from "./utils";
 
 export type UITypeColType = {
-  [codeInfoId: string]: string;
+  [codeInfoId: string]: { uiTypeId: string; nonPresetUITypeIds: string[] };
 };
 
 export type ManyUITypeColType = ManyOf<UITypeColType>;
