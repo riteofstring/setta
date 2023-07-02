@@ -19,6 +19,7 @@ export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
   DICT_ROOT,
+  DECK,
   OUTPUT,
   INFO,
   SOCIAL,
