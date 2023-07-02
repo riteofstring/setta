@@ -16,7 +16,8 @@ import {
 } from "./helpers";
 
 export async function loadTestData({ projectName, configName, format }) {
-  const loaded = await _loadTestData({ projectName, configName });
+  // cloning avoids weird downstream mutation bugs that I don't fully understand...
+  const loaded = _.cloneDeep(await _loadTestData({ projectName, configName }));
 
   switch (format) {
     case "loadProjectToFrontend":
