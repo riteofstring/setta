@@ -4,6 +4,7 @@ import {
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
 } from "abcde-utils/src/constants";
+import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
@@ -12,16 +13,13 @@ import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
+import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import {
-  getParamChildId,
-  setParamChildId,
-  setParamEnteredValue,
-} from "../paramInfos";
-import { setParamUITypeId, setSectionUITypeConfig } from "../uiTypes";
+import { getParamChildId, setParamEnteredValue } from "../paramInfos";
 import { getParamWithSameName } from "./sectionContents";
 import {
   getSectionInfo,
@@ -52,13 +50,12 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
 
 function getIdsToDelete(sectionId) {
   const sectionInfosState = useSectionInfos.getState();
-  const allChildren = sectionInfosState.allChildren;
   const idsToDelete = [sectionId];
   let idx = 0;
   while (idx < idsToDelete.length) {
-    const currChildren = allChildren[idsToDelete[idx]];
-    if (currChildren) {
-      idsToDelete.push(...currChildren);
+    const idxChildren = sectionInfosState.x[idsToDelete[idx]].children;
+    if (idxChildren) {
+      idsToDelete.push(...idxChildren);
     }
     idx += 1;
   }
@@ -110,11 +107,10 @@ export function moveSection({
     newParentId,
     sectionId,
     newIndex,
+    position,
   });
 
   maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
-
-  maybeSetInitialPosition({ newParentId, sectionId, position });
 
   setSectionSize({ newParentId, sectionId });
 
@@ -126,6 +122,7 @@ function setChildrenAndParent({
   newParentId,
   sectionId,
   newIndex,
+  position,
 }) {
   const p = useProjectConfig.getState();
   // Remove child from old parent's list
@@ -137,7 +134,7 @@ function setChildrenAndParent({
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    p.addChildren([sectionId]);
+    p.addChildren({ [sectionId]: newSectionPosition(position) });
   } else {
     // Add child to new parent's list
     setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
@@ -177,7 +174,7 @@ function setSectionSize({ newParentId, sectionId }) {
 
   // if new parent is a deck and the deck has children
   if (isDeck) {
-    const deckChildren = s.currChildren[newParentId];
+    const deckChildren = s.x[newParentId].currChildren;
     if (deckChildren.length > 0) {
       const width = s.x[deckChildren[0]].size.width;
       setAllChildrenWidths({ sectionId, width });
@@ -185,16 +182,6 @@ function setSectionSize({ newParentId, sectionId }) {
   } else {
     const width = s.x[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
-  }
-}
-
-function maybeSetInitialPosition({ newParentId, sectionId, position }) {
-  if (newParentId === PANEID && position) {
-    useSectionInfos.getState().setSectionInfoAttr({
-      sectionId,
-      attr: "initialPosition",
-      value: position,
-    });
   }
 }
 
@@ -241,13 +228,7 @@ function linkParamToSection({ parentId, paramInfoId, sectionId }) {
   if (oldChildId) {
     deleteSections({ sectionIds: [oldChildId] });
   }
-
   setSectionParamInfoId(sectionId, paramInfoId);
-  setParamChildId({
-    sectionId: parentId,
-    paramInfoId,
-    childId: sectionId,
-  });
   setParamUITypeId({
     uiTypeId,
     sectionId: parentId,
@@ -261,11 +242,6 @@ function unlinkParamFromSection({ parentId, sectionId }) {
     return;
   }
   setSectionParamInfoId(sectionId, null);
-  setParamChildId({
-    sectionId: parentId,
-    paramInfoId,
-    childId: null,
-  });
   setParamUITypeId({
     uiTypeId: REF_UI_TYPE_ID,
     sectionId: parentId,

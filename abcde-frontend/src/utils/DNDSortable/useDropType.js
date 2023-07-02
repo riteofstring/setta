@@ -95,7 +95,7 @@ function getPositionDropType({ centerYCondition, leftDistCondition }) {
     return [PositionDropType.INTO, overId, 0];
   }
 
-  const siblings = s.currChildren[overParentId];
+  const siblings = s.x[overParentId].currChildren;
   const overIndex = siblings.indexOf(overId);
 
   // Is effectively sorting

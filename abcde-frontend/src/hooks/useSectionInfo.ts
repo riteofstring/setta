@@ -6,7 +6,14 @@ export function useGetSectionInfo<K extends keyof SectionType>(
   sectionId: string,
   key: K
 ) {
-  const equalityFn = key === "initialPosition" ? _.isEqual : undefined;
+  const equalityFn = [
+    "children",
+    "currChildren",
+    "size",
+    "nonPresetUITypeIds",
+  ].includes(key)
+    ? _.isEqual
+    : undefined;
   return useSectionInfos((x) => x.x[sectionId][key], equalityFn);
 }
 

@@ -1,7 +1,7 @@
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect, useState } from "react";
-import { loadProject, loadProjectIntoState } from "thunks/projects";
+import { loadProject } from "thunks/projects";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,
@@ -15,7 +15,6 @@ export function useLoadProject({
   projectName,
   configName,
   pageLoadType,
-  newProjectConfig,
 }) {
   const [doneLoading, setDoneLoading] = useState(false);
 
@@ -31,13 +30,11 @@ export function useLoadProject({
     }
 
     // The first if-statement triggers for a page refresh or navigating to a different project
-    if (!doneLoading || pageLoadType === NEW_PROJECT) {
+    if (
+      !doneLoading ||
+      [NEW_PROJECT, SAME_PROJECT_NEW_PROJECT_CONFIG].includes(pageLoadType)
+    ) {
       loadAllProjectData();
-    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG) {
-      loadProjectIntoState({
-        projectInfo: newProjectConfig,
-        excludeCodeInfo: true,
-      });
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_NAME) {
       useProject.getState().setName(projectName);
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {

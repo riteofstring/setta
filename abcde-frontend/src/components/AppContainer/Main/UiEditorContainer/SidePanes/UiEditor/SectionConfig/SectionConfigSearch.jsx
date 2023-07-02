@@ -63,11 +63,13 @@ function SearchItem({
   vCenter,
 }) {
   function onChange(e) {
+    const checked = e.target.checked;
     onSelectionChange({
-      newValueFn: isCheckbox
-        ? checkboxChangeFn(e.target.checked, id)
-        : radioChangeFn(e.target.checked, id),
       id,
+      checked,
+      newValueFn: isCheckbox
+        ? checkboxChangeFn(checked, id)
+        : radioChangeFn(checked, id),
     });
   }
 

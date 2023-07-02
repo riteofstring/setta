@@ -1,4 +1,3 @@
-import { setParamChildId } from "thunks/paramInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { insertIntoArrayOrXpend } from "utils/utils";
 import {
@@ -47,18 +46,11 @@ export function addChildForParam({
   paramInfoId,
 }: any) {
   const newId = createManySectionInfo({
-    sectionProps: { name, parentId, paramInfoId },
-    configProps: { uiTypeId },
+    sectionProps: { name, parentId, paramInfoId, uiTypeId },
     numChildren: 1,
   })[0];
 
   setAllChildren(parentId, getNewStateFn(null, [newId]));
-
-  setParamChildId({
-    sectionId: parentId,
-    paramInfoId,
-    childId: newId,
-  });
 
   return newId;
 }
