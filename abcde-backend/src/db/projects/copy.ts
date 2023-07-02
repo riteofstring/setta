@@ -40,6 +40,7 @@ export function copyProjectDetails(
   });
   const { newSections, sectionIdMap } = copySections({
     sections,
+    kwargInfoIdMap,
     kwargColIdMap,
     evColIdMap,
     uiTypeIdMap,

@@ -3,12 +3,14 @@ import { remapIds } from 'src/utils/utils';
 
 export function copySections({
   sections,
+  kwargInfoIdMap,
   kwargColIdMap,
   evColIdMap,
   uiTypeIdMap,
   uiTypeColIdMap,
 }: {
   sections: ManySectionTypeSaveProjectToBackend;
+  kwargInfoIdMap;
   kwargColIdMap;
   evColIdMap;
   uiTypeIdMap;
@@ -18,6 +20,10 @@ export function copySections({
   for (const section of Object.values(newSections)) {
     section.id = sectionIdMap[section.id];
     section.children = section.children.map((x) => sectionIdMap[x]);
+    if (section.paramInfoId) {
+      section.paramInfoId =
+        kwargInfoIdMap[section.paramInfoId] ?? section.paramInfoId;
+    }
     section.kwargColId =
       kwargColIdMap[section.kwargColId] ?? section.kwargColId;
     section.evColId = evColIdMap[section.evColId] ?? section.evColId;
