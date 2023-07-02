@@ -1,4 +1,3 @@
-import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { usePanes } from "models/panes";
 import { useStoreApi } from "reactflow";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
@@ -18,7 +17,7 @@ export function useAddSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
 
     addSectionAtPosition({
       isDeck,
-      topLevelPosition: newSectionPosition({ x, y }),
+      initialPosition: { x, y },
       incrementVersion: true,
     });
   };

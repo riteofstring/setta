@@ -11,6 +11,7 @@ export function IdNameCombobox({
   small,
   onClick,
   position,
+  inputClasses,
 }) {
   const init = _.find(flattenedItems(allItems), { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
@@ -42,6 +43,7 @@ export function IdNameCombobox({
       small={small}
       onClick={onClick}
       position={position}
+      comboboxInputClasses={inputClasses}
     />
   );
 }

@@ -12,12 +12,14 @@ global.ResizeObserver = ResizeObserver;
 
 describe("Incrementer", () => {
   beforeAll(async () => {
-    await loadTestDataIntoState({ sections: {} });
+    await loadTestDataIntoState({ sections: {}, sectionChildren: {} });
   });
 
   afterEach(() => {
     cleanup(); //get rid of rendered components
-    useSectionInfos.getState().resetAndSetAll({ sections: {} });
+    useSectionInfos
+      .getState()
+      .resetAndSetAll({ sections: {}, sectionChildren: {} });
   });
 
   test("Adding sibling N times", async () => {
@@ -80,7 +82,7 @@ describe("Incrementer", () => {
 async function componentSetup({ forParent, numChildren }) {
   const parentId = createDefaultSectionInfo({})[0];
   addChildForSeries({ parentId, numChildren });
-  const childIds = useSectionInfos.getState().x[parentId].children;
+  const childIds = useSectionInfos.getState().allChildren[parentId];
 
   // increment for one of the children
   function SectionHeaderForChild() {
@@ -143,14 +145,18 @@ function assertNChildrenAdded(parentId, numInitialChildren, N) {
 
   // parentId plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren + N);
-  expect(_.size(state.x[parentId].children)).toEqual(numInitialChildren + N);
+  // every section gets an entry in allChildren, so parentId plus children
+  expect(_.size(state.allChildren)).toEqual(1 + numInitialChildren + N);
+  expect(_.size(state.allChildren[parentId])).toEqual(numInitialChildren + N);
 }
 
 function assertNChildrenDeleted(parentId, numInitialChildren, N) {
   const state = useSectionInfos.getState();
   // parentId plus children
   expect(_.size(state.x)).toEqual(1 + numInitialChildren - N);
-  expect(_.size(state.x[parentId].children)).toEqual(numInitialChildren - N);
+  // every section gets an entry in allChildren, so parentId plus children
+  expect(_.size(state.allChildren)).toEqual(1 + numInitialChildren - N);
+  expect(_.size(state.allChildren[parentId])).toEqual(numInitialChildren - N);
 }
 
 async function clickIncrementerNTimes({
@@ -238,11 +244,7 @@ async function clickDeleteSelf(parentId, childId, forParent) {
 
   const xSize = forParent ? 0 : 1;
   expect(_.size(state.x)).toEqual(xSize);
-  if (!forParent) {
-    expect(_.size(state.x[parentId].children)).toEqual(0);
-  } else {
-    expect(state.x[parentId]).toBeUndefined();
-  }
+  expect(_.size(state.allChildren[parentId])).toEqual(0);
   expect(state.x[childId]).toBeUndefined();
 
   if (forParent) {

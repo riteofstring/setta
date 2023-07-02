@@ -10,9 +10,7 @@ function _UserSpecifiedObjectArea({ sectionId }) {
 
   return (
     <>
-      <div className="px-6">
-        <UserSpecifiedObjectName selectedItem={selectedItem} />
-      </div>
+      <UserSpecifiedObjectName selectedItem={selectedItem} />
 
       <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
       <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
@@ -31,6 +29,7 @@ function UserSpecifiedObjectName({ selectedItem }) {
   return (
     <StandardInput
       placeholder={""}
+      twClasses="mx-9"
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={(e) => onBlur(e.target.value)}

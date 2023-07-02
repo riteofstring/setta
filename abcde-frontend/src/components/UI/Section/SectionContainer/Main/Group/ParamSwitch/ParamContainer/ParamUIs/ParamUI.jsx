@@ -25,6 +25,7 @@ export function ParamUIConfig({ name, ...props }) {
     case LIST_ROOT:
     case DICT_ROOT:
       return null;
+    // <NestedObjectInputConfig {...props} />
   }
 }
 

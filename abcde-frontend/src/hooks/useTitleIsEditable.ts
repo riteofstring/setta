@@ -1,4 +1,4 @@
-import { requiresKeyInput } from "abcde-utils/src/constants";
+import { requiresKeyInput } from "utils/constants";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionTypeConfig, useIsOutput } from "./useSectionType";
 

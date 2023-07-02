@@ -23,7 +23,9 @@ export function SectionTitle({ sectionId, titleProps }) {
 
 function FixedTitle({ sectionName }) {
   return (
-    <p className="select-none font-thin italic text-slate-400">{sectionName}</p>
+    <h2 className="select-none font-thin italic text-slate-400">
+      {sectionName}
+    </h2>
   );
 }
 

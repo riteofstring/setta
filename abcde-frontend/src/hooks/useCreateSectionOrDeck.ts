@@ -1,4 +1,3 @@
-import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { moveSections } from "thunks/sections/sectionOps";
@@ -45,13 +44,10 @@ export function useOnClickAddSection() {
     incrementVersion,
   }) => {
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-    const topLevelPosition = projectXY
-      ? getPosition(x, y)
-      : newSectionPosition({ x, y });
-
+    const initialPosition = projectXY ? getPosition(x, y) : { x, y };
     addSectionAtPosition({
       isDeck,
-      topLevelPosition,
+      initialPosition,
       callbackBeforeExit,
       incrementVersion,
     });

@@ -1,10 +1,10 @@
-import { useSectionInfos } from "models/info/sectionInfos";
+import { useGetSectionDescription } from "hooks/useSectionDescription";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
 export function SectionDescription({ sectionId, width, card = false }) {
-  const description = useSectionInfos((x) => x.x[sectionId].description);
+  const description = useGetSectionDescription(sectionId, "value");
 
   if (!card) {
     return (

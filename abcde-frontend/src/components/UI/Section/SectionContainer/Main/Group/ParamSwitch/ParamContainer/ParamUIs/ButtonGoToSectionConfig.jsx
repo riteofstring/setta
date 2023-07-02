@@ -3,8 +3,8 @@ import { BiWrench } from "react-icons/bi";
 import { goToSectionConfigTab } from "thunks/switchTabs";
 import { Button } from "utils/atoms/buttons/Button";
 
-export function ButtonGoToSectionConfig({ sectionId, paramInfoId, uiType }) {
-  const onClick = () => goToSectionConfigTab({ sectionId, paramInfoId });
+export function ButtonGoToSectionConfig({ paramChildId, uiType }) {
+  const onClick = () => goToSectionConfigTab({ paramChildId });
   return (
     <>
       {isSectionUIType(uiType) && (

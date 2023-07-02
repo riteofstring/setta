@@ -1,10 +1,19 @@
+import { SectionDescriptionType } from "abcde-utils/src/types/sectionDescription";
 import _ from "lodash";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { setSectionInfoAttr } from "thunks/sections/sections";
+import { useSectionDescription } from "models/info/sectionDescription";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { useGetSectionInfo } from "./useSectionInfo";
+
+export function useGetSectionDescription<
+  K extends keyof SectionDescriptionType
+>(sectionId: string, key: K) {
+  const descriptionId = useGetSectionInfo(sectionId, "descriptionId");
+  return useSectionDescription((x) => x.x[descriptionId][key]);
+}
 
 export function useSectionHasDescription(sectionId) {
-  return useSectionInfos((x) => !!x.x[sectionId].description);
+  const descriptionId = useGetSectionInfo(sectionId, "descriptionId");
+  return useSectionDescription((x) => !!x.x[descriptionId].value);
 }
 
 // has to be defined outside of hook to work properly
@@ -13,26 +22,23 @@ const debouncedIncrementVersionFn = _.debounce(() => {
 }, 1000);
 
 export function useSetSectionDescription(sectionId) {
-  const setDescription = useSectionInfos((x) => x.setSectionInfoAttr);
+  const descriptionId = useGetSectionInfo(sectionId, "descriptionId");
+  const setDescription = useSectionDescription((x) => x.setDescription);
 
   return (value) => {
-    setDescription({ sectionId, attr: "description", value });
+    setDescription({ descriptionId, value });
     debouncedIncrementVersionFn();
   };
 }
 
-export function setSectionDescriptionHeight({ sectionId, height }) {
-  setSectionInfoAttr({
-    sectionId,
-    attr: "descriptionHeight",
-    value: height,
-  });
+export function useSetSectionDescriptionHeight(sectionId) {
+  const descriptionId = useGetSectionInfo(sectionId, "descriptionId");
+  const setHeight = useSectionDescription((x) => x.setHeight);
+  return (height) => setHeight({ descriptionId, height });
 }
 
-export function toggleSectionDescription(sectionId) {
-  setSectionInfoAttr({
-    sectionId,
-    attr: "descriptionVisible",
-    newValueFn: (x) => !x,
-  });
+export function useToggleSectionDescription(sectionId) {
+  const descriptionId = useGetSectionInfo(sectionId, "descriptionId");
+  const toggleVisible = useSectionDescription((x) => x.toggleVisible);
+  return () => toggleVisible({ descriptionId });
 }
