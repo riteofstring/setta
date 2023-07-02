@@ -10,7 +10,7 @@ export default {
     inCodeParentId: null,
     path: "torchmetrics",
     children: ["c6693b01-60f3-449a-a6f6-104a320b6500"],
-    returnType: null,
+    returnTypeId: null,
   },
   "c6693b01-60f3-449a-a6f6-104a320b6500": {
     id: "c6693b01-60f3-449a-a6f6-104a320b6500",
@@ -27,7 +27,7 @@ export default {
       "99132567-5379-4214-9807-7c63ecfaf801",
       "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "0a956730-6212-4842-8f99-a46d1491cc64": {
     id: "0a956730-6212-4842-8f99-a46d1491cc64",
@@ -47,7 +47,7 @@ export default {
       "a1848a4b-6d09-4fff-a420-6c01c851c7d1",
       "caf2b2b8-c5af-4644-b3a4-32dc539a70eb",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "8dc2eab5-b7bb-4f83-a96e-44028df49492": {
     id: "8dc2eab5-b7bb-4f83-a96e-44028df49492",
@@ -60,7 +60,7 @@ export default {
     inCodeParentId: "0a956730-6212-4842-8f99-a46d1491cc64",
     path: "torchmetrics.classification.MulticlassAccuracy.num_classes",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "ca4d533f-ba32-498d-915c-27f3bdc25acc": {
     id: "ca4d533f-ba32-498d-915c-27f3bdc25acc",
@@ -73,7 +73,7 @@ export default {
     inCodeParentId: "0a956730-6212-4842-8f99-a46d1491cc64",
     path: "torchmetrics.classification.MulticlassAccuracy.top_k",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "937b6e67-f0d1-4116-b746-aa89fda7a8ee": {
     id: "937b6e67-f0d1-4116-b746-aa89fda7a8ee",
@@ -86,7 +86,7 @@ export default {
     inCodeParentId: "0a956730-6212-4842-8f99-a46d1491cc64",
     path: "torchmetrics.classification.MulticlassAccuracy.average",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "579ad052-4402-4e27-9351-2f831fd8db84": {
     id: "579ad052-4402-4e27-9351-2f831fd8db84",
@@ -99,7 +99,7 @@ export default {
     inCodeParentId: "0a956730-6212-4842-8f99-a46d1491cc64",
     path: "torchmetrics.classification.MulticlassAccuracy.multidim_average",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "a1848a4b-6d09-4fff-a420-6c01c851c7d1": {
     id: "a1848a4b-6d09-4fff-a420-6c01c851c7d1",
@@ -112,7 +112,7 @@ export default {
     inCodeParentId: "0a956730-6212-4842-8f99-a46d1491cc64",
     path: "torchmetrics.classification.MulticlassAccuracy.ignore_index",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "caf2b2b8-c5af-4644-b3a4-32dc539a70eb": {
     id: "caf2b2b8-c5af-4644-b3a4-32dc539a70eb",
@@ -125,7 +125,7 @@ export default {
     inCodeParentId: "0a956730-6212-4842-8f99-a46d1491cc64",
     path: "torchmetrics.classification.MulticlassAccuracy.validate_args",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "99132567-5379-4214-9807-7c63ecfaf801": {
     id: "99132567-5379-4214-9807-7c63ecfaf801",
@@ -144,7 +144,7 @@ export default {
       "5c6d05ea-3d8d-4666-899d-517985c8765e",
       "4ec62ab3-da2d-4f3d-8823-134679741017",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "9bfe7266-6e55-4b06-9d96-a5b0b4890a51": {
     id: "9bfe7266-6e55-4b06-9d96-a5b0b4890a51",
@@ -157,7 +157,7 @@ export default {
     inCodeParentId: "99132567-5379-4214-9807-7c63ecfaf801",
     path: "torchmetrics.classification.MulticlassCalibrationError.num_classes",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "c20cb3e1-114c-480e-b04d-5a571dbc91c3": {
     id: "c20cb3e1-114c-480e-b04d-5a571dbc91c3",
@@ -170,7 +170,7 @@ export default {
     inCodeParentId: "99132567-5379-4214-9807-7c63ecfaf801",
     path: "torchmetrics.classification.MulticlassCalibrationError.n_bins",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "b7251a3a-0eb7-48f4-90a2-3e6042c6e00d": {
     id: "b7251a3a-0eb7-48f4-90a2-3e6042c6e00d",
@@ -183,7 +183,7 @@ export default {
     inCodeParentId: "99132567-5379-4214-9807-7c63ecfaf801",
     path: "torchmetrics.classification.MulticlassCalibrationError.norm",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "5c6d05ea-3d8d-4666-899d-517985c8765e": {
     id: "5c6d05ea-3d8d-4666-899d-517985c8765e",
@@ -196,7 +196,7 @@ export default {
     inCodeParentId: "99132567-5379-4214-9807-7c63ecfaf801",
     path: "torchmetrics.classification.MulticlassCalibrationError.ignore_index",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "4ec62ab3-da2d-4f3d-8823-134679741017": {
     id: "4ec62ab3-da2d-4f3d-8823-134679741017",
@@ -209,7 +209,7 @@ export default {
     inCodeParentId: "99132567-5379-4214-9807-7c63ecfaf801",
     path: "torchmetrics.classification.MulticlassCalibrationError.validate_args",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "1fab79c3-d09d-4fef-8dae-d6179e459ed1": {
     id: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
@@ -229,7 +229,7 @@ export default {
       "7c91b494-be59-489f-8ece-9ccd3bfce820",
       "1266da53-de61-4592-8881-1ee99130b550",
     ],
-    returnType: null,
+    returnTypeId: null,
   },
   "dba4e8ac-e6e1-494a-9bbf-03612e2a7f4e": {
     id: "dba4e8ac-e6e1-494a-9bbf-03612e2a7f4e",
@@ -242,7 +242,7 @@ export default {
     inCodeParentId: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     path: "torchmetrics.classification.MulticlassF1Score.num_classes",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "7f8610a6-0931-40b3-a042-40d67c3af76d": {
     id: "7f8610a6-0931-40b3-a042-40d67c3af76d",
@@ -255,7 +255,7 @@ export default {
     inCodeParentId: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     path: "torchmetrics.classification.MulticlassF1Score.top_k",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "167ab3b9-7e46-46ea-83dc-3e49753aceef": {
     id: "167ab3b9-7e46-46ea-83dc-3e49753aceef",
@@ -268,7 +268,7 @@ export default {
     inCodeParentId: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     path: "torchmetrics.classification.MulticlassF1Score.average",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "4edd29d7-b243-44d3-9b03-ae97285ffc63": {
     id: "4edd29d7-b243-44d3-9b03-ae97285ffc63",
@@ -281,7 +281,7 @@ export default {
     inCodeParentId: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     path: "torchmetrics.classification.MulticlassF1Score.multidim_average",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "7c91b494-be59-489f-8ece-9ccd3bfce820": {
     id: "7c91b494-be59-489f-8ece-9ccd3bfce820",
@@ -294,7 +294,7 @@ export default {
     inCodeParentId: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     path: "torchmetrics.classification.MulticlassF1Score.ignore_index",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
   "1266da53-de61-4592-8881-1ee99130b550": {
     id: "1266da53-de61-4592-8881-1ee99130b550",
@@ -307,6 +307,6 @@ export default {
     inCodeParentId: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     path: "torchmetrics.classification.MulticlassF1Score.validate_args",
     children: [],
-    returnType: null,
+    returnTypeId: null,
   },
 };

@@ -10,6 +10,7 @@ export default {
     version: null,
     description: null,
     path: "dog_power",
+    returnTypeId: null,
   },
   "b2870195-c853-4d4f-ac20-9fe0a57da17c": {
     id: "b2870195-c853-4d4f-ac20-9fe0a57da17c",
@@ -22,6 +23,7 @@ export default {
     version: null,
     description: null,
     path: "num_layers",
+    returnTypeId: null,
   },
   "63a3117c-b38b-4f3f-a46c-f4c86030c918": {
     id: "63a3117c-b38b-4f3f-a46c-f4c86030c918",
@@ -34,6 +36,7 @@ export default {
     version: null,
     description: null,
     path: "color",
+    returnTypeId: null,
   },
   "cd4e58a0-5a43-4968-8ac4-648eae7cca0a": {
     id: "cd4e58a0-5a43-4968-8ac4-648eae7cca0a",
@@ -46,6 +49,7 @@ export default {
     version: null,
     description: null,
     path: "transparency",
+    returnTypeId: null,
   },
   "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d": {
     id: "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d",
@@ -58,5 +62,6 @@ export default {
     version: null,
     description: null,
     path: "birth_details",
+    returnTypeId: null,
   },
 };
