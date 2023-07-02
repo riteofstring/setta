@@ -91,14 +91,14 @@ export async function saveAsNewProjectConfig({ project, newConfigName }) {
   });
 }
 
-export async function saveAsExistingProjectConfig({ project, configId }) {
+export async function saveAsExistingProjectConfig({ project, configName }) {
   if (NO_AUTH) {
     return await noAuthSaveAsExistingProjectConfig();
   }
 
   return post({
     address: SAVE_AS_EXISTING_PROJECT_CONFIG,
-    body: { project, configId },
+    body: { project, configName },
     thenFn: (res) => res.data,
     catchFn: () => [],
     withCredentials: true,

@@ -48,12 +48,10 @@ export function FileMenu() {
     if (configName === currConfigName) {
       saveProject();
     } else {
-      const matchingConfig = currProject.files.find(
-        (x) => x.name === configName
-      );
+      const matchingConfig = currProject.files.find((x) => x === configName);
       matchingConfig
         ? await saveAsExistingProjectConfig({
-            configId: matchingConfig.id,
+            configName: matchingConfig,
           })
         : await saveAsNewProjectConfig({
             newConfigName,

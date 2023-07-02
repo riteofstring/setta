@@ -72,10 +72,10 @@ export async function saveAsNewProjectConfig({ newConfigName }) {
   });
 }
 
-export async function saveAsExistingProjectConfig({ configId }) {
+export async function saveAsExistingProjectConfig({ configName }) {
   return await saveProjectAs({
     fn: saveAsExistingProjectConfigDb,
-    otherArgs: { configId },
+    otherArgs: { configName },
   });
 }
 
