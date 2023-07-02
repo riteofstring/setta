@@ -1,15 +1,29 @@
 import { ManySectionTypeSaveProjectToBackend } from 'abcde-utils/src/types/section';
-import _ from 'lodash';
+import { remapIds } from 'src/utils/utils';
 
-export function copySections(
-  sections: ManySectionTypeSaveProjectToBackend,
+export function copySections({
+  sections,
   evColIdMap,
-) {
-  const newSections = _.cloneDeep(sections);
+  uiTypeIdMap,
+  uiTypeColIdMap,
+}: {
+  sections: ManySectionTypeSaveProjectToBackend;
+  evColIdMap;
+  uiTypeIdMap;
+  uiTypeColIdMap;
+}) {
+  const { newIds: newSections, idMap: sectionIdMap } = remapIds(sections);
   for (const section of Object.values(newSections)) {
-    if (section.evColId in evColIdMap) {
-      section.evColId = evColIdMap[section.evColId];
-    }
+    section.id = sectionIdMap[section.id];
+    section.children = section.children.map((x) => sectionIdMap[x]);
+    section.evColId = section.evColId =
+      evColIdMap[section.evColId] ?? section.evColId;
+    section.uiTypeId = uiTypeIdMap[section.uiTypeId] ?? section.uiTypeId;
+    section.uiTypeColId =
+      uiTypeColIdMap[section.uiTypeColId] ?? section.uiTypeColId;
+    section.nonPresetUITypeIds = section.nonPresetUITypeIds.map(
+      (x) => uiTypeIdMap[x] ?? x,
+    );
   }
-  return newSections;
+  return { newSections, sectionIdMap };
 }

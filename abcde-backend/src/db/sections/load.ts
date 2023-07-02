@@ -1,6 +1,8 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
+import { ManyOutputType } from 'abcde-utils/src/types/output';
+import { ManyOutputGroupType } from 'abcde-utils/src/types/outputGroup';
 import { ManySectionType } from 'abcde-utils/src/types/section';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
@@ -61,6 +63,13 @@ export async function getSections(ids) {
       },
       nonPresetUITypes: {
         select: { id: true },
+      },
+      outputGroup: {
+        select: {
+          id: true,
+          name: true,
+          children: { select: { id: true, name: true, values: true } },
+        },
       },
     },
   });
@@ -137,6 +146,22 @@ export async function getSections(ids) {
     id: { in: nonPresetUITypeIds },
   });
 
+  const outputGroups: ManyOutputGroupType = {};
+  const outputs: ManyOutputType = {};
+  for (const config of s) {
+    const og = config.outputGroup;
+    if (og) {
+      outputGroups[og.id] = {
+        id: og.id,
+        name: og.name,
+        children: og.children.map((x) => x.id),
+      };
+      for (const c of og.children) {
+        outputs[c.id] = c;
+      }
+    }
+  }
+
   return {
     sections,
     ev,
@@ -144,6 +169,8 @@ export async function getSections(ids) {
     kwargCols,
     uiTypeCols,
     nonPresetUITypes,
+    outputGroups,
+    outputs,
   };
 }
 

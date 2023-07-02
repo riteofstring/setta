@@ -34,6 +34,16 @@ export function createIdMap(oldIds: string[]) {
   return _.fromPairs(oldIds.map((x) => [x, createNewId()]));
 }
 
+export function remapIds<T>(x: T): {
+  newIds: T;
+  idMap: Record<string, string>;
+} {
+  const oldIds = Object.keys(x);
+  const idMap = createIdMap(oldIds);
+  const newIds = renameKeys(x, idMap);
+  return { newIds, idMap };
+}
+
 export async function getChildrenRecursively(ids: string[], queryFn) {
   const allIds = new Set(ids);
   for (const c of ids) {

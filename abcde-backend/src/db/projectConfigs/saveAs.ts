@@ -9,11 +9,7 @@ export async function saveAsNewProjectConfig(
   project: ProjectSaveType,
   newConfigName: string,
 ) {
-  const projectToSave = copyProjectDetails(project);
-  projectToSave.projectConfig = copyProjectConfig({
-    projectConfig: projectToSave.projectConfig,
-    newConfigName,
-  });
+  const projectToSave = copyProjectDetails(project, newConfigName);
   await saveProjectDetails(userId, projectToSave);
   return projectToSave;
 }

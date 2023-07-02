@@ -3,6 +3,7 @@ import { loadTestData } from 'abcde-test/src/loaders/loaders';
 import { LOAD_PROJECT, LOGIN, PROJECTS } from 'abcde-utils/src/routes';
 import { compareObjs } from 'abcde-utils/src/testUtils';
 import { app } from 'src/app/app';
+import { saveAsNewProjectConfig } from 'src/db/projectConfigs/saveAs';
 import { loadOne } from 'src/db/projects/load';
 import supertest from 'supertest';
 
@@ -54,6 +55,28 @@ describe('ProjectsService', () => {
       .post(LOAD_PROJECT({ username: 'Kevin', projectName, configName }))
       .expect(200);
 
+    await checkProject(retrieved, projectName, configName);
+  });
+
+  it('Saving as a new config should not affect original config', async () => {
+    const projectName = 'simpleTrainTest';
+    const configName = 'simpleConfig1';
+    const project = await loadTestData({
+      projectName,
+      configName,
+      format: 'saveProjectToBackend',
+    });
+
+    // save as new config
+    await saveAsNewProjectConfig(TEST_USER, project, 'amazingNewConfig');
+
+    // retrive original config
+    const retrieved = await loadOne({
+      reqUserId: TEST_USER,
+      username: 'Kevin',
+      projectName,
+      configName,
+    });
     await checkProject(retrieved, projectName, configName);
   });
 });

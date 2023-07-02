@@ -1,18 +1,14 @@
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
-import { createIdMap, renameKeys } from 'src/utils/utils';
+import { remapIds } from 'src/utils/utils';
 
 export function copyEV(ev: ManyEVType) {
-  const oldIds = Object.keys(ev);
-  const evIdMap = createIdMap(oldIds);
-  const newEv = renameKeys(ev, evIdMap);
+  const { newIds: newEv, idMap: evIdMap } = remapIds(ev);
   return { newEv, evIdMap };
 }
 
 export function copyEVCols(evCols: ManyEVColType, evIdMap) {
-  const oldIds = Object.keys(evCols);
-  const evColIdMap = createIdMap(oldIds);
-  const newEvCols = renameKeys(evCols, evColIdMap);
+  const { newIds: newEvCols, idMap: evColIdMap } = remapIds(evCols);
 
   // replace ev ids
   for (const newEvCol of Object.values(newEvCols)) {
