@@ -1,9 +1,9 @@
+import { requiresNestedSection } from "abcde-utils/src/constants";
 import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
 import { UITypeColType } from "abcde-utils/src/types/uiTypeCol";
 import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { requiresNestedSection } from "utils/constants";
 import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useGetParamUIType(sectionId: string, paramInfoId: string) {

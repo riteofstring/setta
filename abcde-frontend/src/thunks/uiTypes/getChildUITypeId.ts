@@ -1,14 +1,14 @@
 import { useUITypes } from "models/info/uiTypes";
 import { cloneRootUIType } from "./cloneUITypes";
 
-export function getChildUITypeId(parentUIType, parentId) {
+export function getChildUIType(parentUIType, parentId) {
+  const uiTypesState = useUITypes.getState();
+
   // If a childUIType was created before, then the parentUIType will have its id
   const { childUITypeId } = parentUIType.config;
   if (childUITypeId) {
-    return childUITypeId;
+    return uiTypesState.x[childUITypeId];
   }
-
-  const uiTypesState = useUITypes.getState();
 
   // Otherwise, a child ui type needs to be created
   const newUIType = cloneRootUIType(parentUIType, parentId);
@@ -19,5 +19,5 @@ export function getChildUITypeId(parentUIType, parentId) {
     newValueFn: () => id,
   });
   uiTypesState.setUIType({ uiType: newUIType });
-  return id;
+  return newUIType;
 }

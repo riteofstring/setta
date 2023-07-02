@@ -1,8 +1,8 @@
+import { requiresNestedSection } from "abcde-utils/src/constants";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { requiresNestedSection } from "utils/constants";
 import { getSectionInfo } from "./sections/sections";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -11,7 +11,7 @@ export function getParamEVId(sectionId, paramInfoId) {
   return useParamInfos.getState().x[evColId][paramInfoId];
 }
 
-export function getParamChildId(sectionId, paramInfoId) {
+export function getParamChildId(sectionId: string, paramInfoId: string) {
   const s = useSectionInfos.getState().x;
   const possibleChildren = s[sectionId].children;
   for (const c of possibleChildren) {
