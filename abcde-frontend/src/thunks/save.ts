@@ -36,25 +36,7 @@ export function getProjectData(): ProjectSaveType {
   const sectionInfosState = useSectionInfos.getState();
   const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
     sectionInfosState.x,
-    (x) =>
-      _.pick(x, [
-        "id",
-        "name",
-        "configId",
-        "children",
-        "paramInfoId",
-        "size",
-        "chainedFrom",
-        "uiTypeId",
-        "evColId",
-        "kwargColId",
-        "uiTypeColId",
-        "selectedItem",
-        "description",
-        "descriptionHeight",
-        "descriptionVisible",
-        "nonPresetUITypeIds",
-      ])
+    (x) => _.omit(x, ["parentId"])
   );
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
