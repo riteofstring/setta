@@ -4,15 +4,14 @@ import { useParams } from "react-router-dom";
 import { CommunityButton } from "./CommunityButton/CommunityButton";
 import { EditMenu } from "./EditMenu/EditMenu";
 import { FileMenu } from "./FileMenu/FileMenu";
-import { RedoButton } from "./RedoButton/RedoButton";
 import { RunButton } from "./RunButton/RunButton";
 import { UndoButton } from "./UndoButton/UndoButton";
 
 export function SubNav() {
   return (
-    <div className="flex space-x-2">
+    <nav className="flex space-x-2">
       <NavSwitch />
-    </div>
+    </nav>
   );
 }
 
@@ -35,7 +34,7 @@ function UiEditorSubNav() {
       <CommunityButton />
       <RunButton />
       <UndoButton />
-      <RedoButton />
+      {/* <RedoButton /> */}
     </div>
   );
 }

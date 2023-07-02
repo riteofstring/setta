@@ -4,18 +4,14 @@ import {
   UI_CONFIG_TAB,
   useUIEditor,
 } from "models/uiEditor";
-import { getParamChildId } from "./paramInfos";
 import { getSectionParentId } from "./sections/sections";
 
-export function goToSectionConfigTab({ sectionId, paramInfoId }) {
-  if (paramInfoId) {
-    const paramChildId = getParamChildId(sectionId, paramInfoId);
-    if (paramChildId) {
-      const uiEditorState = useUIEditor.getState();
-      useActiveSection.getState().setId(paramChildId);
-      uiEditorState.setCameFromUIConfig(true);
-      uiEditorState.setTab(SECTION_CONFIG_TAB);
-    }
+export function goToSectionConfigTab({ paramChildId }) {
+  if (paramChildId) {
+    const uiEditorState = useUIEditor.getState();
+    useActiveSection.getState().setId(paramChildId);
+    uiEditorState.setCameFromUIConfig(true);
+    uiEditorState.setTab(SECTION_CONFIG_TAB);
   }
 }
 

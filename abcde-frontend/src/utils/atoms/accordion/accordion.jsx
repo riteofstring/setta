@@ -54,13 +54,13 @@ const AccordionTrigger = React.forwardRef(
     forwardedRef
   ) => (
     <Accordion.Header className={headerStyles}>
-      {children}
       <Accordion.Trigger
         className={triggerStyles}
         {...props}
         ref={forwardedRef}
       >
-        {trigger}
+        {/* {trigger} */}
+        {children}
         <BiChevronDown
           className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=open]:rotate-180"
           aria-hidden

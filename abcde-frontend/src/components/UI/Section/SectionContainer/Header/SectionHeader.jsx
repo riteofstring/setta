@@ -23,8 +23,10 @@ function _SectionHeader({
     deleteChild({ parentId, startId: sectionId, incrementVersion: true });
   };
 
+  // DOM: maybe get rid of the extra div under header?
+
   return (
-    <div className="flex flex-row items-center px-9">
+    <header className="flex flex-row items-center px-9">
       {!isInfo && (
         <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
           <CardTitle sectionId={sectionId} isActiveSection={isActiveSection} />
@@ -47,7 +49,7 @@ function _SectionHeader({
         data-testid={`Delete ${sectionId}`}
         isInfo={isInfo}
       />
-    </div>
+    </header>
   );
 }
 

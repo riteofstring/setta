@@ -33,52 +33,50 @@ export function SectionContainerCoreResizable({
     ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
+  const inputClasses = `outline outline-4 border border-white gap-2 bg-slate-100 ${outlineColor} pt-4 flex h-full flex-grow flex-col rounded-xl  shadow-md ${
+    hasDescription && "test"
+  } ${isActiveSection ? "z-[150]" : "z-10"}`;
+
   return (
     <>
-      <div
-        className={`outline outline-4 ${outlineColor} rounded-xl border border-white bg-slate-100 shadow-md transition-all`}
-        style={{ zIndex: isActiveSection ? 150 : 10 }}
+      <CustomResizable
+        sectionId={sectionId}
+        setLocalWidth={setLocalWidth}
+        inputClasses={inputClasses}
+        as="section"
       >
-        <CustomResizable sectionId={sectionId} setLocalWidth={setLocalWidth}>
-          <div className="h-full overflow-hidden rounded-xl">
-            <div
-              className={`flex h-full flex-grow flex-col gap-2 py-4 ${
-                hasDescription && "mb-11"
-              }`}
+        <SectionHeader
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          isSeriesElement={isSeriesElement}
+          isRoot={isRoot}
+          hasNested={hasNested}
+          isActiveSection={isActiveSection}
+        />
+        <AreaSwitch
+          sectionId={sectionId}
+          isOutput={isOutput}
+          isSocial={isSocial}
+          isRoot={isRoot}
+          isInfo={isInfo}
+          isUserSpecifiedObject={isUserSpecifiedObject}
+        />
+
+        {!isInfo && hasDescription && (
+          <div className="absolute bottom-0 flex w-full justify-center rounded-xl bg-gradient-to-t from-slate-50 py-2">
+            <Button
+              grid={false}
+              twClasses="px-2 py-1 self-center text-slate-500 hover:bg-white rounded-full gap-1 font-heading uppercase border-2 border-solid border-white text-xs bg-slate-200 shadow-sm hover:shadow-md transition-all"
+              onClick={toggleDescVis}
             >
-              <SectionHeader
-                sectionId={sectionId}
-                parentId={parentId}
-                nextId={nextId}
-                isSeriesElement={isSeriesElement}
-                isRoot={isRoot}
-                hasNested={hasNested}
-                isActiveSection={isActiveSection}
-              />
-              <AreaSwitch
-                sectionId={sectionId}
-                isOutput={isOutput}
-                isSocial={isSocial}
-                isRoot={isRoot}
-                isInfo={isInfo}
-                isUserSpecifiedObject={isUserSpecifiedObject}
-              />
-            </div>
-            {!isInfo && hasDescription && (
-              <div className="absolute bottom-0 flex w-full justify-center rounded-xl bg-gradient-to-t from-slate-50 py-2">
-                <Button
-                  grid={false}
-                  twClasses="px-2 py-1 self-center text-slate-500 hover:bg-white rounded-full gap-1 font-heading uppercase border-2 border-solid border-white text-xs bg-slate-200 shadow-sm hover:shadow-md transition-all"
-                  onClick={toggleDescVis}
-                >
-                  <BiInfoCircle className="z-[3] h-4 w-4" />
-                  Info
-                </Button>
-              </div>
-            )}
+              <BiInfoCircle className="z-[3] h-4 w-4" />
+              Info
+            </Button>
           </div>
-        </CustomResizable>
-      </div>
+        )}
+      </CustomResizable>
+
       {!isInfo && (
         <SectionDescription sectionId={sectionId} width={localWidth} />
       )}

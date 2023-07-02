@@ -21,9 +21,7 @@ export function MainContainer() {
         <Overview />
         <UiEditor />
         <GridWrapper>
-          <div className="h-[inherit] min-h-0 min-w-0 flex-1 overflow-hidden">
-            <UIPage />
-          </div>
+          <UIPage />
         </GridWrapper>
       </>
     )

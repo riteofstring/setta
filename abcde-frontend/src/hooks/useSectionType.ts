@@ -32,7 +32,7 @@ export function useGetSectionType<K extends keyof SectionUITypeType>(
   key: K
 ) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const nonScalars: (keyof SectionUITypeType)[] = ["config"];
+  const nonScalars: (keyof SectionUITypeType)[] = ["config", "originInfoId"];
   const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
 }

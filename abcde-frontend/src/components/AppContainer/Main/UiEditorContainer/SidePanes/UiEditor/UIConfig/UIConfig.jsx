@@ -1,6 +1,7 @@
 import { PresetType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
+import { useGetParamChildId } from "hooks/useEnteredValue";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetCurrObjParamKwargInfos } from "hooks/useSectionContents";
@@ -9,12 +10,11 @@ import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiPencil } from "react-icons/bi";
-import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
-import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
-import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
+import { setParamUITypeConfig, setParamUITypeId } from "thunks/uiTypes";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { cloneNewUIType } from "utils/uiTypeUtils";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -61,6 +61,7 @@ function _UIElement({ sectionId, paramInfo }) {
   const setUIType = useUITypes((x) => x.setUIType);
   const deleteUIType = useUITypes((x) => x.deleteUIType);
   const paramInfoId = paramInfo.id;
+  const paramChildId = useGetParamChildId(sectionId, paramInfoId);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const paramName = paramInfo.name;
 
@@ -110,7 +111,10 @@ function _UIElement({ sectionId, paramInfo }) {
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
           <InfoViewDescription paramInfoId={paramInfoId} />
-          <SaveUITypeConfig onSubmit={onSaveAsSubmit} />
+          <SaveUITypeConfig
+            paramChildId={paramChildId}
+            onSubmit={onSaveAsSubmit}
+          />
         </div>
       </div>
 
@@ -122,12 +126,9 @@ function _UIElement({ sectionId, paramInfo }) {
         savedConfig={uiType.config}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
+        paramChildId={paramChildId}
       />
-      <ButtonGoToSectionConfig
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        uiType={uiType}
-      />
+      <ButtonGoToSectionConfig uiType={uiType} paramChildId={paramChildId} />
     </div>
   );
 }

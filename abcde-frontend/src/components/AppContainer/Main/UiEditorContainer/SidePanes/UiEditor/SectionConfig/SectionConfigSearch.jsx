@@ -63,13 +63,11 @@ function SearchItem({
   vCenter,
 }) {
   function onChange(e) {
-    const checked = e.target.checked;
     onSelectionChange({
-      id,
-      checked,
       newValueFn: isCheckbox
-        ? checkboxChangeFn(checked, id)
-        : radioChangeFn(checked, id),
+        ? checkboxChangeFn(e.target.checked, id)
+        : radioChangeFn(e.target.checked, id),
+      id,
     });
   }
 
@@ -95,12 +93,12 @@ function SearchItem({
       />
 
       <DetailsComponent id={id} details={details} checked={checked} name={name}>
-        <label htmlFor={name} className="w-full">
+        <div className="w-full">
           <div className="flex cursor-pointer flex-col self-stretch">
             <p className="text-md font-semibold text-slate-800">{name}</p>
             {description && <p className="mt-1 text-sm">{description}</p>}
           </div>
-        </label>
+        </div>
       </DetailsComponent>
     </li>
   );

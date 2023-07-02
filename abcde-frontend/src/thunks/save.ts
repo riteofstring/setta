@@ -3,7 +3,11 @@ import { ManyKwargColType } from "abcde-utils/src/types/kwargCol";
 import { ProjectSaveType } from "abcde-utils/src/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/section";
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
-import { isPreset } from "abcde-utils/src/uiTypeConstants";
+import {
+  isBasePreset,
+  isPreset,
+  isUserPreset,
+} from "abcde-utils/src/uiTypeConstants";
 import {
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
@@ -11,12 +15,14 @@ import {
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
+import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
+import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { xnor } from "utils/utils";
@@ -41,21 +47,22 @@ export function getProjectData(): ProjectSaveType {
         "id",
         "name",
         "configId",
-        "children",
         "paramInfoId",
+        "initialPosition",
         "size",
         "chainedFrom",
+        "zIndex",
         "uiTypeId",
         "evColId",
         "kwargColId",
         "uiTypeColId",
         "selectedItem",
-        "description",
-        "descriptionHeight",
-        "descriptionVisible",
-        "nonPresetUITypeIds",
+        "descriptionId",
       ])
   );
+
+  const sectionChildren = sectionInfosState.allChildren;
+  const sectionDescriptions = useSectionDescription.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
     .getState()
@@ -71,6 +78,8 @@ export function getProjectData(): ProjectSaveType {
     kwargInfo,
     kwargCols,
     sections,
+    sectionChildren,
+    sectionDescriptions,
     projectConfigCodeInfoMaps,
   };
   // console.log(output);
@@ -99,7 +108,21 @@ export async function saveAsExistingProjectConfig({ configId }) {
 
 async function saveProjectAs({ fn, otherArgs }) {
   const x = assembleProject();
-  await fn({ ...x, ...otherArgs });
+  const newProjectConfig = await fn({ ...x, ...otherArgs });
+  const uiTypesState = useUITypes.getState();
+  // load base and preset ui types from memory
+  // because these weren't sent during saving
+  // and therefore aren't returned
+  newProjectConfig.baseUITypes = _.pickBy(uiTypesState.x, (x) =>
+    isBasePreset(x)
+  );
+  newProjectConfig.presetUITypes = _.pickBy(uiTypesState.x, (x) =>
+    isUserPreset(x)
+  );
+  newProjectConfig.userCodeInfoMaps = useUserCodeInfoMaps
+    .getState()
+    .exportForDb();
+  return newProjectConfig;
 }
 
 function assembleProject() {
