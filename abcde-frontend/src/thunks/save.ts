@@ -19,6 +19,7 @@ import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { useNotification } from "models/notification";
 import { xnor } from "utils/utils";
 
 export function getProjectData(): ProjectSaveType {
@@ -60,9 +61,14 @@ export function getProjectData(): ProjectSaveType {
   return output;
 }
 
-export function saveProject() {
+export async function saveProject() {
+  const n = useNotification.getState();
+  n.setMessage("Saving...");
   const x = assembleProject();
-  saveProjectDb(x);
+  const result = await saveProjectDb(x);
+  if (result.status === 200) {
+    n.setMessage("Saved!");
+  }
 }
 
 export async function saveAsNewProjectConfig({ newConfigName }) {

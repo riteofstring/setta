@@ -71,7 +71,7 @@ export async function saveProject({ project }) {
   return post({
     address: SAVE_PROJECT,
     body: { project },
-    thenFn: (res) => res.data,
+    thenFn: (res) => res,
     catchFn: () => [],
     withCredentials: true,
   });

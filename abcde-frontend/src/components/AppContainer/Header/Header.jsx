@@ -2,6 +2,7 @@ import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useSearch } from "models/search";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { MainSideMenu } from "./MainSideMenu/MainSideMenu";
+import { Notification } from "./Notification/Notification";
 import { SiteLogo } from "./SiteLogo";
 import { SubNav } from "./SubNav/SubNav";
 
@@ -11,6 +12,7 @@ export function HeaderContainer() {
       <SiteLogo />
       <SubNav />
       <Search searchPlaceholder="Search Project" />
+      <Notification />
       <MainSideMenu />
     </FlexContainer>
   );
