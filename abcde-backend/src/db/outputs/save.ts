@@ -1,47 +1,66 @@
-import { Prisma } from '@prisma/client';
 import { ManyOutputType } from 'abcde-utils/src/types/output';
 import { ManyOutputGroupType } from 'abcde-utils/src/types/outputGroup';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
+import { PrismaOutputGroupType, PrismaOutputType } from './types';
+
+function assembleOutputs(outputs: ManyOutputType, outputGroupId) {
+  const inDbFormat: PrismaOutputType[] = [];
+  for (const [id, v] of Object.entries(outputs)) {
+    inDbFormat.push({
+      id,
+      name: v.name,
+      values: v.values,
+      outputGroupId,
+    });
+  }
+  return inDbFormat;
+}
 
 export async function saveOutputs(
   outputs: ManyOutputType,
   outputGroupId: string,
 ) {
+  const inDbFormat = assembleOutputs(outputs, outputGroupId);
   await prisma.$transaction(
-    Object.entries(outputs).map(([id, v]) => {
-      const x: Prisma.OutputUpsertArgs['create'] = {
-        id,
-        name: v.name,
-        values: v.values,
-        outputGroupId,
-      };
-      return prisma.output.upsert({
-        where: { id: x.id },
-        create: x,
-        update: x,
-      });
-    }),
+    inDbFormat.map((v) =>
+      prisma.output.upsert({
+        where: { id: v.id },
+        create: v,
+        update: v,
+      }),
+    ),
   );
+}
+
+function assembleOutputGroups(
+  outputGroups: ManyOutputGroupType,
+  runId: string,
+) {
+  const inDbFormat: PrismaOutputGroupType[] = [];
+  for (const [id, v] of Object.entries(outputGroups)) {
+    inDbFormat.push({
+      id,
+      name: v.name,
+      runId,
+    });
+  }
+  return inDbFormat;
 }
 
 export async function saveOutputGroups(
   outputGroups: ManyOutputGroupType,
   runId: string,
 ) {
+  const inDbFormat = assembleOutputGroups(outputGroups, runId);
   await prisma.$transaction(
-    Object.entries(outputGroups).map(([id, v]) => {
-      const x: Prisma.OutputGroupUpsertArgs['create'] = {
-        id,
-        name: v.name,
-        runId,
-      };
-      return prisma.outputGroup.upsert({
-        where: { id: x.id },
-        create: x,
-        update: x,
-      });
-    }),
+    inDbFormat.map((v) =>
+      prisma.outputGroup.upsert({
+        where: { id: v.id },
+        create: v,
+        update: v,
+      }),
+    ),
   );
 }
 

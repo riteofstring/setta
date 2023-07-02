@@ -1,12 +1,12 @@
-import { loadTestData } from 'abcde-test/src/loaders/loaders';
+import { loadOneProject } from 'abcde-test/src/loadTestData';
 import { exportSelected } from 'src/middleware/runs/exportSelected';
 
 describe('exportSelected', () => {
   test('export simpleTrainTest', async () => {
-    const p = await loadTestData({
-      projectName: 'simpleTrainTest',
-      configName: 'simpleConfig1',
-      format: 'codeGen',
+    const p = await loadOneProject({
+      projectName: 'pytorchLightningMnist',
+      subFolderName: 'mnistConfig1',
+      forCodeGen: true,
     });
     const selected = exportSelected(p);
     console.log(selected);

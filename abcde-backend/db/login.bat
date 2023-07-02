@@ -1,0 +1,1 @@
+SET PGPASSWORD=123&&psql -P "null=(null)" -U postgres abcde 

@@ -1,16 +1,25 @@
-import { Prisma } from '@prisma/client';
 import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { prisma } from 'src/db/prisma';
+import { deleteThenCreateCol } from 'src/utils/utils';
+import { PrismaEVColType, PrismaEVType } from './types';
+
+function assembleEV(ev: ManyEVType) {
+  const inDbFormat: PrismaEVType[] = [];
+  for (const [id, v] of Object.entries(ev)) {
+    inDbFormat.push({
+      id,
+      value: v.value ? v.value.toString() : null,
+      childId: v.childId,
+    });
+  }
+  return inDbFormat;
+}
 
 export async function saveEV(ev: ManyEVType) {
-  const upsert = Object.keys(ev).map((id): Prisma.EVUpsertArgs['create'] => {
-    const value = ev[id];
-    return { id, value: value !== null ? value.toString() : null };
-  });
-
+  const inDbFormat = assembleEV(ev);
   await prisma.$transaction(
-    upsert.map((v) =>
+    inDbFormat.map((v) =>
       prisma.eV.upsert({
         where: { id: v.id },
         create: v,
@@ -20,23 +29,23 @@ export async function saveEV(ev: ManyEVType) {
   );
 }
 
-export async function saveEVCols(evCols: ManyEVColType) {
-  const ids = Object.keys(evCols);
-  const inDbFormat: Prisma.EVColCreateManyArgs['data'] = [];
+function assembleEVCols(evCols: ManyEVColType) {
+  const inDbFormat: PrismaEVColType[] = [];
   for (const [idid, evCol] of Object.entries(evCols)) {
     for (const [codeInfoId, evId] of Object.entries(evCol)) {
       inDbFormat.push({ idid, codeInfoId, evId });
     }
   }
+  return inDbFormat;
+}
 
-  await prisma.$transaction([
-    prisma.eVColId.createMany({
-      data: ids.map((x) => ({ id: x })),
-      skipDuplicates: true,
-    }),
-    prisma.eVCol.deleteMany({
-      where: { idid: { in: ids } },
-    }),
-    prisma.eVCol.createMany({ data: inDbFormat }),
-  ]);
+export async function saveEVCols(evCols: ManyEVColType) {
+  const ids = Object.keys(evCols);
+  await prisma.eVColId.createMany({
+    data: ids.map((x) => ({ id: x })),
+    skipDuplicates: true,
+  });
+
+  const inDbFormat = assembleEVCols(evCols);
+  await deleteThenCreateCol(prisma.eVCol, ids, inDbFormat);
 }

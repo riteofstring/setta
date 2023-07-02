@@ -1,4 +1,3 @@
-import { TEXT } from 'abcde-utils/src/constants';
 import { newCodeInfo } from 'abcde-utils/src/objs/codeInfo';
 import { newEV } from 'abcde-utils/src/objs/ev';
 import { RCType } from 'abcde-utils/src/types/codeInfo';
@@ -27,7 +26,7 @@ describe('Create, update, and copy entered value collections', () => {
       new Set(_codeInfos.map((x) => x.id)),
     );
     expect(new Set(evCol.map((x) => x.evId))).toEqual(
-      new Set(Object.keys(evs)),
+      new Set(_evs.map((x) => x.id)),
     );
   });
 
@@ -35,9 +34,7 @@ describe('Create, update, and copy entered value collections', () => {
     // update the evcol so that it only has 2 evs
 
     const _newEvCols = {};
-    _.range(2).forEach(
-      (x) => (_newEvCols[_codeInfos[x].id] = Object.keys(evs)[x]),
-    );
+    _.range(2).forEach((x) => (_newEvCols[_codeInfos[x].id] = _evs[x].id));
     const newEvCols = { [originalEvColId]: _newEvCols };
     await saveEVCols(newEvCols);
 
@@ -50,11 +47,7 @@ describe('Create, update, and copy entered value collections', () => {
   test('Copy an ev collection', async () => {
     // copy evs and the evcol
     const { evIdMap } = copyEV(evs);
-    const { newEvCols, evColIdMap } = copyEVCols({
-      evCols,
-      evIdMap,
-      kwargInfoIdMap: {},
-    });
+    const { newEvCols, evColIdMap } = copyEVCols(evCols, evIdMap);
     const newEvColId = Object.keys(newEvCols)[0];
 
     // codeInfoIds should stil match, but not evIds
@@ -77,14 +70,15 @@ const _codeInfos = ['epochs', 'lr', 'batches'].map((name) =>
 );
 const codeInfos = _.keyBy(_codeInfos, 'id');
 
-const evs = {
-  [createNewId()]: newEV(TEXT),
-  [createNewId()]: newEV(TEXT),
-  [createNewId()]: newEV(TEXT),
-};
+const _evs = [
+  newEV({ value: '45', childId: null }),
+  newEV({ value: '100', childId: null }),
+  newEV({ value: '1234', childId: null }),
+];
+const evs = _.keyBy(_evs, 'id');
 
 const _evCols = {};
-_.range(3).forEach((x) => (_evCols[_codeInfos[x].id] = Object.keys(evs)[x]));
+_.range(3).forEach((x) => (_evCols[_codeInfos[x].id] = _evs[x].id));
 const evCols = { [createNewId()]: _evCols };
 
 const originalEvColId = Object.keys(evCols)[0];

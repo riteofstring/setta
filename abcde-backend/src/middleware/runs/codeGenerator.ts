@@ -8,6 +8,7 @@ import {
   SWITCH,
   TEXT,
 } from 'abcde-utils/src/constants';
+import { isNumeric } from './utils';
 
 function getImport(x) {
   if (x.type === SECTION) {
@@ -51,6 +52,9 @@ function getBoolean(value) {
 function getVarDeclaration(varName, x, selected) {
   switch (x.type) {
     case TEXT:
+      if (x.value) {
+        return `${varName} = ${x.value}`;
+      }
     case SLIDER:
       return `${varName} = ${x.value}`;
     case SWITCH:
