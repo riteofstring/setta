@@ -51,7 +51,7 @@ export function FileMenu() {
       const matchingConfig = currProject.files.find(
         (x) => x.name === configName
       );
-      const newProjectConfig = matchingConfig
+      matchingConfig
         ? await saveAsExistingProjectConfig({
             configId: matchingConfig.id,
           })
@@ -61,10 +61,7 @@ export function FileMenu() {
 
       const username = useAuth.getState().username;
       router.navigate(`${username}/${projectName}/${configName}`, {
-        state: {
-          newProjectConfig,
-          pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG,
-        },
+        state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
       });
     }
   }

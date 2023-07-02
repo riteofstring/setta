@@ -9,7 +9,6 @@ import { useOutputs } from "../models/info/outputs";
 import { useParamInfos } from "../models/info/paramInfos";
 import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
-import { useSectionDescription } from "../models/info/sectionDescription";
 import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
 import { maybeIncrementProjectStateVersion } from "./undo";
@@ -21,8 +20,6 @@ export function loadProjectState({
   userCodeInfoMaps,
   projectConfigCodeInfoMaps,
   sections,
-  sectionChildren,
-  sectionDescriptions,
   ev,
   evCols,
   uiTypes,
@@ -30,11 +27,8 @@ export function loadProjectState({
   kwargCols,
   outputs,
   outputGroups,
-  excludeCodeInfo,
-}: ProjectLoadType & { excludeCodeInfo: boolean }) {
-  if (!excludeCodeInfo) {
-    useCodeInfo.getState().resetAndSetAll(codeInfo);
-  }
+}: ProjectLoadType) {
+  useCodeInfo.getState().resetAndSetAll(codeInfo);
   useProject.getState().resetAndSetAll(project);
   useProjectConfig.getState().resetAndSetAll(projectConfig);
   useUITypes.getState().resetAndSetAll(uiTypes);
@@ -45,11 +39,7 @@ export function loadProjectState({
     .resetAndSetAll(projectConfigCodeInfoMaps);
   useEnteredValues.getState().resetAndSetAll(ev);
   useKwargCols.getState().resetAndSetAll(kwargCols);
-  useSectionInfos.getState().resetAndSetAll({
-    sections,
-    sectionChildren,
-  });
-  useSectionDescription.getState().resetAndSetAll(sectionDescriptions);
+  useSectionInfos.getState().resetAndSetAll({ sections });
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
   maybeIncrementProjectStateVersion(true);

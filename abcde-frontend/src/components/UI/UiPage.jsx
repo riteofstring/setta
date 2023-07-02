@@ -1,14 +1,18 @@
-import { useTopLevelSectionPositions } from "hooks/useProjectConfig";
+import _ from "lodash";
+import { useProjectConfig } from "models/info/projectConfig";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
-  const { ids, initialPositions, zIndices } = useTopLevelSectionPositions();
-  const initialNodes = ids.map((x, idx) => ({
-    id: x,
-    position: initialPositions[idx],
+  const topLevelSectionPositions = useProjectConfig(
+    (x) => x.children,
+    _.isEqual
+  );
+  const initialNodes = _.map(topLevelSectionPositions, (v, k) => ({
+    id: k,
+    position: { x: v.x, y: v.y },
     type: "sectionContainerNode",
-    zIndex: zIndices[idx],
+    zIndex: v.zIndex,
     style: { visibility: "visible" }, // needed to prevent flickering
   }));
 

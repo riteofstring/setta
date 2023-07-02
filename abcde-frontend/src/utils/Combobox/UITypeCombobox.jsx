@@ -1,13 +1,12 @@
 import {
-  useAvailableUITypesForNestedSection,
-  useAvailableUITypesForTopLevelSection,
-  useAvailableUITypesForUIConfig,
+  useAvailableUITypesForParam,
+  useAvailableUITypesForSection,
 } from "hooks/usePresetUIType";
 import _ from "lodash";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
-  const grouped = _.groupBy(availableUITypes, "presetType");
+  const grouped = _.groupBy(availableUITypes, "displayType");
   const groupedAsList = Object.keys(grouped).map((k) => ({
     group: k,
     items: grouped[k],
@@ -23,15 +22,8 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
   );
 }
 
-export function TopLevelSectionUITypeCombobox({
-  sectionId,
-  selectedId,
-  ...props
-}) {
-  const availableUITypes = useAvailableUITypesForTopLevelSection(
-    sectionId,
-    selectedId
-  );
+export function SectionUITypeCombobox({ sectionId, selectedId, ...props }) {
+  const availableUITypes = useAvailableUITypesForSection(sectionId, selectedId);
   return (
     <UITypeCombobox
       availableUITypes={availableUITypes}
@@ -41,31 +33,13 @@ export function TopLevelSectionUITypeCombobox({
   );
 }
 
-export function NestedSectionUITypeCombobox({
-  sectionId,
-  selectedId,
-  ...props
-}) {
-  const availableUITypes = useAvailableUITypesForNestedSection(
-    sectionId,
-    selectedId
-  );
-  return (
-    <UITypeCombobox
-      availableUITypes={availableUITypes}
-      selectedId={selectedId}
-      {...props}
-    />
-  );
-}
-
-export function UIConfigUITypeCombobox({
+export function ParamConfigUITypeCombobox({
   sectionId,
   paramInfoId,
   selectedId,
   ...props
 }) {
-  const availableUITypes = useAvailableUITypesForUIConfig(
+  const availableUITypes = useAvailableUITypesForParam(
     sectionId,
     paramInfoId,
     selectedId

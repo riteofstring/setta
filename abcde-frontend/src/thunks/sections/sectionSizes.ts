@@ -29,7 +29,7 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
   let idx = 0;
   while (idx < sectionIds.length) {
     const currId = sectionIds[idx];
-    sectionIds.push(...s.currChildren[currId]);
+    sectionIds.push(...s.x[currId].currChildren);
     idx += 1;
   }
   useSectionInfos.getState().setSectionInfoAttr({

@@ -1,22 +1,30 @@
 import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
+import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { ManySectionType } from "abcde-utils/src/types/section";
+import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import _ from "lodash";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionDescription } from "models/info/sectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { getChildUITypeId } from "utils/uiTypeUtils";
-import { getSectionType } from "./sections";
+import { initializeChildParams } from "thunks/initializeParam";
+import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
+import { getSectionType, getSectionTypeConfig } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
-  const uiTypeId = getChildUITypeId(parentUIType, parentId);
+  const uiType = getChildUIType(parentUIType, parentId);
+  const nonPresetUITypeIds = !uiType.presetType ? [uiType.id] : [];
 
   return createManySectionInfo({
-    sectionProps: { parentId, parentName, uiTypeId },
+    sectionProps: {
+      parentId,
+      parentName,
+      uiTypeId: uiType.id,
+      nonPresetUITypeIds,
+    },
     numChildren,
   });
 }
@@ -24,7 +32,7 @@ export function createChildForSeries({ parentId, numChildren }) {
 export function createManySectionInfo({
   sectionProps,
   numChildren = 1,
-  isTopLevel = false,
+  topLevelPosition = null,
 }) {
   const newInfos = {};
   sectionProps["size"] = { width: "auto", height: "auto" };
@@ -32,7 +40,7 @@ export function createManySectionInfo({
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos, isTopLevel);
+  addSectionsToState(newInfos, topLevelPosition);
   return Object.keys(newInfos);
 }
 
@@ -49,14 +57,12 @@ export function createDefaultSectionInfo({ sectionProps, ...props }) {
 
 export function addSectionsToState(
   sectionInfos: ManySectionType,
-  isTopLevel: boolean
+  topLevelPosition: SectionPositionType | null
 ) {
   const siState = useSectionInfos.getState();
   siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
   const sectionIds = _.map(sectionInfos, (x) => x.id);
-  siState.initManyAllChildren({ sectionIds });
-  siState.initManyCurrChildren({ sectionIds });
 
   useParamInfos.getState().initManyEvColIds({
     collectionIds: _.map(sectionInfos, (x) => x.evColId),
@@ -66,15 +72,18 @@ export function addSectionsToState(
     collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
   });
 
+  for (const s of sectionIds) {
+    const { collections } = getSectionTypeConfig(s);
+    initializeChildParams(s, collections, findAllParameterCollections);
+  }
+
   useKwargCols.getState().initManyKwargColIds({
     collectionIds: _.map(sectionInfos, (x) => x.kwargColId),
   });
 
-  useSectionDescription.getState().initDescriptions({
-    descriptionIds: _.map(sectionInfos, (x) => x.descriptionId),
-  });
-
-  if (isTopLevel) {
-    useProjectConfig.getState().addChildren(sectionIds);
+  if (topLevelPosition) {
+    useProjectConfig
+      .getState()
+      .addChildren(_.mapValues(sectionInfos, () => topLevelPosition));
   }
 }
