@@ -101,7 +101,7 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black"
+      className="flex flex-col self-stretch text-left hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black"
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
