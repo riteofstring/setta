@@ -8,6 +8,7 @@ export type ProjectConfigType = {
   id: string;
   name: string;
   children: ManySectionPositionType;
+  viewport: { x: number; y: number; zoom: number };
 };
 
 export type ProjectConfigFrontendType = ProjectConfigType & {
@@ -24,6 +25,8 @@ export type ProjectConfigActionType = {
   updatePositions: (payload: ManyOf<Partial<SectionPositionType>>) => void;
 
   setName: (payload: string) => void;
+
+  setViewport: (payload: ProjectConfigType["viewport"]) => void;
 
   getAll: () => ProjectConfigType;
 };
