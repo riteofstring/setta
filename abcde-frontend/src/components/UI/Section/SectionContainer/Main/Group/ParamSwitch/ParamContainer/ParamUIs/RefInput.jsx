@@ -2,7 +2,7 @@ import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useStoreApi } from "reactflow";
+import { useReactFlowStore } from "models/reactFlowStore";
 import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionInfo, getSectionName } from "thunks/sections/sections";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
@@ -18,12 +18,10 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   const allItems = [
     { group: "sections", items: Object.values(availableSections) },
   ];
-  const reactFlowStore = useStoreApi();
   function onFnClick() {
     addAttrSection({
       sectionId,
       refSectionId: value,
-      reactFlowStore,
       onCreation: onBlur,
     });
   }
@@ -49,12 +47,8 @@ export function RefInput({ sectionId, value, onBlur, className }) {
   );
 }
 
-function addAttrSection({
-  sectionId,
-  refSectionId,
-  reactFlowStore,
-  onCreation,
-}) {
+function addAttrSection({ sectionId, refSectionId, onCreation }) {
+  const reactFlowStore = useReactFlowStore.getState().store;
   const refSectionName = getSectionName(refSectionId);
   const { position: sectionPosition, width: sectionWidth } = reactFlowStore
     .getState()

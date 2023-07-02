@@ -1,7 +1,7 @@
 import { useDndMode } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useStoreApi } from "reactflow";
+import { useReactFlowStore } from "models/reactFlowStore";
 import { getParamIsNested } from "thunks/paramInfos";
 import { getParamWithSameName } from "thunks/sections/sectionContents";
 import {
@@ -18,7 +18,7 @@ import {
 
 export function useOnDragMove() {
   const { isMovingFree } = useDndMode();
-  const rfStore = useStoreApi();
+  const rfStore = useReactFlowStore((x) => x.store);
   return (props) => {
     onDragMove({
       ...props,

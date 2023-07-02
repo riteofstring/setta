@@ -1,3 +1,6 @@
+import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
+import { useInitGlobalReactFlowStore } from "hooks/useInitGlobalReactFlowStore";
+import { useUndoRedoOnKeyActivation } from "hooks/useUndoOnKeyActivation";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
@@ -15,6 +18,10 @@ export function UIPage() {
     zIndex: v.zIndex,
     style: { visibility: "visible" }, // needed to prevent flickering
   }));
+
+  useGroupSectionsOnKeyActivation();
+  useUndoRedoOnKeyActivation();
+  useInitGlobalReactFlowStore();
 
   return (
     <GlobalDndContext>

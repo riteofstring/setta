@@ -1,15 +1,15 @@
 import { useKeyActivations } from "models/keyActivations";
+import { useReactFlowStore } from "models/reactFlowStore";
 import { useEffect } from "react";
-import { useStoreApi } from "reactflow";
 import { useCreateDeck } from "./useCreateSectionOrDeck";
 
 export function useGroupSectionsOnKeyActivation() {
   const groupSections = useKeyActivations((x) => x.groupSections);
-  const store = useStoreApi();
   const createDeck = useCreateDeck();
 
   useEffect(() => {
     if (groupSections) {
+      const store = useReactFlowStore.getState().store;
       const selectedNodes = [...store.getState().nodeInternals].filter(
         (x) => x[1].selected
       );
