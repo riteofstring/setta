@@ -7,6 +7,7 @@ const initialState = {
   undo: false,
   redo: false,
   save: false,
+  load: false,
 };
 
 function preventDefault(fn) {
@@ -35,6 +36,7 @@ function attachEventListeners(state) {
     undo: ctrlPlus("z"),
     redo: ctrlShiftPlus("Z"), // has to be capital because of shift
     save: ctrlPlus("s"),
+    load: ctrlPlus("l"),
   };
 
   for (const [attrName, cond] of Object.entries(conditions)) {
