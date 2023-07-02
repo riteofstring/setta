@@ -37,6 +37,7 @@ function attachEventListeners(state) {
     redo: ctrlShiftPlus("Z"), // has to be capital because of shift
     save: ctrlPlus("s"),
     load: ctrlPlus("l"),
+    saveAs: ctrlShiftPlus("S"),
   };
 
   for (const [attrName, cond] of Object.entries(conditions)) {

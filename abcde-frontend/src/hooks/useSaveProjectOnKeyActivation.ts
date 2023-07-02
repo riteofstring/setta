@@ -2,19 +2,23 @@ import { useKeyActivations } from "models/keyActivations";
 import { useEffect } from "react";
 import { saveProject } from "thunks/save";
 
-export function useSaveLoadProjectOnKeyActivation({ openLoadModal }) {
+export function useSaveLoadProjectOnKeyActivation({
+  openLoadModal,
+  openSaveAsModal,
+}) {
   const save = useKeyActivations((x) => x.save);
   const load = useKeyActivations((x) => x.load);
+  const saveAs = useKeyActivations((x) => x.saveAs);
 
   useEffect(() => {
     if (save) {
       saveProject();
     }
-  }, [save]);
-
-  useEffect(() => {
     if (load) {
       openLoadModal();
     }
-  }, [load]);
+    if (saveAs) {
+      openSaveAsModal();
+    }
+  }, [save, load, saveAs]);
 }

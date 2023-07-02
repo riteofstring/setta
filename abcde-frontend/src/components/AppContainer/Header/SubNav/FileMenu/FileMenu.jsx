@@ -45,7 +45,7 @@ export function FileMenu() {
     setOpen(true);
   }
 
-  useSaveLoadProjectOnKeyActivation({ openLoadModal });
+  useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
   function onClickLoadProject(selected) {
     const { foldername, filename } = selected;
