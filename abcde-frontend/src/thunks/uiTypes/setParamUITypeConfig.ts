@@ -5,6 +5,7 @@ import { getSectionInfo } from "thunks/sections/sections";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
+import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
 
 export function setParamUITypeConfig({
@@ -18,14 +19,16 @@ export function setParamUITypeConfig({
     paramInfoId,
     settingPreset,
   });
-  useUITypes.getState().setOneConfig({ uiTypeId: uiType.id, ...configProps });
+  setConfigAndChildConfig(uiType, configProps);
 }
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
   const defaultName = useCodeInfo.getState().allCodeInfo[paramInfoId].name;
-  const { nonPresetUITypeIds, uiSubType } = getSectionInfo(sectionId);
+  const { nonPresetUITypeIds } = getSectionInfo(sectionId);
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
+  const setUITypeId = (uiTypeId) =>
+    setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
   const createNonPreset = () =>
     createNonPresetForParam({
       sectionId,
@@ -36,10 +39,10 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
 
   return maybeCloneUIType({
     currUIType,
-    currUISubtype: uiSubType,
     settingPreset,
     createNonPreset,
     nonPresetUITypeIds,
+    setUITypeId,
   });
 }
 
@@ -61,7 +64,5 @@ function createNonPresetForParam({
     paramInfoId,
     newValueFn: (v) => [...v, newUIType.id],
   });
-  setParamUITypeId({ uiTypeId: newUIType.id, sectionId, paramInfoId });
-
   return newUIType;
 }

@@ -1,7 +1,4 @@
-import {
-  DEFAULT_BASE_UI_TYPE_ID,
-  requiresNestedSection,
-} from "abcde-utils/src/constants";
+import { DEFAULT_BASE_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
 import { UITypeColType } from "abcde-utils/src/types/uiTypeCol";
@@ -15,6 +12,7 @@ import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { requiresNestedSection } from "utils/constants";
 import { getParamChildId } from "./paramInfos";
 import { addChildForParam } from "./sections/addChild";
 import { getSectionInfo } from "./sections/sections";
@@ -160,7 +158,7 @@ function initializeParamUIType(
 }
 
 function getChildIds(sectionId: string, paramInfos: ManyCodeInfoType) {
-  return _.mapValues(paramInfos, (p) => getParamChildId(sectionId, p.id));
+  return _.mapValues(paramInfos, (p) => getParamChildId(sectionId, p));
 }
 
 export function initializeChild(

@@ -9,23 +9,16 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
-import { getUISubType } from "thunks/uiTypes/getUISubType";
+import { getChildUITypeId } from "thunks/uiTypes/getChildUITypeId";
 import { getSectionType, getSectionTypeConfig } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
-  const { name } = useSectionInfos.getState().x[parentId];
+  const { name: parentName } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
-  const uiSubType = getUISubType(parentId);
-  const nonPresetUITypeIds = !parentUIType.presetType ? [parentUIType.id] : [];
+  const uiTypeId = getChildUITypeId(parentUIType, parentId);
 
   return createManySectionInfo({
-    sectionProps: {
-      parentId,
-      name,
-      uiTypeId: parentUIType.id,
-      uiSubType,
-      nonPresetUITypeIds,
-    },
+    sectionProps: { parentId, parentName, uiTypeId },
     numChildren,
   });
 }

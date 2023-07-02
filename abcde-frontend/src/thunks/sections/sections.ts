@@ -1,10 +1,4 @@
-import {
-  DECK,
-  INFO,
-  isSeriesRoot,
-  OUTPUT,
-  SOCIAL,
-} from "abcde-utils/src/constants";
+import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -28,11 +22,8 @@ export function getSectionType(sectionId) {
   return useUITypes.getState().x[sectionTypeId];
 }
 
-export function getSectionIsSeriesRoot(sectionId) {
-  return isSeriesRoot(
-    getSectionType(sectionId).type,
-    getSectionInfo(sectionId).uiSubType
-  );
+export function getSectionIsRoot(sectionId) {
+  return isRoot(getSectionType(sectionId).type);
 }
 
 export function getSectionTypeConfig(sectionId) {
@@ -55,11 +46,7 @@ export function setCurrChildren({ sectionId, currChildren }) {
   const sectionInfosState = useSectionInfos.getState();
   sectionInfosState.setCurrChildren({ sectionId, currChildren });
   const sectionType = getSectionType(sectionId);
-  sectionInfosState.setCurrChildrenNames({
-    sectionId,
-    currChildren,
-    sectionType,
-  });
+  sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
 }
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {

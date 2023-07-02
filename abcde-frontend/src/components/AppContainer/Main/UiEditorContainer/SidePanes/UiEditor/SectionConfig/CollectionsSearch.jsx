@@ -6,7 +6,7 @@ import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useState } from "react";
-import { setSectionCollections } from "thunks/uiTypes/setSectionUITypeConfig";
+import { setCollections } from "thunks/uiTypes/setCollections";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
@@ -24,7 +24,7 @@ export function CollectionsSearch({ sectionId }) {
       await getCollectionDetails(id);
     }
 
-    setSectionCollections({
+    setCollections({
       sectionId,
       id,
       checked,

@@ -1,10 +1,10 @@
-import { requiresKeyInput } from "abcde-utils/src/constants";
+import { requiresKeyInput } from "utils/constants";
 import { useGetSectionInfo } from "./useSectionInfo";
-import { useIsOutput } from "./useSectionType";
+import { useGetSectionTypeConfig, useIsOutput } from "./useSectionType";
 
 export function useTitleIsEditable(sectionId: string) {
   const paramInfoId = useGetSectionInfo(sectionId, "paramInfoId");
-  const sectionSubType = useGetSectionInfo(sectionId, "uiSubType");
+  const sectionSubType = useGetSectionTypeConfig(sectionId, "subType");
   const isOutput = useIsOutput(sectionId);
 
   return requiresKeyInput(sectionSubType) && !paramInfoId && !isOutput;

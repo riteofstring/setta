@@ -1,11 +1,20 @@
-import { DECK, REF_UI_TYPE_ID } from "abcde-utils/src/constants";
+import {
+  DECK,
+  isRoot,
+  REF_UI_TYPE_ID,
+  rootTypeToChildSubType,
+} from "abcde-utils/src/constants";
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
+import {
+  SectionUITypeConfigType,
+  UITypeSetOneConfigPayloadType,
+} from "abcde-utils/src/types/uiType";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addKwarg } from "thunks/kwargs";
-import { getUISubType } from "thunks/uiTypes/getUISubType";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
@@ -17,7 +26,6 @@ import {
   getSectionName,
   getSectionType,
   setAllChildren,
-  setSectionInfoAttr,
   setSectionParamInfoId,
   setSectionParentId,
 } from "./sections";
@@ -136,8 +144,25 @@ function setChildrenAndParent({
 }
 
 function maybeChangeSectionSubtype({ newParentId, sectionId }) {
-  const value = getUISubType(newParentId !== PANEID ? newParentId : null);
-  setSectionInfoAttr({ sectionId, attr: "uiSubType", value });
+  const newParentUIType =
+    newParentId === PANEID ? null : getSectionType(newParentId);
+
+  let configProps: Partial<
+    UITypeSetOneConfigPayloadType<SectionUITypeConfigType["subType"]>
+  >;
+  if (newParentUIType && isRoot(newParentUIType.type)) {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
+    };
+  } else {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => null,
+    };
+  }
+
+  setSectionUITypeConfig({ sectionId, configProps });
 }
 
 function setSectionSize({ newParentId, sectionId }) {

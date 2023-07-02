@@ -1,4 +1,4 @@
-import { isSectionUIType, uiTypesToPretty } from "abcde-utils/src/constants";
+import { SECTION_TYPE_NAMES } from "abcde-utils/src/constants";
 import {
   ManyUITypeType,
   PresetType,
@@ -12,7 +12,7 @@ import {
 } from "abcde-utils/src/uiTypeConstants";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
-import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";
+import { uiTypesToPretty } from "utils/constants";
 import { useGetParamChildNonPresetUITypeIds } from "./useEnteredValue";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
@@ -23,6 +23,18 @@ function createName(uiType) {
     return `${uiType.name} - (${x})`;
   }
   return x;
+}
+
+function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
+  return nonPresetUITypeIds.includes(v.id);
+}
+
+export function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type) {
+  return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
+}
+
+function isSectionType(v) {
+  return SECTION_TYPE_NAMES.includes(v.type);
 }
 
 function filterUITypes(
@@ -69,7 +81,7 @@ export function useAvailableUITypesForSection(
   selectedId: string
 ) {
   const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
-  const generalFilterFn = isSectionUIType;
+  const generalFilterFn = isSectionType;
   const nonPresetFilterFn = (uiType: UITypeType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
