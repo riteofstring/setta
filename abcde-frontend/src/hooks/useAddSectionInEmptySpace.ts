@@ -1,12 +1,11 @@
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { usePanes } from "models/panes";
-import { useReactFlowStore } from "models/reactFlowStore";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
-import { OVERVIEW } from "utils/constants";
+import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 
 export function useAddSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
   return () => {
-    const store = useReactFlowStore.getState().store;
+    const store = REACT_FLOW_STORE.store;
     const {
       transform: [_x, _y, zoom],
     } = store.getState();

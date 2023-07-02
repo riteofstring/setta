@@ -1,6 +1,6 @@
 import { useKeyActivations } from "models/keyActivations";
-import { useReactFlowStore } from "models/reactFlowStore";
 import { useEffect } from "react";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { useCreateDeck } from "./useCreateSectionOrDeck";
 
 export function useGroupSectionsOnKeyActivation() {
@@ -9,7 +9,7 @@ export function useGroupSectionsOnKeyActivation() {
 
   useEffect(() => {
     if (groupSections) {
-      const store = useReactFlowStore.getState().store;
+      const store = REACT_FLOW_STORE.store;
       const selectedNodes = [...store.getState().nodeInternals].filter(
         (x) => x[1].selected
       );

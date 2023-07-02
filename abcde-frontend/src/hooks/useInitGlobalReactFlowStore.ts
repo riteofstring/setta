@@ -1,10 +1,10 @@
-import { useReactFlowStore } from "models/reactFlowStore";
 import { useEffect } from "react";
 import { useStoreApi } from "reactflow";
+import { REACT_FLOW_STORE } from "utils/constants";
 
 export function useInitGlobalReactFlowStore() {
   const store = useStoreApi();
   useEffect(() => {
-    useReactFlowStore.getState().setStore(store);
+    REACT_FLOW_STORE.store = store;
   }, []);
 }

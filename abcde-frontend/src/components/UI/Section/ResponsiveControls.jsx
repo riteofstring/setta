@@ -1,12 +1,11 @@
 import { motion } from "framer-motion";
 import _ from "lodash";
 import { usePanes } from "models/panes";
-import { useReactFlowStore } from "models/reactFlowStore";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
 import { ControlButton, Controls, useReactFlow } from "reactflow";
 import { setPositionState } from "thunks/sections/sectionPositions";
-import { OVERVIEW } from "utils/constants";
+import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 
 export function ResponsiveControls() {
   const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
@@ -14,7 +13,7 @@ export function ResponsiveControls() {
 
   function onClickLayout() {
     const margin = 50;
-    const store = useReactFlowStore.getState().store;
+    const store = REACT_FLOW_STORE.store;
     const nodeInternals = Array.from(store.getState().nodeInternals.values());
 
     let sizes = nodeInternals.map((x) => ({
