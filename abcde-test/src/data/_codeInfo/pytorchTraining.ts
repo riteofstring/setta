@@ -10,7 +10,7 @@ export default {
     inCodeParentId: "3bdaa095-acae-4006-b930-41993b87bce4",
     path: "src.pytorch_training",
     children: ["a1ed7b85-78c6-491e-ace0-97942d27e50e"],
-    returnTypeId: null,
+    returnType: null,
   },
   "a1ed7b85-78c6-491e-ace0-97942d27e50e": {
     id: "a1ed7b85-78c6-491e-ace0-97942d27e50e",
@@ -23,7 +23,7 @@ export default {
     inCodeParentId: "b714773e-1394-461e-9fb0-55ac117273f1",
     path: "src.pytorch_training.train",
     children: ["37090f4f-3c42-4427-99e8-4f4ee31595a1"],
-    returnTypeId: null,
+    returnType: null,
   },
   "37090f4f-3c42-4427-99e8-4f4ee31595a1": {
     id: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
@@ -48,7 +48,7 @@ export default {
       "92922b58-544d-49e0-828b-3ad9e6536551",
       "6f119a89-86bd-4768-9141-3cb2fb9df349",
     ],
-    returnTypeId: null,
+    returnType: null,
   },
   "ab487c7f-c29a-4176-a8ef-0d962f44312c": {
     id: "ab487c7f-c29a-4176-a8ef-0d962f44312c",
@@ -61,7 +61,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.model",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "585637c2-3553-43d9-be46-c25a914ac4e9": {
     id: "585637c2-3553-43d9-be46-c25a914ac4e9",
@@ -74,7 +74,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.optimizer",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "191bf07e-e14d-4c87-84cc-dd54fd7c9c80": {
     id: "191bf07e-e14d-4c87-84cc-dd54fd7c9c80",
@@ -87,7 +87,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.loss_fn",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "a2579c06-b2ea-4207-8094-635e8f076803": {
     id: "a2579c06-b2ea-4207-8094-635e8f076803",
@@ -100,7 +100,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.metrics",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "3e2305db-03f6-40a3-91b4-bb4d255be400": {
     id: "3e2305db-03f6-40a3-91b4-bb4d255be400",
@@ -113,7 +113,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.train_dataloader",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "71fdbcfc-db7c-4894-9b3a-c0b0b7da5f2d": {
     id: "71fdbcfc-db7c-4894-9b3a-c0b0b7da5f2d",
@@ -126,7 +126,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.val_dataloader",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "8630f46d-b06d-45bd-ab98-a5e46c02b9e4": {
     id: "8630f46d-b06d-45bd-ab98-a5e46c02b9e4",
@@ -139,7 +139,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.logger",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "843b1645-2da8-450a-a4a6-0c04de02c0fa": {
     id: "843b1645-2da8-450a-a4a6-0c04de02c0fa",
@@ -152,7 +152,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.epochs",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "92922b58-544d-49e0-828b-3ad9e6536551": {
     id: "92922b58-544d-49e0-828b-3ad9e6536551",
@@ -165,7 +165,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.val_interval",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "6f119a89-86bd-4768-9141-3cb2fb9df349": {
     id: "6f119a89-86bd-4768-9141-3cb2fb9df349",
@@ -178,7 +178,7 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.log_interval",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
   "b82d0cb7-ba27-40cc-946f-9e469c2ab748": {
     id: "b82d0cb7-ba27-40cc-946f-9e469c2ab748",
@@ -191,6 +191,6 @@ export default {
     inCodeParentId: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
     path: "src.pytorch_training.train.train.lr_scheduler",
     children: [],
-    returnTypeId: null,
+    returnType: null,
   },
 };
