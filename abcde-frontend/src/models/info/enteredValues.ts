@@ -16,10 +16,9 @@ export const useEnteredValues = createProjectState(
       },
       initManyEnteredValues: ({ evIdsToUITypes }) =>
         set((state) => {
-          _.forEach(
-            evIdsToUITypes,
-            (uiType, id) => (state.x[id] = newEV(uiType))
-          );
+          _.forEach(evIdsToUITypes, (uiType, id) => {
+            state.x[id] = newEV(uiType);
+          });
         }),
       setEnteredValue: ({ enteredValueId, value }) =>
         set((state) => {

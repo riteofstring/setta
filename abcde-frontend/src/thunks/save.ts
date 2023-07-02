@@ -58,6 +58,7 @@ export function getProjectData(): ProjectSaveType {
         "description",
         "descriptionHeight",
         "descriptionVisible",
+        "nonPresetUITypeIds",
       ])
   );
 
