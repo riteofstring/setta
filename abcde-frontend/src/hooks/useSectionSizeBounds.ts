@@ -4,7 +4,11 @@ import {
   useGetAllCallables,
   useGetCurrObjParamKwargInfos,
 } from "./useSectionContents";
-import { useIsOutput, useIsRoot, useIsUserSpecifiedObject } from "./useSectionType";
+import {
+  useIsOutput,
+  useIsRoot,
+  useIsUserSpecifiedObject,
+} from "./useSectionType";
 import { useIsTwitter } from "./useSocialUtils";
 
 export function useMinSectionHeight(sectionId) {
@@ -15,7 +19,7 @@ export function useMinSectionHeight(sectionId) {
   const paramsAndKwargs = useGetCurrObjParamKwargInfos(sectionId);
   const hasUnnestedParam = !useAreAllParamsNested(sectionId, paramsAndKwargs);
   const hasKwargControl = !isRoot;
-  const isUserSpecifiedObj = useIsUserSpecifiedObject(sectionId);  
+  const isUserSpecifiedObj = useIsUserSpecifiedObject(sectionId);
 
   if (isOutput) {
     return 300;
