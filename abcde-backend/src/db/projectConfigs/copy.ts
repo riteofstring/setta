@@ -4,9 +4,9 @@ import _ from 'lodash';
 
 export function copyProjectConfig({
   projectConfig,
-  newConfigName = null,
-  doCreateNewId = true,
-  sectionIdMap = null,
+  newConfigName,
+  doCreateNewId,
+  sectionIdMap,
 }: {
   projectConfig: ProjectConfigType;
   newConfigName?: string | null;

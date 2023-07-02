@@ -5,10 +5,15 @@ import { copyKwargCols, copyKwargInfo } from '../kwargs/copy';
 import { copyProjectConfig } from '../projectConfigs/copy';
 import { copyUITypeCols, copyUITypes } from '../uiTypes/copy';
 
-export function copyProjectDetails(
-  project: ProjectSaveType,
-  newConfigName: string,
-): ProjectSaveType {
+export function copyProjectDetails({
+  project,
+  newConfigName = null,
+  doCreateNewId = false,
+}: {
+  project: ProjectSaveType;
+  newConfigName?: string | null;
+  doCreateNewId?: boolean;
+}): ProjectSaveType {
   const {
     kwargInfo,
     kwargCols,
@@ -49,6 +54,7 @@ export function copyProjectDetails(
   const newProjectConfig = copyProjectConfig({
     projectConfig,
     newConfigName,
+    doCreateNewId,
     sectionIdMap,
   });
 
