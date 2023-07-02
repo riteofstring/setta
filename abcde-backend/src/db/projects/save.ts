@@ -17,7 +17,7 @@ export async function saveProjectDetails(userId, p: ProjectSaveType) {
   await saveUITypeCols(p.uiTypeCols);
   await saveSections(p.sections);
   await saveProject(userId, p.project);
-  await saveProjectConfig(p.project.id, p.projectConfig, p.sections);
+  await saveProjectConfig(p.project.id, p.projectConfig);
   await saveAllProjectConfigCodeInfoMaps(
     p.projectConfig.id,
     p.projectConfigCodeInfoMaps,

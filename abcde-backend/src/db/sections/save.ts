@@ -13,7 +13,6 @@ export async function saveSections(
       width: convertSize(v.size.width),
       height: convertSize(v.size.height),
       chainedFromId: v.chainedFrom,
-      zIndex: v.zIndex,
       evColId: v.evColId,
       uiTypeId: v.uiTypeId,
       kwargColId: v.kwargColId,
@@ -39,7 +38,6 @@ export async function saveSections(
         create: v.children.map((c, idx) => ({
           childId: c,
           order: idx,
-          ...v.initialPosition,
         })),
       },
     }),

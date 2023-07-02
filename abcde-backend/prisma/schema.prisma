@@ -37,7 +37,7 @@ model CodeInfo {
   sectionsSelectedItem      Section[]                  @relation("SectionsSelectedItem") //Section.selectedItem
   asUserSpecifiedObject     Section[]                  @relation("SectionUserSpecifiedObject") //Section.userSpecifiedObject
   uiTypeCols                UITypeCol[] //UITypeCol.codeInfo
-  sectionUITypes            SectionUIType[] //SectionUIType.collections
+  sectionUITypes            UIType[] //UIType.sectionConfigCollections
   asParent                  CodeInfoChildren[]         @relation("CodeInfoParent") // CodeInfoChildren.parent
   asChild                   CodeInfoChildren[]         @relation("CodeInfoChildren") // CodeInfoChildren.child
   userCodeInfoMaps          UserCodeInfoMap[] //UserCodeInfoMap.codeInfo
@@ -76,7 +76,6 @@ model Section {
   chainedFrom           Section?                @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
   chainedTo             Section[]               @relation("SectionChainedFrom")
   chainedFromId         String?                 @db.Uuid
-  zIndex                Int
   evCol                 EVColId?                @relation(fields: [evColId], references: [id])
   evColId               String?                 @db.Uuid
   kwargCol              KwargColId?             @relation(fields: [kwargColId], references: [id])
@@ -108,8 +107,6 @@ model SectionChildren {
   parent   Section @relation("SectionParent", fields: [parentId], references: [id])
   parentId String  @db.Uuid
   order    Int
-  x        Float   @default(0)
-  y        Float   @default(0)
 
   @@id([childId])
 }
@@ -162,13 +159,16 @@ model UIType {
   ownerId                       String?                        @db.Uuid
   type                          String                         @db.VarChar(255)
   presetType                    String?                        @db.VarChar(255)
+  sectionConfigCollections      CodeInfo[]
+  sectionConfigSubType          String?                        @db.VarChar(255)
+  sectionConfigChildUIType      UIType?                        @relation("ChildUIType", fields: [sectionConfigChildUITypeId], references: [id])
+  sectionConfigChildUITypeId    String?                        @unique @db.Uuid
+  sectionConfigParentUIType     UIType?                        @relation("ChildUIType")
+  sliderConfigMin               Float?
+  sliderConfigMax               Float?
+  sliderConfigStep              Float?
   sections                      Section[] //Section.uiTypeId
   uiTypeCols                    UITypeCol[] //UITypeCol.uiType
-  sectionUIType                 SectionUIType? //SectionUIType.id
-  sliderUIType                  SliderUIType? //SliderUIType.id
-  textUIType                    TextUIType? //TextUIType.id
-  switchUIType                  SwitchUIType? //SwitchUIType.id
-  refUIType                     RefUIType? //RefUIType.id
   userCodeInfoTypeMaps          UserCodeInfoTypeMap[] //UserCodeInfoTypeMap.uiTypeId
   projectConfigCodeInfoTypeMaps ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMaps.uiTypeId
   userCodeInfoMaps              UserCodeInfoMap[] //UserCodeInfoMap.uiTypeId
@@ -198,49 +198,6 @@ model UITypeCol {
   @@id([idid, codeInfoId]) // composite key
 }
 
-model SectionUIType {
-  id            UIType         @relation(fields: [idid], references: [id])
-  idid          String         @db.Uuid
-  collections   CodeInfo[]
-  subType       String?        @db.VarChar(255)
-  childUIType   SectionUIType? @relation("ChildUIType", fields: [childUITypeId], references: [idid])
-  childUITypeId String?        @unique @db.Uuid
-  parentUIType  SectionUIType? @relation("ChildUIType")
-
-  @@id([idid])
-}
-
-model SliderUIType {
-  id   UIType @relation(fields: [idid], references: [id])
-  idid String @db.Uuid
-  min  Float?
-  max  Float?
-  step Float?
-
-  @@id([idid])
-}
-
-model TextUIType {
-  id   UIType @relation(fields: [idid], references: [id])
-  idid String @db.Uuid
-
-  @@id([idid])
-}
-
-model SwitchUIType {
-  id   UIType @relation(fields: [idid], references: [id])
-  idid String @db.Uuid
-
-  @@id([idid])
-}
-
-model RefUIType {
-  id   UIType @relation(fields: [idid], references: [id])
-  idid String @db.Uuid
-
-  @@id([idid])
-}
-
 model Project {
   id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String          @db.VarChar(255)
@@ -258,6 +215,9 @@ model ProjectConfig {
   name             String                         @db.VarChar(255)
   project          Project                        @relation("configs", fields: [projectId], references: [id])
   projectId        String                         @db.Uuid
+  x                Float                          @default(0)
+  y                Float                          @default(0)
+  zoom             Float                          @default(1)
   codeInfoTypeMaps ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
   codeInfoMaps     ProjectConfigCodeInfoMap[] //ProjectConfigCodeInfoMap.projectConfig
   runs             Run[]
@@ -274,6 +234,7 @@ model ProjectConfigChildren {
   childId  String        @db.Uuid
   x        Float         @default(0)
   y        Float         @default(0)
+  zIndex   Float         @default(0)
 
   @@id([parentId, childId]) // composite key
 }
