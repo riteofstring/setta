@@ -3,7 +3,8 @@ import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 
-export function setPositionState(nodes, incrementVersion) {
+export function setPositionState(inputNodes, incrementVersion) {
+  const nodes = inputNodes.filter((x) => x.id);
   const newValues = {};
   const pc = useProjectConfig.getState();
   for (const n of nodes) {
@@ -21,7 +22,8 @@ export function setPositionState(nodes, incrementVersion) {
   return positionsChanged;
 }
 
-export function setZIndices(nodes: SectionType[], incrementVersion) {
+export function setZIndices(inputNodes: SectionType[], incrementVersion) {
+  const nodes = inputNodes.filter((x) => x.id);
   const topLevelPositions = _.omit(
     useProjectConfig.getState().children,
     nodes.map((x) => x.id)
