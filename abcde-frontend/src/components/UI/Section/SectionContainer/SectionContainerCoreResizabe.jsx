@@ -29,13 +29,15 @@ export function SectionContainerCoreResizable({
   const width = useSectionInfos((x) => x.x[sectionId].size.width);
   const [localWidth, setLocalWidth] = useState(width);
 
+  // ${hasDescription && ""}
+
   const outlineColor = isActiveSection
     ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
-  const inputClasses = `outline outline-4 border border-white gap-2 bg-slate-100 ${outlineColor} pt-4 flex h-full flex-grow flex-col rounded-xl  shadow-md ${
-    hasDescription && "test"
-  } ${isActiveSection ? "z-[150]" : "z-10"}`;
+  const inputClasses = `outline outline-4 border border-white gap-2 bg-slate-100 ${outlineColor} transition-[all_5s] pt-4 flex h-full flex-grow flex-col rounded-xl  shadow-md  ${
+    isActiveSection ? "z-[150]" : "z-10"
+  }`;
 
   return (
     <>
