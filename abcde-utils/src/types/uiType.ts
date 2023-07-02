@@ -6,6 +6,8 @@ export type UITypeType = {
   name: string;
   config: UITypeConfigType;
   presetType: PresetType | null;
+  originInfoId: OriginInfoIdType;
+  isForChildOfOriginInfoId: boolean;
 };
 
 export type SectionUITypeType = Omit<UITypeType, "config"> & {
@@ -25,12 +27,21 @@ export type SectionUITypeConfigType = {
   collections: string[];
   subType: string | null;
   childUITypeId: string | null;
+  outputGroup: string | null;
+  social: string | null;
+  userSpecifiedObjectId: string | null;
 };
 
 export enum PresetType {
   BASE = "BASE",
   USER = "USER",
 }
+
+export type OriginInfoIdType = {
+  sectionId?: string;
+  uiTypeColId?: string;
+  paramInfoId?: string;
+};
 
 export type ManyUITypeType = ManyOf<UITypeType>;
 

@@ -1,5 +1,5 @@
 import { ManyEVColType } from "./evCol";
-import { ManyUITypeColType, UITypeColType } from "./uiTypeCol";
+import { ManyUITypeColType } from "./uiTypeCol";
 
 export type ParamInfoStateType = {
   x: ManyEVColType;
@@ -30,19 +30,13 @@ export type ParamInfoActionType = {
 
   setManyUITypeIds: (payload: {
     collectionId: string;
-    paramIdToUITypeId: UITypeColType;
+    paramIdToUITypeId: { [id: string]: string };
   }) => void;
 
   setUITypeId: (payload: {
     collectionId: string;
     paramInfoId: string;
     uiTypeId: string;
-  }) => void;
-
-  setNonPresetUITypeIds: (payload: {
-    collectionId: string;
-    paramInfoId: string;
-    newValueFn: (curr: string[]) => string[];
   }) => void;
 
   deleteParamInfo: (payload: {

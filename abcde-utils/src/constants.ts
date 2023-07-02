@@ -19,7 +19,6 @@ export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
   DICT_ROOT,
-  DECK,
   OUTPUT,
   INFO,
   SOCIAL,
@@ -58,32 +57,15 @@ export const rootTypeToChildSubType = {
 export function isSectionUIType(
   uiType: UITypeType
 ): uiType is SectionUITypeType {
-  return SECTION_TYPE_NAMES.includes(uiType.type);
-}
-
-export const uiTypesToPretty = Object.freeze(
-  new Map(
-    Object.entries({
-      [TEXT]: "Text",
-      [SLIDER]: "Slider",
-      [SWITCH]: "Switch",
-      [SECTION]: "Object",
-      [LIST_ROOT]: "List of Objects",
-      [DICT_ROOT]: "Dict of Objects",
-      [OUTPUT]: "Program Output",
-      [REF]: "Reference to Object",
-      [INFO]: "Info",
-      [SOCIAL]: "Social",
-      [FN]: "Function",
-      [USER_SPECIFIED_OBJECT]: "User Specified Object",
-    })
-  )
-);
-
-export function requiresNestedSection(uiTypeType) {
-  return SECTION_TYPE_NAMES.includes(uiTypeType);
-}
-
-export function requiresKeyInput(sectionSubTypeName) {
-  return [null, DICT].includes(sectionSubTypeName);
+  return [
+    SECTION,
+    LIST_ROOT,
+    DICT_ROOT,
+    DECK,
+    OUTPUT,
+    INFO,
+    SOCIAL,
+    FN,
+    USER_SPECIFIED_OBJECT,
+  ].includes(uiType.type);
 }
