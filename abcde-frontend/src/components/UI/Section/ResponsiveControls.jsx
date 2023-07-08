@@ -3,17 +3,17 @@ import _ from "lodash";
 import { usePanes } from "models/panes";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
-import { ControlButton, Controls, useReactFlow, useStoreApi } from "reactflow";
+import { ControlButton, Controls, useReactFlow } from "reactflow";
 import { setPositionState } from "thunks/sections/sectionPositions";
-import { OVERVIEW } from "utils/constants";
+import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 
 export function ResponsiveControls() {
   const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
-  const store = useStoreApi();
   const rf = useReactFlow();
 
   function onClickLayout() {
     const margin = 50;
+    const store = REACT_FLOW_STORE.store;
     const nodeInternals = Array.from(store.getState().nodeInternals.values());
 
     let sizes = nodeInternals.map((x) => ({

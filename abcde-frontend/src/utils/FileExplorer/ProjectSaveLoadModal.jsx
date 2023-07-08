@@ -5,6 +5,8 @@ export function ProjectSaveLoadModal({
   folders,
   onClickLoadProject,
   onClickSaveAsProject,
+  open,
+  setOpen,
   children,
 }) {
   const onClickActionButton =
@@ -19,6 +21,8 @@ export function ProjectSaveLoadModal({
       title={title}
       buttonText={modalType}
       placeholder="Config Name"
+      open={open}
+      setOpen={setOpen}
     >
       {children}
     </SaveLoadModal>

@@ -1,9 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import "./styles.css";
 
-export function ModalContainer({ content, children }) {
+export function ModalContainer({ content, open, setOpen, children }) {
   return (
-    <Dialog.Root>
+    <Dialog.Root open={open} onOpenChange={setOpen}>
       {children}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
