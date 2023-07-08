@@ -1,6 +1,6 @@
 import React from "react";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
-import ScrollingArea from "utils/atoms/scrollingarea/scrollingarea";
+import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
 

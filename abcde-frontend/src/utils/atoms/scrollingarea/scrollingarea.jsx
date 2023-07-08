@@ -1,7 +1,7 @@
 import * as ScrollArea from "@radix-ui/react-scroll-area";
 import React from "react";
 
-const ScrollingArea = React.forwardRef(
+export const ScrollingArea = React.forwardRef(
   (
     {
       type = "auto",
@@ -29,11 +29,11 @@ const ScrollingArea = React.forwardRef(
         {children}
       </ScrollArea.Viewport>
       <ScrollArea.Scrollbar
-        className={`flex touch-none select-none rounded-full p-0.5 transition-colors duration-[160ms] ease-out hover:bg-slate-100 data-[orientation=horizontal]:h-2.5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col ${vScrollStyle}`}
+        className={`flex touch-none select-none rounded-full  p-0.5 transition-colors duration-[160ms] ease-out hover:bg-slate-200 data-[orientation=horizontal]:h-2.5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col ${vScrollStyle}`}
         orientation="vertical"
       >
         <ScrollArea.Thumb
-          className={`nodrag relative flex-1 rounded-[10px] bg-slate-300 before:absolute before:top-1/2 before:left-1/2 before:h-full before:min-h-[44px] before:w-full before:min-w-[44px] before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] ${vThumbStyle}`}
+          className={`nodrag relative flex-1 rounded-[10px] bg-orange-300 bg-opacity-25 mix-blend-difference before:absolute before:top-1/2 before:left-1/2 before:h-full before:min-h-[44px] before:w-full before:min-w-[44px] before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] ${vThumbStyle}`}
         />
       </ScrollArea.Scrollbar>
       <ScrollArea.Scrollbar
@@ -48,5 +48,3 @@ const ScrollingArea = React.forwardRef(
     </ScrollArea.Root>
   )
 );
-
-export default ScrollingArea;

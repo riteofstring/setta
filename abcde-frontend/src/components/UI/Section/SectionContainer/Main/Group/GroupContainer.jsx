@@ -2,7 +2,7 @@ import { useGetKwargInfos, useGetParamInfos } from "hooks/useSectionContents";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef, useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import ScrollingArea from "utils/atoms/scrollingarea/scrollingarea";
+import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {

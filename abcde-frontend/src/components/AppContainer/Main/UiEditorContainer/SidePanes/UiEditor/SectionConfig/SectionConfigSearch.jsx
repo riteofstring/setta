@@ -1,3 +1,4 @@
+import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { checkboxChangeFn, radioChangeFn } from "utils/utils";
 
@@ -17,22 +18,24 @@ export function SectionConfigSearch({
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSearch} />
-      <ul className="mt-4 flex flex-grow flex-col gap-4 overflow-y-auto">
-        {Object.values(results).map((x) => (
-          <SearchItem
-            id={x.id}
-            name={x.name}
-            description={x.description}
-            details={x.children}
-            checked={selected.includes(x.id)}
-            onSelectionChange={onSelectionChange}
-            isCheckbox={isCheckbox}
-            key={`SearchItem-${x.id}`}
-            DetailsComponent={DetailsComponent}
-            vCenter={vCenter}
-          />
-        ))}
-      </ul>
+      <ScrollingArea rootStyle="mt-4">
+        <ul className="flex flex-grow flex-col gap-4">
+          {Object.values(results).map((x) => (
+            <SearchItem
+              id={x.id}
+              name={x.name}
+              description={x.description}
+              details={x.children}
+              checked={selected.includes(x.id)}
+              onSelectionChange={onSelectionChange}
+              isCheckbox={isCheckbox}
+              key={`SearchItem-${x.id}`}
+              DetailsComponent={DetailsComponent}
+              vCenter={vCenter}
+            />
+          ))}
+        </ul>
+      </ScrollingArea>
     </div>
   );
 }
