@@ -21,7 +21,8 @@ function _UserSpecifiedObjectArea({ sectionId }) {
 export const UserSpecifiedObjectArea = React.memo(_UserSpecifiedObjectArea);
 
 function UserSpecifiedObjectName({ selectedItem }) {
-  const [value, setValue] = useState("");
+  const name = useCodeInfo((x) => x.allCodeInfo[selectedItem].name);
+  const [value, setValue] = useState(name);
   function onBlur(v) {
     useCodeInfo.getState().setName({ id: selectedItem, name: v });
   }
