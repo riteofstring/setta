@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { omitParentIdFromSections } from "./utils";
 
 export function codeGen(loaded) {
   const {
@@ -18,7 +19,7 @@ export function codeGen(loaded) {
   };
   return {
     project: processProject(project),
-    sections,
+    sections: omitParentIdFromSections(sections),
     codeInfo,
     uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
     sectionCurrChildren: _.cloneDeep(_.mapValues(sections, (v) => v.children)),

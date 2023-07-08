@@ -1,8 +1,9 @@
-import _ from "lodash";
+import { omitParentIdFromSections, processProject } from "./utils";
 
 export function saveProjectToBackend(loaded) {
   const {
     project,
+    sections,
     allCodeInfo,
     kwargInfo,
     uiTypes,
@@ -14,12 +15,18 @@ export function saveProjectToBackend(loaded) {
 
   return {
     project: processProject(project),
-    kwargInfo,
+    sections: omitParentIdFromSections(sections),
+    kwargInfo: assembleKwargInfo(allCodeInfo, kwargInfo, sections),
     uiTypes,
     ...theRest,
   };
 }
 
-function processProject(project) {
-  return _.pick(project, ["id", "name", "defaultConfigId"]);
+function assembleKwargInfo(allCodeInfo, kwargInfo, sections) {
+  for (const s of Object.values(sections)) {
+    if (s.userSpecifiedObjectId) {
+      kwargInfo[s.userSpecifiedObjectId] = allCodeInfo[s.userSpecifiedObjectId];
+    }
+  }
+  return kwargInfo;
 }

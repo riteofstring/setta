@@ -1,5 +1,4 @@
-import _ from "lodash";
-import { loadCodeInfoForProject } from "./utils";
+import { loadCodeInfoForProject, processProject } from "./utils";
 
 export function loadProjectToFrontend(loaded) {
   const {
@@ -31,8 +30,4 @@ export function loadProjectToFrontend(loaded) {
     userCodeInfoMaps: userCodeInfoMaps[loaded.project.owner],
     ...theRest,
   };
-}
-
-function processProject(project) {
-  return _.pick(project, ["id", "name", "defaultConfigId"]);
 }

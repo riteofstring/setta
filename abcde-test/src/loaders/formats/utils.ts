@@ -17,3 +17,11 @@ export function loadCodeInfoForProject(allCodeInfo, sections, uiTypes) {
   const output = findAllDescendants(allCodeInfo, allCollectionIds);
   return _.keyBy(output, "id");
 }
+
+export function processProject(project) {
+  return _.pick(project, ["id", "name", "defaultConfigId"]);
+}
+
+export function omitParentIdFromSections(sections) {
+  return _.mapValues(sections, (s) => _.omit(s, ["parentId"]));
+}
