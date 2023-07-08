@@ -14,7 +14,6 @@ import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
-import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
@@ -42,7 +41,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
       />
-      <ScrollingArea rootStyle="mt-4">
+      <div className="mt-4 flex flex-grow flex-col gap-8 overflow-y-auto">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -51,7 +50,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
               key={`${e.name}-${idx}`}
             />
           ))}
-      </ScrollingArea>
+      </div>
     </>
   );
 });

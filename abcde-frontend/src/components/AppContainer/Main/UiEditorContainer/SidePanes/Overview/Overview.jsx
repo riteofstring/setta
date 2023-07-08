@@ -3,7 +3,6 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
-import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
 import { InfoView } from "./InfoView/InfoView";
@@ -40,11 +39,9 @@ export function Overview() {
         {...infoViewHandlersSearch}
       />
 
-      <ScrollingArea rootStyle="flex-1">
-        <ul className="flex-grow" {...infoViewHandlers}>
-          <SectionListItems listOfSectionIdsAndNames={filteredList} />
-        </ul>
-      </ScrollingArea>
+      <ul className="flex-grow overflow-y-auto" {...infoViewHandlers}>
+        <SectionListItems listOfSectionIdsAndNames={filteredList} />
+      </ul>
       <InfoView />
     </PaneContainer>
   );
