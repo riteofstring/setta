@@ -39,12 +39,12 @@ export function SliderInput({
       onValueChange={onChange}
       onValueCommit={onBlur}
     >
-      <Slider.Track className="relative flex-grow rounded-full bg-slate-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px]">
+      <Slider.Track className="relative flex-grow rounded-full bg-slate-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-slate-700">
         <Slider.Range className="absolute h-full rounded-full bg-blue-500" />
       </Slider.Track>
       <Slider.Thumb
         className="block h-3 w-3 cursor-pointer
-      rounded-full border-2 border-slate-300 bg-white shadow-sm drop-shadow-md hover:bg-slate-100 focus:border-blue-500 focus-visible:outline-none"
+      rounded-full border-2 border-slate-300 bg-white shadow-sm drop-shadow-md hover:bg-slate-100 focus:border-blue-500 focus-visible:outline-none dark:border-slate-400 dark:bg-slate-600"
       />
     </Slider.Root>
   );

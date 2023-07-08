@@ -53,7 +53,7 @@ function Footer() {
     <>
       <StandardButton
         align="self-stretch"
-        inactive="bg-slate-400"
+        inactive="bg-slate-400 dark:bg-slate-800"
         text="text-white font-bold"
         hover="hover:bg-blue-500"
         type="submit"
