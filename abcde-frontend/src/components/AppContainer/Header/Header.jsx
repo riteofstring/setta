@@ -4,6 +4,7 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { MainSideMenu } from "./MainSideMenu/MainSideMenu";
 import { Notification } from "./Notification/Notification";
 import { SiteLogo } from "./SiteLogo";
+import { ColorModeSwitch } from "./SubNav/ColorMode/ColorModeSwitch";
 import { SubNav } from "./SubNav/SubNav";
 
 export function HeaderContainer() {
@@ -13,6 +14,7 @@ export function HeaderContainer() {
       <SubNav />
       <Search searchPlaceholder="Search Project" />
       <Notification />
+      <ColorModeSwitch />
       <MainSideMenu />
     </FlexContainer>
   );
@@ -21,7 +23,7 @@ export function HeaderContainer() {
 function FlexContainer({ children }) {
   return (
     <header
-      className={`min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center bg-white px-11 shadow-md`}
+      className={`min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center px-11 shadow-md dark:bg-slate-800`}
     >
       {children}
     </header>

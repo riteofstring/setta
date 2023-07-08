@@ -20,7 +20,7 @@ import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
 const reactFlowStyle = {
-  background: "#94a3b8",
+  // background: "#94a3b8",
   height: "100%",
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
@@ -83,6 +83,7 @@ function _SectionsPane({ initialNodes, viewport }) {
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
+      className="bg-[#94a3b8] dark:bg-[#14161F]"
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}
