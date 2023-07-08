@@ -1,6 +1,7 @@
+import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useSectionRefAndInit } from "hooks/useStateRef";
+import { useUndoRedoOnKeyActivation } from "hooks/useUndoOnKeyActivation";
 import { useActiveSection } from "models/activeSection";
-import { useProjectConfig } from "models/info/projectConfig";
 import React from "react";
 import ReactFlow, { Background, useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
@@ -25,9 +26,12 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-function _SectionsPane({ initialNodes, viewport }) {
+function _SectionsPane({ initialNodes }) {
   const reactFlowRef = useSectionRefAndInit(PANEID);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const setActiveSection = useActiveSection((x) => x.setId);
+  useGroupSectionsOnKeyActivation();
+  useUndoRedoOnKeyActivation();
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
@@ -46,13 +50,9 @@ function _SectionsPane({ initialNodes, viewport }) {
     closeCtxMenus,
   ] = useAllContextMenus();
 
-  function onMoveEnd(e, viewport) {
-    useProjectConfig.getState().setViewport(viewport);
-  }
-
   function onPaneClick() {
     closeCtxMenus();
-    useActiveSection.getState().setId(null);
+    setActiveSection(null);
   }
 
   function onNodeDragStop(e, node, nodes) {
@@ -72,10 +72,8 @@ function _SectionsPane({ initialNodes, viewport }) {
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       style={reactFlowStyle}
-      defaultViewport={viewport}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
-      onMoveEnd={onMoveEnd}
       onPaneContextMenu={openPaneCtxMenu}
       onSelectionContextMenu={openSelectionCtxMenu}
       onNodeContextMenu={openNodeCtxMenu}

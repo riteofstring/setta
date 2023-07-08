@@ -1,5 +1,4 @@
 import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
-import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import _ from "lodash";
 import { useAuth } from "models/auth";
 import { useProject } from "models/info/project";
@@ -11,6 +10,7 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "thunks/save";
+import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
@@ -27,25 +27,10 @@ export function FileMenu() {
     createAndGoToProject,
   } = useGetOrCreateProjects();
   const [modalType, setModalType] = useState("");
-  const [open, setOpen] = useState(false);
   const projects = convertRawProjectsToFolderFormat({
     rawProjects,
     modalType,
   });
-
-  async function openLoadModal() {
-    setModalType("Load");
-    getProjects();
-    setOpen(true);
-  }
-
-  async function openSaveAsModal() {
-    setModalType("Save As");
-    getProjects();
-    setOpen(true);
-  }
-
-  useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
   function onClickLoadProject(selected) {
     const { foldername, filename } = selected;
@@ -63,10 +48,12 @@ export function FileMenu() {
     if (configName === currConfigName) {
       saveProject();
     } else {
-      const matchingConfig = currProject.files.find((x) => x === configName);
+      const matchingConfig = currProject.files.find(
+        (x) => x.name === configName
+      );
       matchingConfig
         ? await saveAsExistingProjectConfig({
-            configName: matchingConfig,
+            configId: matchingConfig.id,
           })
         : await saveAsNewProjectConfig({
             newConfigName,
@@ -86,14 +73,12 @@ export function FileMenu() {
         folders={projects}
         onClickLoadProject={onClickLoadProject}
         onClickSaveAsProject={onClickSaveAsProject}
-        open={open}
-        setOpen={setOpen}
       >
         <MenuDropdown trigger="File">
           <Items
+            setModalType={setModalType}
+            getProjects={getProjects}
             createAndGoToProject={createAndGoToProject}
-            openLoadModal={openLoadModal}
-            openSaveAsModal={openSaveAsModal}
           />
         </MenuDropdown>
       </ProjectSaveLoadModal>
@@ -101,26 +86,40 @@ export function FileMenu() {
   );
 }
 
-function Items({ createAndGoToProject, openLoadModal, openSaveAsModal }) {
+function Items({ setModalType, getProjects, createAndGoToProject }) {
+  async function onClickNewProject() {
+    await createAndGoToProject({});
+  }
+
+  function onClickLoad() {
+    setModalType("Load");
+    getProjects();
+  }
+
+  function onClickSaveAs() {
+    setModalType("Save As");
+    getProjects();
+  }
+
   return (
     <>
-      <MenuItem
-        onClick={() => createAndGoToProject({})}
-        shortcut="Ctrl + Shift + N"
-      >
+      <MenuItem onClick={onClickNewProject} shortcut="Ctrl + Shift + N">
         New Project
       </MenuItem>
-      <MenuItem onClick={openLoadModal} shortcut="Ctrl + L">
+      <DialogMenuBarTriggerItem onClick={onClickLoad} shortcut="Ctrl + L">
         Load
-      </MenuItem>
+      </DialogMenuBarTriggerItem>
       <MenuItem onClick={saveProject} shortcut="Ctrl + S">
         <VscSave />
         Save
       </MenuItem>
-      <MenuItem onClick={openSaveAsModal} shortcut="Ctrl + Shift + S">
+      <DialogMenuBarTriggerItem
+        onClick={onClickSaveAs}
+        shortcut="Ctrl + Shift + S"
+      >
         <VscSaveAs />
         Save As
-      </MenuItem>
+      </DialogMenuBarTriggerItem>
     </>
   );
 }

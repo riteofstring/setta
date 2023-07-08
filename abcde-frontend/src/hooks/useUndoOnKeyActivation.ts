@@ -10,8 +10,11 @@ export function useUndoRedoOnKeyActivation() {
     if (undo) {
       undoProjectState();
     }
+  }, [undo]);
+
+  useEffect(() => {
     if (redo) {
       redoProjectState();
     }
-  }, [undo, redo]);
+  }, [redo]);
 }

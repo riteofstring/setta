@@ -6,8 +6,6 @@ const initialState = {
   groupSections: false,
   undo: false,
   redo: false,
-  save: false,
-  load: false,
 };
 
 function preventDefault(fn) {
@@ -35,9 +33,6 @@ function attachEventListeners(state) {
     groupSections: ctrlPlus("g"),
     undo: ctrlPlus("z"),
     redo: ctrlShiftPlus("Z"), // has to be capital because of shift
-    save: ctrlPlus("s"),
-    load: ctrlPlus("l"),
-    saveAs: ctrlShiftPlus("S"),
   };
 
   for (const [attrName, cond] of Object.entries(conditions)) {

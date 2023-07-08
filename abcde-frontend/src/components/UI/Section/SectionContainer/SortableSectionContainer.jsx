@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useDndMode, useDndProps, useOverIsSelf } from "hooks/useDndUtils";
 import React from "react";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { useStoreApi } from "reactflow";
 import { SectionContainer } from "./SectionContainer";
 
 function _SortableSectionContainer({
@@ -51,7 +51,7 @@ function _SortableCore({
   transition,
 }) {
   const overIsSelf = useOverIsSelf(sectionId);
-  const store = REACT_FLOW_STORE.store;
+  const store = useStoreApi();
   const scaledTransform = transformWithZoom(transform, store);
 
   const style = {

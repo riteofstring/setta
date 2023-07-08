@@ -71,7 +71,7 @@ export async function saveProject({ project }) {
   return post({
     address: SAVE_PROJECT,
     body: { project },
-    thenFn: (res) => res,
+    thenFn: (res) => res.data,
     catchFn: () => [],
     withCredentials: true,
   });
@@ -91,14 +91,14 @@ export async function saveAsNewProjectConfig({ project, newConfigName }) {
   });
 }
 
-export async function saveAsExistingProjectConfig({ project, configName }) {
+export async function saveAsExistingProjectConfig({ project, configId }) {
   if (NO_AUTH) {
     return await noAuthSaveAsExistingProjectConfig();
   }
 
   return post({
     address: SAVE_AS_EXISTING_PROJECT_CONFIG,
-    body: { project, configName },
+    body: { project, configId },
     thenFn: (res) => res.data,
     catchFn: () => [],
     withCredentials: true,

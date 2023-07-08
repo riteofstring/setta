@@ -1,11 +1,10 @@
-import { useReactFlow } from "reactflow";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { useReactFlow, useStoreApi } from "reactflow";
 
 export function useUpdateMapPosition() {
+  const store = useStoreApi();
   const { setViewport } = useReactFlow();
 
   return (widthDiff: number) => {
-    const store = REACT_FLOW_STORE.store;
     const {
       transform: [x, y, zoom],
     } = store.getState();

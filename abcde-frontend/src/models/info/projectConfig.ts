@@ -11,7 +11,6 @@ const initialState: ProjectConfigFrontendType = {
   id: "",
   name: "",
   children: {},
-  viewport: { x: 0, y: 0, zoom: 1 },
   version: 0,
 };
 
@@ -36,9 +35,8 @@ export const useProjectConfig = createProjectState(
             (v, k) => (state.children[k] = { ...state.children[k], ...v })
           );
         }),
-      setName: (name) => set({ name }),
-      setViewport: (viewport) => set({ viewport }),
-      getAll: () => _.pick(get(), ["id", "name", "children", "viewport"]),
+      setName: (name) => set({ name }), //TODO, need to update db
+      getAll: () => _.pick(get(), ["id", "name", "children"]),
     }))
   )
 );

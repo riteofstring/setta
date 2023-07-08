@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { useStoreApi } from "reactflow";
 
 export function useSetScaleOnResizeStart() {
+  const rfStore = useStoreApi();
   const [scale, setScale] = useState(1);
 
   function onResizeStart() {
-    setScale(REACT_FLOW_STORE.store.getState().transform[2]);
+    setScale(rfStore.getState().transform[2]);
   }
   return { scale, onResizeStart };
 }

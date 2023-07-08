@@ -7,9 +7,10 @@ export function useSectionRefAndInit(sectionId) {
 
 function useStateRefAndInit(sectionId, state) {
   const ref = useRef(null);
+  const setRef = state((x) => x.setRef);
 
   useEffect(() => {
-    state.getState().setRef({ sectionId, ref: ref.current });
+    setRef({ sectionId, ref: ref.current });
   }, []);
 
   return ref;

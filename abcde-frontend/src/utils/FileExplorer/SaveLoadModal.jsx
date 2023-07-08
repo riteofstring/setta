@@ -12,14 +12,10 @@ export function SaveLoadModal({
   title,
   buttonText,
   placeholder,
-  open,
-  setOpen,
   children,
 }) {
   return (
     <ModalContainer
-      open={open}
-      setOpen={setOpen}
       content={
         <ModalContent
           modalType={modalType}
