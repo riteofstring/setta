@@ -47,7 +47,7 @@ function Search({ onSubmit }) {
   }
 
   const inputStyles =
-    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300  focus-visible:border-blue-300 pl-7 py-1 ";
+    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 dark:border-slate-600  focus-visible:border-blue-300 pl-7 py-1 ";
 
   return (
     <StandardSearch inputStyles={inputStyles} onFormSubmit={onFormSubmit} />
@@ -80,7 +80,7 @@ function SearchItem({
   //  [&:has(input:checked)]:text-white
   return (
     <li
-      className={`edit-list-item box-border flex select-none rounded-lg border-2 border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md [&:hover_*]:text-black [&:has(input:focus-visible)]:ring-2 [&:has(input:checked)]:bg-blue-100 hover:[&:has(input:checked)]:bg-white [&:has(input:not:checked)]:text-slate-500 hover:[&>input:checked]:accent-slate-500 ${
+      className={`edit-list-item box-border flex select-none rounded-lg border-2 border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md dark:hover:bg-slate-900 [&:hover_*]:text-black [&:has(input:focus-visible)]:ring-2 [&:has(input:checked)]:bg-blue-100 hover:[&:has(input:checked)]:bg-white dark:hover:[&:has(input:checked)]:bg-slate-900 [&:has(input:not:checked)]:text-slate-500 hover:[&>input:checked]:accent-slate-500 ${
         vCenter && "items-center"
       }`}
     >

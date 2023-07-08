@@ -72,7 +72,9 @@ const AccordionContent = React.forwardRef(
       {...props}
       ref={forwardedRef}
     >
-      <aside className="max-h-full py-4 px-5 ">{children}</aside>
+      <aside className="max-h-full py-4 px-5 dark:text-slate-300">
+        {children}
+      </aside>
     </Accordion.Content>
   )
 );

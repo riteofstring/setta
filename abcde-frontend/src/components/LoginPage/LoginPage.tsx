@@ -19,7 +19,10 @@ export function LoginPage() {
   });
 
   return (
-    <GridWrapper gridStyles="bg-slate-400" flexFormWrap={true}>
+    <GridWrapper
+      gridStyles="bg-slate-400 dark:bg-slate-800"
+      flexFormWrap={true}
+    >
       <StandAloneInputContainer
         onSubmit={handleSubmit}
         title="Login"

@@ -23,7 +23,7 @@ export function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridStyles="bg-slate-100">
+    <GridWrapper gridStyles="bg-slate-100 dark:bg-slate-800">
       <RightColumn
         projects={projects}
         createAndGoToProject={createAndGoToProject}
