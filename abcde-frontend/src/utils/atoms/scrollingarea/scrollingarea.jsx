@@ -17,13 +17,10 @@ export const ScrollingArea = React.forwardRef(
     },
     ref
   ) => (
-    <ScrollArea.Root
-      type={type}
-      className={`w-full overflow-hidden ${rootStyle}`}
-    >
+    <ScrollArea.Root type={type} className={`overflow-hidden ${rootStyle}`}>
       <ScrollArea.Viewport
         asChild={asChild}
-        className={`h-full w-full ${viewportStyle}`}
+        className={`![&>div]:contents h-full w-full ${viewportStyle}`}
         ref={ref}
       >
         {children}
@@ -33,7 +30,7 @@ export const ScrollingArea = React.forwardRef(
         orientation="vertical"
       >
         <ScrollArea.Thumb
-          className={`nodrag relative flex-1 rounded-[10px] bg-orange-300 bg-opacity-25 mix-blend-difference before:absolute before:top-1/2 before:left-1/2 before:h-full before:min-h-[44px] before:w-full before:min-w-[44px] before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] ${vThumbStyle}`}
+          className={`nodrag relative flex-1 rounded-[10px] bg-slate-400 opacity-50 before:absolute before:top-1/2 before:left-1/2 before:h-full before:min-h-[44px] before:w-full before:min-w-[44px] before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] ${vThumbStyle}`}
         />
       </ScrollArea.Scrollbar>
       <ScrollArea.Scrollbar
