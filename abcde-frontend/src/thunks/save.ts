@@ -32,7 +32,7 @@ export function getProjectData(): ProjectSaveType {
   const uiTypeCols = useParamInfos.getState().y;
 
   const kwargCols = useKwargCols.getState().x;
-  const kwargInfo = assembleKwargInfosAndUserSpecifiedObjects(kwargCols);
+  const kwargInfo = assembleKwargInfos(kwargCols);
 
   const sectionInfosState = useSectionInfos.getState();
   const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
@@ -94,29 +94,16 @@ function assembleProject() {
   return { project: getProjectData() };
 }
 
-function assembleKwargInfosAndUserSpecifiedObjects(
-  kwargCols: ManyKwargColType
-) {
-  // kwargs
+function assembleKwargInfos(kwargCols: ManyKwargColType) {
   const kwargInfos: ManyCodeInfoType = {};
-  const allCodeInfo = useCodeInfo.getState().allCodeInfo;
+  const codeInfoState = useCodeInfo.getState();
   for (const kwargCol of Object.values(kwargCols)) {
     for (const kwargIds of Object.values(kwargCol)) {
       for (const kwargId of kwargIds) {
-        kwargInfos[kwargId] = allCodeInfo[kwargId];
+        kwargInfos[kwargId] = codeInfoState.allCodeInfo[kwargId];
       }
     }
   }
-
-  // user specified objects
-  const sections = useSectionInfos.getState().x;
-  for (const s of Object.values(sections)) {
-    if (s.userSpecifiedObjectId) {
-      kwargInfos[s.userSpecifiedObjectId] =
-        allCodeInfo[s.userSpecifiedObjectId];
-    }
-  }
-
   return kwargInfos;
 }
 

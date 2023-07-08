@@ -44,9 +44,7 @@ function TabsVisible({ sectionId }) {
 
   return (
     <Tabs.Root
-      className={`flex flex-grow flex-col overflow-y-hidden ${
-        vis ? "visible" : "invisible"
-      }`}
+      className={`contents ${vis ? "visible" : "invisible"}`}
       defaultValue={SECTION_CONFIG_TAB}
       value={tab}
       onValueChange={setTab}
@@ -91,14 +89,14 @@ function TabContent(props) {
 
 function Placeholder() {
   return (
-    <div className="flex grid min-h-[60vh] flex-grow flex-col">
+    <aside className="grid min-h-[60vh] flex-grow flex-col">
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-slate-300 " />
         <h4 className="text-lg font-bold tracking-widest text-slate-300">
           Select A Card to Edit
         </h4>
       </div>
-    </div>
+    </aside>
   );
 }
 

@@ -1,17 +1,24 @@
 import { useGetKwargInfos, useGetParamInfos } from "hooks/useSectionContents";
+import { useSectionHasDescription } from "hooks/useSectionDescription";
+import { useIsInfo } from "hooks/useSectionType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef, useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import ScrollingArea from "utils/atoms/scrollingarea/scrollingarea";
+import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
   const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
 
+  const isInfo = useIsInfo(sectionId);
+  const hasDescription = useSectionHasDescription(sectionId);
+
   // border-b border-solid border-slate-100
   return (
     <ScrollingArea
-      viewportStyle={`mr-6 flex flex-col gap-2 ${noWheel}`}
+      viewportStyle={`flex flex-col gap-2 ${noWheel} THIS ${
+        !isInfo && hasDescription ? "last:[&>div>*]:pb-12" : ""
+      }`}
       ref={ref}
     >
       {isGroup && (

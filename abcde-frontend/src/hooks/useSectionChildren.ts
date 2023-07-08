@@ -46,11 +46,9 @@ function useChildrenRequiringNestedSection(
   );
   const isCurr = allParamInfoIds.map((x) => currParamInfoIds.has(x));
   const uiTypeIds = useGetManyParamUITypeIds(sectionId, allParamInfoIds, true);
-  return useUITypes(
-    (x) =>
-      uiTypeIds.map(
-        (u, idx) => isCurr[idx] && requiresNestedSection(x.x[u]?.type)
-      ),
-    _.isEqual
+  return useUITypes((x) =>
+    uiTypeIds.map(
+      (u, idx) => isCurr[idx] && requiresNestedSection(x.x[u]?.type)
+    )
   );
 }
