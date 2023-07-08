@@ -35,7 +35,7 @@ export function SectionContainerCoreResizable({
     ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] border border-white gap-2 bg-slate-100  pt-4 flex h-full flex-grow flex-col rounded-xl  shadow-md  ${
+  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] border border-white dark:border-slate-600 gap-2 bg-slate-100 dark:bg-slate-800  pt-4 flex h-full flex-grow flex-col rounded-xl  shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   }`;
 
