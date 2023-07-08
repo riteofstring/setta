@@ -109,7 +109,7 @@ def get_info(**kwargs):
         "inCodeParentId": None,
         "path": None,
         "children": [],
-        "returnTypeId": None,
+        "returnType": None,
         **kwargs,
     }
 
