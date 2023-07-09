@@ -28,12 +28,6 @@ module.exports = {
         slideDown: "slideDown 200ms cubic-bezier(0.87, 0, 0.13, 1)",
         slideUp: "slideUp 200ms cubic-bezier(0.87, 0, 0.13, 1)",
       },
-
-      // typography: (theme) => {
-      //   css: {
-
-      //   }
-      // }
     },
   },
   plugins: [require("@tailwindcss/typography")],
