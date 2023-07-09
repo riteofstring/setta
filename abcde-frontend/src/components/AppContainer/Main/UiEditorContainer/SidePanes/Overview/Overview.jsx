@@ -3,7 +3,6 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
-import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
 import { InfoView } from "./InfoView/InfoView";
@@ -32,7 +31,7 @@ export function Overview() {
       <ProjectName />
 
       <StandardSearch
-        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 dark:border-slate-600  focus-visible:border-blue-300 pl-7 py-1"
+        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300  focus-visible:border-blue-300 pl-7 py-1"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
@@ -40,11 +39,9 @@ export function Overview() {
         {...infoViewHandlersSearch}
       />
 
-      <ScrollingArea rootStyle="flex-1">
-        <ul className="flex-grow" {...infoViewHandlers}>
-          <SectionListItems listOfSectionIdsAndNames={filteredList} />
-        </ul>
-      </ScrollingArea>
+      <ul className="flex-grow overflow-y-auto" {...infoViewHandlers}>
+        <SectionListItems listOfSectionIdsAndNames={filteredList} />
+      </ul>
       <InfoView />
     </PaneContainer>
   );

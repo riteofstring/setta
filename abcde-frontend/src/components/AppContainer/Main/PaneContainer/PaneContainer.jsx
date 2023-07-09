@@ -67,8 +67,8 @@ export function PaneContainer({
   const style = `${!right ? "-" : ""}${width - 40}px`;
 
   const rightCondition = right
-    ? "justify-self-end right-0 left-auto border-l"
-    : "justify-self-start right-auto left-0 border-r";
+    ? "justify-self-end right-0 left-auto"
+    : "justify-self-start right-auto left-0";
 
   const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
 
@@ -89,13 +89,13 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 flex-grow flex-col  border-slate-200 bg-slate-50 py-8 px-[2.66rem] shadow-md transition-transform dark:border-slate-800 dark:bg-slate-900 ${rightCondition}`}
+      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 flex-grow flex-col border-r border-slate-200 bg-slate-50 py-8 px-[2.66rem] shadow-md transition-transform ${rightCondition}`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
       aria-label={`${paneTitle} Pane`}
     >
       {children}
       <Button
-        twClasses={`text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+        twClasses={`text-slate-500 hover:bg-slate-200 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
         tabIndex="-1"
         onClick={uiToggle}
       >

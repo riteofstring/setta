@@ -19,7 +19,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonTypes>(
       twClasses = "",
       size = "w-3 h-3",
       padding = "py-1 px-1",
-      bg = "bg-transparent hover:bg-slate-200 dark:hover:bg-slate-600",
+      bg = "bg-transparent hover:bg-slate-200",
       color = "text-slate-500",
       rounded = "rounded-full",
       icon,

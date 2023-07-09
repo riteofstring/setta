@@ -47,7 +47,7 @@ function NestedSectionsWithMargin({
     <div className="flex items-stretch">
       {!isDeck && (
         <div
-          className={`mt-2 transition-all duration-75 ${rightMargin} min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36] dark:bg-slate-700`}
+          className={`mt-2 transition-all duration-75 ${rightMargin} min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36]`}
           onClick={onClick}
         />
       )}

@@ -2,7 +2,6 @@ import { useActiveSection } from "models/activeSection";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { useEffect, useRef } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
-import { BiFilter } from "react-icons/bi";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
@@ -32,7 +31,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
     "flex-1 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-7 py-1";
 
   return (
-    <section className="flex items-center rounded-xl  border-b border-solid border-white bg-gradient-to-t from-slate-50 py-2 px-9 shadow-sm dark:border-slate-600 dark:from-slate-900">
+    <section className="flex items-center rounded-xl  border-b border-solid border-white bg-gradient-to-t from-slate-50 py-2 px-9 shadow-sm">
       <h3 className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-slate-400">
         arguments
       </h3>
@@ -49,8 +48,6 @@ export function KwargsControls({ sectionId, objInfoId }) {
       />
       <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
       <StandardSearch
-        leftElement={<BiFilter />}
-        placeholder="Filter"
         inputStyles={inputStyles}
         outerClasses="flex-1"
         onChange={onSearchChange}
