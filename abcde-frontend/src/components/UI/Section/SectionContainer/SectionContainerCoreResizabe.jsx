@@ -35,9 +35,12 @@ export function SectionContainerCoreResizable({
     ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] border border-white dark:border-slate-600 gap-2 bg-slate-100 dark:bg-slate-800  pt-4 flex h-full flex-grow flex-col rounded-xl  shadow-md  ${
+  const borderClasses =
+    "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-slate-700";
+
+  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] gap-2 bg-slate-100 dark:bg-slate-900 pt-4 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
-  }`;
+  } ${borderClasses}`;
 
   return (
     <>

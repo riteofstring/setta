@@ -16,7 +16,7 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
   // border-b border-solid border-slate-100
   return (
     <ScrollingArea
-      viewportStyle={`flex flex-col gap-2 ${noWheel} ${
+      viewportStyle={`flex flex-col gap-2 mb-2 ${noWheel} ${
         !isInfo && hasDescription ? "last:[&>div>*]:mb-12" : ""
       }`}
       ref={ref}

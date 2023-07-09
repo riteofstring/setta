@@ -4,6 +4,21 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      colors: {
+        rc: {
+          50: "#f5f7fa",
+          100: "#ebeef3",
+          200: "#d2d9e5",
+          300: "#abbace",
+          400: "#7d94b3",
+          500: "#5d779a",
+          600: "#495e80",
+          700: "#3c4c68",
+          800: "#344158",
+          900: "#2f3a4b",
+          950: "#1a1f29",
+        },
+      },
       fontFamily: {
         body: ["Inter", "sans-serif"],
         heading: ["Work Sans", "sans-serif"],
