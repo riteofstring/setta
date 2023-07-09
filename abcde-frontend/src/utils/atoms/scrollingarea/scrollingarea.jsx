@@ -17,7 +17,10 @@ export const ScrollingArea = React.forwardRef(
     },
     ref
   ) => (
-    <ScrollArea.Root type={type} className={`overflow-hidden ${rootStyle}`}>
+    <ScrollArea.Root
+      type={type}
+      className={`w-full overflow-hidden ${rootStyle}`}
+    >
       <ScrollArea.Viewport
         asChild={asChild}
         className={`h-full w-full [&>div]:!contents ${viewportStyle}`}

@@ -5,8 +5,8 @@ export function MenuDropdown({
   align = "start",
   sideOffset = 5,
   alignOffset = -3,
-  contentStyle,
-  triggerStyle,
+  contentStyle = "",
+  triggerStyle = "",
   children,
 }) {
   // `text-violet11 data-[highlighted]:bg-violet4 data-[state=open]:bg-violet4 flex select-none items-center justify-between gap-[2px] rounded text-[13px] font-medium leading-none outline-none
@@ -23,7 +23,7 @@ export function MenuDropdown({
       </Menubar.Trigger>
       <Menubar.Portal>
         <Menubar.Content
-          className={`z-20 min-w-[200px] rounded-md border border-solid border-slate-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-slate-700 dark:bg-slate-900 ${contentStyle}`}
+          className={`z-20 min-w-[200px] rounded-md border border-solid border-slate-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-slate-600  dark:bg-slate-900 ${contentStyle}`}
           align={align}
           sideOffset={sideOffset}
           alignOffset={alignOffset}
