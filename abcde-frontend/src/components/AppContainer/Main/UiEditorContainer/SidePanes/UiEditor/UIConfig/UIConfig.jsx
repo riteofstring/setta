@@ -42,7 +42,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
       />
-      <ScrollingArea rootStyle="mt-4">
+      <ScrollingArea rootStyle="mt-4" viewportStyle="flex flex-col gap-4">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
