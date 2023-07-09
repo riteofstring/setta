@@ -80,7 +80,7 @@ function SearchItem({
   //  [&:has(input:checked)]:text-white
   return (
     <li
-      className={`edit-list-item box-border flex select-none rounded-lg border-2 border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md dark:hover:bg-slate-900 [&:hover_*]:text-black [&:has(input:focus-visible)]:ring-2 [&:has(input:checked)]:bg-blue-100 hover:[&:has(input:checked)]:bg-white dark:hover:[&:has(input:checked)]:bg-slate-900 [&:has(input:not:checked)]:text-slate-500 hover:[&>input:checked]:accent-slate-500 ${
+      className={`edit-list-item box-border flex select-none rounded-lg border-2 border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md dark:hover:bg-slate-700 [&:hover_*]:text-black dark:[&:hover_*]:text-slate-100 [&:has(input:focus-visible)]:ring-2 [&:has(input:checked)]:bg-blue-100 hover:[&:has(input:checked)]:bg-white dark:[&:has(input:checked)]:bg-blue-700 dark:hover:[&:has(input:checked)]:bg-slate-800 [&:has(input:not:checked)]:text-slate-500 dark:[&:has(input:not:checked)]:text-slate-300 hover:[&>input:checked]:accent-slate-500 ${
         vCenter && "items-center"
       }`}
     >
@@ -100,7 +100,9 @@ function SearchItem({
       <DetailsComponent id={id} details={details} checked={checked} name={name}>
         <div className="w-full">
           <div className="flex cursor-pointer flex-col self-stretch">
-            <p className="text-md font-semibold text-slate-800">{name}</p>
+            <p className="text-md font-semibold text-slate-800 dark:text-slate-300">
+              {name}
+            </p>
             {description && <p className="mt-1 text-sm">{description}</p>}
           </div>
         </div>

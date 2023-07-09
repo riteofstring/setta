@@ -10,7 +10,7 @@ function _SectionItem({ sectionId, sectionHeading }) {
 
   return (
     <p
-      className="cursor-pointer truncate rounded py-0.5 px-3 text-sm text-slate-700 hover:bg-white hover:shadow-md dark:text-slate-300 dark:hover:bg-slate-700"
+      className="cursor-pointer truncate rounded py-0.5 px-3 text-sm text-slate-700 hover:bg-white hover:shadow-md dark:text-slate-200 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:bg-slate-700"
       onClick={onClick}
       data-testid={`Overview Listing ${sectionId}`}
     >

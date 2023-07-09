@@ -21,9 +21,9 @@ function Folder({ name }) {
     <div className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2">
       <HiOutlineFolder className="text-slate-400 group-hover:text-slate-800" />
 
-      <div className="flex flex-grow justify-between bg-white">
+      <div className="flex flex-grow justify-between bg-white dark:bg-slate-800">
         <div className="flex gap-2">
-          <h4 className="text-xs font-bold tracking-wider text-slate-500 hover:text-slate-900">
+          <h4 className="text-xs font-bold tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200">
             {name}
           </h4>
         </div>
@@ -77,7 +77,7 @@ function File({ id, name, onClick, depth }) {
       value={id}
       ref={itemRef}
       onClick={_onClick}
-      className={`${margin} flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-slate-100 focus-visible:ring-1`}
+      className={`${margin} flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-slate-100 focus-visible:ring-1 dark:hover:bg-slate-900`}
     >
       <span className="w-4">
         <RadioGroup.Indicator>

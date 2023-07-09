@@ -161,7 +161,7 @@ function Footer({ onClose, onClick, buttonText }) {
     <div className="mb-2 mt-4 flex justify-end gap-2">
       {buttonText && (
         <DialogCloseButton
-          twClasses="bg-slate-200 hover:bg-slate-300 text-slate-600"
+          twClasses="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-200"
           onClick={onClick}
         >
           {buttonText}
@@ -169,7 +169,7 @@ function Footer({ onClose, onClick, buttonText }) {
       )}
 
       <DialogCloseButton
-        twClasses="border border-solid border-slate-200 text-slate-400 hover:border-slate-500 hover-text-slate-600"
+        twClasses="border border-solid border-slate-200 dark:border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-600"
         onClick={onClose}
       >
         Close
