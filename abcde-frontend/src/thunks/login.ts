@@ -6,7 +6,7 @@ export async function login({ username, password }) {
   try {
     const res = await dbLogin({ username, password });
     useAuth.getState().loginSuccess(res.data.username);
-    useUserSettings.setState(res.data.settings);
+    useUserSettings.setState({ darkMode: res.data.darkMode });
   } catch (error) {
     useAuth.getState().loginFail();
   }
