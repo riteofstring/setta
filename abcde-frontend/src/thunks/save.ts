@@ -5,9 +5,9 @@ import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/secti
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import {
+  dbSaveProject,
   saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
   saveAsNewProjectConfig as saveAsNewProjectConfigDb,
-  saveProject as saveProjectDb,
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
@@ -65,8 +65,8 @@ export async function saveProject() {
   const n = useNotification.getState();
   n.setMessage("Saving...");
   const x = assembleProject();
-  const result = await saveProjectDb(x);
-  if (result.status === 200) {
+  const res = await dbSaveProject(x);
+  if (res.status === 200) {
     n.setMessage("Saved!");
   }
 }

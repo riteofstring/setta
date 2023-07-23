@@ -52,12 +52,12 @@ export async function createProject({ name }) {
   });
 }
 
-export async function saveProject({ project }) {
+export async function dbSaveProject({ project }) {
   if (NO_AUTH) {
     return await noAuthSaveProject();
   }
 
-  return post({
+  return await post({
     address: SAVE_PROJECT,
     body: { project },
     withCredentials: true,

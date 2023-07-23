@@ -21,12 +21,12 @@ export function useLoadProject({
   useEffect(() => {
     async function loadAllProjectData() {
       setDoneLoading(false);
-      const result = await loadProject({
+      const res = await loadProject({
         username,
         projectName,
         configName,
       });
-      setDoneLoading(result);
+      setDoneLoading(res);
     }
 
     // The first if-statement triggers for a page refresh or navigating to a different project
