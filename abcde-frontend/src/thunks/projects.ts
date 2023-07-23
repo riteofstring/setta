@@ -1,5 +1,5 @@
 import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
-import { loadProject as loadProjectDb } from "dbRequests/projects";
+import { dbLoadProject } from "dbRequests/projects";
 import { loadProjectState } from "thunks/loadProjectState";
 
 export function loadProjectIntoState({
@@ -14,13 +14,14 @@ export function loadProjectIntoState({
 }
 
 export async function loadProject({ username, projectName, configName }) {
-  const projectInfo = await loadProjectDb({
-    username,
-    projectName,
-    configName,
-  });
-  if (projectInfo) {
-    return loadProjectIntoState({ projectInfo });
+  try {
+    const res = await dbLoadProject({
+      username,
+      projectName,
+      configName,
+    });
+    return loadProjectIntoState({ projectInfo: res.data });
+  } catch (error) {
+    return false;
   }
-  return false;
 }

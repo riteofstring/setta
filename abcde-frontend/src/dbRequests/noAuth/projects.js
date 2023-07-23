@@ -9,11 +9,13 @@ export async function noAuthGetProjects() {
 }
 
 export async function noAuthLoadProject({ projectName, configName }) {
-  return await loadTestData({
-    projectName,
-    configName,
-    format: "loadProjectToFrontend",
-  });
+  return {
+    data: await loadTestData({
+      projectName,
+      configName,
+      format: "loadProjectToFrontend",
+    }),
+  };
 }
 
 export async function noAuthCreateProject({ name }) {

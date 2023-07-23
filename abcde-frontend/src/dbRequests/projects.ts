@@ -6,7 +6,6 @@ import {
   SAVE_AS_NEW_PROJECT_CONFIG,
   SAVE_PROJECT,
 } from "abcde-utils/src/routes";
-import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
 import { NO_AUTH } from "utils/constants";
 import {
   noAuthCreateProject,
@@ -30,16 +29,12 @@ export async function dbGetProjects() {
   });
 }
 
-export async function loadProject({
-  username,
-  projectName,
-  configName,
-}): Promise<ProjectLoadType | void> {
+export async function dbLoadProject({ username, projectName, configName }) {
   if (NO_AUTH) {
     return await noAuthLoadProject({ projectName, configName });
   }
 
-  return post({
+  return await post({
     body: {},
     address: LOAD_PROJECT({ username, projectName, configName }),
   });
