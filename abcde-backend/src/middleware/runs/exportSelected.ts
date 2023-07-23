@@ -50,7 +50,7 @@ function getOriginalParamUIType(p, sectionId, id) {
 }
 
 function getParamChildId(p, sectionId, id) {
-  const sectionChildren = p.sectionCurrChildren[sectionId];
+  const sectionChildren = p.sections[sectionId].currChildren;
   for (const s of sectionChildren) {
     if (p.sections[s].paramInfoId === id) {
       return s;
@@ -133,7 +133,7 @@ class Exporter {
         params: this.exportParams(id),
       };
     } else if ([LIST_ROOT, DICT_ROOT, DECK].includes(type)) {
-      return this.exportSections(this.p.sectionCurrChildren[id]);
+      return this.exportSections(this.p.sections[id].currChildren);
     }
   }
 
