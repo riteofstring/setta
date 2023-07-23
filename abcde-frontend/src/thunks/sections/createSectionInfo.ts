@@ -10,7 +10,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
-import { getSectionType, getSectionTypeConfig } from "./sections";
+import { getSectionType, getSectionTypeConfig } from "./getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];

@@ -13,7 +13,7 @@ import {
   getSectionName,
   getSectionType,
   getSectionTypeConfig,
-} from "./sections";
+} from "./getters";
 
 export function getCurrObjParamKwargInfos(sectionId) {
   const { selectedItem } = getSectionInfo(sectionId);

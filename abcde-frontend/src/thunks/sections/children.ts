@@ -1,8 +1,8 @@
 import { requiresNestedSection } from "abcde-utils/src/constants";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getParamUIType } from "thunks/paramInfos";
+import { getSectionInfo, getSectionIsRoot, getSectionType } from "./getters";
 import { getCurrObjParamKwargInfos } from "./sectionContents";
-import { getSectionInfo, getSectionIsRoot, getSectionType } from "./sections";
 
 export function updateManyCurrChildren(sectionIds) {
   sectionIds.forEach((x) => updateCurrChildren(x));

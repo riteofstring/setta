@@ -2,8 +2,6 @@ import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { initializeChildParams } from "../initializeParam";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -40,35 +38,4 @@ export function getSectionCanOnlyBeChildOfDeck(sectionId) {
 
 export function getSectionIsDeck(sectionId) {
   return getSectionType(sectionId).type === DECK;
-}
-
-export function setSelectedItem(sectionId, selectedItem, changedByUser) {
-  setSectionInfoAttr({
-    sectionId,
-    attr: "selectedItem",
-    value: selectedItem,
-  });
-  initializeChildParams(sectionId, [selectedItem]);
-  maybeIncrementProjectStateVersion(changedByUser);
-}
-
-export function setSectionInfoAttr(props) {
-  useSectionInfos.getState().setSectionInfoAttr(props);
-}
-
-export function setSectionName(sectionId, name, incrementVersion) {
-  setSectionInfoAttr({ sectionId, attr: "name", value: name });
-  maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-export function setSectionSize(sectionId, size) {
-  setSectionInfoAttr({ sectionId, attr: "size", value: size });
-}
-
-export function setSectionParamInfoId(sectionId, paramInfoId) {
-  setSectionInfoAttr({ sectionId, attr: "paramInfoId", value: paramInfoId });
-}
-
-export function setSectionParentId(sectionId, parentId) {
-  setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
 }

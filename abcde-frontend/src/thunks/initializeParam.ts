@@ -17,7 +17,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getParamChildId } from "./paramInfos";
 import { addChildForParam } from "./sections/addChild";
-import { getSectionInfo } from "./sections/sections";
+import { getSectionInfo } from "./sections/getters";
 
 export function initializeParamsOfSectionsWithUITypes(
   uiTypeIds: string[],

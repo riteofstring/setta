@@ -2,11 +2,8 @@ import { USER_SPECIFIED_OBJECT_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
 import { useCodeInfo } from "models/info/codeInfo";
-import {
-  getSectionInfo,
-  setSectionInfoAttr,
-  setSelectedItem,
-} from "thunks/sections/sections";
+import { getSectionInfo } from "thunks/sections/getters";
+import { setSectionInfoAttr, setSelectedItem } from "thunks/sections/setters";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setParamUITypeId } from "./setParamUITypeId";
 
