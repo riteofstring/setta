@@ -6,7 +6,12 @@ interface PasswordAsString {
 
 export interface SeedUserType {
   [id: string]: Prisma.UserGetPayload<{
-    select: { id: true; name: true; projects: { select: { id: true } } };
+    select: {
+      id: true;
+      name: true;
+      darkMode: true;
+      projects: { select: { id: true } };
+    };
   }> &
     PasswordAsString;
 }

@@ -58,6 +58,7 @@ model User {
   name             String                @unique @db.VarChar(255)
   password         Bytes
   salt             Bytes
+  darkMode         Boolean               @default(false)
   projects         Project[] //Project.owner
   runs             Run[] //Run.owner
   uiTypes          UIType[] //UIType.owner

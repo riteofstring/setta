@@ -30,6 +30,7 @@ export async function seedUsers(data: SeedUserType) {
       const curr: Prisma.UserGetPayload<true> = {
         id: v.id,
         name: processUsername(v.name),
+        darkMode: v.darkMode,
         salt,
         password,
       };
