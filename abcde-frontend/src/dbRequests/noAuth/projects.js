@@ -5,7 +5,7 @@ import {
 } from "abcde-test/src/loaders/loaders";
 
 export async function noAuthGetProjects() {
-  return await loadAllProjectMetadata();
+  return { data: await loadAllProjectMetadata() };
 }
 
 export async function noAuthLoadProject({ projectName, configName }) {

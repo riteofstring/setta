@@ -18,12 +18,12 @@ import {
 } from "./noAuth/projects";
 import { post } from "./utils";
 
-export async function getProjects() {
+export async function dbGetProjects() {
   if (NO_AUTH) {
     return await noAuthGetProjects();
   }
 
-  return post({
+  return await post({
     body: {},
     address: PROJECTS,
     withCredentials: true,

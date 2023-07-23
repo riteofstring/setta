@@ -1,4 +1,4 @@
-import { createProject, getProjects } from "dbRequests/projects";
+import { createProject, dbGetProjects } from "dbRequests/projects";
 import { useAuth } from "models/auth";
 import { useState } from "react";
 import {
@@ -12,10 +12,16 @@ import { router } from "utils/Routes/router";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
-  const fnGetProjects = async () => {
-    setProjects(await getProjects());
-  };
-  const fnCreateAndGoToProject = async ({ name }) => {
+  async function getProjects() {
+    try {
+      const res = await dbGetProjects();
+      setProjects(res.data);
+    } catch (error) {
+      return;
+    }
+  }
+
+  const createAndGoToProject = async ({ name }) => {
     const actualName = name ?? createProjectName();
     const newProject = await createProject({ name: actualName });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
@@ -24,8 +30,8 @@ export function useGetOrCreateProjects() {
 
   return {
     projects,
-    getProjects: fnGetProjects,
-    createAndGoToProject: fnCreateAndGoToProject,
+    getProjects,
+    createAndGoToProject,
   };
 }
 
