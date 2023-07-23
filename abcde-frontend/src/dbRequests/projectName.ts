@@ -16,7 +16,7 @@ export async function dbSetProjectName(newProjectName) {
     return dbNoAuthSetProjectName();
   }
 
-  return post({
+  return await post({
     body: { currProjectName: useProject.getState().name, newProjectName },
     address: SET_PROJECT_NAME,
     withCredentials: true,
@@ -28,7 +28,7 @@ export async function dbSetProjectConfigName(newProjectConfigName) {
     return dbNoAuthSetProjectConfigName();
   }
 
-  return post({
+  return await post({
     body: {
       projectId: useProject.getState().id,
       currProjectConfigName: useProjectConfig.getState().name,

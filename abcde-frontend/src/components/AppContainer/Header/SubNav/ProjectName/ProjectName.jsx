@@ -21,16 +21,16 @@ export function ProjectName() {
     ConstantInfoView.OVERVIEW_PROJNAME
   );
 
-  function setName(v) {
-    dbSetProjectName(v);
+  async function setName(v) {
+    await dbSetProjectName(v);
     const username = useAuth.getState().username;
     router.navigate(`${username}/${v}/${configName}`, {
       state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
     });
   }
 
-  function setConfigName(v) {
-    dbSetProjectConfigName(v);
+  async function setConfigName(v) {
+    await dbSetProjectConfigName(v);
     const username = useAuth.getState().username;
     router.navigate(`${username}/${name}/${v}`, {
       state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
