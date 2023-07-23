@@ -1,3 +1,4 @@
+import _ from "lodash";
 import {
   CODE_INFOS,
   NON_PROJECT_STATES,
@@ -75,4 +76,9 @@ export async function loadGlobalCodeInfo() {
     );
   }
   return output;
+}
+
+export async function loadUser(username) {
+  const users = await loadSpecificTestData({ name: "Users" });
+  return _.find(users, (u) => u.name === username);
 }
