@@ -45,6 +45,8 @@ function getChildrenRequiringNesting(sectionId, allParamInfoIds) {
     getCurrObjParamKwargInfos(sectionId).map((x) => x.id)
   );
   const isCurr = allParamInfoIds.map((x) => currParamInfoIds.has(x));
-  const uiTypes = allParamInfoIds.map((x) => getParamUIType(sectionId, x));
+  const uiTypes = allParamInfoIds.map((x) =>
+    x ? getParamUIType(sectionId, x) : {}
+  );
   return uiTypes.map((u, idx) => isCurr[idx] && requiresNestedSection(u.type));
 }
