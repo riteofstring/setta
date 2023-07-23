@@ -10,7 +10,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
-import { getSectionType, getSectionTypeConfig } from "./getters";
+import { getSectionType, getSectionTypeConfig } from "./sections";
 
 export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];
@@ -74,7 +74,7 @@ export function addSectionsToState(
 
   for (const s of sectionIds) {
     const { collections } = getSectionTypeConfig(s);
-    initializeChildParams([s], collections, findAllParameterCollections);
+    initializeChildParams(s, collections, findAllParameterCollections);
   }
 
   useKwargCols.getState().initManyKwargColIds({

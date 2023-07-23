@@ -4,6 +4,7 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { MainSideMenu } from "./MainSideMenu/MainSideMenu";
 import { Notification } from "./Notification/Notification";
 import { SiteLogo } from "./SiteLogo";
+import { ColorModeSwitch } from "./SubNav/ColorMode/ColorModeSwitch";
 import { SubNav } from "./SubNav/SubNav";
 
 export function HeaderContainer() {
@@ -13,6 +14,7 @@ export function HeaderContainer() {
       <SubNav />
       <Search searchPlaceholder="Search Project" />
       <Notification />
+      <ColorModeSwitch />
       <MainSideMenu />
     </FlexContainer>
   );
@@ -21,7 +23,7 @@ export function HeaderContainer() {
 function FlexContainer({ children }) {
   return (
     <header
-      className={`min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center bg-white px-11 shadow-md`}
+      className={`min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center px-11 shadow-md dark:bg-slate-800`}
     >
       {children}
     </header>
@@ -35,8 +37,8 @@ function Search({ searchPlaceholder }) {
 
   return (
     <StandardSearch
-      outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)] bg-white ml-4"
-      inputStyles="flex-grow outline-0 cursor-auto bg-slate-100 hover:bg-white hover:ring-slate-200 transition-all focus:bg-white rounded-full text-xs text-slate-900 ring-2 ring-transparent focus-visible:ring-blue-300 pl-7 py-1"
+      outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)]  ml-4"
+      inputStyles="flex-grow outline-0 cursor-auto overflow-hidden bg-slate-100 dark:bg-slate-900 hover:bg-white  hover:ring-slate-200 dark:hover:ring-slate-600 transition-all focus:bg-white rounded-full text-xs text-slate-900 dark:text-slate-200 ring-2 ring-transparent focus-visible:ring-blue-300 pl-7 py-1"
       leftElementStyles="pl-1"
       placeholder={searchPlaceholder}
       value={value}

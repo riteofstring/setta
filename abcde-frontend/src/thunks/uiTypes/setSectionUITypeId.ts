@@ -2,10 +2,11 @@ import { USER_SPECIFIED_OBJECT_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
 import { useCodeInfo } from "models/info/codeInfo";
-import { updateCurrChildren } from "thunks/sections/children";
-import { getSectionInfo } from "thunks/sections/getters";
-import { updateParamsAndCallables } from "thunks/sections/sectionContents";
-import { setSectionInfoAttr, setSelectedItem } from "thunks/sections/setters";
+import {
+  getSectionInfo,
+  setSectionInfoAttr,
+  setSelectedItem,
+} from "thunks/sections/sections";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setParamUITypeId } from "./setParamUITypeId";
 
@@ -29,9 +30,6 @@ export function setSectionUITypeId({
   if (uiTypeId === USER_SPECIFIED_OBJECT_UI_TYPE_ID) {
     initializeUserSpecifiedObject(sectionId);
   }
-
-  updateParamsAndCallables(sectionId);
-  updateCurrChildren(sectionId);
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }

@@ -23,7 +23,7 @@ export function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridStyles="bg-slate-100">
+    <GridWrapper gridStyles="bg-slate-100 dark:bg-slate-800">
       <RightColumn
         projects={projects}
         createAndGoToProject={createAndGoToProject}
@@ -84,7 +84,7 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
   // bg-[url('https://via.placeholder.com/400')]
 
   const itemStyles =
-    "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white gap-0";
+    "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-slate-600 gap-0";
 
   return (
     <div ref={forwardedRef} className={itemStyles}>
@@ -94,8 +94,8 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
           project={project}
           configs={configs}
         />
-        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 ">
-          <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600">
+        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-slate-900 ">
+          <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600 dark:text-slate-300">
             {name}
           </p>
           <Badges name={name} />
@@ -107,11 +107,11 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
 
 function ThumbnailArea({ onClickConfigsButton, project, configs }) {
   return (
-    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4">
+    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4 dark:bg-slate-600">
       <StandardDropdown
         trigger={
           <div
-            className="col-start-1 col-end-2 row-start-1 row-end-2 flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50"
+            className="col-start-1 col-end-2 row-start-1 row-end-2 flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-500"
             onClick={onClickConfigsButton}
           >
             <BiGitBranch />
@@ -149,7 +149,11 @@ function ConfigItem({ project, config }) {
 
 function DefaultConfigBadge({ isDefault }) {
   return (
-    isDefault && <Badge twClasses="bg-green-100 text-green-800">Default</Badge>
+    isDefault && (
+      <Badge twClasses="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100">
+        Default
+      </Badge>
+    )
   );
 }
 
@@ -223,7 +227,7 @@ function BadgeSwitch({ name }) {
 
 function BadgeSciKit() {
   return (
-    <Badge twClasses="bg-cyan-100 text-cyan-800 hover:bg-cyan-200">
+    <Badge twClasses="bg-cyan-100 dark:bg-cyan-800 text-cyan-800 dark:text-cyan-100 hover:bg-cyan-200">
       Scikit-Learn
     </Badge>
   );
@@ -231,7 +235,7 @@ function BadgeSciKit() {
 
 function BadgePyTorch() {
   return (
-    <Badge twClasses="bg-red-100 text-red-800 hover:bg-red-200">
+    <Badge twClasses="bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-100 hover:bg-red-200">
       PyTorch 2.9
     </Badge>
   );
@@ -239,49 +243,49 @@ function BadgePyTorch() {
 
 function BadgeNumPy() {
   return (
-    <Badge twClasses="bg-green-100 text-green-800 hover:bg-green-200">
+    <Badge twClasses="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100 hover:bg-green-200">
       NumPy
     </Badge>
   );
 }
 function BadgeML() {
   return (
-    <Badge twClasses="bg-slate-100 text-slate-800 hover:bg-slate-200">
+    <Badge twClasses="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:texzt-slate-100 hover:bg-slate-200">
       Machine Learning
     </Badge>
   );
 }
 function BadgeSD() {
   return (
-    <Badge twClasses="bg-orange-100 text-orange-800 hover:bg-orange-200">
+    <Badge twClasses="bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-100 hover:bg-orange-200">
       Stable Diffusion
     </Badge>
   );
 }
 function BadgeClustering() {
   return (
-    <Badge twClasses="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">
+    <Badge twClasses="bg-emerald-100 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 hover:bg-emerald-200">
       Clustering
     </Badge>
   );
 }
 function BadgeTorchVision() {
   return (
-    <Badge twClasses="bg-fuchsia-100 text-fuchsia-800 hover:bg-fuchsia-200">
+    <Badge twClasses="bg-fuchsia-100 dark:bg-fuchsia-800 text-fuchsia-800 dark:text-fuchsia-100 hover:bg-fuchsia-200">
       Torch Vision
     </Badge>
   );
 }
 function BadgeTorchMetrics() {
   return (
-    <Badge twClasses="bg-purple-100 text-purple-800 hover:bg-purple-200">
+    <Badge twClasses="bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-100 hover:bg-purple-200">
       Torch Metrics
     </Badge>
   );
 }
 function BadgeImageClassification() {
   return (
-    <Badge twClasses="bg-blue-100 text-blue-800 hover:bg-blue-200">
+    <Badge twClasses="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 hover:bg-blue-200">
       Image Classification
     </Badge>
   );

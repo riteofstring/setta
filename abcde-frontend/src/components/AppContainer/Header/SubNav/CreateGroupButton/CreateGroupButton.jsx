@@ -1,11 +1,11 @@
+import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
-import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 
 export function CreateGroupButton() {
-  const onClick = () => addSectionInEmptySpace({ isDeck: true });
+  const addSection = useAddSectionInEmptySpace({ isDeck: true });
   return (
-    <MenuBarButton onClick={onClick}>
+    <MenuBarButton onClick={addSection}>
       <AiOutlineGroup className="h-4 w-4" />
       Group
     </MenuBarButton>

@@ -5,7 +5,7 @@ import {
   useUIEditor,
 } from "models/uiEditor";
 import { getParamChildId } from "./paramInfos";
-import { getSectionParentId } from "./sections/getters";
+import { getSectionParentId } from "./sections/sections";
 
 export function goToSectionConfigTab({ sectionId, paramInfoId }) {
   if (paramInfoId) {

@@ -14,6 +14,7 @@ import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
+import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
@@ -41,7 +42,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-grow flex-col gap-8 overflow-y-auto">
+      <ScrollingArea rootStyle="mt-4" viewportStyle="flex flex-col gap-4">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -50,7 +51,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
               key={`${e.name}-${idx}`}
             />
           ))}
-      </div>
+      </ScrollingArea>
     </>
   );
 });
@@ -101,7 +102,7 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black"
+      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-slate-200"
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">

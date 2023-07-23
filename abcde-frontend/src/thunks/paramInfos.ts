@@ -3,7 +3,7 @@ import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionInfo } from "./sections/getters";
+import { getSectionInfo } from "./sections/sections";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function getParamEVId(sectionId, paramInfoId) {

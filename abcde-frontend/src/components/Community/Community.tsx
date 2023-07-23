@@ -7,7 +7,7 @@ export function CommunityPage() {
   return (
     <FlexWrapper>
       <HeaderContainer />
-      <div className="flex h-[calc(100vh_-_56px)] bg-white">
+      <div className="flex h-[calc(100vh_-_56px)] bg-white dark:bg-slate-900">
         <TemplateListPane />
         <TemplateDetailPane />
       </div>

@@ -1,11 +1,10 @@
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { insertIntoArrayOrXpend } from "utils/utils";
-import { setAllChildren } from "./children";
 import {
   createChildForSeries,
   createManySectionInfo,
 } from "./createSectionInfo";
-import { updateManyParamsAndCallables } from "./sectionContents";
+import { setAllChildren } from "./sections";
 
 function getNewStateFn(startId: string | null, newIds: string[]) {
   return (x) => {
@@ -34,7 +33,7 @@ export function addChildForSeries({
   });
 
   setAllChildren(parentId, getNewStateFn(startId, newIds));
-  updateManyParamsAndCallables(newIds);
+
   maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
@@ -52,7 +51,6 @@ export function addChildForParam({
   })[0];
 
   setAllChildren(parentId, getNewStateFn(null, [newId]));
-  updateManyParamsAndCallables([newId]);
 
   return newId;
 }

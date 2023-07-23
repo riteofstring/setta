@@ -3,8 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { SectionSearch } from "components/UI/Section/SectionContainer/Main/Search/Search";
 import { useCodeInfo } from "models/info/codeInfo";
-import { getSectionInfo } from "thunks/sections/getters";
-import { setSelectedItem } from "thunks/sections/setters";
+import { getSectionInfo, setSelectedItem } from "thunks/sections/sections";
 import {
   getReactFlowProvider,
   loadTestDataIntoState,

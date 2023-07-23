@@ -3,7 +3,11 @@ import { Link } from "react-router-dom";
 export function SiteLogo() {
   return (
     <Link to="/">
-      <SVG styles="w-20" color1="fill-[#213158]" color2="fill-[#00B5D8]" />
+      <SVG
+        styles="w-20"
+        color1="fill-[#213158] dark:fill-white"
+        color2="fill-[#00B5D8]"
+      />
     </Link>
   );
 }

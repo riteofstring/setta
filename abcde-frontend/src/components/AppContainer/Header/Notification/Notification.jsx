@@ -1,11 +1,18 @@
 import { useNotification } from "models/notification";
-
+import { VscSave } from "react-icons/vsc";
 export function Notification() {
   const message = useNotification((x) => x.message);
 
   return (
     <>
-      <p className="self-center text-xs text-slate-400">{message}</p>
+      {message && (
+        <>
+          <VscSave className="ml-4 h-3 w-3 text-slate-400 dark:text-slate-50" />
+          <p className="ml-2 self-center text-xs text-slate-500 dark:text-slate-100">
+            {message}
+          </p>
+        </>
+      )}
     </>
   );
 }

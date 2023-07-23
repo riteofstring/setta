@@ -1,7 +1,7 @@
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { linkIsTwitter, youtubeSectionAspectRatio } from "hooks/useSocialUtils";
 import { useState } from "react";
-import { setSectionInfoAttr, setSectionSize } from "thunks/sections/setters";
+import { setSectionInfoAttr, setSectionSize } from "thunks/sections/sections";
 
 export function SocialTypeSearch({ sectionId }) {
   const url = useGetSectionInfo(sectionId, "social");
@@ -21,7 +21,7 @@ export function SocialTypeSearch({ sectionId }) {
       <div className="flex w-full items-center gap-3">
         <p className="select-none text-sm font-bold">{"Social Media URL"}</p>
         <input
-          className=" w-full rounded-full bg-white px-4 py-1 text-sm ring-2 ring-slate-200 focus:ring-2 focus:ring-blue-500"
+          className=" w-full rounded-full bg-white px-4 py-1 text-sm ring-2 ring-slate-200 focus:ring-2 focus:ring-blue-500 dark:bg-slate-900"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onBlur={onBlur}

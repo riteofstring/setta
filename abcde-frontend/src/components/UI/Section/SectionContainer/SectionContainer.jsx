@@ -1,5 +1,5 @@
+import { useGetCurrChildren } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
-import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
 import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./Container/ContainerSwitch";
@@ -13,7 +13,7 @@ function _SectionContainer({
   dragListeners,
 }) {
   const isDeck = useIsDeck(sectionId);
-  const currChildren = useSectionInfos((x) => x.x[sectionId].currChildren);
+  const currChildren = useGetCurrChildren(sectionId);
   const hasNested = currChildren.length > 0;
 
   return (

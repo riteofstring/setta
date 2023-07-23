@@ -1,7 +1,7 @@
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionInfo } from "thunks/sections/getters";
+import { getSectionInfo } from "thunks/sections/sections";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
