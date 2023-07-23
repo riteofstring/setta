@@ -1,11 +1,11 @@
-import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
+import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { HiPlus } from "react-icons/hi";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 
 export function CreateSectionButton() {
-  const addSection = useAddSectionInEmptySpace({ isDeck: false });
+  const onClick = () => addSectionInEmptySpace({ isDeck: false });
   return (
-    <MenuBarButton onClick={addSection}>
+    <MenuBarButton onClick={onClick}>
       <HiPlus className="h-4 w-4" /> Card
     </MenuBarButton>
   );
