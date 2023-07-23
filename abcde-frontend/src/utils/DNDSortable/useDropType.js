@@ -2,14 +2,14 @@ import { useDndMode } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getParamIsNested } from "thunks/paramInfos";
-import { getParamWithSameName } from "thunks/sections/sectionContents";
 import {
   getSectionCanHaveNested,
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
   getSectionIsRoot,
   getSectionParentId,
-} from "thunks/sections/sections";
+} from "thunks/sections/getters";
+import { getParamWithSameName } from "thunks/sections/sectionContents";
 import { REACT_FLOW_STORE } from "utils/constants";
 import {
   BehaviorDropType,

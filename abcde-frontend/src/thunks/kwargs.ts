@@ -8,7 +8,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
-import { getSectionInfo } from "./sections/sections";
+import { getSectionInfo } from "./sections/getters";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {

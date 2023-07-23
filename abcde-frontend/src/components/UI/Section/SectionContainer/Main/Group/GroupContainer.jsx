@@ -41,7 +41,7 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
 }
 
 function GetParams({ sectionId, objInfoId, setDidUpdate }) {
-  const params = useGetParamInfos(sectionId, objInfoId);
+  const params = useGetParamInfos(sectionId);
 
   useDeepCompareEffect(() => {
     setDidUpdate(true);
