@@ -3,8 +3,7 @@ export function noAuthLogin({ loginSuccess }) {
   return true;
 }
 
-export function noAuthLogout({ loginFail }) {
-  loginFail(null);
+export function noAuthLogout() {
   return;
 }
 

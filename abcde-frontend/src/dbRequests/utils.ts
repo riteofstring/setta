@@ -4,14 +4,18 @@ import axios, { AxiosResponse } from "axios";
 export async function post<S, R>({
   address,
   body,
-  thenFn,
-  catchFn,
+  thenFn = (res) => {
+    return res.data;
+  },
+  catchFn = (res) => {
+    return res.data;
+  },
   withCredentials = false,
 }: {
   address: string;
   body: S;
-  thenFn: (res: AxiosResponse<R>) => R;
-  catchFn: (res: AxiosResponse<R>) => void;
+  thenFn?: (res: AxiosResponse<R>) => R;
+  catchFn?: (res: AxiosResponse<R>) => void;
   withCredentials?: boolean;
 }) {
   return axios

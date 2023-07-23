@@ -28,18 +28,13 @@ export function login({ username, password }: AuthType) {
 }
 
 export function dbLogout() {
-  const s = useAuth.getState();
-  const loginFail = s.loginFail;
-
   if (NO_AUTH) {
-    return noAuthLogout({ loginFail });
+    return noAuthLogout();
   }
 
   return post({
     body: {},
     address: LOGOUT,
-    thenFn: loginFail,
-    catchFn: loginFail,
     withCredentials: true,
   });
 }
