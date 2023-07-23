@@ -1,6 +1,9 @@
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionInfo, getSectionType } from "thunks/sections/getters";
-import { setSectionInfoAttr } from "thunks/sections/setters";
+import {
+  getSectionInfo,
+  getSectionType,
+  setSectionInfoAttr,
+} from "thunks/sections/sections";
 import { cloneNewUIType, maybeCloneUIType } from "thunks/uiTypes/cloneUITypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";

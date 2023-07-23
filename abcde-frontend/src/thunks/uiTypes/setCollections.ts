@@ -1,8 +1,8 @@
 import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
-import { getSectionIdsWithUITypeIds } from "thunks/sections/getters";
-import { updateManyParamsAndCallables } from "thunks/sections/sectionContents";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { initializeChildParams } from "../initializeParam";
+import {
+  initializeChildParams,
+  initializeParamsOfSectionsWithUITypes,
+} from "../initializeParam";
 import {
   maybeCloneSectionUIType,
   setSectionUITypeConfig,
@@ -17,20 +17,23 @@ export function setCollections({
   incrementVersion,
 }) {
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-  const sectionIds = uiType.config.childUITypeId
-    ? getSectionIdsWithUITypeIds(uiType.config.childUITypeId)
-    : [];
-
-  sectionIds.push(sectionId);
 
   if (checked) {
-    initializeChildParams(sectionIds, [id], findAllParameterCollections);
+    const childFinder = findAllParameterCollections;
+    if (uiType.config.childUITypeId) {
+      initializeParamsOfSectionsWithUITypes(
+        [uiType.id, uiType.config.childUITypeId],
+        [id],
+        childFinder
+      );
+    } else {
+      initializeChildParams(sectionId, [id], childFinder);
+    }
   }
 
   setSectionUITypeConfig({
     sectionId,
     configProps: { configName: "collections", newValueFn },
+    incrementVersion,
   });
-  updateManyParamsAndCallables(sectionIds);
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
