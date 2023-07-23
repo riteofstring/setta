@@ -1,6 +1,6 @@
-import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
+import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { redoProjectState, undoProjectState } from "thunks/undo";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";

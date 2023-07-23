@@ -1,5 +1,5 @@
-import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
+import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 
 export function CreateGroupButton() {

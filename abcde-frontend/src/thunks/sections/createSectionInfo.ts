@@ -74,7 +74,7 @@ export function addSectionsToState(
 
   for (const s of sectionIds) {
     const { collections } = getSectionTypeConfig(s);
-    initializeChildParams(s, collections, findAllParameterCollections);
+    initializeChildParams([s], collections, findAllParameterCollections);
   }
 
   useKwargCols.getState().initManyKwargColIds({

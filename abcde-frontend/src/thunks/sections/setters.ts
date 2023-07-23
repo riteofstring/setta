@@ -10,7 +10,7 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
     attr: "selectedItem",
     value: selectedItem,
   });
-  initializeChildParams(sectionId, [selectedItem]);
+  initializeChildParams([sectionId], [selectedItem]);
   updateParamsAndCallables(sectionId);
   updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(changedByUser);

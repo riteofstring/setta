@@ -1,5 +1,5 @@
-import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { HiPlus } from "react-icons/hi";
+import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 
 export function CreateSectionButton() {
