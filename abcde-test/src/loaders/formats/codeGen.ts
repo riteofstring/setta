@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { omitParentIdFromSections } from "./utils";
+import { loadCodeInfoForProject, omitParentIdFromSections } from "./utils";
 
 export function codeGen(loaded) {
   const {
@@ -14,15 +14,20 @@ export function codeGen(loaded) {
     ...theRest
   } = loaded;
 
+  const allUITypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
+
   const codeInfo = {
-    allCodeInfo: { ...allCodeInfo, ...kwargInfo },
+    allCodeInfo: {
+      ...loadCodeInfoForProject(allCodeInfo, sections, allUITypes),
+      ...kwargInfo,
+    },
   };
+
   return {
     project: processProject(project),
     sections: omitParentIdFromSections(sections),
     codeInfo,
-    uiTypes: { ...baseUITypes, ...uiTypes, ...presetUITypes },
-    sectionCurrChildren: _.cloneDeep(_.mapValues(sections, (v) => v.children)),
+    uiTypes: allUITypes,
     ...theRest,
   };
 }
