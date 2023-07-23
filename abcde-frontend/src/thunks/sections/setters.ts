@@ -1,6 +1,7 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { updateCurrChildren } from "./children";
 import { updateParamsAndCallables } from "./sectionContents";
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
@@ -11,6 +12,7 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
   });
   initializeChildParams(sectionId, [selectedItem]);
   updateParamsAndCallables(sectionId);
+  updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(changedByUser);
 }
 
