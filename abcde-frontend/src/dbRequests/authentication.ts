@@ -10,7 +10,7 @@ import { post } from "./utils";
 
 export async function dbLogin({ username, password }: AuthType) {
   if (NO_AUTH) {
-    return noAuthLogin();
+    return await noAuthLogin();
   }
 
   return await post({
@@ -32,12 +32,12 @@ export function dbLogout() {
   });
 }
 
-export function dbRegister({ username, password }: AuthType) {
+export async function dbRegister({ username, password }: AuthType) {
   if (NO_AUTH) {
-    return noAuthRegister();
+    return await noAuthRegister();
   }
 
-  return post({
+  return await post({
     address: REGISTER,
     body: { username, password },
     withCredentials: true,
