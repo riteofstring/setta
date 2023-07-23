@@ -19,8 +19,6 @@ async function getCollectionsAndModules({ searchTerm }) {
   return post({
     address: GET_COLLECTIONS_AND_MODULES,
     body: { searchTerm },
-    thenFn: (res) => res.data,
-    catchFn: () => ({}),
   });
 }
 
@@ -44,8 +42,6 @@ export async function getCollectionDetails(id) {
     results = await post({
       address: GET_COLLECTION_DETAILS,
       body: { codeInfoId: id },
-      thenFn: (res) => res.data,
-      catchFn: () => ({}),
     });
   }
 
@@ -60,7 +56,5 @@ export async function saveCollections({ collections }) {
   return post({
     address: SAVE_COLLECTIONS,
     body: { collections },
-    thenFn: (res) => res.data,
-    catchFn: () => ({}),
   });
 }

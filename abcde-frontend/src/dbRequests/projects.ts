@@ -26,8 +26,6 @@ export async function getProjects() {
   return post({
     body: {},
     address: PROJECTS,
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }
@@ -44,8 +42,6 @@ export async function loadProject({
   return post({
     body: {},
     address: LOAD_PROJECT({ username, projectName, configName }),
-    thenFn: (res) => res.data,
-    catchFn: () => undefined,
   });
 }
 
@@ -57,8 +53,6 @@ export async function createProject({ name }) {
   return post({
     address: CREATE_PROJECT,
     body: { name },
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }
@@ -71,8 +65,6 @@ export async function saveProject({ project }) {
   return post({
     address: SAVE_PROJECT,
     body: { project },
-    thenFn: (res) => res,
-    catchFn: () => [],
     withCredentials: true,
   });
 }
@@ -85,8 +77,6 @@ export async function saveAsNewProjectConfig({ project, newConfigName }) {
   return post({
     address: SAVE_AS_NEW_PROJECT_CONFIG,
     body: { project, newConfigName },
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }
@@ -99,8 +89,6 @@ export async function saveAsExistingProjectConfig({ project, configName }) {
   return post({
     address: SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configName },
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }

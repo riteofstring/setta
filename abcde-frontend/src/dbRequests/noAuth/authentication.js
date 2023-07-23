@@ -1,6 +1,5 @@
-export function noAuthLogin({ loginSuccess }) {
-  loginSuccess({ data: { username: "Kevin" } });
-  return true;
+export function noAuthLogin() {
+  return { data: { username: "Kevin" } };
 }
 
 export function noAuthLogout() {

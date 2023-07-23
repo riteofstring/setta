@@ -9,20 +9,14 @@ import {
 } from "./noAuth/authentication";
 import { post } from "./utils";
 
-export function login({ username, password }: AuthType) {
-  const s = useAuth.getState();
-  const loginSuccess = s.loginSuccess;
-  const loginFail = s.loginFail;
-
+export async function dbLogin({ username, password }: AuthType) {
   if (NO_AUTH) {
-    return noAuthLogin({ loginSuccess });
+    return noAuthLogin();
   }
 
-  return post({
+  return await post({
     address: LOGIN,
     body: { username, password },
-    thenFn: loginSuccess,
-    catchFn: loginFail,
     withCredentials: true,
   });
 }
@@ -51,7 +45,5 @@ export function register({ username, password }: AuthType) {
   return post({
     address: REGISTER,
     body: { username, password },
-    thenFn: loginSuccess,
-    catchFn: loginFail,
   });
 }

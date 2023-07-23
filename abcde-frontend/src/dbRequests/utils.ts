@@ -4,29 +4,18 @@ import axios, { AxiosResponse } from "axios";
 export async function post<S, R>({
   address,
   body,
-  thenFn = (res) => {
-    return res.data;
-  },
-  catchFn = (res) => {
-    return res.data;
-  },
   withCredentials = false,
 }: {
   address: string;
   body: S;
-  thenFn?: (res: AxiosResponse<R>) => R;
-  catchFn?: (res: AxiosResponse<R>) => void;
   withCredentials?: boolean;
 }) {
-  return axios
-    .post<S, AxiosResponse<R>>(`${BACKEND}${address}`, body, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-      withCredentials,
-    })
-    .then(thenFn)
-    .catch(catchFn);
+  return axios.post<S, AxiosResponse<R>>(`${BACKEND}${address}`, body, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    withCredentials,
+  });
 }
 
 // function tokenConfig(access_token) {

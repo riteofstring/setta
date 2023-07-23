@@ -19,8 +19,6 @@ export async function dbSetProjectName(newProjectName) {
   return post({
     body: { currProjectName: useProject.getState().name, newProjectName },
     address: SET_PROJECT_NAME,
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }
@@ -37,8 +35,6 @@ export async function dbSetProjectConfigName(newProjectConfigName) {
       newProjectConfigName,
     },
     address: SET_PROJECT_CONFIG_NAME,
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }
