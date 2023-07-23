@@ -27,7 +27,7 @@ export function login({ username, password }: AuthType) {
   });
 }
 
-export function logout() {
+export function dbLogout() {
   const s = useAuth.getState();
   const loginFail = s.loginFail;
 
