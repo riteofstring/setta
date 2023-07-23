@@ -13,11 +13,9 @@ import { router } from "utils/Routes/router";
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
   async function getProjects() {
-    try {
-      const res = await dbGetProjects();
+    const res = await dbGetProjects();
+    if (res.status === 200) {
       setProjects(res.data);
-    } catch (error) {
-      return;
     }
   }
 

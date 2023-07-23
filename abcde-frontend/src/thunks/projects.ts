@@ -14,14 +14,14 @@ export function loadProjectIntoState({
 }
 
 export async function loadProject({ username, projectName, configName }) {
-  try {
-    const res = await dbLoadProject({
-      username,
-      projectName,
-      configName,
-    });
+  const res = await dbLoadProject({
+    username,
+    projectName,
+    configName,
+  });
+  if (res.status === 200) {
     return loadProjectIntoState({ projectInfo: res.data });
-  } catch (error) {
+  } else {
     return false;
   }
 }

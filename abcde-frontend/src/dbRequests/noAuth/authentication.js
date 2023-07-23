@@ -1,7 +1,7 @@
 import { loadUser } from "abcde-test/src/loaders/helpers";
 
 export async function noAuthLogin() {
-  return { data: await loadUser("Kevin") };
+  return { data: await loadUser("Kevin"), status: 200 };
 }
 
 export function noAuthLogout() {
@@ -9,5 +9,5 @@ export function noAuthLogout() {
 }
 
 export async function noAuthRegister() {
-  return { data: await loadUser("Kevin") };
+  return { data: await loadUser("Kevin"), status: 200 };
 }

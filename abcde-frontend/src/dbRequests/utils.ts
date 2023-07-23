@@ -10,12 +10,15 @@ export async function post<S, R>({
   body: S;
   withCredentials?: boolean;
 }) {
-  return axios.post<S, AxiosResponse<R>>(`${BACKEND}${address}`, body, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-    withCredentials,
-  });
+  return axios
+    .post<S, AxiosResponse<R>>(`${BACKEND}${address}`, body, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      withCredentials,
+    })
+    .then((res) => res)
+    .catch((res) => res);
 }
 
 // function tokenConfig(access_token) {
