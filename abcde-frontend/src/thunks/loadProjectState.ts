@@ -1,4 +1,5 @@
 import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
+import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "../models/info/codeInfo";
@@ -11,6 +12,8 @@ import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
 import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
+import { updateManyCurrChildren } from "./sections/children";
+import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function loadProjectState({
@@ -42,5 +45,7 @@ export function loadProjectState({
   useSectionInfos.getState().resetAndSetAll({ sections });
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
+  updateManyParamsAndCallables(_.map(sections, (x) => x.id));
+  updateManyCurrChildren(_.map(sections, (x) => x.id));
   maybeIncrementProjectStateVersion(true);
 }

@@ -20,16 +20,11 @@ import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { getParamChildId, setParamEnteredValue } from "../paramInfos";
+import { setAllChildren } from "./children";
+import { getSectionInfo, getSectionName, getSectionType } from "./getters";
 import { getParamWithSameName } from "./sectionContents";
-import {
-  getSectionInfo,
-  getSectionName,
-  getSectionType,
-  setAllChildren,
-  setSectionParamInfoId,
-  setSectionParentId,
-} from "./sections";
 import { setAllChildrenWidths } from "./sectionSizes";
+import { setSectionParamInfoId, setSectionParentId } from "./setters";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];

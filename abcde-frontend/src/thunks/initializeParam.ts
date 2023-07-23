@@ -13,34 +13,20 @@ import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getParamChildId } from "./paramInfos";
 import { addChildForParam } from "./sections/addChild";
-import { getSectionInfo } from "./sections/sections";
-
-export function initializeParamsOfSectionsWithUITypes(
-  uiTypeIds: string[],
-  codeInfoIds: string[],
-  childFinder = findAllParameters
-) {
-  if (uiTypeIds.length === 0 || codeInfoIds.length === 0) {
-    return;
-  }
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (uiTypeIds.includes(s.uiTypeId)) {
-      initializeChildParams(s.id, codeInfoIds, childFinder);
-    }
-  }
-}
+import { getSectionInfo } from "./sections/getters";
 
 export function initializeChildParams(
-  sectionId: string,
+  sectionIds: string[],
   codeInfoIds: string[],
   childFinder = findAllParameters
 ) {
   const params = childFinder(useCodeInfo.getState().allCodeInfo, codeInfoIds);
-  initializeParam(sectionId, params);
+  for (const s of sectionIds) {
+    initializeParam(s, params);
+  }
 }
 
 export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { setSectionInfoAttr } from "thunks/sections/sections";
+import { setSectionInfoAttr } from "thunks/sections/setters";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 
 export function useSectionHasDescription(sectionId) {
