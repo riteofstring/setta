@@ -42,13 +42,6 @@ export function getSectionIsDeck(sectionId) {
   return getSectionType(sectionId).type === DECK;
 }
 
-export function setCurrChildren({ sectionId, currChildren }) {
-  const sectionInfosState = useSectionInfos.getState();
-  sectionInfosState.setCurrChildren({ sectionId, currChildren });
-  const sectionType = getSectionType(sectionId);
-  sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
-}
-
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
   setSectionInfoAttr({
     sectionId,
@@ -78,11 +71,4 @@ export function setSectionParamInfoId(sectionId, paramInfoId) {
 
 export function setSectionParentId(sectionId, parentId) {
   setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
-}
-
-export function setAllChildren(sectionId, newStateFn) {
-  useSectionInfos.getState().setAllChildren({
-    sectionId,
-    newStateFn,
-  });
 }

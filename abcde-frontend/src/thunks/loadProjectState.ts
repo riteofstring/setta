@@ -12,7 +12,7 @@ import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
 import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
-import { updateManyCurrChildren } from "./sections/currChildren";
+import { updateManyCurrChildren } from "./sections/children";
 import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 

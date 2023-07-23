@@ -78,7 +78,7 @@ export function updateManyParamsAndCallables(sectionIds: string[]) {
   sectionIds.forEach((x) => updateParamsAndCallables(x));
 }
 
-function updateParamsAndCallables(sectionId: string) {
+export function updateParamsAndCallables(sectionId: string) {
   const { selectedItem } = getSectionInfo(sectionId);
   const callables = computeAllCallables(sectionId);
   const params = computeAllParams(sectionId, selectedItem);

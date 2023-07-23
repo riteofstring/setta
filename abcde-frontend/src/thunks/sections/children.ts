@@ -1,7 +1,8 @@
 import { requiresNestedSection } from "abcde-utils/src/constants";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { getParamUIType } from "thunks/paramInfos";
 import { getCurrObjParamKwargInfos } from "./sectionContents";
-import { getSectionInfo, getSectionIsRoot, setCurrChildren } from "./sections";
+import { getSectionInfo, getSectionIsRoot, getSectionType } from "./sections";
 
 export function updateManyCurrChildren(sectionIds) {
   sectionIds.forEach((x) => updateCurrChildren(x));
@@ -9,7 +10,18 @@ export function updateManyCurrChildren(sectionIds) {
 
 export function updateCurrChildren(sectionId) {
   const currChildren = computeCurrChildren(sectionId);
-  setCurrChildren({ sectionId, currChildren });
+  const sectionInfosState = useSectionInfos.getState();
+  sectionInfosState.setCurrChildren({ sectionId, currChildren });
+  const sectionType = getSectionType(sectionId);
+  sectionInfosState.setCurrChildrenNames({ currChildren, sectionType });
+}
+
+export function setAllChildren(sectionId, newStateFn) {
+  useSectionInfos.getState().setAllChildren({
+    sectionId,
+    newStateFn,
+  });
+  updateCurrChildren(sectionId);
 }
 
 function computeCurrChildren(sectionId) {

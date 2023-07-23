@@ -20,12 +20,12 @@ import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { getParamChildId, setParamEnteredValue } from "../paramInfos";
+import { setAllChildren } from "./children";
 import { getParamWithSameName } from "./sectionContents";
 import {
   getSectionInfo,
   getSectionName,
   getSectionType,
-  setAllChildren,
   setSectionParamInfoId,
   setSectionParentId,
 } from "./sections";
