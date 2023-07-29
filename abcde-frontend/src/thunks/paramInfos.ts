@@ -11,6 +11,11 @@ export function getParamEVId(sectionId, paramInfoId) {
   return useParamInfos.getState().x[evColId][paramInfoId];
 }
 
+export function getParamEV(sectionId, paramInfoId) {
+  const evId = getParamEVId(sectionId, paramInfoId);
+  return useEnteredValues.getState().x[evId];
+}
+
 export function getParamChildId(sectionId: string, paramInfoId: string) {
   const s = useSectionInfos.getState().x;
   const possibleChildren = s[sectionId].children;
@@ -37,31 +42,13 @@ export function getParamIsNested(sectionId, paramInfoId) {
   return requiresNestedSection(uiType.type);
 }
 
-export function setParamEVAttr(
-  sectionId,
-  paramInfoId,
-  fn,
-  props,
-  incrementVersion
-) {
-  const evId = getParamEVId(sectionId, paramInfoId);
-  fn({ enteredValueId: evId, ...props });
-  maybeIncrementProjectStateVersion(incrementVersion);
-}
-
 export function setParamEnteredValue({
   sectionId,
   paramInfoId,
   value,
   incrementVersion = false,
 }) {
-  setParamEVAttr(
-    sectionId,
-    paramInfoId,
-    useEnteredValues.getState().setEnteredValue,
-    {
-      value,
-    },
-    incrementVersion
-  );
+  const evId = getParamEVId(sectionId, paramInfoId);
+  useEnteredValues.getState().setEnteredValue({ enteredValueId: evId, value });
+  maybeIncrementProjectStateVersion(incrementVersion);
 }

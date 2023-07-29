@@ -4,6 +4,7 @@ import {
 } from "abcde-utils/src/constants";
 import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
+import { UITypeType } from "abcde-utils/src/types/uiType";
 import { UITypeColType } from "abcde-utils/src/types/uiTypeCol";
 import { ManyOf } from "abcde-utils/src/types/utils";
 import { createNewId } from "abcde-utils/src/utils";
@@ -54,12 +55,12 @@ function initializeParamEnteredValue(
 
   const uiTypeState = useUITypes.getState();
   const newIds: ManyOf<string> = {};
-  const newEVToUITypes: ManyOf<string> = {};
+  const newEVToUITypes: ManyOf<UITypeType> = {};
   for (const [paramId, evId] of Object.entries(paramIdToEvId)) {
     if (!evId) {
       const newId = createNewId();
       newIds[paramId] = newId;
-      newEVToUITypes[newId] = uiTypeState.x[paramIdToUITypeId[paramId]].type;
+      newEVToUITypes[newId] = uiTypeState.x[paramIdToUITypeId[paramId]];
       paramIdToEvId[paramId] = newId;
     }
   }

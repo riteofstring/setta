@@ -16,7 +16,7 @@ export function SimpleConfig({ options, onChange, savedConfig }) {
             placeholder={e}
             key={`${e}-${idx}`}
             onChange={(v) => onChange(e, () => v.target.value)}
-            value={savedConfig?.[e] ? savedConfig[e] : ""}
+            value={savedConfig[e]}
           />
         </div>
       ))}
