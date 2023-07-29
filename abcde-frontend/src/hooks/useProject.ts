@@ -1,7 +1,7 @@
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect, useState } from "react";
-import { loadProject } from "thunks/projects";
+import { loadProject } from "thunks/user/projects";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,

@@ -22,5 +22,4 @@ export const useUser = create((set) => ({
       sessionStorage.clear();
       return { ...initialState, username: "", isAuthenticated: false };
     }),
-  setDarkMode: (darkMode) => set({ darkMode }),
 }));

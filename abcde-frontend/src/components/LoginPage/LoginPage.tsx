@@ -1,5 +1,5 @@
 import { useFormik } from "formik";
-import { login } from "thunks/login";
+import { login } from "thunks/user/login";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { FormInput } from "utils/atoms/input/FormInput";
 import { PasswordInput } from "utils/atoms/input/PasswordInput";
