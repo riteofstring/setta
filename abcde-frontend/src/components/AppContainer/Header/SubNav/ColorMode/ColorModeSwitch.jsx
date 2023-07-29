@@ -1,11 +1,10 @@
-import { useUserSettings } from "models/userSettings";
+import { useUser } from "models/user";
 import { useEffect } from "react";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {
-  const darkMode = useUserSettings((x) => x.darkMode);
-  const onCheckedChange = () =>
-    useUserSettings.getState().setDarkMode(!darkMode);
+  const darkMode = useUser((x) => x.darkMode);
+  const onCheckedChange = () => useUser.getState().setDarkMode(!darkMode);
 
   useEffect(() => {
     if (darkMode) {

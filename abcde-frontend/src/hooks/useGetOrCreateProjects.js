@@ -1,5 +1,5 @@
 import { dbCreateProject, dbGetProjects } from "dbRequests/projects";
-import { useAuth } from "models/auth";
+import { useUser } from "models/user";
 import { useState } from "react";
 import {
   adjectives,
@@ -40,7 +40,7 @@ function createProjectName() {
 }
 
 function goToProject({ project, configId }) {
-  const username = useAuth.getState().username;
+  const username = useUser.getState().username;
   const configName = project.configs.find((x) => x.id === configId).name;
   const address = `${username}/${project.name}/${configName}`;
   router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });
