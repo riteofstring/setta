@@ -1,6 +1,6 @@
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
-import { saveCollections } from "dbRequests/sectionConfig";
+import { dbSaveCollections } from "dbRequests/sectionConfig";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
@@ -100,7 +100,7 @@ export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
     "id"
   );
 
-  saveCollections({
+  dbSaveCollections({
     collections: { [collection.id]: collection, ...paramInfos },
   });
 
