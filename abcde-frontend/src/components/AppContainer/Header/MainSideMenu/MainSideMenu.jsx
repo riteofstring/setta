@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FiMenu } from "react-icons/fi";
-import { logout } from "thunks/logout";
+import { logout } from "thunks/user/logout";
 import { Item } from "utils/atoms/dropdown/item";
 
 export function MainSideMenu() {

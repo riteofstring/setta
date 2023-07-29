@@ -1,6 +1,5 @@
 import { LOGIN, LOGOUT, REGISTER } from "abcde-utils/src/routes";
 import { AuthType } from "abcde-utils/src/types/auth";
-import { useAuth } from "models/auth";
 import { NO_AUTH } from "utils/constants";
 import {
   noAuthLogin,
@@ -9,20 +8,14 @@ import {
 } from "./noAuth/authentication";
 import { post } from "./utils";
 
-export function login({ username, password }: AuthType) {
-  const s = useAuth.getState();
-  const loginSuccess = s.loginSuccess;
-  const loginFail = s.loginFail;
-
+export async function dbLogin({ username, password }: AuthType) {
   if (NO_AUTH) {
-    return noAuthLogin({ loginSuccess });
+    return await noAuthLogin();
   }
 
-  return post({
+  return await post({
     address: LOGIN,
     body: { username, password },
-    thenFn: loginSuccess,
-    catchFn: loginFail,
     withCredentials: true,
   });
 }
@@ -39,19 +32,14 @@ export function dbLogout() {
   });
 }
 
-export function register({ username, password }: AuthType) {
-  const s = useAuth.getState();
-  const loginSuccess = s.loginSuccess;
-  const loginFail = s.loginFail;
-
+export async function dbRegister({ username, password }: AuthType) {
   if (NO_AUTH) {
-    return noAuthRegister({ loginSuccess });
+    return await noAuthRegister();
   }
 
-  return post({
+  return await post({
     address: REGISTER,
     body: { username, password },
-    thenFn: loginSuccess,
-    catchFn: loginFail,
+    withCredentials: true,
   });
 }

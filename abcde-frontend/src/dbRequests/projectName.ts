@@ -16,11 +16,9 @@ export async function dbSetProjectName(newProjectName) {
     return dbNoAuthSetProjectName();
   }
 
-  return post({
+  return await post({
     body: { currProjectName: useProject.getState().name, newProjectName },
     address: SET_PROJECT_NAME,
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }
@@ -30,15 +28,13 @@ export async function dbSetProjectConfigName(newProjectConfigName) {
     return dbNoAuthSetProjectConfigName();
   }
 
-  return post({
+  return await post({
     body: {
       projectId: useProject.getState().id,
       currProjectConfigName: useProjectConfig.getState().name,
       newProjectConfigName,
     },
     address: SET_PROJECT_CONFIG_NAME,
-    thenFn: (res) => res.data,
-    catchFn: () => [],
     withCredentials: true,
   });
 }

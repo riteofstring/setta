@@ -1,7 +1,7 @@
 import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
-import { useAuth } from "models/auth";
 import { useSearch } from "models/search";
+import { useUser } from "models/user";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { Link } from "react-router-dom";
@@ -158,7 +158,7 @@ function DefaultConfigBadge({ isDefault }) {
 }
 
 function useConfigAddress({ project, configId }) {
-  const username = useAuth((x) => x.username);
+  const username = useUser((x) => x.username);
   const configName = project.configs.find((x) => x.id === configId).name;
   return `${username}/${project.name}/${configName}`;
 }
