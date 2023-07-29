@@ -37,6 +37,7 @@ export async function dbLoadProject({ username, projectName, configName }) {
   return await post({
     body: {},
     address: LOAD_PROJECT({ username, projectName, configName }),
+    withCredentials: true,
   });
 }
 
