@@ -7,28 +7,23 @@ import { SimpleConfig } from "../SimpleConfig";
 export function SliderInputConfig({ onChange, config }) {
   const options = ["min", "max", "step"];
   const [localConfig, setLocalConfig] = useState(config);
-  console.log("localConfig", localConfig);
 
   function localOnChange(configName, value) {
     // set local value to whatever the user enters
     setLocalConfig({ ...localConfig, [configName]: value });
 
-    // update global state to local state whenever the local state changes
-    // if the local state is valid
+    // update global state to local state whenever the local state changes, if the local state is valid
     if (value === "") {
       return;
     }
     const asNum = _.toNumber(value);
-    if (asNum !== config[configName] && _.isFinite(asNum)) {
-      // config values must make sense
-      if (
-        (configName === "min" && asNum < config["max"]) ||
-        (configName === "max" && asNum > config["min"]) ||
-        (configName === "step" && asNum <= config["max"] - config["min"])
-      ) {
-        onChange(configName, () => asNum);
-        debouncedIncrementVersionFn();
-      }
+    if (
+      asNum !== config[configName] &&
+      _.isFinite(asNum) &&
+      configMakesSense(configName, asNum, config)
+    ) {
+      onChange(configName, () => asNum);
+      debouncedIncrementVersionFn();
     }
   }
 
@@ -38,8 +33,20 @@ export function SliderInputConfig({ onChange, config }) {
   }
 
   // update local value if global state changes
+  // But it's more complicated because we don't want to overwrite local state unnecessarily
+  // because it ends up changing the text formatting which is very annoying.
+  // For example, if the user types 1e2, we don't want it to immediately change to "100".
+  // It should only change to "100" onBlur
   useEffect(() => {
-    setLocalConfig(config);
+    let shouldUpdate = false;
+    for (const [k, v] of Object.entries(localConfig)) {
+      if (_.toNumber(v) !== config[k]) {
+        shouldUpdate = true;
+      }
+    }
+    if (shouldUpdate) {
+      setLocalConfig(config);
+    }
   }, [config]);
 
   return (
@@ -50,6 +57,18 @@ export function SliderInputConfig({ onChange, config }) {
       config={localConfig}
     />
   );
+}
+
+function configMakesSense(configName, newConfigVal, config) {
+  let { step, min, max } = config;
+  if (configName === "min") {
+    min = newConfigVal;
+  } else if (configName === "max") {
+    max = newConfigVal;
+  } else {
+    step = newConfigVal;
+  }
+  return min < max && step <= max - min;
 }
 
 export function SliderInput({
@@ -63,14 +82,6 @@ export function SliderInput({
   isDisabled,
 }) {
   const valueNum = _.toNumber(value);
-
-  // enforces min <= valueNum <= max, if min and max change
-  useEffect(() => {
-    const newVal = Math.max(min, Math.min(valueNum, max));
-    if (newVal !== valueNum) {
-      onBlur(newVal, false);
-    }
-  }, [min, max]);
 
   return (
     <Slider.Root

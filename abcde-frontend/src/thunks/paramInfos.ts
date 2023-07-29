@@ -42,6 +42,34 @@ export function getParamIsNested(sectionId, paramInfoId) {
   return requiresNestedSection(uiType.type);
 }
 
+export function getAllEVsWithUIType(uiTypeId) {
+  const state = useParamInfos.getState();
+  const evIds: string[] = [];
+  for (const [colId, col] of Object.entries(state.y)) {
+    const paramsWithUITypeId = new Set();
+    for (const [pid, p] of Object.entries(col)) {
+      if (p.uiTypeId === uiTypeId) {
+        paramsWithUITypeId.add(pid);
+      }
+    }
+    if (paramsWithUITypeId.size === 0) {
+      continue;
+    }
+
+    for (const s of Object.values(useSectionInfos.getState().x)) {
+      if (s.uiTypeColId === colId) {
+        for (const [pid, evid] of Object.entries(state.x[s.evColId])) {
+          if (paramsWithUITypeId.has(pid)) {
+            evIds.push(evid);
+          }
+        }
+      }
+    }
+  }
+
+  return evIds;
+}
+
 export function setParamEnteredValue({
   sectionId,
   paramInfoId,
