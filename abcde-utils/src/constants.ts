@@ -70,7 +70,6 @@ export const uiTypesToPretty = Object.freeze(
       [SECTION]: "Object",
       [LIST_ROOT]: "List of Objects",
       [DICT_ROOT]: "Dict of Objects",
-      [DECK]: "Deck",
       [OUTPUT]: "Program Output",
       [REF]: "Reference to Object",
       [INFO]: "Info",
