@@ -1,6 +1,7 @@
 import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { debouncedIncrementVersionFn } from "thunks/undo";
 import { SimpleConfig } from "../SimpleConfig";
 
 export function SliderInputConfig({ onChange, config }) {
@@ -31,8 +32,10 @@ export function SliderInputConfig({ onChange, config }) {
           (o === "min" && asNum < config["max"]) ||
           (o === "max" && asNum > config["min"]) ||
           (o === "step" && asNum <= config["max"] - config["min"])
-        )
+        ) {
           onChange(o, () => asNum);
+          debouncedIncrementVersionFn();
+        }
       }
     }
   }, [localConfig]);
@@ -66,7 +69,10 @@ export function SliderInput({
 
   // enforces min <= valueNum <= max, if min and max change
   useEffect(() => {
-    onBlur(Math.max(min, Math.min(valueNum, max)));
+    const newVal = Math.max(min, Math.min(valueNum, max));
+    if (newVal !== valueNum) {
+      onBlur(newVal, false);
+    }
   }, [min, max]);
 
   return (
