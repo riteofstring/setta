@@ -5,9 +5,9 @@ import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/secti
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import {
+  dbSaveAsExistingProjectConfig,
+  dbSaveAsNewProjectConfig,
   dbSaveProject,
-  saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
-  saveAsNewProjectConfig as saveAsNewProjectConfigDb,
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
@@ -73,14 +73,14 @@ export async function saveProject() {
 
 export async function saveAsNewProjectConfig({ newConfigName }) {
   return await saveProjectAs({
-    fn: saveAsNewProjectConfigDb,
+    fn: dbSaveAsNewProjectConfig,
     otherArgs: { newConfigName },
   });
 }
 
 export async function saveAsExistingProjectConfig({ configName }) {
   return await saveProjectAs({
-    fn: saveAsExistingProjectConfigDb,
+    fn: dbSaveAsExistingProjectConfig,
     otherArgs: { configName },
   });
 }

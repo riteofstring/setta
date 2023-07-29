@@ -1,4 +1,4 @@
-import { createProject, dbGetProjects } from "dbRequests/projects";
+import { dbCreateProject, dbGetProjects } from "dbRequests/projects";
 import { useAuth } from "models/auth";
 import { useState } from "react";
 import {
@@ -21,7 +21,7 @@ export function useGetOrCreateProjects() {
 
   const createAndGoToProject = async ({ name }) => {
     const actualName = name ?? createProjectName();
-    const newProject = await createProject({ name: actualName });
+    const { data: newProject } = await dbCreateProject({ name: actualName });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
     goToDefaultConfig(newProject);
   };

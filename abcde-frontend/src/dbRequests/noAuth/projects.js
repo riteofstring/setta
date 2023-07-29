@@ -20,7 +20,7 @@ export async function noAuthLoadProject({ projectName, configName }) {
 }
 
 export async function noAuthCreateProject({ name }) {
-  return createInMemProject(name);
+  return { data: createInMemProject(name) };
 }
 
 export async function noAuthSaveProject() {

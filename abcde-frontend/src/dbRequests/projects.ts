@@ -40,12 +40,12 @@ export async function dbLoadProject({ username, projectName, configName }) {
   });
 }
 
-export async function createProject({ name }) {
+export async function dbCreateProject({ name }) {
   if (NO_AUTH) {
     return await noAuthCreateProject({ name });
   }
 
-  return post({
+  return await post({
     address: CREATE_PROJECT,
     body: { name },
     withCredentials: true,
@@ -64,24 +64,24 @@ export async function dbSaveProject({ project }) {
   });
 }
 
-export async function saveAsNewProjectConfig({ project, newConfigName }) {
+export async function dbSaveAsNewProjectConfig({ project, newConfigName }) {
   if (NO_AUTH) {
     return await noAuthSaveAsNewProjectConfig();
   }
 
-  return post({
+  return await post({
     address: SAVE_AS_NEW_PROJECT_CONFIG,
     body: { project, newConfigName },
     withCredentials: true,
   });
 }
 
-export async function saveAsExistingProjectConfig({ project, configName }) {
+export async function dbSaveAsExistingProjectConfig({ project, configName }) {
   if (NO_AUTH) {
     return await noAuthSaveAsExistingProjectConfig();
   }
 
-  return post({
+  return await post({
     address: SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configName },
     withCredentials: true,
