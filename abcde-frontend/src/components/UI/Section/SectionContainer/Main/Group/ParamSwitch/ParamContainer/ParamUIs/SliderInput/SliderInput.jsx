@@ -62,16 +62,18 @@ export function SliderInput({
   step,
   isDisabled,
 }) {
-  // enforces min <= value <= max, if min and max change
+  const valueNum = _.toNumber(value);
+
+  // enforces min <= valueNum <= max, if min and max change
   useEffect(() => {
-    onBlur(Math.max(min, Math.min(value, max)));
+    onBlur(Math.max(min, Math.min(valueNum, max)));
   }, [min, max]);
 
   return (
     <Slider.Root
       className="data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-40 touch-none select-none items-center data-[orientation='horizontal']:h-5"
       aria-label="slider"
-      value={[value]}
+      value={[valueNum]}
       defaultValue={[defaultVal]}
       min={min}
       max={max}

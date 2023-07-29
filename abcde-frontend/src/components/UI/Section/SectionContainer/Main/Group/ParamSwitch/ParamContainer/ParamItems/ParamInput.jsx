@@ -1,4 +1,5 @@
 import { useGetParamEnteredValue } from "hooks/useEnteredValue";
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -13,17 +14,20 @@ export function ParamInput({
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
 
+  // value and enteredValue should always be string
   const onChange = (v) => {
-    setValue(v);
+    setValue(_.toString(v));
   };
 
+  // value and enteredValue should always be string
   const onBlur = (v, changedByUser = true) => {
-    if (v !== enteredValue) {
-      onChange(v);
+    const vStr = _.toString(v);
+    if (vStr !== enteredValue) {
+      onChange(vStr);
       setParamEnteredValue({
         sectionId,
         paramInfoId,
-        value: v,
+        value: vStr,
         incrementVersion: changedByUser,
       });
     }
