@@ -1,5 +1,4 @@
 import { useGetParamEnteredValue } from "hooks/useEnteredValue";
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -12,7 +11,7 @@ export function ParamInput({
   isDisabled,
 }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(enteredValue);
 
   const onChange = (v) => {
     setValue(v);
@@ -31,7 +30,7 @@ export function ParamInput({
   };
 
   useEffect(() => {
-    setValue(!_.isNil(enteredValue) ? enteredValue : "");
+    setValue(enteredValue ?? "");
   }, [enteredValue]);
 
   return (
