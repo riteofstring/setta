@@ -1,12 +1,20 @@
+import _ from "lodash";
+import { UITypeType } from "src/types/uiType";
 import { SLIDER, SWITCH, TEXT } from "../constants";
 import { EVType } from "../types/ev";
 
-function getInitValueFromUIType(uiType) {
-  switch (uiType) {
+export function getValueForUIType({
+  uiType,
+  currValue,
+}: {
+  uiType: UITypeType;
+  currValue?: EVType;
+}) {
+  switch (uiType.type) {
     case TEXT:
       return "";
     case SLIDER:
-      return 0;
+      return convertValueForSlider({ uiType, currValue });
     case SWITCH:
       return false;
     default:
@@ -15,6 +23,14 @@ function getInitValueFromUIType(uiType) {
 }
 
 // Entered Value
-export function newEV(uiType: string): EVType {
-  return getInitValueFromUIType(uiType);
+export function newEV(uiType: UITypeType): EVType {
+  return getValueForUIType({ uiType });
+}
+
+function convertValueForSlider({ uiType, currValue }) {
+  let x = _.toNumber(currValue);
+  if (_.isFinite(x)) {
+    return Math.min(Math.max(x, uiType.config.min), uiType.config.max);
+  }
+  return uiType.config.min;
 }
