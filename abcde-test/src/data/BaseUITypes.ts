@@ -11,7 +11,7 @@ export default {
     type: "SLIDER",
     name: "",
     presetType: "BASE",
-    config: { min: null, max: null, step: null },
+    config: { min: 0, max: 100, step: 1 },
   },
   "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
     id: "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
