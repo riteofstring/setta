@@ -7,38 +7,35 @@ import { SimpleConfig } from "../SimpleConfig";
 export function SliderInputConfig({ onChange, config }) {
   const options = ["min", "max", "step"];
   const [localConfig, setLocalConfig] = useState(config);
+  console.log("localConfig", localConfig);
 
-  // set local value to whatever the user enters
   function localOnChange(configName, value) {
+    // set local value to whatever the user enters
     setLocalConfig({ ...localConfig, [configName]: value });
+
+    // update global state to local state whenever the local state changes
+    // if the local state is valid
+    if (value === "") {
+      return;
+    }
+    const asNum = _.toNumber(value);
+    if (asNum !== config[configName] && _.isFinite(asNum)) {
+      // config values must make sense
+      if (
+        (configName === "min" && asNum < config["max"]) ||
+        (configName === "max" && asNum > config["min"]) ||
+        (configName === "step" && asNum <= config["max"] - config["min"])
+      ) {
+        onChange(configName, () => asNum);
+        debouncedIncrementVersionFn();
+      }
+    }
   }
 
   // set local value to whatever the global state is
   function onBlur(configName) {
     setLocalConfig({ ...localConfig, [configName]: config[configName] });
   }
-
-  // update global state to local state whenever the local state changes
-  // if the local state is valid
-  useEffect(() => {
-    for (const o of options) {
-      if (localConfig[o] === "") {
-        continue;
-      }
-      const asNum = _.toNumber(localConfig[o]);
-      if (asNum !== config[o] && _.isFinite(asNum)) {
-        // config values must make sense
-        if (
-          (o === "min" && asNum < config["max"]) ||
-          (o === "max" && asNum > config["min"]) ||
-          (o === "step" && asNum <= config["max"] - config["min"])
-        ) {
-          onChange(o, () => asNum);
-          debouncedIncrementVersionFn();
-        }
-      }
-    }
-  }, [localConfig]);
 
   // update local value if global state changes
   useEffect(() => {
