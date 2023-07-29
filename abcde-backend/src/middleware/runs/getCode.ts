@@ -1,10 +1,11 @@
 import { getPathnameFromProjectConfigId } from 'src/db/projectConfigs/load';
 import { loadCode } from 'src/db/runs/loadCode';
+import { getUserIdOrFail } from '../utils';
 
 async function _getCode(req, res) {
-  const userId = req.user;
+  const userId = getUserIdOrFail(req);
   const codeId = req.body.codeId;
-  if (!userId || !codeId) {
+  if (!codeId) {
     res.sendStatus(401);
     return;
   }

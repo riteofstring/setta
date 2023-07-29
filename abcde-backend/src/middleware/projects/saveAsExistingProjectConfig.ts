@@ -1,11 +1,8 @@
 import { saveAsExistingProjectConfig as saveAsExistingProjectConfigFn } from 'src/db/projectConfigs/saveAs';
+import { getUserIdOrFail } from '../utils';
 
 export async function saveAsExistingProjectConfig(req, res) {
-  const userId = req.user;
-  if (!userId) {
-    res.sendStatus(401);
-    return;
-  }
+  const userId = getUserIdOrFail(req);
   const { project, configName } = req.body;
   const savedProject = await saveAsExistingProjectConfigFn(
     userId,

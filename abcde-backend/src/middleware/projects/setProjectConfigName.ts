@@ -1,13 +1,8 @@
 import { dbSetProjectConfigName } from 'src/db/projectConfigs/setProjectConfigName';
+import { getUserIdOrFail } from '../utils';
 
 export async function setProjectConfigName(req, res) {
-  const userId = req.user;
-  if (!userId) {
-    res.sendStatus(401);
-    return;
-  }
-  console.log('req.body', req.body);
-
+  const userId = getUserIdOrFail(req);
   await dbSetProjectConfigName(
     userId,
     req.body.projectId,

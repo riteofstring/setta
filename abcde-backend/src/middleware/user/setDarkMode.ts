@@ -1,11 +1,8 @@
 import { dbSetDarkMode } from 'src/db/user/setDarkMode';
+import { getUserIdOrFail } from '../utils';
 
 export async function setDarkMode(req, res) {
-  const userId = req.user;
-  if (!userId) {
-    res.sendStatus(401);
-    return;
-  }
+  const userId = getUserIdOrFail(req);
   await dbSetDarkMode({
     userId,
     darkMode: req.body.darkMode,

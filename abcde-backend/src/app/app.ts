@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import 'express-async-errors';
 import passport from 'passport';
+import { noUserIdErrorHandler } from 'src/middleware/utils';
 import { router } from 'src/routers/routers';
 import { sessionParser } from './sessionParser';
 
@@ -21,3 +22,4 @@ app.use(sessionParser);
 app.use(passport.initialize());
 app.use(passportSession);
 app.use('/', router);
+app.use('/', noUserIdErrorHandler);
