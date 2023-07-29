@@ -4,7 +4,7 @@ import { create } from "./utils";
 const initialState = {
   username: NO_AUTH ? "Kevin" : localStorage.getItem("username") || "",
   isAuthenticated: NO_AUTH ? true : !!localStorage.getItem("isAuthenticated"),
-  darkMode: false,
+  darkMode: NO_AUTH ? false : JSON.parse(localStorage.getItem("darkMode")),
 };
 
 export const useUser = create((set) => ({
@@ -12,8 +12,9 @@ export const useUser = create((set) => ({
   loginSuccess: (data) =>
     set(() => {
       const isAuthenticated = true;
-      localStorage.setItem("username", data.username);
-      localStorage.setItem("isAuthenticated", "true");
+      setLocalStorage("username", data.username);
+      setLocalStorage("isAuthenticated", isAuthenticated);
+      setLocalStorage("darkMode", data.darkMode);
       return { ...data, isAuthenticated };
     }),
   loginFail: () =>
@@ -22,4 +23,14 @@ export const useUser = create((set) => ({
       sessionStorage.clear();
       return { ...initialState, username: "", isAuthenticated: false };
     }),
+  toggleDarkMode: () =>
+    set((state) => {
+      const newVal = !state.darkMode;
+      setLocalStorage("darkMode", newVal);
+      return { darkMode: newVal };
+    }),
 }));
+
+function setLocalStorage(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
