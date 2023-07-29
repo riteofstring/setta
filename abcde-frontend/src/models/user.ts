@@ -1,10 +1,9 @@
-import { NO_AUTH } from "utils/constants";
 import { create } from "./utils";
 
 const initialState = {
-  username: NO_AUTH ? "Kevin" : localStorage.getItem("username") || "",
-  isAuthenticated: NO_AUTH ? true : !!localStorage.getItem("isAuthenticated"),
-  darkMode: NO_AUTH ? false : JSON.parse(localStorage.getItem("darkMode")),
+  username: localStorage.getItem("username") || "",
+  isAuthenticated: !!localStorage.getItem("isAuthenticated"),
+  darkMode: JSON.parse(localStorage.getItem("darkMode")),
 };
 
 export const useUser = create((set) => ({

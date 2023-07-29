@@ -1,4 +1,3 @@
-import { NO_AUTH } from "utils/constants";
 import { create as _create, StateCreator } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
@@ -38,7 +37,7 @@ export const stateDict = {
 function createResetter(state) {
   const initialState = state.getState();
   return () => {
-    state.setState(getInitialStateForResetter(initialState), true);
+    state.setState(initialState);
     if (state.temporal) {
       state.temporal.getState().clear();
     }
@@ -51,11 +50,4 @@ function addResetter(state, stateType: keyof typeof STATE_TYPES) {
 
 function addStatePointer(state, stateType: keyof typeof STATE_TYPES) {
   stateDict[stateType].statePointers.push(state);
-}
-
-function getInitialStateForResetter(initialState) {
-  if (NO_AUTH && initialState["isAuthenticated"]) {
-    return { ...initialState, isAuthenticated: false };
-  }
-  return initialState;
 }
