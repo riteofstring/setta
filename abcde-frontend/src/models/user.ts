@@ -31,5 +31,8 @@ export const useUser = create((set) => ({
 }));
 
 function setLocalStorage(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  localStorage.setItem(
+    key,
+    typeof value === "string" ? value : JSON.stringify(value)
+  );
 }
