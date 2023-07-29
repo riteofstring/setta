@@ -4,10 +4,18 @@ import axios, { AxiosResponse } from "axios";
 export async function post<S, R>({
   address,
   body,
+  thenFn = (res) => {
+    return res.data;
+  },
+  catchFn = (res) => {
+    return res.data;
+  },
   withCredentials = false,
 }: {
   address: string;
   body: S;
+  thenFn?: (res: AxiosResponse<R>) => R;
+  catchFn?: (res: AxiosResponse<R>) => void;
   withCredentials?: boolean;
 }) {
   return axios
@@ -17,8 +25,8 @@ export async function post<S, R>({
       },
       withCredentials,
     })
-    .then((res) => res)
-    .catch((res) => res);
+    .then(thenFn)
+    .catch(catchFn);
 }
 
 // function tokenConfig(access_token) {

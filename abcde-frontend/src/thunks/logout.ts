@@ -1,11 +1,11 @@
 import { dbLogout } from "dbRequests/authentication";
-import { useUser } from "models/user";
+import { useAuth } from "models/auth";
 import { router } from "utils/Routes/router";
-import { resetAllStores } from "../reset";
+import { resetAllStores } from "./reset";
 
 export function logout() {
   dbLogout();
+  useAuth.getState().loginFail();
   resetAllStores();
-  useUser.getState().loginFail();
   router.navigate("/");
 }

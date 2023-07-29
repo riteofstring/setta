@@ -1,5 +1,5 @@
 import {
-  dbGetCollectionDetails,
+  getCollectionDetails,
   getCollectionsAndModulesFn,
 } from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
@@ -21,7 +21,7 @@ export function CollectionsSearch({ sectionId }) {
   async function onSelectionChange({ id, checked, newValueFn }) {
     if (checked) {
       // collection needs to be retrieved from db
-      await dbGetCollectionDetails(id);
+      await getCollectionDetails(id);
     }
 
     setCollections({

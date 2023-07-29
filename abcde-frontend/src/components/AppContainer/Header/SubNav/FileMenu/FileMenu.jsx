@@ -1,9 +1,9 @@
 import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import _ from "lodash";
+import { useAuth } from "models/auth";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useUser } from "models/user";
 import { useState } from "react";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
@@ -49,7 +49,7 @@ export function FileMenu() {
 
   function onClickLoadProject(selected) {
     const { foldername, filename } = selected;
-    const username = useUser.getState().username;
+    const username = useAuth.getState().username;
     router.navigate(`${username}/${foldername}/${filename}`, {
       state: { pageLoadType: NEW_PROJECT },
     });
@@ -72,7 +72,7 @@ export function FileMenu() {
             newConfigName,
           });
 
-      const username = useUser.getState().username;
+      const username = useAuth.getState().username;
       router.navigate(`${username}/${projectName}/${configName}`, {
         state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
       });
