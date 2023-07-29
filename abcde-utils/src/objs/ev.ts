@@ -28,9 +28,11 @@ export function newEV(uiType: UITypeType): EVType {
 }
 
 function convertValueForSlider({ uiType, currValue }) {
-  let x = _.toNumber(currValue);
+  const x = _.toNumber(currValue);
   if (_.isFinite(x)) {
-    return Math.min(Math.max(x, uiType.config.min), uiType.config.max);
+    return _.toString(
+      Math.min(Math.max(x, uiType.config.min), uiType.config.max)
+    );
   }
   return uiType.config.min;
 }
