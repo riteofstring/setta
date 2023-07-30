@@ -5,6 +5,7 @@ import { newCodeInfo } from 'abcde-utils/src/objs/codeInfo';
 import { LOAD_PROJECT, LOGIN, PROJECTS } from 'abcde-utils/src/routes';
 import { compareObjs } from 'abcde-utils/src/testUtils';
 import { RCType } from 'abcde-utils/src/types/codeInfo';
+import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
 import { app } from 'src/app/app';
 import { saveAsNewProjectConfig } from 'src/db/projectConfigs/saveAs';
@@ -85,6 +86,8 @@ describe('ProjectsService', () => {
     // add a kwarg to a user specified object
     const kwargInfo = newCodeInfo({ rcType: RCType.PARAMETER });
     project.kwargInfo[kwargInfo.id] = kwargInfo;
+    const kwargEvId = createNewId();
+    project.ev[kwargEvId] = 'quantum';
     const section = _.find(project.sections, (v) => v.userSpecifiedObjectId);
     const { uiTypeColId, evColId, kwargColId, userSpecifiedObjectId } = section;
     project.kwargCols[kwargColId][userSpecifiedObjectId] = [kwargInfo.id];
@@ -92,7 +95,7 @@ describe('ProjectsService', () => {
       uiTypeId: DEFAULT_BASE_UI_TYPE_ID,
       nonPresetUITypeIds: [],
     };
-    project.evCols[evColId][kwargInfo.id] = 'quantum';
+    project.evCols[evColId][userSpecifiedObjectId] = kwargEvId;
 
     // save as new config
     await saveAsNewProjectConfig(TEST_USER, project, 'diffusionConfig');

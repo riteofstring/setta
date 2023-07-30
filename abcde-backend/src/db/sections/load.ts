@@ -1,3 +1,4 @@
+import { ManyEVType } from 'abcde-utils/src/types/ev';
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
 import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManyOutputType } from 'abcde-utils/src/types/output';
@@ -39,7 +40,7 @@ export async function getSections(ids) {
       asChild: { select: { parentId: true } },
       evCol: {
         select: {
-          children: { select: { codeInfoId: true, value: true } },
+          children: { select: { codeInfoId: true, evId: true, ev: true } },
         },
       },
       kwargCol: {
@@ -96,11 +97,18 @@ export async function getSections(ids) {
     descriptionVisible: v.descriptionVisible,
   }));
 
+  const ev: ManyEVType = {};
+  for (const config of s) {
+    const allCurrEvs = config.evCol.children.map((x) => x.ev);
+    const keyByEVId = _.keyBy(allCurrEvs, 'id');
+    _.forEach(keyByEVId, (v, id) => (ev[id] = v.value));
+  }
+
   const evCols: ManyEVColType = {};
   for (const config of s) {
     evCols[config.evColId] = _.mapValues(
       _.keyBy(config.evCol.children, 'codeInfoId'),
-      (x) => x.value,
+      (x) => x.evId,
     );
   }
 
@@ -156,6 +164,7 @@ export async function getSections(ids) {
 
   return {
     sections,
+    ev,
     evCols,
     kwargCols,
     uiTypeCols,

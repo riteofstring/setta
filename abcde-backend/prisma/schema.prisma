@@ -140,9 +140,16 @@ model EVCol {
   idid       String   @db.Uuid
   codeInfo   CodeInfo @relation(fields: [codeInfoId], references: [id])
   codeInfoId String   @db.Uuid
-  value      String?  @db.VarChar(255)
+  ev         EV       @relation(fields: [evId], references: [id])
+  evId       String   @db.Uuid
 
   @@id([idid, codeInfoId]) // composite key
+}
+
+model EV {
+  id    String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  value String? @db.VarChar(255)
+  evCol EVCol[] //EVCol.ev
 }
 
 model UIType {

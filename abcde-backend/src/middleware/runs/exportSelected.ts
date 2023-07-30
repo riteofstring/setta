@@ -158,7 +158,8 @@ class Exporter {
 
   exportParamValue(sectionId, id) {
     const { evColId } = this.p.sections[sectionId];
-    const value = this.p.evCols[evColId][id];
+    const evId = this.p.evCols[evColId][id];
+    const value = this.p.ev[evId];
     const originalType = getOriginalParamUIType(this.p, sectionId, id);
     const possibleChildId = getParamChildId(this.p, sectionId, id);
     if (possibleChildId) {

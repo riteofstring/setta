@@ -15,7 +15,7 @@ export function copyKwargInfo(kwargInfo: ManyCodeInfoType) {
 export function copyKwargCols(kwargCols: ManyKwargColType, kwargInfoIdMap) {
   const { newIds: newKwargCols, idMap: kwargColIdMap } = remapIds(kwargCols);
 
-  // replace kwargInfo ids
+  // replace ev ids
   for (const newKwargCol of Object.values(newKwargCols)) {
     for (const codeInfoId of Object.keys(newKwargCol)) {
       newKwargCol[codeInfoId] = newKwargCol[codeInfoId].map(

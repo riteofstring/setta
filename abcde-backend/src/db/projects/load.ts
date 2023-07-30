@@ -51,6 +51,7 @@ export async function loadOne({
   const projectConfig = await getProjectConfig(configId);
   const {
     sections,
+    ev,
     evCols,
     kwargCols,
     uiTypeCols,
@@ -77,6 +78,7 @@ export async function loadOne({
     project,
     projectConfig,
     sections,
+    ev,
     evCols,
     kwargCols,
     uiTypes,
