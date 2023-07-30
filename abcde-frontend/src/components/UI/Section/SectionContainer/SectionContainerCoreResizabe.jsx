@@ -4,6 +4,7 @@ import { BiInfoCircle } from "react-icons/bi";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
+import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
@@ -21,6 +22,7 @@ export function SectionContainerCoreResizable({
   isSocial,
   isInfo,
   isUserSpecifiedObject,
+  isGlobalVariables,
   hasNested,
   hasDescription,
   isActiveSection,
@@ -66,12 +68,13 @@ export function SectionContainerCoreResizable({
           isRoot={isRoot}
           isInfo={isInfo}
           isUserSpecifiedObject={isUserSpecifiedObject}
+          isGlobalVariables={isGlobalVariables}
         />
 
         {!isInfo && hasDescription && (
           <Button
             grid={false}
-            twClasses="absolute bottom-0 mb-2 px-2 py-1 self-center text-slate-500 dark:text-slate-400 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-slate-800 text-xs bg-slate-200 shadow-md hover:shadow-lg transition-all"
+            twClasses="absolute bottom-0 mb-2 px-2 py-1 self-center text-slate-500 dark:text-slate-400 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-slate-600 text-xs bg-slate-200 shadow-md hover:shadow-lg transition-all"
             onClick={toggleDescVis}
           >
             <BiInfoCircle className="z-[3] h-4 w-4" />
@@ -94,6 +97,7 @@ function AreaSwitch({
   isRoot,
   isInfo,
   isUserSpecifiedObject,
+  isGlobalVariables,
 }) {
   if (isOutput) {
     return <OutputArea sectionId={sectionId} />;
@@ -106,6 +110,9 @@ function AreaSwitch({
   }
   if (isUserSpecifiedObject) {
     return <UserSpecifiedObjectArea sectionId={sectionId} />;
+  }
+  if (isGlobalVariables) {
+    return <GlobalVariablesArea sectionId={sectionId} />;
   }
   if (!isRoot) {
     return <InputArea sectionId={sectionId} />;
