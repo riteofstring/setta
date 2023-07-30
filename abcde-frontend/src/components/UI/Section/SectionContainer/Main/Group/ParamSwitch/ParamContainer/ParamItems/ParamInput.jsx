@@ -12,26 +12,31 @@ export function ParamInput({
   isDisabled,
 }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(enteredValue);
 
+  // value and enteredValue should always be string
   const onChange = (v) => {
-    setValue(v);
+    setValue(_.toString(v));
   };
 
+  // value and enteredValue should always be string
   const onBlur = (v, changedByUser = true) => {
-    if (v !== enteredValue) {
-      onChange(v);
+    const vStr = _.toString(v);
+    if (vStr !== enteredValue) {
+      onChange(vStr);
       setParamEnteredValue({
         sectionId,
         paramInfoId,
-        value: v,
+        value: vStr,
         incrementVersion: changedByUser,
       });
     }
   };
 
   useEffect(() => {
-    setValue(!_.isNil(enteredValue) ? enteredValue : "");
+    if (value !== enteredValue) {
+      setValue(enteredValue);
+    }
   }, [enteredValue]);
 
   return (

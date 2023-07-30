@@ -1,5 +1,8 @@
+import { SLIDER } from "abcde-utils/src/constants";
+import { getValueForUIType } from "abcde-utils/src/objs/ev";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionInfo } from "thunks/sections/getters";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
@@ -20,6 +23,7 @@ export function setParamUITypeConfig({
     settingPreset,
   });
   setConfigAndChildConfig(uiType, configProps);
+  updateEVs(uiType.id, configProps.configName);
 }
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
@@ -65,4 +69,43 @@ function createNonPresetForParam({
     newValueFn: (v) => [...v, newUIType.id],
   });
   return newUIType;
+}
+
+function updateEVs(uiTypeId, configName) {
+  const uiType = useUITypes.getState().x[uiTypeId];
+  if (uiType.type === SLIDER && ["min", "max"].includes(configName)) {
+    _updateEVs(uiType);
+  }
+}
+
+function _updateEVs(uiType) {
+  const pState = useParamInfos.getState();
+  for (const [colId, col] of Object.entries(pState.y)) {
+    const paramsWithUITypeId = new Set();
+    for (const [pid, p] of Object.entries(col)) {
+      if (p.uiTypeId === uiType.id) {
+        paramsWithUITypeId.add(pid);
+      }
+    }
+    if (paramsWithUITypeId.size === 0) {
+      continue;
+    }
+
+    for (const s of Object.values(useSectionInfos.getState().x)) {
+      if (s.uiTypeColId === colId) {
+        for (const [pid, currValue] of Object.entries(pState.x[s.evColId])) {
+          if (paramsWithUITypeId.has(pid)) {
+            const newVal = getValueForUIType({ uiType, currValue });
+            if (newVal !== currValue) {
+              pState.setEnteredValue({
+                collectionId: s.evColId,
+                paramInfoId: pid,
+                value: newVal,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
 }
