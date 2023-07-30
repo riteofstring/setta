@@ -1,13 +1,14 @@
 import _ from "lodash";
 import { UITypeType } from "src/types/uiType";
 import { SLIDER, SWITCH, TEXT } from "../constants";
+import { EVType } from "../types/ev";
 
 export function getValueForUIType({
   uiType,
   currValue,
 }: {
   uiType: UITypeType;
-  currValue?: string;
+  currValue?: EVType;
 }) {
   switch (uiType.type) {
     case TEXT:
@@ -15,14 +16,14 @@ export function getValueForUIType({
     case SLIDER:
       return convertValueForSlider({ uiType, currValue });
     case SWITCH:
-      return "false";
+      return false;
     default:
-      return "";
+      return null;
   }
 }
 
 // Entered Value
-export function newEV(uiType: UITypeType): string {
+export function newEV(uiType: UITypeType): EVType {
   return getValueForUIType({ uiType });
 }
 
