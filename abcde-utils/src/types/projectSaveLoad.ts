@@ -1,6 +1,5 @@
 import { CodeInfoStateType, ManyCodeInfoType } from "./codeInfo";
 import { CodeInfoMapStateType } from "./codeInfoMap";
-import { ManyEVType } from "./ev";
 import { ManyEVColType } from "./evCol";
 import { ManyKwargColType } from "./kwargCol";
 import { ManyOutputType } from "./output";
@@ -14,7 +13,6 @@ import { ManyUITypeColType } from "./uiTypeCol";
 export type ProjectSaveType = {
   project: ProjectType;
   projectConfig: ProjectConfigType;
-  ev: ManyEVType;
   evCols: ManyEVColType;
   uiTypes: ManyUITypeType;
   uiTypeCols: ManyUITypeColType;
