@@ -1,16 +1,7 @@
 import _ from "lodash";
-import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useGetSectionInfo } from "./useSectionInfo";
-
-export function useGetParamEnteredValue(
-  sectionId: string,
-  paramInfoId: string
-) {
-  const enteredValueId = useGetParamEnteredValueId(sectionId, paramInfoId);
-  return useEnteredValues((x) => x.x[enteredValueId]);
-}
 
 export function useGetParamChildId(sectionId: string, paramInfoId: string) {
   // find section that has sectionId as parent and is associated with paramInfoId
@@ -33,7 +24,7 @@ export function useGetParamChildNonPresetUITypeIds(
   );
 }
 
-export function useGetParamEnteredValueId(
+export function useGetParamEnteredValue(
   sectionId: string,
   paramInfoId: string
 ) {
