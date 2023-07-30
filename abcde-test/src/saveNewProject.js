@@ -4,7 +4,9 @@ const fs = require("fs");
 for (const data of [project]) {
   for (const [k, v] of Object.entries(data)) {
     let filename = "";
-    if (k === "evCols") {
+    if (k === "ev") {
+      filename = "EV";
+    } else if (k === "evCols") {
       filename = "EVCols";
     } else if (k === "uiTypes") {
       filename = "UITypes";

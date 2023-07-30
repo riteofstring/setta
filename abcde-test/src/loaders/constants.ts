@@ -27,6 +27,7 @@ export const CODE_INFOS = [
 ];
 
 export const PROJECT_STATES = [
+  "ev",
   "evCols",
   "kwargCols",
   "kwargInfo",
