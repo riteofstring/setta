@@ -126,4 +126,15 @@ export default {
       childUITypeId: null,
     },
   },
+  "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a": {
+    id: "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+    type: "GLOBAL_VARIABLES",
+    name: "",
+    presetType: "BASE",
+    config: {
+      collections: [],
+      subType: null,
+      childUITypeId: null,
+    },
+  },
 };
