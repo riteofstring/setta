@@ -5,26 +5,23 @@ import {
 } from "abcde-test/src/loaders/loaders";
 
 export async function noAuthGetProjects() {
-  return { data: await loadAllProjectMetadata(), status: 200 };
+  return await loadAllProjectMetadata();
 }
 
 export async function noAuthLoadProject({ projectName, configName }) {
-  return {
-    data: await loadTestData({
-      projectName,
-      configName,
-      format: "loadProjectToFrontend",
-    }),
-    status: 200,
-  };
+  return await loadTestData({
+    projectName,
+    configName,
+    format: "loadProjectToFrontend",
+  });
 }
 
 export async function noAuthCreateProject({ name }) {
-  return { data: createInMemProject(name) };
+  return createInMemProject(name);
 }
 
 export async function noAuthSaveProject() {
-  return { status: 200 };
+  return true;
 }
 
 export async function noAuthSaveAsNewProjectConfig() {

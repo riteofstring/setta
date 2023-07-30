@@ -11,6 +11,8 @@ export async function generateCode({ codeId, project }) {
   return post({
     address: GENERATE_CODE,
     body: { codeId, project },
+    thenFn: (res) => res.data,
+    catchFn: () => ({}),
     withCredentials: true,
   });
 }

@@ -81,6 +81,8 @@
     "l": "yarn eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "f": "yarn prettier src --write",
     "lf": "yarn l && yarn f",
+    "linkutils": "cd ../abcde-utils && git checkout main && git pull && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-utils",
+    "linktest": "cd ../abcde-test && git checkout main && git pull && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-test",
     "deadcode": "ts-prune"
   },
   "eslintConfig": {

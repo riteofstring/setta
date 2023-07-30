@@ -1,6 +1,5 @@
 import { useActiveSection } from "models/activeSection";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
-import { useKeyActivations } from "models/keyActivations";
 import { useEffect, useRef } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
@@ -63,11 +62,18 @@ export function KwargsControls({ sectionId, objInfoId }) {
 
 function useSearchShortcutKey({ sectionId, searchRef }) {
   const isActive = useActiveSection((x) => x.id === sectionId);
-  const searchArgs = useKeyActivations((x) => x.searchArgs);
 
   useEffect(() => {
-    if (isActive && searchArgs) {
-      searchRef.current.focus();
-    }
-  }, [isActive, searchArgs]);
+    const handleShorcut = (event) => {
+      if (isActive && event.ctrlKey && event.key === "k") {
+        event.preventDefault();
+        searchRef.current.focus();
+      }
+    };
+    window.addEventListener("keydown", handleShorcut);
+
+    return () => {
+      window.removeEventListener("keydown", handleShorcut);
+    };
+  }, [isActive]);
 }

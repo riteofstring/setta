@@ -120,7 +120,7 @@ function _UIElement({ sectionId, paramInfo }) {
         selectedId={uiType.id}
         selectedType={uiType.type}
         onConfigChange={onChange}
-        config={uiType.config}
+        savedConfig={uiType.config}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
       />

@@ -1,6 +1,6 @@
 import { StandardInput } from "utils/atoms/input/StandardInput";
 
-export function SimpleConfig({ options, onChange, onBlur, config }) {
+export function SimpleConfig({ options, onChange, savedConfig }) {
   return (
     <div className="mt-1 flex flex-col">
       {options.map((e, idx) => (
@@ -15,9 +15,8 @@ export function SimpleConfig({ options, onChange, onBlur, config }) {
             twClasses="justify-end"
             placeholder={e}
             key={`${e}-${idx}`}
-            onChange={(v) => onChange(e, v.target.value)}
-            onBlur={(v) => onBlur(e, v.target.value)}
-            value={config[e]}
+            onChange={(v) => onChange(e, () => v.target.value)}
+            value={savedConfig?.[e] ? savedConfig[e] : ""}
           />
         </div>
       ))}

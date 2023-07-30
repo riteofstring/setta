@@ -11,50 +11,56 @@ import {
 } from "./noAuth/sectionConfig";
 import { post } from "./utils";
 
-async function dbGetCollectionsAndModules({ searchTerm }) {
+async function getCollectionsAndModules({ searchTerm }) {
   if (NO_AUTH) {
     return await noAuthGetCollectionsAndModules({ searchTerm });
   }
 
-  return await post({
+  return post({
     address: GET_COLLECTIONS_AND_MODULES,
     body: { searchTerm },
+    thenFn: (res) => res.data,
+    catchFn: () => ({}),
   });
 }
 
 export function getCollectionsAndModulesFn(callback) {
   return async function onSearch(searchTerm) {
-    const x = await dbGetCollectionsAndModules({ searchTerm });
-    callback(x.data);
+    const x = await getCollectionsAndModules({ searchTerm });
+    callback(x);
   };
 }
 
-export async function dbGetCollectionDetails(id) {
+export async function getCollectionDetails(id) {
   const s = useCodeInfo.getState();
   if (id in s.allCodeInfo) {
     return;
   }
 
-  let res;
+  let results;
   if (NO_AUTH) {
-    res = await noAuthGetCollectionDetails(id);
+    results = await noAuthGetCollectionDetails(id);
   } else {
-    res = await post({
+    results = await post({
       address: GET_COLLECTION_DETAILS,
       body: { codeInfoId: id },
+      thenFn: (res) => res.data,
+      catchFn: () => ({}),
     });
   }
 
-  s.updateInfos(res.data);
+  s.updateInfos(results);
 }
 
-export async function dbSaveCollections({ collections }) {
+export async function saveCollections({ collections }) {
   if (NO_AUTH) {
     return;
   }
 
-  return await post({
+  return post({
     address: SAVE_COLLECTIONS,
     body: { collections },
+    thenFn: (res) => res.data,
+    catchFn: () => ({}),
   });
 }

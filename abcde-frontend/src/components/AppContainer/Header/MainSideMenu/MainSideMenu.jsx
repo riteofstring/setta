@@ -1,9 +1,17 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { logout } from "dbRequests/authentication";
 import { FiMenu } from "react-icons/fi";
-import { logout } from "thunks/user/logout";
+import { resetAllStores } from "thunks/reset";
 import { Item } from "utils/atoms/dropdown/item";
+import { router } from "utils/Routes/router";
 
 export function MainSideMenu() {
+  const onClickLogout = () => {
+    logout();
+    resetAllStores();
+    router.navigate("/");
+  };
+
   return (
     <DropdownMenu.Root asChild>
       <section className="flex content-center">
@@ -15,7 +23,7 @@ export function MainSideMenu() {
             align="start"
             className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white py-2 px-4 drop-shadow"
           >
-            <Items onClickLogout={logout} />
+            <Items onClickLogout={onClickLogout} />
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </section>

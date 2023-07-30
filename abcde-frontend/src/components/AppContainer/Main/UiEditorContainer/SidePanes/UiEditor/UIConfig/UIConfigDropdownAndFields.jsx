@@ -8,7 +8,7 @@ export function UIConfigDropdownAndFields({
   onConfigChange,
   sectionId,
   paramInfoId,
-  config,
+  savedConfig,
 }) {
   return (
     <>
@@ -20,7 +20,7 @@ export function UIConfigDropdownAndFields({
       />
       <ParamUIConfig
         name={selectedType}
-        config={config}
+        savedConfig={savedConfig}
         onChange={onConfigChange}
       />
     </>

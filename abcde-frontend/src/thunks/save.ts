@@ -5,13 +5,14 @@ import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/secti
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import {
-  dbSaveAsExistingProjectConfig,
-  dbSaveAsNewProjectConfig,
-  dbSaveProject,
+  saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
+  saveAsNewProjectConfig as saveAsNewProjectConfigDb,
+  saveProject as saveProjectDb,
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useEnteredValues } from "models/info/enteredValues";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
@@ -25,6 +26,7 @@ export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
+  const ev = useEnteredValues.getState().x;
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
@@ -45,6 +47,7 @@ export function getProjectData(): ProjectSaveType {
   const output = {
     project,
     projectConfig,
+    ev,
     evCols,
     uiTypes,
     uiTypeCols,
@@ -62,22 +65,22 @@ export async function saveProject() {
   const n = useNotification.getState();
   n.setMessage("Saving...");
   const x = assembleProject();
-  const res = await dbSaveProject(x);
-  if (res.status === 200) {
+  const result = await saveProjectDb(x);
+  if (result.status === 200) {
     n.setMessage("Saved!");
   }
 }
 
 export async function saveAsNewProjectConfig({ newConfigName }) {
   return await saveProjectAs({
-    fn: dbSaveAsNewProjectConfig,
+    fn: saveAsNewProjectConfigDb,
     otherArgs: { newConfigName },
   });
 }
 
 export async function saveAsExistingProjectConfig({ configName }) {
   return await saveProjectAs({
-    fn: dbSaveAsExistingProjectConfig,
+    fn: saveAsExistingProjectConfigDb,
     otherArgs: { configName },
   });
 }

@@ -5,7 +5,7 @@ export function ParamNameInput({ value, onBlur }) {
   const [liveValue, setLiveValue] = useState(value);
 
   useEffect(() => {
-    setLiveValue(value ?? "");
+    setLiveValue(value ? value : "");
   }, [value]);
 
   return (

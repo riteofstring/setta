@@ -1,5 +1,5 @@
+import { register } from "dbRequests/authentication";
 import { useFormik } from "formik";
-import { register } from "thunks/register";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { FormInput } from "utils/atoms/input/FormInput";
 import { PasswordInput } from "utils/atoms/input/PasswordInput";
@@ -29,7 +29,13 @@ export function SignUpPage() {
         "Passwords must match"
       ),
     }),
-    onSubmit: register,
+    onSubmit: ({ email, username, password }) => {
+      // alert(`email: ${email}, username: ${username}, password: ${password}`);
+      register({
+        username,
+        password,
+      });
+    },
   });
 
   return (
