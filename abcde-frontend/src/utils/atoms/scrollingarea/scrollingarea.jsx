@@ -23,7 +23,7 @@ export const ScrollingArea = React.forwardRef(
     >
       <ScrollArea.Viewport
         asChild={asChild}
-        className={`h-full w-full [&>div]:!contents ${viewportStyle}`}
+        className={`w-full [&>div]:!contents ${viewportStyle}`}
         ref={ref}
       >
         {children}
