@@ -40,7 +40,7 @@ export function Overview() {
         {...infoViewHandlersSearch}
       />
 
-      <ScrollingArea rootStyle="flex-1">
+      <ScrollingArea styles="flex-1">
         <ul className="flex-grow" {...infoViewHandlers}>
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>

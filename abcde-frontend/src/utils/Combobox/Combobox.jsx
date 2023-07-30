@@ -44,11 +44,11 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[150px]   p-3 ${display} ${position} z-20 mt-2 max-h-96  rounded-3xl bg-white shadow-xl dark:bg-slate-700 dark:text-slate-200`}
+      className={`nowheel nodrag relative w-full min-w-[150px] p-3 ${display} ${position} z-20 mt-2 max-h-96  rounded-3xl bg-white shadow-xl dark:bg-slate-700 dark:text-slate-200`}
       {...getMenuProps()}
       style={{ width }}
     >
-      <ScrollingArea>{children}</ScrollingArea>
+      <ScrollingArea styles="w-full">{children}</ScrollingArea>
     </div>
   );
 }

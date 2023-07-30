@@ -18,7 +18,7 @@ export function SectionConfigSearch({
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSearch} />
-      <ScrollingArea rootStyle="mt-4">
+      <ScrollingArea styles="mt-4">
         <ul className="flex flex-grow flex-col gap-4">
           {Object.values(results).map((x) => (
             <SearchItem
