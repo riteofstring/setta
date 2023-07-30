@@ -1,12 +1,12 @@
 import { SLIDER } from "abcde-utils/src/constants";
 import { getValueForUIType } from "abcde-utils/src/objs/ev";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionInfo } from "thunks/sections/getters";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
-import { getAllEVsWithUIType, getParamUIType } from "../paramInfos";
+import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
@@ -73,20 +73,38 @@ function createNonPresetForParam({
 
 function updateEVs(uiTypeId, configName) {
   const uiType = useUITypes.getState().x[uiTypeId];
-  if (uiType.type === SLIDER) {
-    updateSliderEVs(uiType, configName);
+  if (uiType.type === SLIDER && ["min", "max"].includes(configName)) {
+    _updateEVs(uiType);
   }
 }
 
-function updateSliderEVs(uiType, configName) {
-  if (["min", "max"].includes(configName)) {
-    const s = useEnteredValues.getState();
-    const evsWithUIType = getAllEVsWithUIType(uiType.id);
-    for (const id of evsWithUIType) {
-      const currValue = s.x[id];
-      const newVal = getValueForUIType({ uiType, currValue });
-      if (newVal !== currValue) {
-        s.setEnteredValue({ enteredValueId: id, value: newVal });
+function _updateEVs(uiType) {
+  const pState = useParamInfos.getState();
+  for (const [colId, col] of Object.entries(pState.y)) {
+    const paramsWithUITypeId = new Set();
+    for (const [pid, p] of Object.entries(col)) {
+      if (p.uiTypeId === uiType.id) {
+        paramsWithUITypeId.add(pid);
+      }
+    }
+    if (paramsWithUITypeId.size === 0) {
+      continue;
+    }
+
+    for (const s of Object.values(useSectionInfos.getState().x)) {
+      if (s.uiTypeColId === colId) {
+        for (const [pid, currValue] of Object.entries(pState.x[s.evColId])) {
+          if (paramsWithUITypeId.has(pid)) {
+            const newVal = getValueForUIType({ uiType, currValue });
+            if (newVal !== currValue) {
+              pState.setEnteredValue({
+                collectionId: s.evColId,
+                paramInfoId: pid,
+                value: newVal,
+              });
+            }
+          }
+        }
       }
     }
   }
