@@ -1,10 +1,7 @@
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { insertIntoArrayOrXpend } from "utils/utils";
 import { setAllChildren } from "./children";
-import {
-  createChildForSeries,
-  createManySectionInfo,
-} from "./createSectionInfo";
+import { createChildForSeries, createSectionInfo } from "./createSectionInfo";
 import { updateManyParamsAndCallables } from "./sectionContents";
 
 function getNewStateFn(startId: string | null, newIds: string[]) {
@@ -46,9 +43,9 @@ export function addChildForParam({
   uiTypeId,
   paramInfoId,
 }: any) {
-  const newId = createManySectionInfo({
+  const newId = createSectionInfo({
     sectionProps: { name, parentId, paramInfoId, uiTypeId },
-    numChildren: 1,
+    numSections: 1,
   })[0];
 
   setAllChildren(parentId, getNewStateFn(null, [newId]));
