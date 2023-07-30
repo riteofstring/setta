@@ -1,10 +1,16 @@
+import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionInfoAttr } from "thunks/sections/setters";
-import { debouncedIncrementVersionFn } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 
 export function useSectionHasDescription(sectionId) {
   return useSectionInfos((x) => !!x.x[sectionId].description);
 }
+
+// has to be defined outside of hook to work properly
+const debouncedIncrementVersionFn = _.debounce(() => {
+  maybeIncrementProjectStateVersion(true);
+}, 1000);
 
 export function useSetSectionDescription(sectionId) {
   const setDescription = useSectionInfos((x) => x.setSectionInfoAttr);

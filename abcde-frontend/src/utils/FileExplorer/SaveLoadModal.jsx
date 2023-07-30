@@ -133,7 +133,7 @@ function SaveBody({
   }
 
   useEffect(() => {
-    setFilename(selected.filename ?? "");
+    setFilename(selected.filename ? selected.filename : "");
   }, [selected]);
 
   return (
