@@ -2,8 +2,7 @@ import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
-import { getSectionInfo, getSectionName } from "thunks/sections/sections";
+import { getSectionInfo, getSectionName } from "thunks/sections/getters";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { REACT_FLOW_STORE } from "utils/constants";
@@ -60,7 +59,7 @@ function addAttrSection({ sectionId, refSectionId, onCreation }) {
     uiTypeId: FN_UI_TYPE_ID,
   };
 
-  const [newId] = createDefaultSectionInfo({
+  const [newId] = createSectionInfo({
     sectionProps,
     topLevelPosition: newSectionPosition({
       x: sectionPosition.x + sectionWidth,

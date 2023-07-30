@@ -1,14 +1,15 @@
-export function noAuthLogin({ loginSuccess }) {
-  loginSuccess({ data: { username: "Kevin" } });
-  return true;
+import { loadUser } from "abcde-test/src/loaders/helpers";
+
+export async function noAuthLogin() {
+  const data = await loadUser("Kevin");
+  data.username = data.name;
+  return { data, status: 200 };
 }
 
-export function noAuthLogout({ loginFail }) {
-  loginFail(null);
+export function noAuthLogout() {
   return;
 }
 
-export function noAuthRegister({ loginSuccess }) {
-  loginSuccess({ data: { username: "Kevin" } });
-  return true;
+export async function noAuthRegister() {
+  return await noAuthLogin();
 }

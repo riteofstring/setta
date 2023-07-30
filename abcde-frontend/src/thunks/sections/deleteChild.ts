@@ -1,6 +1,6 @@
 import _ from "lodash";
+import { setAllChildren } from "./children";
 import { deleteSections } from "./sectionOps";
-import { setAllChildren } from "./sections";
 
 function getNewStateFn(
   deletedChildren: string[],

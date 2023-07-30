@@ -6,7 +6,6 @@ import {
 } from "abcde-utils/src/types/uiType";
 import {
   isBasePreset,
-  isNotDeck,
   isPreset,
   isUserPreset,
 } from "abcde-utils/src/uiTypeConstants";
@@ -37,7 +36,7 @@ function filterUITypes(
 
   for (const u of Object.values(uiTypes)) {
     // skip if it doesn't pass the general filter or it's not a preset
-    if (!generalFilterFn(u) || !isPreset(u) || !isNotDeck(u)) {
+    if (!generalFilterFn(u) || !isPreset(u)) {
       continue;
     }
 

@@ -1,3 +1,4 @@
+import { newEV } from "abcde-utils/src/objs/ev";
 import {
   ParamInfoStateType,
   ParamInfoZustandType,
@@ -21,16 +22,15 @@ export const useParamInfos = createProjectState(
         set((state) => {
           _.forEach(collectionIds, (id) => initValue(state.x, id, {}));
         }),
-      setManyEnteredValueIds: ({ collectionId, paramIdToEvId }) =>
+      initManyEnteredValues: ({ collectionId, paramIdsToUITypes }) =>
         set((state) => {
-          state.x[collectionId] = {
-            ...state.x[collectionId],
-            ...paramIdToEvId,
-          };
+          _.forEach(paramIdsToUITypes, (uiType, id) => {
+            state.x[collectionId][id] = newEV(uiType);
+          });
         }),
-      setEnteredValueId: ({ collectionId, paramInfoId, enteredValueId }) =>
+      setEnteredValue: ({ collectionId, paramInfoId, value }) =>
         set((state) => {
-          state.x[collectionId][paramInfoId] = enteredValueId;
+          state.x[collectionId][paramInfoId] = value;
         }),
       initManyUITypeColIds: ({ collectionIds }) =>
         set((state) => {

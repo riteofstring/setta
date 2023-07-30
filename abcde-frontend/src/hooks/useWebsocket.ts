@@ -3,12 +3,12 @@ import {
   openWebSocket,
   sendCurrPage,
 } from "dbRequests/websocket";
-import { useAuth } from "models/auth";
+import { useUser } from "models/user";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 export function useWebsocket() {
-  const isAuthenticated = useAuth((x) => x.isAuthenticated);
+  const isAuthenticated = useUser((x) => x.isAuthenticated);
   const location = useLocation();
 
   useEffect(() => {

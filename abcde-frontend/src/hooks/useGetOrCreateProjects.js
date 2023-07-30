@@ -1,5 +1,5 @@
-import { createProject, getProjects } from "dbRequests/projects";
-import { useAuth } from "models/auth";
+import { dbCreateProject, dbGetProjects } from "dbRequests/projects";
+import { useUser } from "models/user";
 import { useState } from "react";
 import {
   adjectives,
@@ -12,20 +12,24 @@ import { router } from "utils/Routes/router";
 
 export function useGetOrCreateProjects() {
   const [projects, setProjects] = useState({});
-  const fnGetProjects = async () => {
-    setProjects(await getProjects());
-  };
-  const fnCreateAndGoToProject = async ({ name }) => {
+  async function getProjects() {
+    const res = await dbGetProjects();
+    if (res.status === 200) {
+      setProjects(res.data);
+    }
+  }
+
+  const createAndGoToProject = async ({ name }) => {
     const actualName = name ?? createProjectName();
-    const newProject = await createProject({ name: actualName });
+    const { data: newProject } = await dbCreateProject({ name: actualName });
     setProjects((x) => ({ ...x, [newProject.id]: newProject }));
     goToDefaultConfig(newProject);
   };
 
   return {
     projects,
-    getProjects: fnGetProjects,
-    createAndGoToProject: fnCreateAndGoToProject,
+    getProjects,
+    createAndGoToProject,
   };
 }
 
@@ -36,7 +40,7 @@ function createProjectName() {
 }
 
 function goToProject({ project, configId }) {
-  const username = useAuth.getState().username;
+  const username = useUser.getState().username;
   const configName = project.configs.find((x) => x.id === configId).name;
   const address = `${username}/${project.name}/${configName}`;
   router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });

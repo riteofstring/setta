@@ -1,4 +1,3 @@
-import { DEFAULT_SECTION_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { ManySectionType } from "abcde-utils/src/types/section";
@@ -10,7 +9,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
-import { getSectionType, getSectionTypeConfig } from "./sections";
+import { getSectionType, getSectionTypeConfig } from "./getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
   const { name: parentName } = useSectionInfos.getState().x[parentId];
@@ -18,41 +17,30 @@ export function createChildForSeries({ parentId, numChildren }) {
   const uiType = getChildUIType(parentUIType, parentId);
   const nonPresetUITypeIds = !uiType.presetType ? [uiType.id] : [];
 
-  return createManySectionInfo({
+  return createSectionInfo({
     sectionProps: {
       parentId,
       parentName,
       uiTypeId: uiType.id,
       nonPresetUITypeIds,
     },
-    numChildren,
+    numSections: numChildren,
   });
 }
 
-export function createManySectionInfo({
-  sectionProps,
-  numChildren = 1,
+export function createSectionInfo({
+  sectionProps = {},
+  numSections = 1,
   topLevelPosition = null,
 }) {
   const newInfos = {};
   sectionProps["size"] = { width: "auto", height: "auto" };
-  for (let i = 0; i < numChildren; i++) {
+  for (let i = 0; i < numSections; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
   addSectionsToState(newInfos, topLevelPosition);
   return Object.keys(newInfos);
-}
-
-export function createDefaultSectionInfo({ sectionProps, ...props }) {
-  return createManySectionInfo({
-    sectionProps: {
-      name: "New Section",
-      uiTypeId: DEFAULT_SECTION_UI_TYPE_ID,
-      ...sectionProps,
-    },
-    ...props,
-  });
 }
 
 export function addSectionsToState(
@@ -74,7 +62,7 @@ export function addSectionsToState(
 
   for (const s of sectionIds) {
     const { collections } = getSectionTypeConfig(s);
-    initializeChildParams(s, collections, findAllParameterCollections);
+    initializeChildParams([s], collections, findAllParameterCollections);
   }
 
   useKwargCols.getState().initManyKwargColIds({

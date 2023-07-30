@@ -1,7 +1,7 @@
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect, useState } from "react";
-import { loadProject } from "thunks/projects";
+import { loadProject } from "thunks/user/projects";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,
@@ -21,12 +21,12 @@ export function useLoadProject({
   useEffect(() => {
     async function loadAllProjectData() {
       setDoneLoading(false);
-      const result = await loadProject({
+      const res = await loadProject({
         username,
         projectName,
         configName,
       });
-      setDoneLoading(result);
+      setDoneLoading(res);
     }
 
     // The first if-statement triggers for a page refresh or navigating to a different project

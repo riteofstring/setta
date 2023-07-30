@@ -14,9 +14,9 @@ function searchCollectionsInMemory({ searchTerm }) {
 export async function noAuthGetCollectionsAndModules({ searchTerm }) {
   const results = searchCollectionsInMemory({ searchTerm });
   const allCodeInfo = useCodeInfo.getState().allCodeInfo;
-  return assembleCollectionsForSectionConfig(allCodeInfo, results);
+  return { data: assembleCollectionsForSectionConfig(allCodeInfo, results) };
 }
 
 export async function noAuthGetCollectionDetails() {
-  return {};
+  return { data: {} };
 }

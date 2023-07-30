@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { KwargsControls } from "components/UI/Section/SectionContainer/Main/KwargsControls/KwargsControls";
-import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
+import { createSectionInfo } from "thunks/sections/createSectionInfo";
 import { getKwargIds } from "thunks/sections/sectionContents";
 import { loadTestDataIntoState, ResizeObserver } from "__tests__utils/utils";
 
@@ -15,7 +15,7 @@ describe("KwargControls", () => {
   });
 
   it("should add a kwarg to an empty section without crashing", async () => {
-    const sectionId = createDefaultSectionInfo({})[0];
+    const sectionId = createSectionInfo({})[0];
     const props = { sectionId, objInfoId: NULL_OBJ_ID };
     render(<KwargsControls {...props} />);
 
