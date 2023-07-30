@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "../models/info/codeInfo";
+import { useEnteredValues } from "../models/info/enteredValues";
 import { useKwargCols } from "../models/info/kwargCols";
 import { useOutputGroups } from "../models/info/outputGroups";
 import { useOutputs } from "../models/info/outputs";
@@ -22,6 +23,7 @@ export function loadProjectState({
   userCodeInfoMaps,
   projectConfigCodeInfoMaps,
   sections,
+  ev,
   evCols,
   uiTypes,
   uiTypeCols,
@@ -38,6 +40,7 @@ export function loadProjectState({
   useProjectConfigCodeInfoMaps
     .getState()
     .resetAndSetAll(projectConfigCodeInfoMaps);
+  useEnteredValues.getState().resetAndSetAll(ev);
   useKwargCols.getState().resetAndSetAll(kwargCols);
   useSectionInfos.getState().resetAndSetAll({ sections });
   useOutputs.getState().resetAndSetAll(outputs);

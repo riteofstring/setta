@@ -34,9 +34,7 @@ export function ParamInput({
   };
 
   useEffect(() => {
-    if (value !== enteredValue) {
-      setValue(enteredValue);
-    }
+    setValue(enteredValue ?? "");
   }, [enteredValue]);
 
   return (

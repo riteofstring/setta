@@ -7,10 +7,12 @@ import { CodeInfoType, ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { UITypeColType } from "abcde-utils/src/types/uiTypeCol";
 import { ManyOf } from "abcde-utils/src/types/utils";
+import { createNewId } from "abcde-utils/src/utils";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getParamChildId } from "./paramInfos";
@@ -35,27 +37,43 @@ export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
   initializeChild(sectionId, paramInfosAsObj, paramIdToUITypeId);
 }
 
+function getEnteredValueIds(sectionId: string, paramInfos: ManyCodeInfoType) {
+  const { evColId } = getSectionInfo(sectionId);
+  const evCol = useParamInfos.getState().x[evColId];
+  return {
+    paramIdToEvId: _.mapValues(paramInfos, (v) => evCol[v.id]),
+    evColId,
+  };
+}
+
 function initializeParamEnteredValue(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
   paramIdToUITypeId: { [id: string]: string }
 ) {
-  const { evColId } = getSectionInfo(sectionId);
-  const evCol = useParamInfos.getState().x[evColId];
-  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol[v.id]);
+  const { paramIdToEvId, evColId } = getEnteredValueIds(sectionId, paramInfos);
 
   const uiTypeState = useUITypes.getState();
-  const paramIdsToUITypes: ManyOf<UITypeType> = {};
-  for (const [paramId, ev] of Object.entries(paramIdToEv)) {
-    if (_.isNil(ev)) {
-      paramIdsToUITypes[paramId] = uiTypeState.x[paramIdToUITypeId[paramId]];
+  const newIds: ManyOf<string> = {};
+  const newEVToUITypes: ManyOf<UITypeType> = {};
+  for (const [paramId, evId] of Object.entries(paramIdToEvId)) {
+    if (!evId) {
+      const newId = createNewId();
+      newIds[paramId] = newId;
+      newEVToUITypes[newId] = uiTypeState.x[paramIdToUITypeId[paramId]];
+      paramIdToEvId[paramId] = newId;
     }
   }
 
-  useParamInfos.getState().initManyEnteredValues({
+  useParamInfos.getState().setManyEnteredValueIds({
     collectionId: evColId,
-    paramIdsToUITypes,
+    paramIdToEvId: newIds,
   });
+  useEnteredValues
+    .getState()
+    .initManyEnteredValues({ evIdsToUITypes: newEVToUITypes });
+
+  return paramIdToEvId;
 }
 
 function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {

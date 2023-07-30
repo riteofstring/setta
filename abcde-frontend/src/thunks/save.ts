@@ -12,6 +12,7 @@ import {
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useEnteredValues } from "models/info/enteredValues";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
@@ -25,6 +26,7 @@ export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
+  const ev = useEnteredValues.getState().x;
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
@@ -45,6 +47,7 @@ export function getProjectData(): ProjectSaveType {
   const output = {
     project,
     projectConfig,
+    ev,
     evCols,
     uiTypes,
     uiTypeCols,
