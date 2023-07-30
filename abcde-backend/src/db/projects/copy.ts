@@ -1,5 +1,5 @@
 import { ProjectSaveType } from 'abcde-utils/src/types/projectSaveLoad';
-import { copyEV, copyEVCols } from 'src/db/enteredValues/copy';
+import { copyEVCols } from 'src/db/enteredValues/copy';
 import { copySections } from 'src/db/sections/copy';
 import { copyKwargCols, copyKwargInfo } from '../kwargs/copy';
 import { copyProjectConfig } from '../projectConfigs/copy';
@@ -17,7 +17,6 @@ export function copyProjectDetails({
   const {
     kwargInfo,
     kwargCols,
-    ev,
     evCols,
     uiTypes,
     uiTypeCols,
@@ -31,10 +30,8 @@ export function copyProjectDetails({
     kwargCols,
     kwargInfoIdMap,
   );
-  const { newEv, evIdMap } = copyEV(ev);
   const { newEvCols, evColIdMap } = copyEVCols({
     evCols,
-    evIdMap,
     kwargInfoIdMap,
   });
   const { newUITypes, uiTypeIdMap } = copyUITypes(uiTypes);
@@ -62,7 +59,6 @@ export function copyProjectDetails({
     ...theRest,
     kwargInfo: newKwargInfo,
     kwargCols: newKwargCols,
-    ev: newEv,
     evCols: newEvCols,
     uiTypes: newUITypes,
     uiTypeCols: newUITypeCols,
