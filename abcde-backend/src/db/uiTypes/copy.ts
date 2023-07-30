@@ -23,7 +23,6 @@ export function copyUITypeCols({
 }) {
   const { newIds: newUITypeCols, idMap: uiTypeColIdMap } = remapIds(uiTypeCols);
 
-  // replace ev ids
   for (const id of Object.keys(newUITypeCols)) {
     newUITypeCols[id] = renameKeys(newUITypeCols[id], kwargInfoIdMap);
     const col = newUITypeCols[id];
