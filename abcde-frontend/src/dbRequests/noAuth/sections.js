@@ -1,7 +1,7 @@
 import { loadSpecificTestData } from "abcde-test/src/loaders/helpers";
 import { loadAllProjectMetadata } from "abcde-test/src/loaders/loaders";
 
-export async function noAuthGetSectionList() {
+export async function noAuthGetSections() {
   const projectMetadata = await loadAllProjectMetadata();
   const output = [];
   for (const p of Object.values(projectMetadata)) {
