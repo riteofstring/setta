@@ -11,9 +11,7 @@ export function SaveUITypeConfig({ onSubmit }) {
   const [files, setFiles] = useState([]);
 
   function onClick() {
-    const uiTypes = Object.values(useUITypes.getState().x)
-      .filter(isUserPreset)
-      .map((u) => u.name);
+    const uiTypes = Object.values(useUITypes.getState().x).filter(isUserPreset);
     setFiles(uiTypes);
     setOpen(true);
   }

@@ -21,17 +21,14 @@ import {
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
-  const {
-    projects: rawProjects,
-    getProjects,
-    createAndGoToProject,
-  } = useGetOrCreateProjects();
+  const { projects, getProjects, createAndGoToProject } =
+    useGetOrCreateProjects();
   const [modalType, setModalType] = useState("");
   const [open, setOpen] = useState(false);
-  const projects = convertRawProjectsToFolderFormat({
-    rawProjects,
-    modalType,
-  });
+  // const projects = convertRawProjectsToFolderFormat({
+  //   rawProjects,
+  //   modalType,
+  // });
 
   async function openLoadModal() {
     setModalType("Load");
@@ -47,12 +44,15 @@ export function FileMenu() {
 
   useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
-  function onClickLoadProject(selected) {
-    const { foldername, filename } = selected;
-    const username = useUser.getState().username;
-    router.navigate(`${username}/${foldername}/${filename}`, {
-      state: { pageLoadType: NEW_PROJECT },
-    });
+  function onClickLoadProject(selectedId) {
+    const configInfo = projects.find((x) => x.id === selectedId);
+    if (configInfo) {
+      const { name, projectName } = configInfo;
+      const username = useUser.getState().username;
+      router.navigate(`${username}/${projectName}/${name}`, {
+        state: { pageLoadType: NEW_PROJECT },
+      });
+    }
   }
 
   async function onClickSaveAsProject(selected, newConfigName) {
@@ -83,7 +83,7 @@ export function FileMenu() {
     <>
       <ProjectSaveLoadModal
         modalType={modalType}
-        folders={projects}
+        files={projects}
         onClickLoadProject={onClickLoadProject}
         onClickSaveAsProject={onClickSaveAsProject}
         open={open}

@@ -11,7 +11,7 @@ import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
 export function useGetOrCreateProjects() {
-  const [projects, setProjects] = useState({});
+  const [projects, setProjects] = useState([]);
   async function getProjects() {
     const res = await dbGetProjects();
     if (res.status === 200) {

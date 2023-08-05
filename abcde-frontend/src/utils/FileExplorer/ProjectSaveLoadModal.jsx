@@ -2,7 +2,7 @@ import { SaveLoadModal } from "./SaveLoadModal";
 
 export function ProjectSaveLoadModal({
   modalType,
-  folders,
+  files,
   onClickLoadProject,
   onClickSaveAsProject,
   open,
@@ -16,7 +16,7 @@ export function ProjectSaveLoadModal({
   return (
     <SaveLoadModal
       modalType={modalType}
-      folders={folders}
+      files={files}
       onClickActionButton={onClickActionButton}
       title={title}
       buttonText={modalType}

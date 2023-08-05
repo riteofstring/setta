@@ -5,7 +5,15 @@ import {
 } from "abcde-test/src/loaders/loaders";
 
 export async function noAuthGetProjects() {
-  return { data: await loadAllProjectMetadata(), status: 200 };
+  const projectMetadata = await loadAllProjectMetadata();
+  const data = [];
+  for (const p of Object.values(projectMetadata)) {
+    data.push({ ...p, selectable: false, depth: 0 });
+    for (const c of p.configs) {
+      data.push({ ...c, projectName: p.name, selectable: true, depth: 1 });
+    }
+  }
+  return { data, status: 200 };
 }
 
 export async function noAuthLoadProject({ projectName, configName }) {

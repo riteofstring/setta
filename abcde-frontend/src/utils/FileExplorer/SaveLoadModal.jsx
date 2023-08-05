@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { ModalContainer } from "utils/ModalContainer/ModalContainer";
 import { FileExplorer } from "./FileExplorer";
@@ -6,7 +6,6 @@ import { FileNameInput } from "./FileNameInput";
 
 export function SaveLoadModal({
   modalType,
-  folders,
   files,
   onClickActionButton,
   title,
@@ -23,7 +22,6 @@ export function SaveLoadModal({
       content={
         <ModalContent
           modalType={modalType}
-          folders={folders}
           files={files}
           onClickActionButton={onClickActionButton}
           title={title}
@@ -39,14 +37,13 @@ export function SaveLoadModal({
 
 function ModalContent({
   modalType,
-  folders,
   files,
   onClickActionButton,
   title,
   buttonText,
   placeholder,
 }) {
-  const [selected, setSelected] = useState({});
+  const [selected, setSelected] = useState(null);
   const [filename, setFilename] = useState("");
 
   function onClose() {
@@ -63,7 +60,6 @@ function ModalContent({
     <>
       <Body
         modalType={modalType}
-        folders={folders}
         files={files}
         selected={selected}
         setSelected={setSelected}
@@ -79,7 +75,6 @@ function ModalContent({
 
 function Body({
   modalType,
-  folders,
   files,
   selected,
   setSelected,
@@ -90,7 +85,6 @@ function Body({
 }) {
   return modalType === "Load" ? (
     <FileExplorer
-      folders={folders}
       files={files}
       selected={selected}
       setSelected={setSelected}
@@ -98,7 +92,6 @@ function Body({
     />
   ) : (
     <SaveBody
-      folders={folders}
       files={files}
       selected={selected}
       setSelected={setSelected}
@@ -111,7 +104,6 @@ function Body({
 }
 
 function SaveBody({
-  folders,
   files,
   selected,
   setSelected,
@@ -125,21 +117,18 @@ function SaveBody({
     setSelected((s) => {
       if (s.foldername) {
         return { ...s, filename: v };
-      } else if (folders) {
-        return { foldername: folders[0].name, filename: v };
       }
       return { filename: v };
     });
   }
 
-  useEffect(() => {
-    setFilename(selected.filename ?? "");
-  }, [selected]);
+  // useEffect(() => {
+  //   setFilename(selected.filename ?? "");
+  // }, [selected]);
 
   return (
     <>
       <FileExplorer
-        folders={folders}
         files={files}
         selected={selected}
         setSelected={setSelected}
