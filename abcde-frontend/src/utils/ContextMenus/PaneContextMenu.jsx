@@ -25,7 +25,7 @@ export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
   return (
     <SaveLoadModal
       modalType={"Load"}
-      folders={sections}
+      files={sections}
       title={"Load Section"}
       buttonText={"Load"}
       open={open}

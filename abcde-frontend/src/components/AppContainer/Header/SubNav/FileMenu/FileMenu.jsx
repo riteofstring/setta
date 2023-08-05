@@ -22,7 +22,7 @@ import { router } from "utils/Routes/router";
 
 export function FileMenu() {
   const { projects, getProjects, createAndGoToProject } =
-    useGetOrCreateProjects();
+    useGetOrCreateProjects({ nested: false });
   const [modalType, setModalType] = useState("");
   const [open, setOpen] = useState(false);
   // const projects = convertRawProjectsToFolderFormat({

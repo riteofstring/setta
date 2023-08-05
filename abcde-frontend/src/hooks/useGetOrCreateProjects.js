@@ -10,10 +10,10 @@ import {
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
-export function useGetOrCreateProjects() {
+export function useGetOrCreateProjects({ nested }) {
   const [projects, setProjects] = useState([]);
   async function getProjects() {
-    const res = await dbGetProjects();
+    const res = await dbGetProjects({ nested });
     if (res.status === 200) {
       setProjects(res.data);
     }
@@ -22,7 +22,7 @@ export function useGetOrCreateProjects() {
   const createAndGoToProject = async ({ name }) => {
     const actualName = name ?? createProjectName();
     const { data: newProject } = await dbCreateProject({ name: actualName });
-    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
+    setProjects((x) => [...x, newProject]);
     goToDefaultConfig(newProject);
   };
 

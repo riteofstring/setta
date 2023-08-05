@@ -17,13 +17,13 @@ import {
 } from "./noAuth/projects";
 import { post } from "./utils";
 
-export async function dbGetProjects() {
+export async function dbGetProjects({ nested }) {
   if (NO_AUTH) {
-    return await noAuthGetProjects();
+    return await noAuthGetProjects({ nested });
   }
 
   return await post({
-    body: {},
+    body: { nested },
     address: PROJECTS,
     withCredentials: true,
   });

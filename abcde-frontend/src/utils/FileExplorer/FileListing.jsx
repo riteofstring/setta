@@ -51,9 +51,11 @@ function File({ id, name, onClick, depth, selectable }) {
       </div>
     </RadioGroup.Item>
   ) : (
-    <div className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2">
+    <div
+      style={{ marginLeft: `${1.5 * depth}rem` }}
+      className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2"
+    >
       <HiOutlineFolder className="text-slate-400 group-hover:text-slate-800" />
-
       <div className="flex flex-grow justify-between bg-white dark:bg-slate-800">
         <div className="flex gap-2">
           <h4 className="text-xs font-bold tracking-wider text-slate-500 hover:text-slate-900 dark:hover:text-slate-200">

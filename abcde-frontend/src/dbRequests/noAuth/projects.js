@@ -4,10 +4,13 @@ import {
   loadTestData,
 } from "abcde-test/src/loaders/loaders";
 
-export async function noAuthGetProjects() {
-  const projectMetadata = await loadAllProjectMetadata();
+export async function noAuthGetProjects({ nested }) {
+  const projectMetadata = Object.values(await loadAllProjectMetadata());
+  if (nested) {
+    return { data: projectMetadata, status: 200 };
+  }
   const data = [];
-  for (const p of Object.values(projectMetadata)) {
+  for (const p of projectMetadata) {
     data.push({ ...p, selectable: false, depth: 0 });
     for (const c of p.configs) {
       data.push({ ...c, projectName: p.name, selectable: true, depth: 1 });

@@ -16,7 +16,7 @@ import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 
 export function HomePage() {
   const { projects, getProjects, createAndGoToProject } =
-    useGetOrCreateProjects();
+    useGetOrCreateProjects({ nested: true });
 
   useEffect(() => {
     getProjects();
@@ -55,7 +55,7 @@ function RightColumn({ projects, createAndGoToProject }) {
 
 function ProjectItems({ projects }) {
   const searchValue = useSearch((x) => x.value);
-  const filteredProjects = matchSorter(Object.values(projects), searchValue, {
+  const filteredProjects = matchSorter(projects, searchValue, {
     keys: ["name"],
   });
 
