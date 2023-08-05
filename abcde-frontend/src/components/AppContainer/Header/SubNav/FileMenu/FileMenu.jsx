@@ -1,4 +1,7 @@
-import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
+import {
+  createAndGoToProject,
+  useGetProjects,
+} from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import _ from "lodash";
 import { useProject } from "models/info/project";
@@ -21,8 +24,7 @@ import {
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
-  const { projects, getProjects, createAndGoToProject } =
-    useGetOrCreateProjects({ nested: false });
+  const { projects, getProjects } = useGetProjects({ nested: false });
   const [modalType, setModalType] = useState("");
   const [open, setOpen] = useState(false);
   // const projects = convertRawProjectsToFolderFormat({
@@ -91,7 +93,6 @@ export function FileMenu() {
       >
         <MenuDropdown trigger="File">
           <Items
-            createAndGoToProject={createAndGoToProject}
             openLoadModal={openLoadModal}
             openSaveAsModal={openSaveAsModal}
           />
@@ -101,7 +102,7 @@ export function FileMenu() {
   );
 }
 
-function Items({ createAndGoToProject, openLoadModal, openSaveAsModal }) {
+function Items({ openLoadModal, openSaveAsModal }) {
   return (
     <>
       <MenuItem
