@@ -1,4 +1,4 @@
-import { dbGetSections } from "dbRequests/sections";
+import { dbGetSectionList } from "dbRequests/sections";
 import { useOnClickAddSection } from "hooks/useCreateSectionOrDeck";
 import { useState } from "react";
 import { Item } from "utils/atoms/dropdown/item";
@@ -18,8 +18,12 @@ export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
   const [open, setOpen] = useState(false);
   const [sections, setSections] = useState([]);
   async function openLoadModal() {
-    setSections(await dbGetSections());
+    setSections(await dbGetSectionList());
     setOpen(true);
+  }
+
+  function loadSection() {
+    console.log("load")
   }
 
   return (
@@ -28,6 +32,7 @@ export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
       folders={sections}
       title={"Load Section"}
       buttonText={"Load"}
+      onClickActionButton={loadSection}
       open={open}
       setOpen={setOpen}
     >
