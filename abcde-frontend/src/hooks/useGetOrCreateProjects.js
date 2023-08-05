@@ -22,8 +22,7 @@ export function useGetOrCreateProjects() {
   const createAndGoToProject = async ({ name }) => {
     const actualName = name ?? createProjectName();
     const { data: newProject } = await dbCreateProject({ name: actualName });
-    console.log("newProject", newProject)
-    setProjects((x) => [...x, newProject]);
+    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
     goToDefaultConfig(newProject);
   };
 
