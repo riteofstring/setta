@@ -47,7 +47,7 @@ function ModalContent({
   const [filename, setFilename] = useState("");
 
   function onClose() {
-    setSelected({});
+    setSelected(null);
     setFilename("");
   }
 
@@ -114,12 +114,12 @@ function SaveBody({
 }) {
   function onChange(v) {
     setFilename(v);
-    setSelected((s) => {
-      if (s.foldername) {
-        return { ...s, filename: v };
-      }
-      return { filename: v };
-    });
+    // setSelected((s) => {
+    //   if (s.foldername) {
+    //     return { ...s, filename: v };
+    //   }
+    //   return { filename: v };
+    // });
   }
 
   // useEffect(() => {

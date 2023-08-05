@@ -2,26 +2,29 @@ import * as RadioGroup from "@radix-ui/react-radio-group";
 import React, { useRef } from "react";
 import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
 
-export const FileList = React.forwardRef(({ files, onClick }, ref) => {
-  return (
-    <div className="flex flex-grow flex-col" ref={ref}>
-      {files.map((x, idx) => {
-        return (
-          <File
-            id={x.id}
-            name={x.name}
-            onClick={onClick}
-            key={`File ${idx} ${x}`}
-            depth={x.depth ?? 0}
-            selectable={x.selectable ?? true}
-          />
-        );
-      })}
-    </div>
-  );
-});
+export const FileList = React.forwardRef(
+  ({ files, onClick, onFolderDoubleClick }, ref) => {
+    return (
+      <div className="flex flex-grow flex-col" ref={ref}>
+        {files.map((x, idx) => {
+          return (
+            <File
+              id={x.id}
+              name={x.name}
+              onClick={onClick}
+              key={`File ${idx} ${x}`}
+              depth={x.depth ?? 0}
+              selectable={x.selectable ?? true}
+              onFolderDoubleClick={onFolderDoubleClick}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+);
 
-function File({ id, name, onClick, depth, selectable }) {
+function File({ id, name, onClick, depth, selectable, onFolderDoubleClick }) {
   const itemRef = useRef(null);
 
   function _onClick() {
@@ -36,7 +39,7 @@ function File({ id, name, onClick, depth, selectable }) {
     <RadioGroup.Item
       value={id}
       ref={itemRef}
-      onClick={_onClick}
+      // onClick={_onClick}
       style={{ marginLeft: `${1.5 * depth}rem` }}
       className={`flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-slate-100 focus-visible:ring-1 dark:hover:bg-slate-900`}
     >
