@@ -1,5 +1,5 @@
 import { NO_AUTH } from "utils/constants";
-import { noAuthGetSections } from "./noAuth/sections";
+import { noAuthGetSections, noAuthLoadSection } from "./noAuth/sections";
 
 export async function dbGetSections() {
   if (NO_AUTH) {
@@ -11,4 +11,10 @@ export async function dbGetSections() {
   //   address: SECTIONS,
   //   withCredentials: true,
   // });
+}
+
+export async function dbLoadSection({ sectionId }) {
+  if (NO_AUTH) {
+    return await noAuthLoadSection({ sectionId });
+  }
 }

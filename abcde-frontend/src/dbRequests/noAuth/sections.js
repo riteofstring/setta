@@ -13,18 +13,32 @@ export async function noAuthGetSections() {
         configName: c.name,
         name: "Sections",
       });
-      for (const [idx, s] of Object.entries(Object.values(sections))) {
-        // TODO get rid of condition once we have scrollbar in file menu
-        if (idx < 5) {
-          output.push({
-            id: s.id,
-            name: s.name,
-            selectable: true,
-            depth: 2,
-          });
-        }
+      for (const s of Object.values(sections)) {
+        output.push({
+          id: s.id,
+          name: s.name,
+          selectable: true,
+          depth: 2,
+        });
       }
     }
   }
   return output;
+}
+
+export async function noAuthLoadSection({ sectionId }) {
+  const projectMetadata = await loadAllProjectMetadata();
+  for (const p of Object.values(projectMetadata)) {
+    for (const c of p.configs) {
+      if (sectionId in c.children) {
+        const sections = await loadSpecificTestData({
+          projectName: p.name,
+          configName: c.name,
+          name: "Sections",
+        });
+        return { ...sections[sectionId], currChildren: [] };
+      }
+    }
+  }
+  return {};
 }
