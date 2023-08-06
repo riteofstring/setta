@@ -3,7 +3,7 @@ import React, { useRef } from "react";
 import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
 
 export const FileList = React.forwardRef(
-  ({ files, onClick, onFolderDoubleClick }, ref) => {
+  ({ files, onClick, onFolderDoubleClick, onFileDoubleClick }, ref) => {
     return (
       <div className="flex flex-grow flex-col" ref={ref}>
         {files.map((x, idx) => {
@@ -16,6 +16,7 @@ export const FileList = React.forwardRef(
               depth={x.depth ?? 0}
               selectable={x.selectable ?? true}
               onFolderDoubleClick={onFolderDoubleClick}
+              onFileDoubleClick={onFileDoubleClick}
             />
           );
         })}
@@ -24,14 +25,29 @@ export const FileList = React.forwardRef(
   }
 );
 
-function File({ id, name, onClick, depth, selectable, onFolderDoubleClick }) {
+function File({
+  id,
+  name,
+  onClick,
+  depth,
+  selectable,
+  onFolderDoubleClick,
+  onFileDoubleClick,
+}) {
   const itemRef = useRef(null);
 
-  function _onClick() {
-    const isChecked =
-      itemRef.current?.attributes["data-state"]?.value === "checked";
-    if (isChecked) {
-      onClick(null);
+  function _onClick(e) {
+    // single click
+    if (e.detail === 1) {
+      const isChecked =
+        itemRef.current?.attributes["data-state"]?.value === "checked";
+      if (isChecked) {
+        onClick(null);
+      }
+    }
+    // double click
+    else if (e.detail === 2) {
+      onFileDoubleClick(id);
     }
   }
 

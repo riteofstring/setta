@@ -9,6 +9,7 @@ export function FileExplorer({
   onSelectedChange,
   title,
   onFolderDoubleClick,
+  onFileDoubleClick,
 }) {
   return (
     <>
@@ -34,6 +35,7 @@ export function FileExplorer({
           files={files}
           onClick={onSelectedChange}
           onFolderDoubleClick={onFolderDoubleClick}
+          onFileDoubleClick={onFileDoubleClick}
         />
       </RadioGroup.Root>
     </>

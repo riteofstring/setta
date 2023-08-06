@@ -27,6 +27,7 @@ export function SaveLoadModal({
           title={title}
           buttonText={buttonText}
           placeholder={placeholder}
+          setOpen={setOpen}
         />
       }
     >
@@ -42,6 +43,7 @@ function ModalContent({
   title,
   buttonText,
   placeholder,
+  setOpen,
 }) {
   const [selected, setSelected] = useState(null);
   const [folder, setFolder] = useState(null);
@@ -74,8 +76,14 @@ function ModalContent({
     setFilename("");
   }
 
-  function onClick() {
+  function onButtonClick() {
     onClickActionButton({ selected, folder, filename });
+    onClose();
+  }
+
+  function onFileDoubleClick(id) {
+    onClickActionButton({ selected: id });
+    setOpen(false);
     onClose();
   }
 
@@ -87,12 +95,17 @@ function ModalContent({
         selected={selected}
         onSelectedChange={onSelectedChange}
         onFolderDoubleClick={onFolderDoubleClick}
+        onFileDoubleClick={onFileDoubleClick}
         onFilenameChange={onFilenameChange}
         filename={filename}
         title={title}
         placeholder={placeholder}
       />
-      <Footer buttonText={buttonText} onClose={onClose} onClick={onClick} />
+      <Footer
+        buttonText={buttonText}
+        onClose={onClose}
+        onClick={onButtonClick}
+      />
     </>
   );
 }
@@ -103,6 +116,7 @@ function Body({
   selected,
   onSelectedChange,
   onFolderDoubleClick,
+  onFileDoubleClick,
   onFilenameChange,
   filename,
   title,
@@ -114,6 +128,7 @@ function Body({
       selected={selected}
       onSelectedChange={onSelectedChange}
       onFolderDoubleClick={onFolderDoubleClick}
+      onFileDoubleClick={onFileDoubleClick}
       title={title}
     />
   ) : (
@@ -122,6 +137,7 @@ function Body({
       selected={selected}
       onSelectedChange={onSelectedChange}
       onFolderDoubleClick={onFolderDoubleClick}
+      onFileDoubleClick={onFileDoubleClick}
       onFilenameChange={onFilenameChange}
       filename={filename}
       title={title}
@@ -135,6 +151,7 @@ function SaveBody({
   selected,
   onSelectedChange,
   onFolderDoubleClick,
+  onFileDoubleClick,
   onFilenameChange,
   filename,
   title,
@@ -147,6 +164,7 @@ function SaveBody({
         selected={selected}
         onSelectedChange={onSelectedChange}
         onFolderDoubleClick={onFolderDoubleClick}
+        onFileDoubleClick={onFileDoubleClick}
         title={title}
       />
       <div className="px-3">
