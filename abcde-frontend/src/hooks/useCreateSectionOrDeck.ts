@@ -1,7 +1,9 @@
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
+import { addSectionsToState } from "thunks/sections/createSectionInfo";
 import { moveSections } from "thunks/sections/sectionOps";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 
 export function useCreateDeck() {
@@ -55,5 +57,18 @@ export function useOnClickAddSection() {
       callbackBeforeExit,
       incrementVersion,
     });
+  };
+}
+
+export function useLoadSectionIntoState() {
+  const getPosition = useMouseToReactFlowPosition();
+
+  return ({ sectionInfo, x, y, callbackBeforeExit, incrementVersion }) => {
+    // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
+    const topLevelPosition = getPosition(x, y);
+
+    addSectionsToState({ [sectionInfo.id]: sectionInfo }, topLevelPosition);
+    callbackBeforeExit();
+    maybeIncrementProjectStateVersion(incrementVersion);
   };
 }
