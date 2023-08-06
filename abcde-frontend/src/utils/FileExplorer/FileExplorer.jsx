@@ -10,12 +10,24 @@ export function FileExplorer({
   title,
   onFolderDoubleClick,
   onFileDoubleClick,
+  breadCrumb,
+  onBreadCrumbClick,
 }) {
   return (
     <>
       <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-slate-400">
         {title}
       </Dialog.Title>
+
+      {breadCrumb.map((f, idx) => (
+        <Button
+          key={`breadCrumb-${idx}`}
+          twClasses="mr-10"
+          onClick={() => onBreadCrumbClick(idx)}
+        >
+          {f.name}
+        </Button>
+      ))}
 
       <div className="mx-3 mb-2 flex justify-between border-b border-solid border-slate-200 pb-2">
         <Button twClasses="text-xs text-slate-400 hover:text-slate-900 rounded-md ring-0">

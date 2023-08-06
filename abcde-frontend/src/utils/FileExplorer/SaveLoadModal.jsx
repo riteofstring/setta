@@ -49,14 +49,24 @@ function ModalContent({
   const [folder, setFolder] = useState(null);
   const [filename, setFilename] = useState("");
   const [currFiles, setCurrFiles] = useState(files);
+  const [breadCrumb, setBreadCrumb] = useState([]);
+
+  useEffect(() => {
+    setCurrFiles(files);
+  }, [files]);
 
   function getFilenameFromId(id) {
     return files.find((f) => f.id === id)?.name ?? "";
   }
 
   function onFolderDoubleClick(id) {
-    const newCurrFiles = getFolderContents({ files, folder: id });
-    setCurrFiles(newCurrFiles);
+    if (id === null) {
+      setCurrFiles(files);
+      setBreadCrumb([]);
+    } else {
+      setCurrFiles(getFolderContents({ files, folder: id }));
+      setBreadCrumb(getBreadCrumb({ files, folder: id }));
+    }
     setFolder(id);
   }
 
@@ -69,10 +79,6 @@ function ModalContent({
     setSelected(v);
     setFilename(getFilenameFromId(v));
   }
-
-  useEffect(() => {
-    setCurrFiles(files);
-  }, [files]);
 
   function onClose() {
     setSelected(null);
@@ -91,6 +97,10 @@ function ModalContent({
     onClose();
   }
 
+  function onBreadCrumbClick(idx) {
+    onFolderDoubleClick(breadCrumb[idx].id);
+  }
+
   return (
     <>
       <Body
@@ -104,6 +114,8 @@ function ModalContent({
         filename={filename}
         title={title}
         placeholder={placeholder}
+        breadCrumb={breadCrumb}
+        onBreadCrumbClick={onBreadCrumbClick}
       />
       <Footer
         buttonText={buttonText}
@@ -125,6 +137,8 @@ function Body({
   filename,
   title,
   placeholder,
+  breadCrumb,
+  onBreadCrumbClick,
 }) {
   return modalType === "Load" ? (
     <FileExplorer
@@ -134,6 +148,8 @@ function Body({
       onFolderDoubleClick={onFolderDoubleClick}
       onFileDoubleClick={onFileDoubleClick}
       title={title}
+      breadCrumb={breadCrumb}
+      onBreadCrumbClick={onBreadCrumbClick}
     />
   ) : (
     <SaveBody
@@ -146,6 +162,8 @@ function Body({
       filename={filename}
       title={title}
       placeholder={placeholder}
+      breadCrumb={breadCrumb}
+      onBreadCrumbClick={onBreadCrumbClick}
     />
   );
 }
@@ -160,6 +178,8 @@ function SaveBody({
   filename,
   title,
   placeholder,
+  breadCrumb,
+  onBreadCrumbClick,
 }) {
   return (
     <>
@@ -170,6 +190,8 @@ function SaveBody({
         onFolderDoubleClick={onFolderDoubleClick}
         onFileDoubleClick={onFileDoubleClick}
         title={title}
+        breadCrumb={breadCrumb}
+        onBreadCrumbClick={onBreadCrumbClick}
       />
       <div className="px-3">
         <FileNameInput
@@ -216,4 +238,20 @@ function getFolderContents({ files, folder }) {
     }
   }
   return contents;
+}
+
+function getBreadCrumb({ files, folder }) {
+  let parents = [];
+  for (const f of files) {
+    const depth = f.depth;
+    if (parents[depth]) {
+      parents = parents.slice(0, depth);
+    }
+    parents[depth] = { id: f.id, name: f.name };
+    if (f.id === folder) {
+      break;
+    }
+  }
+  parents.unshift({ id: null, name: "All Files" });
+  return parents;
 }
