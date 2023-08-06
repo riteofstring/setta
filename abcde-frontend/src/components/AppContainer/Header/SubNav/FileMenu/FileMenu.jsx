@@ -1,6 +1,6 @@
 import {
   createAndGoToProject,
-  useGetProjects,
+  useGetProjectsForFileMenu,
 } from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import { useProject } from "models/info/project";
@@ -23,23 +23,19 @@ import {
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
-  const { projects, getProjects } = useGetProjects({ nested: false });
+  const { projects, getProjects } = useGetProjectsForFileMenu();
   const [modalType, setModalType] = useState("");
   const [open, setOpen] = useState(false);
-  // const projects = convertRawProjectsToFolderFormat({
-  //   rawProjects,
-  //   modalType,
-  // });
 
   async function openLoadModal() {
     setModalType("Load");
-    getProjects();
+    getProjects({});
     setOpen(true);
   }
 
   async function openSaveAsModal() {
     setModalType("Save As");
-    getProjects();
+    getProjects({ projectId: useProject.getState().id });
     setOpen(true);
   }
 
@@ -119,17 +115,4 @@ function Items({ openLoadModal, openSaveAsModal }) {
       </MenuItem>
     </>
   );
-}
-
-function convertRawProjectsToFolderFormat({ rawProjects, modalType }) {
-  const projects = Object.values(rawProjects).map((x) => ({
-    name: x.name,
-    files: x.configs.map((c) => c.name),
-  }));
-  if (modalType === "Save As") {
-    const currProjectName = useProject.getState().name;
-    const currProject = projects.find((x) => x.name === currProjectName);
-    return currProject ? [currProject] : [];
-  }
-  return projects;
 }

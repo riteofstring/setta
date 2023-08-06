@@ -1,6 +1,6 @@
 import {
   createAndGoToProject,
-  useGetProjects,
+  useGetProjectsForHomePage,
 } from "hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
 import { useSearch } from "models/search";
@@ -18,7 +18,7 @@ import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 
 export function HomePage() {
-  const { projects, getProjects } = useGetProjects({ nested: true });
+  const { projects, getProjects } = useGetProjectsForHomePage();
 
   useEffect(() => {
     getProjects();

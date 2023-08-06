@@ -1,4 +1,4 @@
-import { dbCreateProject, dbGetProjects } from "dbRequests/projects";
+import { dbCreateProject, dbGetProjectsForFileMenu, dbGetProjectsForHomePage } from "dbRequests/projects";
 import { useUser } from "models/user";
 import { useState } from "react";
 import {
@@ -10,16 +10,23 @@ import {
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
-export function useGetProjects({ nested }) {
+function useGetProjects(getter) {
   const [projects, setProjects] = useState([]);
-  async function getProjects() {
-    const res = await dbGetProjects({ nested });
+  async function getProjects(props) {
+    const res = await getter(props);
     if (res.status === 200) {
       setProjects(res.data);
     }
   }
-
   return { projects, getProjects };
+}
+
+export function useGetProjectsForFileMenu() {
+  return useGetProjects(dbGetProjectsForFileMenu);
+}
+
+export function useGetProjectsForHomePage() {
+  return useGetProjects(dbGetProjectsForHomePage);
 }
 
 export async function createAndGoToProject({ name }) {
