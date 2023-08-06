@@ -1,22 +1,33 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import _ from "lodash";
-import React from "react";
 import { Button } from "../../utils/atoms/buttons/Button";
-import { FileList, FolderAndFiles } from "./FileListing";
+import { FileList } from "./FileListing";
 
-export function FileExplorer({ folders, files, selected, setSelected, title }) {
-  function onChange(v) {
-    if (v) {
-      setSelected(JSON.parse(v));
-    }
-  }
-
+export function FileExplorer({
+  files,
+  selected,
+  onSelectedChange,
+  title,
+  onFolderDoubleClick,
+  onFileDoubleClick,
+  breadCrumb,
+  onBreadCrumbClick,
+}) {
   return (
     <>
       <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-slate-400">
         {title}
       </Dialog.Title>
+
+      {breadCrumb.map((f, idx) => (
+        <Button
+          key={`breadCrumb-${idx}`}
+          twClasses="mr-10"
+          onClick={() => onBreadCrumbClick(idx)}
+        >
+          {f.name}
+        </Button>
+      ))}
 
       <div className="mx-3 mb-2 flex justify-between border-b border-solid border-slate-200 pb-2">
         <Button twClasses="text-xs text-slate-400 hover:text-slate-900 rounded-md ring-0">
@@ -28,26 +39,17 @@ export function FileExplorer({ folders, files, selected, setSelected, title }) {
       </div>
 
       <RadioGroup.Root
-        value={JSON.stringify(selected)}
-        onValueChange={onChange}
+        value={selected}
+        onValueChange={onSelectedChange}
         asChild
       >
-        <FoldersOrFiles folders={folders} files={files} onChange={onChange} />
+        <FileList
+          files={files}
+          onClick={onSelectedChange}
+          onFolderDoubleClick={onFolderDoubleClick}
+          onFileDoubleClick={onFileDoubleClick}
+        />
       </RadioGroup.Root>
     </>
   );
 }
-
-const FoldersOrFiles = React.forwardRef(({ folders, files, onChange }, ref) => {
-  return (
-    <div ref={ref}>
-      {folders ? (
-        _.map(folders, (x, idx) => (
-          <FolderAndFiles folder={x} key={`Folder ${idx}`} onClick={onChange} />
-        ))
-      ) : (
-        <FileList files={files} onClick={onChange} />
-      )}
-    </div>
-  );
-});
