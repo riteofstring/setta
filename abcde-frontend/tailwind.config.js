@@ -4,8 +4,8 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
-      "colors": {
-        "runcoder": {
+      colors: {
+        runcoder: {
           50: "#EFF1F6",
           100: "#DCE1EA",
           200: "#B8C2D5",
@@ -16,8 +16,12 @@ module.exports = {
           700: "#2D384D",
           800: "#1A202C",
           900: "#0D1016",
-          950: "#06070A"
-        }
+          950: "#06070A",
+        },
+        rcbg: {
+          light: "#94a3b8",
+          dark: "#14161F",
+        },
       },
       fontFamily: {
         body: ["Inter", "sans-serif"],

@@ -82,7 +82,7 @@ function _SectionsPane({ initialNodes, viewport }) {
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
-      className="bg-[#94a3b8] dark:bg-[#14161F]"
+      className="rcbg-light dark:rcbg-dark"
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}
