@@ -3,7 +3,6 @@ import {
   useGetProjects,
 } from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
-import _ from "lodash";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useUser } from "models/user";
@@ -46,8 +45,8 @@ export function FileMenu() {
 
   useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
-  function onClickLoadProject(selectedId) {
-    const configInfo = projects.find((x) => x.id === selectedId);
+  function onClickLoadProject({ selected }) {
+    const configInfo = projects.find((x) => x.id === selected);
     if (configInfo) {
       const { name, projectName } = configInfo;
       const username = useUser.getState().username;
@@ -57,25 +56,21 @@ export function FileMenu() {
     }
   }
 
-  async function onClickSaveAsProject(selected, newConfigName) {
-    const { foldername: projectName, filename: configName } = selected;
-    const currProjectName = useProject.getState().name;
-    const currConfigName = useProjectConfig.getState().name;
-    const currProject = _.find(projects, (x) => x.name === currProjectName);
-    if (configName === currConfigName) {
+  async function onClickSaveAsProject({ selected, folder, filename }) {
+    if (selected === useProjectConfig.getState().id) {
       saveProject();
     } else {
-      const matchingConfig = currProject.files.find((x) => x === configName);
-      matchingConfig
+      selected
         ? await saveAsExistingProjectConfig({
-            configName: matchingConfig,
+            configName: filename,
           })
         : await saveAsNewProjectConfig({
-            newConfigName,
+            newConfigName: filename,
           });
 
       const username = useUser.getState().username;
-      router.navigate(`${username}/${projectName}/${configName}`, {
+      const projectName = projects.find((x) => x.id === folder).name;
+      router.navigate(`${username}/${projectName}/${filename}`, {
         state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
       });
     }

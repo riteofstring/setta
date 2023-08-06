@@ -26,6 +26,5 @@ export async function noAuthGetSections() {
       }
     }
   }
-  console.log("");
   return output;
 }

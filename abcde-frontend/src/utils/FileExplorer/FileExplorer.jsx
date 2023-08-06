@@ -3,7 +3,13 @@ import * as RadioGroup from "@radix-ui/react-radio-group";
 import { Button } from "../../utils/atoms/buttons/Button";
 import { FileList } from "./FileListing";
 
-export function FileExplorer({ files, selected, setSelected, title }) {
+export function FileExplorer({
+  files,
+  selected,
+  onSelectedChange,
+  title,
+  onFolderDoubleClick,
+}) {
   return (
     <>
       <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-slate-400">
@@ -19,8 +25,16 @@ export function FileExplorer({ files, selected, setSelected, title }) {
         </Button>
       </div>
 
-      <RadioGroup.Root value={selected} onValueChange={setSelected} asChild>
-        <FileList files={files} onClick={setSelected} />
+      <RadioGroup.Root
+        value={selected}
+        onValueChange={onSelectedChange}
+        asChild
+      >
+        <FileList
+          files={files}
+          onClick={onSelectedChange}
+          onFolderDoubleClick={onFolderDoubleClick}
+        />
       </RadioGroup.Root>
     </>
   );

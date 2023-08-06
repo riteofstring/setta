@@ -2,33 +2,36 @@ import * as RadioGroup from "@radix-ui/react-radio-group";
 import React, { useRef } from "react";
 import { HiCheckCircle, HiOutlineFolder } from "react-icons/hi";
 
-export const FileList = React.forwardRef(({ files, onClick }, ref) => {
-  return (
-    <div className="flex flex-grow flex-col" ref={ref}>
-      {files.map((x, idx) => {
-        return (
-          <File
-            id={x.id}
-            name={x.name}
-            onClick={onClick}
-            key={`File ${idx} ${x}`}
-            depth={x.depth ?? 0}
-            selectable={x.selectable ?? true}
-          />
-        );
-      })}
-    </div>
-  );
-});
+export const FileList = React.forwardRef(
+  ({ files, onClick, onFolderDoubleClick }, ref) => {
+    return (
+      <div className="flex flex-grow flex-col" ref={ref}>
+        {files.map((x, idx) => {
+          return (
+            <File
+              id={x.id}
+              name={x.name}
+              onClick={onClick}
+              key={`File ${idx} ${x}`}
+              depth={x.depth ?? 0}
+              selectable={x.selectable ?? true}
+              onFolderDoubleClick={onFolderDoubleClick}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+);
 
-function File({ id, name, onClick, depth, selectable }) {
+function File({ id, name, onClick, depth, selectable, onFolderDoubleClick }) {
   const itemRef = useRef(null);
 
   function _onClick() {
     const isChecked =
       itemRef.current?.attributes["data-state"]?.value === "checked";
     if (isChecked) {
-      onClick(id);
+      onClick(null);
     }
   }
 
@@ -54,6 +57,7 @@ function File({ id, name, onClick, depth, selectable }) {
     <div
       style={{ marginLeft: `${1.5 * depth}rem` }}
       className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2"
+      onDoubleClick={() => onFolderDoubleClick(id)}
     >
       <HiOutlineFolder className="text-slate-400 group-hover:text-slate-800" />
       <div className="flex flex-grow justify-between bg-white dark:bg-slate-800">

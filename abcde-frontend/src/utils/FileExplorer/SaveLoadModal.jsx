@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { ModalContainer } from "utils/ModalContainer/ModalContainer";
 import { FileExplorer } from "./FileExplorer";
@@ -44,15 +44,38 @@ function ModalContent({
   placeholder,
 }) {
   const [selected, setSelected] = useState(null);
+  const [folder, setFolder] = useState(null);
   const [filename, setFilename] = useState("");
+  const [currFiles, setCurrFiles] = useState(files);
+
+  function onFolderDoubleClick(id) {
+    const newCurrFiles = getFolderContents({ files, folder: id });
+    setCurrFiles(newCurrFiles);
+    setFolder(id);
+  }
+
+  function onFilenameChange(v) {
+    setFilename(v);
+    setSelected(files.find((f) => f.name === v)?.id ?? null);
+  }
+
+  function onSelectedChange(v) {
+    setSelected(v);
+    setFilename(files.find((f) => f.id === v)?.name ?? "");
+  }
+
+  useEffect(() => {
+    setCurrFiles(files);
+  }, [files]);
 
   function onClose() {
-    setSelected({});
+    setSelected(null);
+    setFolder(null);
     setFilename("");
   }
 
   function onClick() {
-    onClickActionButton(selected, filename);
+    onClickActionButton({ selected, folder, filename });
     onClose();
   }
 
@@ -60,11 +83,12 @@ function ModalContent({
     <>
       <Body
         modalType={modalType}
-        files={files}
+        files={currFiles}
         selected={selected}
-        setSelected={setSelected}
+        onSelectedChange={onSelectedChange}
+        onFolderDoubleClick={onFolderDoubleClick}
+        onFilenameChange={onFilenameChange}
         filename={filename}
-        setFilename={setFilename}
         title={title}
         placeholder={placeholder}
       />
@@ -77,9 +101,10 @@ function Body({
   modalType,
   files,
   selected,
-  setSelected,
+  onSelectedChange,
+  onFolderDoubleClick,
+  onFilenameChange,
   filename,
-  setFilename,
   title,
   placeholder,
 }) {
@@ -87,16 +112,18 @@ function Body({
     <FileExplorer
       files={files}
       selected={selected}
-      setSelected={setSelected}
+      onSelectedChange={onSelectedChange}
+      onFolderDoubleClick={onFolderDoubleClick}
       title={title}
     />
   ) : (
     <SaveBody
       files={files}
       selected={selected}
-      setSelected={setSelected}
+      onSelectedChange={onSelectedChange}
+      onFolderDoubleClick={onFolderDoubleClick}
+      onFilenameChange={onFilenameChange}
       filename={filename}
-      setFilename={setFilename}
       title={title}
       placeholder={placeholder}
     />
@@ -106,39 +133,27 @@ function Body({
 function SaveBody({
   files,
   selected,
-  setSelected,
+  onSelectedChange,
+  onFolderDoubleClick,
+  onFilenameChange,
   filename,
-  setFilename,
   title,
   placeholder,
 }) {
-  function onChange(v) {
-    setFilename(v);
-    setSelected((s) => {
-      if (s.foldername) {
-        return { ...s, filename: v };
-      }
-      return { filename: v };
-    });
-  }
-
-  // useEffect(() => {
-  //   setFilename(selected.filename ?? "");
-  // }, [selected]);
-
   return (
     <>
       <FileExplorer
         files={files}
         selected={selected}
-        setSelected={setSelected}
+        onSelectedChange={onSelectedChange}
+        onFolderDoubleClick={onFolderDoubleClick}
         title={title}
       />
       <div className="px-3">
         <FileNameInput
           placeholder={placeholder}
           value={filename}
-          onChange={onChange}
+          onChange={onFilenameChange}
         />
       </div>
     </>
@@ -165,4 +180,18 @@ function Footer({ onClose, onClick, buttonText }) {
       </DialogCloseButton>
     </div>
   );
+}
+
+function getFolderContents({ files, folder }) {
+  const idx = files.findIndex((f) => f.id == folder);
+  const depthAtIdx = files[idx].depth;
+  const contents = [];
+  for (const f of files.slice(idx + 1)) {
+    if (f.depth > depthAtIdx) {
+      contents.push({ ...f, depth: f.depth - 1 });
+    } else {
+      break;
+    }
+  }
+  return contents;
 }
