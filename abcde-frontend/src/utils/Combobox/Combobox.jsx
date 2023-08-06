@@ -15,7 +15,7 @@ export function ComboboxInput({
 
   return (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-slate-900 rounded-full shadow-sm text-sm pl-10 focus-visible:border-white dark:text-slate-200 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-slate-800 ${
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-rc-900 rounded-full shadow-sm text-sm pl-10 focus-visible:border-white dark:text-rc-200 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-rc-800 ${
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
@@ -44,7 +44,7 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[150px] p-3 ${display} ${position} z-20 mt-2 max-h-96  rounded-3xl bg-white shadow-xl dark:bg-slate-700 dark:text-slate-200`}
+      className={`nowheel nodrag relative w-full min-w-[150px] p-3 ${display} ${position} z-20 mt-2 max-h-96  rounded-3xl bg-white shadow-xl dark:bg-rc-700 dark:text-rc-200`}
       {...getMenuProps()}
       style={{ width }}
     >

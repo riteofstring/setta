@@ -62,7 +62,7 @@ export function Incrementer({
     <Tooltip.Provider>
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div className="flex max-w-xs gap-1 rounded-lg bg-slate-200 py-1 px-2 dark:bg-slate-900">
+          <div className="flex max-w-xs gap-1 rounded-lg bg-slate-200 py-1 px-2 dark:bg-rc-900">
             {isRoot ? (
               <p className="text-xs font-bold text-slate-500">Children</p>
             ) : (
@@ -71,14 +71,14 @@ export function Incrementer({
             {isRoot && <FiCornerRightDown className="mr-1 text-slate-600" />}
 
             <input
-              className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-slate-800 dark:text-slate-300"
+              className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-rc-800 dark:text-rc-300"
               value={numSections}
               onChange={(e) => numSectionsOnChange(e.target.value)}
               aria-label="Number of sections"
             />
 
             <button
-              className="nodrag rounded-full focus-visible:ring-2 dark:text-slate-300"
+              className="nodrag rounded-full focus-visible:ring-2 dark:text-rc-300"
               onClick={() => deleteChildren(numSections)}
               disabled={!decrementButtonCondition()}
               aria-label="Delete child section"
@@ -88,7 +88,7 @@ export function Incrementer({
             </button>
 
             <button
-              className="nodrag rounded-full focus-visible:ring-2 dark:text-slate-300"
+              className="nodrag rounded-full focus-visible:ring-2 dark:text-rc-300"
               onClick={() => addSections(numSections)}
               aria-label="Add child section"
               role="button"
@@ -98,7 +98,7 @@ export function Incrementer({
           </div>
         </Tooltip.Trigger>
         <Tooltip.Portal>
-          <Tooltip.Content className="z-30 rounded-md bg-white px-3 py-2 text-xs font-bold shadow-md dark:bg-slate-800">
+          <Tooltip.Content className="z-30 rounded-md bg-white px-3 py-2 text-xs font-bold shadow-md dark:bg-rc-800">
             {isRoot ? "Add / Remove Children" : "Add / Remove Siblings"}
 
             <Tooltip.Arrow className="[fill:white]" />

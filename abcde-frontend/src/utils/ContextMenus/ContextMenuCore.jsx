@@ -8,7 +8,7 @@ export function ContextMenuCore({ children, x, y, isOpen, closeContextMenu }) {
     <div ref={ref}>
       <DropdownMenu.Root open={isOpen} modal={false}>
         <DropdownMenu.Content
-          className="absolute z-10 flex w-[clamp(5rem,_20vw,_10rem)] cursor-pointer flex-col gap-1 rounded-md bg-white px-2 py-2 shadow-xl dark:bg-slate-800"
+          className="absolute z-10 flex w-[clamp(5rem,_20vw,_10rem)] cursor-pointer flex-col gap-1 rounded-md bg-white px-2 py-2 shadow-xl dark:bg-rc-800"
           style={{
             left: x,
             top: y,

@@ -36,7 +36,7 @@ function _Container({
           <DeckSectionTitle sectionId={sectionId} />
         </div>
         {!hasNested && (
-          <div className="z-10 -mx-4 mt-4 flex items-center justify-center rounded-xl border-4 border-dashed border-slate-300 py-3 px-4 text-slate-300 dark:border-slate-800 dark:text-white">
+          <div className="z-10 -mx-4 mt-4 flex items-center justify-center rounded-xl border-4 border-dashed border-slate-300 py-3 px-4 text-slate-300 dark:border-rc-800 dark:text-white">
             Drop A Card Here.
           </div>
         )}

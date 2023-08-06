@@ -60,7 +60,7 @@ function CardTitle({ sectionId, isActiveSection }) {
     notEditing: `transition-colors font-heading cursor-pointer font-semibold max-w-full truncate ${
       isActiveSection
         ? "text-blue-800 dark:text-blue-400"
-        : "text-slate-700 dark:text-slate-300"
+        : "text-slate-700 dark:text-rc-300"
     }`,
   };
 
