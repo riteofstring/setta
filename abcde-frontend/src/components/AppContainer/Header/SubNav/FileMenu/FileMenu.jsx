@@ -29,13 +29,13 @@ export function FileMenu() {
 
   async function openLoadModal() {
     setModalType("Load");
-    getProjects({});
+    await getProjects({});
     setOpen(true);
   }
 
   async function openSaveAsModal() {
     setModalType("Save As");
-    getProjects({ projectId: useProject.getState().id });
+    await getProjects({ projectId: useProject.getState().id });
     setOpen(true);
   }
 
