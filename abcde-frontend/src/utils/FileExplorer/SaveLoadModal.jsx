@@ -6,6 +6,7 @@ import { FileNameInput } from "./FileNameInput";
 
 export function SaveLoadModal({
   modalType,
+  folders,
   files,
   onClickActionButton,
   title,
@@ -22,12 +23,12 @@ export function SaveLoadModal({
       content={
         <ModalContent
           modalType={modalType}
+          folders={folders}
           files={files}
           onClickActionButton={onClickActionButton}
           title={title}
           buttonText={buttonText}
           placeholder={placeholder}
-          setOpen={setOpen}
         />
       }
     >
@@ -38,129 +39,119 @@ export function SaveLoadModal({
 
 function ModalContent({
   modalType,
+  folders,
   files,
   onClickActionButton,
   title,
   buttonText,
   placeholder,
-  setOpen,
 }) {
-  const [selected, setSelected] = useState(null);
-  const [folder, setFolder] = useState(null);
+  const [selected, setSelected] = useState({});
   const [filename, setFilename] = useState("");
-  const [currFiles, setCurrFiles] = useState(files);
-  const [breadCrumb, setBreadCrumb] = useState([]);
-
-  useEffect(() => {
-    setCurrFiles(files);
-  }, [files]);
-
-  function getFilenameFromId(id) {
-    return files.find((f) => f.id === id)?.name ?? "";
-  }
-
-  function onFolderDoubleClick(id) {
-    if (id === null) {
-      setCurrFiles(files);
-      setBreadCrumb([]);
-    } else {
-      setCurrFiles(getFolderContents({ files, folder: id }));
-      setBreadCrumb(getBreadCrumb({ files, folder: id }));
-    }
-    setFolder(id);
-  }
-
-  function onFilenameChange(v) {
-    setFilename(v);
-    setSelected(files.find((f) => f.name === v)?.id ?? null);
-  }
-
-  function onSelectedChange(v) {
-    setSelected(v);
-    setFilename(getFilenameFromId(v));
-  }
 
   function onClose() {
-    setSelected(null);
-    setFolder(null);
+    setSelected({});
     setFilename("");
   }
 
-  function onButtonClick() {
-    onClickActionButton({ selected, folder, filename });
+  function onClick() {
+    onClickActionButton(selected, filename);
     onClose();
-  }
-
-  function onFileDoubleClick(id) {
-    onClickActionButton({ selected: id, filename: getFilenameFromId(id) });
-    setOpen(false);
-    onClose();
-  }
-
-  function onBreadCrumbClick(idx) {
-    onFolderDoubleClick(breadCrumb[idx].id);
   }
 
   return (
     <>
       <Body
         modalType={modalType}
-        files={currFiles}
+        folders={folders}
+        files={files}
         selected={selected}
-        onSelectedChange={onSelectedChange}
-        onFolderDoubleClick={onFolderDoubleClick}
-        onFileDoubleClick={onFileDoubleClick}
-        onFilenameChange={onFilenameChange}
+        setSelected={setSelected}
         filename={filename}
+        setFilename={setFilename}
         title={title}
         placeholder={placeholder}
-        breadCrumb={breadCrumb}
-        onBreadCrumbClick={onBreadCrumbClick}
       />
-      <Footer
-        buttonText={buttonText}
-        onClose={onClose}
-        onClick={onButtonClick}
-      />
+      <Footer buttonText={buttonText} onClose={onClose} onClick={onClick} />
     </>
   );
 }
 
 function Body({
   modalType,
+  folders,
   files,
   selected,
-  onSelectedChange,
-  onFolderDoubleClick,
-  onFileDoubleClick,
-  onFilenameChange,
+  setSelected,
   filename,
+  setFilename,
   title,
   placeholder,
-  breadCrumb,
-  onBreadCrumbClick,
 }) {
+  return modalType === "Load" ? (
+    <FileExplorer
+      folders={folders}
+      files={files}
+      selected={selected}
+      setSelected={setSelected}
+      title={title}
+    />
+  ) : (
+    <SaveBody
+      folders={folders}
+      files={files}
+      selected={selected}
+      setSelected={setSelected}
+      filename={filename}
+      setFilename={setFilename}
+      title={title}
+      placeholder={placeholder}
+    />
+  );
+}
+
+function SaveBody({
+  folders,
+  files,
+  selected,
+  setSelected,
+  filename,
+  setFilename,
+  title,
+  placeholder,
+}) {
+  function onChange(v) {
+    setFilename(v);
+    setSelected((s) => {
+      if (s.foldername) {
+        return { ...s, filename: v };
+      } else if (folders) {
+        return { foldername: folders[0].name, filename: v };
+      }
+      return { filename: v };
+    });
+  }
+
+  useEffect(() => {
+    setFilename(selected.filename ?? "");
+  }, [selected]);
+
   return (
     <>
       <FileExplorer
+        folders={folders}
         files={files}
         selected={selected}
-        onSelectedChange={onSelectedChange}
-        onFolderDoubleClick={onFolderDoubleClick}
-        onFileDoubleClick={onFileDoubleClick}
+        setSelected={setSelected}
         title={title}
-        breadCrumb={breadCrumb}
-        onBreadCrumbClick={onBreadCrumbClick}
       />
-      {modalType !== "Load" && (
-        <div className="px-3">
-          <FileNameInput
-            placeholder={placeholder}
-            value={filename}
-            onChange={onFilenameChange}
-          />
-        </div>
-      )}
+      <div className="px-3">
+        <FileNameInput
+          placeholder={placeholder}
+          value={filename}
+          onChange={onChange}
+        />
+      </div>
     </>
   );
 }
@@ -185,34 +176,4 @@ function Footer({ onClose, onClick, buttonText }) {
       </DialogCloseButton>
     </div>
   );
-}
-
-function getFolderContents({ files, folder }) {
-  const idx = files.findIndex((f) => f.id == folder);
-  const depthAtIdx = files[idx].depth;
-  const contents = [];
-  for (const f of files.slice(idx + 1)) {
-    if (f.depth > depthAtIdx) {
-      contents.push({ ...f, depth: f.depth - 1 });
-    } else {
-      break;
-    }
-  }
-  return contents;
-}
-
-function getBreadCrumb({ files, folder }) {
-  let parents = [];
-  for (const f of files) {
-    const depth = f.depth;
-    if (parents[depth]) {
-      parents = parents.slice(0, depth);
-    }
-    parents[depth] = { id: f.id, name: f.name };
-    if (f.id === folder) {
-      break;
-    }
-  }
-  parents.unshift({ id: null, name: "All Files" });
-  return parents;
 }

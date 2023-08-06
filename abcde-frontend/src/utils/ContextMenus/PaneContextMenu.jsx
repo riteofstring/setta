@@ -1,70 +1,25 @@
-import { dbGetSections, dbLoadSection } from "dbRequests/sections";
-import {
-  useLoadSectionIntoState,
-  useOnClickAddSection,
-} from "hooks/useCreateSectionOrDeck";
-import { useEffect, useState } from "react";
+import { useOnClickAddSection } from "hooks/useCreateSectionOrDeck";
 import { Item } from "utils/atoms/dropdown/item";
-import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
 import { ContextMenuCore } from "./ContextMenuCore";
 
-export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
-  useEffect(() => {
-    if (isOpen) {
-      setCoords({ x, y });
-    }
-  }, [isOpen]);
-
-  const onClickNewSection = useOnClickAddSection();
-  const loadSectionIntoState = useLoadSectionIntoState();
+export function PaneContextMenu({ x, y, closeContextMenu, ...props }) {
+  const onClick = useOnClickAddSection();
   const commonProps = {
-    ...coords,
+    x,
+    y,
     callbackBeforeExit: closeContextMenu,
     projectXY: true,
     incrementVersion: true,
   };
 
-  const [open, setOpen] = useState(false);
-  const [sections, setSections] = useState([]);
-  async function openLoadModal() {
-    setSections(await dbGetSections());
-    setOpen(true);
-  }
-
-  async function onClickLoadSection({ selected }) {
-    const sectionInfo = await dbLoadSection({ sectionId: selected });
-    loadSectionIntoState({ sectionInfo, ...commonProps });
-  }
-
   return (
-    <SaveLoadModal
-      modalType={"Load"}
-      files={sections}
-      title={"Load Section"}
-      buttonText={"Load"}
-      onClickActionButton={onClickLoadSection}
-      open={open}
-      setOpen={setOpen}
-    >
-      <ContextMenuCore
-        x={x}
-        y={y}
-        closeContextMenu={closeContextMenu}
-        isOpen={isOpen}
-      >
-        <Item
-          onClick={() => onClickNewSection({ isDeck: false, ...commonProps })}
-        >
-          New Section
-        </Item>
-        <Item
-          onClick={() => onClickNewSection({ isDeck: true, ...commonProps })}
-        >
-          New Group
-        </Item>
-        <Item onClick={openLoadModal}>Load Section</Item>
-      </ContextMenuCore>
-    </SaveLoadModal>
+    <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
+      <Item onClick={() => onClick({ isDeck: false, ...commonProps })}>
+        New Section
+      </Item>
+      <Item onClick={() => onClick({ isDeck: true, ...commonProps })}>
+        New Group
+      </Item>
+    </ContextMenuCore>
   );
 }

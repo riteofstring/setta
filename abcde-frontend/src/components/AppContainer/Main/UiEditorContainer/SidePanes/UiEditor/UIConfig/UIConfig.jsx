@@ -82,10 +82,10 @@ function _UIElement({ sectionId, paramInfo }) {
     });
   };
 
-  function onSaveAsSubmit({ filename }) {
+  function onSaveAsSubmit(presetName) {
     const newUIType = cloneNewUIType({
       uiType,
-      name: filename,
+      name: presetName,
       presetType: PresetType.USER,
     });
     setUIType({ uiType: newUIType });
