@@ -140,47 +140,6 @@ function Body({
   breadCrumb,
   onBreadCrumbClick,
 }) {
-  return modalType === "Load" ? (
-    <FileExplorer
-      files={files}
-      selected={selected}
-      onSelectedChange={onSelectedChange}
-      onFolderDoubleClick={onFolderDoubleClick}
-      onFileDoubleClick={onFileDoubleClick}
-      title={title}
-      breadCrumb={breadCrumb}
-      onBreadCrumbClick={onBreadCrumbClick}
-    />
-  ) : (
-    <SaveBody
-      files={files}
-      selected={selected}
-      onSelectedChange={onSelectedChange}
-      onFolderDoubleClick={onFolderDoubleClick}
-      onFileDoubleClick={onFileDoubleClick}
-      onFilenameChange={onFilenameChange}
-      filename={filename}
-      title={title}
-      placeholder={placeholder}
-      breadCrumb={breadCrumb}
-      onBreadCrumbClick={onBreadCrumbClick}
-    />
-  );
-}
-
-function SaveBody({
-  files,
-  selected,
-  onSelectedChange,
-  onFolderDoubleClick,
-  onFileDoubleClick,
-  onFilenameChange,
-  filename,
-  title,
-  placeholder,
-  breadCrumb,
-  onBreadCrumbClick,
-}) {
   return (
     <>
       <FileExplorer
@@ -193,13 +152,15 @@ function SaveBody({
         breadCrumb={breadCrumb}
         onBreadCrumbClick={onBreadCrumbClick}
       />
-      <div className="px-3">
-        <FileNameInput
-          placeholder={placeholder}
-          value={filename}
-          onChange={onFilenameChange}
-        />
-      </div>
+      {modalType !== "Load" && (
+        <div className="px-3">
+          <FileNameInput
+            placeholder={placeholder}
+            value={filename}
+            onChange={onFilenameChange}
+          />
+        </div>
+      )}
     </>
   );
 }
