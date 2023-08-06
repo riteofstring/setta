@@ -10,7 +10,7 @@ export function TemplateListPane() {
       }}
       maxWidth="50%"
       minWidth="400px"
-      className="flex flex-col overflow-y-auto overflow-x-hidden bg-slate-50 py-8 px-11 shadow-lg dark:bg-rc-900"
+      className="flex flex-col overflow-y-auto overflow-x-hidden bg-slate-50 py-8 px-11 shadow-lg dark:bg-runcoder-900"
       enable={{
         top: false,
         right: true,

@@ -23,7 +23,7 @@ export function HomePage() {
   }, []);
 
   return (
-    <GridWrapper gridStyles="bg-slate-100 dark:bg-rc-800">
+    <GridWrapper gridStyles="bg-slate-100 dark:bg-runcoder-800">
       <RightColumn
         projects={projects}
         createAndGoToProject={createAndGoToProject}
@@ -94,7 +94,7 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
           project={project}
           configs={configs}
         />
-        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-rc-900 ">
+        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-900 ">
           <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600 dark:text-slate-300">
             {name}
           </p>
@@ -107,11 +107,11 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
 
 function ThumbnailArea({ onClickConfigsButton, project, configs }) {
   return (
-    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4 dark:bg-rc-600">
+    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4 dark:bg-runcoder-600">
       <StandardDropdown
         trigger={
           <div
-            className="col-start-1 col-end-2 row-start-1 row-end-2 flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50 dark:bg-rc-700 dark:text-slate-300 dark:hover:bg-slate-500"
+            className="col-start-1 col-end-2 row-start-1 row-end-2 flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50 dark:bg-runcoder-700 dark:text-slate-300 dark:hover:bg-slate-500"
             onClick={onClickConfigsButton}
           >
             <BiGitBranch />
@@ -250,7 +250,7 @@ function BadgeNumPy() {
 }
 function BadgeML() {
   return (
-    <Badge twClasses="bg-slate-100 dark:bg-rc-800 text-slate-800 dark:text-rc-100 hover:bg-slate-200">
+    <Badge twClasses="bg-slate-100 dark:bg-runcoder-800 text-slate-800 dark:text-runcoder-100 hover:bg-slate-200">
       Machine Learning
     </Badge>
   );
