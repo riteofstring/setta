@@ -73,7 +73,7 @@ function GoBackButton({ sectionId }) {
   const onGoBackClick = () => goToParamConfigTab({ sectionId });
 
   const goBackBtnStyles =
-    "mt-2 border border-solid border-slate-300 font-bold text-sm justify-center text-slate-800 hover:bg-slate-200 dark:bg-slate-400 hover:text-slate-900 dark:hover:text-slate-200 py-1 px-2 rounded-md gap-1 select-none my-2 self-start";
+    "mt-2 border border-solid border-slate-300 font-bold text-sm justify-center text-slate-800 hover:bg-slate-200 dark:bg-runcoder-400 hover:text-slate-900 dark:hover:text-runcoder-200 py-1 px-2 rounded-md gap-1 select-none my-2 self-start";
 
   return cameFromUIConfig ? (
     <Button twClasses={goBackBtnStyles} onClick={onGoBackClick}>

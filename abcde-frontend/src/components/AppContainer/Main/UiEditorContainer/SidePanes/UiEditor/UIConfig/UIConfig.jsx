@@ -82,10 +82,10 @@ function _UIElement({ sectionId, paramInfo }) {
     });
   };
 
-  function onSaveAsSubmit({ filename }) {
+  function onSaveAsSubmit(presetName) {
     const newUIType = cloneNewUIType({
       uiType,
-      name: filename,
+      name: presetName,
       presetType: PresetType.USER,
     });
     setUIType({ uiType: newUIType });
@@ -102,7 +102,7 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-slate-200"
+      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-runcoder-200"
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">

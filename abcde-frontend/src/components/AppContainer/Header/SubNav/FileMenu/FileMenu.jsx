@@ -1,8 +1,6 @@
-import {
-  createAndGoToProject,
-  useGetProjectsForFileMenu,
-} from "hooks/useGetOrCreateProjects";
+import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
+import _ from "lodash";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useUser } from "models/user";
@@ -15,7 +13,7 @@ import {
 } from "thunks/save";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
-import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
+import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,
@@ -23,81 +21,89 @@ import {
 import { router } from "utils/Routes/router";
 
 export function FileMenu() {
-  const { projects, getProjects } = useGetProjectsForFileMenu();
+  const {
+    projects: rawProjects,
+    getProjects,
+    createAndGoToProject,
+  } = useGetOrCreateProjects();
   const [modalType, setModalType] = useState("");
   const [open, setOpen] = useState(false);
+  const projects = convertRawProjectsToFolderFormat({
+    rawProjects,
+    modalType,
+  });
 
   async function openLoadModal() {
     setModalType("Load");
-    await getProjects({});
+    getProjects();
     setOpen(true);
   }
 
   async function openSaveAsModal() {
     setModalType("Save As");
-    await getProjects({ projectId: useProject.getState().id });
+    getProjects();
     setOpen(true);
   }
 
   useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
-  function onClickLoadProject({ selected }) {
-    const configInfo = projects.find((x) => x.id === selected);
-    if (configInfo) {
-      const { name, projectName } = configInfo;
-      const username = useUser.getState().username;
-      router.navigate(`${username}/${projectName}/${name}`, {
-        state: { pageLoadType: NEW_PROJECT },
-      });
-    }
+  function onClickLoadProject(selected) {
+    const { foldername, filename } = selected;
+    const username = useUser.getState().username;
+    router.navigate(`${username}/${foldername}/${filename}`, {
+      state: { pageLoadType: NEW_PROJECT },
+    });
   }
 
-  async function onClickSaveAsProject({ selected, filename }) {
-    if (selected === useProjectConfig.getState().id) {
+  async function onClickSaveAsProject(selected, newConfigName) {
+    const { foldername: projectName, filename: configName } = selected;
+    const currProjectName = useProject.getState().name;
+    const currConfigName = useProjectConfig.getState().name;
+    const currProject = _.find(projects, (x) => x.name === currProjectName);
+    if (configName === currConfigName) {
       saveProject();
     } else {
-      selected
+      const matchingConfig = currProject.files.find((x) => x === configName);
+      matchingConfig
         ? await saveAsExistingProjectConfig({
-            configName: filename,
+            configName: matchingConfig,
           })
         : await saveAsNewProjectConfig({
-            newConfigName: filename,
+            newConfigName,
           });
 
       const username = useUser.getState().username;
-      const projectName = useProject.getState().name;
-      router.navigate(`${username}/${projectName}/${filename}`, {
+      router.navigate(`${username}/${projectName}/${configName}`, {
         state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
       });
     }
   }
 
-  const onClickActionButton =
-    modalType === "Load" ? onClickLoadProject : onClickSaveAsProject;
-  const title = modalType === "Load" ? "Load Project" : "Save Project As";
-
   return (
-    <SaveLoadModal
-      modalType={modalType}
-      files={projects}
-      onClickActionButton={onClickActionButton}
-      title={title}
-      buttonText={modalType}
-      placeholder="Config Name"
-      open={open}
-      setOpen={setOpen}
-    >
-      <MenuItems
-        openLoadModal={openLoadModal}
-        openSaveAsModal={openSaveAsModal}
-      />
-    </SaveLoadModal>
+    <>
+      <ProjectSaveLoadModal
+        modalType={modalType}
+        folders={projects}
+        onClickLoadProject={onClickLoadProject}
+        onClickSaveAsProject={onClickSaveAsProject}
+        open={open}
+        setOpen={setOpen}
+      >
+        <MenuDropdown trigger="File">
+          <Items
+            createAndGoToProject={createAndGoToProject}
+            openLoadModal={openLoadModal}
+            openSaveAsModal={openSaveAsModal}
+          />
+        </MenuDropdown>
+      </ProjectSaveLoadModal>
+    </>
   );
 }
 
-function MenuItems({ openLoadModal, openSaveAsModal }) {
+function Items({ createAndGoToProject, openLoadModal, openSaveAsModal }) {
   return (
-    <MenuDropdown trigger="File">
+    <>
       <MenuItem
         onClick={() => createAndGoToProject({})}
         shortcut="Ctrl + Shift + N"
@@ -115,6 +121,19 @@ function MenuItems({ openLoadModal, openSaveAsModal }) {
         <VscSaveAs />
         Save As
       </MenuItem>
-    </MenuDropdown>
+    </>
   );
+}
+
+function convertRawProjectsToFolderFormat({ rawProjects, modalType }) {
+  const projects = Object.values(rawProjects).map((x) => ({
+    name: x.name,
+    files: x.configs.map((c) => c.name),
+  }));
+  if (modalType === "Save As") {
+    const currProjectName = useProject.getState().name;
+    const currProject = projects.find((x) => x.name === currProjectName);
+    return currProject ? [currProject] : [];
+  }
+  return projects;
 }

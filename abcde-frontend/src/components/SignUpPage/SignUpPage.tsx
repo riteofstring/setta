@@ -34,7 +34,7 @@ export function SignUpPage() {
 
   return (
     <GridWrapper
-      gridStyles="bg-slate-400 dark:bg-slate-800"
+      gridStyles="bg-slate-400 dark:bg-runcoder-800"
       flexFormWrap={true}
     >
       <StandAloneInputContainer

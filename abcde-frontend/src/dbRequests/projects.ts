@@ -9,8 +9,7 @@ import {
 import { NO_AUTH } from "utils/constants";
 import {
   noAuthCreateProject,
-  noAuthGetProjectsForFileMenu,
-  noAuthGetProjectsForHomePage,
+  noAuthGetProjects,
   noAuthLoadProject,
   noAuthSaveAsExistingProjectConfig,
   noAuthSaveAsNewProjectConfig,
@@ -18,21 +17,9 @@ import {
 } from "./noAuth/projects";
 import { post } from "./utils";
 
-export async function dbGetProjectsForFileMenu({ projectId = null }) {
+export async function dbGetProjects() {
   if (NO_AUTH) {
-    return await noAuthGetProjectsForFileMenu({ projectId });
-  }
-
-  return await post({
-    body: {},
-    address: PROJECTS,
-    withCredentials: true,
-  });
-}
-
-export async function dbGetProjectsForHomePage() {
-  if (NO_AUTH) {
-    return await noAuthGetProjectsForHomePage();
+    return await noAuthGetProjects();
   }
 
   return await post({
