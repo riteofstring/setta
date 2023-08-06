@@ -15,7 +15,7 @@ import {
 } from "thunks/save";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
-import { ProjectSaveLoadModal } from "utils/FileExplorer/ProjectSaveLoadModal";
+import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,
@@ -52,7 +52,7 @@ export function FileMenu() {
     }
   }
 
-  async function onClickSaveAsProject({ selected, folder, filename }) {
+  async function onClickSaveAsProject({ selected, filename }) {
     if (selected === useProjectConfig.getState().id) {
       saveProject();
     } else {
@@ -65,37 +65,39 @@ export function FileMenu() {
           });
 
       const username = useUser.getState().username;
-      const projectName = projects.find((x) => x.id === folder).name;
+      const projectName = useProject.getState().name;
       router.navigate(`${username}/${projectName}/${filename}`, {
         state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
       });
     }
   }
 
+  const onClickActionButton =
+    modalType === "Load" ? onClickLoadProject : onClickSaveAsProject;
+  const title = modalType === "Load" ? "Load Project" : "Save Project As";
+
   return (
-    <>
-      <ProjectSaveLoadModal
-        modalType={modalType}
-        files={projects}
-        onClickLoadProject={onClickLoadProject}
-        onClickSaveAsProject={onClickSaveAsProject}
-        open={open}
-        setOpen={setOpen}
-      >
-        <MenuDropdown trigger="File">
-          <Items
-            openLoadModal={openLoadModal}
-            openSaveAsModal={openSaveAsModal}
-          />
-        </MenuDropdown>
-      </ProjectSaveLoadModal>
-    </>
+    <SaveLoadModal
+      modalType={modalType}
+      files={projects}
+      onClickActionButton={onClickActionButton}
+      title={title}
+      buttonText={modalType}
+      placeholder="Config Name"
+      open={open}
+      setOpen={setOpen}
+    >
+      <MenuItems
+        openLoadModal={openLoadModal}
+        openSaveAsModal={openSaveAsModal}
+      />
+    </SaveLoadModal>
   );
 }
 
-function Items({ openLoadModal, openSaveAsModal }) {
+function MenuItems({ openLoadModal, openSaveAsModal }) {
   return (
-    <>
+    <MenuDropdown trigger="File">
       <MenuItem
         onClick={() => createAndGoToProject({})}
         shortcut="Ctrl + Shift + N"
@@ -113,6 +115,6 @@ function Items({ openLoadModal, openSaveAsModal }) {
         <VscSaveAs />
         Save As
       </MenuItem>
-    </>
+    </MenuDropdown>
   );
 }
