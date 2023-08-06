@@ -1,4 +1,7 @@
-import { useGetOrCreateProjects } from "hooks/useGetOrCreateProjects";
+import {
+  createAndGoToProject,
+  useGetProjectsForHomePage,
+} from "hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
 import { useSearch } from "models/search";
 import { useUser } from "models/user";
@@ -15,8 +18,7 @@ import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 
 export function HomePage() {
-  const { projects, getProjects, createAndGoToProject } =
-    useGetOrCreateProjects();
+  const { projects, getProjects } = useGetProjectsForHomePage();
 
   useEffect(() => {
     getProjects();
@@ -24,15 +26,12 @@ export function HomePage() {
 
   return (
     <GridWrapper gridStyles="bg-rcbg-light dark:bg-rcbg-dark">
-      <RightColumn
-        projects={projects}
-        createAndGoToProject={createAndGoToProject}
-      />
+      <RightColumn projects={projects} />
     </GridWrapper>
   );
 }
 
-function RightColumn({ projects, createAndGoToProject }) {
+function RightColumn({ projects }) {
   async function onClick() {
     await createAndGoToProject({});
   }
@@ -55,7 +54,7 @@ function RightColumn({ projects, createAndGoToProject }) {
 
 function ProjectItems({ projects }) {
   const searchValue = useSearch((x) => x.value);
-  const filteredProjects = matchSorter(Object.values(projects), searchValue, {
+  const filteredProjects = matchSorter(projects, searchValue, {
     keys: ["name"],
   });
 

@@ -1,4 +1,4 @@
-import { dbCreateProject, dbGetProjects } from "dbRequests/projects";
+import { dbCreateProject, dbGetProjectsForFileMenu, dbGetProjectsForHomePage } from "dbRequests/projects";
 import { useUser } from "models/user";
 import { useState } from "react";
 import {
@@ -10,27 +10,29 @@ import {
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
-export function useGetOrCreateProjects() {
-  const [projects, setProjects] = useState({});
-  async function getProjects() {
-    const res = await dbGetProjects();
+function useGetProjects(getter) {
+  const [projects, setProjects] = useState([]);
+  async function getProjects(props) {
+    const res = await getter(props);
     if (res.status === 200) {
       setProjects(res.data);
     }
   }
+  return { projects, getProjects };
+}
 
-  const createAndGoToProject = async ({ name }) => {
-    const actualName = name ?? createProjectName();
-    const { data: newProject } = await dbCreateProject({ name: actualName });
-    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
-    goToDefaultConfig(newProject);
-  };
+export function useGetProjectsForFileMenu() {
+  return useGetProjects(dbGetProjectsForFileMenu);
+}
 
-  return {
-    projects,
-    getProjects,
-    createAndGoToProject,
-  };
+export function useGetProjectsForHomePage() {
+  return useGetProjects(dbGetProjectsForHomePage);
+}
+
+export async function createAndGoToProject({ name }) {
+  const actualName = name ?? createProjectName();
+  const { data: newProject } = await dbCreateProject({ name: actualName });
+  goToDefaultConfig(newProject);
 }
 
 function createProjectName() {
