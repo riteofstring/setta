@@ -102,7 +102,7 @@ function ModalContent({
   }
 
   return (
-    <>
+    <div className="grid flex-grow grid-rows-[min-content_min-content_1fr_min-content] overflow-hidden">
       <Body
         modalType={modalType}
         files={currFiles}
@@ -122,7 +122,7 @@ function ModalContent({
         onClose={onClose}
         onClick={onButtonClick}
       />
-    </>
+    </div>
   );
 }
 

@@ -37,19 +37,20 @@ export function FileExplorer({
           Last Modified
         </Button>
       </div>
-
-      <RadioGroup.Root
-        value={selected}
-        onValueChange={onSelectedChange}
-        asChild
-      >
-        <FileList
-          files={files}
-          onClick={onSelectedChange}
-          onFolderDoubleClick={onFolderDoubleClick}
-          onFileDoubleClick={onFileDoubleClick}
-        />
-      </RadioGroup.Root>
+      <div className="overflow-scroll">
+        <RadioGroup.Root
+          value={selected}
+          onValueChange={onSelectedChange}
+          asChild
+        >
+          <FileList
+            files={files}
+            onClick={onSelectedChange}
+            onFolderDoubleClick={onFolderDoubleClick}
+            onFileDoubleClick={onFileDoubleClick}
+          />
+        </RadioGroup.Root>{" "}
+      </div>
     </>
   );
 }
