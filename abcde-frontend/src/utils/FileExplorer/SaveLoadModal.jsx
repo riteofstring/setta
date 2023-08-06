@@ -50,6 +50,10 @@ function ModalContent({
   const [filename, setFilename] = useState("");
   const [currFiles, setCurrFiles] = useState(files);
 
+  function getFilenameFromId(id) {
+    return files.find((f) => f.id === id)?.name ?? "";
+  }
+
   function onFolderDoubleClick(id) {
     const newCurrFiles = getFolderContents({ files, folder: id });
     setCurrFiles(newCurrFiles);
@@ -63,7 +67,7 @@ function ModalContent({
 
   function onSelectedChange(v) {
     setSelected(v);
-    setFilename(files.find((f) => f.id === v)?.name ?? "");
+    setFilename(getFilenameFromId(v));
   }
 
   useEffect(() => {
@@ -82,7 +86,7 @@ function ModalContent({
   }
 
   function onFileDoubleClick(id) {
-    onClickActionButton({ selected: id });
+    onClickActionButton({ selected: id, filename: getFilenameFromId(id) });
     setOpen(false);
     onClose();
   }
