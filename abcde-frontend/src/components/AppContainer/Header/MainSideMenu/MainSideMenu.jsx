@@ -13,7 +13,7 @@ export function MainSideMenu() {
         <DropdownMenu.Portal>
           <DropdownMenu.Content
             align="start"
-            className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white py-2 px-4 drop-shadow"
+            className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white py-2 px-4 drop-shadow dark:bg-runcoder-800"
           >
             <Items onClickLogout={logout} />
           </DropdownMenu.Content>
