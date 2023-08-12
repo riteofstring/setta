@@ -1,5 +1,4 @@
 import { ProjectLoadType } from 'abcde-utils/src/types/projectSaveLoad';
-import _ from 'lodash';
 import { getCodeInfoForSectionsAndKwargs } from 'src/db/codeInfo/load';
 import { getProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/projectConfig/load';
 import { getUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/load';
@@ -28,11 +27,10 @@ export async function getProject(id: string) {
 }
 
 export async function loadAllUsersProjects(ownerId) {
-  const ps = await prisma.project.findMany({
+  return await prisma.project.findMany({
     where: { ownerId },
     include: { configs: true },
   });
-  return _.keyBy(ps, 'id');
 }
 
 export async function loadOne({
