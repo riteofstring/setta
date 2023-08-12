@@ -72,7 +72,7 @@
     "zustand": "4.3.7"
   },
   "scripts": {
-    "start": "vite",
+    "start": "concurrently --kill-others \"vite\" \"cd ../abcde-backend && yarn start\"",
     "ncm": "vite --mode ncm",
     "build": "vite build",
     "test": "yarn vitest",
@@ -108,6 +108,7 @@
     "@types/babel__generator": "7.6.4",
     "@typescript-eslint/eslint-plugin": "5.47.1",
     "@typescript-eslint/parser": "5.47.1",
+    "concurrently": "8.2.0",
     "eslint": "7.32.0",
     "eslint-import-resolver-custom-alias": "1.3.0",
     "eslint-plugin-import": "2.25.4",
