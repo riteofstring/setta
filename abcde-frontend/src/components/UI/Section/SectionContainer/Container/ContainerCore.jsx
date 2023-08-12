@@ -31,7 +31,7 @@ function _Container({
         className={`flex min-w-[518px] flex-col items-stretch px-8 pt-3 pb-6  ${className}`}
         {...commonProps}
       >
-        <div className="absolute top-0 left-0 right-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-runcoder-700 dark:bg-[#00020daf]" />
+        <div className="absolute top-0 left-0 right-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-[#ffffff21] dark:bg-[#34404e56]" />
         <div className="relative z-10 h-10">
           <DeckSectionTitle sectionId={sectionId} />
         </div>

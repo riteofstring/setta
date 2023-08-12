@@ -73,10 +73,9 @@
   },
   "scripts": {
     "start": "vite",
-    "sna": "vite --mode sna",
-    "snancm": "vite --mode snancm",
+    "ncm": "vite --mode ncm",
     "build": "vite build",
-    "test": "yarn vitest --mode sna",
+    "test": "yarn vitest",
     "serve": "vite preview",
     "l": "yarn eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "f": "yarn prettier src --write",

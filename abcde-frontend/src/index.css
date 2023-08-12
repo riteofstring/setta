@@ -40,7 +40,7 @@ body * {
 }
 
 ::-webkit-scrollbar-corner {
-  background: transparent;
+  background: #94a3b8;
 }
 
 body::-webkit-scrollbar-track, body *::-webkit-scrollbar-track {
