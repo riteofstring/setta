@@ -7,7 +7,7 @@ export function MainSideMenu() {
   return (
     <DropdownMenu.Root asChild>
       <section className="flex content-center">
-        <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-slate-500 transition-colors duration-150 hover:bg-slate-200 focus-visible:ring-2 dark:text-slate-50">
+        <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-slate-500 transition-colors duration-150 hover:bg-slate-200 focus-visible:ring-2 dark:text-slate-50 dark:hover:bg-runcoder-900">
           <FiMenu />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
