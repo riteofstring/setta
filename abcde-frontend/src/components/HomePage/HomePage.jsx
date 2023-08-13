@@ -93,7 +93,7 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
           project={project}
           configs={configs}
         />
-        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-900 ">
+        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
           <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600 dark:text-slate-300">
             {name}
           </p>

@@ -178,7 +178,7 @@ function Footer({ onClose, onClick, buttonText }) {
       )}
 
       <DialogCloseButton
-        twClasses="border border-solid border-slate-200 dark:border-runcoder-800 text-slate-400 hover:border-slate-500 hover:text-slate-600"
+        twClasses="border border-solid border-slate-200 dark:border-runcoder-800 text-slate-400 hover:border-slate-500 hover:text-slate-600 dark:hover:text-runcoder-200 dark:hover:bg-runcoder-900"
         onClick={onClose}
       >
         Close
