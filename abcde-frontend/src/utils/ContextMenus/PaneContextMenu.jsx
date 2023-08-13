@@ -28,8 +28,11 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
   const [open, setOpen] = useState(false);
   const [sections, setSections] = useState([]);
   async function openLoadModal() {
-    setSections(await dbGetSections());
-    setOpen(true);
+    const res = await dbGetSections();
+    if (res.status === 200) {
+      setSections(res.data);
+      setOpen(true);
+    }
   }
 
   async function onClickLoadSection({ selected }) {
