@@ -37,6 +37,7 @@ export function ResponsiveMiniMap() {
         nodeBorderRadius={5}
         className="overflow-hidden rounded-md border border-solid border-[#ffffff00] shadow-md backdrop-blur-sm"
         maskColor="rgb(51, 65, 85, 0.3)"
+        // 	rgb(0, 2, 13, 0.3) for dark?
         maskStrokeColor=""
         maskStrokeWidth="1"
       />
