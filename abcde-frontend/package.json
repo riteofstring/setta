@@ -75,6 +75,7 @@
     "start": "concurrently --kill-others \"vite\" \"yarn start-backend\"",
     "start-backend": "cd ../abcde-backend && yarn start",
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"yarn start-backend\"",
+    "reset": "cd ../abcde-backend && ./db/blankSlate.sh && cd ../abcde-frontend && yarn start",
     "build": "vite build",
     "test": "yarn vitest",
     "serve": "vite preview",
