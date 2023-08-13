@@ -8,9 +8,9 @@ import {
 } from "abcde-utils/src/routes";
 import { post } from "./utils";
 
-export async function dbGetProjectsForFileMenu({ projectId = null }) {
+export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
   return await post({
-    body: {},
+    body: { projectId, format: "fileMenu" },
     address: PROJECTS,
     withCredentials: true,
   });
@@ -18,7 +18,7 @@ export async function dbGetProjectsForFileMenu({ projectId = null }) {
 
 export async function dbGetProjectsForHomePage() {
   return await post({
-    body: {},
+    body: { format: "homePage" },
     address: PROJECTS,
     withCredentials: true,
   });
