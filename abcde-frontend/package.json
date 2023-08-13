@@ -72,8 +72,9 @@
     "zustand": "4.3.7"
   },
   "scripts": {
-    "start": "concurrently --kill-others \"vite\" \"cd ../abcde-backend && yarn start\"",
-    "ncm": "vite --mode ncm",
+    "start": "concurrently --kill-others \"vite\" \"yarn start-backend\"",
+    "start-backend": "cd ../abcde-backend && yarn start",
+    "ncm": "concurrently --kill-others \"vite --mode ncm\" \"yarn start-backend\"",
     "build": "vite build",
     "test": "yarn vitest",
     "serve": "vite preview",
