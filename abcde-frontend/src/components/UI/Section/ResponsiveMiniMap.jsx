@@ -1,10 +1,12 @@
 import { motion } from "framer-motion";
 import { usePanes } from "models/panes";
+import { useUser } from "models/user";
 import { MiniMap } from "reactflow";
 import { UI_EDITOR } from "utils/constants";
 
 export function ResponsiveMiniMap() {
   const uiEditorWidth = usePanes((x) => x.trueWidth[UI_EDITOR]);
+  const darkMode = useUser((x) => x.darkMode);
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
   // It's the style used inside of MiniMap.
@@ -32,12 +34,14 @@ export function ResponsiveMiniMap() {
         nodeColor={(n) => {
           if (n.style?.background) return n.style.background;
 
+          if (darkMode) {
+            return "#2D384D";
+          }
           return "#e2e8f0";
         }}
         nodeBorderRadius={5}
         className="overflow-hidden rounded-md border border-solid border-[#ffffff00] shadow-md backdrop-blur-sm"
-        maskColor="rgb(51, 65, 85, 0.3)"
-        // 	rgb(0, 2, 13, 0.3) for dark?
+        maskColor={darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"}
         maskStrokeColor=""
         maskStrokeWidth="1"
       />
