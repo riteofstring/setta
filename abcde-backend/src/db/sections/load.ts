@@ -6,28 +6,12 @@ import { ManySectionType } from 'abcde-utils/src/types/section';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import {
-  getChildrenRecursively,
-  getOrderedChildrenFull,
-} from 'src/utils/utils';
+import { getOrderedChildrenFull } from 'src/utils/utils';
 import { getUITypesByWhere } from '../uiTypes/load';
+import { getSectionsRecursively } from './getSectionsRecurisvely';
 
 export async function getSections(ids) {
-  const allIds = await getChildrenRecursively(
-    ids,
-    async (c) =>
-      await prisma.$queryRaw`
-          with recursive descendants as (
-              select "parentId", "childId"
-              from "SectionChildren"
-              where "parentId" = ${c}::uuid
-            union
-              select other."parentId", other."childId"
-              from "SectionChildren" other
-              join descendants on other."parentId" = descendants."childId"
-          )
-          select * from descendants;`,
-  );
+  const allIds = await getSectionsRecursively(ids);
 
   const s = await prisma.section.findMany({
     where: { id: { in: allIds } },

@@ -13,6 +13,7 @@ import {
   SAVE_AS_NEW_PROJECT_CONFIG,
   SAVE_COLLECTIONS,
   SAVE_PROJECT,
+  SECTIONS,
   SET_DARK_MODE,
   SET_PROJECT_CONFIG_NAME,
   SET_PROJECT_NAME,
@@ -35,6 +36,7 @@ import { setProjectConfigName } from 'src/middleware/projects/setProjectConfigNa
 import { setProjectName } from 'src/middleware/projects/setProjectName';
 import { generateCode } from 'src/middleware/runs/generateCode';
 import { getCode } from 'src/middleware/runs/getCode';
+import { mwGetSections } from 'src/middleware/sections/getSections';
 import { setDarkMode } from 'src/middleware/user/setDarkMode';
 
 export const router = express.Router();
@@ -64,3 +66,4 @@ router.post(SET_PROJECT_NAME, setProjectName);
 router.post(SET_PROJECT_CONFIG_NAME, setProjectConfigName);
 router.post(SET_DARK_MODE, setDarkMode);
 router.post('/logging', logData);
+router.post(SECTIONS, mwGetSections);
