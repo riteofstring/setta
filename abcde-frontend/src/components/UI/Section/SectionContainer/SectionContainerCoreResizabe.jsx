@@ -34,21 +34,13 @@ export function SectionContainerCoreResizable({
   // ${hasDescription && ""}
 
   const outlineColor = isActiveSection
-    ? `${
-        isGlobalVariables
-          ? "outline-green-600 dark:outline-turquoise-800"
-          : "outline-blue-600 dark:outline-blue-400"
-      }`
+    ? "outline-blue-600 dark:outline-blue-400"
     : "outline-transparent active:outline-cyan-300";
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-runcoder-700";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] gap-2 ${
-    isGlobalVariables
-      ? "bg-white dark:bg-black"
-      : "bg-slate-100 dark:bg-runcoder-800"
-  }  pt-4 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
+  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] gap-2 bg-slate-100 dark:bg-runcoder-800 pt-4 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 
@@ -68,7 +60,6 @@ export function SectionContainerCoreResizable({
           isRoot={isRoot}
           hasNested={hasNested}
           isActiveSection={isActiveSection}
-          isGlobalVariables={isGlobalVariables}
         />
         <AreaSwitch
           sectionId={sectionId}
@@ -124,8 +115,6 @@ function AreaSwitch({
     return <GlobalVariablesArea sectionId={sectionId} />;
   }
   if (!isRoot) {
-    return (
-      <InputArea sectionId={sectionId} isGlobalVariables={isGlobalVariables} />
-    );
+    return <InputArea sectionId={sectionId} />;
   }
 }
