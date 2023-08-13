@@ -31,7 +31,7 @@ export async function dbGetCollectionDetails(id) {
     body: { codeInfoId: id },
   });
 
-  s.updateInfos(res.data);
+  s.update(res.data);
 }
 
 export async function dbSaveCollections({ collections }) {

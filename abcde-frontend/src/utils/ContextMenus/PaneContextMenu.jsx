@@ -36,8 +36,14 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
   }
 
   async function onClickLoadSection({ selected }) {
-    const sectionInfo = await dbLoadSection({ sectionId: selected });
-    loadSectionIntoState({ sectionInfo, ...commonProps });
+    const res = await dbLoadSection({ sectionId: selected });
+    if (res.status === 200) {
+      loadSectionIntoState({
+        ...res.data,
+        ...commonProps,
+        topLevelIds: [selected],
+      });
+    }
   }
 
   return (

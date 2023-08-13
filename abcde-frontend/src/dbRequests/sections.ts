@@ -9,4 +9,10 @@ export async function dbGetSections() {
   });
 }
 
-export async function dbLoadSection({ sectionId }) {}
+export async function dbLoadSection({ sectionId }) {
+  return await post({
+    body: { sectionId },
+    address: SECTIONS,
+    withCredentials: true,
+  });
+}

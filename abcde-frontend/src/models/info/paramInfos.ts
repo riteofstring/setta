@@ -58,6 +58,11 @@ export const useParamInfos = createProjectState(
           state.x[evColId] = _.omit(state.x[evColId], ids);
           state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
         }),
+      update: ({ evCols, uiTypeCols }) =>
+        set((state) => {
+          state.x = { ...state.x, ...evCols };
+          state.y = { ...state.y, ...uiTypeCols };
+        }),
     }))
   )
 );

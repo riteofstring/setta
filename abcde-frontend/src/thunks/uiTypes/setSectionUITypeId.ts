@@ -48,9 +48,7 @@ function initializeUserSpecifiedObject(sectionId) {
       attr: "userSpecifiedObjectId",
       value: userSpecifiedObjectId,
     });
-    useCodeInfo
-      .getState()
-      .updateInfos({ allCodeInfo: { [newObj.id]: newObj } });
+    useCodeInfo.getState().update({ allCodeInfo: { [newObj.id]: newObj } });
   }
   setSelectedItem(sectionId, userSpecifiedObjectId, false);
 }

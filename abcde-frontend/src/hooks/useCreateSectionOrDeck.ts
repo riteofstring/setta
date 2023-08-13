@@ -1,7 +1,14 @@
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
+import { useCodeInfo } from "models/info/codeInfo";
+import { useKwargCols } from "models/info/kwargCols";
+import { useParamInfos } from "models/info/paramInfos";
+import { useProjectConfig } from "models/info/projectConfig";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { useUITypes } from "models/info/uiTypes";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
-import { addSectionsToState } from "thunks/sections/createSectionInfo";
+import { updateManyCurrChildren } from "thunks/sections/children";
+import { updateManyParamsAndCallables } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
@@ -63,11 +70,37 @@ export function useOnClickAddSection() {
 export function useLoadSectionIntoState() {
   const getPosition = useMouseToReactFlowPosition();
 
-  return ({ sectionInfo, x, y, callbackBeforeExit, incrementVersion }) => {
+  return ({
+    sections,
+    uiTypes,
+    evCols,
+    uiTypeCols,
+    kwargCols,
+    codeInfo,
+    topLevelIds,
+    x,
+    y,
+    callbackBeforeExit,
+    incrementVersion,
+  }) => {
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
     const topLevelPosition = getPosition(x, y);
+    const topLevelMapping = topLevelIds.map((i) => [
+      i,
+      { ...topLevelPosition, zIndex: 0 },
+    ]);
 
-    addSectionsToState({ [sectionInfo.id]: sectionInfo }, topLevelPosition);
+    useUITypes.getState().update(uiTypes);
+    useParamInfos.getState().update({ evCols, uiTypeCols });
+    useKwargCols.getState().update(kwargCols);
+    useCodeInfo.getState().update(codeInfo);
+    useSectionInfos.getState().update(sections);
+    updateManyParamsAndCallables(Object.keys(sections));
+    updateManyCurrChildren(Object.keys(sections));
+    useProjectConfig
+      .getState()
+      .addChildren(Object.fromEntries(topLevelMapping));
+
     callbackBeforeExit();
     maybeIncrementProjectStateVersion(incrementVersion);
   };
