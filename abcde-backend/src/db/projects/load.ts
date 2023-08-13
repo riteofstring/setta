@@ -7,6 +7,7 @@ import { getProjectConfig } from 'src/db/projectConfigs/load';
 import { getSections } from 'src/db/sections/load';
 import { getBaseUITypes, getPresetUITypes } from 'src/db/uiTypes/load';
 import { getRuns } from '../runs/load';
+import { convertToFileMenuFormat } from './utils';
 
 async function getIds({ username, projectName, configName }) {
   const config = await prisma.projectConfig.findFirstOrThrow({
@@ -26,11 +27,17 @@ export async function getProject(id: string) {
   });
 }
 
-export async function loadAllUsersProjects(ownerId) {
-  return await prisma.project.findMany({
-    where: { ownerId },
+export async function loadAllUsersProjects({ ownerId, projectId, format }) {
+  const projects = await prisma.project.findMany({
+    where: { ownerId, id: projectId },
     include: { configs: true },
   });
+
+  if (format === 'fileMenu') {
+    return convertToFileMenuFormat({ projects, projectId });
+  }
+
+  return projects;
 }
 
 export async function loadOne({
