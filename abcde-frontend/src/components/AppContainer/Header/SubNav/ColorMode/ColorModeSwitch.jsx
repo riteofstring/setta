@@ -8,9 +8,9 @@ export function ColorModeSwitch() {
 
   useEffect(() => {
     if (darkMode) {
-      document.querySelector("html").classList.add("dark");
+      document.getElementById("root").classList.add("dark");
     } else {
-      document.querySelector("html").classList.remove("dark");
+      document.getElementById("root").classList.remove("dark");
     }
   }, [darkMode]);
 

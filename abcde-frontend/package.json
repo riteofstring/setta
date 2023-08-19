@@ -72,16 +72,17 @@
     "zustand": "4.3.7"
   },
   "scripts": {
-    "start": "concurrently --kill-others \"vite\" \"yarn start-backend\"",
-    "start-backend": "cd ../abcde-backend && yarn start",
-    "ncm": "concurrently --kill-others \"vite --mode ncm\" \"yarn start-backend\"",
-    "reset": "cd ../abcde-backend && ./db/blankSlate.sh && cd ../abcde-frontend && yarn start",
+    "start": "vite",
+    "sna": "vite --mode sna",
+    "snancm": "vite --mode snancm",
     "build": "vite build",
-    "test": "yarn vitest",
+    "test": "yarn vitest --mode sna",
     "serve": "vite preview",
     "l": "yarn eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "f": "yarn prettier src --write",
     "lf": "yarn l && yarn f",
+    "linkutils": "cd ../abcde-utils && git checkout main && git pull && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-utils",
+    "linktest": "cd ../abcde-test && git checkout main && git pull && yarn && yarn link && cd ../abcde-frontend && yarn link abcde-test",
     "deadcode": "ts-prune"
   },
   "eslintConfig": {
@@ -110,7 +111,6 @@
     "@types/babel__generator": "7.6.4",
     "@typescript-eslint/eslint-plugin": "5.47.1",
     "@typescript-eslint/parser": "5.47.1",
-    "concurrently": "8.2.0",
     "eslint": "7.32.0",
     "eslint-import-resolver-custom-alias": "1.3.0",
     "eslint-plugin-import": "2.25.4",

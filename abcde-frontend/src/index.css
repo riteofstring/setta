@@ -40,11 +40,10 @@ body * {
 }
 
 ::-webkit-scrollbar-corner {
-  background: transparent;
+  background: #94a3b8;
 }
 
-body::-webkit-scrollbar-track,
-body *::-webkit-scrollbar-track {
+body::-webkit-scrollbar-track {
   background: #94a3b8;
 }
 
@@ -52,7 +51,12 @@ body *::-webkit-scrollbar-track {
   background: transparent;
 }
 
-body::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background-color: #94a3b880;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+}
+
 body *::-webkit-scrollbar-thumb {
   background-color: #94a3b880;
   border: 1px solid transparent;

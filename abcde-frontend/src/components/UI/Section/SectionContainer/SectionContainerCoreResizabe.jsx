@@ -4,7 +4,6 @@ import { BiInfoCircle } from "react-icons/bi";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import "./dndline.css";
-import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
@@ -22,7 +21,6 @@ export function SectionContainerCoreResizable({
   isSocial,
   isInfo,
   isUserSpecifiedObject,
-  isGlobalVariables,
   hasNested,
   hasDescription,
   isActiveSection,
@@ -34,21 +32,13 @@ export function SectionContainerCoreResizable({
   // ${hasDescription && ""}
 
   const outlineColor = isActiveSection
-    ? `${
-        isGlobalVariables
-          ? "outline-green-600 dark:outline-turquoise-800"
-          : "outline-blue-600 dark:outline-blue-400"
-      }`
+    ? "outline-blue-600"
     : "outline-transparent active:outline-cyan-300";
 
   const borderClasses =
-    "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-runcoder-700";
+    "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-slate-700";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] gap-2 ${
-    isGlobalVariables
-      ? "bg-white dark:bg-black"
-      : "bg-slate-100 dark:bg-runcoder-800"
-  }  pt-4 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
+  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] gap-2 bg-slate-100 dark:bg-slate-900 pt-4 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 
@@ -68,7 +58,6 @@ export function SectionContainerCoreResizable({
           isRoot={isRoot}
           hasNested={hasNested}
           isActiveSection={isActiveSection}
-          isGlobalVariables={isGlobalVariables}
         />
         <AreaSwitch
           sectionId={sectionId}
@@ -77,13 +66,12 @@ export function SectionContainerCoreResizable({
           isRoot={isRoot}
           isInfo={isInfo}
           isUserSpecifiedObject={isUserSpecifiedObject}
-          isGlobalVariables={isGlobalVariables}
         />
 
         {!isInfo && hasDescription && (
           <Button
             grid={false}
-            twClasses="absolute backdrop-blur-[2px] bottom-0 mb-2 px-2 py-1 self-center text-slate-500 dark:text-runcoder-300 dark:bg-runcoder-700/25 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bg-slate-200/25 shadow-md hover:shadow-lg transition-colors"
+            twClasses="absolute bottom-0 mb-2 px-2 py-1 self-center text-slate-500 dark:text-slate-400 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-slate-800 text-xs bg-slate-200 shadow-md hover:shadow-lg transition-all"
             onClick={toggleDescVis}
           >
             <BiInfoCircle className="z-[3] h-4 w-4" />
@@ -106,7 +94,6 @@ function AreaSwitch({
   isRoot,
   isInfo,
   isUserSpecifiedObject,
-  isGlobalVariables,
 }) {
   if (isOutput) {
     return <OutputArea sectionId={sectionId} />;
@@ -120,12 +107,7 @@ function AreaSwitch({
   if (isUserSpecifiedObject) {
     return <UserSpecifiedObjectArea sectionId={sectionId} />;
   }
-  if (isGlobalVariables) {
-    return <GlobalVariablesArea sectionId={sectionId} />;
-  }
   if (!isRoot) {
-    return (
-      <InputArea sectionId={sectionId} isGlobalVariables={isGlobalVariables} />
-    );
+    return <InputArea sectionId={sectionId} />;
   }
 }
