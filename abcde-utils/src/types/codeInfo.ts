@@ -37,7 +37,7 @@ export type CodeInfoActionTypes = {
   setCodeInfo: (payload: { info: CodeInfoType }) => void;
   setName: (payload: { id: string; name: string }) => void;
   deleteInfos: (payload: { ids: string[] }) => void;
-  update: (payload: CodeInfoStateType) => void;
+  updateInfos: (payload: CodeInfoStateType) => void;
 };
 
 export type CodeInfoZustandType = CodeInfoStateFrontendType &
