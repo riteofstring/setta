@@ -83,7 +83,7 @@ export function SectionContainerCoreResizable({
         {!isInfo && hasDescription && (
           <Button
             grid={false}
-            twClasses="absolute bottom-0 mb-2 px-2 py-1 self-center text-slate-500 dark:text-runcoder-300 dark:bg-runcoder-700 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bg-slate-200 shadow-md hover:shadow-lg transition-all"
+            twClasses="absolute backdrop-blur-[2px] bottom-0 mb-2 px-2 py-1 self-center text-slate-500 dark:text-runcoder-300 dark:bg-runcoder-700/25 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bg-slate-200/25 shadow-md hover:shadow-lg transition-colors"
             onClick={toggleDescVis}
           >
             <BiInfoCircle className="z-[3] h-4 w-4" />
