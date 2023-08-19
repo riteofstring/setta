@@ -24,4 +24,3 @@ export const GET_CODE = "/codeGenerator/getCode";
 export const SET_PROJECT_NAME = "/projects/setProjectName";
 export const SET_PROJECT_CONFIG_NAME = "/projects/setProjectConfigName";
 export const SET_DARK_MODE = "/auth/setDarkMode";
-export const SECTIONS = "/sections";
