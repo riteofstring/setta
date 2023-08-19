@@ -32,7 +32,7 @@ export const useCodeInfo = createProjectState(
         set((state) => {
           state.allCodeInfo = _.omit(state.allCodeInfo, ids);
         }),
-      update: (payload) =>
+      updateInfos: (payload) =>
         set((state) => {
           state.allCodeInfo = { ...state.allCodeInfo, ...payload.allCodeInfo };
         }),

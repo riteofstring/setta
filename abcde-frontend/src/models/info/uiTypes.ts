@@ -33,10 +33,6 @@ export const useUITypes = createProjectState(
         set((state) => {
           delete state.x[uiTypeId];
         }),
-      update: (payload) =>
-        set((state) => {
-          state.x = { ...state.x, ...payload };
-        }),
     }))
   )
 );
