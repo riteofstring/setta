@@ -10,6 +10,7 @@ setuptools.setup(
         "requests==2.28.1",
         "keyring==23.11.0",
         "PyYAML==6.0",
+        "websockets==11.0.3",
     ],
     entry_points={
         "console_scripts": [

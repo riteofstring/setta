@@ -2,9 +2,11 @@ import click
 import keyring
 
 from ..utils.constants import KEYRING_NAME
-from .configure import read_config_file, setup_config_file
+from .configure import setup_config_file
 from .login import login as _login
+from .login import try_reading_access_token
 from .run import run as _run
+from .web import web as _web
 
 
 @click.command()
@@ -22,6 +24,8 @@ def login(username, password):
             if len(c) != 3:
                 click.echo("The run command takes only one argument")
             _run(access_token, c[2])
+        if c[1] == "web":
+            _web(access_token)
 
 
 @click.command()
@@ -37,12 +41,16 @@ def configure(username, password):
 @click.command()
 @click.argument("code_id")
 def run(code_id):
-    username = read_config_file()["username"]
-    access_token = keyring.get_password(KEYRING_NAME, username)
-    if not access_token:
-        click.echo("access_token not found")
-    else:
+    access_token = try_reading_access_token()
+    if access_token:
         _run(access_token, code_id)
+
+
+@click.command()
+def web():
+    access_token = try_reading_access_token()
+    if access_token:
+        _web(access_token)
 
 
 @click.group()
@@ -53,3 +61,4 @@ def cli():
 cli.add_command(run)
 cli.add_command(login)
 cli.add_command(configure)
+cli.add_command(web)

@@ -1,4 +1,7 @@
-BACKEND = "http://127.0.0.1:8000/"
+DOMAIN = "127.0.0.1"
+BACKEND_PORT = 8000
+BACKEND = f"http://{DOMAIN}:{BACKEND_PORT}/"
+WEBSOCKET = f"ws://{DOMAIN}:{BACKEND_PORT}/"
 CONFIG_FOLDER = "runcoder"
 CONFIG_FILENAME = "config.yaml"
 KEYRING_NAME = "runcoder.io"
