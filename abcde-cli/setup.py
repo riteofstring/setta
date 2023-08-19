@@ -1,13 +1,8 @@
-import sys
-
 import setuptools
-
-sys.path.insert(0, "src")
-import runcoder
 
 setuptools.setup(
     name="runcoder",
-    version=runcoder.__version__,
+    version="0.0.0",
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
     install_requires=[
@@ -20,5 +15,8 @@ setuptools.setup(
         "console_scripts": [
             "runcoder = runcoder.cli.main:cli",
         ],
+    },
+    extras_require={
+        "dev": ["black", "isort", "flake8"],
     },
 )
