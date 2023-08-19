@@ -3,7 +3,6 @@ import {
   useSectionHasDescription,
 } from "hooks/useSectionDescription";
 import {
-  useIsGlobalVariables,
   useIsInfo,
   useIsOutput,
   useIsRoot,
@@ -26,7 +25,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isSocial = useIsSocial(sectionId);
   const isInfo = useIsInfo(sectionId);
   const isUserSpecifiedObject = useIsUserSpecifiedObject(sectionId);
-  const isGlobalVariables = useIsGlobalVariables(sectionId);
   const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
@@ -44,7 +42,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
 
   return (
     <div
-      className={`rounded-xl border border-white bg-white dark:border-slate-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
+      className={`rounded-xl bg-white ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
     >
@@ -58,7 +56,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         isSocial={isSocial}
         isInfo={isInfo}
         isUserSpecifiedObject={isUserSpecifiedObject}
-        isGlobalVariables={isGlobalVariables}
         hasNested={hasNested}
         hasDescription={hasDescription}
         isActiveSection={isActiveSection}

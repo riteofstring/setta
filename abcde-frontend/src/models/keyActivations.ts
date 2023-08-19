@@ -8,7 +8,6 @@ const initialState = {
   redo: false,
   save: false,
   load: false,
-  searchArgs: false,
 };
 
 function preventDefault(fn) {
@@ -39,7 +38,6 @@ function attachEventListeners(state) {
     save: ctrlPlus("s"),
     load: ctrlPlus("l"),
     saveAs: ctrlShiftPlus("S"),
-    searchArgs: ctrlPlus("k"),
   };
 
   for (const [attrName, cond] of Object.entries(conditions)) {

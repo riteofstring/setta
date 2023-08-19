@@ -1,34 +1,72 @@
+import { FN } from "abcde-utils/src/constants";
+import {
+  findAllCallablesOfCallables,
+  findAllCallablesOfCollections,
+  findAllParameterCollections,
+  findAllParameters,
+} from "abcde-utils/src/getDescendants";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useKwargCols } from "models/info/kwargCols";
 import { useSectionToParams } from "models/info/sectionToParams";
+import useDeepCompareEffect from "use-deep-compare-effect";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useOutputValues } from "./useOutputNames";
 import { useGetSectionInfo } from "./useSectionInfo";
-import { useGetSectionTypeConfig } from "./useSectionType";
+import { useGetSectionType, useGetSectionTypeConfig } from "./useSectionType";
 
 export function useGetCurrObjParamKwargInfos(sectionId: string) {
   const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
-  const paramInfos = useGetParamInfos(sectionId);
+  const paramInfos = useGetParamInfos(sectionId, selectedItem);
   const kwargInfos = useGetKwargInfos(sectionId, selectedItem);
   return [...paramInfos, ...kwargInfos];
 }
 
+function useGetCollectionChildren(sectionId: string, fn) {
+  const collectionIds = useGetSectionTypeConfig(sectionId, "collections");
+  return useCodeInfo((x) => fn(x.allCodeInfo, collectionIds), _.isEqual);
+}
+
 export function useGetAllCallables(sectionId: string) {
-  return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);
+  const sectionType = useGetSectionType(sectionId, "type");
+  const fn =
+    sectionType === FN
+      ? findAllCallablesOfCallables
+      : findAllCallablesOfCollections;
+  return useGetCollectionChildren(sectionId, fn);
+}
+
+function useGetAllParamCollections(sectionId: string) {
+  return useGetCollectionChildren(sectionId, findAllParameterCollections);
+}
+
+function useGetKwargIds(sectionId: string, objInfoId: string) {
+  const kwargColId = useGetSectionInfo(sectionId, "kwargColId");
+  return useKwargCols(
+    (x) => (objInfoId in x.x[kwargColId] ? x.x[kwargColId][objInfoId] : []),
+    _.isEqual
+  );
 }
 
 export function useGetKwargInfos(sectionId: string, objInfoId: string) {
-  const kwargColId = useGetSectionInfo(sectionId, "kwargColId");
-  const kwargIds = useKwargCols(
-    (x) => x.x[kwargColId][objInfoId] ?? [],
-    _.isEqual
-  );
+  const kwargIds = useGetKwargIds(sectionId, objInfoId);
   return useCodeInfo((x) => kwargIds.map((y) => x.allCodeInfo[y]), _.isEqual);
 }
 
-export function useGetParamInfos(sectionId: string) {
-  return useSectionToParams((x) => x.params[sectionId] ?? [], _.isEqual);
+export function useGetParamInfos(sectionId: string, objInfoId: string) {
+  const objParamInfos = useCodeInfo(
+    (x) => findAllParameters(x.allCodeInfo, [objInfoId]),
+    _.isEqual
+  );
+  const paramCollections = useGetAllParamCollections(sectionId);
+
+  useDeepCompareEffect(() => {
+    const s = useSectionToParams.getState();
+    s.setParams({ sectionId, params: objParamInfos });
+    s.setParamCollections({ sectionId, paramCollections });
+  }, [objParamInfos, paramCollections]);
+
+  return [...objParamInfos, ...paramCollections];
 }
 
 export function useGetSelectedCollections(sectionId: string) {

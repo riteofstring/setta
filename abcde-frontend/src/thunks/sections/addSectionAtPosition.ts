@@ -2,7 +2,7 @@ import { DECK_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { createSectionInfo } from "./createSectionInfo";
+import { createDefaultSectionInfo } from "./createSectionInfo";
 
 type callbackBeforeExitType = (newId: string) => void;
 
@@ -22,7 +22,7 @@ export function addSectionAtPosition({
     sectionProps.name = "Group";
     sectionProps.uiTypeId = DECK_UI_TYPE_ID;
   }
-  const [newId] = createSectionInfo({
+  const [newId] = createDefaultSectionInfo({
     sectionProps,
     isTopLevel: true,
     topLevelPosition,

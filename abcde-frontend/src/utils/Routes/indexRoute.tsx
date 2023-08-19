@@ -1,13 +1,13 @@
 import { HeaderContainer } from "components/AppContainer/Header/Header";
 import { HomePage } from "components/HomePage/HomePage";
 import { LoginPage } from "components/LoginPage/LoginPage";
-import { useUser } from "models/user";
+import { useAuth } from "models/auth";
 import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
 
 function IndexWrapper() {
-  const isAuthenticated = useUser((x) => x.isAuthenticated);
+  const isAuthenticated = useAuth((x) => x.isAuthenticated);
 
   return isAuthenticated ? (
     <>

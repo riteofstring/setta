@@ -1,5 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { useUser } from "models/user";
+import { useAuth } from "models/auth";
 import { useParams } from "react-router-dom";
 import { CommunityButton } from "./CommunityButton/CommunityButton";
 import { EditMenu } from "./EditMenu/EditMenu";
@@ -16,7 +16,7 @@ export function SubNav() {
 }
 
 function NavSwitch() {
-  const isAuthenticated = useUser((x) => x.isAuthenticated);
+  const isAuthenticated = useAuth((x) => x.isAuthenticated);
   const { username, projectName, configName } = useParams();
 
   return isAuthenticated && username && projectName && configName ? (

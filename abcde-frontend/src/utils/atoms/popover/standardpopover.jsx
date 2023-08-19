@@ -19,7 +19,7 @@ export function StandardPopover({
           {close && (
             <Popover.Close className={closeClasses}>{close}</Popover.Close>
           )}
-          <Popover.Arrow className="[fill:rgb(229,_231,_235)] dark:[fill:rgb(51,_65,_85)]" />
+          <Popover.Arrow className="[fill:rgb(229,_231,_235)]" />
           {popoverContent}
         </Popover.Content>
       </div>

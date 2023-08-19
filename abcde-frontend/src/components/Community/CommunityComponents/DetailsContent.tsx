@@ -20,7 +20,7 @@ export function DetailsContent() {
       </div>
       <div className="mb-8 h-96 overflow-hidden rounded-lg bg-slate-400 py-6 px-8 shadow-md"></div>
       <div className="@lg:flex-col flex gap-8">
-        <article className="prose dark:prose-invert">
+        <article className="prose">
           <p>The Best Ever</p>
           <p>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur

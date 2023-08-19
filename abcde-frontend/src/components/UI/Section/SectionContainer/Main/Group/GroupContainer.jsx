@@ -16,8 +16,8 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
   // border-b border-solid border-slate-100
   return (
     <ScrollingArea
-      styles={`flex flex-col gap-2 mb-2 ${noWheel} ${
-        !isInfo && hasDescription ? "last:[&>div]:mb-12" : ""
+      viewportStyle={`flex flex-col gap-2 ${noWheel} THIS ${
+        !isInfo && hasDescription ? "last:[&>div>*]:pb-12" : ""
       }`}
       ref={ref}
     >
@@ -41,7 +41,7 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
 }
 
 function GetParams({ sectionId, objInfoId, setDidUpdate }) {
-  const params = useGetParamInfos(sectionId);
+  const params = useGetParamInfos(sectionId, objInfoId);
 
   useDeepCompareEffect(() => {
     setDidUpdate(true);

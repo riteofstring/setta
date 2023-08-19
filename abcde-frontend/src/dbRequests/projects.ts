@@ -6,60 +6,101 @@ import {
   SAVE_AS_NEW_PROJECT_CONFIG,
   SAVE_PROJECT,
 } from "abcde-utils/src/routes";
+import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
+import { NO_AUTH } from "utils/constants";
+import {
+  noAuthCreateProject,
+  noAuthGetProjects,
+  noAuthLoadProject,
+  noAuthSaveAsExistingProjectConfig,
+  noAuthSaveAsNewProjectConfig,
+  noAuthSaveProject,
+} from "./noAuth/projects";
 import { post } from "./utils";
 
-export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
-  return await post({
-    body: { projectId, format: "fileMenu" },
+export async function getProjects() {
+  if (NO_AUTH) {
+    return await noAuthGetProjects();
+  }
+
+  return post({
+    body: {},
     address: PROJECTS,
+    thenFn: (res) => res.data,
+    catchFn: () => [],
     withCredentials: true,
   });
 }
 
-export async function dbGetProjectsForHomePage() {
-  return await post({
-    body: { format: "homePage" },
-    address: PROJECTS,
-    withCredentials: true,
-  });
-}
+export async function loadProject({
+  username,
+  projectName,
+  configName,
+}): Promise<ProjectLoadType | void> {
+  if (NO_AUTH) {
+    return await noAuthLoadProject({ projectName, configName });
+  }
 
-export async function dbLoadProject({ username, projectName, configName }) {
-  return await post({
+  return post({
     body: {},
     address: LOAD_PROJECT({ username, projectName, configName }),
-    withCredentials: true,
+    thenFn: (res) => res.data,
+    catchFn: () => undefined,
   });
 }
 
-export async function dbCreateProject({ name }) {
-  return await post({
+export async function createProject({ name }) {
+  if (NO_AUTH) {
+    return await noAuthCreateProject({ name });
+  }
+
+  return post({
     address: CREATE_PROJECT,
     body: { name },
+    thenFn: (res) => res.data,
+    catchFn: () => [],
     withCredentials: true,
   });
 }
 
-export async function dbSaveProject({ project }) {
-  return await post({
+export async function saveProject({ project }) {
+  if (NO_AUTH) {
+    return await noAuthSaveProject();
+  }
+
+  return post({
     address: SAVE_PROJECT,
     body: { project },
+    thenFn: (res) => res,
+    catchFn: () => [],
     withCredentials: true,
   });
 }
 
-export async function dbSaveAsNewProjectConfig({ project, newConfigName }) {
-  return await post({
+export async function saveAsNewProjectConfig({ project, newConfigName }) {
+  if (NO_AUTH) {
+    return await noAuthSaveAsNewProjectConfig();
+  }
+
+  return post({
     address: SAVE_AS_NEW_PROJECT_CONFIG,
     body: { project, newConfigName },
+    thenFn: (res) => res.data,
+    catchFn: () => [],
     withCredentials: true,
   });
 }
 
-export async function dbSaveAsExistingProjectConfig({ project, configName }) {
-  return await post({
+export async function saveAsExistingProjectConfig({ project, configName }) {
+  if (NO_AUTH) {
+    return await noAuthSaveAsExistingProjectConfig();
+  }
+
+  return post({
     address: SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configName },
+    thenFn: (res) => res.data,
+    catchFn: () => [],
     withCredentials: true,
   });
 }

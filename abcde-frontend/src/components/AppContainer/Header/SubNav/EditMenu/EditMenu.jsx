@@ -1,6 +1,6 @@
+import { useAddSectionInEmptySpace } from "hooks/useAddSectionInEmptySpace";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
-import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
 import { redoProjectState, undoProjectState } from "thunks/undo";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
@@ -14,8 +14,8 @@ export function EditMenu() {
 }
 
 function Items() {
-  const addSection = () => addSectionInEmptySpace({ isDeck: false });
-  const addGroup = () => addSectionInEmptySpace({ isDeck: true });
+  const addSection = useAddSectionInEmptySpace({ isDeck: false });
+  const addGroup = useAddSectionInEmptySpace({ isDeck: true });
   return (
     <>
       <MenuItem onClick={addSection} shortcut="Ctrl + N">

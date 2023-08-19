@@ -1,5 +1,5 @@
 import {
-  dbGetCollectionDetails,
+  getCollectionDetails,
   getCollectionsAndModulesFn,
 } from "dbRequests/sectionConfig";
 import { useGroupedObjInfos } from "hooks/useImmutableInfo";
@@ -21,7 +21,7 @@ export function CollectionsSearch({ sectionId }) {
   async function onSelectionChange({ id, checked, newValueFn }) {
     if (checked) {
       // collection needs to be retrieved from db
-      await dbGetCollectionDetails(id);
+      await getCollectionDetails(id);
     }
 
     setCollections({
@@ -54,7 +54,7 @@ function ObjCollectionDetails({ children, details, name }) {
       <div className="select-text rounded-md py-1 px-1">
         {Object.entries(groupedDetails).map(([k, v]) => (
           <div key={`ObjCollectionDetails-${k}`}>
-            <p className="text-sm font-bold dark:text-runcoder-200">{k}</p>
+            <p className="text-sm font-bold">{k}</p>
             <ObjListText objList={v} />
           </div>
         ))}
@@ -65,10 +65,7 @@ function ObjCollectionDetails({ children, details, name }) {
 
 function ObjListText({ objList }) {
   return objList.map((x) => (
-    <div
-      key={`ObjListText-${x.id}`}
-      className="indent-2 dark:text-runcoder-200"
-    >
+    <div key={`ObjListText-${x.id}`} className="indent-2">
       {x.name}
     </div>
   ));

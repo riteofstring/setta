@@ -4,7 +4,7 @@ import { SectionHeader } from "components/UI/Section/SectionContainer/Header/Sec
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { addChildForSeries } from "thunks/sections/addChild";
-import { createSectionInfo } from "thunks/sections/createSectionInfo";
+import { createDefaultSectionInfo } from "thunks/sections/createSectionInfo";
 import { loadTestDataIntoState, ResizeObserver } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
@@ -78,7 +78,7 @@ describe("Incrementer", () => {
 });
 
 async function componentSetup({ forParent, numChildren }) {
-  const parentId = createSectionInfo({})[0];
+  const parentId = createDefaultSectionInfo({})[0];
   addChildForSeries({ parentId, numChildren });
   const childIds = useSectionInfos.getState().x[parentId].children;
 

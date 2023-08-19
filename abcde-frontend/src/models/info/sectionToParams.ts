@@ -1,23 +1,21 @@
-import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
 
 // This is a special state that maps directly from
-// sectionIds to current callables and params
+// sectionIds to current params and paramCollections
 
-const initialState = { callables: {}, params: {} };
+const initialState = { params: {}, paramCollections: {} };
 
 export const useSectionToParams = createProjectState(
-  temporal(
-    immer((set) => ({
-      ...initialState,
-      setCallablesAndParams: ({ sectionId, callables, params }) =>
-        set((state) => {
-          state.callables[sectionId] = callables;
-          state.params[sectionId] = params;
-        }),
-    }))
-  )
+  immer((set) => ({
+    ...initialState,
+    setParams: ({ sectionId, params }) =>
+      set((state) => {
+        state.params[sectionId] = params;
+      }),
+    setParamCollections: ({ sectionId, paramCollections }) =>
+      set((state) => {
+        state.paramCollections[sectionId] = paramCollections;
+      }),
+  }))
 );
-
-useSectionToParams.temporal.getState().pause();

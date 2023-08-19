@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import _ from "lodash";
 import { usePanes } from "models/panes";
-import { useUser } from "models/user";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
 import { ControlButton, Controls, useReactFlow } from "reactflow";
@@ -11,7 +10,6 @@ import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 export function ResponsiveControls() {
   const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
   const rf = useReactFlow();
-  const darkMode = useUser((x) => x.darkMode);
 
   function onClickLayout() {
     const margin = 50;
@@ -48,15 +46,10 @@ export function ResponsiveControls() {
   return (
     <motion.div
       initial={false}
-      style={{
-        position: "absolute",
-        zIndex: 5,
-        bottom: "20px",
-        left: "15px",
-      }}
+      style={{ position: "absolute", zIndex: 5, bottom: "20px", left: "15px" }}
       animate={{ translateX: overviewCssWidth }}
     >
-      <Controls className="[&>button]:bg-slate-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300">
+      <Controls>
         <ControlButton onClick={onClickLayout}>
           <RiLayoutFill />
         </ControlButton>
