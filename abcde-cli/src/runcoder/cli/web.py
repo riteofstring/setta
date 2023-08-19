@@ -1,13 +1,9 @@
 import asyncio
-import logging
+import json
 
 import websockets
 
 from ..utils.constants import WEBSOCKET
-
-logger = logging.getLogger("websockets")
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler())
 
 
 def web(access_token):
@@ -17,12 +13,30 @@ def web(access_token):
 async def connect(access_token):
     async with websockets.connect(
         WEBSOCKET, extra_headers={"cookie": f"connect.sid={access_token}"}
-    ):
+    ) as websocket:
         print("connected")
-        await asyncio.Future()  # run forever
+        await asyncio.gather(
+            consumer_handler(websocket),
+            producer_handler(websocket),
+        )
 
 
-# async def handler(websocket):
-#     while True:
-#         message = await websocket.recv()
-#         print(message)
+async def consumer_handler(websocket):
+    async for message in websocket:
+        await consumer(message)
+
+
+async def producer_handler(websocket):
+    while True:
+        message = await producer()
+        print("sending:", message)
+        await websocket.send(message)
+
+
+async def consumer(message):
+    print(message)
+
+
+async def producer():
+    await asyncio.sleep(2)
+    return json.dumps({"location": "computer:Kevin"})
