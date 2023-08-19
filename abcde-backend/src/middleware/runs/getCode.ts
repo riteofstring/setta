@@ -13,8 +13,8 @@ async function _getCode(req, res) {
     id: codeId,
     ownerId: userId,
   });
-  const pathname = await getPathnameFromProjectConfigId(projectConfigId);
-  res.json({ code, pathname });
+  const location = await getPathnameFromProjectConfigId(projectConfigId);
+  res.json({ code, location });
 }
 
 function errorHandler(err, req, res, next) {
