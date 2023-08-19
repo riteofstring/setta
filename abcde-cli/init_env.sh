@@ -1,6 +1,6 @@
 #!/bin/sh
 if ! . ./check_python.sh; then
-    [ $PS1 ] && return 1 || exit 1;
+    [ "$PS1" ] && return 1 || exit 1;
 fi
 
 python3 -m venv abcde_env
