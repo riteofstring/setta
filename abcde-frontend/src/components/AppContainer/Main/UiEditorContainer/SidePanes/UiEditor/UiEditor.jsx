@@ -91,8 +91,8 @@ function Placeholder() {
   return (
     <aside className="grid min-h-[60vh] flex-grow flex-col">
       <div className="flex flex-col items-center gap-4 place-self-center">
-        <FiEdit3 className="h-20 w-20 text-slate-300 " />
-        <h4 className="text-lg font-bold tracking-widest text-slate-300">
+        <FiEdit3 className="h-20 w-20 text-slate-300 dark:text-runcoder-700 " />
+        <h4 className="text-lg font-bold tracking-widest text-slate-300 dark:text-runcoder-600">
           Select A Card to Edit
         </h4>
       </div>

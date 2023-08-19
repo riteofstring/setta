@@ -6,34 +6,25 @@ import {
   SAVE_AS_NEW_PROJECT_CONFIG,
   SAVE_PROJECT,
 } from "abcde-utils/src/routes";
-import { NO_AUTH } from "utils/constants";
-import {
-  noAuthCreateProject,
-  noAuthGetProjects,
-  noAuthLoadProject,
-  noAuthSaveAsExistingProjectConfig,
-  noAuthSaveAsNewProjectConfig,
-  noAuthSaveProject,
-} from "./noAuth/projects";
 import { post } from "./utils";
 
-export async function dbGetProjects() {
-  if (NO_AUTH) {
-    return await noAuthGetProjects();
-  }
-
+export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
   return await post({
-    body: {},
+    body: { projectId, format: "fileMenu" },
+    address: PROJECTS,
+    withCredentials: true,
+  });
+}
+
+export async function dbGetProjectsForHomePage() {
+  return await post({
+    body: { format: "homePage" },
     address: PROJECTS,
     withCredentials: true,
   });
 }
 
 export async function dbLoadProject({ username, projectName, configName }) {
-  if (NO_AUTH) {
-    return await noAuthLoadProject({ projectName, configName });
-  }
-
   return await post({
     body: {},
     address: LOAD_PROJECT({ username, projectName, configName }),
@@ -42,10 +33,6 @@ export async function dbLoadProject({ username, projectName, configName }) {
 }
 
 export async function dbCreateProject({ name }) {
-  if (NO_AUTH) {
-    return await noAuthCreateProject({ name });
-  }
-
   return await post({
     address: CREATE_PROJECT,
     body: { name },
@@ -54,10 +41,6 @@ export async function dbCreateProject({ name }) {
 }
 
 export async function dbSaveProject({ project }) {
-  if (NO_AUTH) {
-    return await noAuthSaveProject();
-  }
-
   return await post({
     address: SAVE_PROJECT,
     body: { project },
@@ -66,10 +49,6 @@ export async function dbSaveProject({ project }) {
 }
 
 export async function dbSaveAsNewProjectConfig({ project, newConfigName }) {
-  if (NO_AUTH) {
-    return await noAuthSaveAsNewProjectConfig();
-  }
-
   return await post({
     address: SAVE_AS_NEW_PROJECT_CONFIG,
     body: { project, newConfigName },
@@ -78,10 +57,6 @@ export async function dbSaveAsNewProjectConfig({ project, newConfigName }) {
 }
 
 export async function dbSaveAsExistingProjectConfig({ project, configName }) {
-  if (NO_AUTH) {
-    return await noAuthSaveAsExistingProjectConfig();
-  }
-
   return await post({
     address: SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configName },

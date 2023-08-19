@@ -1,18 +1,8 @@
 import { LOGIN, LOGOUT, REGISTER } from "abcde-utils/src/routes";
 import { AuthType } from "abcde-utils/src/types/auth";
-import { NO_AUTH } from "utils/constants";
-import {
-  noAuthLogin,
-  noAuthLogout,
-  noAuthRegister,
-} from "./noAuth/authentication";
 import { post } from "./utils";
 
 export async function dbLogin({ username, password }: AuthType) {
-  if (NO_AUTH) {
-    return await noAuthLogin();
-  }
-
   return await post({
     address: LOGIN,
     body: { username, password },
@@ -21,10 +11,6 @@ export async function dbLogin({ username, password }: AuthType) {
 }
 
 export function dbLogout() {
-  if (NO_AUTH) {
-    return noAuthLogout();
-  }
-
   return post({
     body: {},
     address: LOGOUT,
@@ -33,10 +19,6 @@ export function dbLogout() {
 }
 
 export async function dbRegister({ username, password }: AuthType) {
-  if (NO_AUTH) {
-    return await noAuthRegister();
-  }
-
   return await post({
     address: REGISTER,
     body: { username, password },

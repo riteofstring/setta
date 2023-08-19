@@ -18,7 +18,7 @@ export function LoginPage() {
 
   return (
     <GridWrapper
-      gridStyles="bg-slate-400 dark:bg-slate-800"
+      gridStyles="bg-slate-400 dark:bg-runcoder-800"
       flexFormWrap={true}
     >
       <StandAloneInputContainer
@@ -51,7 +51,7 @@ function Footer() {
     <>
       <StandardButton
         align="self-stretch"
-        inactive="bg-slate-400 dark:bg-slate-800"
+        inactive="bg-slate-400 dark:bg-runcoder-800"
         text="text-white font-bold"
         hover="hover:bg-blue-500"
         type="submit"

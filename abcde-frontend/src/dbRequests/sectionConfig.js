@@ -4,18 +4,9 @@ import {
   SAVE_COLLECTIONS,
 } from "abcde-utils/src/routes";
 import { useCodeInfo } from "models/info/codeInfo";
-import { NO_AUTH } from "utils/constants";
-import {
-  noAuthGetCollectionDetails,
-  noAuthGetCollectionsAndModules,
-} from "./noAuth/sectionConfig";
 import { post } from "./utils";
 
 async function dbGetCollectionsAndModules({ searchTerm }) {
-  if (NO_AUTH) {
-    return await noAuthGetCollectionsAndModules({ searchTerm });
-  }
-
   return await post({
     address: GET_COLLECTIONS_AND_MODULES,
     body: { searchTerm },
@@ -35,24 +26,15 @@ export async function dbGetCollectionDetails(id) {
     return;
   }
 
-  let res;
-  if (NO_AUTH) {
-    res = await noAuthGetCollectionDetails(id);
-  } else {
-    res = await post({
-      address: GET_COLLECTION_DETAILS,
-      body: { codeInfoId: id },
-    });
-  }
+  const res = await post({
+    address: GET_COLLECTION_DETAILS,
+    body: { codeInfoId: id },
+  });
 
-  s.updateInfos(res.data);
+  s.update(res.data);
 }
 
 export async function dbSaveCollections({ collections }) {
-  if (NO_AUTH) {
-    return;
-  }
-
   return await post({
     address: SAVE_COLLECTIONS,
     body: { collections },

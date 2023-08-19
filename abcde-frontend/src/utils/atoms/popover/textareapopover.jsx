@@ -17,7 +17,7 @@ export function TextAreaPopover({
   return (
     <StandardPopover
       trigger={trigger}
-      contentClasses="bg-slate-200 dark:bg-slate-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm"
+      contentClasses="bg-slate-200 dark:bg-runcoder-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm"
       popoverContent={
         <Content
           header={header}
@@ -64,10 +64,10 @@ function Body({ onChange, onClick, value }) {
       <div className="mt-2 flex gap-1 self-end">
         <Popover.Close asChild>
           <Button
-            twClasses="gap-1 border border-solid border-white dark:border-slate-900 py-1 px-3 rounded-full hover:bg-white dark:hover:bg-slate-800 text-xs transition-all"
+            twClasses="gap-1 border border-solid border-white dark:border-runcoder-900 py-1 px-3 rounded-full hover:bg-white dark:hover:bg-runcoder-800 text-xs transition-all"
             onClick={onClick}
           >
-            Save <BiSave className="text-slate-600 dark:text-slate-300" />
+            Save <BiSave className="text-slate-600 dark:text-runcoder-300" />
           </Button>
         </Popover.Close>
       </div>

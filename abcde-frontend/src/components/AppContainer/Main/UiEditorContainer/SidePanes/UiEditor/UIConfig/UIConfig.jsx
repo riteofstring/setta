@@ -42,7 +42,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         onChange={(e) => setFilter(e.target.value)}
       />
-      <ScrollingArea rootStyle="mt-4" viewportStyle="flex flex-col gap-4">
+      <ScrollingArea styles="mt-4 flex flex-col gap-4">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -82,10 +82,10 @@ function _UIElement({ sectionId, paramInfo }) {
     });
   };
 
-  function onSaveAsSubmit(presetName) {
+  function onSaveAsSubmit({ filename }) {
     const newUIType = cloneNewUIType({
       uiType,
-      name: presetName,
+      name: filename,
       presetType: PresetType.USER,
     });
     setUIType({ uiType: newUIType });
@@ -102,7 +102,7 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-slate-200"
+      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-runcoder-200"
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
