@@ -9,7 +9,7 @@ export function openWebSocket(pathname) {
   }
 
   wss.addEventListener("open", () => {
-    sendCurrPage(pathname);
+    sendLocation(pathname);
   });
 
   wss.addEventListener("message", (event) => {
@@ -36,8 +36,8 @@ function processMessage(message) {
   }
 }
 
-export function sendCurrPage(pathname) {
+export function sendLocation(pathname) {
   if (wss && wss.readyState === 1) {
-    wss.send(JSON.stringify({ currPage: pathname }));
+    wss.send(JSON.stringify({ location: pathname }));
   }
 }

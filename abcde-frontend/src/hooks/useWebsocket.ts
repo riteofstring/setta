@@ -1,7 +1,7 @@
 import {
   closeWebSocket,
   openWebSocket,
-  sendCurrPage,
+  sendLocation,
 } from "dbRequests/websocket";
 import { useUser } from "models/user";
 import { useEffect } from "react";
@@ -20,6 +20,6 @@ export function useWebsocket() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    sendCurrPage(location.pathname);
+    sendLocation(location.pathname);
   }, [location.pathname]);
 }
