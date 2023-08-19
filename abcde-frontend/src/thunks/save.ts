@@ -5,14 +5,13 @@ import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/secti
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
 import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import {
-  saveAsExistingProjectConfig as saveAsExistingProjectConfigDb,
-  saveAsNewProjectConfig as saveAsNewProjectConfigDb,
-  saveProject as saveProjectDb,
+  dbSaveAsExistingProjectConfig,
+  dbSaveAsNewProjectConfig,
+  dbSaveProject,
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useEnteredValues } from "models/info/enteredValues";
 import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
@@ -26,13 +25,12 @@ export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
 
-  const ev = useEnteredValues.getState().x;
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
 
   const kwargCols = useKwargCols.getState().x;
-  const kwargInfo = assembleKwargInfos(kwargCols);
+  const kwargInfo = assembleKwargInfosAndUserSpecifiedObjects(kwargCols);
 
   const sectionInfosState = useSectionInfos.getState();
   const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
@@ -47,7 +45,6 @@ export function getProjectData(): ProjectSaveType {
   const output = {
     project,
     projectConfig,
-    ev,
     evCols,
     uiTypes,
     uiTypeCols,
@@ -65,22 +62,22 @@ export async function saveProject() {
   const n = useNotification.getState();
   n.setMessage("Saving...");
   const x = assembleProject();
-  const result = await saveProjectDb(x);
-  if (result.status === 200) {
+  const res = await dbSaveProject(x);
+  if (res.status === 200) {
     n.setMessage("Saved!");
   }
 }
 
 export async function saveAsNewProjectConfig({ newConfigName }) {
   return await saveProjectAs({
-    fn: saveAsNewProjectConfigDb,
+    fn: dbSaveAsNewProjectConfig,
     otherArgs: { newConfigName },
   });
 }
 
 export async function saveAsExistingProjectConfig({ configName }) {
   return await saveProjectAs({
-    fn: saveAsExistingProjectConfigDb,
+    fn: dbSaveAsExistingProjectConfig,
     otherArgs: { configName },
   });
 }
@@ -94,16 +91,29 @@ function assembleProject() {
   return { project: getProjectData() };
 }
 
-function assembleKwargInfos(kwargCols: ManyKwargColType) {
+function assembleKwargInfosAndUserSpecifiedObjects(
+  kwargCols: ManyKwargColType
+) {
+  // kwargs
   const kwargInfos: ManyCodeInfoType = {};
-  const codeInfoState = useCodeInfo.getState();
+  const allCodeInfo = useCodeInfo.getState().allCodeInfo;
   for (const kwargCol of Object.values(kwargCols)) {
     for (const kwargIds of Object.values(kwargCol)) {
       for (const kwargId of kwargIds) {
-        kwargInfos[kwargId] = codeInfoState.allCodeInfo[kwargId];
+        kwargInfos[kwargId] = allCodeInfo[kwargId];
       }
     }
   }
+
+  // user specified objects
+  const sections = useSectionInfos.getState().x;
+  for (const s of Object.values(sections)) {
+    if (s.userSpecifiedObjectId) {
+      kwargInfos[s.userSpecifiedObjectId] =
+        allCodeInfo[s.userSpecifiedObjectId];
+    }
+  }
+
   return kwargInfos;
 }
 

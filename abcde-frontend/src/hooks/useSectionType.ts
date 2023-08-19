@@ -1,6 +1,7 @@
 import {
   DECK,
   FN,
+  GLOBAL_VARIABLES,
   INFO,
   isRoot,
   isSeriesElement,
@@ -78,4 +79,8 @@ export function useIsFn(sectionId: string) {
 
 export function useIsUserSpecifiedObject(sectionId: string) {
   return useIsType(sectionId, USER_SPECIFIED_OBJECT);
+}
+
+export function useIsGlobalVariables(sectionId: string) {
+  return useIsType(sectionId, GLOBAL_VARIABLES);
 }

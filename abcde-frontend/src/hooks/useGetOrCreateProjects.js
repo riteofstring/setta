@@ -1,5 +1,9 @@
-import { createProject, getProjects } from "dbRequests/projects";
-import { useAuth } from "models/auth";
+import {
+  dbCreateProject,
+  dbGetProjectsForFileMenu,
+  dbGetProjectsForHomePage,
+} from "dbRequests/projects";
+import { useUser } from "models/user";
 import { useState } from "react";
 import {
   adjectives,
@@ -10,23 +14,29 @@ import {
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
-export function useGetOrCreateProjects() {
-  const [projects, setProjects] = useState({});
-  const fnGetProjects = async () => {
-    setProjects(await getProjects());
-  };
-  const fnCreateAndGoToProject = async ({ name }) => {
-    const actualName = name ?? createProjectName();
-    const newProject = await createProject({ name: actualName });
-    setProjects((x) => ({ ...x, [newProject.id]: newProject }));
-    goToDefaultConfig(newProject);
-  };
+function useGetProjects(getter) {
+  const [projects, setProjects] = useState([]);
+  async function getProjects(props) {
+    const res = await getter(props);
+    if (res.status === 200) {
+      setProjects(res.data);
+    }
+  }
+  return { projects, getProjects };
+}
 
-  return {
-    projects,
-    getProjects: fnGetProjects,
-    createAndGoToProject: fnCreateAndGoToProject,
-  };
+export function useGetProjectsForFileMenu() {
+  return useGetProjects(dbGetProjectsForFileMenu);
+}
+
+export function useGetProjectsForHomePage() {
+  return useGetProjects(dbGetProjectsForHomePage);
+}
+
+export async function createAndGoToProject({ name }) {
+  const actualName = name ?? createProjectName();
+  const { data: newProject } = await dbCreateProject({ name: actualName });
+  goToDefaultConfig(newProject);
 }
 
 function createProjectName() {
@@ -36,7 +46,7 @@ function createProjectName() {
 }
 
 function goToProject({ project, configId }) {
-  const username = useAuth.getState().username;
+  const username = useUser.getState().username;
   const configName = project.configs.find((x) => x.id === configId).name;
   const address = `${username}/${project.name}/${configName}`;
   router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });

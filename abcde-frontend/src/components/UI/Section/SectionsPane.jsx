@@ -2,9 +2,8 @@ import { useSectionRefAndInit } from "hooks/useStateRef";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import React from "react";
-import ReactFlow, { Background, useNodesState } from "reactflow";
+import ReactFlow, { useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
-import colors from "tailwindcss/colors";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { PANEID } from "utils/constants";
@@ -20,7 +19,7 @@ import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
 const reactFlowStyle = {
-  background: "#94a3b8",
+  // background: "#94a3b8",
   height: "100%",
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
@@ -83,6 +82,7 @@ function _SectionsPane({ initialNodes, viewport }) {
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
+      className="rcbg-light dark:rcbg-dark"
     >
       <PaneContextMenu
         {...paneCtxMenuDetails}
@@ -100,7 +100,7 @@ function _SectionsPane({ initialNodes, viewport }) {
       )}
       <ResponsiveMiniMap />
       <ResponsiveControls />
-      <Background color={colors.slate[300]} size={0.75} gap={16} />
+      {/* <Background color={colors.slate[300]} size={0.75} gap={16} /> */}
     </ReactFlow>
   );
 }

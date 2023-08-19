@@ -1,12 +1,11 @@
 import { requiresNestedSection } from "abcde-utils/src/constants";
-import { useEnteredValues } from "models/info/enteredValues";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionInfo } from "./sections/sections";
+import { getSectionInfo } from "./sections/getters";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
-export function getParamEVId(sectionId, paramInfoId) {
+export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
   return useParamInfos.getState().x[evColId][paramInfoId];
 }
@@ -37,31 +36,15 @@ export function getParamIsNested(sectionId, paramInfoId) {
   return requiresNestedSection(uiType.type);
 }
 
-export function setParamEVAttr(
-  sectionId,
-  paramInfoId,
-  fn,
-  props,
-  incrementVersion
-) {
-  const evId = getParamEVId(sectionId, paramInfoId);
-  fn({ enteredValueId: evId, ...props });
-  maybeIncrementProjectStateVersion(incrementVersion);
-}
-
 export function setParamEnteredValue({
   sectionId,
   paramInfoId,
   value,
   incrementVersion = false,
 }) {
-  setParamEVAttr(
-    sectionId,
-    paramInfoId,
-    useEnteredValues.getState().setEnteredValue,
-    {
-      value,
-    },
-    incrementVersion
-  );
+  const { evColId } = getSectionInfo(sectionId);
+  useParamInfos
+    .getState()
+    .setEnteredValue({ collectionId: evColId, paramInfoId, value });
+  maybeIncrementProjectStateVersion(incrementVersion);
 }

@@ -2,11 +2,10 @@ import { USER_SPECIFIED_OBJECT_UI_TYPE_ID } from "abcde-utils/src/constants";
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
 import { useCodeInfo } from "models/info/codeInfo";
-import {
-  getSectionInfo,
-  setSectionInfoAttr,
-  setSelectedItem,
-} from "thunks/sections/sections";
+import { updateCurrChildren } from "thunks/sections/children";
+import { getSectionInfo } from "thunks/sections/getters";
+import { updateParamsAndCallables } from "thunks/sections/sectionContents";
+import { setSectionInfoAttr, setSelectedItem } from "thunks/sections/setters";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setParamUITypeId } from "./setParamUITypeId";
 
@@ -31,6 +30,9 @@ export function setSectionUITypeId({
     initializeUserSpecifiedObject(sectionId);
   }
 
+  updateParamsAndCallables(sectionId);
+  updateCurrChildren(sectionId);
+
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -46,9 +48,7 @@ function initializeUserSpecifiedObject(sectionId) {
       attr: "userSpecifiedObjectId",
       value: userSpecifiedObjectId,
     });
-    useCodeInfo
-      .getState()
-      .updateInfos({ allCodeInfo: { [newObj.id]: newObj } });
+    useCodeInfo.getState().update({ allCodeInfo: { [newObj.id]: newObj } });
   }
   setSelectedItem(sectionId, userSpecifiedObjectId, false);
 }

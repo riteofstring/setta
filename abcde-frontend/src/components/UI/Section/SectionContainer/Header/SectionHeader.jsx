@@ -14,6 +14,7 @@ function _SectionHeader({
   isRoot,
   hasNested,
   isActiveSection,
+  isGlobalVariables,
 }) {
   const isInfo = useIsInfo(sectionId);
   const onCustomCloseButtonClick = (e) => {
@@ -29,7 +30,11 @@ function _SectionHeader({
     <header className="flex flex-row items-center px-9">
       {!isInfo && (
         <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
-          <CardTitle sectionId={sectionId} isActiveSection={isActiveSection} />
+          <CardTitle
+            sectionId={sectionId}
+            isActiveSection={isActiveSection}
+            isGlobalVariables={isGlobalVariables}
+          />
           <SaveButton sectionId={sectionId} />
         </div>
       )}
@@ -53,13 +58,20 @@ function _SectionHeader({
   );
 }
 
-function CardTitle({ sectionId, isActiveSection }) {
+function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
   const titleProps = {
-    editing:
-      "cursor-text nodrag h-6 font-heading font-semibold px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full",
-    notEditing: `transition-colors font-heading cursor-pointer font-semibold max-w-full truncate ${
-      isActiveSection ? "text-blue-800" : "text-slate-700"
+    editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full ${
+      isGlobalVariables
+        ? "uppercase font-black tracking-widest"
+        : "font-semibold"
     }`,
+    notEditing: `transition-colors font-heading cursor-pointer max-w-full truncate ${
+      isActiveSection
+        ? isGlobalVariables
+          ? "text-green-800 dark:text-green-200"
+          : "text-blue-800 dark:text-blue-400"
+        : "text-slate-700 dark:text-runcoder-300"
+    } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

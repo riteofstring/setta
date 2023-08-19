@@ -1,5 +1,5 @@
-import { login } from "dbRequests/authentication";
 import { useFormik } from "formik";
+import { login } from "thunks/user/login";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { FormInput } from "utils/atoms/input/FormInput";
 import { PasswordInput } from "utils/atoms/input/PasswordInput";
@@ -13,13 +13,14 @@ export function LoginPage() {
       username: "",
       password: "",
     },
-    onSubmit: ({ username, password }) => {
-      login({ username, password });
-    },
+    onSubmit: login,
   });
 
   return (
-    <GridWrapper gridStyles="bg-slate-400" flexFormWrap={true}>
+    <GridWrapper
+      gridStyles="bg-slate-400 dark:bg-runcoder-800"
+      flexFormWrap={true}
+    >
       <StandAloneInputContainer
         onSubmit={handleSubmit}
         title="Login"
@@ -50,7 +51,7 @@ function Footer() {
     <>
       <StandardButton
         align="self-stretch"
-        inactive="bg-slate-400"
+        inactive="bg-slate-400 dark:bg-runcoder-800"
         text="text-white font-bold"
         hover="hover:bg-blue-500"
         type="submit"

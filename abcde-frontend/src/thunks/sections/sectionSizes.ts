@@ -1,6 +1,7 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { getSectionParentId, setSectionSize } from "./sections";
+import { getSectionParentId } from "./getters";
+import { setSectionSize } from "./setters";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
   // set own width

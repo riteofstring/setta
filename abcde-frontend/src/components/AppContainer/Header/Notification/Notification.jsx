@@ -7,8 +7,10 @@ export function Notification() {
     <>
       {message && (
         <>
-          <VscSave className="ml-4 h-3 w-3 text-slate-400" />
-          <p className="ml-2 self-center text-xs text-slate-500">{message}</p>
+          <VscSave className="ml-4 h-3 w-3 text-slate-400 dark:text-runcoder-50" />
+          <p className="ml-2 self-center text-xs text-slate-500 dark:text-runcoder-100">
+            {message}
+          </p>
         </>
       )}
     </>

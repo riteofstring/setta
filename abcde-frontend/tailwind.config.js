@@ -1,8 +1,28 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: "class",
   theme: {
     extend: {
+      colors: {
+        runcoder: {
+          50: "#EFF1F6",
+          100: "#DCE1EA",
+          200: "#B8C2D5",
+          300: "#98A6C2",
+          400: "#7588AE",
+          500: "#576B93",
+          600: "#425270",
+          700: "#2D384D",
+          800: "#1A202C",
+          900: "#0D1016",
+          950: "#06070A",
+        },
+        rcbg: {
+          light: "#94a3b8",
+          dark: "#14161F",
+        },
+      },
       fontFamily: {
         body: ["Inter", "sans-serif"],
         heading: ["Work Sans", "sans-serif"],
@@ -27,12 +47,6 @@ module.exports = {
         slideDown: "slideDown 200ms cubic-bezier(0.87, 0, 0.13, 1)",
         slideUp: "slideUp 200ms cubic-bezier(0.87, 0, 0.13, 1)",
       },
-
-      // typography: (theme) => {
-      //   css: {
-
-      //   }
-      // }
     },
   },
   plugins: [require("@tailwindcss/typography")],
