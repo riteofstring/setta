@@ -15,9 +15,7 @@
     "test:watch": "yarn test --watch",
     "test:cov": "yarn test --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "f": "yarn prettier src test prisma --write",
-    "linkutils": "cd ../abcde-utils && git pull && yarn && yarn link && cd ../abcde-backend && yarn link abcde-utils",
-    "linktest": "cd ../abcde-test && git pull && yarn && yarn link && cd ../abcde-backend && yarn link abcde-test"
+    "f": "yarn prettier src test prisma --write"
   },
   "dependencies": {
     "@prisma/client": "5.0.0",
