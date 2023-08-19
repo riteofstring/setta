@@ -3,7 +3,7 @@ import { allSockets } from './allSockets';
 export function sendToUser(user, message) {
   if (user in allSockets) {
     for (const s of allSockets[user]) {
-      if (s.currPage === message.pathname) {
+      if (s.location === message.pathname) {
         s.send(JSON.stringify(message));
       }
     }
@@ -13,8 +13,8 @@ export function sendToUser(user, message) {
 export function wsReceiveMessage(ws) {
   return (data) => {
     const x = JSON.parse(data);
-    if ('currPage' in x) {
-      ws.currPage = x.currPage;
+    if ('location' in x) {
+      ws.location = x.location;
     }
   };
 }
