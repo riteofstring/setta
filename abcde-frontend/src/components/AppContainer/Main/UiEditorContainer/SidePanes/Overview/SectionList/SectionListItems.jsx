@@ -4,9 +4,9 @@ export function SectionListItems({ listOfSectionIdsAndNames = [] }) {
   return listOfSectionIdsAndNames.map((e, idx) => (
     <li
       style={{ paddingLeft: `${0.75 * e.depth}rem` }}
-      key={`SectionItem-${e.id}-${idx}`}
+      key={`SectionItem-${e.sectionId}-${idx}`}
     >
-      <SectionItem sectionId={e.id} sectionHeading={e.name} />
+      <SectionItem sectionId={e.sectionId} sectionHeading={e.sectionHeading} />
     </li>
   ));
 }

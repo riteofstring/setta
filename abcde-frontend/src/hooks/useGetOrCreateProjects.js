@@ -1,8 +1,4 @@
-import {
-  dbCreateProject,
-  dbGetProjectsForFileMenu,
-  dbGetProjectsForHomePage,
-} from "dbRequests/projects";
+import { dbCreateProject, dbGetProjectsForFileMenu, dbGetProjectsForHomePage } from "dbRequests/projects";
 import { useUser } from "models/user";
 import { useState } from "react";
 import {

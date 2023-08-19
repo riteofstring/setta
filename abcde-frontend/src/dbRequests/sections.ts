@@ -1,18 +1,20 @@
-import { SECTIONS } from "abcde-utils/src/routes";
-import { post } from "./utils";
+import { NO_AUTH } from "utils/constants";
+import { noAuthGetSections, noAuthLoadSection } from "./noAuth/sections";
 
 export async function dbGetSections() {
-  return await post({
-    body: {},
-    address: SECTIONS,
-    withCredentials: true,
-  });
+  if (NO_AUTH) {
+    return await noAuthGetSections();
+  }
+
+  // return await post({
+  //   body: {},
+  //   address: SECTIONS,
+  //   withCredentials: true,
+  // });
 }
 
 export async function dbLoadSection({ sectionId }) {
-  return await post({
-    body: { sectionId },
-    address: SECTIONS,
-    withCredentials: true,
-  });
+  if (NO_AUTH) {
+    return await noAuthLoadSection({ sectionId });
+  }
 }
