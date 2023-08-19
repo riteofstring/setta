@@ -29,6 +29,10 @@ export const useKwargCols = createProjectState(
           const currIds = currState[objInfoId];
           currState[objInfoId] = newStateFn(currIds ? currIds : []);
         }),
+      update: (payload) =>
+        set((state) => {
+          state.x = { ...state.x, ...payload };
+        }),
     }))
   )
 );

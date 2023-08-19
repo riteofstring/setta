@@ -96,6 +96,11 @@ export const useSectionInfos = createProjectState(
             );
           }
         }),
+
+      update: (payload) =>
+        set((state) => {
+          state.x = { ...state.x, ...payload };
+        }),
     }))
   )
 );
