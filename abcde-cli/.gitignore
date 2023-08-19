@@ -8,3 +8,4 @@ site/
 venv/
 runcoder_code/
 abcde_env
+.DS_Store
