@@ -1,6 +1,6 @@
 #!/bin/sh
 if ! . ./check_python.sh; then
-    return 1
+    [ $PS1 ] && return 1 || exit 1;
 fi
 
 if [ -f "abcde_env/bin/activate" ]; then
