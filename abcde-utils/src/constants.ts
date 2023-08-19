@@ -15,6 +15,7 @@ export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
 export const FN = "FN";
 export const USER_SPECIFIED_OBJECT = "USER_SPECIFIED_OBJECT";
+export const GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
 export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
@@ -25,6 +26,7 @@ export const SECTION_TYPE_NAMES = [
   SOCIAL,
   FN,
   USER_SPECIFIED_OBJECT,
+  GLOBAL_VARIABLES,
 ];
 
 export const NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac";
@@ -77,6 +79,7 @@ export const uiTypesToPretty = Object.freeze(
       [SOCIAL]: "Social",
       [FN]: "Function",
       [USER_SPECIFIED_OBJECT]: "User Specified Object",
+      [GLOBAL_VARIABLES]: "Global Variables",
     })
   )
 );
