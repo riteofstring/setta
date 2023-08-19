@@ -141,7 +141,7 @@ export default {
     description: "",
     descriptionHeight: 100,
     descriptionVisible: false,
-    nonPresetUITypeIds: ["24d5fc47-3047-4c92-86ec-d086c74bce9e"],
+    nonPresetUITypeIds: [],
   },
   "7b3c47ac-a773-4733-86f9-041ce9d5a3c8": {
     id: "7b3c47ac-a773-4733-86f9-041ce9d5a3c8",

@@ -109,18 +109,4 @@ export default {
   "037a26ac-5585-45d7-9000-5d49590ebb6c": {},
   "debfa4c7-53c6-41d5-8ac1-eb4417e47eed": {},
   "b26496bf-d3a2-4fa8-8990-38a1e245fb3d": {},
-  "dd74486e-1262-4268-8c36-287cc7b03ab3": {
-    "669b8302-2768-49b1-9696-2e9adbc73479": {
-      uiTypeId: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-      nonPresetUITypeIds: [],
-    },
-    "5d1cd6e1-2995-4764-82bd-8cb643521af5": {
-      uiTypeId: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-      nonPresetUITypeIds: [],
-    },
-    "fa8fb0dd-b616-4b95-b85c-8c2f473fd71e": {
-      uiTypeId: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-      nonPresetUITypeIds: [],
-    },
-  },
 };

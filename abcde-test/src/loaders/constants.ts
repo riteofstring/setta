@@ -14,6 +14,8 @@ export const PROJECT_CONFIG_NAMES = {
   pytorchTraining: ["config1"],
 };
 
+export const DEFAULT_USER_ID = "25961114-6655-4e2c-b70f-e2e3aaa84131";
+
 export const CODE_INFOS = [
   "pytorch",
   "pytorchLightning",

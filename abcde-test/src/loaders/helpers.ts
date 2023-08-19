@@ -1,9 +1,11 @@
+import _ from "lodash";
 import {
   CODE_INFOS,
   NON_PROJECT_STATES,
   PROJECT_NAMES,
   PROJECT_STATES,
 } from "./constants";
+import { IN_MEM_PROJECTS, IN_MEM_PROJECT_CONFIGS } from "./createInMem";
 
 export async function loadGlobalData() {
   const output = {};
@@ -57,6 +59,9 @@ export async function loadProjectMetadata({ projectName, configName }) {
       projectName,
       configName,
     });
+  } else {
+    loaded["project"] = IN_MEM_PROJECTS[projectName];
+    loaded["projectConfig"] = IN_MEM_PROJECT_CONFIGS[projectName][configName];
   }
 
   return loaded;
@@ -71,4 +76,9 @@ export async function loadGlobalCodeInfo() {
     );
   }
   return output;
+}
+
+export async function loadUser(username) {
+  const users = await loadSpecificTestData({ name: "Users" });
+  return _.find(users, (u) => u.name === username);
 }
