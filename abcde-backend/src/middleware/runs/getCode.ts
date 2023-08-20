@@ -14,7 +14,7 @@ async function _getCode(req, res) {
     ownerId: userId,
   });
   const location = await getPathnameFromProjectConfigId(projectConfigId);
-  res.json({ code, location });
+  res.json({ code, toLocation: location });
 }
 
 function errorHandler(err, req, res, next) {

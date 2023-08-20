@@ -35,7 +35,7 @@ function runPassportAuth(req, socket, head) {
       }
       const currSet = allSockets[req.user];
       currSet.add(ws);
-      ws.on('message', wsReceiveMessage(ws));
+      ws.on('message', wsReceiveMessage(req, ws));
       ws.on('close', () => currSet.delete(ws));
       wss.emit('connection', ws, req);
     });
