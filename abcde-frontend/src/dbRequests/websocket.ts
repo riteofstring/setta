@@ -41,3 +41,15 @@ export function sendLocation(pathname) {
     wss.send(JSON.stringify({ location: pathname }));
   }
 }
+
+export function sendMessage(message) {
+  if (wss && wss.readyState === 1) {
+    wss.send(
+      JSON.stringify({
+        message,
+        toLocation: "computer:Kevin",
+        sendImmediately: true,
+      })
+    );
+  }
+}
