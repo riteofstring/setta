@@ -40,7 +40,7 @@ def run(access_token, code_id):
     click.echo("Received code")
     data = r.json()
     code = data["code"]
-    location = data["location"]
+    toLocation = data["toLocation"]
 
     cwd = os.getcwd()
     code_folder_path = Path(cwd) / CODE_FOLDER
@@ -52,7 +52,7 @@ def run(access_token, code_id):
 
     # set token so it's available for logger
     Runcoder.token = access_token
-    Runcoder.location = location
+    Runcoder.toLocation = toLocation
     Runcoder.run_id = code_id
 
     # add current working directory to path

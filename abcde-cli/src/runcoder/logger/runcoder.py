@@ -10,7 +10,7 @@ class RuncoderLoginError(Exception):
 
 class Runcoder:
     token = None
-    location = None
+    toLocation = None
     run_id = None
 
     def __init__(self, username=None, password=None):
@@ -34,7 +34,7 @@ class Runcoder:
         x = {
             "type": "LOG",
             "data": {"group": group, "key": key, "values": [value]},
-            "location": self.location,
+            "toLocation": self.toLocation,
             "needIds": need_ids,
             "runId": self.run_id,
         }

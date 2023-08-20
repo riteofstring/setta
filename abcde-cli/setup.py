@@ -11,6 +11,7 @@ setuptools.setup(
         "keyring==23.11.0",
         "PyYAML==6.0",
         "websockets==11.0.3",
+        "jedi==0.19.0",
     ],
     entry_points={
         "console_scripts": [

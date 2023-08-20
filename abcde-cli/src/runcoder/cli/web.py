@@ -15,10 +15,8 @@ async def connect(access_token):
         WEBSOCKET, extra_headers={"cookie": f"connect.sid={access_token}"}
     ) as websocket:
         print("connected")
-        await asyncio.gather(
-            consumer_handler(websocket),
-            producer_handler(websocket),
-        )
+        await websocket.send(json.dumps({"location": "computer:Kevin"}))
+        await consumer_handler(websocket)
 
 
 async def consumer_handler(websocket):
@@ -26,17 +24,17 @@ async def consumer_handler(websocket):
         await consumer(message)
 
 
-async def producer_handler(websocket):
-    while True:
-        message = await producer()
-        print("sending:", message)
-        await websocket.send(message)
+# async def producer_handler(websocket):
+#     while True:
+#         message = await producer()
+#         print("sending:", message)
+#         await websocket.send(message)
 
 
 async def consumer(message):
     print(message)
 
 
-async def producer():
-    await asyncio.sleep(2)
-    return json.dumps({"location": "computer:Kevin"})
+# async def producer():
+#     await asyncio.sleep(60)
+#     # doesn't do anything right now
