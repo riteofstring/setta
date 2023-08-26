@@ -1,34 +1,18 @@
 import { isSectionUIType, NULL_OBJ_ID } from 'abcde-utils/src/constants';
-import { CodeInfoStateType, RCType } from 'abcde-utils/src/types/codeInfo';
-import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
+import { ManyCodeInfoType } from 'abcde-utils/src/types/codeInfo';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getChildrenRecursively } from 'src/utils/utils';
 
-export async function getCodeInfoForSectionsAndKwargs(
-  sections,
-  uiTypes,
-  kwargCols: ManyKwargColType,
-) {
+export async function getCodeInfoForSectionsAndKwargs(uiTypes) {
   const sectionUITypes = _.pickBy(uiTypes, (v) => isSectionUIType(v));
-  const userSpecifiedObjectIds = _.map(
-    sections,
-    (s) => s.userSpecifiedObjectId,
-  ).filter((s) => s);
   const collectionIds = _.flatten(
     _.map(sectionUITypes, (x) => x.config.collections),
   );
-  const kwargIds = _.flattenDeep(_.map(kwargCols, (x) => Object.values(x)));
-
-  return await getCodeInfo([
-    ...userSpecifiedObjectIds,
-    ...collectionIds,
-    ...kwargIds,
-    NULL_OBJ_ID,
-  ]);
+  return await getCodeInfo([...collectionIds, NULL_OBJ_ID]);
 }
 
-export async function getCodeInfo(ids: string[]): Promise<CodeInfoStateType> {
+export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
   const allIds = await getChildrenRecursively(
     ids,
     async (c) =>
@@ -61,19 +45,17 @@ export async function getCodeInfo(ids: string[]): Promise<CodeInfoStateType> {
     output[x.id] = { ...theRest, children: asParent.map((y) => y.childId) };
   });
 
-  return { allCodeInfo: output };
+  return output;
 }
 
 export async function getCollectionsAndModules(searchTerm: string) {
   const results = await prisma.codeInfo.findMany({
-    where: { name: { contains: searchTerm }, rcType: RCType.COLLECTION },
+    where: { name: { contains: searchTerm } },
     select: {
       id: true,
       name: true,
-      description: true,
-      path: true,
       asParent: {
-        select: { child: { select: { id: true, name: true, path: true } } },
+        select: { child: { select: { id: true, name: true } } },
       },
     },
   });

@@ -4,7 +4,6 @@ import { DEFAULT_BASE_UI_TYPE_ID } from 'abcde-utils/src/constants';
 import { newCodeInfo } from 'abcde-utils/src/objs/codeInfo';
 import { LOAD_PROJECT, LOGIN, PROJECTS } from 'abcde-utils/src/routes';
 import { compareObjs } from 'abcde-utils/src/testUtils';
-import { RCType } from 'abcde-utils/src/types/codeInfo';
 import _ from 'lodash';
 import { app } from 'src/app/app';
 import { saveAsNewProjectConfig } from 'src/db/projectConfigs/saveAs';
@@ -83,7 +82,7 @@ describe('ProjectsService', () => {
     });
 
     // add a kwarg to a user specified object
-    const kwargInfo = newCodeInfo({ rcType: RCType.PARAMETER });
+    const kwargInfo = newCodeInfo({});
     project.kwargInfo[kwargInfo.id] = kwargInfo;
     const section = _.find(project.sections, (v) => v.userSpecifiedObjectId);
     const { uiTypeColId, evColId, kwargColId, userSpecifiedObjectId } = section;

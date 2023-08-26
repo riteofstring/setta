@@ -15,16 +15,16 @@ export function copyUITypes(uiTypes: ManyUITypeType) {
 export function copyUITypeCols({
   uiTypeCols,
   uiTypeIdMap,
-  kwargInfoIdMap,
+  codeInfoIdMap,
 }: {
   uiTypeCols: ManyUITypeColType;
   uiTypeIdMap;
-  kwargInfoIdMap;
+  codeInfoIdMap;
 }) {
   const { newIds: newUITypeCols, idMap: uiTypeColIdMap } = remapIds(uiTypeCols);
 
   for (const id of Object.keys(newUITypeCols)) {
-    newUITypeCols[id] = renameKeys(newUITypeCols[id], kwargInfoIdMap);
+    newUITypeCols[id] = renameKeys(newUITypeCols[id], codeInfoIdMap);
     const col = newUITypeCols[id];
     for (const [codeInfoId, u] of Object.entries(col)) {
       if (u.uiTypeId in uiTypeIdMap) {

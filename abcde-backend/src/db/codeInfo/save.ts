@@ -10,12 +10,7 @@ export async function saveCodeInfo(
     (v): Prisma.CodeInfoCreateArgs['data'] => ({
       id: v.id,
       name: v.name,
-      version: v.version,
-      type: v.type,
-      rcType: v.rcType,
-      defaultVal: v.defaultVal,
-      description: v.description,
-      path: v.path,
+      editable: v.editable,
     }),
   );
 
@@ -26,8 +21,6 @@ export async function saveCodeInfo(
         deleteMany: {},
         create: v.children.map((c, idx) => ({ childId: c, order: idx })),
       },
-      inCodeParentId: v.inCodeParentId,
-      returnTypeId: v.returnTypeId,
     }),
   );
 

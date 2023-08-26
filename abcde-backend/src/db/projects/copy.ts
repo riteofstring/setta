@@ -1,7 +1,7 @@
 import { ProjectSaveType } from 'abcde-utils/src/types/projectSaveLoad';
 import { copyEVCols } from 'src/db/enteredValues/copy';
 import { copySections } from 'src/db/sections/copy';
-import { copyKwargCols, copyKwargInfo } from '../kwargs/copy';
+import { copyCodeInfo } from '../codeInfo/copy';
 import { copyProjectConfig } from '../projectConfigs/copy';
 import { copyUITypeCols, copyUITypes } from '../uiTypes/copy';
 
@@ -15,8 +15,7 @@ export function copyProjectDetails({
   doCreateNewId?: boolean;
 }): ProjectSaveType {
   const {
-    kwargInfo,
-    kwargCols,
+    codeInfo,
     evCols,
     uiTypes,
     uiTypeCols,
@@ -25,25 +24,20 @@ export function copyProjectDetails({
     ...theRest
   } = project;
 
-  const { newKwargInfo, kwargInfoIdMap } = copyKwargInfo(kwargInfo);
-  const { newKwargCols, kwargColIdMap } = copyKwargCols(
-    kwargCols,
-    kwargInfoIdMap,
-  );
+  const { newCodeInfo, codeInfoIdMap } = copyCodeInfo(codeInfo);
   const { newEvCols, evColIdMap } = copyEVCols({
     evCols,
-    kwargInfoIdMap,
+    codeInfoIdMap,
   });
   const { newUITypes, uiTypeIdMap } = copyUITypes(uiTypes);
   const { newUITypeCols, uiTypeColIdMap } = copyUITypeCols({
     uiTypeCols,
     uiTypeIdMap,
-    kwargInfoIdMap,
+    codeInfoIdMap,
   });
   const { newSections, sectionIdMap } = copySections({
     sections,
-    kwargInfoIdMap,
-    kwargColIdMap,
+    codeInfoIdMap,
     evColIdMap,
     uiTypeIdMap,
     uiTypeColIdMap,
@@ -57,8 +51,7 @@ export function copyProjectDetails({
 
   return {
     ...theRest,
-    kwargInfo: newKwargInfo,
-    kwargCols: newKwargCols,
+    codeInfo: newCodeInfo,
     evCols: newEvCols,
     uiTypes: newUITypes,
     uiTypeCols: newUITypeCols,

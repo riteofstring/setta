@@ -2,15 +2,12 @@ import { ProjectType } from 'abcde-utils/src/types/project';
 import { ProjectSaveType } from 'abcde-utils/src/types/projectSaveLoad';
 import { saveAllProjectConfigCodeInfoMaps } from 'src/db/codeInfoMaps/projectConfig/save';
 import { saveEVCols } from 'src/db/enteredValues/save';
-import { saveKwargCols, saveKwargInfo } from 'src/db/kwargs/save';
 import { prisma } from 'src/db/prisma';
 import { saveProjectConfig } from 'src/db/projectConfigs/save';
 import { saveSections } from 'src/db/sections/save';
 import { saveUITypeCols, saveUITypes } from 'src/db/uiTypes/save';
 
 export async function saveProjectDetails(userId, p: ProjectSaveType) {
-  await saveKwargInfo(p.kwargInfo);
-  await saveKwargCols(p.kwargCols);
   await saveEVCols(p.evCols);
   await saveUITypes(userId, p.uiTypes);
   await saveUITypeCols(p.uiTypeCols);

@@ -1,12 +1,10 @@
 import { ManyEVColType } from 'abcde-utils/src/types/evCol';
-import { ManyKwargColType } from 'abcde-utils/src/types/kwargCol';
 import { ManyOutputType } from 'abcde-utils/src/types/output';
 import { ManyOutputGroupType } from 'abcde-utils/src/types/outputGroup';
 import { ManySectionType } from 'abcde-utils/src/types/section';
 import { ManyUITypeColType } from 'abcde-utils/src/types/uiTypeCol';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
-import { getOrderedChildrenFull } from 'src/utils/utils';
 import { getUITypesByWhere } from '../uiTypes/load';
 import { getSectionsRecursively } from './getSectionsRecurisvely';
 
@@ -24,13 +22,6 @@ export async function getSections(ids) {
       evCol: {
         select: {
           children: { select: { codeInfoId: true, value: true } },
-        },
-      },
-      kwargCol: {
-        select: {
-          children: {
-            select: { codeInfoId: true, kwargInfoId: true, order: true },
-          },
         },
       },
       uiTypeCol: {
@@ -68,12 +59,10 @@ export async function getSections(ids) {
     parentId: v.asChild ? v.asChild.parentId : null,
     evColId: v.evColId,
     uiTypeId: v.uiTypeId,
-    kwargColId: v.kwargColId,
     uiTypeColId: v.uiTypeColId,
     selectedItem: v.selectedItemId,
     social: v.social,
     outputGroup: v.outputGroupId,
-    userSpecifiedObjectId: v.userSpecifiedObjectId,
     nonPresetUITypeIds: v.nonPresetUITypes.map((x) => x.id),
     description: v.description,
     descriptionHeight: v.descriptionHeight,
@@ -85,15 +74,6 @@ export async function getSections(ids) {
     evCols[config.evColId] = _.mapValues(
       _.keyBy(config.evCol.children, 'codeInfoId'),
       (x) => x.value,
-    );
-  }
-
-  const kwargCols: ManyKwargColType = {};
-  for (const config of s) {
-    const ordered = getOrderedChildrenFull(config.kwargCol.children);
-    kwargCols[config.kwargColId] = _.mapValues(
-      _.groupBy(ordered, (x) => x.codeInfoId),
-      (y) => y.map((z) => z.kwargInfoId),
     );
   }
 
@@ -141,7 +121,6 @@ export async function getSections(ids) {
   return {
     sections,
     evCols,
-    kwargCols,
     uiTypeCols,
     nonPresetUITypes,
     outputGroups,

@@ -1,5 +1,4 @@
 import { newCodeInfo } from 'abcde-utils/src/objs/codeInfo';
-import { RCType } from 'abcde-utils/src/types/codeInfo';
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
@@ -44,7 +43,7 @@ describe('Create, update, and copy entered value collections', () => {
   test('Copy an ev collection', async () => {
     const { newEvCols, evColIdMap } = copyEVCols({
       evCols,
-      kwargInfoIdMap: {},
+      codeInfoIdMap: {},
     });
     const newEvColId = Object.keys(newEvCols)[0];
     expect(newEvColId).not.toEqual(originalEvColId);
@@ -55,10 +54,7 @@ describe('Create, update, and copy entered value collections', () => {
 
 // test data
 const _codeInfos = ['epochs', 'lr', 'batches'].map((name) =>
-  newCodeInfo({
-    name,
-    rcType: RCType.PARAMETER,
-  }),
+  newCodeInfo({ name }),
 );
 const codeInfos = _.keyBy(_codeInfos, 'id');
 

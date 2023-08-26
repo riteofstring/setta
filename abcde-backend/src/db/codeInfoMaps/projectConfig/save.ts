@@ -1,14 +1,6 @@
-import {
-  CodeInfoMapStateType,
-  CodeInfoMapType,
-  CodeInfoTypeMapType,
-} from 'abcde-utils/src/types/codeInfoMap';
-import _ from 'lodash';
+import { CodeInfoTypeMapType } from 'abcde-utils/src/types/codeInfoMap';
 import { prisma } from 'src/db/prisma';
-import {
-  PrismaProjectConfigCodeInfoMapType,
-  PrismaProjectConfigCodeInfoTypeMapType,
-} from './types';
+import { PrismaProjectConfigCodeInfoTypeMapType } from './types';
 
 function assembleProjectConfigCodeInfoTypeMap(
   projectConfigId: string,
@@ -50,51 +42,9 @@ async function saveProjectConfigCodeInfoTypeMaps(
   );
 }
 
-function assembleProjectConfigCodeInfoMap(
-  projectConfigId: string,
-  data: CodeInfoMapType,
-) {
-  const inDbFormat: PrismaProjectConfigCodeInfoMapType[] = [];
-  for (const [x, mapsTo] of Object.entries(data)) {
-    inDbFormat.push({
-      projectConfigId,
-      codeInfoId: x,
-      ...mapsTo,
-    });
-  }
-  return inDbFormat;
-}
-
-async function saveProjectConfigCodeInfoMaps(projectConfigId, data) {
-  const inDbFormat = assembleProjectConfigCodeInfoMap(projectConfigId, data);
-
-  await prisma.$transaction(
-    inDbFormat.map((v) =>
-      prisma.projectConfigCodeInfoMap.upsert({
-        where: {
-          projectConfigId_codeInfoId: {
-            projectConfigId: v.projectConfigId,
-            codeInfoId: v.codeInfoId,
-          },
-        },
-        create: v,
-        update: v,
-      }),
-    ),
-  );
-}
-
 export async function saveAllProjectConfigCodeInfoMaps(
   projectConfigId: string,
-  data: CodeInfoMapStateType,
+  data: CodeInfoTypeMapType,
 ) {
-  if (_.isEmpty(data)) {
-    return;
-  }
-
-  await saveProjectConfigCodeInfoMaps(projectConfigId, data.codeInfoMaps);
-  await saveProjectConfigCodeInfoTypeMaps(
-    projectConfigId,
-    data.codeInfoTypeMaps,
-  );
+  await saveProjectConfigCodeInfoTypeMaps(projectConfigId, data);
 }
