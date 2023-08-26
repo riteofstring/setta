@@ -1,7 +1,6 @@
-import { CodeInfoStateType, ManyCodeInfoType } from "./codeInfo";
-import { CodeInfoMapStateType } from "./codeInfoMap";
+import { ManyCodeInfoType } from "./codeInfo";
+import { CodeInfoTypeMapType } from "./codeInfoMap";
 import { ManyEVColType } from "./evCol";
-import { ManyKwargColType } from "./kwargCol";
 import { ManyOutputType } from "./output";
 import { ManyOutputGroupType } from "./outputGroup";
 import { ProjectType } from "./project";
@@ -16,15 +15,13 @@ export type ProjectSaveType = {
   evCols: ManyEVColType;
   uiTypes: ManyUITypeType;
   uiTypeCols: ManyUITypeColType;
-  kwargInfo: ManyCodeInfoType;
-  kwargCols: ManyKwargColType;
   sections: ManySectionTypeSaveProjectToBackend;
-  projectConfigCodeInfoMaps: CodeInfoMapStateType;
+  projectConfigCodeInfoMaps: CodeInfoTypeMapType;
+  codeInfo: ManyCodeInfoType;
 };
 
-export type ProjectLoadType = Omit<ProjectSaveType, "kwargInfo"> & {
-  codeInfo: CodeInfoStateType;
-  userCodeInfoMaps: CodeInfoMapStateType;
+export type ProjectLoadType = ProjectSaveType & {
+  userCodeInfoMaps: CodeInfoTypeMapType;
   outputs: ManyOutputType;
   outputGroups: ManyOutputGroupType;
 };

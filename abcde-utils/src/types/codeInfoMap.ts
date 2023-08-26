@@ -1,26 +1,15 @@
-export type CodeInfoMapType = {
-  [codeInfoId: string]: {
-    uiTypeId: string;
-  };
-};
-
 export type CodeInfoTypeMapType = {
   [codeInfoType: string]: {
     uiTypeId: string;
   };
 };
 
-export type CodeInfoMapStateType = {
-  codeInfoMaps: CodeInfoMapType;
-  codeInfoTypeMaps: CodeInfoTypeMapType;
-};
-
 export type CodeInfoMapActionType = {
-  resetAndSetAll: (payload: CodeInfoMapStateType) => void;
-  setAll: (payload: CodeInfoMapStateType) => void;
+  resetAndSetAll: (payload: CodeInfoTypeMapType) => void;
+  setAll: (payload: CodeInfoTypeMapType) => void;
   reset: () => void;
-  exportForDb: () => CodeInfoMapStateType;
+  exportForDb: () => CodeInfoTypeMapType;
 };
 
-export type CodeInfoMapZustandType = CodeInfoMapStateType &
+export type CodeInfoMapZustandType = CodeInfoTypeMapType &
   CodeInfoMapActionType;

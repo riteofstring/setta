@@ -1,30 +1,16 @@
-import { CodeInfoType, RCType } from "../types/codeInfo";
+import { CodeInfoType } from "../types/codeInfo";
 import { maybeNewId } from "../utils";
 
 export function newCodeInfo({
   id,
   name = "",
-  version = null,
-  defaultVal = null,
-  type = "",
-  description = "",
-  rcType,
-  inCodeParentId = null,
-  path = "",
+  editable = false,
   children = [],
-  returnTypeId = null,
-}: Partial<CodeInfoType> & { rcType: RCType }): CodeInfoType {
+}: Partial<CodeInfoType>): CodeInfoType {
   return {
     id: maybeNewId(id),
     name,
-    version,
-    defaultVal,
-    type,
-    rcType,
-    description,
-    inCodeParentId,
-    path,
+    editable,
     children,
-    returnTypeId,
   };
 }
