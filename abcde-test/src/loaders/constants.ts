@@ -14,16 +14,6 @@ export const PROJECT_CONFIG_NAMES = {
   pytorchTraining: ["config1"],
 };
 
-export const CODE_INFOS = [
-  "pytorch",
-  "pytorchLightning",
-  "pytorchLightningMnist",
-  "pytorchTraining",
-  "runcoder",
-  "torchmetrics",
-  "userSpecifiedObjects",
-];
-
 export const PROJECT_STATES = [
   "evCols",
   "projectConfigCodeInfoMaps",

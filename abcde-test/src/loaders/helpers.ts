@@ -1,9 +1,4 @@
-import {
-  CODE_INFOS,
-  NON_PROJECT_STATES,
-  PROJECT_NAMES,
-  PROJECT_STATES,
-} from "./constants";
+import { NON_PROJECT_STATES, PROJECT_NAMES, PROJECT_STATES } from "./constants";
 
 export async function loadGlobalData() {
   const output = {};
@@ -63,12 +58,8 @@ export async function loadProjectMetadata({ projectName, configName }) {
 }
 
 export async function loadGlobalCodeInfo() {
-  const output: any = {};
-  for (const k of CODE_INFOS) {
-    Object.assign(
-      output,
-      await loadSpecificTestData({ name: k, projectName: "_codeInfo" })
-    );
-  }
-  return output;
+  return await loadSpecificTestData({
+    name: "codeInfo",
+    projectName: "_codeInfo",
+  });
 }

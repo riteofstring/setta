@@ -1,4 +1,1 @@
-export default {
-  codeInfoMaps: {},
-  codeInfoTypeMaps: {},
-};
+export default {};
