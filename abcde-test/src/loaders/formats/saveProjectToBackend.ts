@@ -1,4 +1,8 @@
-import { omitParentIdFromSections, processProject } from "./utils";
+import {
+  loadCodeInfoForProject,
+  omitParentIdFromSections,
+  processProject,
+} from "./utils";
 
 export function saveProjectToBackend(loaded) {
   const {
@@ -12,10 +16,15 @@ export function saveProjectToBackend(loaded) {
     ...theRest
   } = loaded;
 
+  const allUITypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
+
+  const codeInfo = loadCodeInfoForProject(allCodeInfo, allUITypes);
+
   return {
     project: processProject(project),
     sections: omitParentIdFromSections(sections),
     uiTypes,
+    codeInfo,
     ...theRest,
   };
 }

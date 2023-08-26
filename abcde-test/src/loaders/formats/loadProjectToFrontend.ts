@@ -14,7 +14,7 @@ export function loadProjectToFrontend(loaded) {
 
   const allUITypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
 
-  const codeInfo = loadCodeInfoForProject(allCodeInfo, sections, allUITypes);
+  const codeInfo = loadCodeInfoForProject(allCodeInfo, allUITypes);
 
   return {
     project: processProject(project),

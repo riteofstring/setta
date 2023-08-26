@@ -10,6 +10,7 @@ export function seeding(loaded) {
 
   return {
     uiTypes: { ...uiTypes, ...presetUITypes },
+    codeInfo: allCodeInfo,
     ...theRest,
   };
 }
