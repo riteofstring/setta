@@ -155,4 +155,58 @@ export default {
     editable: false,
     children: [],
   },
+  "8893ded5-2740-47d7-ae41-674ab14f191c": {
+    id: "8893ded5-2740-47d7-ae41-674ab14f191c",
+    name: "dog_power",
+    children: [],
+    editable: true,
+  },
+  "b2870195-c853-4d4f-ac20-9fe0a57da17c": {
+    id: "b2870195-c853-4d4f-ac20-9fe0a57da17c",
+    name: "num_layers",
+    children: [],
+    editable: true,
+  },
+  "63a3117c-b38b-4f3f-a46c-f4c86030c918": {
+    id: "63a3117c-b38b-4f3f-a46c-f4c86030c918",
+    name: "color",
+    children: [],
+    editable: true,
+  },
+  "cd4e58a0-5a43-4968-8ac4-648eae7cca0a": {
+    id: "cd4e58a0-5a43-4968-8ac4-648eae7cca0a",
+    name: "transparency",
+    children: [],
+    editable: true,
+  },
+  "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d": {
+    id: "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d",
+    name: "birth_details",
+    children: [],
+    editable: true,
+  },
+  "669b8302-2768-49b1-9696-2e9adbc73479": {
+    id: "669b8302-2768-49b1-9696-2e9adbc73479",
+    name: "",
+    children: [],
+    editable: true,
+  },
+  "5d1cd6e1-2995-4764-82bd-8cb643521af5": {
+    id: "5d1cd6e1-2995-4764-82bd-8cb643521af5",
+    name: "",
+    children: [],
+    editable: true,
+  },
+  "fa8fb0dd-b616-4b95-b85c-8c2f473fd71e": {
+    id: "fa8fb0dd-b616-4b95-b85c-8c2f473fd71e",
+    name: "",
+    children: [],
+    editable: true,
+  },
+  "75104bc2-63ce-4742-b35b-1948409c5cac": {
+    id: "75104bc2-63ce-4742-b35b-1948409c5cac",
+    name: "",
+    children: [],
+    editable: true,
+  },
 };
