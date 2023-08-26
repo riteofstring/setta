@@ -4,7 +4,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 
 export function getAllCollections() {
   return _.pickBy(
-    useCodeInfo.getState().allCodeInfo,
+    useCodeInfo.getState().x,
     (x) => x.rcType === RCType.COLLECTION
   );
 }

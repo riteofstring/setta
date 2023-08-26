@@ -24,17 +24,8 @@ export function addKwarg({
   name = "",
   incrementVersion = false,
 }: AddKwargPayload) {
-  const { kwargColId } = getSectionInfo(sectionId);
-  const kwargInfo = newCodeInfo({
-    name,
-    rcType: RCType.PARAMETER,
-  });
-  useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
-  useKwargCols.getState().setKwargIds({
-    collectionId: kwargColId,
-    objInfoId: objInfoId,
-    newStateFn: (x) => [...x, kwargInfo.id],
-  });
+  const kwargInfo = newCodeInfo({ name });
+  useCodeInfo.getState().setCodeInfo({ info: kwargInfo, parent: objInfoId });
   initializeParam(sectionId, [kwargInfo]);
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
@@ -56,7 +47,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
-  const { evColId, kwargColId } = getSectionInfo(sectionId);
+  const { evColId } = getSectionInfo(sectionId);
   const { uiTypeColId } = getSectionInfo(sectionId);
   if (deleteLast) {
     const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
@@ -94,7 +85,7 @@ export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
   const codeInfoState = useCodeInfo.getState();
   const paramInfos = _.keyBy(
     kwargIds.map((x) => ({
-      ...codeInfoState.allCodeInfo[x],
+      ...codeInfoState.x[x],
       inCodeParentId: collection.id,
     })),
     "id"

@@ -2,7 +2,7 @@ import { requiresNestedSection } from "abcde-utils/src/constants";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getParamUIType } from "thunks/paramInfos";
 import { getSectionInfo, getSectionIsRoot, getSectionType } from "./getters";
-import { getCurrObjParamKwargInfos } from "./sectionContents";
+import { getCurrObjParamInfos } from "./sectionContents";
 
 export function updateManyCurrChildren(sectionIds) {
   sectionIds.forEach((x) => updateCurrChildren(x));
@@ -42,7 +42,7 @@ function computeCurrChildren(sectionId) {
 
 function getChildrenRequiringNesting(sectionId, allParamInfoIds) {
   const currParamInfoIds = new Set(
-    getCurrObjParamKwargInfos(sectionId).map((x) => x.id)
+    getCurrObjParamInfos(sectionId).map((x) => x.id)
   );
   const isCurr = allParamInfoIds.map((x) => currParamInfoIds.has(x));
   const uiTypes = allParamInfoIds.map((x) =>

@@ -6,7 +6,6 @@ import {
   findAllParameters,
 } from "abcde-utils/src/getDescendants";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useKwargCols } from "models/info/kwargCols";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {
   getSectionInfo,
@@ -15,32 +14,18 @@ import {
   getSectionTypeConfig,
 } from "./getters";
 
-export function getCurrObjParamKwargInfos(sectionId) {
+export function getCurrObjParamInfos(sectionId) {
   const { selectedItem } = getSectionInfo(sectionId);
-  const paramInfos = getParamInfos(sectionId);
-  const kwargInfos = getKwargInfos(sectionId, selectedItem);
-  return [...paramInfos, ...kwargInfos];
+  return getParamInfos(sectionId);
 }
 
 function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];
 }
 
-export function getKwargIds(sectionId, objInfoId) {
-  const { kwargColId } = getSectionInfo(sectionId);
-  const kwargCol = useKwargCols.getState().x[kwargColId];
-  return kwargCol[objInfoId] ?? [];
-}
-
-function getKwargInfos(sectionId, objInfoId) {
-  const kwargIds = getKwargIds(sectionId, objInfoId);
-  const allCodeInfo = useCodeInfo.getState().allCodeInfo;
-  return kwargIds.map((y) => allCodeInfo[y]);
-}
-
 export function getParamWithSameName(sectionId, parentId) {
   const sectionName = getSectionName(sectionId);
-  const params = getCurrObjParamKwargInfos(parentId);
+  const params = getCurrObjParamInfos(parentId);
   for (const p of params) {
     if (sectionName === p.name) {
       return p;
@@ -51,7 +36,7 @@ export function getParamWithSameName(sectionId, parentId) {
 
 function computeCollectionChildren(sectionId: string, fn) {
   const { collections } = getSectionTypeConfig(sectionId);
-  return fn(useCodeInfo.getState().allCodeInfo, collections);
+  return fn(useCodeInfo.getState().x, collections);
 }
 
 function computeAllCallables(sectionId: string) {
@@ -62,7 +47,7 @@ function computeAllCallables(sectionId: string) {
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
-  const objParamInfos = findAllParameters(useCodeInfo.getState().allCodeInfo, [
+  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [
     objInfoId,
   ]);
 

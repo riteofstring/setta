@@ -1,4 +1,3 @@
-import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { ManySectionType } from "abcde-utils/src/types/section";
 import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
@@ -62,7 +61,7 @@ export function addSectionsToState(
 
   for (const s of sectionIds) {
     const { collections } = getSectionTypeConfig(s);
-    initializeChildParams([s], collections, findAllParameterCollections);
+    initializeChildParams([s], collections);
   }
 
   useKwargCols.getState().initManyKwargColIds({
