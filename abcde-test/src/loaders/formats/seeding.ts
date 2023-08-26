@@ -1,7 +1,6 @@
 export function seeding(loaded) {
   const {
     allCodeInfo,
-    kwargInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
@@ -10,7 +9,6 @@ export function seeding(loaded) {
   } = loaded as any;
 
   return {
-    kwargInfo,
     uiTypes: { ...uiTypes, ...presetUITypes },
     ...theRest,
   };

@@ -6,7 +6,6 @@ export function codeGen(loaded) {
     project,
     sections,
     allCodeInfo,
-    kwargInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
@@ -16,12 +15,7 @@ export function codeGen(loaded) {
 
   const allUITypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
 
-  const codeInfo = {
-    allCodeInfo: {
-      ...loadCodeInfoForProject(allCodeInfo, sections, allUITypes),
-      ...kwargInfo,
-    },
-  };
+  const codeInfo = loadCodeInfoForProject(allCodeInfo, sections, allUITypes);
 
   return {
     project: processProject(project),

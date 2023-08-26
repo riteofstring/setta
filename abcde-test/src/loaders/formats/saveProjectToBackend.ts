@@ -5,7 +5,6 @@ export function saveProjectToBackend(loaded) {
     project,
     sections,
     allCodeInfo,
-    kwargInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
@@ -16,17 +15,7 @@ export function saveProjectToBackend(loaded) {
   return {
     project: processProject(project),
     sections: omitParentIdFromSections(sections),
-    kwargInfo: assembleKwargInfo(allCodeInfo, kwargInfo, sections),
     uiTypes,
     ...theRest,
   };
-}
-
-function assembleKwargInfo(allCodeInfo, kwargInfo, sections) {
-  for (const s of Object.values(sections)) {
-    if (s.userSpecifiedObjectId) {
-      kwargInfo[s.userSpecifiedObjectId] = allCodeInfo[s.userSpecifiedObjectId];
-    }
-  }
-  return kwargInfo;
 }

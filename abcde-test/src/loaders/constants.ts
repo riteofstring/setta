@@ -26,8 +26,6 @@ export const CODE_INFOS = [
 
 export const PROJECT_STATES = [
   "evCols",
-  "kwargCols",
-  "kwargInfo",
   "projectConfigCodeInfoMaps",
   "sections",
   "uiTypes",

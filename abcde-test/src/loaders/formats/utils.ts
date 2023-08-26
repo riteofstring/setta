@@ -1,5 +1,5 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
-import { findAllDescendants } from "abcde-utils/src/getDescendants";
+import { findAllChildren } from "abcde-utils/src/getDescendants";
 import _ from "lodash";
 
 export function loadCodeInfoForProject(allCodeInfo, sections, uiTypes) {
@@ -14,7 +14,7 @@ export function loadCodeInfoForProject(allCodeInfo, sections, uiTypes) {
       allCollectionIds.push(s["userSpecifiedObjectId"]);
     }
   }
-  const output = findAllDescendants(allCodeInfo, allCollectionIds);
+  const output = findAllChildren(allCodeInfo, allCollectionIds);
   return _.keyBy(output, "id");
 }
 

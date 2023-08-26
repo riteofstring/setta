@@ -5,7 +5,6 @@ export function loadProjectToFrontend(loaded) {
     allCodeInfo,
     project,
     sections,
-    kwargInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
@@ -15,12 +14,7 @@ export function loadProjectToFrontend(loaded) {
 
   const allUITypes = { ...baseUITypes, ...uiTypes, ...presetUITypes };
 
-  const codeInfo = {
-    allCodeInfo: {
-      ...loadCodeInfoForProject(allCodeInfo, sections, allUITypes),
-      ...kwargInfo,
-    },
-  };
+  const codeInfo = loadCodeInfoForProject(allCodeInfo, sections, allUITypes);
 
   return {
     project: processProject(project),
