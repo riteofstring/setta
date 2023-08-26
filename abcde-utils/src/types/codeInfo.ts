@@ -13,7 +13,9 @@ export type ManyCallablesType = ManyOf<CodeInfoType[]>;
 export type ManyParamsType = ManyOf<CodeInfoType[]>;
 export type ManyParamCollectionsType = ManyOf<CodeInfoType[]>;
 
-export type CodeInfoStateFrontendType = ManyCodeInfoType & { version: number };
+export type CodeInfoStateFrontendType = { x: ManyCodeInfoType } & {
+  version: number;
+};
 
 export type CodeInfoActionTypes = {
   resetAndSetAll: (payload: ManyCodeInfoType) => void;
