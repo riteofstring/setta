@@ -6,8 +6,10 @@ import { prisma } from 'src/db/prisma';
 import { saveProjectConfig } from 'src/db/projectConfigs/save';
 import { saveSections } from 'src/db/sections/save';
 import { saveUITypeCols, saveUITypes } from 'src/db/uiTypes/save';
+import { saveCodeInfo } from '../codeInfo/save';
 
 export async function saveProjectDetails(userId, p: ProjectSaveType) {
+  await saveCodeInfo(p.codeInfo, true);
   await saveEVCols(p.evCols);
   await saveUITypes(userId, p.uiTypes);
   await saveUITypeCols(p.uiTypeCols);

@@ -19,11 +19,11 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
       await prisma.$queryRaw`
           with recursive descendants as (
               select "parentId", "childId"
-              from "CodeInfoChildren"
+              from "CodeInfoCol"
               where "parentId" = ${c}::uuid
             union
               select x."parentId", x."childId"
-              from "CodeInfoChildren" x
+              from "CodeInfoCol" x
               join descendants on x."parentId" = descendants."childId"
           )
           select * from descendants;`,

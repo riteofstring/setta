@@ -83,11 +83,11 @@ describe('ProjectsService', () => {
 
     // add a kwarg to a user specified object
     const kwargInfo = newCodeInfo({});
-    project.kwargInfo[kwargInfo.id] = kwargInfo;
-    const section = _.find(project.sections, (v) => v.userSpecifiedObjectId);
-    const { uiTypeColId, evColId, kwargColId, userSpecifiedObjectId } = section;
-    project.kwargCols[kwargColId][userSpecifiedObjectId] = [kwargInfo.id];
-    project.uiTypeCols[uiTypeColId][userSpecifiedObjectId] = {
+    project.codeInfo[kwargInfo.id] = kwargInfo;
+    const section = _.find(project.sections, (v) => v.selectedItem);
+    const { uiTypeColId, evColId, selectedItem } = section;
+    project.codeInfo[selectedItem].children.push(kwargInfo.id);
+    project.uiTypeCols[uiTypeColId][kwargInfo.id] = {
       uiTypeId: DEFAULT_BASE_UI_TYPE_ID,
       nonPresetUITypeIds: [],
     };

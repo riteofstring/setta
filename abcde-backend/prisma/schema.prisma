@@ -15,22 +15,22 @@ model Session {
 }
 
 model CodeInfo {
-  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                 String      @db.VarChar(255)
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String        @db.VarChar(255)
   editable             Boolean
-  sectionsParamInfo    Section[]   @relation("SectionsParamInfo") // Section.paramInfo
+  sectionsParamInfo    Section[]     @relation("SectionsParamInfo") // Section.paramInfo
   evOwner              EVCol[] // EVCol.codeInfo
-  sectionsSelectedItem Section[]   @relation("SectionsSelectedItem") //Section.selectedItem
+  sectionsSelectedItem Section[]     @relation("SectionsSelectedItem") //Section.selectedItem
   uiTypeCols           UITypeCol[] //UITypeCol.codeInfo
   sectionUITypes       UIType[] //UIType.sectionConfigCollections
-  asParent             CodeCol[]   @relation("CodeColParent") // CodeCol.parent
-  asChild              CodeCol[]   @relation("CodeColChildren") // CodeCol.child
+  asParent             CodeInfoCol[] @relation("CodeInfoColParent") // CodeInfoCol.parent
+  asChild              CodeInfoCol[] @relation("CodeInfoColChildren") // CodeInfoCol.child
 }
 
-model CodeCol {
-  parent   CodeInfo @relation("CodeColParent", fields: [parentId], references: [id])
+model CodeInfoCol {
+  parent   CodeInfo @relation("CodeInfoColParent", fields: [parentId], references: [id])
   parentId String   @db.Uuid
-  child    CodeInfo @relation("CodeColChildren", fields: [childId], references: [id])
+  child    CodeInfo @relation("CodeInfoColChildren", fields: [childId], references: [id])
   childId  String   @db.Uuid
   order    Int
 
