@@ -2,7 +2,7 @@ import {
   DEFAULT_BASE_UI_TYPE_ID,
   requiresNestedSection,
 } from "abcde-utils/src/constants";
-import { findAllChildren } from "abcde-utils/src/getDescendants";
+import { findAllParameters } from "abcde-utils/src/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
 import { UITypeType } from "abcde-utils/src/types/uiType";
 import { UITypeColType } from "abcde-utils/src/types/uiTypeCol";
@@ -19,9 +19,10 @@ import { getSectionInfo } from "./sections/getters";
 
 export function initializeChildParams(
   sectionIds: string[],
-  codeInfoIds: string[]
+  codeInfoIds: string[],
+  childFinder = findAllParameters
 ) {
-  const params = findAllChildren(useCodeInfo.getState().x, codeInfoIds);
+  const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
     initializeParam(s, params);
   }

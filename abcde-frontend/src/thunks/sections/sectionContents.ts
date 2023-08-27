@@ -1,7 +1,5 @@
-import { FN } from "abcde-utils/src/constants";
 import {
-  findAllCallablesOfCallables,
-  findAllCallablesOfCollections,
+  findAllCallables,
   findAllParameterCollections,
   findAllParameters,
 } from "abcde-utils/src/getDescendants";
@@ -10,7 +8,6 @@ import { useSectionToParams } from "models/info/sectionToParams";
 import {
   getSectionInfo,
   getSectionName,
-  getSectionType,
   getSectionTypeConfig,
 } from "./getters";
 
@@ -34,16 +31,9 @@ export function getParamWithSameName(sectionId, parentId) {
   return null;
 }
 
-function computeCollectionChildren(sectionId: string, fn) {
-  const { collections } = getSectionTypeConfig(sectionId);
-  return fn(useCodeInfo.getState().x, collections);
-}
-
 function computeAllCallables(sectionId: string) {
-  const { type } = getSectionType(sectionId);
-  const fn =
-    type === FN ? findAllCallablesOfCallables : findAllCallablesOfCollections;
-  return computeCollectionChildren(sectionId, fn);
+  const { collections } = getSectionTypeConfig(sectionId);
+  return findAllCallables(useCodeInfo.getState().x, collections);
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
@@ -51,9 +41,10 @@ function computeAllParams(sectionId: string, objInfoId: string) {
     objInfoId,
   ]);
 
-  const paramCollections = computeCollectionChildren(
-    sectionId,
-    findAllParameterCollections
+  const { collections } = getSectionTypeConfig(sectionId);
+  const paramCollections = findAllParameterCollections(
+    useCodeInfo.getState().x,
+    collections
   );
 
   return [...objParamInfos, ...paramCollections];

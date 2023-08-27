@@ -1,13 +1,13 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
-import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetAllCallables } from "hooks/useSectionContents";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { groupedObjInfo } from "utils/getFullObjPath";
 
 export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
   const searchableItems = useGetAllCallables(sectionId);
-  const groupedItems = useGroupedObjInfos(searchableItems);
+  const groupedItems = groupedObjInfo(searchableItems);
   const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
     group: k,
     items: groupedItems[k],

@@ -2,7 +2,6 @@ import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
 import { ManySectionType } from "abcde-utils/src/types/section";
 import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import _ from "lodash";
-import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -63,10 +62,6 @@ export function addSectionsToState(
     const { collections } = getSectionTypeConfig(s);
     initializeChildParams([s], collections);
   }
-
-  useKwargCols.getState().initManyKwargColIds({
-    collectionIds: _.map(sectionInfos, (x) => x.kwargColId),
-  });
 
   if (topLevelPosition) {
     useProjectConfig
