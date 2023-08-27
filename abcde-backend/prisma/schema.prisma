@@ -18,6 +18,7 @@ model CodeInfo {
   id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                 String        @db.VarChar(255)
   editable             Boolean
+  rcType               String
   sectionsParamInfo    Section[]     @relation("SectionsParamInfo") // Section.paramInfo
   evOwner              EVCol[] // EVCol.codeInfo
   sectionsSelectedItem Section[]     @relation("SectionsSelectedItem") //Section.selectedItem

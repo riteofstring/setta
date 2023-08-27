@@ -11,6 +11,7 @@ export async function saveCodeInfo(
       id: v.id,
       name: v.name,
       editable: v.editable,
+      rcType: v.rcType,
     }),
   );
 

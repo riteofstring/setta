@@ -1,5 +1,5 @@
 import { isSectionUIType, NULL_OBJ_ID } from 'abcde-utils/src/constants';
-import { ManyCodeInfoType } from 'abcde-utils/src/types/codeInfo';
+import { ManyCodeInfoType, RCType } from 'abcde-utils/src/types/codeInfo';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
 import { getChildrenRecursively } from 'src/utils/utils';
@@ -50,7 +50,7 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
 
 export async function getCollectionsAndModules(searchTerm: string) {
   const results = await prisma.codeInfo.findMany({
-    where: { name: { contains: searchTerm } },
+    where: { name: { contains: searchTerm }, rcType: RCType.COLLECTION },
     select: {
       id: true,
       name: true,
