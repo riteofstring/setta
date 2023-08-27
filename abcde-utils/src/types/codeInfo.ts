@@ -5,6 +5,7 @@ export type CodeInfoType = {
   name: string;
   editable: boolean;
   rcType: RCType;
+  path: string | null;
   children: string[];
 };
 
@@ -12,6 +13,7 @@ export enum RCType {
   COLLECTION = "collection",
   CALLABLE = "callable",
   PARAMETER = "parameter",
+  PARAMETER_COLLECTION = "parameter_collection",
 }
 
 export type ManyCodeInfoType = ManyOf<CodeInfoType>;
@@ -26,9 +28,9 @@ export type CodeInfoStateFrontendType = { x: ManyCodeInfoType } & {
 
 export type CodeInfoActionTypes = {
   resetAndSetAll: (payload: ManyCodeInfoType) => void;
-  setCodeInfo: (payload: { info: CodeInfoType }) => void;
+  addCodeInfo: (payload: { info: CodeInfoType; parent?: string }) => void;
   setName: (payload: { id: string; name: string }) => void;
-  deleteInfos: (payload: { ids: string[] }) => void;
+  deleteInfo: (payload: { id: string; parent?: string }) => void;
   update: (payload: ManyCodeInfoType) => void;
 };
 

@@ -6,6 +6,7 @@ export function newCodeInfo({
   name = "",
   editable = false,
   rcType,
+  path = null,
   children = [],
 }: Partial<CodeInfoType> & { rcType: RCType }): CodeInfoType {
   return {
@@ -13,6 +14,7 @@ export function newCodeInfo({
     name,
     editable,
     rcType,
+    path,
     children,
   };
 }

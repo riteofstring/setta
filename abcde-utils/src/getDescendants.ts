@@ -28,38 +28,8 @@ function _findAllDescendants(
   return output.reverse();
 }
 
-function findAllCallables(allCodeInfo, collectionIds, parentCondition) {
-  function condition(currInfo, rcType) {
-    return (
-      defaultCondition(currInfo, rcType) &&
-      parentCondition(allCodeInfo[currInfo.inCodeParentId]?.rcType)
-    );
-  }
-
-  return _findAllDescendants(
-    allCodeInfo,
-    collectionIds,
-    RCType.CALLABLE,
-    condition
-  );
-}
-
-export function findAllCallablesOfCollections(allCodeInfo, collectionIds) {
-  function condition(parentRcType) {
-    // check inequality instead of equality with RCType.COLLECTION
-    // because parentRcType might be undefined
-    return (
-      parentRcType !== RCType.CALLABLE && parentRcType !== RCType.PARAMETER
-    );
-  }
-  return findAllCallables(allCodeInfo, collectionIds, condition);
-}
-
-export function findAllCallablesOfCallables(allCodeInfo, collectionIds) {
-  function condition(parentRcType) {
-    return parentRcType === RCType.CALLABLE;
-  }
-  return findAllCallables(allCodeInfo, collectionIds, condition);
+export function findAllCallables(allCodeInfo, collectionIds) {
+  return _findAllDescendants(allCodeInfo, collectionIds, RCType.CALLABLE);
 }
 
 export function findAllParameters(allCodeInfo, collectionIds) {
@@ -67,18 +37,10 @@ export function findAllParameters(allCodeInfo, collectionIds) {
 }
 
 export function findAllParameterCollections(allCodeInfo, collectionIds) {
-  function condition(currInfo, rcType) {
-    return (
-      defaultCondition(currInfo, rcType) &&
-      allCodeInfo[currInfo.inCodeParentId].rcType === RCType.COLLECTION
-    );
-  }
-
   return _findAllDescendants(
     allCodeInfo,
     collectionIds,
-    RCType.PARAMETER,
-    condition
+    RCType.PARAMETER_COLLECTION
   );
 }
 

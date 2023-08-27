@@ -4,6 +4,8 @@ export type CodeInfoTypeMapType = {
   };
 };
 
+export type CodeInfoMapStateType = { x: CodeInfoTypeMapType };
+
 export type CodeInfoMapActionType = {
   resetAndSetAll: (payload: CodeInfoTypeMapType) => void;
   setAll: (payload: CodeInfoTypeMapType) => void;
@@ -11,5 +13,5 @@ export type CodeInfoMapActionType = {
   exportForDb: () => CodeInfoTypeMapType;
 };
 
-export type CodeInfoMapZustandType = CodeInfoTypeMapType &
+export type CodeInfoMapZustandType = CodeInfoMapStateType &
   CodeInfoMapActionType;
