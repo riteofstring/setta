@@ -7,6 +7,7 @@ import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
 import { getSectionInfo } from "./sections/getters";
+import { updateParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
@@ -29,6 +30,7 @@ export function addKwarg({
   });
   useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent: objInfoId });
   initializeParam(sectionId, [kwargInfo]);
+  updateParamsAndCallables(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
@@ -59,7 +61,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  useCodeInfo.getState().deleteInfo({ id: kwargId });
+  useCodeInfo.getState().deleteInfo({ id: kwargId, parent: objInfoId });
   useParamInfos
     .getState()
     .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
@@ -67,6 +69,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   if (childId) {
     deleteChild({ parentId: sectionId, startId: childId });
   }
+  updateParamsAndCallables(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
