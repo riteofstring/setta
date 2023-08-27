@@ -5,6 +5,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "",
   },
   "978f9dd3-f675-47f1-b37a-bae12d45c194": {
     id: "978f9dd3-f675-47f1-b37a-bae12d45c194",
@@ -16,6 +17,7 @@ export default {
       "74b45adc-d929-4fd6-abb7-02783bfeb6db",
     ],
     rcType: "collection",
+    path: "torchvision",
   },
   "0e49b6d7-4b1c-41ed-ad5c-87b8db2a0ee0": {
     id: "0e49b6d7-4b1c-41ed-ad5c-87b8db2a0ee0",
@@ -34,6 +36,7 @@ export default {
       "88413938-51d4-4d8c-a1b6-94861e07eb22",
     ],
     rcType: "collection",
+    path: "torchvision.models",
   },
   "5ed7e68a-b880-4bfd-9d7d-2fecfa7defd6": {
     id: "5ed7e68a-b880-4bfd-9d7d-2fecfa7defd6",
@@ -44,6 +47,7 @@ export default {
       "fa1920e3-e540-493d-b021-53f899ec5ab4",
     ],
     rcType: "callable",
+    path: "torchvision.models.resnet101",
   },
   "c1d20337-7f4a-4ce6-bfc3-70a80f50550c": {
     id: "c1d20337-7f4a-4ce6-bfc3-70a80f50550c",
@@ -51,6 +55,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet101.pretrained",
   },
   "fa1920e3-e540-493d-b021-53f899ec5ab4": {
     id: "fa1920e3-e540-493d-b021-53f899ec5ab4",
@@ -58,6 +63,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet101.progress",
   },
   "d7592b4b-5635-44e0-ab36-da6c3cdf5852": {
     id: "d7592b4b-5635-44e0-ab36-da6c3cdf5852",
@@ -68,6 +74,7 @@ export default {
       "0f376c6e-4387-4116-84fd-dddeeb8e9243",
     ],
     rcType: "callable",
+    path: "torchvision.models.resnet152",
   },
   "421f8f4e-41ce-4582-8aa5-a18273f4919b": {
     id: "421f8f4e-41ce-4582-8aa5-a18273f4919b",
@@ -75,6 +82,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet152.pretrained",
   },
   "0f376c6e-4387-4116-84fd-dddeeb8e9243": {
     id: "0f376c6e-4387-4116-84fd-dddeeb8e9243",
@@ -82,6 +90,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet152.progress",
   },
   "c26ea423-e1c2-40c4-a832-c46dcdff4a67": {
     id: "c26ea423-e1c2-40c4-a832-c46dcdff4a67",
@@ -92,6 +101,7 @@ export default {
       "65381024-c817-426b-881a-08de50b755c2",
     ],
     rcType: "callable",
+    path: "torchvision.models.resnet18",
   },
   "57eae7c4-150c-409f-a20f-e8e2d4c3e9bc": {
     id: "57eae7c4-150c-409f-a20f-e8e2d4c3e9bc",
@@ -99,6 +109,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet18.pretrained",
   },
   "65381024-c817-426b-881a-08de50b755c2": {
     id: "65381024-c817-426b-881a-08de50b755c2",
@@ -106,6 +117,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet18.progress",
   },
   "32f12a4b-1e0c-476b-8408-9c1cfe9c7fd4": {
     id: "32f12a4b-1e0c-476b-8408-9c1cfe9c7fd4",
@@ -116,6 +128,7 @@ export default {
       "ad98684a-8cc1-44fb-a340-030606ae83d8",
     ],
     rcType: "callable",
+    path: "torchvision.models.resnet34",
   },
   "cdb49aa9-3e11-445d-8996-9a1f3af49228": {
     id: "cdb49aa9-3e11-445d-8996-9a1f3af49228",
@@ -123,6 +136,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet34.pretrained",
   },
   "ad98684a-8cc1-44fb-a340-030606ae83d8": {
     id: "ad98684a-8cc1-44fb-a340-030606ae83d8",
@@ -130,6 +144,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet34.progress",
   },
   "4470e113-a93f-41c5-9369-8981aa90da5d": {
     id: "4470e113-a93f-41c5-9369-8981aa90da5d",
@@ -140,6 +155,7 @@ export default {
       "3dc40c9f-954b-440d-a054-f73c75c8b68a",
     ],
     rcType: "callable",
+    path: "torchvision.models.resnet50",
   },
   "213303fc-dbfd-4463-89e3-6df407009f84": {
     id: "213303fc-dbfd-4463-89e3-6df407009f84",
@@ -147,6 +163,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet50.pretrained",
   },
   "3dc40c9f-954b-440d-a054-f73c75c8b68a": {
     id: "3dc40c9f-954b-440d-a054-f73c75c8b68a",
@@ -154,6 +171,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnet50.progress",
   },
   "4a202711-496d-42d0-b432-8884aa68dd38": {
     id: "4a202711-496d-42d0-b432-8884aa68dd38",
@@ -164,6 +182,7 @@ export default {
       "6852734b-4b08-4ee6-bb79-4e548bfbbb32",
     ],
     rcType: "callable",
+    path: "torchvision.models.resnext101_32x8d",
   },
   "093b232a-4afc-40fd-824b-4e32b4964fd4": {
     id: "093b232a-4afc-40fd-824b-4e32b4964fd4",
@@ -171,6 +190,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnext101_32x8d.pretrained",
   },
   "6852734b-4b08-4ee6-bb79-4e548bfbbb32": {
     id: "6852734b-4b08-4ee6-bb79-4e548bfbbb32",
@@ -178,6 +198,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnext101_32x8d.progress",
   },
   "a41fc545-d910-405f-9c9f-9afe66914d69": {
     id: "a41fc545-d910-405f-9c9f-9afe66914d69",
@@ -188,6 +209,7 @@ export default {
       "37413893-2bba-4dbb-96dd-266f1c1a9269",
     ],
     rcType: "callable",
+    path: "torchvision.models.resnext50_32x4d",
   },
   "b57b65fd-cf13-48da-a8fe-8c170fda4681": {
     id: "b57b65fd-cf13-48da-a8fe-8c170fda4681",
@@ -195,6 +217,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnext50_32x4d.pretrained",
   },
   "37413893-2bba-4dbb-96dd-266f1c1a9269": {
     id: "37413893-2bba-4dbb-96dd-266f1c1a9269",
@@ -202,6 +225,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.resnext50_32x4d.progress",
   },
   "9b2f4419-9347-49be-b082-772497712d65": {
     id: "9b2f4419-9347-49be-b082-772497712d65",
@@ -212,6 +236,7 @@ export default {
       "5c68cf83-f28e-4d76-afff-07e055cbbe42",
     ],
     rcType: "callable",
+    path: "torchvision.models.wide_resnet101_2",
   },
   "c539862c-c83b-4b57-87b7-8d9bb39cf0b5": {
     id: "c539862c-c83b-4b57-87b7-8d9bb39cf0b5",
@@ -219,6 +244,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.wide_resnet101_2.pretrained",
   },
   "5c68cf83-f28e-4d76-afff-07e055cbbe42": {
     id: "5c68cf83-f28e-4d76-afff-07e055cbbe42",
@@ -226,6 +252,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.wide_resnet101_2.progress",
   },
   "795f9f49-1c37-4ee6-8542-a0648b7879f8": {
     id: "795f9f49-1c37-4ee6-8542-a0648b7879f8",
@@ -236,6 +263,7 @@ export default {
       "d3408cf9-4b33-4146-946f-d2761bca5d66",
     ],
     rcType: "callable",
+    path: "torchvision.models.wide_resnet50_2",
   },
   "43aaac65-8682-41cb-b730-f28d5095121c": {
     id: "43aaac65-8682-41cb-b730-f28d5095121c",
@@ -243,6 +271,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.wide_resnet50_2.pretrained",
   },
   "d3408cf9-4b33-4146-946f-d2761bca5d66": {
     id: "d3408cf9-4b33-4146-946f-d2761bca5d66",
@@ -250,6 +279,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.wide_resnet50_2.progress",
   },
   "9976c3f9-0a8e-4dad-894e-2bea3604d8d3": {
     id: "9976c3f9-0a8e-4dad-894e-2bea3604d8d3",
@@ -299,6 +329,7 @@ export default {
       "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
     ],
     rcType: "collection",
+    path: "torchvision.transforms",
   },
   "ac679940-4a07-4fc0-9fa4-4b5498405693": {
     id: "ac679940-4a07-4fc0-9fa4-4b5498405693",
@@ -306,6 +337,7 @@ export default {
     editable: false,
     children: ["bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f"],
     rcType: "callable",
+    path: "torchvision.transforms.Compose",
   },
   "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f": {
     id: "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f",
@@ -313,6 +345,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Compose.transforms",
   },
   "fe8ec1e4-e978-40b2-8764-146b39e62269": {
     id: "fe8ec1e4-e978-40b2-8764-146b39e62269",
@@ -324,6 +357,7 @@ export default {
       "772e9aec-c917-46c4-bee5-ea80895e8ecf",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.AutoAugment",
   },
   "ed375176-0282-4276-847e-0454de5cde79": {
     id: "ed375176-0282-4276-847e-0454de5cde79",
@@ -331,6 +365,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.AutoAugment.policy",
   },
   "e56fd110-131d-4b43-acb1-efa118d48344": {
     id: "e56fd110-131d-4b43-acb1-efa118d48344",
@@ -338,6 +373,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.AutoAugment.interpolation",
   },
   "772e9aec-c917-46c4-bee5-ea80895e8ecf": {
     id: "772e9aec-c917-46c4-bee5-ea80895e8ecf",
@@ -345,6 +381,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.AutoAugment.fill",
   },
   "8efe0cd1-d8be-4ba7-9ea7-73e386c98a59": {
     id: "8efe0cd1-d8be-4ba7-9ea7-73e386c98a59",
@@ -352,6 +389,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "torchvision.transforms.AutoAugmentPolicy",
   },
   "373b3443-760f-4fce-b650-5dc6952098a0": {
     id: "373b3443-760f-4fce-b650-5dc6952098a0",
@@ -359,6 +397,7 @@ export default {
     editable: false,
     children: ["0b0f526a-753b-4ebe-9616-593eb1c927be"],
     rcType: "callable",
+    path: "torchvision.transforms.CenterCrop",
   },
   "0b0f526a-753b-4ebe-9616-593eb1c927be": {
     id: "0b0f526a-753b-4ebe-9616-593eb1c927be",
@@ -366,6 +405,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.CenterCrop.size",
   },
   "b61c3e59-27d9-4faf-97af-7a85246e07dc": {
     id: "b61c3e59-27d9-4faf-97af-7a85246e07dc",
@@ -378,6 +418,7 @@ export default {
       "e7e48958-0304-4e7b-a69e-c127e0104a20",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.ColorJitter",
   },
   "e6fc6b9a-3bd9-46d2-a6cc-c437da148243": {
     id: "e6fc6b9a-3bd9-46d2-a6cc-c437da148243",
@@ -385,6 +426,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.ColorJitter.brightness",
   },
   "95aa2c62-e434-497b-b848-7153f3bb841f": {
     id: "95aa2c62-e434-497b-b848-7153f3bb841f",
@@ -392,6 +434,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.ColorJitter.contrast",
   },
   "614525d6-ea7d-4ad3-b34a-bf058d4087b3": {
     id: "614525d6-ea7d-4ad3-b34a-bf058d4087b3",
@@ -399,6 +442,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.ColorJitter.saturation",
   },
   "e7e48958-0304-4e7b-a69e-c127e0104a20": {
     id: "e7e48958-0304-4e7b-a69e-c127e0104a20",
@@ -406,6 +450,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.ColorJitter.hue",
   },
   "fda8c0e1-2a63-4e0f-9868-0024d8143800": {
     id: "fda8c0e1-2a63-4e0f-9868-0024d8143800",
@@ -413,6 +458,7 @@ export default {
     editable: false,
     children: ["e35ba6ed-fd9a-4826-a056-4cfaa6d72dfd"],
     rcType: "callable",
+    path: "torchvision.transforms.ConvertImageDtype",
   },
   "e35ba6ed-fd9a-4826-a056-4cfaa6d72dfd": {
     id: "e35ba6ed-fd9a-4826-a056-4cfaa6d72dfd",
@@ -420,6 +466,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.ConvertImageDtype.dtype",
   },
   "5fc8d2db-f035-4a57-ab92-38f4dfe53526": {
     id: "5fc8d2db-f035-4a57-ab92-38f4dfe53526",
@@ -427,6 +474,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "torchvision.transforms.Enum",
   },
   "8b59f872-8f35-4809-8650-2a2cdc984038": {
     id: "8b59f872-8f35-4809-8650-2a2cdc984038",
@@ -434,6 +482,7 @@ export default {
     editable: false,
     children: ["6112b3b2-ef47-49a2-9de0-95737cb2c256"],
     rcType: "callable",
+    path: "torchvision.transforms.FiveCrop",
   },
   "6112b3b2-ef47-49a2-9de0-95737cb2c256": {
     id: "6112b3b2-ef47-49a2-9de0-95737cb2c256",
@@ -441,6 +490,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.FiveCrop.size",
   },
   "26791c4a-acc1-4202-ae32-15bd29157531": {
     id: "26791c4a-acc1-4202-ae32-15bd29157531",
@@ -451,6 +501,7 @@ export default {
       "3206924e-30de-41e6-8d1e-adb5c660b44d",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.GaussianBlur",
   },
   "54836fc4-783d-46c0-ae86-d54c85847197": {
     id: "54836fc4-783d-46c0-ae86-d54c85847197",
@@ -458,6 +509,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.GaussianBlur.kernel_size",
   },
   "3206924e-30de-41e6-8d1e-adb5c660b44d": {
     id: "3206924e-30de-41e6-8d1e-adb5c660b44d",
@@ -465,6 +517,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.GaussianBlur.sigma",
   },
   "09ffb861-9a4b-4563-bf02-9bb9de287ca4": {
     id: "09ffb861-9a4b-4563-bf02-9bb9de287ca4",
@@ -472,6 +525,7 @@ export default {
     editable: false,
     children: ["d7bc278f-f75c-4828-b3fe-a140f0c3aea3"],
     rcType: "callable",
+    path: "torchvision.transforms.Grayscale",
   },
   "d7bc278f-f75c-4828-b3fe-a140f0c3aea3": {
     id: "d7bc278f-f75c-4828-b3fe-a140f0c3aea3",
@@ -479,6 +533,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Grayscale.num_output_channels",
   },
   "a948b064-ac6b-4e93-b912-c4d886dbd70c": {
     id: "a948b064-ac6b-4e93-b912-c4d886dbd70c",
@@ -486,6 +541,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "torchvision.transforms.InterpolationMode",
   },
   "cde94860-d427-49d5-9309-85727f8c22c5": {
     id: "cde94860-d427-49d5-9309-85727f8c22c5",
@@ -493,6 +549,7 @@ export default {
     editable: false,
     children: ["09a81554-070f-4e8b-9ba3-4d440609e2db"],
     rcType: "callable",
+    path: "torchvision.transforms.Lambda",
   },
   "09a81554-070f-4e8b-9ba3-4d440609e2db": {
     id: "09a81554-070f-4e8b-9ba3-4d440609e2db",
@@ -500,6 +557,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Lambda.lambd",
   },
   "83f71661-8d3c-46a0-948e-1d09891ecf0e": {
     id: "83f71661-8d3c-46a0-948e-1d09891ecf0e",
@@ -510,6 +568,7 @@ export default {
       "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.LinearTransformation",
   },
   "2c020268-bcec-4bc3-a33b-598026e142b1": {
     id: "2c020268-bcec-4bc3-a33b-598026e142b1",
@@ -517,6 +576,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.LinearTransformation.transformation_matrix",
   },
   "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2": {
     id: "0d86fc6b-7e28-4e70-bdf2-c71849c12ab2",
@@ -524,6 +584,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.LinearTransformation.mean_vector",
   },
   "9ae00374-aa16-484f-af8b-658af1815f60": {
     id: "9ae00374-aa16-484f-af8b-658af1815f60",
@@ -535,6 +596,7 @@ export default {
       "2d820b56-02c5-414d-8804-eefeac5eb2f2",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.Normalize",
   },
   "703a4b4c-fc1b-425f-9470-f824ef89032a": {
     id: "703a4b4c-fc1b-425f-9470-f824ef89032a",
@@ -542,6 +604,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Normalize.mean",
   },
   "b2b9788d-86bb-478c-8743-72487f3984c8": {
     id: "b2b9788d-86bb-478c-8743-72487f3984c8",
@@ -549,6 +612,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Normalize.std",
   },
   "2d820b56-02c5-414d-8804-eefeac5eb2f2": {
     id: "2d820b56-02c5-414d-8804-eefeac5eb2f2",
@@ -556,6 +620,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Normalize.inplace",
   },
   "802f156d-a319-43ad-8ee0-1470806f8842": {
     id: "802f156d-a319-43ad-8ee0-1470806f8842",
@@ -563,6 +628,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "torchvision.transforms.PILToTensor",
   },
   "abfb28a7-aaf9-47f2-be30-2a415a2865f3": {
     id: "abfb28a7-aaf9-47f2-be30-2a415a2865f3",
@@ -574,6 +640,7 @@ export default {
       "912fa335-af40-4ecc-afd5-8aebd76c83d9",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.Pad",
   },
   "0731599c-d1c6-4352-868e-a1a23af1e13f": {
     id: "0731599c-d1c6-4352-868e-a1a23af1e13f",
@@ -581,6 +648,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Pad.padding",
   },
   "a0871405-cbf4-41e1-b0eb-51574b54a020": {
     id: "a0871405-cbf4-41e1-b0eb-51574b54a020",
@@ -588,6 +656,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Pad.fill",
   },
   "912fa335-af40-4ecc-afd5-8aebd76c83d9": {
     id: "912fa335-af40-4ecc-afd5-8aebd76c83d9",
@@ -595,6 +664,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Pad.padding_mode",
   },
   "7c28c9ae-8d17-4635-b521-43c727a3c05c": {
     id: "7c28c9ae-8d17-4635-b521-43c727a3c05c",
@@ -605,6 +675,7 @@ export default {
       "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomAdjustSharpness",
   },
   "82da212c-508b-46a0-bf76-01e9e798d6d0": {
     id: "82da212c-508b-46a0-bf76-01e9e798d6d0",
@@ -612,6 +683,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAdjustSharpness.sharpness_factor",
   },
   "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb": {
     id: "5d6a39c4-ba5e-457d-a56c-feeb8b7d6fcb",
@@ -619,6 +691,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAdjustSharpness.p",
   },
   "5e456a49-b4da-484a-b420-3696ac4cd361": {
     id: "5e456a49-b4da-484a-b420-3696ac4cd361",
@@ -635,6 +708,7 @@ export default {
       "51e65f5a-71ff-4e6c-8524-b347b927d94c",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomAffine",
   },
   "5c4adb06-7534-4b50-b0f3-c8763b8ca8f4": {
     id: "5c4adb06-7534-4b50-b0f3-c8763b8ca8f4",
@@ -642,6 +716,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.degrees",
   },
   "69e163c6-ac0d-4728-aa3d-9bc36ef12432": {
     id: "69e163c6-ac0d-4728-aa3d-9bc36ef12432",
@@ -649,6 +724,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.translate",
   },
   "090241ec-fc03-4e78-ae1c-84b6289376e5": {
     id: "090241ec-fc03-4e78-ae1c-84b6289376e5",
@@ -656,6 +732,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.scale",
   },
   "919a35b5-7f97-4d84-a6c3-49358f910dcc": {
     id: "919a35b5-7f97-4d84-a6c3-49358f910dcc",
@@ -663,6 +740,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.shear",
   },
   "075ab7ea-0a98-4919-8476-ad30d274ff7e": {
     id: "075ab7ea-0a98-4919-8476-ad30d274ff7e",
@@ -670,6 +748,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.interpolation",
   },
   "2258b1aa-a5ed-4069-975a-5da1a2315642": {
     id: "2258b1aa-a5ed-4069-975a-5da1a2315642",
@@ -677,6 +756,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.fill",
   },
   "6a0a187b-4c1f-4d52-9fcb-255f512c2d6f": {
     id: "6a0a187b-4c1f-4d52-9fcb-255f512c2d6f",
@@ -684,6 +764,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.fillcolor",
   },
   "51e65f5a-71ff-4e6c-8524-b347b927d94c": {
     id: "51e65f5a-71ff-4e6c-8524-b347b927d94c",
@@ -691,6 +772,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAffine.resample",
   },
   "ece98f3e-3f59-438a-bf90-1e1313d374ce": {
     id: "ece98f3e-3f59-438a-bf90-1e1313d374ce",
@@ -701,6 +783,7 @@ export default {
       "7bba5280-2fdf-4900-868b-2c18b43c3011",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomApply",
   },
   "608628df-3881-49e6-9e1d-3832de3c1425": {
     id: "608628df-3881-49e6-9e1d-3832de3c1425",
@@ -708,6 +791,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomApply.transforms",
   },
   "7bba5280-2fdf-4900-868b-2c18b43c3011": {
     id: "7bba5280-2fdf-4900-868b-2c18b43c3011",
@@ -715,6 +799,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomApply.p",
   },
   "5f69ca04-fa41-4d87-8f48-f59e99b8c1db": {
     id: "5f69ca04-fa41-4d87-8f48-f59e99b8c1db",
@@ -722,6 +807,7 @@ export default {
     editable: false,
     children: ["24a460a6-1340-402c-94ae-4f5c0df3b91f"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomAutocontrast",
   },
   "24a460a6-1340-402c-94ae-4f5c0df3b91f": {
     id: "24a460a6-1340-402c-94ae-4f5c0df3b91f",
@@ -729,6 +815,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomAutocontrast.p",
   },
   "09a95a1e-1e2e-4e8b-98f4-3b797c8accdb": {
     id: "09a95a1e-1e2e-4e8b-98f4-3b797c8accdb",
@@ -736,6 +823,7 @@ export default {
     editable: false,
     children: ["af4db3a3-e6f4-45d1-83b3-bdfda629f5d4"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomChoice",
   },
   "af4db3a3-e6f4-45d1-83b3-bdfda629f5d4": {
     id: "af4db3a3-e6f4-45d1-83b3-bdfda629f5d4",
@@ -743,6 +831,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomChoice.transforms",
   },
   "8841a2c8-1bd3-42d4-8c14-2325506f05d8": {
     id: "8841a2c8-1bd3-42d4-8c14-2325506f05d8",
@@ -756,6 +845,7 @@ export default {
       "54ff94b4-8c62-4217-8b0f-90cf353ccea0",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomCrop",
   },
   "9c62aa3b-3f05-42a1-9402-47edcf3136f9": {
     id: "9c62aa3b-3f05-42a1-9402-47edcf3136f9",
@@ -763,6 +853,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomCrop.size",
   },
   "2aaa8118-b82f-4749-8abc-c6ebf5526b44": {
     id: "2aaa8118-b82f-4749-8abc-c6ebf5526b44",
@@ -770,6 +861,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomCrop.padding",
   },
   "d4801eeb-d375-4e48-82b0-ff5069bfca73": {
     id: "d4801eeb-d375-4e48-82b0-ff5069bfca73",
@@ -777,6 +869,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomCrop.pad_if_needed",
   },
   "d7dd9f67-ab0d-46e0-8df9-d7ee11302e5e": {
     id: "d7dd9f67-ab0d-46e0-8df9-d7ee11302e5e",
@@ -784,6 +877,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomCrop.fill",
   },
   "54ff94b4-8c62-4217-8b0f-90cf353ccea0": {
     id: "54ff94b4-8c62-4217-8b0f-90cf353ccea0",
@@ -791,6 +885,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomCrop.padding_mode",
   },
   "294d0c8e-0755-42e4-9bb0-7034616bb306": {
     id: "294d0c8e-0755-42e4-9bb0-7034616bb306",
@@ -798,6 +893,7 @@ export default {
     editable: false,
     children: ["51f2f000-4d06-46f9-8ade-43383b5c2113"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomEqualize",
   },
   "51f2f000-4d06-46f9-8ade-43383b5c2113": {
     id: "51f2f000-4d06-46f9-8ade-43383b5c2113",
@@ -805,6 +901,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomEqualize.p",
   },
   "c29fb726-bb9b-4a59-a253-1a1485073197": {
     id: "c29fb726-bb9b-4a59-a253-1a1485073197",
@@ -818,6 +915,7 @@ export default {
       "3884d8a0-bc03-40d2-93c5-62641fa6bf2a",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomErasing",
   },
   "b0510974-5436-492d-8616-2caae9020d90": {
     id: "b0510974-5436-492d-8616-2caae9020d90",
@@ -825,6 +923,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomErasing.p",
   },
   "2302095c-ba9c-42c6-9040-96a76adcbe08": {
     id: "2302095c-ba9c-42c6-9040-96a76adcbe08",
@@ -832,6 +931,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomErasing.scale",
   },
   "11bd9c61-0735-4da6-8874-6f92a84da2a1": {
     id: "11bd9c61-0735-4da6-8874-6f92a84da2a1",
@@ -839,6 +939,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomErasing.ratio",
   },
   "cb9f3f3e-891f-4cf1-9b1b-5f7600fc03da": {
     id: "cb9f3f3e-891f-4cf1-9b1b-5f7600fc03da",
@@ -846,6 +947,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomErasing.value",
   },
   "3884d8a0-bc03-40d2-93c5-62641fa6bf2a": {
     id: "3884d8a0-bc03-40d2-93c5-62641fa6bf2a",
@@ -853,6 +955,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomErasing.inplace",
   },
   "c79959d6-6bdd-4586-877f-ff84ab4bb986": {
     id: "c79959d6-6bdd-4586-877f-ff84ab4bb986",
@@ -860,6 +963,7 @@ export default {
     editable: false,
     children: ["ebca8b88-83d8-443e-978c-e70b6878f441"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomGrayscale",
   },
   "ebca8b88-83d8-443e-978c-e70b6878f441": {
     id: "ebca8b88-83d8-443e-978c-e70b6878f441",
@@ -867,6 +971,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomGrayscale.p",
   },
   "f5346240-9bf1-4647-a37b-2045e5acd181": {
     id: "f5346240-9bf1-4647-a37b-2045e5acd181",
@@ -874,6 +979,7 @@ export default {
     editable: false,
     children: ["e8e949a7-5beb-466a-a69b-fd59e8261cce"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomHorizontalFlip",
   },
   "e8e949a7-5beb-466a-a69b-fd59e8261cce": {
     id: "e8e949a7-5beb-466a-a69b-fd59e8261cce",
@@ -881,6 +987,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomHorizontalFlip.p",
   },
   "689b3a68-ad65-4e61-9262-17a0f85e5b17": {
     id: "689b3a68-ad65-4e61-9262-17a0f85e5b17",
@@ -888,6 +995,7 @@ export default {
     editable: false,
     children: ["f744b2c1-40a8-49e3-9fe4-ac3916c8faac"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomInvert",
   },
   "f744b2c1-40a8-49e3-9fe4-ac3916c8faac": {
     id: "f744b2c1-40a8-49e3-9fe4-ac3916c8faac",
@@ -895,6 +1003,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomInvert.p",
   },
   "c6f9ad05-bc30-4260-9f81-11368d539bd1": {
     id: "c6f9ad05-bc30-4260-9f81-11368d539bd1",
@@ -902,6 +1011,7 @@ export default {
     editable: false,
     children: ["5d6760a3-4741-4e9b-983a-d0c1966eead1"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomOrder",
   },
   "5d6760a3-4741-4e9b-983a-d0c1966eead1": {
     id: "5d6760a3-4741-4e9b-983a-d0c1966eead1",
@@ -909,6 +1019,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomOrder.transforms",
   },
   "c6d0cbbc-2fcc-4c26-a632-d97e8e7ec3dd": {
     id: "c6d0cbbc-2fcc-4c26-a632-d97e8e7ec3dd",
@@ -921,6 +1032,7 @@ export default {
       "c0eaf861-134e-4aeb-a190-d0aa7d8b928a",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomPerspective",
   },
   "642b2461-5f07-4abb-833e-54b7c1611f6d": {
     id: "642b2461-5f07-4abb-833e-54b7c1611f6d",
@@ -928,6 +1040,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomPerspective.distortion_scale",
   },
   "97905d46-61dd-4f42-88f5-4fbe0576fbd6": {
     id: "97905d46-61dd-4f42-88f5-4fbe0576fbd6",
@@ -935,6 +1048,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomPerspective.p",
   },
   "ce96a97b-2bcb-48a2-ab6c-de8757a070d6": {
     id: "ce96a97b-2bcb-48a2-ab6c-de8757a070d6",
@@ -942,6 +1056,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomPerspective.interpolation",
   },
   "c0eaf861-134e-4aeb-a190-d0aa7d8b928a": {
     id: "c0eaf861-134e-4aeb-a190-d0aa7d8b928a",
@@ -949,6 +1064,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomPerspective.fill",
   },
   "ad41317a-2495-457b-b19e-96fc074e96f1": {
     id: "ad41317a-2495-457b-b19e-96fc074e96f1",
@@ -959,6 +1075,7 @@ export default {
       "06a000e6-96ea-4ef6-801a-7d88d2022fb1",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomPosterize",
   },
   "90300435-efad-49cb-986b-a922ab01fec9": {
     id: "90300435-efad-49cb-986b-a922ab01fec9",
@@ -966,6 +1083,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomPosterize.bits",
   },
   "06a000e6-96ea-4ef6-801a-7d88d2022fb1": {
     id: "06a000e6-96ea-4ef6-801a-7d88d2022fb1",
@@ -973,6 +1091,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomPosterize.p",
   },
   "51277118-3bda-4ebe-960f-4a3f36b74d50": {
     id: "51277118-3bda-4ebe-960f-4a3f36b74d50",
@@ -985,6 +1104,7 @@ export default {
       "611a8cb9-22ed-4af9-a026-1889f59b0502",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomResizedCrop",
   },
   "f75f0d4c-b597-499e-979b-082b33e82c57": {
     id: "f75f0d4c-b597-499e-979b-082b33e82c57",
@@ -992,6 +1112,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomResizedCrop.size",
   },
   "04805ff3-3ff2-4d83-ae85-20bdf73221cf": {
     id: "04805ff3-3ff2-4d83-ae85-20bdf73221cf",
@@ -999,6 +1120,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomResizedCrop.scale",
   },
   "91acec7a-9b31-4acb-b31c-0dd49a71a8a1": {
     id: "91acec7a-9b31-4acb-b31c-0dd49a71a8a1",
@@ -1006,6 +1128,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomResizedCrop.ratio",
   },
   "611a8cb9-22ed-4af9-a026-1889f59b0502": {
     id: "611a8cb9-22ed-4af9-a026-1889f59b0502",
@@ -1013,6 +1136,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomResizedCrop.interpolation",
   },
   "5faeee6c-1227-4487-b050-88a954758a6c": {
     id: "5faeee6c-1227-4487-b050-88a954758a6c",
@@ -1027,6 +1151,7 @@ export default {
       "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomRotation",
   },
   "ebcf7677-6377-48fe-ade1-5bd31262aa0b": {
     id: "ebcf7677-6377-48fe-ade1-5bd31262aa0b",
@@ -1034,6 +1159,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomRotation.degrees",
   },
   "25da2421-ee9d-4379-bbc6-00218eed43a9": {
     id: "25da2421-ee9d-4379-bbc6-00218eed43a9",
@@ -1041,6 +1167,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomRotation.interpolation",
   },
   "2af0ef3e-e806-496c-9979-2741a3988537": {
     id: "2af0ef3e-e806-496c-9979-2741a3988537",
@@ -1048,6 +1175,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomRotation.expand",
   },
   "47866a00-23e5-4739-904b-611d5e4b0ab9": {
     id: "47866a00-23e5-4739-904b-611d5e4b0ab9",
@@ -1055,6 +1183,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomRotation.center",
   },
   "ba036e59-2a45-4b00-b7ad-7c7511543c8f": {
     id: "ba036e59-2a45-4b00-b7ad-7c7511543c8f",
@@ -1062,6 +1191,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomRotation.fill",
   },
   "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a": {
     id: "5e6de7f2-dbb6-4b5c-8da4-c25f01b9301a",
@@ -1069,6 +1199,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomRotation.resample",
   },
   "ada150b1-0785-45fe-a1fb-837fafccb845": {
     id: "ada150b1-0785-45fe-a1fb-837fafccb845",
@@ -1081,6 +1212,7 @@ export default {
       "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomSizedCrop",
   },
   "42afa529-ca79-436c-826f-deaaab5c44b8": {
     id: "42afa529-ca79-436c-826f-deaaab5c44b8",
@@ -1088,6 +1220,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomSizedCrop.size",
   },
   "27c50c5d-3859-43dd-8dc0-9c969697d6de": {
     id: "27c50c5d-3859-43dd-8dc0-9c969697d6de",
@@ -1095,6 +1228,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomSizedCrop.scale",
   },
   "d97e4857-6ad5-4690-a3ce-c23afc0128c8": {
     id: "d97e4857-6ad5-4690-a3ce-c23afc0128c8",
@@ -1102,6 +1236,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomSizedCrop.ratio",
   },
   "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81": {
     id: "d17f36ad-4d2b-4509-b3a3-ee7d3efd7d81",
@@ -1109,6 +1244,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomSizedCrop.interpolation",
   },
   "6e95b433-7806-4ab9-a5d6-23909a3fb320": {
     id: "6e95b433-7806-4ab9-a5d6-23909a3fb320",
@@ -1119,6 +1255,7 @@ export default {
       "70074a30-edb9-4f98-b22e-aa1c5be8861f",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.RandomSolarize",
   },
   "89586475-c469-47d6-9ae5-74d1f8bd767c": {
     id: "89586475-c469-47d6-9ae5-74d1f8bd767c",
@@ -1126,6 +1263,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomSolarize.threshold",
   },
   "70074a30-edb9-4f98-b22e-aa1c5be8861f": {
     id: "70074a30-edb9-4f98-b22e-aa1c5be8861f",
@@ -1133,6 +1271,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomSolarize.p",
   },
   "964783a7-c538-42ef-88d0-66ac64f973c9": {
     id: "964783a7-c538-42ef-88d0-66ac64f973c9",
@@ -1140,6 +1279,7 @@ export default {
     editable: false,
     children: ["15c257d2-3f34-49c4-85e0-41f23345092a"],
     rcType: "callable",
+    path: "torchvision.transforms.RandomVerticalFlip",
   },
   "15c257d2-3f34-49c4-85e0-41f23345092a": {
     id: "15c257d2-3f34-49c4-85e0-41f23345092a",
@@ -1147,6 +1287,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.RandomVerticalFlip.p",
   },
   "93af0e0a-9ea5-4705-a1d3-bc450936c534": {
     id: "93af0e0a-9ea5-4705-a1d3-bc450936c534",
@@ -1157,6 +1298,7 @@ export default {
       "df9ccd04-23f8-4890-8970-f58b3117b857",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.Resize",
   },
   "d9050cc3-5864-42c2-8111-f544d2c4707f": {
     id: "d9050cc3-5864-42c2-8111-f544d2c4707f",
@@ -1164,6 +1306,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Resize.size",
   },
   "df9ccd04-23f8-4890-8970-f58b3117b857": {
     id: "df9ccd04-23f8-4890-8970-f58b3117b857",
@@ -1171,6 +1314,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Resize.interpolation",
   },
   "b7716641-97ef-4401-97dd-0872701b1651": {
     id: "b7716641-97ef-4401-97dd-0872701b1651",
@@ -1181,6 +1325,7 @@ export default {
       "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.Scale",
   },
   "c2f429aa-2397-4a11-8650-88cf4b30a7eb": {
     id: "c2f429aa-2397-4a11-8650-88cf4b30a7eb",
@@ -1188,6 +1333,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Scale.size",
   },
   "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8": {
     id: "e2abbe34-0cc8-47fe-8fd6-a5e892b4f8a8",
@@ -1195,6 +1341,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.Scale.interpolation",
   },
   "31467e40-c796-4e17-8a0d-23477ec8d05f": {
     id: "31467e40-c796-4e17-8a0d-23477ec8d05f",
@@ -1205,6 +1352,7 @@ export default {
       "a1d40131-a21a-4296-8138-bc47cdfcb7ac",
     ],
     rcType: "callable",
+    path: "torchvision.transforms.TenCrop",
   },
   "b8f64b24-f2f9-4438-95c4-1059f6b2eea1": {
     id: "b8f64b24-f2f9-4438-95c4-1059f6b2eea1",
@@ -1212,6 +1360,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.TenCrop.size",
   },
   "a1d40131-a21a-4296-8138-bc47cdfcb7ac": {
     id: "a1d40131-a21a-4296-8138-bc47cdfcb7ac",
@@ -1219,6 +1368,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.TenCrop.vertical_flip",
   },
   "079c1a70-f2e9-452a-a011-7a2e685efcd4": {
     id: "079c1a70-f2e9-452a-a011-7a2e685efcd4",
@@ -1226,6 +1376,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "torchvision.transforms.Tensor",
   },
   "db0c7483-3cd0-4e1e-b773-e22993d4b4fb": {
     id: "db0c7483-3cd0-4e1e-b773-e22993d4b4fb",
@@ -1233,6 +1384,7 @@ export default {
     editable: false,
     children: ["24da26a7-30e6-4590-a66d-2aedd6c710b5"],
     rcType: "callable",
+    path: "torchvision.transforms.ToPILImage",
   },
   "24da26a7-30e6-4590-a66d-2aedd6c710b5": {
     id: "24da26a7-30e6-4590-a66d-2aedd6c710b5",
@@ -1240,6 +1392,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.transforms.ToPILImage.mode",
   },
   "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69": {
     id: "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
@@ -1247,6 +1400,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "torchvision.transforms.ToTensor",
   },
   "3c44558c-0ef5-48e9-a5f3-35c3b6272631": {
     id: "3c44558c-0ef5-48e9-a5f3-35c3b6272631",
@@ -1254,6 +1408,7 @@ export default {
     editable: false,
     children: ["7be829bb-6853-41e4-bc36-8938415bc8e6"],
     rcType: "collection",
+    path: "abcde_pip",
   },
   "7be829bb-6853-41e4-bc36-8938415bc8e6": {
     id: "7be829bb-6853-41e4-bc36-8938415bc8e6",
@@ -1261,6 +1416,7 @@ export default {
     editable: false,
     children: ["ab24bb52-2514-4265-a191-ceaf7029cda0"],
     rcType: "collection",
+    path: "abcde_pip.templates.simple_train_test",
   },
   "ab24bb52-2514-4265-a191-ceaf7029cda0": {
     id: "ab24bb52-2514-4265-a191-ceaf7029cda0",
@@ -1268,6 +1424,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "abcde_pip.templates.simple_train_test.Net",
   },
   "7e7eebd5-5959-4e8a-b263-ad8a54b89c33": {
     id: "7e7eebd5-5959-4e8a-b263-ad8a54b89c33",
@@ -1279,6 +1436,7 @@ export default {
       "53c34f44-2c9a-4cd4-9e7a-904360ad210b",
     ],
     rcType: "collection",
+    path: "torch",
   },
   "40bdbe50-f8e1-42e1-bf23-a81e12d8bf91": {
     id: "40bdbe50-f8e1-42e1-bf23-a81e12d8bf91",
@@ -1291,6 +1449,7 @@ export default {
       "f591b45a-5f8f-4ccc-ab42-ab34a3330107",
     ],
     rcType: "collection",
+    path: "torch.optim",
   },
   "a98c53c2-fe71-4bf7-80f9-243ab4926324": {
     id: "a98c53c2-fe71-4bf7-80f9-243ab4926324",
@@ -1305,6 +1464,7 @@ export default {
       "28e30b99-dfe9-4cf0-9489-47de985d93ed",
     ],
     rcType: "callable",
+    path: "torch.optim.Adadelta",
   },
   "f54fe79e-2337-4d58-9787-3922bab61f41": {
     id: "f54fe79e-2337-4d58-9787-3922bab61f41",
@@ -1312,6 +1472,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adadelta.params",
   },
   "bc7e073d-8a5d-41fc-9c24-0874fc69218d": {
     id: "bc7e073d-8a5d-41fc-9c24-0874fc69218d",
@@ -1319,6 +1480,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adadelta.lr",
   },
   "4920512a-3fab-42c7-aaae-6a5d3f35d2cb": {
     id: "4920512a-3fab-42c7-aaae-6a5d3f35d2cb",
@@ -1326,6 +1488,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adadelta.rho",
   },
   "9e3cb412-ae21-4720-a970-65aead49dbff": {
     id: "9e3cb412-ae21-4720-a970-65aead49dbff",
@@ -1333,6 +1496,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adadelta.eps",
   },
   "53e6f7be-049b-47f8-ad14-ccd0fc0a0b83": {
     id: "53e6f7be-049b-47f8-ad14-ccd0fc0a0b83",
@@ -1340,6 +1504,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adadelta.weight_decay",
   },
   "28e30b99-dfe9-4cf0-9489-47de985d93ed": {
     id: "28e30b99-dfe9-4cf0-9489-47de985d93ed",
@@ -1347,6 +1512,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adadelta.defaults",
   },
   "6927502e-42bb-4b31-bf8a-96f47c63febc": {
     id: "6927502e-42bb-4b31-bf8a-96f47c63febc",
@@ -1362,6 +1528,7 @@ export default {
       "dbe671ff-a652-45dc-836d-ff242601a602",
     ],
     rcType: "callable",
+    path: "torch.optim.Adam",
   },
   "eefe5d7c-3479-4f97-b6ff-54d90c0df33f": {
     id: "eefe5d7c-3479-4f97-b6ff-54d90c0df33f",
@@ -1369,6 +1536,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adam.params",
   },
   "f868a26d-8937-4929-b2a7-c8ce0e80ddbb": {
     id: "f868a26d-8937-4929-b2a7-c8ce0e80ddbb",
@@ -1376,6 +1544,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adam.lr",
   },
   "44778a64-0a6f-49f5-a2d6-27dcc75b6ee9": {
     id: "44778a64-0a6f-49f5-a2d6-27dcc75b6ee9",
@@ -1383,6 +1552,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adam.betas",
   },
   "8fe67f74-7a42-4b14-b16f-79b99055bb32": {
     id: "8fe67f74-7a42-4b14-b16f-79b99055bb32",
@@ -1390,6 +1560,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adam.eps",
   },
   "c33629c7-ee42-4412-94ba-8eda2b50b616": {
     id: "c33629c7-ee42-4412-94ba-8eda2b50b616",
@@ -1397,6 +1568,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adam.weight_decay",
   },
   "efec7ee2-2c58-43a8-92be-b4c713e4fc88": {
     id: "efec7ee2-2c58-43a8-92be-b4c713e4fc88",
@@ -1404,6 +1576,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adam.amsgrad",
   },
   "dbe671ff-a652-45dc-836d-ff242601a602": {
     id: "dbe671ff-a652-45dc-836d-ff242601a602",
@@ -1411,6 +1584,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.Adam.defaults",
   },
   "0c264e90-eb09-4dfb-bb5b-b357037b2a08": {
     id: "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
@@ -1426,6 +1600,7 @@ export default {
       "46e93a34-fc95-4faa-93a8-e7de771ee01c",
     ],
     rcType: "callable",
+    path: "torch.optim.SGD",
   },
   "9bd3d397-8bdd-43c0-976e-423866c57a95": {
     id: "9bd3d397-8bdd-43c0-976e-423866c57a95",
@@ -1433,6 +1608,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.SGD.params",
   },
   "3b75a04b-ecef-40b8-a362-b7f5766e2763": {
     id: "3b75a04b-ecef-40b8-a362-b7f5766e2763",
@@ -1440,6 +1616,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.SGD.lr",
   },
   "58aaaad9-37e7-4fe7-9f5f-6f68b6e4c03c": {
     id: "58aaaad9-37e7-4fe7-9f5f-6f68b6e4c03c",
@@ -1447,6 +1624,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.SGD.momentum",
   },
   "d67a434f-b723-482b-a6f8-9e1bad99fa8e": {
     id: "d67a434f-b723-482b-a6f8-9e1bad99fa8e",
@@ -1454,6 +1632,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.SGD.dampening",
   },
   "60013d91-075b-418b-8657-6b241809c5ae": {
     id: "60013d91-075b-418b-8657-6b241809c5ae",
@@ -1461,6 +1640,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.SGD.weight_decay",
   },
   "3c7a2bd2-7294-4663-b87a-13c97e7ce128": {
     id: "3c7a2bd2-7294-4663-b87a-13c97e7ce128",
@@ -1468,6 +1648,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.SGD.nesterov",
   },
   "46e93a34-fc95-4faa-93a8-e7de771ee01c": {
     id: "46e93a34-fc95-4faa-93a8-e7de771ee01c",
@@ -1475,6 +1656,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.SGD.defaults",
   },
   "72997caf-1e5c-4130-ad0f-30d6f770067a": {
     id: "72997caf-1e5c-4130-ad0f-30d6f770067a",
@@ -1488,6 +1670,7 @@ export default {
       "8b59f872-8f35-4809-8650-2a2cdc984038",
     ],
     rcType: "collection",
+    path: "Random Collection",
   },
   "0671b39c-8479-4831-8627-8b37f12ef635": {
     id: "0671b39c-8479-4831-8627-8b37f12ef635",
@@ -1506,6 +1689,7 @@ export default {
       "88413938-51d4-4d8c-a1b6-94861e07eb22",
     ],
     rcType: "collection",
+    path: "Torchvision Models",
   },
   "bb751616-d554-4ec8-84c1-8760078956d3": {
     id: "bb751616-d554-4ec8-84c1-8760078956d3",
@@ -1513,6 +1697,7 @@ export default {
     editable: false,
     children: ["ab24bb52-2514-4265-a191-ceaf7029cda0"],
     rcType: "collection",
+    path: "My Models",
   },
   "93cd43f3-218c-4542-ad03-406a5b77aab5": {
     id: "93cd43f3-218c-4542-ad03-406a5b77aab5",
@@ -1524,6 +1709,7 @@ export default {
       "0c264e90-eb09-4dfb-bb5b-b357037b2a08",
     ],
     rcType: "collection",
+    path: "The Best Optimizers",
   },
   "69405361-0296-4321-9361-bd5b35aa2e5e": {
     id: "69405361-0296-4321-9361-bd5b35aa2e5e",
@@ -1531,6 +1717,7 @@ export default {
     editable: false,
     children: ["ac679940-4a07-4fc0-9fa4-4b5498405693"],
     rcType: "collection",
+    path: "Compose Transform",
   },
   "1ec242dd-688e-4f71-a0de-cc13752461ce": {
     id: "1ec242dd-688e-4f71-a0de-cc13752461ce",
@@ -1580,6 +1767,7 @@ export default {
       "4e73ba14-ad09-4d0c-b50c-aa1a7a4e4c69",
     ],
     rcType: "collection",
+    path: "All Transforms",
   },
   "253cd8a8-a95a-4d15-b98b-73318b3632a1": {
     id: "253cd8a8-a95a-4d15-b98b-73318b3632a1",
@@ -1592,34 +1780,39 @@ export default {
       "c947c792-05d5-433c-95e5-2db1919c4b4e",
     ],
     rcType: "collection",
+    path: "Various Params",
   },
   "30c695b3-49b4-4fc7-9dc5-1dff0cc4dc21": {
     id: "30c695b3-49b4-4fc7-9dc5-1dff0cc4dc21",
     name: "dataset_root",
     editable: false,
     children: [],
-    rcType: "parameter",
+    rcType: "parameter_collection",
+    path: null,
   },
   "039be87f-76d9-4e39-979b-ac7cef982937": {
     id: "039be87f-76d9-4e39-979b-ac7cef982937",
     name: "batch_size",
     editable: false,
     children: [],
-    rcType: "parameter",
+    rcType: "parameter_collection",
+    path: null,
   },
   "97e7a459-3b8b-4908-9843-71f4a43b2b2e": {
     id: "97e7a459-3b8b-4908-9843-71f4a43b2b2e",
     name: "test_batch_size",
     editable: false,
     children: [],
-    rcType: "parameter",
+    rcType: "parameter_collection",
+    path: null,
   },
   "c947c792-05d5-433c-95e5-2db1919c4b4e": {
     id: "c947c792-05d5-433c-95e5-2db1919c4b4e",
     name: "epochs",
     editable: false,
     children: [],
-    rcType: "parameter",
+    rcType: "parameter_collection",
+    path: null,
   },
   "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86": {
     id: "f9ec28b0-9ab7-4b16-bedf-b9f9bd395e86",
@@ -1627,13 +1820,15 @@ export default {
     editable: false,
     children: ["297fbd94-70ca-4e90-81b8-96a603519a85"],
     rcType: "collection",
+    path: "A Single Parameter",
   },
   "297fbd94-70ca-4e90-81b8-96a603519a85": {
     id: "297fbd94-70ca-4e90-81b8-96a603519a85",
     name: "birth_location",
     editable: false,
     children: [],
-    rcType: "parameter",
+    rcType: "parameter_collection",
+    path: null,
   },
   "6aabbf76-5324-463c-bd50-b03bc322a2a0": {
     id: "6aabbf76-5324-463c-bd50-b03bc322a2a0",
@@ -1641,6 +1836,7 @@ export default {
     editable: false,
     children: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
     rcType: "collection",
+    path: "torch.utils",
   },
   "c3e6681b-1645-420b-9f96-939d212b4a02": {
     id: "c3e6681b-1645-420b-9f96-939d212b4a02",
@@ -1648,6 +1844,7 @@ export default {
     editable: false,
     children: ["f2f8c557-7e6d-4f35-9a99-4304066c3294"],
     rcType: "collection",
+    path: "torch.utils.data",
   },
   "f2f8c557-7e6d-4f35-9a99-4304066c3294": {
     id: "f2f8c557-7e6d-4f35-9a99-4304066c3294",
@@ -1672,6 +1869,7 @@ export default {
       "509e1d4c-be21-4681-aa34-64f6456c0d32",
     ],
     rcType: "callable",
+    path: "torch.utils.data.DataLoader",
   },
   "cafe6c6b-120e-44c0-93f5-a87fc21973dc": {
     id: "cafe6c6b-120e-44c0-93f5-a87fc21973dc",
@@ -1679,6 +1877,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.dataset",
   },
   "8b680dce-10c9-48bf-bfdf-8023108ebbec": {
     id: "8b680dce-10c9-48bf-bfdf-8023108ebbec",
@@ -1686,6 +1885,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.batch_size",
   },
   "3442de8d-9f64-4f26-8e80-6a4704912e15": {
     id: "3442de8d-9f64-4f26-8e80-6a4704912e15",
@@ -1693,6 +1893,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.shuffle",
   },
   "90618a5b-2872-4a9e-950d-c97b25b9a97b": {
     id: "90618a5b-2872-4a9e-950d-c97b25b9a97b",
@@ -1700,6 +1901,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.sampler",
   },
   "b1e231fc-a674-49c5-b92c-ecc15a95a35e": {
     id: "b1e231fc-a674-49c5-b92c-ecc15a95a35e",
@@ -1707,6 +1909,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.batch_sampler",
   },
   "df169fad-94e7-4950-a237-e4925e914ccc": {
     id: "df169fad-94e7-4950-a237-e4925e914ccc",
@@ -1714,6 +1917,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.num_workers",
   },
   "838a0d46-cb88-429e-bd65-642f0162e717": {
     id: "838a0d46-cb88-429e-bd65-642f0162e717",
@@ -1721,6 +1925,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.collate_fn",
   },
   "5a49b1c9-ce17-4b25-bdb0-d556bf302403": {
     id: "5a49b1c9-ce17-4b25-bdb0-d556bf302403",
@@ -1728,6 +1933,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.pin_memory",
   },
   "60fbce55-f16a-4cc0-9009-c6ce923e956e": {
     id: "60fbce55-f16a-4cc0-9009-c6ce923e956e",
@@ -1735,6 +1941,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.drop_last",
   },
   "1a4c0b9b-1a8d-47c5-b43c-2ab2f0765adf": {
     id: "1a4c0b9b-1a8d-47c5-b43c-2ab2f0765adf",
@@ -1742,6 +1949,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.timeout",
   },
   "89ca6204-5cd0-4465-9214-2d0b140ca294": {
     id: "89ca6204-5cd0-4465-9214-2d0b140ca294",
@@ -1749,6 +1957,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.worker_init_fn",
   },
   "7f806c56-69ba-4f5c-a010-52e5eafab0fc": {
     id: "7f806c56-69ba-4f5c-a010-52e5eafab0fc",
@@ -1756,6 +1965,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.multiprocessing_context",
   },
   "c99a4bb9-0acf-4d58-a475-8ba318299b83": {
     id: "c99a4bb9-0acf-4d58-a475-8ba318299b83",
@@ -1763,6 +1973,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.generator",
   },
   "68b7bbfb-14c0-41be-ac63-c4686079b357": {
     id: "68b7bbfb-14c0-41be-ac63-c4686079b357",
@@ -1770,6 +1981,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.prefetch_factor",
   },
   "0689b68c-1bee-47b0-82d0-323462e74b8c": {
     id: "0689b68c-1bee-47b0-82d0-323462e74b8c",
@@ -1777,6 +1989,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.persistent_workers",
   },
   "509e1d4c-be21-4681-aa34-64f6456c0d32": {
     id: "509e1d4c-be21-4681-aa34-64f6456c0d32",
@@ -1784,6 +1997,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.utils.data.DataLoader.pin_memory_device",
   },
   "88413938-51d4-4d8c-a1b6-94861e07eb22": {
     id: "88413938-51d4-4d8c-a1b6-94861e07eb22",
@@ -1801,6 +2015,7 @@ export default {
       "f03ce732-e07d-48bc-af22-374677b463a2",
     ],
     rcType: "callable",
+    path: "torchvision.models.ResNet",
   },
   "e2434f86-903a-4ed7-9997-9ce056b75cbb": {
     id: "e2434f86-903a-4ed7-9997-9ce056b75cbb",
@@ -1808,6 +2023,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.block",
   },
   "9f1f66f5-a369-4c95-a639-dab13695fde1": {
     id: "9f1f66f5-a369-4c95-a639-dab13695fde1",
@@ -1815,6 +2031,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.layers",
   },
   "5ed52962-3443-4e73-a685-8c6998f9c2c9": {
     id: "5ed52962-3443-4e73-a685-8c6998f9c2c9",
@@ -1822,6 +2039,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.num_classes",
   },
   "62180994-57c7-4079-af3f-35dbaf3c59f7": {
     id: "62180994-57c7-4079-af3f-35dbaf3c59f7",
@@ -1829,6 +2047,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.zero_init_residual",
   },
   "b6a8cee5-2a04-4950-a31b-03f709681ced": {
     id: "b6a8cee5-2a04-4950-a31b-03f709681ced",
@@ -1836,6 +2055,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.groups",
   },
   "b8773b5e-15b3-415f-ab30-1662c330f271": {
     id: "b8773b5e-15b3-415f-ab30-1662c330f271",
@@ -1843,6 +2063,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.width_per_group",
   },
   "a3039c81-38f7-4ade-be9d-3b1ad8ca0ad1": {
     id: "a3039c81-38f7-4ade-be9d-3b1ad8ca0ad1",
@@ -1850,6 +2071,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.replace_stride_with_dilation",
   },
   "daf84b74-bc3d-4bcb-a1f5-084731b389be": {
     id: "daf84b74-bc3d-4bcb-a1f5-084731b389be",
@@ -1857,6 +2079,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.models.ResNet.norm_layer",
   },
   "f03ce732-e07d-48bc-af22-374677b463a2": {
     id: "f03ce732-e07d-48bc-af22-374677b463a2",
@@ -1864,6 +2087,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "torchvision.models.ResNet.parameters",
   },
   "74b45adc-d929-4fd6-abb7-02783bfeb6db": {
     id: "74b45adc-d929-4fd6-abb7-02783bfeb6db",
@@ -1908,6 +2132,7 @@ export default {
       "db61ccf5-35a8-4e76-b342-18f85862760b",
     ],
     rcType: "collection",
+    path: "torchvision.datasets",
   },
   "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4": {
     id: "bd84610c-ba8d-4bcb-80ec-78ae431f0bb4",
@@ -1921,6 +2146,7 @@ export default {
       "4e535c1d-ed5c-45e9-8587-3d6dc059603f",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Caltech101",
   },
   "27c97693-87ff-4d72-8509-ce8b81445063": {
     id: "27c97693-87ff-4d72-8509-ce8b81445063",
@@ -1928,6 +2154,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech101.root",
   },
   "098148d6-b6d1-4301-94b9-2d8e1f469413": {
     id: "098148d6-b6d1-4301-94b9-2d8e1f469413",
@@ -1935,6 +2162,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech101.target_type",
   },
   "db5f50ae-29d6-48e3-a87c-59f9eef339da": {
     id: "db5f50ae-29d6-48e3-a87c-59f9eef339da",
@@ -1942,6 +2170,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech101.transform",
   },
   "682c3ea8-0404-4748-9f00-90de9bcebabb": {
     id: "682c3ea8-0404-4748-9f00-90de9bcebabb",
@@ -1949,6 +2178,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech101.target_transform",
   },
   "4e535c1d-ed5c-45e9-8587-3d6dc059603f": {
     id: "4e535c1d-ed5c-45e9-8587-3d6dc059603f",
@@ -1956,6 +2186,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech101.download",
   },
   "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b": {
     id: "ab44f54d-1ca6-46d9-90a2-9f4eba57ca8b",
@@ -1968,6 +2199,7 @@ export default {
       "979e87d7-a162-4b2e-88b6-8967f1cd08e1",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Caltech256",
   },
   "76ffb6fc-1562-4246-b5e8-8c1d7fca2706": {
     id: "76ffb6fc-1562-4246-b5e8-8c1d7fca2706",
@@ -1975,6 +2207,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech256.root",
   },
   "28fb61ea-92e5-4157-b4ae-ae045b72bebe": {
     id: "28fb61ea-92e5-4157-b4ae-ae045b72bebe",
@@ -1982,6 +2215,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech256.transform",
   },
   "c8c36ca3-d21a-40bb-89b5-d731dede2c9d": {
     id: "c8c36ca3-d21a-40bb-89b5-d731dede2c9d",
@@ -1989,6 +2223,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech256.target_transform",
   },
   "979e87d7-a162-4b2e-88b6-8967f1cd08e1": {
     id: "979e87d7-a162-4b2e-88b6-8967f1cd08e1",
@@ -1996,6 +2231,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Caltech256.download",
   },
   "be252bd6-75ce-4e6e-8631-cca42a48b8a6": {
     id: "be252bd6-75ce-4e6e-8631-cca42a48b8a6",
@@ -2010,6 +2246,7 @@ export default {
       "beb42d52-902e-43e5-9d49-3a639849fd1e",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.CelebA",
   },
   "719dea56-1bce-4b85-8312-9f21d7faa038": {
     id: "719dea56-1bce-4b85-8312-9f21d7faa038",
@@ -2017,6 +2254,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CelebA.root",
   },
   "5971cfd0-eba2-475a-9a8a-8ce2daba2197": {
     id: "5971cfd0-eba2-475a-9a8a-8ce2daba2197",
@@ -2024,6 +2262,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CelebA.split",
   },
   "6a89ec5c-5d1a-4bd8-a69a-21ac9dc39bd3": {
     id: "6a89ec5c-5d1a-4bd8-a69a-21ac9dc39bd3",
@@ -2031,6 +2270,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CelebA.target_type",
   },
   "fc6b0f2a-f777-4cb5-86f5-d6eaced3261f": {
     id: "fc6b0f2a-f777-4cb5-86f5-d6eaced3261f",
@@ -2038,6 +2278,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CelebA.transform",
   },
   "d5ecb09e-2e21-4bf4-928b-60c2dbadfd99": {
     id: "d5ecb09e-2e21-4bf4-928b-60c2dbadfd99",
@@ -2045,6 +2286,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CelebA.target_transform",
   },
   "beb42d52-902e-43e5-9d49-3a639849fd1e": {
     id: "beb42d52-902e-43e5-9d49-3a639849fd1e",
@@ -2052,6 +2294,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CelebA.download",
   },
   "d71ffc02-1d6a-4399-809a-df7f3381e465": {
     id: "d71ffc02-1d6a-4399-809a-df7f3381e465",
@@ -2070,6 +2313,7 @@ export default {
       "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.CIFAR10",
   },
   "e34f4831-9e98-4d2e-ac15-f648842ffe21": {
     id: "e34f4831-9e98-4d2e-ac15-f648842ffe21",
@@ -2077,6 +2321,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR10.root",
   },
   "3f041e7e-f814-4e62-b4bc-381af7c4173e": {
     id: "3f041e7e-f814-4e62-b4bc-381af7c4173e",
@@ -2084,6 +2329,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR10.train",
   },
   "4f184f39-3224-4c1c-a1d1-09c6742052e5": {
     id: "4f184f39-3224-4c1c-a1d1-09c6742052e5",
@@ -2091,6 +2337,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR10.transform",
   },
   "c337842a-c546-4c37-9f70-13cbeed11ec5": {
     id: "c337842a-c546-4c37-9f70-13cbeed11ec5",
@@ -2098,6 +2345,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR10.target_transform",
   },
   "1e72d9e8-d229-4736-96d8-7099c5703695": {
     id: "1e72d9e8-d229-4736-96d8-7099c5703695",
@@ -2105,6 +2353,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR10.download",
   },
   "703d58cc-526f-4beb-ac44-5adba8b69a5d": {
     id: "703d58cc-526f-4beb-ac44-5adba8b69a5d",
@@ -2118,6 +2367,7 @@ export default {
       "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.CIFAR100",
   },
   "5ef9eace-8756-4861-815e-07c451b998bc": {
     id: "5ef9eace-8756-4861-815e-07c451b998bc",
@@ -2125,6 +2375,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR100.root",
   },
   "43e05346-d85b-49ea-a4a7-b91a65c08c83": {
     id: "43e05346-d85b-49ea-a4a7-b91a65c08c83",
@@ -2132,6 +2383,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR100.train",
   },
   "b82bb042-1a0c-4bb9-b96d-258fbbc38c6c": {
     id: "b82bb042-1a0c-4bb9-b96d-258fbbc38c6c",
@@ -2139,6 +2391,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR100.transform",
   },
   "411c0270-e793-49b9-a1da-91e9ba7e13a1": {
     id: "411c0270-e793-49b9-a1da-91e9ba7e13a1",
@@ -2146,6 +2399,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR100.target_transform",
   },
   "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c": {
     id: "c12dbab6-ffd3-4eb5-a8a3-ebfb624f310c",
@@ -2153,6 +2407,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.CIFAR100.download",
   },
   "379b5cf8-1b4d-4cf1-a606-f307b3680443": {
     id: "379b5cf8-1b4d-4cf1-a606-f307b3680443",
@@ -2167,6 +2422,7 @@ export default {
       "769215ee-c6b7-4cb8-a74d-3e7d801f3f01",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.DTD",
   },
   "cd34b1dc-fcb6-4223-b39f-3d3a4aa76c21": {
     id: "cd34b1dc-fcb6-4223-b39f-3d3a4aa76c21",
@@ -2174,6 +2430,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.DTD.root",
   },
   "facd7007-8d6e-48e0-aa38-b8bbca20e48c": {
     id: "facd7007-8d6e-48e0-aa38-b8bbca20e48c",
@@ -2181,6 +2438,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.DTD.split",
   },
   "9fb985b4-ee56-47c1-9982-bd2bc1c4b577": {
     id: "9fb985b4-ee56-47c1-9982-bd2bc1c4b577",
@@ -2188,6 +2446,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.DTD.partition",
   },
   "80074908-ad3f-4828-a8e0-a9f23c23ec02": {
     id: "80074908-ad3f-4828-a8e0-a9f23c23ec02",
@@ -2195,6 +2454,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.DTD.transform",
   },
   "f597b23d-9595-493e-8808-0c1720aafd0c": {
     id: "f597b23d-9595-493e-8808-0c1720aafd0c",
@@ -2202,6 +2462,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.DTD.target_transform",
   },
   "769215ee-c6b7-4cb8-a74d-3e7d801f3f01": {
     id: "769215ee-c6b7-4cb8-a74d-3e7d801f3f01",
@@ -2209,6 +2470,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.DTD.download",
   },
   "37038274-a347-45da-8951-537d91caa765": {
     id: "37038274-a347-45da-8951-537d91caa765",
@@ -2219,6 +2481,7 @@ export default {
       "ff2bb838-f020-4020-99b0-f79fb73b3ff9",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.EMNIST",
   },
   "c8964c08-15e0-40fb-9b19-189ec33d6cbe": {
     id: "c8964c08-15e0-40fb-9b19-189ec33d6cbe",
@@ -2226,6 +2489,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.EMNIST.root",
   },
   "ff2bb838-f020-4020-99b0-f79fb73b3ff9": {
     id: "ff2bb838-f020-4020-99b0-f79fb73b3ff9",
@@ -2233,6 +2497,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.EMNIST.split",
   },
   "c057fa36-c4ee-4e80-a9b0-cf60250b795c": {
     id: "c057fa36-c4ee-4e80-a9b0-cf60250b795c",
@@ -2245,6 +2510,7 @@ export default {
       "d3f1fe68-930f-4183-bde5-f21035e38483",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.EuroSAT",
   },
   "652da725-a53e-4ef4-9321-4238d0488163": {
     id: "652da725-a53e-4ef4-9321-4238d0488163",
@@ -2252,6 +2518,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.EuroSAT.root",
   },
   "dca75e77-5b0c-4e44-aca6-59074fa3484d": {
     id: "dca75e77-5b0c-4e44-aca6-59074fa3484d",
@@ -2259,6 +2526,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.EuroSAT.transform",
   },
   "c61daa71-b5d0-4a7b-b3ea-03662d9ae2bd": {
     id: "c61daa71-b5d0-4a7b-b3ea-03662d9ae2bd",
@@ -2266,6 +2534,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.EuroSAT.target_transform",
   },
   "d3f1fe68-930f-4183-bde5-f21035e38483": {
     id: "d3f1fe68-930f-4183-bde5-f21035e38483",
@@ -2273,6 +2542,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.EuroSAT.download",
   },
   "93013843-6ec2-4dc3-9c9f-b2d77cddf851": {
     id: "93013843-6ec2-4dc3-9c9f-b2d77cddf851",
@@ -2287,6 +2557,7 @@ export default {
       "a44c5cd7-80d0-43da-a66b-cd218ed9ee00",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.FakeData",
   },
   "35e0198d-b69e-45de-ba6a-8ab59b8daff6": {
     id: "35e0198d-b69e-45de-ba6a-8ab59b8daff6",
@@ -2294,6 +2565,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FakeData.size",
   },
   "87459880-0c3b-480e-bf74-4ec5a2c7e9b5": {
     id: "87459880-0c3b-480e-bf74-4ec5a2c7e9b5",
@@ -2301,6 +2573,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FakeData.image_size",
   },
   "6a63a3f7-59cf-4f51-9e42-cc10302c4237": {
     id: "6a63a3f7-59cf-4f51-9e42-cc10302c4237",
@@ -2308,6 +2581,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FakeData.num_classes",
   },
   "5c32b32f-cbae-4c39-94a8-6b5c63e976ff": {
     id: "5c32b32f-cbae-4c39-94a8-6b5c63e976ff",
@@ -2315,6 +2589,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FakeData.transform",
   },
   "01ab1d52-b9b4-4768-a547-791ed490a38b": {
     id: "01ab1d52-b9b4-4768-a547-791ed490a38b",
@@ -2322,6 +2597,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FakeData.target_transform",
   },
   "a44c5cd7-80d0-43da-a66b-cd218ed9ee00": {
     id: "a44c5cd7-80d0-43da-a66b-cd218ed9ee00",
@@ -2329,6 +2605,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FakeData.random_offset",
   },
   "b47e895e-d607-4400-927b-dcda8b93d09c": {
     id: "b47e895e-d607-4400-927b-dcda8b93d09c",
@@ -2342,6 +2619,7 @@ export default {
       "0ec39c3c-4700-4f60-a10b-a00a7ca6960d",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.FashionMNIST",
   },
   "7cc3bafe-b8f8-46b3-b674-f56014ff39e6": {
     id: "7cc3bafe-b8f8-46b3-b674-f56014ff39e6",
@@ -2349,6 +2627,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FashionMNIST.root",
   },
   "722f6eb9-7203-440c-b2a1-1d0b57e1122e": {
     id: "722f6eb9-7203-440c-b2a1-1d0b57e1122e",
@@ -2356,6 +2635,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FashionMNIST.train",
   },
   "874ac7d5-87a8-4847-8d6a-28f69d0b60ac": {
     id: "874ac7d5-87a8-4847-8d6a-28f69d0b60ac",
@@ -2363,6 +2643,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FashionMNIST.transform",
   },
   "d7785e92-33b7-41bd-ba9e-49dd25b0b9af": {
     id: "d7785e92-33b7-41bd-ba9e-49dd25b0b9af",
@@ -2370,6 +2651,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FashionMNIST.target_transform",
   },
   "0ec39c3c-4700-4f60-a10b-a00a7ca6960d": {
     id: "0ec39c3c-4700-4f60-a10b-a00a7ca6960d",
@@ -2377,6 +2659,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FashionMNIST.download",
   },
   "ae27e905-398b-4e75-833b-b3a3134859b0": {
     id: "ae27e905-398b-4e75-833b-b3a3134859b0",
@@ -2389,6 +2672,7 @@ export default {
       "538e9dd6-01ac-4dfc-9db1-78795b0db2ab",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.FER2013",
   },
   "d4e90fcf-3d77-480e-b4a3-c583aea2a890": {
     id: "d4e90fcf-3d77-480e-b4a3-c583aea2a890",
@@ -2396,6 +2680,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FER2013.root",
   },
   "d4b0c838-53c3-4a4f-aeb4-c488092b71e5": {
     id: "d4b0c838-53c3-4a4f-aeb4-c488092b71e5",
@@ -2403,6 +2688,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FER2013.split",
   },
   "65554108-57a4-4fce-8e73-a18ef34e6b04": {
     id: "65554108-57a4-4fce-8e73-a18ef34e6b04",
@@ -2410,6 +2696,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FER2013.transform",
   },
   "538e9dd6-01ac-4dfc-9db1-78795b0db2ab": {
     id: "538e9dd6-01ac-4dfc-9db1-78795b0db2ab",
@@ -2417,6 +2704,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FER2013.target_transform",
   },
   "006683fe-2845-4fe5-8f00-3d04919b8724": {
     id: "006683fe-2845-4fe5-8f00-3d04919b8724",
@@ -2431,6 +2719,7 @@ export default {
       "76cd4a8d-c5bf-4d41-9983-e82a5692203f",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.FGVCAircraft",
   },
   "022c1c24-4725-4969-92cd-499ca707f81d": {
     id: "022c1c24-4725-4969-92cd-499ca707f81d",
@@ -2438,6 +2727,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FGVCAircraft.root",
   },
   "a0988b03-ef04-4ad7-b36d-a3cd507d2e78": {
     id: "a0988b03-ef04-4ad7-b36d-a3cd507d2e78",
@@ -2445,6 +2735,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FGVCAircraft.split",
   },
   "a32572c3-6bf4-4ed4-a71d-1cbb0d82eebf": {
     id: "a32572c3-6bf4-4ed4-a71d-1cbb0d82eebf",
@@ -2452,6 +2743,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FGVCAircraft.annotation_level",
   },
   "478353db-1c58-4df2-9dd4-d65638e4f17c": {
     id: "478353db-1c58-4df2-9dd4-d65638e4f17c",
@@ -2459,6 +2751,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FGVCAircraft.transform",
   },
   "2e7a34fc-295c-4ad6-b460-af3dcd2b471a": {
     id: "2e7a34fc-295c-4ad6-b460-af3dcd2b471a",
@@ -2466,6 +2759,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FGVCAircraft.target_transform",
   },
   "76cd4a8d-c5bf-4d41-9983-e82a5692203f": {
     id: "76cd4a8d-c5bf-4d41-9983-e82a5692203f",
@@ -2473,6 +2767,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.FGVCAircraft.download",
   },
   "2553fba9-aa3a-4782-b886-977a57a46b19": {
     id: "2553fba9-aa3a-4782-b886-977a57a46b19",
@@ -2485,6 +2780,7 @@ export default {
       "f83b3883-e57b-4672-a62d-9c3771805a2e",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Flickr8k",
   },
   "8e8babcd-7a35-4055-89b6-58ad6d5374cc": {
     id: "8e8babcd-7a35-4055-89b6-58ad6d5374cc",
@@ -2492,6 +2788,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr8k.root",
   },
   "8388e147-4031-402f-ab7b-10652c269930": {
     id: "8388e147-4031-402f-ab7b-10652c269930",
@@ -2499,6 +2796,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr8k.ann_file",
   },
   "20458bfb-375d-4a69-aeb0-ce5c47dbd76f": {
     id: "20458bfb-375d-4a69-aeb0-ce5c47dbd76f",
@@ -2506,6 +2804,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr8k.transform",
   },
   "f83b3883-e57b-4672-a62d-9c3771805a2e": {
     id: "f83b3883-e57b-4672-a62d-9c3771805a2e",
@@ -2513,6 +2812,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr8k.target_transform",
   },
   "75631110-b428-4013-9792-2063bb306752": {
     id: "75631110-b428-4013-9792-2063bb306752",
@@ -2525,6 +2825,7 @@ export default {
       "1198d612-d932-4845-a46b-f538e0f6c9eb",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Flickr30k",
   },
   "b6d35a80-77de-4d05-a736-96bae8804da8": {
     id: "b6d35a80-77de-4d05-a736-96bae8804da8",
@@ -2532,6 +2833,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr30k.root",
   },
   "3a048abb-2510-438c-9741-40d339ade0fb": {
     id: "3a048abb-2510-438c-9741-40d339ade0fb",
@@ -2539,6 +2841,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr30k.ann_file",
   },
   "361910e3-fcae-4ba4-b3b9-07f83026ab72": {
     id: "361910e3-fcae-4ba4-b3b9-07f83026ab72",
@@ -2546,6 +2849,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr30k.transform",
   },
   "1198d612-d932-4845-a46b-f538e0f6c9eb": {
     id: "1198d612-d932-4845-a46b-f538e0f6c9eb",
@@ -2553,6 +2857,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flickr30k.target_transform",
   },
   "efe6e090-c431-491e-9444-e32ed1621bef": {
     id: "efe6e090-c431-491e-9444-e32ed1621bef",
@@ -2566,6 +2871,7 @@ export default {
       "bfa6e62d-d27d-4621-97e0-6ffe2ff09a9e",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Flowers102",
   },
   "f1c94a7e-68f8-4a2d-ba5d-151b03c98754": {
     id: "f1c94a7e-68f8-4a2d-ba5d-151b03c98754",
@@ -2573,6 +2879,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flowers102.root",
   },
   "98a1d7c5-6f31-46b6-bf0f-5aa7d71a2476": {
     id: "98a1d7c5-6f31-46b6-bf0f-5aa7d71a2476",
@@ -2580,6 +2887,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flowers102.split",
   },
   "879c000b-bbce-4485-951a-e1e9256b3507": {
     id: "879c000b-bbce-4485-951a-e1e9256b3507",
@@ -2587,6 +2895,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flowers102.transform",
   },
   "0c22b1f5-e01d-4d06-a417-6ae0a2c49a83": {
     id: "0c22b1f5-e01d-4d06-a417-6ae0a2c49a83",
@@ -2594,6 +2903,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flowers102.target_transform",
   },
   "bfa6e62d-d27d-4621-97e0-6ffe2ff09a9e": {
     id: "bfa6e62d-d27d-4621-97e0-6ffe2ff09a9e",
@@ -2601,6 +2911,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Flowers102.download",
   },
   "ca054856-d378-43ca-8f0a-3904167f7386": {
     id: "ca054856-d378-43ca-8f0a-3904167f7386",
@@ -2614,6 +2925,7 @@ export default {
       "bef5d043-1626-4520-8ef0-25767830fc01",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Food101",
   },
   "1c43d884-8d66-4906-b32b-1ac4e7e8f9e3": {
     id: "1c43d884-8d66-4906-b32b-1ac4e7e8f9e3",
@@ -2621,6 +2933,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Food101.root",
   },
   "c59b7e44-2d6e-470e-b420-d5c289d08245": {
     id: "c59b7e44-2d6e-470e-b420-d5c289d08245",
@@ -2628,6 +2941,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Food101.split",
   },
   "3e8bdae8-97c0-4d38-9276-29b9f7209d30": {
     id: "3e8bdae8-97c0-4d38-9276-29b9f7209d30",
@@ -2635,6 +2949,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Food101.transform",
   },
   "772976ad-66b8-4d81-9694-a092b723e73e": {
     id: "772976ad-66b8-4d81-9694-a092b723e73e",
@@ -2642,6 +2957,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Food101.target_transform",
   },
   "bef5d043-1626-4520-8ef0-25767830fc01": {
     id: "bef5d043-1626-4520-8ef0-25767830fc01",
@@ -2649,6 +2965,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Food101.download",
   },
   "0118f877-848f-4f0f-8ed2-906a6aa5abe8": {
     id: "0118f877-848f-4f0f-8ed2-906a6aa5abe8",
@@ -2662,6 +2979,7 @@ export default {
       "dc9409c8-2403-41cf-8fe2-3704443cf5e2",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.GTSRB",
   },
   "892257e6-fa85-4b37-8ac9-48af9045529a": {
     id: "892257e6-fa85-4b37-8ac9-48af9045529a",
@@ -2669,6 +2987,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.GTSRB.root",
   },
   "cb966c0f-3810-4a2c-b05c-e033ed4c7004": {
     id: "cb966c0f-3810-4a2c-b05c-e033ed4c7004",
@@ -2676,6 +2995,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.GTSRB.split",
   },
   "b1511da9-bba7-41f4-984c-cf967de717db": {
     id: "b1511da9-bba7-41f4-984c-cf967de717db",
@@ -2683,6 +3003,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.GTSRB.transform",
   },
   "77001c47-4213-4080-9876-89a4b8118208": {
     id: "77001c47-4213-4080-9876-89a4b8118208",
@@ -2690,6 +3011,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.GTSRB.target_transform",
   },
   "dc9409c8-2403-41cf-8fe2-3704443cf5e2": {
     id: "dc9409c8-2403-41cf-8fe2-3704443cf5e2",
@@ -2697,6 +3019,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.GTSRB.download",
   },
   "c279a7be-9ab4-4f42-8d2c-79f322d547f5": {
     id: "c279a7be-9ab4-4f42-8d2c-79f322d547f5",
@@ -2711,6 +3034,7 @@ export default {
       "5c7125e7-a1db-479b-9e8f-d7b48b8ab046",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.INaturalist",
   },
   "b9ade847-2f2d-48e2-81dc-2442ace15251": {
     id: "b9ade847-2f2d-48e2-81dc-2442ace15251",
@@ -2718,6 +3042,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.INaturalist.root",
   },
   "436132a5-7b92-4ae5-9e26-b2544528e4ef": {
     id: "436132a5-7b92-4ae5-9e26-b2544528e4ef",
@@ -2725,6 +3050,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.INaturalist.version",
   },
   "759624c5-ef44-4a45-bbd4-7698bf2db95b": {
     id: "759624c5-ef44-4a45-bbd4-7698bf2db95b",
@@ -2732,6 +3058,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.INaturalist.target_type",
   },
   "ad9ca80e-2db8-4097-b7f3-569da897d621": {
     id: "ad9ca80e-2db8-4097-b7f3-569da897d621",
@@ -2739,6 +3066,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.INaturalist.transform",
   },
   "b0792340-8de8-400b-8346-4e79a2a2e51e": {
     id: "b0792340-8de8-400b-8346-4e79a2a2e51e",
@@ -2746,6 +3074,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.INaturalist.target_transform",
   },
   "5c7125e7-a1db-479b-9e8f-d7b48b8ab046": {
     id: "5c7125e7-a1db-479b-9e8f-d7b48b8ab046",
@@ -2753,6 +3082,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.INaturalist.download",
   },
   "de473409-2fb1-44b2-a4c7-2ce0be2b1050": {
     id: "de473409-2fb1-44b2-a4c7-2ce0be2b1050",
@@ -2763,6 +3093,7 @@ export default {
       "24551fdf-8835-4ac0-a8af-b0e3ea9e748d",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.ImageNet",
   },
   "9477e006-73aa-4f42-bc12-b42d2193e9e8": {
     id: "9477e006-73aa-4f42-bc12-b42d2193e9e8",
@@ -2770,6 +3101,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.ImageNet.root",
   },
   "24551fdf-8835-4ac0-a8af-b0e3ea9e748d": {
     id: "24551fdf-8835-4ac0-a8af-b0e3ea9e748d",
@@ -2777,6 +3109,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.ImageNet.split",
   },
   "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd": {
     id: "6ce0dc5e-7a8e-4eea-a405-6e5d91a471fd",
@@ -2790,6 +3123,7 @@ export default {
       "d473d449-eac2-4450-967a-3f345ebf3b4d",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.KMNIST",
   },
   "2288d2f4-0ff5-4b0d-b121-f24c7bc33ef9": {
     id: "2288d2f4-0ff5-4b0d-b121-f24c7bc33ef9",
@@ -2797,6 +3131,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.KMNIST.root",
   },
   "42452c6b-a9e0-44b8-a164-0d9f70584881": {
     id: "42452c6b-a9e0-44b8-a164-0d9f70584881",
@@ -2804,6 +3139,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.KMNIST.train",
   },
   "becbcf39-d4a6-48bd-bec2-1c6ae3e90247": {
     id: "becbcf39-d4a6-48bd-bec2-1c6ae3e90247",
@@ -2811,6 +3147,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.KMNIST.transform",
   },
   "f2cea491-9c1b-4fa5-bc36-46f5b6ba6ffb": {
     id: "f2cea491-9c1b-4fa5-bc36-46f5b6ba6ffb",
@@ -2818,6 +3155,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.KMNIST.target_transform",
   },
   "d473d449-eac2-4450-967a-3f345ebf3b4d": {
     id: "d473d449-eac2-4450-967a-3f345ebf3b4d",
@@ -2825,6 +3163,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.KMNIST.download",
   },
   "8ba2c002-ead4-4158-a142-2f5d9b283c4a": {
     id: "8ba2c002-ead4-4158-a142-2f5d9b283c4a",
@@ -2839,6 +3178,7 @@ export default {
       "8ce85e2a-f4a4-4723-9a77-2558d76bd085",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.LFWPeople",
   },
   "dca3ef30-2496-4527-bec7-dcfa85b5f7dd": {
     id: "dca3ef30-2496-4527-bec7-dcfa85b5f7dd",
@@ -2846,6 +3186,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LFWPeople.root",
   },
   "48455ad0-a643-47ed-b456-d6745727afbc": {
     id: "48455ad0-a643-47ed-b456-d6745727afbc",
@@ -2853,6 +3194,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LFWPeople.split",
   },
   "96d8f5ab-4ddf-4f89-88e2-897f194aaf3f": {
     id: "96d8f5ab-4ddf-4f89-88e2-897f194aaf3f",
@@ -2860,6 +3202,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LFWPeople.image_set",
   },
   "c38b6302-dfca-4b50-9828-b7b1f73fa309": {
     id: "c38b6302-dfca-4b50-9828-b7b1f73fa309",
@@ -2867,6 +3210,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LFWPeople.transform",
   },
   "05310560-d6e4-4102-abee-31210480ddf2": {
     id: "05310560-d6e4-4102-abee-31210480ddf2",
@@ -2874,6 +3218,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LFWPeople.target_transform",
   },
   "8ce85e2a-f4a4-4723-9a77-2558d76bd085": {
     id: "8ce85e2a-f4a4-4723-9a77-2558d76bd085",
@@ -2881,6 +3226,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LFWPeople.download",
   },
   "f8494490-dac3-42a4-97e7-e2f086774df6": {
     id: "f8494490-dac3-42a4-97e7-e2f086774df6",
@@ -2893,6 +3239,7 @@ export default {
       "c7647a80-7fdb-4d53-a02e-424551929364",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.LSUN",
   },
   "4decd804-552d-4a75-b439-af1999330bfd": {
     id: "4decd804-552d-4a75-b439-af1999330bfd",
@@ -2900,6 +3247,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LSUN.root",
   },
   "9c1c28bd-09f0-4aa8-a8b1-c45cdde7f460": {
     id: "9c1c28bd-09f0-4aa8-a8b1-c45cdde7f460",
@@ -2907,6 +3255,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LSUN.classes",
   },
   "5236c838-0f6a-4a8f-9996-11c562fc8dd3": {
     id: "5236c838-0f6a-4a8f-9996-11c562fc8dd3",
@@ -2914,6 +3263,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LSUN.transform",
   },
   "c7647a80-7fdb-4d53-a02e-424551929364": {
     id: "c7647a80-7fdb-4d53-a02e-424551929364",
@@ -2921,6 +3271,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.LSUN.target_transform",
   },
   "f021b3ee-957e-4540-aabb-0414baa125d0": {
     id: "f021b3ee-957e-4540-aabb-0414baa125d0",
@@ -2934,6 +3285,7 @@ export default {
       "5897ca65-1679-4d77-a0ef-efb15cf88067",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.MNIST",
   },
   "56c07a7e-34ba-43f2-8193-b62e86b4414f": {
     id: "56c07a7e-34ba-43f2-8193-b62e86b4414f",
@@ -2941,6 +3293,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.MNIST.root",
   },
   "a3cdf2a7-2002-4ddc-8b05-bb81ff7efab6": {
     id: "a3cdf2a7-2002-4ddc-8b05-bb81ff7efab6",
@@ -2948,6 +3301,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.MNIST.train",
   },
   "0533e630-8444-4ea5-a703-2a89fec6449e": {
     id: "0533e630-8444-4ea5-a703-2a89fec6449e",
@@ -2955,6 +3309,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.MNIST.transform",
   },
   "383eb7bd-f941-4e9a-b9a7-dd8b7b6bede7": {
     id: "383eb7bd-f941-4e9a-b9a7-dd8b7b6bede7",
@@ -2962,6 +3317,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.MNIST.target_transform",
   },
   "5897ca65-1679-4d77-a0ef-efb15cf88067": {
     id: "5897ca65-1679-4d77-a0ef-efb15cf88067",
@@ -2969,6 +3325,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.MNIST.download",
   },
   "09d97a03-23ba-4c90-b33a-4e86d00ae7c1": {
     id: "09d97a03-23ba-4c90-b33a-4e86d00ae7c1",
@@ -2982,6 +3339,7 @@ export default {
       "bd69235c-8323-4e5e-a99b-a0fccb85a5dc",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Omniglot",
   },
   "15ddab60-8ccd-4d1e-b405-1284a3751422": {
     id: "15ddab60-8ccd-4d1e-b405-1284a3751422",
@@ -2989,6 +3347,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Omniglot.root",
   },
   "ece13dc6-4d77-4c09-b425-6f35319a4d53": {
     id: "ece13dc6-4d77-4c09-b425-6f35319a4d53",
@@ -2996,6 +3355,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Omniglot.background",
   },
   "56d5f6a9-bea5-4797-b829-cb36b77e3717": {
     id: "56d5f6a9-bea5-4797-b829-cb36b77e3717",
@@ -3003,6 +3363,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Omniglot.transform",
   },
   "f0d0bde3-7921-4422-ba94-419832fa2771": {
     id: "f0d0bde3-7921-4422-ba94-419832fa2771",
@@ -3010,6 +3371,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Omniglot.target_transform",
   },
   "bd69235c-8323-4e5e-a99b-a0fccb85a5dc": {
     id: "bd69235c-8323-4e5e-a99b-a0fccb85a5dc",
@@ -3017,6 +3379,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Omniglot.download",
   },
   "0cd87bd9-c592-4100-8ba9-b1c8ae443c45": {
     id: "0cd87bd9-c592-4100-8ba9-b1c8ae443c45",
@@ -3032,6 +3395,7 @@ export default {
       "89664a54-75db-4384-997b-c3022b22dce3",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.OxfordIIITPet",
   },
   "8d1457ed-140f-4379-9e58-404058e5f097": {
     id: "8d1457ed-140f-4379-9e58-404058e5f097",
@@ -3039,6 +3403,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.OxfordIIITPet.root",
   },
   "e77f1237-b767-420d-ad05-cf09a80b50de": {
     id: "e77f1237-b767-420d-ad05-cf09a80b50de",
@@ -3046,6 +3411,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.OxfordIIITPet.split",
   },
   "fb7c6937-0097-4966-bcce-c452b34c3bfc": {
     id: "fb7c6937-0097-4966-bcce-c452b34c3bfc",
@@ -3053,6 +3419,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.OxfordIIITPet.target_types",
   },
   "874492a8-8110-4808-a4e6-a28fd1276e66": {
     id: "874492a8-8110-4808-a4e6-a28fd1276e66",
@@ -3060,6 +3427,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.OxfordIIITPet.transforms",
   },
   "0c59a96d-5533-4640-ac7b-9642d59235ab": {
     id: "0c59a96d-5533-4640-ac7b-9642d59235ab",
@@ -3067,6 +3435,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.OxfordIIITPet.transform",
   },
   "ed3f3fa7-18dc-4990-961f-aee26e685391": {
     id: "ed3f3fa7-18dc-4990-961f-aee26e685391",
@@ -3074,6 +3443,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.OxfordIIITPet.target_transform",
   },
   "89664a54-75db-4384-997b-c3022b22dce3": {
     id: "89664a54-75db-4384-997b-c3022b22dce3",
@@ -3081,6 +3451,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.OxfordIIITPet.download",
   },
   "77f7ee8a-bc34-4683-b701-88e463f4ec66": {
     id: "77f7ee8a-bc34-4683-b701-88e463f4ec66",
@@ -3096,6 +3467,7 @@ export default {
       "38066767-6d50-40b2-800d-330bc6ff8420",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.Places365",
   },
   "03d2d513-350d-43a2-8e25-71721ecb5ca0": {
     id: "03d2d513-350d-43a2-8e25-71721ecb5ca0",
@@ -3103,6 +3475,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Places365.root",
   },
   "2d023488-e791-4917-9da4-2e58a7faac02": {
     id: "2d023488-e791-4917-9da4-2e58a7faac02",
@@ -3110,6 +3483,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Places365.split",
   },
   "574a8d32-cccb-41df-9b6b-2252494c8891": {
     id: "574a8d32-cccb-41df-9b6b-2252494c8891",
@@ -3117,6 +3491,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Places365.small",
   },
   "893acd1c-6a0a-442a-badb-28be8f9a09b4": {
     id: "893acd1c-6a0a-442a-badb-28be8f9a09b4",
@@ -3124,6 +3499,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Places365.download",
   },
   "e68dfbfd-1486-480e-b492-cf9179a6b10a": {
     id: "e68dfbfd-1486-480e-b492-cf9179a6b10a",
@@ -3131,6 +3507,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Places365.transform",
   },
   "bb506b83-9ee3-4f1d-a48a-1581b91a9f7e": {
     id: "bb506b83-9ee3-4f1d-a48a-1581b91a9f7e",
@@ -3138,6 +3515,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Places365.target_transform",
   },
   "38066767-6d50-40b2-800d-330bc6ff8420": {
     id: "38066767-6d50-40b2-800d-330bc6ff8420",
@@ -3145,6 +3523,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.Places365.loader",
   },
   "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9": {
     id: "fc28ee8c-06ee-4fa6-9975-4eca0ccd9ac9",
@@ -3158,6 +3537,7 @@ export default {
       "7970b3a8-dbb4-4aa6-9d26-018beac78ff8",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.PCAM",
   },
   "be1a3e72-a2ef-4d3a-b399-f6eb8c332032": {
     id: "be1a3e72-a2ef-4d3a-b399-f6eb8c332032",
@@ -3165,6 +3545,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.PCAM.root",
   },
   "736a3413-94e7-46ed-97e7-6f33121e9099": {
     id: "736a3413-94e7-46ed-97e7-6f33121e9099",
@@ -3172,6 +3553,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.PCAM.split",
   },
   "adf510d2-ac24-4799-a7dc-10174bad0e49": {
     id: "adf510d2-ac24-4799-a7dc-10174bad0e49",
@@ -3179,6 +3561,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.PCAM.transform",
   },
   "f6ae920c-4065-4ba9-81de-da90abf8ed79": {
     id: "f6ae920c-4065-4ba9-81de-da90abf8ed79",
@@ -3186,6 +3569,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.PCAM.target_transform",
   },
   "7970b3a8-dbb4-4aa6-9d26-018beac78ff8": {
     id: "7970b3a8-dbb4-4aa6-9d26-018beac78ff8",
@@ -3193,6 +3577,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.PCAM.download",
   },
   "cfd0adb4-0830-4993-b710-6c329940597f": {
     id: "cfd0adb4-0830-4993-b710-6c329940597f",
@@ -3205,6 +3590,7 @@ export default {
       "664c3828-d580-47c7-b8a1-40dce269f11c",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.QMNIST",
   },
   "a4eceaac-471f-4ba4-8f15-7f3010ce8a03": {
     id: "a4eceaac-471f-4ba4-8f15-7f3010ce8a03",
@@ -3212,6 +3598,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.QMNIST.root",
   },
   "8aadb53f-3859-4f7a-9359-f35b1113e9a0": {
     id: "8aadb53f-3859-4f7a-9359-f35b1113e9a0",
@@ -3219,6 +3606,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.QMNIST.what",
   },
   "621bef21-af16-4458-b37b-643e15524f50": {
     id: "621bef21-af16-4458-b37b-643e15524f50",
@@ -3226,6 +3614,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.QMNIST.compat",
   },
   "664c3828-d580-47c7-b8a1-40dce269f11c": {
     id: "664c3828-d580-47c7-b8a1-40dce269f11c",
@@ -3233,6 +3622,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.QMNIST.train",
   },
   "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f": {
     id: "d5f8cb4b-e255-47f4-99a0-6dc4d9fed30f",
@@ -3246,6 +3636,7 @@ export default {
       "da211719-beb4-4b69-8ae6-69e942d4b280",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.RenderedSST2",
   },
   "0e87904f-0c14-4356-abb5-227364864465": {
     id: "0e87904f-0c14-4356-abb5-227364864465",
@@ -3253,6 +3644,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.RenderedSST2.root",
   },
   "11fb77f3-c33d-45fe-aa43-0297aaccc384": {
     id: "11fb77f3-c33d-45fe-aa43-0297aaccc384",
@@ -3260,6 +3652,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.RenderedSST2.split",
   },
   "d2d8b71c-ffa0-4810-9ec1-132c7be7d9a8": {
     id: "d2d8b71c-ffa0-4810-9ec1-132c7be7d9a8",
@@ -3267,6 +3660,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.RenderedSST2.transform",
   },
   "888398b6-1f73-442b-8fb7-858c4e5c7e32": {
     id: "888398b6-1f73-442b-8fb7-858c4e5c7e32",
@@ -3274,6 +3668,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.RenderedSST2.target_transform",
   },
   "da211719-beb4-4b69-8ae6-69e942d4b280": {
     id: "da211719-beb4-4b69-8ae6-69e942d4b280",
@@ -3281,6 +3676,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.RenderedSST2.download",
   },
   "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555": {
     id: "8a7a235d-b1ac-4d78-a4f9-1fbdbc614555",
@@ -3293,6 +3689,7 @@ export default {
       "ad2c0b01-d2f8-4772-9548-db7fbf6fef68",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.SEMEION",
   },
   "653d1d2d-8a4c-4460-8b07-f64808c2ce5a": {
     id: "653d1d2d-8a4c-4460-8b07-f64808c2ce5a",
@@ -3300,6 +3697,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SEMEION.root",
   },
   "eb125060-5fea-49af-9184-163dc628f8e2": {
     id: "eb125060-5fea-49af-9184-163dc628f8e2",
@@ -3307,6 +3705,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SEMEION.transform",
   },
   "5a26db52-7727-49f3-a0a7-e30faea994e3": {
     id: "5a26db52-7727-49f3-a0a7-e30faea994e3",
@@ -3314,6 +3713,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SEMEION.target_transform",
   },
   "ad2c0b01-d2f8-4772-9548-db7fbf6fef68": {
     id: "ad2c0b01-d2f8-4772-9548-db7fbf6fef68",
@@ -3321,6 +3721,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SEMEION.download",
   },
   "50adb98c-6427-4af1-91ac-0204475beb6e": {
     id: "50adb98c-6427-4af1-91ac-0204475beb6e",
@@ -3333,6 +3734,7 @@ export default {
       "a6556792-97f2-479d-83c2-60b17ff4813b",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.SBU",
   },
   "bfd35bb8-d9ad-49e1-a95b-9d0cec830ee0": {
     id: "bfd35bb8-d9ad-49e1-a95b-9d0cec830ee0",
@@ -3340,6 +3742,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SBU.root",
   },
   "938c2fad-e1ad-41dd-9ecd-f8917031acd4": {
     id: "938c2fad-e1ad-41dd-9ecd-f8917031acd4",
@@ -3347,6 +3750,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SBU.transform",
   },
   "97a1b4c0-3ff7-4b23-aaa3-5d197d03be56": {
     id: "97a1b4c0-3ff7-4b23-aaa3-5d197d03be56",
@@ -3354,6 +3758,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SBU.target_transform",
   },
   "a6556792-97f2-479d-83c2-60b17ff4813b": {
     id: "a6556792-97f2-479d-83c2-60b17ff4813b",
@@ -3361,6 +3766,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SBU.download",
   },
   "a9003f18-468d-4f52-917f-69a84eea884d": {
     id: "a9003f18-468d-4f52-917f-69a84eea884d",
@@ -3374,6 +3780,7 @@ export default {
       "e6126aed-0e26-4f0d-a1d8-ab04ba1a5093",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.StanfordCars",
   },
   "91989fab-72c2-4f33-b39d-38609dcb1ecc": {
     id: "91989fab-72c2-4f33-b39d-38609dcb1ecc",
@@ -3381,6 +3788,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.StanfordCars.root",
   },
   "939e994e-f86c-4c45-accc-416cda21b97d": {
     id: "939e994e-f86c-4c45-accc-416cda21b97d",
@@ -3388,6 +3796,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.StanfordCars.split",
   },
   "919226ed-03f4-45e8-9cdf-59e518b5dd75": {
     id: "919226ed-03f4-45e8-9cdf-59e518b5dd75",
@@ -3395,6 +3804,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.StanfordCars.transform",
   },
   "562da3d1-494f-4ac4-b1fb-22f7182e8d1c": {
     id: "562da3d1-494f-4ac4-b1fb-22f7182e8d1c",
@@ -3402,6 +3812,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.StanfordCars.target_transform",
   },
   "e6126aed-0e26-4f0d-a1d8-ab04ba1a5093": {
     id: "e6126aed-0e26-4f0d-a1d8-ab04ba1a5093",
@@ -3409,6 +3820,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.StanfordCars.download",
   },
   "932ceabf-9cbe-45ad-bbe4-556401479eff": {
     id: "932ceabf-9cbe-45ad-bbe4-556401479eff",
@@ -3423,6 +3835,7 @@ export default {
       "7adc5d5a-5afc-401e-92bf-45f01e3b82b6",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.STL10",
   },
   "2c33e6b9-4ac4-4fe5-a325-fcac854dc0ed": {
     id: "2c33e6b9-4ac4-4fe5-a325-fcac854dc0ed",
@@ -3430,6 +3843,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.STL10.root",
   },
   "11d91e52-1659-403f-beab-aa9807ff5eeb": {
     id: "11d91e52-1659-403f-beab-aa9807ff5eeb",
@@ -3437,6 +3851,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.STL10.split",
   },
   "0043e55b-9d76-4f99-a2f4-efbc0e6f039b": {
     id: "0043e55b-9d76-4f99-a2f4-efbc0e6f039b",
@@ -3444,6 +3859,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.STL10.folds",
   },
   "b4f19a8f-e6e1-4ae7-93f6-d5b2031cf85f": {
     id: "b4f19a8f-e6e1-4ae7-93f6-d5b2031cf85f",
@@ -3451,6 +3867,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.STL10.transform",
   },
   "5cccfa09-dd11-454e-8291-60a24e0e66a6": {
     id: "5cccfa09-dd11-454e-8291-60a24e0e66a6",
@@ -3458,6 +3875,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.STL10.target_transform",
   },
   "7adc5d5a-5afc-401e-92bf-45f01e3b82b6": {
     id: "7adc5d5a-5afc-401e-92bf-45f01e3b82b6",
@@ -3465,6 +3883,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.STL10.download",
   },
   "8d4fecdd-e453-4b05-bacb-14895e840bcf": {
     id: "8d4fecdd-e453-4b05-bacb-14895e840bcf",
@@ -3477,6 +3896,7 @@ export default {
       "371269d3-c4fe-49b8-abb8-59365ccab4c2",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.SUN397",
   },
   "d60e3163-d826-4369-9a37-97793a0dd5be": {
     id: "d60e3163-d826-4369-9a37-97793a0dd5be",
@@ -3484,6 +3904,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SUN397.root",
   },
   "d12b5fc0-02fb-4be5-a60c-5b9a8fa51d63": {
     id: "d12b5fc0-02fb-4be5-a60c-5b9a8fa51d63",
@@ -3491,6 +3912,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SUN397.transform",
   },
   "b1597263-d30e-4615-905e-9bf192dd6dff": {
     id: "b1597263-d30e-4615-905e-9bf192dd6dff",
@@ -3498,6 +3920,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SUN397.target_transform",
   },
   "371269d3-c4fe-49b8-abb8-59365ccab4c2": {
     id: "371269d3-c4fe-49b8-abb8-59365ccab4c2",
@@ -3505,6 +3928,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SUN397.download",
   },
   "878cc0dd-83eb-49d5-b295-e292a952ef7e": {
     id: "878cc0dd-83eb-49d5-b295-e292a952ef7e",
@@ -3518,6 +3942,7 @@ export default {
       "52d23b7d-67a4-4913-be3a-a899942ce608",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.SVHN",
   },
   "19c1eb8d-b590-498c-b4aa-aa5cbf87d028": {
     id: "19c1eb8d-b590-498c-b4aa-aa5cbf87d028",
@@ -3525,6 +3950,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SVHN.root",
   },
   "dda52d35-3b2d-4252-8511-62846c6632b7": {
     id: "dda52d35-3b2d-4252-8511-62846c6632b7",
@@ -3532,6 +3958,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SVHN.split",
   },
   "96c5ee56-9c36-4f49-8266-a4720356a6ee": {
     id: "96c5ee56-9c36-4f49-8266-a4720356a6ee",
@@ -3539,6 +3966,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SVHN.transform",
   },
   "1d26a5a2-3f75-41dd-8566-77fb475cb349": {
     id: "1d26a5a2-3f75-41dd-8566-77fb475cb349",
@@ -3546,6 +3974,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SVHN.target_transform",
   },
   "52d23b7d-67a4-4913-be3a-a899942ce608": {
     id: "52d23b7d-67a4-4913-be3a-a899942ce608",
@@ -3553,6 +3982,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.SVHN.download",
   },
   "db61ccf5-35a8-4e76-b342-18f85862760b": {
     id: "db61ccf5-35a8-4e76-b342-18f85862760b",
@@ -3566,6 +3996,7 @@ export default {
       "5478913b-2bfe-4076-b613-855fbc6be490",
     ],
     rcType: "callable",
+    path: "torchvision.datasets.USPS",
   },
   "bf2922e9-0f6b-4c30-873c-7c33010dc77f": {
     id: "bf2922e9-0f6b-4c30-873c-7c33010dc77f",
@@ -3573,6 +4004,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.USPS.root",
   },
   "8d2f050e-eef8-4872-9bb6-3fb624d1f2f0": {
     id: "8d2f050e-eef8-4872-9bb6-3fb624d1f2f0",
@@ -3580,6 +4012,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.USPS.train",
   },
   "17e936e3-7507-4b24-86ad-abf9fff06ed5": {
     id: "17e936e3-7507-4b24-86ad-abf9fff06ed5",
@@ -3587,6 +4020,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.USPS.transform",
   },
   "e3a12121-a3cd-426a-903b-723cf66b9bfa": {
     id: "e3a12121-a3cd-426a-903b-723cf66b9bfa",
@@ -3594,6 +4028,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.USPS.target_transform",
   },
   "5478913b-2bfe-4076-b613-855fbc6be490": {
     id: "5478913b-2bfe-4076-b613-855fbc6be490",
@@ -3601,6 +4036,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchvision.datasets.USPS.download",
   },
   "53c34f44-2c9a-4cd4-9e7a-904360ad210b": {
     id: "53c34f44-2c9a-4cd4-9e7a-904360ad210b",
@@ -3611,6 +4047,7 @@ export default {
       "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
     ],
     rcType: "collection",
+    path: "torch.nn",
   },
   "867af6c8-3d72-4894-b058-7cd28abfe55d": {
     id: "867af6c8-3d72-4894-b058-7cd28abfe55d",
@@ -3625,6 +4062,7 @@ export default {
       "93ea38f9-d410-4128-b5eb-e1e55d4b46f0",
     ],
     rcType: "callable",
+    path: "torch.nn.CrossEntropyLoss",
   },
   "cc4994d5-3f31-44ad-accc-8e2c0662e9de": {
     id: "cc4994d5-3f31-44ad-accc-8e2c0662e9de",
@@ -3632,6 +4070,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.CrossEntropyLoss.weight",
   },
   "55628512-f9fc-4d48-8402-564b4bbe36a4": {
     id: "55628512-f9fc-4d48-8402-564b4bbe36a4",
@@ -3639,6 +4078,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.CrossEntropyLoss.size_average",
   },
   "bb045496-3596-4fdc-824c-97895442f270": {
     id: "bb045496-3596-4fdc-824c-97895442f270",
@@ -3646,6 +4086,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.CrossEntropyLoss.ignore_index",
   },
   "7fbc6142-d9cd-4540-a5ab-98316c6ff1c5": {
     id: "7fbc6142-d9cd-4540-a5ab-98316c6ff1c5",
@@ -3653,6 +4094,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.CrossEntropyLoss.reduce",
   },
   "14fa5414-1973-4ccf-b2f5-69143f9e9a71": {
     id: "14fa5414-1973-4ccf-b2f5-69143f9e9a71",
@@ -3660,6 +4102,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.CrossEntropyLoss.reduction",
   },
   "93ea38f9-d410-4128-b5eb-e1e55d4b46f0": {
     id: "93ea38f9-d410-4128-b5eb-e1e55d4b46f0",
@@ -3667,6 +4110,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.CrossEntropyLoss.label_smoothing",
   },
   "6feb3058-16a1-42a0-a81d-df3d5ccbf01a": {
     id: "6feb3058-16a1-42a0-a81d-df3d5ccbf01a",
@@ -3680,6 +4124,7 @@ export default {
       "61df8d5a-51c1-4a89-826c-af54f964f4be",
     ],
     rcType: "callable",
+    path: "torch.nn.NLLLoss",
   },
   "a70c54b3-f47e-44f1-ad12-265035887129": {
     id: "a70c54b3-f47e-44f1-ad12-265035887129",
@@ -3687,6 +4132,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.NLLLoss.weight",
   },
   "6fc3e75a-f0d0-45eb-870a-92e2572130a5": {
     id: "6fc3e75a-f0d0-45eb-870a-92e2572130a5",
@@ -3694,6 +4140,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.NLLLoss.size_average",
   },
   "b99710fe-e492-45ac-a037-cf5d86033fca": {
     id: "b99710fe-e492-45ac-a037-cf5d86033fca",
@@ -3701,6 +4148,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.NLLLoss.ignore_index",
   },
   "0c444561-30ab-42ce-b7a8-86f9a8039dd5": {
     id: "0c444561-30ab-42ce-b7a8-86f9a8039dd5",
@@ -3708,6 +4156,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.NLLLoss.reduce",
   },
   "61df8d5a-51c1-4a89-826c-af54f964f4be": {
     id: "61df8d5a-51c1-4a89-826c-af54f964f4be",
@@ -3715,6 +4164,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.nn.NLLLoss.reduction",
   },
   "f591b45a-5f8f-4ccc-ab42-ab34a3330107": {
     id: "f591b45a-5f8f-4ccc-ab42-ab34a3330107",
@@ -3730,6 +4180,7 @@ export default {
       "71dc5e71-8643-45d4-9c84-466a262727cb",
     ],
     rcType: "collection",
+    path: "torch.optim.lr_scheduler",
   },
   "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc": {
     id: "2bd8e50a-0694-4eb0-a7e7-7c47513e44cc",
@@ -3744,6 +4195,7 @@ export default {
       "89d791c0-5b5c-46cf-9703-6f895e9c4df7",
     ],
     rcType: "callable",
+    path: "torch.optim.lr_scheduler.LinearLR",
   },
   "f35e7ae2-81a4-4536-b3da-80c612e47ff3": {
     id: "f35e7ae2-81a4-4536-b3da-80c612e47ff3",
@@ -3751,6 +4203,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.LinearLR.optimizer",
   },
   "30548d4b-9fba-4170-b2bc-ac38a373db78": {
     id: "30548d4b-9fba-4170-b2bc-ac38a373db78",
@@ -3758,6 +4211,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.LinearLR.start_factor",
   },
   "5b63d724-14d9-485c-988e-35e528d5e4b9": {
     id: "5b63d724-14d9-485c-988e-35e528d5e4b9",
@@ -3765,6 +4219,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.LinearLR.end_factor",
   },
   "43feae37-6f02-4ebd-aa20-c481757b37e4": {
     id: "43feae37-6f02-4ebd-aa20-c481757b37e4",
@@ -3772,6 +4227,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.LinearLR.total_iters",
   },
   "e79f5e5c-490d-4c90-a207-88d8db136370": {
     id: "e79f5e5c-490d-4c90-a207-88d8db136370",
@@ -3779,6 +4235,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.LinearLR.last_epoch",
   },
   "89d791c0-5b5c-46cf-9703-6f895e9c4df7": {
     id: "89d791c0-5b5c-46cf-9703-6f895e9c4df7",
@@ -3786,6 +4243,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.LinearLR.verbose",
   },
   "388f74d8-518f-4f3a-bfaf-313fd8ee3659": {
     id: "388f74d8-518f-4f3a-bfaf-313fd8ee3659",
@@ -3798,6 +4256,7 @@ export default {
       "2b5fff5e-3fb9-44e5-8f99-ef2575425c7d",
     ],
     rcType: "callable",
+    path: "torch.optim.lr_scheduler.ExponentialLR",
   },
   "1c8dbb03-b7dd-4910-be11-b4abe6e2d745": {
     id: "1c8dbb03-b7dd-4910-be11-b4abe6e2d745",
@@ -3805,6 +4264,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.ExponentialLR.optimizer",
   },
   "488b61b9-071c-4088-9ebf-7e456d39cd8e": {
     id: "488b61b9-071c-4088-9ebf-7e456d39cd8e",
@@ -3812,6 +4272,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.ExponentialLR.gamma",
   },
   "e0a3dc4b-0732-4d05-9f95-0798dc07fd23": {
     id: "e0a3dc4b-0732-4d05-9f95-0798dc07fd23",
@@ -3819,6 +4280,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.ExponentialLR.last_epoch",
   },
   "2b5fff5e-3fb9-44e5-8f99-ef2575425c7d": {
     id: "2b5fff5e-3fb9-44e5-8f99-ef2575425c7d",
@@ -3826,6 +4288,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.ExponentialLR.verbose",
   },
   "ee47d3c8-1863-4039-b227-18842c3ec9e7": {
     id: "ee47d3c8-1863-4039-b227-18842c3ec9e7",
@@ -3839,6 +4302,7 @@ export default {
       "8621c190-1436-40ca-be7f-2a7996ef63fc",
     ],
     rcType: "callable",
+    path: "torch.optim.lr_scheduler.PolynomialLR",
   },
   "28b67331-2b69-4554-8ecf-03e17f7d7c3a": {
     id: "28b67331-2b69-4554-8ecf-03e17f7d7c3a",
@@ -3846,6 +4310,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.PolynomialLR.optimizer",
   },
   "9ae83ccb-dfc0-4c28-b542-dc61160081ad": {
     id: "9ae83ccb-dfc0-4c28-b542-dc61160081ad",
@@ -3853,6 +4318,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.PolynomialLR.total_iters",
   },
   "62835ee4-cd0e-4e0b-8723-25df5126c085": {
     id: "62835ee4-cd0e-4e0b-8723-25df5126c085",
@@ -3860,6 +4326,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.PolynomialLR.power",
   },
   "8cc6f942-2864-414d-b95c-439a19325025": {
     id: "8cc6f942-2864-414d-b95c-439a19325025",
@@ -3867,6 +4334,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.PolynomialLR.last_epoch",
   },
   "8621c190-1436-40ca-be7f-2a7996ef63fc": {
     id: "8621c190-1436-40ca-be7f-2a7996ef63fc",
@@ -3874,6 +4342,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.PolynomialLR.verbose",
   },
   "989ff039-817a-46c0-90d3-f716aad50495": {
     id: "989ff039-817a-46c0-90d3-f716aad50495",
@@ -3887,6 +4356,7 @@ export default {
       "3fa07f28-b5cf-4ac1-82ed-f8ebe0c7e492",
     ],
     rcType: "callable",
+    path: "torch.optim.lr_scheduler.CosineAnnealingLR",
   },
   "cb3194ae-4b74-4780-8e48-64219d84afab": {
     id: "cb3194ae-4b74-4780-8e48-64219d84afab",
@@ -3894,6 +4364,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingLR.optimizer",
   },
   "331a4ef0-80af-4f3d-acdb-7de3c00f26c3": {
     id: "331a4ef0-80af-4f3d-acdb-7de3c00f26c3",
@@ -3901,6 +4372,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingLR.T_max",
   },
   "293e26e7-910c-45c8-8db5-139174c2bc9a": {
     id: "293e26e7-910c-45c8-8db5-139174c2bc9a",
@@ -3908,6 +4380,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingLR.eta_min",
   },
   "c1453e84-ab4e-44e1-ab11-546b28839158": {
     id: "c1453e84-ab4e-44e1-ab11-546b28839158",
@@ -3915,6 +4388,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingLR.last_epoch",
   },
   "3fa07f28-b5cf-4ac1-82ed-f8ebe0c7e492": {
     id: "3fa07f28-b5cf-4ac1-82ed-f8ebe0c7e492",
@@ -3922,6 +4396,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingLR.verbose",
   },
   "e9b32c5b-3bab-4583-a20d-b850ac5ef37b": {
     id: "e9b32c5b-3bab-4583-a20d-b850ac5ef37b",
@@ -3944,6 +4419,7 @@ export default {
       "d965143f-c794-4ca2-a587-522fde5462da",
     ],
     rcType: "callable",
+    path: "torch.optim.lr_scheduler.CyclicLR",
   },
   "18e7a3b8-84e7-4277-aa2e-201195bd4522": {
     id: "18e7a3b8-84e7-4277-aa2e-201195bd4522",
@@ -3951,6 +4427,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.optimizer",
   },
   "af6cbca1-0108-442b-8bd3-475625799c32": {
     id: "af6cbca1-0108-442b-8bd3-475625799c32",
@@ -3958,6 +4435,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.base_lr",
   },
   "4b2b3b05-4e66-46d7-b4a7-74ca9141da0a": {
     id: "4b2b3b05-4e66-46d7-b4a7-74ca9141da0a",
@@ -3965,6 +4443,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.max_lr",
   },
   "6d7f202b-8e24-4b23-8626-42c497a965f5": {
     id: "6d7f202b-8e24-4b23-8626-42c497a965f5",
@@ -3972,6 +4451,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.step_size_up",
   },
   "aabfc20f-6f4f-40d4-8121-7634d58ca20f": {
     id: "aabfc20f-6f4f-40d4-8121-7634d58ca20f",
@@ -3979,6 +4459,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.step_size_down",
   },
   "ebfc9204-f8e1-4eda-ab9c-64187ea56cfa": {
     id: "ebfc9204-f8e1-4eda-ab9c-64187ea56cfa",
@@ -3986,6 +4467,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.mode",
   },
   "ebdde76a-3d48-4f1d-afd3-ad9d2c1a37b4": {
     id: "ebdde76a-3d48-4f1d-afd3-ad9d2c1a37b4",
@@ -3993,6 +4475,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.gamma",
   },
   "8556637a-8fe5-40fb-9c46-180c95ab975f": {
     id: "8556637a-8fe5-40fb-9c46-180c95ab975f",
@@ -4000,6 +4483,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.scale_fn",
   },
   "d17dbdc4-3aed-4239-be1a-aa00b1edaeb5": {
     id: "d17dbdc4-3aed-4239-be1a-aa00b1edaeb5",
@@ -4007,6 +4491,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.scale_mode",
   },
   "8f1d4370-ea14-4b9c-aca3-0f90635318cf": {
     id: "8f1d4370-ea14-4b9c-aca3-0f90635318cf",
@@ -4014,6 +4499,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.cycle_momentum",
   },
   "85c71e8c-a0c1-494c-8ce2-2c03904c67ec": {
     id: "85c71e8c-a0c1-494c-8ce2-2c03904c67ec",
@@ -4021,6 +4507,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.base_momentum",
   },
   "5e46fab0-baf3-46a4-a209-40b505c81f8b": {
     id: "5e46fab0-baf3-46a4-a209-40b505c81f8b",
@@ -4028,6 +4515,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.max_momentum",
   },
   "0a17be64-ca1a-4f55-8878-402040d5d700": {
     id: "0a17be64-ca1a-4f55-8878-402040d5d700",
@@ -4035,6 +4523,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.last_epoch",
   },
   "d965143f-c794-4ca2-a587-522fde5462da": {
     id: "d965143f-c794-4ca2-a587-522fde5462da",
@@ -4042,6 +4531,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CyclicLR.verbose",
   },
   "a2aff932-215e-484a-8a45-0dc1d53abbfb": {
     id: "a2aff932-215e-484a-8a45-0dc1d53abbfb",
@@ -4065,6 +4555,7 @@ export default {
       "46bd70f9-f448-447e-94ff-ca760d9de8d6",
     ],
     rcType: "callable",
+    path: "torch.optim.lr_scheduler.OneCycleLR",
   },
   "78babade-02f1-4e4d-8386-0e9b2b2ef651": {
     id: "78babade-02f1-4e4d-8386-0e9b2b2ef651",
@@ -4072,6 +4563,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.optimizer",
   },
   "2b9e2f8c-5a1b-492e-ae51-cd4becbd6845": {
     id: "2b9e2f8c-5a1b-492e-ae51-cd4becbd6845",
@@ -4079,6 +4571,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.max_lr",
   },
   "c785a5fc-ca12-4490-8d12-940e69a46119": {
     id: "c785a5fc-ca12-4490-8d12-940e69a46119",
@@ -4086,6 +4579,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.total_steps",
   },
   "aedec2aa-4f1d-430b-844c-57054a0ed384": {
     id: "aedec2aa-4f1d-430b-844c-57054a0ed384",
@@ -4093,6 +4587,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.epochs",
   },
   "231cb466-16a0-44d1-925e-f2c60dff6d55": {
     id: "231cb466-16a0-44d1-925e-f2c60dff6d55",
@@ -4100,6 +4595,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.steps_per_epoch",
   },
   "35e8bbbc-a4aa-4e26-809a-31740b39d453": {
     id: "35e8bbbc-a4aa-4e26-809a-31740b39d453",
@@ -4107,6 +4603,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.pct_start",
   },
   "88f474fa-5f51-4351-8446-823c27592531": {
     id: "88f474fa-5f51-4351-8446-823c27592531",
@@ -4114,6 +4611,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.anneal_strategy",
   },
   "04909f5e-9c6e-434c-89ff-fde70b51b658": {
     id: "04909f5e-9c6e-434c-89ff-fde70b51b658",
@@ -4121,6 +4619,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.cycle_momentum",
   },
   "5dfcd62e-e213-4a49-8b26-834d3b514357": {
     id: "5dfcd62e-e213-4a49-8b26-834d3b514357",
@@ -4128,6 +4627,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.base_momentum",
   },
   "c9bd3875-f366-47c1-ab7b-82ab5375f211": {
     id: "c9bd3875-f366-47c1-ab7b-82ab5375f211",
@@ -4135,6 +4635,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.max_momentum",
   },
   "3ebb2d7b-fa82-422e-9c3f-188976f59c5d": {
     id: "3ebb2d7b-fa82-422e-9c3f-188976f59c5d",
@@ -4142,6 +4643,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.div_factor",
   },
   "0e3db028-cf6f-4d84-b59b-3c2da988cd56": {
     id: "0e3db028-cf6f-4d84-b59b-3c2da988cd56",
@@ -4149,6 +4651,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.final_div_factor",
   },
   "84d91a02-b7f5-4bc7-b418-458cb640574a": {
     id: "84d91a02-b7f5-4bc7-b418-458cb640574a",
@@ -4156,6 +4659,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.three_phase",
   },
   "dc614ee4-e8c6-4fd6-a9f0-20ce0ac206d3": {
     id: "dc614ee4-e8c6-4fd6-a9f0-20ce0ac206d3",
@@ -4163,6 +4667,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.last_epoch",
   },
   "46bd70f9-f448-447e-94ff-ca760d9de8d6": {
     id: "46bd70f9-f448-447e-94ff-ca760d9de8d6",
@@ -4170,6 +4675,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.OneCycleLR.verbose",
   },
   "71dc5e71-8643-45d4-9c84-466a262727cb": {
     id: "71dc5e71-8643-45d4-9c84-466a262727cb",
@@ -4184,6 +4690,7 @@ export default {
       "8eebee52-ef36-4d9d-9c69-270416a629c5",
     ],
     rcType: "callable",
+    path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts",
   },
   "87c3cf37-4f88-4313-9a24-629031e63820": {
     id: "87c3cf37-4f88-4313-9a24-629031e63820",
@@ -4191,6 +4698,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.optimizer",
   },
   "25747362-afb4-4902-b4f4-ebe722fdbe01": {
     id: "25747362-afb4-4902-b4f4-ebe722fdbe01",
@@ -4198,6 +4706,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.T_0",
   },
   "51970cd8-67a0-4f13-99b4-ee5ed143246d": {
     id: "51970cd8-67a0-4f13-99b4-ee5ed143246d",
@@ -4205,6 +4714,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.T_mult",
   },
   "6d9d0eff-b8bf-41c3-aa92-21ab99335ecc": {
     id: "6d9d0eff-b8bf-41c3-aa92-21ab99335ecc",
@@ -4212,6 +4722,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.eta_min",
   },
   "2746b8d7-c70e-46c8-bb22-de524a7f62d6": {
     id: "2746b8d7-c70e-46c8-bb22-de524a7f62d6",
@@ -4219,6 +4730,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.last_epoch",
   },
   "8eebee52-ef36-4d9d-9c69-270416a629c5": {
     id: "8eebee52-ef36-4d9d-9c69-270416a629c5",
@@ -4226,6 +4738,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.verbose",
   },
   "f281d845-2c30-45a8-bf6c-a18ef11597b2": {
     id: "f281d845-2c30-45a8-bf6c-a18ef11597b2",
@@ -4237,6 +4750,7 @@ export default {
       "f34a093a-bfc6-4454-aa95-d39a6f316a1a",
     ],
     rcType: "collection",
+    path: "pytorch_lightning",
   },
   "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5": {
     id: "f19acb64-5aa3-4793-9cb4-18f2bdbdd5e5",
@@ -4296,6 +4810,7 @@ export default {
       "2150b463-68c4-4414-8c1a-fc0ca86334d1",
     ],
     rcType: "callable",
+    path: "pytorch_lightning.Trainer",
   },
   "7c7d85b4-5722-4456-8b57-c7cc940de9de": {
     id: "7c7d85b4-5722-4456-8b57-c7cc940de9de",
@@ -4303,6 +4818,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.logger",
   },
   "43b21b20-5bb3-4832-994d-369cdfa3faec": {
     id: "43b21b20-5bb3-4832-994d-369cdfa3faec",
@@ -4310,6 +4826,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.enable_checkpointing",
   },
   "a1cb772a-1015-473a-9a99-e627a2df2c21": {
     id: "a1cb772a-1015-473a-9a99-e627a2df2c21",
@@ -4317,6 +4834,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.callbacks",
   },
   "16ce7a73-9e24-4a7e-9650-f8ff79168d31": {
     id: "16ce7a73-9e24-4a7e-9650-f8ff79168d31",
@@ -4324,6 +4842,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.default_root_dir",
   },
   "f28b8d6b-b832-4b0c-a769-0e95b14c3650": {
     id: "f28b8d6b-b832-4b0c-a769-0e95b14c3650",
@@ -4331,6 +4850,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.gradient_clip_val",
   },
   "57bf52f8-c701-4390-8fa2-f1c1b53ecb06": {
     id: "57bf52f8-c701-4390-8fa2-f1c1b53ecb06",
@@ -4338,6 +4858,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.gradient_clip_algorithm",
   },
   "13ee0f89-3e20-4db2-9eed-2ae6fa4b8db6": {
     id: "13ee0f89-3e20-4db2-9eed-2ae6fa4b8db6",
@@ -4345,6 +4866,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.num_nodes",
   },
   "d388c7fa-1f25-4c4e-8b15-2b8088da4a9f": {
     id: "d388c7fa-1f25-4c4e-8b15-2b8088da4a9f",
@@ -4352,6 +4874,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.num_processes",
   },
   "64597900-0744-4f0f-a356-80d71493a487": {
     id: "64597900-0744-4f0f-a356-80d71493a487",
@@ -4359,6 +4882,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.devices",
   },
   "c05bce28-188d-4ba5-9d7a-0d640058c3d9": {
     id: "c05bce28-188d-4ba5-9d7a-0d640058c3d9",
@@ -4366,6 +4890,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.gpus",
   },
   "4b320a96-e95f-4981-a741-8846854ca068": {
     id: "4b320a96-e95f-4981-a741-8846854ca068",
@@ -4373,6 +4898,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.auto_select_gpus",
   },
   "3f522edc-11b2-48da-829d-496c3dc493b9": {
     id: "3f522edc-11b2-48da-829d-496c3dc493b9",
@@ -4380,6 +4906,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.tpu_cores",
   },
   "dbf23adc-ae5f-4990-bc89-43bb7a776b39": {
     id: "dbf23adc-ae5f-4990-bc89-43bb7a776b39",
@@ -4387,6 +4914,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.ipus",
   },
   "244d3b9c-0671-43f8-9ba3-5d6ff263dee9": {
     id: "244d3b9c-0671-43f8-9ba3-5d6ff263dee9",
@@ -4394,6 +4922,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.enable_progress_bar",
   },
   "b267e7b8-16fa-4f8e-9f23-9f7186a7e109": {
     id: "b267e7b8-16fa-4f8e-9f23-9f7186a7e109",
@@ -4401,6 +4930,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.overfit_batches",
   },
   "04d715d2-0392-47b3-a62c-2b310f18acc2": {
     id: "04d715d2-0392-47b3-a62c-2b310f18acc2",
@@ -4408,6 +4938,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.track_grad_norm",
   },
   "749db362-03c2-4f50-94d2-9e75bfc7e17c": {
     id: "749db362-03c2-4f50-94d2-9e75bfc7e17c",
@@ -4415,6 +4946,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.check_val_every_n_epoch",
   },
   "8cbf0edd-3e12-4acd-9620-91287a16597f": {
     id: "8cbf0edd-3e12-4acd-9620-91287a16597f",
@@ -4422,6 +4954,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.fast_dev_run",
   },
   "01146b39-cb40-46d2-8540-65f419b0fc56": {
     id: "01146b39-cb40-46d2-8540-65f419b0fc56",
@@ -4429,6 +4962,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.accumulate_grad_batches",
   },
   "ba68d2b8-4dd2-4503-aec6-e3591b57fa02": {
     id: "ba68d2b8-4dd2-4503-aec6-e3591b57fa02",
@@ -4436,6 +4970,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.max_epochs",
   },
   "6c7614e2-a5f8-4488-90da-7e4e24cc1504": {
     id: "6c7614e2-a5f8-4488-90da-7e4e24cc1504",
@@ -4443,6 +4978,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.min_epochs",
   },
   "19e0614b-61a0-46c8-81ff-43b3c3eb685f": {
     id: "19e0614b-61a0-46c8-81ff-43b3c3eb685f",
@@ -4450,6 +4986,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.max_steps",
   },
   "81f3b764-8c63-4729-9fd3-97658e6b8aae": {
     id: "81f3b764-8c63-4729-9fd3-97658e6b8aae",
@@ -4457,6 +4994,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.min_steps",
   },
   "9cca038c-1b96-459c-8a46-80b5cb2966f9": {
     id: "9cca038c-1b96-459c-8a46-80b5cb2966f9",
@@ -4464,6 +5002,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.max_time",
   },
   "956f2c30-8264-4f2d-955b-ae25a2752665": {
     id: "956f2c30-8264-4f2d-955b-ae25a2752665",
@@ -4471,6 +5010,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.limit_train_batches",
   },
   "6eea722a-c6f4-47ee-abd2-09fff997ff77": {
     id: "6eea722a-c6f4-47ee-abd2-09fff997ff77",
@@ -4478,6 +5018,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.limit_val_batches",
   },
   "d0b9c313-e2b3-4ff6-b62c-114305e306fc": {
     id: "d0b9c313-e2b3-4ff6-b62c-114305e306fc",
@@ -4485,6 +5026,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.limit_test_batches",
   },
   "b6addae7-12ec-4d2d-97ca-8e8eca8f268a": {
     id: "b6addae7-12ec-4d2d-97ca-8e8eca8f268a",
@@ -4492,6 +5034,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.limit_predict_batches",
   },
   "6ec093cc-c85c-4e23-9d30-1a5b75f39a25": {
     id: "6ec093cc-c85c-4e23-9d30-1a5b75f39a25",
@@ -4499,6 +5042,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.val_check_interval",
   },
   "f60dd9f1-597d-4bde-ab22-dd2eeb56014f": {
     id: "f60dd9f1-597d-4bde-ab22-dd2eeb56014f",
@@ -4506,6 +5050,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.log_every_n_steps",
   },
   "acf4bd77-311e-4e1e-a417-51f254e38241": {
     id: "acf4bd77-311e-4e1e-a417-51f254e38241",
@@ -4513,6 +5058,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.accelerator",
   },
   "d78b1f4a-4439-41a7-af1b-7c76cb1f4195": {
     id: "d78b1f4a-4439-41a7-af1b-7c76cb1f4195",
@@ -4520,6 +5066,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.strategy",
   },
   "221efa9b-d432-4d82-ae91-da95e562534a": {
     id: "221efa9b-d432-4d82-ae91-da95e562534a",
@@ -4527,6 +5074,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.sync_batchnorm",
   },
   "8a4bf600-3236-4dfd-9f07-f65c42fc0795": {
     id: "8a4bf600-3236-4dfd-9f07-f65c42fc0795",
@@ -4534,6 +5082,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.precision",
   },
   "8d991557-9ca7-45eb-9005-30c291037ccc": {
     id: "8d991557-9ca7-45eb-9005-30c291037ccc",
@@ -4541,6 +5090,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.enable_model_summary",
   },
   "c6d6a43a-ad7d-48a5-857e-0d6a9d1d1d0e": {
     id: "c6d6a43a-ad7d-48a5-857e-0d6a9d1d1d0e",
@@ -4548,6 +5098,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.num_sanity_val_steps",
   },
   "158af096-d43c-4a98-88e8-21568fd01b69": {
     id: "158af096-d43c-4a98-88e8-21568fd01b69",
@@ -4555,6 +5106,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.resume_from_checkpoint",
   },
   "55cd1580-1586-4d5a-b1e4-edeb1b98dad5": {
     id: "55cd1580-1586-4d5a-b1e4-edeb1b98dad5",
@@ -4562,6 +5114,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.profiler",
   },
   "c45a41ef-82a1-4848-965c-0f91bc809fce": {
     id: "c45a41ef-82a1-4848-965c-0f91bc809fce",
@@ -4569,6 +5122,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.benchmark",
   },
   "55de349f-ac58-476e-a5ba-7fa04bf84e63": {
     id: "55de349f-ac58-476e-a5ba-7fa04bf84e63",
@@ -4576,6 +5130,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.deterministic",
   },
   "359065bf-1a38-4932-b700-ba3ea86f436a": {
     id: "359065bf-1a38-4932-b700-ba3ea86f436a",
@@ -4583,6 +5138,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.reload_dataloaders_every_n_epochs",
   },
   "746382be-6309-43b6-bc65-91feaa7e012f": {
     id: "746382be-6309-43b6-bc65-91feaa7e012f",
@@ -4590,6 +5146,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.auto_lr_find",
   },
   "3b50fa37-2e2c-45ff-8bd6-edf1c2b8ce9f": {
     id: "3b50fa37-2e2c-45ff-8bd6-edf1c2b8ce9f",
@@ -4597,6 +5154,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.replace_sampler_ddp",
   },
   "37211f46-0b08-4e0f-b970-d0f50cb6751c": {
     id: "37211f46-0b08-4e0f-b970-d0f50cb6751c",
@@ -4604,6 +5162,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.detect_anomaly",
   },
   "94f4bd05-f7bb-4318-a46c-c49daec8549e": {
     id: "94f4bd05-f7bb-4318-a46c-c49daec8549e",
@@ -4611,6 +5170,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.auto_scale_batch_size",
   },
   "b6d210a6-2742-48b6-8973-fd7c0ec1bdea": {
     id: "b6d210a6-2742-48b6-8973-fd7c0ec1bdea",
@@ -4618,6 +5178,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.plugins",
   },
   "f06b1831-1270-455a-918d-cf934332730c": {
     id: "f06b1831-1270-455a-918d-cf934332730c",
@@ -4625,6 +5186,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.amp_backend",
   },
   "c49b0361-d0eb-4483-8ffa-466440ff88df": {
     id: "c49b0361-d0eb-4483-8ffa-466440ff88df",
@@ -4632,6 +5194,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.amp_level",
   },
   "16a5f770-1105-403e-ab3a-64b24c4af053": {
     id: "16a5f770-1105-403e-ab3a-64b24c4af053",
@@ -4639,6 +5202,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.move_metrics_to_cpu",
   },
   "ee8f4df7-4110-4179-952f-c24913cf30b8": {
     id: "ee8f4df7-4110-4179-952f-c24913cf30b8",
@@ -4646,6 +5210,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.multiple_trainloader_mode",
   },
   "2150b463-68c4-4414-8c1a-fc0ca86334d1": {
     id: "2150b463-68c4-4414-8c1a-fc0ca86334d1",
@@ -4653,6 +5218,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.Trainer.inference_mode",
   },
   "5c27250d-86ae-4377-bb12-85c63b190da6": {
     id: "5c27250d-86ae-4377-bb12-85c63b190da6",
@@ -4660,6 +5226,7 @@ export default {
     editable: false,
     children: ["66f5a9fd-d136-4cfa-af2d-122af47be289"],
     rcType: "collection",
+    path: "pytorch_lightning.callbacks",
   },
   "66f5a9fd-d136-4cfa-af2d-122af47be289": {
     id: "66f5a9fd-d136-4cfa-af2d-122af47be289",
@@ -4667,6 +5234,7 @@ export default {
     editable: false,
     children: ["6b0ddead-f5a3-4f4c-93df-d50c1d23cb43"],
     rcType: "collection",
+    path: "pytorch_lightning.callbacks.progress",
   },
   "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43": {
     id: "6b0ddead-f5a3-4f4c-93df-d50c1d23cb43",
@@ -4677,6 +5245,7 @@ export default {
       "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
     ],
     rcType: "callable",
+    path: "pytorch_lightning.callbacks.progress.TQDMProgressBar",
   },
   "84233378-407e-42a6-8f8d-54a1509eecb4": {
     id: "84233378-407e-42a6-8f8d-54a1509eecb4",
@@ -4684,6 +5253,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.callbacks.progress.TQDMProgressBar.refresh_rate",
   },
   "5a4db7cc-b81a-44b6-8632-5da2e346b76a": {
     id: "5a4db7cc-b81a-44b6-8632-5da2e346b76a",
@@ -4691,6 +5261,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.callbacks.progress.TQDMProgressBar.process_position",
   },
   "f34a093a-bfc6-4454-aa95-d39a6f316a1a": {
     id: "f34a093a-bfc6-4454-aa95-d39a6f316a1a",
@@ -4698,6 +5269,7 @@ export default {
     editable: false,
     children: ["ed3cff4f-ffc5-448b-95b4-6142fb9911cd"],
     rcType: "collection",
+    path: "pytorch_lightning.loggers",
   },
   "ed3cff4f-ffc5-448b-95b4-6142fb9911cd": {
     id: "ed3cff4f-ffc5-448b-95b4-6142fb9911cd",
@@ -4711,6 +5283,7 @@ export default {
       "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
     ],
     rcType: "callable",
+    path: "pytorch_lightning.loggers.CSVLogger",
   },
   "9e18c747-894c-479d-a9ad-8d51b7e278d8": {
     id: "9e18c747-894c-479d-a9ad-8d51b7e278d8",
@@ -4718,6 +5291,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.loggers.CSVLogger.save_dir",
   },
   "56ee7285-2945-43ca-a67e-5713869fb357": {
     id: "56ee7285-2945-43ca-a67e-5713869fb357",
@@ -4725,6 +5299,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.loggers.CSVLogger.name",
   },
   "7a19b646-d968-46fa-8e9c-33dfc76a075a": {
     id: "7a19b646-d968-46fa-8e9c-33dfc76a075a",
@@ -4732,6 +5307,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.loggers.CSVLogger.version",
   },
   "b945ed95-0774-45a9-8830-bc40c60a6e9f": {
     id: "b945ed95-0774-45a9-8830-bc40c60a6e9f",
@@ -4739,6 +5315,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.loggers.CSVLogger.prefix",
   },
   "51978d1f-7766-4d97-bdaf-0e9d1143b3fa": {
     id: "51978d1f-7766-4d97-bdaf-0e9d1143b3fa",
@@ -4746,6 +5323,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "pytorch_lightning.loggers.CSVLogger.flush_logs_every_n_steps",
   },
   "3bdaa095-acae-4006-b930-41993b87bce4": {
     id: "3bdaa095-acae-4006-b930-41993b87bce4",
@@ -4756,6 +5334,7 @@ export default {
       "b714773e-1394-461e-9fb0-55ac117273f1",
     ],
     rcType: "collection",
+    path: "src",
   },
   "527d6511-0a07-4b88-8eb1-810288c82be9": {
     id: "527d6511-0a07-4b88-8eb1-810288c82be9",
@@ -4767,6 +5346,7 @@ export default {
       "1982446b-549a-437b-8c09-a1a05c8683b3",
     ],
     rcType: "collection",
+    path: "src.pytorch_lightning_mnist",
   },
   "14c75190-075e-45b4-9d41-b52b3dc74ffb": {
     id: "14c75190-075e-45b4-9d41-b52b3dc74ffb",
@@ -4774,6 +5354,7 @@ export default {
     editable: false,
     children: ["a18b4e95-7c7f-4a69-8322-6e84501a35eb"],
     rcType: "collection",
+    path: "src.pytorch_lightning_mnist.model",
   },
   "a18b4e95-7c7f-4a69-8322-6e84501a35eb": {
     id: "a18b4e95-7c7f-4a69-8322-6e84501a35eb",
@@ -4781,6 +5362,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "src.pytorch_lightning_mnist.model.MNISTModel",
   },
   "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9": {
     id: "3a36a4a0-fd9f-4f24-a1ee-eea75b21b7b9",
@@ -4788,6 +5370,7 @@ export default {
     editable: false,
     children: ["294108f5-898d-44aa-b3d6-3136fb0eeda5"],
     rcType: "collection",
+    path: "src.pytorch_lightning_mnist.train",
   },
   "294108f5-898d-44aa-b3d6-3136fb0eeda5": {
     id: "294108f5-898d-44aa-b3d6-3136fb0eeda5",
@@ -4799,6 +5382,7 @@ export default {
       "76349524-f39c-4c35-a5b7-06c21f4ce753",
     ],
     rcType: "callable",
+    path: "src.pytorch_lightning_mnist.train.train",
   },
   "dd3fe4b0-9a46-4a49-bede-3f9933737e47": {
     id: "dd3fe4b0-9a46-4a49-bede-3f9933737e47",
@@ -4806,6 +5390,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_lightning_mnist.train.train.trainer",
   },
   "0a917bc9-569a-4c41-ad08-1adc0a115114": {
     id: "0a917bc9-569a-4c41-ad08-1adc0a115114",
@@ -4813,6 +5398,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_lightning_mnist.train.train.model",
   },
   "76349524-f39c-4c35-a5b7-06c21f4ce753": {
     id: "76349524-f39c-4c35-a5b7-06c21f4ce753",
@@ -4820,6 +5406,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_lightning_mnist.train.train.dataloader",
   },
   "1982446b-549a-437b-8c09-a1a05c8683b3": {
     id: "1982446b-549a-437b-8c09-a1a05c8683b3",
@@ -4827,6 +5414,7 @@ export default {
     editable: false,
     children: ["06a5c61c-916f-44d2-ae4b-655a9f3a57d1"],
     rcType: "collection",
+    path: "src.pytorch_lightning_mnist.logger",
   },
   "06a5c61c-916f-44d2-ae4b-655a9f3a57d1": {
     id: "06a5c61c-916f-44d2-ae4b-655a9f3a57d1",
@@ -4834,6 +5422,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "src.pytorch_lightning_mnist.logger.RuncoderLogger",
   },
   "b714773e-1394-461e-9fb0-55ac117273f1": {
     id: "b714773e-1394-461e-9fb0-55ac117273f1",
@@ -4841,6 +5430,7 @@ export default {
     editable: false,
     children: ["a1ed7b85-78c6-491e-ace0-97942d27e50e"],
     rcType: "collection",
+    path: "src.pytorch_training",
   },
   "a1ed7b85-78c6-491e-ace0-97942d27e50e": {
     id: "a1ed7b85-78c6-491e-ace0-97942d27e50e",
@@ -4848,6 +5438,7 @@ export default {
     editable: false,
     children: ["37090f4f-3c42-4427-99e8-4f4ee31595a1"],
     rcType: "collection",
+    path: "src.pytorch_training.train",
   },
   "37090f4f-3c42-4427-99e8-4f4ee31595a1": {
     id: "37090f4f-3c42-4427-99e8-4f4ee31595a1",
@@ -4867,6 +5458,7 @@ export default {
       "6f119a89-86bd-4768-9141-3cb2fb9df349",
     ],
     rcType: "callable",
+    path: "src.pytorch_training.train.train",
   },
   "ab487c7f-c29a-4176-a8ef-0d962f44312c": {
     id: "ab487c7f-c29a-4176-a8ef-0d962f44312c",
@@ -4874,6 +5466,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.model",
   },
   "585637c2-3553-43d9-be46-c25a914ac4e9": {
     id: "585637c2-3553-43d9-be46-c25a914ac4e9",
@@ -4881,6 +5474,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.optimizer",
   },
   "191bf07e-e14d-4c87-84cc-dd54fd7c9c80": {
     id: "191bf07e-e14d-4c87-84cc-dd54fd7c9c80",
@@ -4888,6 +5482,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.loss_fn",
   },
   "a2579c06-b2ea-4207-8094-635e8f076803": {
     id: "a2579c06-b2ea-4207-8094-635e8f076803",
@@ -4895,6 +5490,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.metrics",
   },
   "3e2305db-03f6-40a3-91b4-bb4d255be400": {
     id: "3e2305db-03f6-40a3-91b4-bb4d255be400",
@@ -4902,6 +5498,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.train_dataloader",
   },
   "71fdbcfc-db7c-4894-9b3a-c0b0b7da5f2d": {
     id: "71fdbcfc-db7c-4894-9b3a-c0b0b7da5f2d",
@@ -4909,6 +5506,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.val_dataloader",
   },
   "8630f46d-b06d-45bd-ab98-a5e46c02b9e4": {
     id: "8630f46d-b06d-45bd-ab98-a5e46c02b9e4",
@@ -4916,6 +5514,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.logger",
   },
   "843b1645-2da8-450a-a4a6-0c04de02c0fa": {
     id: "843b1645-2da8-450a-a4a6-0c04de02c0fa",
@@ -4923,6 +5522,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.epochs",
   },
   "92922b58-544d-49e0-828b-3ad9e6536551": {
     id: "92922b58-544d-49e0-828b-3ad9e6536551",
@@ -4930,6 +5530,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.val_interval",
   },
   "6f119a89-86bd-4768-9141-3cb2fb9df349": {
     id: "6f119a89-86bd-4768-9141-3cb2fb9df349",
@@ -4937,6 +5538,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.log_interval",
   },
   "b82d0cb7-ba27-40cc-946f-9e469c2ab748": {
     id: "b82d0cb7-ba27-40cc-946f-9e469c2ab748",
@@ -4944,6 +5546,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "src.pytorch_training.train.train.lr_scheduler",
   },
   "f0628534-0d78-483c-9d4a-b37fcfcf6544": {
     id: "f0628534-0d78-483c-9d4a-b37fcfcf6544",
@@ -4951,6 +5554,7 @@ export default {
     editable: false,
     children: ["4955c05d-a171-4349-beee-ab39092524e3"],
     rcType: "collection",
+    path: "runcoder",
   },
   "4955c05d-a171-4349-beee-ab39092524e3": {
     id: "4955c05d-a171-4349-beee-ab39092524e3",
@@ -4958,6 +5562,7 @@ export default {
     editable: false,
     children: [],
     rcType: "callable",
+    path: "runcoder.Runcoder",
   },
   "011b492a-eab7-4e00-941a-7b9ee74ebc10": {
     id: "011b492a-eab7-4e00-941a-7b9ee74ebc10",
@@ -4965,6 +5570,7 @@ export default {
     editable: false,
     children: ["c6693b01-60f3-449a-a6f6-104a320b6500"],
     rcType: "collection",
+    path: "torchmetrics",
   },
   "c6693b01-60f3-449a-a6f6-104a320b6500": {
     id: "c6693b01-60f3-449a-a6f6-104a320b6500",
@@ -4976,6 +5582,7 @@ export default {
       "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
     ],
     rcType: "collection",
+    path: "torchmetrics.classification",
   },
   "0a956730-6212-4842-8f99-a46d1491cc64": {
     id: "0a956730-6212-4842-8f99-a46d1491cc64",
@@ -4990,6 +5597,7 @@ export default {
       "caf2b2b8-c5af-4644-b3a4-32dc539a70eb",
     ],
     rcType: "callable",
+    path: "torchmetrics.classification.MulticlassAccuracy",
   },
   "8dc2eab5-b7bb-4f83-a96e-44028df49492": {
     id: "8dc2eab5-b7bb-4f83-a96e-44028df49492",
@@ -4997,6 +5605,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassAccuracy.num_classes",
   },
   "ca4d533f-ba32-498d-915c-27f3bdc25acc": {
     id: "ca4d533f-ba32-498d-915c-27f3bdc25acc",
@@ -5004,6 +5613,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassAccuracy.top_k",
   },
   "937b6e67-f0d1-4116-b746-aa89fda7a8ee": {
     id: "937b6e67-f0d1-4116-b746-aa89fda7a8ee",
@@ -5011,6 +5621,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassAccuracy.average",
   },
   "579ad052-4402-4e27-9351-2f831fd8db84": {
     id: "579ad052-4402-4e27-9351-2f831fd8db84",
@@ -5018,6 +5629,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassAccuracy.multidim_average",
   },
   "a1848a4b-6d09-4fff-a420-6c01c851c7d1": {
     id: "a1848a4b-6d09-4fff-a420-6c01c851c7d1",
@@ -5025,6 +5637,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassAccuracy.ignore_index",
   },
   "caf2b2b8-c5af-4644-b3a4-32dc539a70eb": {
     id: "caf2b2b8-c5af-4644-b3a4-32dc539a70eb",
@@ -5032,6 +5645,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassAccuracy.validate_args",
   },
   "99132567-5379-4214-9807-7c63ecfaf801": {
     id: "99132567-5379-4214-9807-7c63ecfaf801",
@@ -5045,6 +5659,7 @@ export default {
       "4ec62ab3-da2d-4f3d-8823-134679741017",
     ],
     rcType: "callable",
+    path: "torchmetrics.classification.MulticlassCalibrationError",
   },
   "9bfe7266-6e55-4b06-9d96-a5b0b4890a51": {
     id: "9bfe7266-6e55-4b06-9d96-a5b0b4890a51",
@@ -5052,6 +5667,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassCalibrationError.num_classes",
   },
   "c20cb3e1-114c-480e-b04d-5a571dbc91c3": {
     id: "c20cb3e1-114c-480e-b04d-5a571dbc91c3",
@@ -5059,6 +5675,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassCalibrationError.n_bins",
   },
   "b7251a3a-0eb7-48f4-90a2-3e6042c6e00d": {
     id: "b7251a3a-0eb7-48f4-90a2-3e6042c6e00d",
@@ -5066,6 +5683,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassCalibrationError.norm",
   },
   "5c6d05ea-3d8d-4666-899d-517985c8765e": {
     id: "5c6d05ea-3d8d-4666-899d-517985c8765e",
@@ -5073,6 +5691,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassCalibrationError.ignore_index",
   },
   "4ec62ab3-da2d-4f3d-8823-134679741017": {
     id: "4ec62ab3-da2d-4f3d-8823-134679741017",
@@ -5080,6 +5699,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassCalibrationError.validate_args",
   },
   "1fab79c3-d09d-4fef-8dae-d6179e459ed1": {
     id: "1fab79c3-d09d-4fef-8dae-d6179e459ed1",
@@ -5094,6 +5714,7 @@ export default {
       "1266da53-de61-4592-8881-1ee99130b550",
     ],
     rcType: "callable",
+    path: "torchmetrics.classification.MulticlassF1Score",
   },
   "dba4e8ac-e6e1-494a-9bbf-03612e2a7f4e": {
     id: "dba4e8ac-e6e1-494a-9bbf-03612e2a7f4e",
@@ -5101,6 +5722,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassF1Score.num_classes",
   },
   "7f8610a6-0931-40b3-a042-40d67c3af76d": {
     id: "7f8610a6-0931-40b3-a042-40d67c3af76d",
@@ -5108,6 +5730,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassF1Score.top_k",
   },
   "167ab3b9-7e46-46ea-83dc-3e49753aceef": {
     id: "167ab3b9-7e46-46ea-83dc-3e49753aceef",
@@ -5115,6 +5738,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassF1Score.average",
   },
   "4edd29d7-b243-44d3-9b03-ae97285ffc63": {
     id: "4edd29d7-b243-44d3-9b03-ae97285ffc63",
@@ -5122,6 +5746,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassF1Score.multidim_average",
   },
   "7c91b494-be59-489f-8ece-9ccd3bfce820": {
     id: "7c91b494-be59-489f-8ece-9ccd3bfce820",
@@ -5129,6 +5754,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassF1Score.ignore_index",
   },
   "1266da53-de61-4592-8881-1ee99130b550": {
     id: "1266da53-de61-4592-8881-1ee99130b550",
@@ -5136,6 +5762,7 @@ export default {
     editable: false,
     children: [],
     rcType: "parameter",
+    path: "torchmetrics.classification.MulticlassF1Score.validate_args",
   },
   "8893ded5-2740-47d7-ae41-674ab14f191c": {
     id: "8893ded5-2740-47d7-ae41-674ab14f191c",
@@ -5143,6 +5770,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "b2870195-c853-4d4f-ac20-9fe0a57da17c": {
     id: "b2870195-c853-4d4f-ac20-9fe0a57da17c",
@@ -5150,6 +5778,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "63a3117c-b38b-4f3f-a46c-f4c86030c918": {
     id: "63a3117c-b38b-4f3f-a46c-f4c86030c918",
@@ -5157,6 +5786,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "cd4e58a0-5a43-4968-8ac4-648eae7cca0a": {
     id: "cd4e58a0-5a43-4968-8ac4-648eae7cca0a",
@@ -5164,6 +5794,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d": {
     id: "0b2e9e71-e6d3-4ebd-976b-7fffcbe8025d",
@@ -5171,6 +5802,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "669b8302-2768-49b1-9696-2e9adbc73479": {
     id: "669b8302-2768-49b1-9696-2e9adbc73479",
@@ -5178,6 +5810,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "5d1cd6e1-2995-4764-82bd-8cb643521af5": {
     id: "5d1cd6e1-2995-4764-82bd-8cb643521af5",
@@ -5185,6 +5818,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "fa8fb0dd-b616-4b95-b85c-8c2f473fd71e": {
     id: "fa8fb0dd-b616-4b95-b85c-8c2f473fd71e",
@@ -5192,6 +5826,7 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
   "75104bc2-63ce-4742-b35b-1948409c5cac": {
     id: "75104bc2-63ce-4742-b35b-1948409c5cac",
@@ -5199,5 +5834,6 @@ export default {
     children: [],
     editable: true,
     rcType: "parameter",
+    path: null,
   },
 };
