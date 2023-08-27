@@ -46,6 +46,17 @@ export default {
       childUITypeId: null,
     },
   },
+  "711805e3-2314-4c51-81ad-28c5f823825e": {
+    id: "711805e3-2314-4c51-81ad-28c5f823825e",
+    name: "ValDataset",
+    type: "SECTION",
+    presetType: null,
+    config: {
+      collections: ["74b45adc-d929-4fd6-abb7-02783bfeb6db"],
+      subType: null,
+      childUITypeId: null,
+    },
+  },
   "2b157b97-4424-4831-83a5-836c7dc17a6e": {
     id: "2b157b97-4424-4831-83a5-836c7dc17a6e",
     name: "OtherParameters",

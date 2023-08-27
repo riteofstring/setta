@@ -115,17 +115,6 @@ export default {
       childUITypeId: null,
     },
   },
-  "e172e84a-e95e-4145-ac40-4109f806600d": {
-    id: "e172e84a-e95e-4145-ac40-4109f806600d",
-    type: "USER_SPECIFIED_OBJECT",
-    name: "",
-    presetType: "BASE",
-    config: {
-      collections: [],
-      subType: null,
-      childUITypeId: null,
-    },
-  },
   "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a": {
     id: "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
     type: "GLOBAL_VARIABLES",
