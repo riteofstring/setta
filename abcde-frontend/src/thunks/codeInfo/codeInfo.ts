@@ -8,8 +8,3 @@ export function getAllCollections() {
     (x) => x.rcType === RCType.COLLECTION
   );
 }
-
-export function getKwargIds(objInfoId) {
-  const info = useCodeInfo.getState().x;
-  return info[objInfoId].children.filter(x=>info[x].editable)
-}
