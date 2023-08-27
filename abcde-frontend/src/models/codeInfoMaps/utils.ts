@@ -29,9 +29,9 @@ export function createCodeInfoMapState() {
         s.reset();
         s.setAll(payload);
       },
-      setAll: (payload) => set((state) => setAll(state, payload)),
+      setAll: (payload) => set((state) => (state.x = payload)),
       reset: () => set(initialState),
-      exportForDb: () => _.pick(get(), ["codeInfoMaps", "codeInfoTypeMaps"]),
+      exportForDb: () => get().x,
     }))
   );
 }

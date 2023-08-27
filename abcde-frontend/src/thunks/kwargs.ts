@@ -1,10 +1,7 @@
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
-import { RCType } from "abcde-utils/src/types/codeInfo";
-import { dbSaveCollections } from "dbRequests/sectionConfig";
-import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
+import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
@@ -24,8 +21,8 @@ export function addKwarg({
   name = "",
   incrementVersion = false,
 }: AddKwargPayload) {
-  const kwargInfo = newCodeInfo({ name });
-  useCodeInfo.getState().setCodeInfo({ info: kwargInfo, parent: objInfoId });
+  const kwargInfo = newCodeInfo({ name, editable: true });
+  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent: objInfoId });
   initializeParam(sectionId, [kwargInfo]);
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
