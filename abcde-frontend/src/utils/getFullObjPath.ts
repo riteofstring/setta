@@ -8,16 +8,13 @@ export function groupedObjInfo(infos) {
 }
 
 function getFullObjPath(codeInfo: CodeInfoType, skipLast = 0) {
-  if (!codeInfo.path) {
+  if (skipLast === 0) {
     return codeInfo.name;
   }
-  if (skipLast === 0) {
-    return codeInfo.path;
-  }
-  const numDots = codeInfo.path.match(/\./g);
+  const numDots = codeInfo.name.match(/\./g);
   if (!numDots) {
-    return codeInfo.path;
+    return codeInfo.name;
   }
   const regex = new RegExp(`^(?:[^.]*.){${numDots.length - skipLast}}([^.]*)`);
-  return codeInfo.path.match(regex)?.[0];
+  return codeInfo.name.match(regex)?.[0];
 }
