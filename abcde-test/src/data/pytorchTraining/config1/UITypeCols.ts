@@ -67,7 +67,7 @@ export default {
     },
   },
   "cea836b7-5fcc-4031-9860-03f58f0228dd": {
-    "c3e6681b-1645-420b-9f96-939d212b4a02": {
+    "8f232599-cf4f-41e2-8a89-a5091618048d": {
       uiTypeId: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
       nonPresetUITypeIds: [],
     },
@@ -163,7 +163,7 @@ export default {
     },
   },
   "ec2c2b4d-3731-428f-8b01-5b2869e50e3b": {
-    "c3e6681b-1645-420b-9f96-939d212b4a02": {
+    "2ce055e2-8794-4b01-b696-5b03a9a6aa18": {
       uiTypeId: "3fdaeb6a-e989-4888-b844-17a76f0b0192",
       nonPresetUITypeIds: [],
     },

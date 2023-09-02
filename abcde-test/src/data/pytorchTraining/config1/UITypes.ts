@@ -29,7 +29,7 @@ export default {
     config: {
       subType: null,
       childUITypeId: null,
-      collections: ["88413938-51d4-4d8c-a1b6-94861e07eb22"],
+      collections: ["04fad859-1a3f-4cb4-8fec-079e215dd3e9"],
     },
   },
   "086f477d-87b7-4e5d-9999-e0c9bf601d1b": {
@@ -51,7 +51,7 @@ export default {
     config: {
       subType: null,
       childUITypeId: null,
-      collections: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
+      collections: ["8f232599-cf4f-41e2-8a89-a5091618048d"],
     },
   },
   "e4b153f3-77db-4d47-a638-ca508af906ee": {
@@ -73,7 +73,7 @@ export default {
     config: {
       subType: null,
       childUITypeId: null,
-      collections: ["c3e6681b-1645-420b-9f96-939d212b4a02"],
+      collections: ["2ce055e2-8794-4b01-b696-5b03a9a6aa18"],
     },
   },
   "9eb15d74-d986-498b-9692-8a236ace33d6": {

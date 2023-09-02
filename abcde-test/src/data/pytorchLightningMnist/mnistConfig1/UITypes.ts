@@ -62,7 +62,7 @@ export default {
     config: {
       subType: null,
       childUITypeId: null,
-      collections: ["978f9dd3-f675-47f1-b37a-bae12d45c194"],
+      collections: ["9976c3f9-0a8e-4dad-894e-2bea3604d8d3"],
     },
   },
   "e44ede4f-9ff4-4208-8612-79226ee0f2fa": {
