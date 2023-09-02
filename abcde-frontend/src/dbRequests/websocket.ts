@@ -48,7 +48,7 @@ export function sendMessage(message) {
       JSON.stringify({
         message,
         toLocation: "computer:Kevin",
-        sendImmediately: true,
+        messageType: "codeCompletionRequest",
       })
     );
   }
