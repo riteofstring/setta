@@ -19,7 +19,10 @@ export function wsReceiveMessage(req, ws) {
       ws.location = x.location;
     }
     if (x.messageType === 'codeCompletionRequest') {
-      x.message = `${getImportText(x.message)}; ${x.message}`;
+      x.toComplete = `${getImportText(x.message)}; ${x.message}`;
+    }
+    if (x.messageType === 'parametersRequest') {
+      x.message = `${getImportText(x.message)}; ${x.message}(`;
     }
     sendToUser(req.user, { ...x, location: ws.location });
   };
