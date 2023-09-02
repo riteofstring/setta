@@ -29,7 +29,7 @@ async def consumer_handler(websocket):
                 {
                     "message": x,
                     "toLocation": message["location"],
-                    "sendImmediately": True,
+                    "messageType": "codeCompletion",
                 }
             )
         )

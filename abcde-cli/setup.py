@@ -20,5 +20,6 @@ setuptools.setup(
     },
     extras_require={
         "dev": ["black", "isort", "flake8"],
+        "test": ["torchvision"],
     },
 )
