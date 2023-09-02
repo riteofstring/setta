@@ -23,38 +23,45 @@ async def connect(access_token):
 async def consumer_handler(websocket):
     async for message in websocket:
         message = json.loads(message)
-        return_message = await consumer(message)
+        return_message, messageType = await consumer(message)
+        print(return_message)
         await websocket.send(
             json.dumps(
                 {
                     "id": message["id"],
                     "message": return_message,
                     "toLocation": message["location"],
-                    "messageType": "codeCompletion",
+                    "messageType": messageType,
                 }
             )
         )
 
 
-# async def producer_handler(websocket):
-#     while True:
-#         message = await producer()
-#         print("sending:", message)
-#         await websocket.send(message)
-
-
 async def consumer(message):
-    code = message["message"]
+    if message["messageType"] == "codeCompletionRequest":
+        return codeCompletion(message)
+    if message["messageType"] == "parametersRequest":
+        return parametersRequest(message)
+    raise ValueError
+
+
+def codeCompletion(message):
+    code = message["toComplete"]
     if code == "":
         return []
-    print(code)
     results = jedi.Script(code).complete(line=1, column=len(code))
-    output = [x.full_name for x in results if x.type in ["class", "function"]]
+    output = [
+        f"{message['message']}{x.complete}"
+        for x in results
+        if x.type in ["class", "function"]
+    ]
     output = [x for x in output if x][:5]
-    print(output)
-    return output
+    return output, "codeCompletion"
 
 
-# async def producer():
-#     await asyncio.sleep(60)
-#     # doesn't do anything right now
+def parametersRequest(message):
+    code = message["message"]
+    print("code", code)
+    results = jedi.Script(code).get_signatures(line=1, column=len(code))[0].params
+    results = [x.name for x in results]
+    return results, "parameters"
