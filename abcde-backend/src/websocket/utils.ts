@@ -14,15 +14,13 @@ export function sendToUser(user, message) {
 export function wsReceiveMessage(req, ws) {
   return (data) => {
     const x = JSON.parse(data);
+    console.log(x);
     if ('location' in x) {
       ws.location = x.location;
     }
     if (x.messageType === 'codeCompletionRequest') {
       x.message = `${getImportText(x.message)}; ${x.message}`;
-      sendToUser(req.user, { ...x, location: ws.location });
     }
-    if (x.messageType === 'codeCompletion') {
-      sendToUser(req.user, { ...x, location: ws.location });
-    }
+    sendToUser(req.user, { ...x, location: ws.location });
   };
 }
