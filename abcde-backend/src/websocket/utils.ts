@@ -17,7 +17,7 @@ export function wsReceiveMessage(req, ws) {
       ws.location = x.location;
     }
     if (x.sendImmediately) {
-      sendToUser(req.user, x);
+      sendToUser(req.user, { ...x, location: ws.location });
     }
   };
 }
