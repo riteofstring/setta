@@ -1,6 +1,6 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
-import { sendMessage } from "dbRequests/websocket";
 import { useGetAllCallables } from "hooks/useSectionContents";
+import { useSearchWebsocketRoom } from "hooks/useWebsocket";
 import _ from "lodash";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
@@ -8,7 +8,9 @@ import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { groupedObjInfo } from "utils/getFullObjPath";
 
 export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
-  const searchableItems = useGetAllCallables(sectionId);
+  const [completions, send] = useSearchWebsocketRoom();
+  const _searchableItems = useGetAllCallables(sectionId);
+  const searchableItems = [...completions, ..._searchableItems];
   const groupedItems = groupedObjInfo(searchableItems);
   const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
     group: k,
@@ -20,7 +22,7 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
     setSelectedItem(sectionId, value, changedByUser);
   }
 
-  const inputCallback = _.debounce((value) => sendMessage(value), 100);
+  const inputCallback = _.debounce((value) => send(value), 100);
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
@@ -30,14 +32,12 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
   }, [hasSearchableItems]);
 
   return (
-    hasSearchableItems && (
-      <IdNameCombobox
-        allItems={groupedItemsAsList}
-        onSelectedItemChange={onSelectedItemChange}
-        initialSelection={initialSelection}
-        inputClasses={inputClasses}
-        inputCallback={inputCallback}
-      />
-    )
+    <IdNameCombobox
+      allItems={groupedItemsAsList}
+      onSelectedItemChange={onSelectedItemChange}
+      initialSelection={initialSelection}
+      inputClasses={inputClasses}
+      inputCallback={inputCallback}
+    />
   );
 }

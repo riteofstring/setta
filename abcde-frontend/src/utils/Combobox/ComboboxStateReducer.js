@@ -1,7 +1,7 @@
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function resetToPreviousVal(state) {
   const sname = state.selectedItem?.name;
@@ -74,7 +74,11 @@ function getReducerModifications(
 }
 
 export function useComboboxStateReducer({ allItems, matchSorterProps }) {
-  const [filteredItems, setFilteredItems] = useState([]);
+  const [filteredItems, setFilteredItems] = useState(allItems);
+
+  useEffect(() => {
+    setFilteredItems(allItems);
+  }, [allItems]);
 
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;

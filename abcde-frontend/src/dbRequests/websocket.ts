@@ -1,5 +1,6 @@
 import { WEBSOCKET } from "abcde-utils/src/addresses";
 import { updateOutput } from "thunks/outputs";
+import { setWebsocketRoomMessage } from "thunks/websocket";
 
 let wss;
 
@@ -29,23 +30,30 @@ export function closeWebSocket() {
   }
 }
 
+function wssReady() {
+  return wss && wss.readyState === 1;
+}
+
 function processMessage(message) {
   const m = JSON.parse(message);
   if (m.type === "LOG") {
     updateOutput(m.data);
+  } else {
+    setWebsocketRoomMessage(m);
   }
 }
 
 export function sendLocation(pathname) {
-  if (wss && wss.readyState === 1) {
+  if (wssReady()) {
     wss.send(JSON.stringify({ location: pathname }));
   }
 }
 
-export function sendMessage(message) {
-  if (wss && wss.readyState === 1) {
+export function sendMessage(message, id) {
+  if (wssReady()) {
     wss.send(
       JSON.stringify({
+        id,
         message,
         toLocation: "computer:Kevin",
         messageType: "codeCompletionRequest",
