@@ -9,17 +9,21 @@ import {
   TEXT,
 } from 'abcde-utils/src/constants';
 
+export function getImportText(x) {
+  const splitName = x.split('.');
+  if (splitName.length > 1) {
+    splitName.pop();
+  }
+  const moduleName = splitName.join('.');
+  return `import ${moduleName}`;
+}
+
 function getImport(x) {
   if (x.type === SECTION) {
     if (!x.value.callable) {
       return null;
     }
-    const splitName = x.value.callable.split('.');
-    if (splitName.length > 1) {
-      splitName.pop();
-    }
-    const moduleName = splitName.join('.');
-    return `import ${moduleName}`;
+    return getImportText(x.value.callable);
   }
   return null;
 }

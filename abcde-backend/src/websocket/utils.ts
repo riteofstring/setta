@@ -1,3 +1,4 @@
+import { getImportText } from 'src/middleware/runs/codeGenerator';
 import { allSockets } from './allSockets';
 
 export function sendToUser(user, message) {
@@ -16,7 +17,11 @@ export function wsReceiveMessage(req, ws) {
     if ('location' in x) {
       ws.location = x.location;
     }
-    if (x.sendImmediately) {
+    if (x.messageType === 'codeCompletionRequest') {
+      x.message = `${getImportText(x.message)}; ${x.message}`;
+      sendToUser(req.user, { ...x, location: ws.location });
+    }
+    if (x.messageType === 'codeCompletion') {
       sendToUser(req.user, { ...x, location: ws.location });
     }
   };
