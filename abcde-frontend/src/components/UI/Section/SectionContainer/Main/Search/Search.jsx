@@ -1,5 +1,7 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
+import { sendMessage } from "dbRequests/websocket";
 import { useGetAllCallables } from "hooks/useSectionContents";
+import _ from "lodash";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
@@ -18,6 +20,8 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
     setSelectedItem(sectionId, value, changedByUser);
   }
 
+  const inputCallback = _.debounce((value) => sendMessage(value), 100);
+
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
     if (!hasSearchableItems && initialSelection !== NULL_OBJ_ID) {
@@ -32,6 +36,7 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
         onSelectedItemChange={onSelectedItemChange}
         initialSelection={initialSelection}
         inputClasses={inputClasses}
+        inputCallback={inputCallback}
       />
     )
   );

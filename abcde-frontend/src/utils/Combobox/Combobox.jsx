@@ -10,8 +10,14 @@ export function ComboboxInput({
   isOpen,
   small,
   onClick,
+  inputCallback,
 }) {
   const toggleButtonProps = getToggleButtonProps({ onClick });
+  const inputProps = getInputProps();
+
+  if (inputCallback) {
+    inputCallback(inputProps.value);
+  }
 
   return (
     <StandardSearch
@@ -20,7 +26,7 @@ export function ComboboxInput({
       }`}
       leftElementStyles="pl-3"
       {...toggleButtonProps}
-      {...getInputProps()}
+      {...inputProps}
       rightElement={
         <StandardSearchRightBtn
           {...toggleButtonProps}
