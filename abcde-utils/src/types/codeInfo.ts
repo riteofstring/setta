@@ -5,7 +5,6 @@ export type CodeInfoType = {
   name: string;
   editable: boolean;
   rcType: RCType;
-  path: string | null;
   children: string[];
 };
 
