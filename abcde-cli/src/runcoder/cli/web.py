@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+import jedi
 import websockets
 
 from ..utils.constants import WEBSOCKET
@@ -21,7 +22,17 @@ async def connect(access_token):
 
 async def consumer_handler(websocket):
     async for message in websocket:
-        await consumer(message)
+        message = json.loads(message)
+        x = await consumer(message)
+        await websocket.send(
+            json.dumps(
+                {
+                    "message": x,
+                    "toLocation": message["location"],
+                    "sendImmediately": True,
+                }
+            )
+        )
 
 
 # async def producer_handler(websocket):
@@ -32,7 +43,10 @@ async def consumer_handler(websocket):
 
 
 async def consumer(message):
-    print(message)
+    code = message["message"]
+    if code == "":
+        return []
+    return [x.name for x in jedi.Script(code).complete(line=1, column=len(code))[:5]]
 
 
 # async def producer():
