@@ -1,3 +1,7 @@
+import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
+import { RCType } from "abcde-utils/src/types/codeInfo";
+import { isUUID } from "abcde-utils/src/utils";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
@@ -5,12 +9,23 @@ import { updateCurrChildren } from "./children";
 import { updateParamsAndCallables } from "./sectionContents";
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
+  let id = selectedItem;
+  if (!isUUID(id)) {
+    const info = newCodeInfo({
+      name: selectedItem,
+      editable: false,
+      rcType: RCType.CALLABLE,
+    });
+    useCodeInfo.getState().addCodeInfo({ info });
+    id = info.id;
+  }
+
   setSectionInfoAttr({
     sectionId,
     attr: "selectedItem",
-    value: selectedItem,
+    value: id,
   });
-  initializeChildParams([sectionId], [selectedItem]);
+  initializeChildParams([sectionId], [id]);
   updateParamsAndCallables(sectionId);
   updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(changedByUser);

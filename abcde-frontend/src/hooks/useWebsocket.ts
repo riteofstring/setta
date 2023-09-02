@@ -27,12 +27,12 @@ export function useOpenCloseWebsocket() {
   }, [location.pathname]);
 }
 
-export function useWebsocketRoom() {
+export function useWebsocketRoom(messageType) {
   const [id, setId] = useState(null);
-  const message = useWebsocketRooms((x) => x[id] ?? "");
-  function send(x) {
+  const received = useWebsocketRooms((x) => x[id] ?? "");
+  function send(message) {
     if (id) {
-      sendMessage(x, id);
+      sendMessage({ message, id, messageType });
     }
   }
 
@@ -47,14 +47,18 @@ export function useWebsocketRoom() {
     };
   }, []);
 
-  return [message, send];
+  return [received, send];
 }
 
-export function useSearchWebsocketRoom() {
-  const [message, send] = useWebsocketRoom();
+export function useCodeCompletionWebsocketRoom() {
+  const [message, send] = useWebsocketRoom("codeCompletionRequest");
+  let searchResults = [];
   if (message) {
-    const searchResults = message.map((x) => ({ id: x, name: x }));
-    return [searchResults, send];
+    searchResults = message.map((x) => ({ id: x, name: x }));
   }
-  return [[], send];
+  return [searchResults, send];
+}
+
+export function useParametersRequestWebsocketRoom() {
+  return useWebsocketRoom("parametersRequest");
 }

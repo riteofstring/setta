@@ -1,6 +1,9 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { useGetAllCallables } from "hooks/useSectionContents";
-import { useSearchWebsocketRoom } from "hooks/useWebsocket";
+import {
+  useCodeCompletionWebsocketRoom,
+  useParametersRequestWebsocketRoom,
+} from "hooks/useWebsocket";
 import _ from "lodash";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
@@ -8,7 +11,9 @@ import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { groupedObjInfo } from "utils/getFullObjPath";
 
 export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
-  const [completions, send] = useSearchWebsocketRoom();
+  const [completions, sendCompletionRequest] = useCodeCompletionWebsocketRoom();
+  const [parameters, sendParametersRequest] =
+    useParametersRequestWebsocketRoom();
   const _searchableItems = useGetAllCallables(sectionId);
   const searchableItems = [...completions, ..._searchableItems];
   const groupedItems = groupedObjInfo(searchableItems);
@@ -22,7 +27,10 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
     setSelectedItem(sectionId, value, changedByUser);
   }
 
-  const inputCallback = _.debounce((value) => send(value), 100);
+  const inputCallback = _.debounce(
+    (value) => sendCompletionRequest(value),
+    100
+  );
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {

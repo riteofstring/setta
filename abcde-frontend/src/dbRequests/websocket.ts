@@ -49,14 +49,14 @@ export function sendLocation(pathname) {
   }
 }
 
-export function sendMessage(message, id) {
+export function sendMessage({ message, id, messageType }) {
   if (wssReady()) {
     wss.send(
       JSON.stringify({
         id,
         message,
         toLocation: "computer:Kevin",
-        messageType: "codeCompletionRequest",
+        messageType,
       })
     );
   }
