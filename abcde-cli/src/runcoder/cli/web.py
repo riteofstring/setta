@@ -23,11 +23,12 @@ async def connect(access_token):
 async def consumer_handler(websocket):
     async for message in websocket:
         message = json.loads(message)
-        x = await consumer(message)
+        return_message = await consumer(message)
         await websocket.send(
             json.dumps(
                 {
-                    "message": x,
+                    "id": message["id"],
+                    "message": return_message,
                     "toLocation": message["location"],
                     "messageType": "codeCompletion",
                 }
@@ -46,7 +47,12 @@ async def consumer(message):
     code = message["message"]
     if code == "":
         return []
-    return [x.name for x in jedi.Script(code).complete(line=1, column=len(code))[:5]]
+    print(code)
+    results = jedi.Script(code).complete(line=1, column=len(code))
+    output = [x.full_name for x in results if x.type in ["class", "function"]]
+    output = [x for x in output if x][:5]
+    print(output)
+    return output
 
 
 # async def producer():
