@@ -40,9 +40,10 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
 function createChildrenCodeInfo(parent, params) {
   for (const p of params) {
     const info = newCodeInfo({
-      name: p,
+      name: p.name,
       editable: false,
       rcType: RCType.PARAMETER,
+      defaultVal: p.defaultVal,
     });
     useCodeInfo.getState().addCodeInfo({ info, parent });
   }
