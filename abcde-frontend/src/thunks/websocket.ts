@@ -10,6 +10,7 @@ export function requestParameters(name, callback) {
       if (x) {
         callback(x);
         unsub();
+        useWebsocketRooms.getState().deleteRoom(id);
       }
     }
   );
