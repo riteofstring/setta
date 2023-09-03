@@ -1,12 +1,16 @@
+import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import { RCType } from "abcde-utils/src/types/codeInfo";
 import { ManySectionType } from "abcde-utils/src/types/section";
 import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { getSectionType, getSectionTypeConfig } from "./getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
@@ -59,6 +63,7 @@ export function addSectionsToState(
   });
 
   for (const s of sectionIds) {
+    initializeNewSectionConfig(s);
     const { collections } = getSectionTypeConfig(s);
     initializeChildParams([s], collections);
   }
@@ -68,4 +73,19 @@ export function addSectionsToState(
       .getState()
       .addChildren(_.mapValues(sectionInfos, () => topLevelPosition));
   }
+}
+
+export function initializeNewSectionConfig(sectionId) {
+  const collection = newCodeInfo({
+    name: "Contents",
+    rcType: RCType.COLLECTION,
+  });
+  useCodeInfo.getState().addCodeInfo({ info: collection });
+  setSectionUITypeConfig({
+    sectionId,
+    configProps: {
+      configName: "collections",
+      newValueFn: () => [collection.id],
+    },
+  });
 }

@@ -7,6 +7,7 @@ import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { requestParameters } from "thunks/websocket";
 import { updateCurrChildren } from "./children";
+import { getSectionTypeConfig } from "./getters";
 import { updateParamsAndCallables } from "./sectionContents";
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
@@ -17,7 +18,8 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
       editable: false,
       rcType: RCType.CALLABLE,
     });
-    useCodeInfo.getState().addCodeInfo({ info });
+    const { collections } = getSectionTypeConfig(sectionId);
+    useCodeInfo.getState().addCodeInfo({ info, parent: collections[0] });
     id = info.id;
   }
 
