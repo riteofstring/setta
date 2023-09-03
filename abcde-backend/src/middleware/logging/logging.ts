@@ -1,5 +1,5 @@
 import { prisma } from 'src/db/prisma';
-import { sendToUser } from 'src/websocket/utils';
+import { sendToUserByLocation } from 'src/websocket/utils';
 
 async function findIds(runId, group, key) {
   const result = await prisma.outputGroup.findUnique({
@@ -58,6 +58,6 @@ export async function logData(req, res) {
     res.sendStatus(200);
   }
 
-  sendToUser(req.user, req.body);
+  sendToUserByLocation(req.user, req.body);
   writeToDb(req.body.data.key.id, req.body.data.values);
 }

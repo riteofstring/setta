@@ -31,12 +31,13 @@ function runPassportAuth(req, socket, head) {
     }
     wss.handleUpgrade(req, socket, head, function (ws) {
       if (!(req.user in allSockets)) {
-        allSockets[req.user] = new Set();
+        allSockets[req.user] = {};
       }
-      const currSet = allSockets[req.user];
-      currSet.add(ws);
-      ws.on('message', wsReceiveMessage(req, ws));
-      ws.on('close', () => currSet.delete(ws));
+      const websocketId = req.url;
+      const userSockets = allSockets[req.user];
+      userSockets[websocketId] = ws;
+      ws.on('message', wsReceiveMessage(req, ws, websocketId));
+      ws.on('close', () => delete userSockets[websocketId]);
       wss.emit('connection', ws, req);
     });
   });

@@ -2,8 +2,14 @@ import { getImportText } from 'src/middleware/runs/codeGenerator';
 import { allSockets } from './allSockets';
 
 export function sendToUser(user, message) {
+  if (user in allSockets && message.toWebsocketId in allSockets[user]) {
+    allSockets[user][message.toWebsocketId].send(JSON.stringify(message));
+  }
+}
+
+export function sendToUserByLocation(user, message) {
   if (user in allSockets) {
-    for (const s of allSockets[user]) {
+    for (const s of Object.values(allSockets[user])) {
       if (s.location === message.toLocation) {
         s.send(JSON.stringify(message));
       }
@@ -11,10 +17,9 @@ export function sendToUser(user, message) {
   }
 }
 
-export function wsReceiveMessage(req, ws) {
+export function wsReceiveMessage(req, ws, websocketId) {
   return (data) => {
     const x = JSON.parse(data);
-    console.log(x);
     if ('location' in x) {
       ws.location = x.location;
     }
@@ -24,6 +29,6 @@ export function wsReceiveMessage(req, ws) {
     if (x.messageType === 'parametersRequest') {
       x.message = `${getImportText(x.message)}; ${x.message}(`;
     }
-    sendToUser(req.user, { ...x, location: ws.location });
+    sendToUser(req.user, { ...x, location: ws.location, websocketId });
   };
 }

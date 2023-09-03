@@ -20,7 +20,7 @@ export function addPing(wss) {
 
 function ping() {
   for (const clients of Object.values(allSockets)) {
-    for (const ws of clients) {
+    for (const ws of Object.values(clients)) {
       if (ws.isAlive === false) {
         ws.terminate();
       } else {

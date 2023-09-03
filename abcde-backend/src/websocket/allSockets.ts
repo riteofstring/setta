@@ -5,4 +5,4 @@ type CustomWebSocket = WebSocket & {
   location: string;
 };
 
-export const allSockets: Record<string, Set<CustomWebSocket>> = {};
+export const allSockets: Record<string, Record<string, CustomWebSocket>> = {};
