@@ -1,9 +1,6 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { useGetAllCallables } from "hooks/useSectionContents";
-import {
-  useCodeCompletionWebsocketRoom,
-  useParametersRequestWebsocketRoom,
-} from "hooks/useWebsocket";
+import { useCodeCompletionWebsocketRoom } from "hooks/useWebsocket";
 import _ from "lodash";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
@@ -12,8 +9,6 @@ import { groupedObjInfo } from "utils/getFullObjPath";
 
 export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
   const [completions, sendCompletionRequest] = useCodeCompletionWebsocketRoom();
-  const [parameters, sendParametersRequest] =
-    useParametersRequestWebsocketRoom();
   const _searchableItems = useGetAllCallables(sectionId);
   const searchableItems = [...completions, ..._searchableItems];
   const groupedItems = groupedObjInfo(searchableItems);

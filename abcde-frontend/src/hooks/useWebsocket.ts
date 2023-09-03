@@ -58,7 +58,3 @@ export function useCodeCompletionWebsocketRoom() {
   }
   return [searchResults, send];
 }
-
-export function useParametersRequestWebsocketRoom() {
-  return useWebsocketRoom("parametersRequest");
-}
