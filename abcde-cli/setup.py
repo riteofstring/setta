@@ -12,6 +12,7 @@ setuptools.setup(
         "PyYAML==6.0",
         "websockets==11.0.3",
         "jedi==0.19.0",
+        "mypy==1.5.1",
     ],
     entry_points={
         "console_scripts": [
@@ -19,7 +20,7 @@ setuptools.setup(
         ],
     },
     extras_require={
-        "dev": ["black", "isort", "flake8"],
-        "test": ["torchvision"],
+        "dev": ["black==23.7.0", "isort==5.12.0", "flake8==6.1.0"],
+        "test": ["torchvision==0.15.2"],
     },
 )
