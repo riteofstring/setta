@@ -11,18 +11,13 @@ import {
   getSectionTypeConfig,
 } from "./getters";
 
-export function getCurrObjParamInfos(sectionId) {
-  const { selectedItem } = getSectionInfo(sectionId);
-  return getParamInfos(sectionId);
-}
-
-function getParamInfos(sectionId) {
+export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];
 }
 
 export function getParamWithSameName(sectionId, parentId) {
   const sectionName = getSectionName(sectionId);
-  const params = getCurrObjParamInfos(parentId);
+  const params = getParamInfos(parentId);
   for (const p of params) {
     if (sectionName === p.name) {
       return p;
