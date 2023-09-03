@@ -25,10 +25,11 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
     setSelectedItem(sectionId, value, changedByUser);
   }
 
-  const inputCallback = _.debounce(
-    (value) => sendCompletionRequest(value),
-    100
-  );
+  const inputCallback = _.debounce((value) => {
+    if (value) {
+      sendCompletionRequest(value);
+    }
+  }, 100);
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
