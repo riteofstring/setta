@@ -9,6 +9,7 @@ import {
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -31,6 +32,8 @@ export function getProjectData(): ProjectSaveType {
     (x) => _.omit(x, ["parentId"])
   );
 
+  const codeInfo = useCodeInfo.getState().x;
+
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
     .getState()
     .exportForDb();
@@ -42,6 +45,7 @@ export function getProjectData(): ProjectSaveType {
     uiTypes,
     uiTypeCols,
     sections,
+    codeInfo,
     projectConfigCodeInfoMaps,
   };
   // console.log(output);
