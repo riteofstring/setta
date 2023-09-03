@@ -14,7 +14,6 @@ export function IdNameCombobox({
   inputClasses,
   inputCallback,
 }) {
-
   const init = _.find(flattenedItems(allItems), { id: initialSelection });
   const itemToString = (x) => (x ? x.name : "");
 

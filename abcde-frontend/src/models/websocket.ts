@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { subscribeWithSelector } from "zustand/middleware";
-import { createProjectState } from "./utils";
+import { create, createProjectState } from "./utils";
 
 export const useWebsocketRooms = createProjectState(
   subscribeWithSelector((set) => ({
@@ -9,3 +9,8 @@ export const useWebsocketRooms = createProjectState(
     setMessage: (id, message) => set(() => ({ [id]: message })),
   }))
 );
+
+export const useWebsocketConnectionList = create((set) => ({
+  connections: [],
+  setConnections: (connections) => set({ connections }),
+}));

@@ -1,5 +1,8 @@
 import { WEBSOCKET } from "abcde-utils/src/addresses";
-import { useWebsocketRooms } from "models/websocket";
+import {
+  useWebsocketConnectionList,
+  useWebsocketRooms,
+} from "models/websocket";
 import { updateOutput } from "thunks/outputs";
 
 let wss;
@@ -35,6 +38,10 @@ function receiveMessage(message) {
   const m = JSON.parse(message);
   if (m.type === "LOG") {
     updateOutput(m.data);
+  } else if (m.messageType === "connection") {
+    // receives websocketId
+  } else if (m.messageType === "allConnections") {
+    useWebsocketConnectionList.getState().setConnections(m.connections);
   } else {
     useWebsocketRooms.getState().setMessage(m.id, m.message);
   }
