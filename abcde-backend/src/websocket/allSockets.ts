@@ -3,6 +3,9 @@ type CustomWebSocket = WebSocket & {
   terminate: () => void;
   ping: () => void;
   location: string;
+  isCLI: boolean;
+  websocketId: string;
+  user: string;
 };
 
 export const allSockets: Record<string, Record<string, CustomWebSocket>> = {};

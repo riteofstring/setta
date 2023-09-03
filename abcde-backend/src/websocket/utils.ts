@@ -32,3 +32,32 @@ export function wsReceiveMessage(req, ws, websocketId) {
     sendToUser(req.user, { ...x, location: ws.location, websocketId });
   };
 }
+
+export function sendAllConnectionsList(ws) {
+  const connections: any = [];
+  if (ws.user in allSockets) {
+    for (const s of Object.values(allSockets[ws.user])) {
+      connections.push({
+        websocketId: s.websocketId,
+        isCLI: s.isCLI,
+      });
+    }
+  }
+
+  if (ws.user in allSockets) {
+    for (const s of Object.values(allSockets[ws.user])) {
+      s.send(JSON.stringify({ messageType: 'allConnections', connections }));
+    }
+  }
+}
+
+export function wsOnConnection(ws) {
+  ws.send(
+    JSON.stringify({
+      messageType: 'connection',
+      websocketId: ws.websocketId,
+    }),
+  );
+
+  sendAllConnectionsList(ws);
+}

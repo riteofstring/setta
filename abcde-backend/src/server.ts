@@ -4,7 +4,7 @@ import { app, passportSession } from './app/app';
 import { sessionParser } from './app/sessionParser';
 import { uniqueName } from './utils/utils';
 import { allSockets } from './websocket/allSockets';
-import { wsReceiveMessage } from './websocket/utils';
+import { sendAllConnectionsList, wsReceiveMessage } from './websocket/utils';
 import { wss } from './websocket/websocket';
 
 const server = http.createServer(app);
@@ -34,15 +34,20 @@ function runPassportAuth(req, socket, head) {
       if (!(req.user in allSockets)) {
         allSockets[req.user] = {};
       }
+      const userSockets = allSockets[req.user];
       let websocketId = req.url.replace(/^\/+/, '');
-      if (!websocketId) {
+      while (!websocketId || websocketId in userSockets) {
         websocketId = uniqueName();
       }
-      console.log(websocketId);
-      const userSockets = allSockets[req.user];
+      ws.user = req.user;
+      ws.websocketId = websocketId;
+      ws.isCLI = req.headers['user-agent'].includes('Python');
       userSockets[websocketId] = ws;
       ws.on('message', wsReceiveMessage(req, ws, websocketId));
-      ws.on('close', () => delete userSockets[websocketId]);
+      ws.on('close', () => {
+        delete userSockets[websocketId];
+        sendAllConnectionsList(ws);
+      });
       wss.emit('connection', ws, req);
     });
   });
