@@ -1,9 +1,6 @@
 import { SECTIONWIDTH } from "utils/constants";
 import { useAreAllParamsNested } from "./useParamUIType";
-import {
-  useGetAllCallables,
-  useGetCurrObjParamInfos,
-} from "./useSectionContents";
+import { useGetAllCallables, useGetParamInfos } from "./useSectionContents";
 import { useIsOutput, useIsRoot } from "./useSectionType";
 import { useIsTwitter } from "./useSocialUtils";
 
@@ -12,7 +9,7 @@ export function useMinSectionHeight(sectionId) {
   const isRoot = useIsRoot(sectionId);
   const hasTitle = true;
   const hasSearch = useGetAllCallables(sectionId).length > 0 && !isRoot;
-  const params = useGetCurrObjParamInfos(sectionId);
+  const params = useGetParamInfos(sectionId);
   const hasUnnestedParam = !useAreAllParamsNested(sectionId, params);
   const hasKwargControl = !isRoot;
 

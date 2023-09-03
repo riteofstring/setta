@@ -6,11 +6,6 @@ import { useOutputValues } from "./useOutputNames";
 import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-export function useGetCurrObjParamInfos(sectionId: string) {
-  const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
-  return useGetParamInfos(sectionId);
-}
-
 export function useGetAllCallables(sectionId: string) {
   return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);
 }
