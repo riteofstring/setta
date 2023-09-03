@@ -19,6 +19,7 @@ model CodeInfo {
   name                 String        @db.VarChar(255)
   editable             Boolean
   rcType               String
+  defaultVal           String?
   sectionsParamInfo    Section[]     @relation("SectionsParamInfo") // Section.paramInfo
   evOwner              EVCol[] // EVCol.codeInfo
   sectionsSelectedItem Section[]     @relation("SectionsSelectedItem") //Section.selectedItem
