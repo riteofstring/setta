@@ -2,6 +2,7 @@ import asyncio
 import json
 
 import jedi
+import parso
 import websockets
 
 from ..utils.constants import WEBSOCKET
@@ -63,5 +64,12 @@ def parametersRequest(message):
     code = message["message"]
     print("code", code)
     results = jedi.Script(code).get_signatures(line=1, column=len(code))[0].params
-    results = [x.name for x in results]
+    results = [
+        {
+            "name": x.name,
+            "defaultVal": parso.parse(x.to_string()).children[0].get_rhs().value,
+        }
+        for x in results
+    ]
+
     return results, "parameters"
