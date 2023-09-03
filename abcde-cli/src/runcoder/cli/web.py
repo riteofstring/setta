@@ -14,10 +14,11 @@ def web(access_token):
 
 async def connect(access_token):
     async with websockets.connect(
-        WEBSOCKET, extra_headers={"cookie": f"connect.sid={access_token}"}
+        f"{WEBSOCKET}/computer-kevin",
+        extra_headers={"cookie": f"connect.sid={access_token}"},
     ) as websocket:
         print("connected")
-        await websocket.send(json.dumps({"location": "computer:Kevin"}))
+        # await websocket.send(json.dumps({"location": "computer:Kevin"}))
         await consumer_handler(websocket)
 
 
@@ -31,7 +32,7 @@ async def consumer_handler(websocket):
                 {
                     "id": message["id"],
                     "message": return_message,
-                    "toLocation": message["location"],
+                    "toWebsocketId": message["websocketId"],
                     "messageType": messageType,
                 }
             )
