@@ -4,11 +4,14 @@ import { useWebsocketRooms } from "models/websocket";
 
 export function requestParameters(name, callback) {
   const id = createNewId();
-  const unsub = useWebsocketRooms.subscribe((state) => {
-    if (state[id]) {
-      callback(state[id]);
-      unsub();
+  const unsub = useWebsocketRooms.subscribe(
+    (x) => x[id],
+    (x) => {
+      if (x) {
+        callback(x);
+        unsub();
+      }
     }
-  });
+  );
   sendMessage({ id, messageType: "parametersRequest", message: name });
 }
