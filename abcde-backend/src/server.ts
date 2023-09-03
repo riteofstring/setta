@@ -2,6 +2,7 @@ import { BACKEND_PORT } from 'abcde-utils/src/addresses';
 import http from 'http';
 import { app, passportSession } from './app/app';
 import { sessionParser } from './app/sessionParser';
+import { uniqueName } from './utils/utils';
 import { allSockets } from './websocket/allSockets';
 import { wsReceiveMessage } from './websocket/utils';
 import { wss } from './websocket/websocket';
@@ -33,7 +34,11 @@ function runPassportAuth(req, socket, head) {
       if (!(req.user in allSockets)) {
         allSockets[req.user] = {};
       }
-      const websocketId = req.url;
+      let websocketId = req.url.replace(/^\/+/, '');
+      if (!websocketId) {
+        websocketId = uniqueName();
+      }
+      console.log(websocketId);
       const userSockets = allSockets[req.user];
       userSockets[websocketId] = ws;
       ws.on('message', wsReceiveMessage(req, ws, websocketId));

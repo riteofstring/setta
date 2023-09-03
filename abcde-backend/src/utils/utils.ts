@@ -1,6 +1,12 @@
 import { createNewId } from 'abcde-utils/src/utils';
 import _ from 'lodash';
 import { prisma } from 'src/db/prisma';
+import {
+  adjectives,
+  animals,
+  colors,
+  uniqueNamesGenerator,
+} from 'unique-names-generator';
 
 export function renameKeys<T>(x: T, toRename: object) {
   const output = _.cloneDeep(x);
@@ -62,4 +68,10 @@ export function deleteManyFirst<T, K extends keyof T>(v: T, key: K) {
       ...v[key],
     },
   };
+}
+
+export function uniqueName() {
+  return uniqueNamesGenerator({
+    dictionaries: [adjectives, colors, animals],
+  });
 }
