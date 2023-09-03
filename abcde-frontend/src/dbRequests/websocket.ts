@@ -4,6 +4,7 @@ import {
   useWebsocketRooms,
 } from "models/websocket";
 import { updateOutput } from "thunks/outputs";
+import { updateConnectedTo } from "thunks/websocketConnectionList";
 
 let wss;
 
@@ -41,7 +42,7 @@ function receiveMessage(message) {
   } else if (m.messageType === "connection") {
     // receives websocketId
   } else if (m.messageType === "allConnections") {
-    useWebsocketConnectionList.getState().setConnections(m.connections);
+    updateConnectedTo(m);
   } else {
     useWebsocketRooms.getState().setMessage(m.id, m.message);
   }
@@ -54,12 +55,13 @@ export function sendLocation(pathname) {
 }
 
 export async function sendMessage({ message, id, messageType }) {
-  if (wssReady()) {
+  const connectedTo = useWebsocketConnectionList.getState().connectedTo;
+  if (wssReady() && connectedTo) {
     wss.send(
       JSON.stringify({
         id,
         message,
-        toWebsocketId: "computer-kevin",
+        toWebsocketId: connectedTo,
         messageType,
       })
     );

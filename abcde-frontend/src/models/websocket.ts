@@ -11,6 +11,8 @@ export const useWebsocketRooms = createProjectState(
 );
 
 export const useWebsocketConnectionList = create((set) => ({
+  connectedTo: null,
   connections: [],
+  setConnectedTo: (connectedTo) => set({ connectedTo }),
   setConnections: (connections) => set({ connections }),
 }));
