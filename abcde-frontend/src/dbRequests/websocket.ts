@@ -6,7 +6,7 @@ let wss;
 
 export function openWebSocket(pathname) {
   if (!wss) {
-    wss = new WebSocket(`${WEBSOCKET}/browser-kevin`);
+    wss = new WebSocket(WEBSOCKET);
   }
 
   wss.addEventListener("open", () => {
@@ -52,7 +52,7 @@ export async function sendMessage({ message, id, messageType }) {
       JSON.stringify({
         id,
         message,
-        toWebsocketId: "/computer-kevin",
+        toWebsocketId: "computer-kevin",
         messageType,
       })
     );
