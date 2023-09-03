@@ -10,7 +10,10 @@ import { groupedObjInfo } from "utils/getFullObjPath";
 export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
   const [completions, sendCompletionRequest] = useCodeCompletionWebsocketRoom();
   const _searchableItems = useGetAllCallables(sectionId);
-  const searchableItems = [...completions, ..._searchableItems];
+  const searchableItems = mergeCompletionsAndHistory(
+    completions,
+    _searchableItems
+  );
   const groupedItems = groupedObjInfo(searchableItems);
   const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
     group: k,
@@ -43,4 +46,12 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
       inputCallback={inputCallback}
     />
   );
+}
+
+function mergeCompletionsAndHistory(completions, history) {
+  const existingNames = new Set(history.map((x) => x.name));
+  const filteredCompletions = completions.filter(
+    (x) => !existingNames.has(x.name)
+  );
+  return [...filteredCompletions, ...history];
 }
