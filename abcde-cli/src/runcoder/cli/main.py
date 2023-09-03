@@ -47,10 +47,11 @@ def run(code_id):
 
 
 @click.command()
-def web():
+@click.argument("websocket_id", required=False)
+def web(websocket_id):
     access_token = try_reading_access_token()
     if access_token:
-        _web(access_token)
+        _web(access_token, websocket_id)
 
 
 @click.group()

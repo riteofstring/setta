@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pprint import pprint
 
 import jedi
 import parso
@@ -8,17 +9,16 @@ import websockets
 from ..utils.constants import WEBSOCKET
 
 
-def web(access_token):
-    asyncio.run(connect(access_token))
+def web(access_token, websocket_id):
+    asyncio.run(connect(access_token, websocket_id))
 
 
-async def connect(access_token):
+async def connect(access_token, websocket_id=None):
+    address = f"{WEBSOCKET}/{websocket_id}" if websocket_id else WEBSOCKET
     async with websockets.connect(
-        f"{WEBSOCKET}/computer-kevin",
+        address,
         extra_headers={"cookie": f"connect.sid={access_token}"},
     ) as websocket:
-        print("connected")
-        # await websocket.send(json.dumps({"location": "computer:Kevin"}))
         await consumer_handler(websocket)
 
 
@@ -26,17 +26,18 @@ async def consumer_handler(websocket):
     async for message in websocket:
         message = json.loads(message)
         return_message, messageType = await consumer(message)
-        print(return_message)
-        await websocket.send(
-            json.dumps(
-                {
-                    "id": message["id"],
-                    "message": return_message,
-                    "toWebsocketId": message["websocketId"],
-                    "messageType": messageType,
-                }
+        if return_message:
+            print(return_message)
+            await websocket.send(
+                json.dumps(
+                    {
+                        "id": message["id"],
+                        "message": return_message,
+                        "toWebsocketId": message["websocketId"],
+                        "messageType": messageType,
+                    }
+                )
             )
-        )
 
 
 async def consumer(message):
@@ -44,6 +45,10 @@ async def consumer(message):
         return codeCompletion(message)
     if message["messageType"] == "parametersRequest":
         return parametersRequest(message)
+    if message["messageType"] == "connection":
+        return connectionEstablished(message)
+    if message["messageType"] == "allConnections":
+        return allConnections(message)
     raise ValueError
 
 
@@ -74,3 +79,14 @@ def parametersRequest(message):
     ]
 
     return results, "parameters"
+
+
+def connectionEstablished(message):
+    print(f"Connected as {message['websocketId']}")
+    return None, ""
+
+
+def allConnections(message):
+    print("All connections:")
+    pprint(message["connections"])
+    return None, ""
