@@ -7,6 +7,7 @@ describe('Generate code from output of exportSelected', () => {
     const codeJson = JSON.parse(
       fs.readFileSync('test/unitTests/middleware/runs/testJson.json', 'utf8'),
     );
+    // console.log(codeJson);
     const code = generateCode(codeJson);
     console.log(code);
   });
