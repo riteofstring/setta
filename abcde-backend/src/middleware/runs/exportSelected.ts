@@ -16,12 +16,12 @@ function getSectionType(p, id) {
 
 function getSelectedItem(p, id) {
   const { selectedItem } = p.sections[id];
-  return p.codeInfo.allCodeInfo[selectedItem].path;
+  return p.codeInfo[selectedItem].name;
 }
 
 function getChainedSelectedItem(p, chainedFromVarName, id) {
   const { selectedItem } = p.sections[id];
-  const { name } = p.codeInfo.allCodeInfo[selectedItem];
+  const { name } = p.codeInfo[selectedItem];
   return `${chainedFromVarName}.${name}`;
 }
 
@@ -149,7 +149,7 @@ class Exporter {
     }
     const varName = getParamVarName(this.paramVarNames);
     this.output[varName] = {
-      name: this.p.codeInfo.allCodeInfo[id].name,
+      name: this.p.codeInfo[id].name,
       value,
       type: getParamUIType(this.p, sectionId, id),
     };
