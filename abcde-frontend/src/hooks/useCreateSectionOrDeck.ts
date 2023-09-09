@@ -1,6 +1,7 @@
 import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -74,6 +75,7 @@ export function useLoadSectionIntoState() {
     uiTypes,
     evCols,
     uiTypeCols,
+    kwargCols,
     codeInfo,
     topLevelIds,
     x,
@@ -90,6 +92,7 @@ export function useLoadSectionIntoState() {
 
     useUITypes.getState().update(uiTypes);
     useParamInfos.getState().update({ evCols, uiTypeCols });
+    useKwargCols.getState().update(kwargCols);
     useCodeInfo.getState().update(codeInfo);
     useSectionInfos.getState().update(sections);
     updateManyParamsAndCallables(Object.keys(sections));

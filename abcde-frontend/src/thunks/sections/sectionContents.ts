@@ -1,23 +1,46 @@
+import { FN } from "abcde-utils/src/constants";
 import {
-  findAllCallables,
+  findAllCallablesOfCallables,
+  findAllCallablesOfCollections,
   findAllParameterCollections,
   findAllParameters,
 } from "abcde-utils/src/getDescendants";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useKwargCols } from "models/info/kwargCols";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {
   getSectionInfo,
   getSectionName,
+  getSectionType,
   getSectionTypeConfig,
 } from "./getters";
 
-export function getParamInfos(sectionId) {
+export function getCurrObjParamKwargInfos(sectionId) {
+  const { selectedItem } = getSectionInfo(sectionId);
+  const paramInfos = getParamInfos(sectionId);
+  const kwargInfos = getKwargInfos(sectionId, selectedItem);
+  return [...paramInfos, ...kwargInfos];
+}
+
+function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];
+}
+
+export function getKwargIds(sectionId, objInfoId) {
+  const { kwargColId } = getSectionInfo(sectionId);
+  const kwargCol = useKwargCols.getState().x[kwargColId];
+  return kwargCol[objInfoId] ?? [];
+}
+
+function getKwargInfos(sectionId, objInfoId) {
+  const kwargIds = getKwargIds(sectionId, objInfoId);
+  const allCodeInfo = useCodeInfo.getState().allCodeInfo;
+  return kwargIds.map((y) => allCodeInfo[y]);
 }
 
 export function getParamWithSameName(sectionId, parentId) {
   const sectionName = getSectionName(sectionId);
-  const params = getParamInfos(parentId);
+  const params = getCurrObjParamKwargInfos(parentId);
   for (const p of params) {
     if (sectionName === p.name) {
       return p;
@@ -26,20 +49,26 @@ export function getParamWithSameName(sectionId, parentId) {
   return null;
 }
 
-function computeAllCallables(sectionId: string) {
+function computeCollectionChildren(sectionId: string, fn) {
   const { collections } = getSectionTypeConfig(sectionId);
-  return findAllCallables(useCodeInfo.getState().x, collections);
+  return fn(useCodeInfo.getState().allCodeInfo, collections);
+}
+
+function computeAllCallables(sectionId: string) {
+  const { type } = getSectionType(sectionId);
+  const fn =
+    type === FN ? findAllCallablesOfCallables : findAllCallablesOfCollections;
+  return computeCollectionChildren(sectionId, fn);
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
-  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [
+  const objParamInfos = findAllParameters(useCodeInfo.getState().allCodeInfo, [
     objInfoId,
   ]);
 
-  const { collections } = getSectionTypeConfig(sectionId);
-  const paramCollections = findAllParameterCollections(
-    useCodeInfo.getState().x,
-    collections
+  const paramCollections = computeCollectionChildren(
+    sectionId,
+    findAllParameterCollections
   );
 
   return [...objParamInfos, ...paramCollections];

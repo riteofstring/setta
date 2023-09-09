@@ -18,7 +18,6 @@ export function ComboboxSearch({
   onClick,
   position,
   comboboxInputClasses,
-  inputCallback,
 }) {
   const {
     sizeRef,
@@ -70,7 +69,6 @@ export function ComboboxSearch({
         isOpen={isOpen}
         small={small}
         onClick={onClick}
-        inputCallback={inputCallback}
       />
 
       <ComboboxList

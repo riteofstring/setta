@@ -7,6 +7,7 @@ import {
   isSeriesElement,
   OUTPUT,
   SOCIAL,
+  USER_SPECIFIED_OBJECT,
 } from "abcde-utils/src/constants";
 import {
   SectionUITypeConfigType,
@@ -74,6 +75,10 @@ export function useIsSocial(sectionId: string) {
 
 export function useIsFn(sectionId: string) {
   return useIsType(sectionId, FN);
+}
+
+export function useIsUserSpecifiedObject(sectionId: string) {
+  return useIsType(sectionId, USER_SPECIFIED_OBJECT);
 }
 
 export function useIsGlobalVariables(sectionId: string) {

@@ -32,7 +32,7 @@ export function setParamUITypeId({
   );
 
   if (isNested) {
-    const paramInfo = useCodeInfo.getState().x[paramInfoId];
+    const paramInfo = useCodeInfo.getState().allCodeInfo[paramInfoId];
     const { paramIdToChildId } = initializeChild(
       sectionId,
       { [paramInfoId]: paramInfo },

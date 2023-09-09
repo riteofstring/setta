@@ -7,9 +7,9 @@ import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
 
-// x maps from every objInfo key to its objInfo
+// allCodeInfo maps from every objInfo key to its objInfo
 const initialState: CodeInfoStateFrontendType = {
-  x: {},
+  allCodeInfo: {},
   version: 0,
 };
 
@@ -18,31 +18,23 @@ export const useCodeInfo = createProjectState(
     immer<CodeInfoZustandType>((set) => ({
       ...initialState,
       resetAndSetAll: (payload) => {
-        set((state) => ({ ...state, x: payload }), true);
+        set((state) => ({ ...state, ...payload }), true);
       },
-      addCodeInfo: ({ info, parent }) =>
+      setCodeInfo: ({ info }) =>
         set((state) => {
-          state.x[info.id] = info;
-          if (parent) {
-            state.x[parent].children.push(info.id);
-          }
+          state.allCodeInfo[info.id] = info;
         }),
       setName: ({ id, name }) =>
         set((state) => {
-          state.x[id].name = name;
+          state.allCodeInfo[id].name = name;
         }),
-      deleteInfo: ({ id, parent }) =>
+      deleteInfos: ({ ids }) =>
         set((state) => {
-          state.x = _.omit(state.x, [id]);
-          if (parent) {
-            state.x[parent].children = state.x[parent].children.filter(
-              (y) => y !== id
-            );
-          }
+          state.allCodeInfo = _.omit(state.allCodeInfo, ids);
         }),
       update: (payload) =>
         set((state) => {
-          state.x = { ...state.x, ...payload };
+          state.allCodeInfo = { ...state.allCodeInfo, ...payload.allCodeInfo };
         }),
     }))
   )

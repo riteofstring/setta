@@ -68,7 +68,7 @@ function addAttrSection({ sectionId, refSectionId, onCreation }) {
   });
 
   const { selectedItem } = getSectionInfo(refSectionId);
-  const { returnTypeId } = useCodeInfo.getState().x[selectedItem];
+  const { returnTypeId } = useCodeInfo.getState().allCodeInfo[selectedItem];
   setSectionUITypeConfig({
     sectionId: newId,
     configProps: {

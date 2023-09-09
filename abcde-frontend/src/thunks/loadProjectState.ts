@@ -2,6 +2,7 @@ import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "../models/info/codeInfo";
+import { useKwargCols } from "../models/info/kwargCols";
 import { useOutputGroups } from "../models/info/outputGroups";
 import { useOutputs } from "../models/info/outputs";
 import { useParamInfos } from "../models/info/paramInfos";
@@ -23,6 +24,7 @@ export function loadProjectState({
   evCols,
   uiTypes,
   uiTypeCols,
+  kwargCols,
   outputs,
   outputGroups,
 }: ProjectLoadType) {
@@ -35,6 +37,7 @@ export function loadProjectState({
   useProjectConfigCodeInfoMaps
     .getState()
     .resetAndSetAll(projectConfigCodeInfoMaps);
+  useKwargCols.getState().resetAndSetAll(kwargCols);
   useSectionInfos.getState().resetAndSetAll({ sections });
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);

@@ -5,6 +5,12 @@ import {
 } from "dbRequests/projects";
 import { useUser } from "models/user";
 import { useState } from "react";
+import {
+  adjectives,
+  animals,
+  colors,
+  uniqueNamesGenerator,
+} from "unique-names-generator";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
@@ -28,8 +34,15 @@ export function useGetProjectsForHomePage() {
 }
 
 export async function createAndGoToProject({ name }) {
-  const { data: newProject } = await dbCreateProject({ name });
+  const actualName = name ?? createProjectName();
+  const { data: newProject } = await dbCreateProject({ name: actualName });
   goToDefaultConfig(newProject);
+}
+
+function createProjectName() {
+  return uniqueNamesGenerator({
+    dictionaries: [adjectives, colors, animals],
+  });
 }
 
 function goToProject({ project, configId }) {

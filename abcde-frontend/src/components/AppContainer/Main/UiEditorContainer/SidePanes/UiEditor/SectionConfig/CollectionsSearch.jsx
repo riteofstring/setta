@@ -2,11 +2,11 @@ import {
   dbGetCollectionDetails,
   getCollectionsAndModulesFn,
 } from "dbRequests/sectionConfig";
+import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useState } from "react";
 import { setCollections } from "thunks/uiTypes/setCollections";
-import { groupedObjInfo } from "utils/getFullObjPath";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
@@ -47,7 +47,7 @@ export function CollectionsSearch({ sectionId }) {
 }
 
 function ObjCollectionDetails({ children, details, name }) {
-  const groupedDetails = groupedObjInfo(details);
+  const groupedDetails = useGroupedObjInfos(details);
 
   return (
     <Expandable heading={children} value={name} defaultValue={0}>

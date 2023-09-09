@@ -1,20 +1,16 @@
 import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
-import _ from "lodash";
 
-export function groupedObjInfo(infos) {
-  return _.groupBy(infos, (x) => {
-    return getFullObjPath(x, 1);
-  });
-}
-
-function getFullObjPath(codeInfo: CodeInfoType, skipLast = 0) {
+export function getFullObjPath(codeInfo: CodeInfoType, skipLast = 0) {
   if (skipLast === 0) {
-    return codeInfo.name;
+    return { path: codeInfo.path, version: codeInfo.version };
   }
-  const numDots = codeInfo.name.match(/\./g);
+  const numDots = codeInfo.path.match(/\./g);
   if (!numDots) {
-    return codeInfo.name;
+    return { path: codeInfo.path, version: codeInfo.version };
   }
   const regex = new RegExp(`^(?:[^.]*.){${numDots.length - skipLast}}([^.]*)`);
-  return codeInfo.name.match(regex)?.[0];
+  return {
+    path: codeInfo.path.match(regex)?.[0],
+    version: codeInfo.version,
+  };
 }

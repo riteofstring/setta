@@ -1,4 +1,4 @@
-import { useGetParamInfos } from "hooks/useSectionContents";
+import { useGetKwargInfos, useGetParamInfos } from "hooks/useSectionContents";
 import { useSectionHasDescription } from "hooks/useSectionDescription";
 import { useIsInfo } from "hooks/useSectionType";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -31,6 +31,11 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
         objInfoId={objInfoId}
         setDidUpdate={setDidUpdate}
       />
+      <GetKwargs
+        sectionId={sectionId}
+        objInfoId={objInfoId}
+        setDidUpdate={setDidUpdate}
+      />
     </ScrollingArea>
   );
 }
@@ -47,6 +52,24 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
       sectionId={sectionId}
       objInfoId={objInfoId}
       infos={params}
+      isKwarg={false}
+    />
+  );
+}
+
+function GetKwargs({ sectionId, objInfoId, setDidUpdate }) {
+  const kwargs = useGetKwargInfos(sectionId, objInfoId);
+
+  useDeepCompareEffect(() => {
+    setDidUpdate(true);
+  }, [kwargs]);
+
+  return (
+    <GetParamSwitch
+      sectionId={sectionId}
+      objInfoId={objInfoId}
+      infos={kwargs}
+      isKwarg={true}
     />
   );
 }

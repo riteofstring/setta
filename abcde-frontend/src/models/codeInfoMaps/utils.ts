@@ -2,12 +2,23 @@ import {
   CodeInfoMapStateType,
   CodeInfoMapZustandType,
 } from "abcde-utils/src/types/codeInfoMap";
+import _ from "lodash";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
 export const initialState: CodeInfoMapStateType = {
-  x: {},
+  codeInfoMaps: {},
+  codeInfoTypeMaps: {},
 };
+
+export function setAll(
+  state: CodeInfoMapZustandType,
+  payload: CodeInfoMapStateType
+) {
+  const { codeInfoMaps, codeInfoTypeMaps } = payload;
+  state.codeInfoMaps = codeInfoMaps;
+  state.codeInfoTypeMaps = codeInfoTypeMaps;
+}
 
 export function createCodeInfoMapState() {
   return create(
@@ -18,12 +29,9 @@ export function createCodeInfoMapState() {
         s.reset();
         s.setAll(payload);
       },
-      setAll: (payload) =>
-        set((state) => {
-          state.x = payload;
-        }),
+      setAll: (payload) => set((state) => setAll(state, payload)),
       reset: () => set(initialState),
-      exportForDb: () => get().x,
+      exportForDb: () => _.pick(get(), ["codeInfoMaps", "codeInfoTypeMaps"]),
     }))
   );
 }

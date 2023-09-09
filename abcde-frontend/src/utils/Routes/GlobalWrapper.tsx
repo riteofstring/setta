@@ -1,4 +1,4 @@
-import { useOpenCloseWebsocket } from "hooks/useWebsocket";
+import { useWebsocket } from "hooks/useWebsocket";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { resetProjectStores } from "thunks/reset";
@@ -8,7 +8,7 @@ import {
 } from "./pageLoadTypes";
 
 export function GlobalWrapper({ children }) {
-  useOpenCloseWebsocket();
+  useWebsocket();
   useResetProjectState();
   return children;
 }
