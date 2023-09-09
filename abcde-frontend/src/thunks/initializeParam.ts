@@ -22,7 +22,7 @@ export function initializeChildParams(
   codeInfoIds: string[],
   childFinder = findAllParameters
 ) {
-  const params = childFinder(useCodeInfo.getState().allCodeInfo, codeInfoIds);
+  const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
     initializeParam(s, params);
   }
@@ -70,10 +70,11 @@ function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
   };
 }
 
-function getDefaultUIType({ mapState, paramInfos, paramId, uiTypesState }) {
+function getDefaultUIType({ mapState, paramInfo, uiTypesState }) {
+  // TODO, should paramInfo have "type"? Currently it doesn't.
   const defaultUITypeId = _.defaultTo(
-    mapState.codeInfoMaps[paramId]?.uiTypeId,
-    mapState.codeInfoTypeMaps[paramInfos[paramId].type]?.uiTypeId
+    mapState.x[paramInfo.name]?.uiTypeId,
+    mapState.x[paramInfo.type]?.uiTypeId
   );
   return uiTypesState.x[defaultUITypeId];
 }
@@ -94,17 +95,16 @@ function initializeParamUIType(
   const newIds: UITypeColType = {};
   for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
     if (!uiTypeId) {
+      const paramInfo = paramInfos[paramId];
       const projectDefaultUIType = getDefaultUIType({
         mapState: pCodeMaps,
-        paramInfos,
-        paramId,
+        paramInfo,
         uiTypesState,
       });
 
       const userDefaultUIType = getDefaultUIType({
         mapState: userCodeMaps,
-        paramInfos,
-        paramId,
+        paramInfo,
         uiTypesState,
       });
 

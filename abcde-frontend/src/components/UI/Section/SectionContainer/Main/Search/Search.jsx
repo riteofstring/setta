@@ -1,13 +1,20 @@
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
-import { useGroupedObjInfos } from "hooks/useImmutableInfo";
 import { useGetAllCallables } from "hooks/useSectionContents";
+import { useCodeCompletionWebsocketRoom } from "hooks/useWebsocket";
+import _ from "lodash";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { groupedObjInfo } from "utils/getFullObjPath";
 
 export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
-  const searchableItems = useGetAllCallables(sectionId);
-  const groupedItems = useGroupedObjInfos(searchableItems);
+  const [completions, sendCompletionRequest] = useCodeCompletionWebsocketRoom();
+  const _searchableItems = useGetAllCallables(sectionId);
+  const searchableItems = mergeCompletionsAndHistory(
+    completions,
+    _searchableItems
+  );
+  const groupedItems = groupedObjInfo(searchableItems);
   const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
     group: k,
     items: groupedItems[k],
@@ -18,6 +25,12 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
     setSelectedItem(sectionId, value, changedByUser);
   }
 
+  const inputCallback = _.debounce((value) => {
+    if (value) {
+      sendCompletionRequest(value);
+    }
+  }, 100);
+
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
     if (!hasSearchableItems && initialSelection !== NULL_OBJ_ID) {
@@ -26,13 +39,20 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
   }, [hasSearchableItems]);
 
   return (
-    hasSearchableItems && (
-      <IdNameCombobox
-        allItems={groupedItemsAsList}
-        onSelectedItemChange={onSelectedItemChange}
-        initialSelection={initialSelection}
-        inputClasses={inputClasses}
-      />
-    )
+    <IdNameCombobox
+      allItems={groupedItemsAsList}
+      onSelectedItemChange={onSelectedItemChange}
+      initialSelection={initialSelection}
+      inputClasses={inputClasses}
+      inputCallback={inputCallback}
+    />
   );
+}
+
+function mergeCompletionsAndHistory(completions, history) {
+  const existingNames = new Set(history.map((x) => x.name));
+  const filteredCompletions = completions.filter(
+    (x) => !existingNames.has(x.name)
+  );
+  return [...filteredCompletions, ...history];
 }

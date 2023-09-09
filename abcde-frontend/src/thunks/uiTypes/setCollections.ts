@@ -1,4 +1,3 @@
-import { findAllParameterCollections } from "abcde-utils/src/getDescendants";
 import { getSectionIdsWithUITypeIds } from "thunks/sections/getters";
 import { updateManyParamsAndCallables } from "thunks/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
@@ -24,7 +23,7 @@ export function setCollections({
   sectionIds.push(sectionId);
 
   if (checked) {
-    initializeChildParams(sectionIds, [id], findAllParameterCollections);
+    initializeChildParams(sectionIds, [id]);
   }
 
   setSectionUITypeConfig({

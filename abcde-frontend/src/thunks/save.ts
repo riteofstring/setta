@@ -1,5 +1,3 @@
-import { ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
-import { ManyKwargColType } from "abcde-utils/src/types/kwargCol";
 import { ProjectSaveType } from "abcde-utils/src/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "abcde-utils/src/types/section";
 import { ManyUITypeType } from "abcde-utils/src/types/uiType";
@@ -12,7 +10,6 @@ import {
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -29,14 +26,13 @@ export function getProjectData(): ProjectSaveType {
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
 
-  const kwargCols = useKwargCols.getState().x;
-  const kwargInfo = assembleKwargInfosAndUserSpecifiedObjects(kwargCols);
-
   const sectionInfosState = useSectionInfos.getState();
   const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
     sectionInfosState.x,
     (x) => _.omit(x, ["parentId"])
   );
+
+  const codeInfo = useCodeInfo.getState().x;
 
   const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
     .getState()
@@ -48,9 +44,8 @@ export function getProjectData(): ProjectSaveType {
     evCols,
     uiTypes,
     uiTypeCols,
-    kwargInfo,
-    kwargCols,
     sections,
+    codeInfo,
     projectConfigCodeInfoMaps,
   };
   // console.log(output);
@@ -89,32 +84,6 @@ async function saveProjectAs({ fn, otherArgs }) {
 
 function assembleProject() {
   return { project: getProjectData() };
-}
-
-function assembleKwargInfosAndUserSpecifiedObjects(
-  kwargCols: ManyKwargColType
-) {
-  // kwargs
-  const kwargInfos: ManyCodeInfoType = {};
-  const allCodeInfo = useCodeInfo.getState().allCodeInfo;
-  for (const kwargCol of Object.values(kwargCols)) {
-    for (const kwargIds of Object.values(kwargCol)) {
-      for (const kwargId of kwargIds) {
-        kwargInfos[kwargId] = allCodeInfo[kwargId];
-      }
-    }
-  }
-
-  // user specified objects
-  const sections = useSectionInfos.getState().x;
-  for (const s of Object.values(sections)) {
-    if (s.userSpecifiedObjectId) {
-      kwargInfos[s.userSpecifiedObjectId] =
-        allCodeInfo[s.userSpecifiedObjectId];
-    }
-  }
-
-  return kwargInfos;
 }
 
 export function assembleUITypes(

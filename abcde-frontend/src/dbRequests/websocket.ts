@@ -1,5 +1,10 @@
 import { WEBSOCKET } from "abcde-utils/src/addresses";
+import {
+  useWebsocketConnectionList,
+  useWebsocketRooms,
+} from "models/websocket";
 import { updateOutput } from "thunks/outputs";
+import { updateConnectedTo } from "thunks/websocketConnectionList";
 
 let wss;
 
@@ -13,13 +18,10 @@ export function openWebSocket(pathname) {
   });
 
   wss.addEventListener("message", (event) => {
-    processMessage(event.data);
+    receiveMessage(event.data);
   });
 
-  wss.addEventListener("error", () => {
-    wss.close();
-    wss = null;
-  });
+  wss.addEventListener("error", closeWebSocket);
 }
 
 export function closeWebSocket() {
@@ -29,26 +31,38 @@ export function closeWebSocket() {
   }
 }
 
-function processMessage(message) {
+function wssReady() {
+  return wss && wss.readyState === 1;
+}
+
+function receiveMessage(message) {
   const m = JSON.parse(message);
   if (m.type === "LOG") {
     updateOutput(m.data);
+  } else if (m.messageType === "connection") {
+    // receives websocketId
+  } else if (m.messageType === "allConnections") {
+    updateConnectedTo(m);
+  } else {
+    useWebsocketRooms.getState().setMessage(m.id, m.message);
   }
 }
 
 export function sendLocation(pathname) {
-  if (wss && wss.readyState === 1) {
+  if (wssReady()) {
     wss.send(JSON.stringify({ location: pathname }));
   }
 }
 
-export function sendMessage(message) {
-  if (wss && wss.readyState === 1) {
+export async function sendMessage({ message, id, messageType }) {
+  const connectedTo = useWebsocketConnectionList.getState().connectedTo;
+  if (wssReady() && connectedTo) {
     wss.send(
       JSON.stringify({
+        id,
         message,
-        toLocation: "computer:Kevin",
-        sendImmediately: true,
+        toWebsocketId: connectedTo,
+        messageType,
       })
     );
   }

@@ -10,7 +10,6 @@ import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { OutputArea } from "./OutputArea";
 import { SocialArea } from "./SocialArea";
-import { UserSpecifiedObjectArea } from "./UserSpecifiedObjectArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -21,7 +20,6 @@ export function SectionContainerCoreResizable({
   isOutput,
   isSocial,
   isInfo,
-  isUserSpecifiedObject,
   isGlobalVariables,
   hasNested,
   hasDescription,
@@ -76,7 +74,6 @@ export function SectionContainerCoreResizable({
           isSocial={isSocial}
           isRoot={isRoot}
           isInfo={isInfo}
-          isUserSpecifiedObject={isUserSpecifiedObject}
           isGlobalVariables={isGlobalVariables}
         />
 
@@ -105,7 +102,6 @@ function AreaSwitch({
   isSocial,
   isRoot,
   isInfo,
-  isUserSpecifiedObject,
   isGlobalVariables,
 }) {
   if (isOutput) {
@@ -116,9 +112,6 @@ function AreaSwitch({
   }
   if (isInfo) {
     return <SectionDescription sectionId={sectionId} card={true} />;
-  }
-  if (isUserSpecifiedObject) {
-    return <UserSpecifiedObjectArea sectionId={sectionId} />;
   }
   if (isGlobalVariables) {
     return <GlobalVariablesArea sectionId={sectionId} />;

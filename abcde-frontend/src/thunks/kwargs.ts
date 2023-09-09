@@ -1,14 +1,13 @@
 import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
 import { RCType } from "abcde-utils/src/types/codeInfo";
-import { dbSaveCollections } from "dbRequests/sectionConfig";
-import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useKwargCols } from "models/info/kwargCols";
 import { useParamInfos } from "models/info/paramInfos";
+import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
 import { getSectionInfo } from "./sections/getters";
+import { updateParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
@@ -24,18 +23,14 @@ export function addKwarg({
   name = "",
   incrementVersion = false,
 }: AddKwargPayload) {
-  const { kwargColId } = getSectionInfo(sectionId);
   const kwargInfo = newCodeInfo({
     name,
     rcType: RCType.PARAMETER,
+    editable: true,
   });
-  useCodeInfo.getState().setCodeInfo({ info: kwargInfo });
-  useKwargCols.getState().setKwargIds({
-    collectionId: kwargColId,
-    objInfoId: objInfoId,
-    newStateFn: (x) => [...x, kwargInfo.id],
-  });
+  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent: objInfoId });
   initializeParam(sectionId, [kwargInfo]);
+  updateParamsAndCallables(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
@@ -56,54 +51,49 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
-  const { evColId, kwargColId } = getSectionInfo(sectionId);
+  const { evColId } = getSectionInfo(sectionId);
   const { uiTypeColId } = getSectionInfo(sectionId);
   if (deleteLast) {
-    const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
+    const kwargIds = getKwargIds(objInfoId);
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  const childId = getParamChildId(sectionId, kwargId);
-  useKwargCols.getState().setKwargIds({
-    collectionId: kwargColId,
-    objInfoId,
-    newStateFn: (x) => x.filter((y) => y !== kwargId),
-  });
-  useCodeInfo.getState().deleteInfos({ ids: [kwargId] });
+  useCodeInfo.getState().deleteInfo({ id: kwargId, parent: objInfoId });
   useParamInfos
     .getState()
     .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
+  const childId = getParamChildId(sectionId, kwargId);
   if (childId) {
     deleteChild({ parentId: sectionId, startId: childId });
   }
+  updateParamsAndCallables(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
-  const { kwargColId } = getSectionInfo(sectionId);
-  const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
-  const collection = newCodeInfo({
-    name,
-    rcType: RCType.COLLECTION,
-    children: kwargIds,
-    path: name,
-  });
-  const codeInfoState = useCodeInfo.getState();
-  const paramInfos = _.keyBy(
-    kwargIds.map((x) => ({
-      ...codeInfoState.allCodeInfo[x],
-      inCodeParentId: collection.id,
-    })),
-    "id"
-  );
-
-  dbSaveCollections({
-    collections: { [collection.id]: collection, ...paramInfos },
-  });
-
+  //TODO!
+  // const { kwargColId } = getSectionInfo(sectionId);
+  // const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
+  // const collection = newCodeInfo({
+  //   name,
+  //   rcType: RCType.COLLECTION,
+  //   children: kwargIds,
+  //   path: name,
+  // });
+  // const codeInfoState = useCodeInfo.getState();
+  // const paramInfos = _.keyBy(
+  //   kwargIds.map((x) => ({
+  //     ...codeInfoState.x[x],
+  //     inCodeParentId: collection.id,
+  //   })),
+  //   "id"
+  // );
+  // dbSaveCollections({
+  //   collections: { [collection.id]: collection, ...paramInfos },
+  // });
   // TODO fix this call
   // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
 }
