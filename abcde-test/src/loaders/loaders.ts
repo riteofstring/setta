@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { PROJECT_CONFIG_NAMES, PROJECT_NAMES } from "./constants";
-import { codeGen } from "./formats/codeGen";
 import { loadProjectToFrontend } from "./formats/loadProjectToFrontend";
 import { saveProjectToBackend } from "./formats/saveProjectToBackend";
 import { seeding } from "./formats/seeding";
@@ -20,8 +19,6 @@ export async function loadTestData({ projectName, configName, format }) {
       return loadProjectToFrontend(loaded);
     case "saveProjectToBackend":
       return saveProjectToBackend(loaded);
-    case "codeGen":
-      return codeGen(loaded);
     case "seeding":
       return seeding(loaded);
     default:
