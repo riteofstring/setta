@@ -1,562 +1,606 @@
 {
-    "p0": {
-        "name": "pretrained",
-        "value": "true",
-        "type": "SWITCH"
-    },
-    "s1": {
-        "name": "Model",
-        "value": {
-            "callable": "torchvision.models.resnet18",
-            "params": [
-                "p0"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s2": {
-        "name": "Model.Fn()",
-        "value": {
-            "callable": "s1.torchvision.models.ResNet.parameters",
-            "params": []
-        },
-        "type": "FN"
-    },
-    "s3": {
-        "name": "Loss Fn",
-        "value": {
-            "callable": "torch.nn.CrossEntropyLoss",
-            "params": []
-        },
-        "type": "SECTION"
-    },
-    "s0": {
-        "name": "Model + Loss",
-        "value": [
-            "s1",
-            "s2",
-            "s3"
-        ],
-        "type": "DECK"
-    },
-    "p1": {
-        "name": "root",
-        "value": "\"C:/Users/Kevin/MachineLearningDatasets\"",
-        "type": "TEXT"
-    },
-    "p2": {
-        "name": "split",
-        "value": "\"train\"",
-        "type": "TEXT"
-    },
-    "p3": {
-        "name": "size",
-        "value": "256",
-        "type": "TEXT"
-    },
-    "s9": {
-        "name": "[0]",
-        "value": {
-            "callable": "torchvision.transforms.Resize",
-            "params": [
-                "p3"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p4": {
-        "name": "size",
-        "value": "224",
-        "type": "TEXT"
-    },
-    "s10": {
-        "name": "[1]",
-        "value": {
-            "callable": "torchvision.transforms.RandomCrop",
-            "params": [
-                "p4"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s11": {
-        "name": "[2]",
-        "value": {
-            "callable": "torchvision.transforms.RandomHorizontalFlip",
-            "params": []
-        },
-        "type": "SECTION"
-    },
-    "s12": {
-        "name": "[3]",
-        "value": {
-            "callable": "torchvision.transforms.ToTensor",
-            "params": []
-        },
-        "type": "SECTION"
-    },
-    "p5": {
-        "name": "mean",
-        "value": "[0.485, 0.456, 0.406]",
-        "type": "TEXT"
-    },
-    "p6": {
-        "name": "std",
-        "value": "[0.229, 0.224, 0.225]",
-        "type": "TEXT"
-    },
-    "s13": {
-        "name": "[4]",
-        "value": {
-            "callable": "torchvision.transforms.Normalize",
-            "params": [
-                "p5",
-                "p6"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s8": {
-        "name": "transforms",
-        "value": [
-            "s9",
-            "s10",
-            "s11",
-            "s12",
-            "s13"
-        ],
-        "type": "LIST_ROOT"
-    },
-    "p7": {
-        "name": "transforms",
-        "value": "s8",
-        "type": "REF"
-    },
-    "s7": {
-        "name": "Training Transform",
-        "value": {
-            "callable": "torchvision.transforms.Compose",
-            "params": [
-                "p7"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p8": {
-        "name": "transform",
-        "value": "s7",
-        "type": "REF"
-    },
-    "p9": {
-        "name": "download",
-        "value": "true",
-        "type": "SWITCH"
-    },
-    "s6": {
-        "name": "Training Dataset",
-        "value": {
-            "callable": "torchvision.datasets.Food101",
-            "params": [
-                "p1",
-                "p2",
-                "p8",
-                "p9"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p10": {
-        "name": "dataset",
-        "value": "s6",
-        "type": "REF"
-    },
-    "p11": {
-        "name": "batch_size",
-        "value": "32",
-        "type": "TEXT"
-    },
-    "p12": {
-        "name": "shuffle",
-        "value": "true",
-        "type": "SWITCH"
-    },
-    "p13": {
-        "name": "drop_last",
-        "value": "true",
-        "type": "SWITCH"
-    },
-    "s5": {
-        "name": "Training Dataloader",
-        "value": {
-            "callable": "torch.utils.data.DataLoader",
-            "params": [
-                "p10",
-                "p11",
-                "p12",
-                "p13"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s4": {
-        "name": "Training",
-        "value": [
-            "s5",
-            "s6",
-            "s7"
-        ],
-        "type": "DECK"
-    },
-    "p14": {
-        "name": "root",
-        "value": "\"C:/Users/Kevin/MachineLearningDatasets\"",
-        "type": "TEXT"
-    },
-    "p15": {
-        "name": "split",
-        "value": "\"test\"",
-        "type": "TEXT"
-    },
-    "p16": {
-        "name": "size",
-        "value": "256",
-        "type": "TEXT"
-    },
-    "s19": {
-        "name": "[0]",
-        "value": {
-            "callable": "torchvision.transforms.Resize",
-            "params": [
-                "p16"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p17": {
-        "name": "size",
-        "value": "224",
-        "type": "TEXT"
-    },
-    "s20": {
-        "name": "[1]",
-        "value": {
-            "callable": "torchvision.transforms.CenterCrop",
-            "params": [
-                "p17"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s21": {
-        "name": "[2]",
-        "value": {
-            "callable": "torchvision.transforms.ToTensor",
-            "params": []
-        },
-        "type": "SECTION"
-    },
-    "p18": {
-        "name": "mean",
-        "value": "[0.485, 0.456, 0.406]",
-        "type": "TEXT"
-    },
-    "p19": {
-        "name": "std",
-        "value": "[0.229, 0.224, 0.225]",
-        "type": "TEXT"
-    },
-    "s22": {
-        "name": "[3]",
-        "value": {
-            "callable": "torchvision.transforms.Normalize",
-            "params": [
-                "p18",
-                "p19"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s18": {
-        "name": "transforms",
-        "value": [
-            "s19",
-            "s20",
-            "s21",
-            "s22"
-        ],
-        "type": "LIST_ROOT"
-    },
-    "p20": {
-        "name": "transforms",
-        "value": "s18",
-        "type": "REF"
-    },
-    "s17": {
-        "name": "Validation Transform",
-        "value": {
-            "callable": "torchvision.transforms.Compose",
-            "params": [
-                "p20"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p21": {
-        "name": "transform",
-        "value": "s17",
-        "type": "REF"
-    },
-    "p22": {
-        "name": "download",
-        "value": "true",
-        "type": "SWITCH"
-    },
-    "s16": {
-        "name": "Validation Dataset",
-        "value": {
-            "callable": "torchvision.datasets.Food101",
-            "params": [
-                "p14",
-                "p15",
-                "p21",
-                "p22"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p23": {
-        "name": "dataset",
-        "value": "s16",
-        "type": "REF"
-    },
-    "p24": {
-        "name": "batch_size",
-        "value": "32",
-        "type": "TEXT"
-    },
-    "s15": {
-        "name": "Validation Dataloader",
-        "value": {
-            "callable": "torch.utils.data.DataLoader",
-            "params": [
-                "p23",
-                "p24"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s14": {
-        "name": "Validation",
-        "value": [
-            "s15",
-            "s16",
-            "s17"
-        ],
-        "type": "DECK"
-    },
-    "p25": {
-        "name": "model",
-        "value": "s1",
-        "type": "REF"
-    },
-    "p26": {
-        "name": "params",
-        "value": "s2",
-        "type": "REF"
-    },
-    "p27": {
-        "name": "lr",
-        "value": "0.001",
-        "type": "TEXT"
-    },
-    "s24": {
-        "name": "Optimizer",
-        "value": {
-            "callable": "torch.optim.Adam",
-            "params": [
-                "p26",
-                "p27"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p28": {
-        "name": "optimizer",
-        "value": "s24",
-        "type": "REF"
-    },
-    "p29": {
-        "name": "loss_fn",
-        "value": "s3",
-        "type": "REF"
-    },
-    "p30": {
-        "name": "num_classes",
-        "value": "101",
-        "type": "TEXT"
-    },
-    "s26": {
-        "name": "[0]",
-        "value": {
-            "callable": "torchmetrics.classification.MulticlassAccuracy",
-            "params": [
-                "p30"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p31": {
-        "name": "num_classes",
-        "value": "101",
-        "type": "TEXT"
-    },
-    "s27": {
-        "name": "[1]",
-        "value": {
-            "callable": "torchmetrics.classification.MulticlassCalibrationError",
-            "params": [
-                "p31"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s25": {
-        "name": "Metrics",
-        "value": [
-            "s26",
-            "s27"
-        ],
-        "type": "LIST_ROOT"
-    },
-    "p32": {
-        "name": "metrics",
-        "value": "s25",
-        "type": "REF"
-    },
-    "p33": {
-        "name": "train_dataloader",
-        "value": "s5",
-        "type": "REF"
-    },
-    "p34": {
-        "name": "val_dataloader",
-        "value": "s15",
-        "type": "REF"
-    },
-    "s28": {
-        "name": "Logger",
-        "value": {
-            "callable": "runcoder.Runcoder",
-            "params": []
-        },
-        "type": "SECTION"
-    },
-    "p35": {
-        "name": "logger",
-        "value": "s28",
-        "type": "REF"
-    },
-    "p36": {
-        "name": "epochs",
-        "value": "5",
-        "type": "TEXT"
-    },
-    "p37": {
-        "name": "val_interval",
-        "value": "1",
-        "type": "TEXT"
-    },
-    "p38": {
-        "name": "log_interval",
-        "value": "10",
-        "type": "TEXT"
-    },
-    "p39": {
-        "name": "optimizer",
-        "value": "s24",
-        "type": "REF"
-    },
-    "p40": {
-        "name": "max_lr",
-        "value": "0.001",
-        "type": "TEXT"
-    },
-    "p41": {
-        "name": "epochs",
-        "value": "5",
-        "type": "TEXT"
-    },
-    "p42": {
-        "name": "steps_per_epoch",
-        "value": "500",
-        "type": "TEXT"
-    },
-    "p43": {
-        "name": "pct_start",
-        "value": "0.05",
-        "type": "TEXT"
-    },
-    "p44": {
-        "name": "div_factor",
-        "value": "100",
-        "type": "TEXT"
-    },
-    "p45": {
-        "name": "final_div_factor",
-        "value": "float(\"inf\")",
-        "type": "TEXT"
-    },
-    "s29": {
-        "name": "LR Scheduler",
-        "value": {
-            "callable": "torch.optim.lr_scheduler.OneCycleLR",
-            "params": [
-                "p39",
-                "p40",
-                "p41",
-                "p42",
-                "p43",
-                "p44",
-                "p45"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "p46": {
-        "name": "lr_scheduler",
-        "value": "s29",
-        "type": "REF"
-    },
-    "s23": {
-        "name": "train",
-        "value": {
-            "callable": "src.pytorch_training.train.train",
-            "params": [
-                "p25",
-                "p28",
-                "p29",
-                "p32",
-                "p33",
-                "p34",
-                "p35",
-                "p36",
-                "p37",
-                "p38",
-                "p46"
-            ]
-        },
-        "type": "SECTION"
-    },
-    "s30": {
-        "name": "Optimizer + LR Scheduler",
-        "value": [
-            "s24",
-            "s29"
-        ],
-        "type": "DECK"
-    },
-    "s31": {
-        "name": "Readme",
-        "type": "INFO"
-    }
+  "p0": {
+    "id": "57eae7c4-150c-409f-a20f-e8e2d4c3e9bc",
+    "sectionId": "bf1fbb88-d022-4eb7-a1a2-3663d3e562f6",
+    "name": "pretrained",
+    "value": "true",
+    "type": "SWITCH"
+  },
+  "s1": {
+    "id": "bf1fbb88-d022-4eb7-a1a2-3663d3e562f6",
+    "name": "Model",
+    "value": {
+      "callable": "torchvision.models.resnet18",
+      "params": ["p0"]
+    },
+    "type": "SECTION"
+  },
+  "s2": {
+    "id": "1f8e2bdd-e92b-43b8-b1ea-68300cfb5284",
+    "name": "Model.Fn()",
+    "value": {
+      "callable": "s1.torchvision.models.ResNet.parameters",
+      "params": []
+    },
+    "type": "FN"
+  },
+  "s3": {
+    "id": "915d5594-d78e-4b96-ad91-6003462fa969",
+    "name": "Loss Fn",
+    "value": {
+      "callable": "torch.nn.CrossEntropyLoss",
+      "params": []
+    },
+    "type": "SECTION"
+  },
+  "s0": {
+    "id": "8b584fd6-f495-4b1a-b9c0-b640f5931336",
+    "name": "Model + Loss",
+    "value": ["s1", "s2", "s3"],
+    "type": "DECK"
+  },
+  "p1": {
+    "id": "1c43d884-8d66-4906-b32b-1ac4e7e8f9e3",
+    "sectionId": "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
+    "name": "root",
+    "value": "\"C:/Users/Kevin/MachineLearningDatasets\"",
+    "type": "TEXT"
+  },
+  "p2": {
+    "id": "c59b7e44-2d6e-470e-b420-d5c289d08245",
+    "sectionId": "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
+    "name": "split",
+    "value": "\"train\"",
+    "type": "TEXT"
+  },
+  "p3": {
+    "id": "d9050cc3-5864-42c2-8111-f544d2c4707f",
+    "sectionId": "64aeb27b-8a7a-4a0b-a761-26b606817d1e",
+    "name": "size",
+    "value": "256",
+    "type": "TEXT"
+  },
+  "s9": {
+    "id": "64aeb27b-8a7a-4a0b-a761-26b606817d1e",
+    "name": "[0]",
+    "value": {
+      "callable": "torchvision.transforms.Resize",
+      "params": ["p3"]
+    },
+    "type": "SECTION"
+  },
+  "p4": {
+    "id": "9c62aa3b-3f05-42a1-9402-47edcf3136f9",
+    "sectionId": "0fd7ce2c-962c-41f8-b512-05f989dc5dc8",
+    "name": "size",
+    "value": "224",
+    "type": "TEXT"
+  },
+  "s10": {
+    "id": "0fd7ce2c-962c-41f8-b512-05f989dc5dc8",
+    "name": "[1]",
+    "value": {
+      "callable": "torchvision.transforms.RandomCrop",
+      "params": ["p4"]
+    },
+    "type": "SECTION"
+  },
+  "s11": {
+    "id": "1765a450-ca77-41ae-a482-16c18e03f895",
+    "name": "[2]",
+    "value": {
+      "callable": "torchvision.transforms.RandomHorizontalFlip",
+      "params": []
+    },
+    "type": "SECTION"
+  },
+  "s12": {
+    "id": "a40d457b-1eab-4417-9767-0a65faa2b9e6",
+    "name": "[3]",
+    "value": {
+      "callable": "torchvision.transforms.ToTensor",
+      "params": []
+    },
+    "type": "SECTION"
+  },
+  "p5": {
+    "id": "703a4b4c-fc1b-425f-9470-f824ef89032a",
+    "sectionId": "6352b363-2800-427a-a98e-424b03750f94",
+    "name": "mean",
+    "value": "[0.485, 0.456, 0.406]",
+    "type": "TEXT"
+  },
+  "p6": {
+    "id": "b2b9788d-86bb-478c-8743-72487f3984c8",
+    "sectionId": "6352b363-2800-427a-a98e-424b03750f94",
+    "name": "std",
+    "value": "[0.229, 0.224, 0.225]",
+    "type": "TEXT"
+  },
+  "s13": {
+    "id": "6352b363-2800-427a-a98e-424b03750f94",
+    "name": "[4]",
+    "value": {
+      "callable": "torchvision.transforms.Normalize",
+      "params": ["p5", "p6"]
+    },
+    "type": "SECTION"
+  },
+  "s8": {
+    "id": "d182ccf0-07b2-4061-bf10-7e0dc25234da",
+    "name": "transforms",
+    "value": ["s9", "s10", "s11", "s12", "s13"],
+    "type": "LIST_ROOT"
+  },
+  "p7": {
+    "id": "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f",
+    "sectionId": "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
+    "name": "transforms",
+    "value": "s8",
+    "type": "REF"
+  },
+  "s7": {
+    "id": "efee3d0c-8ac7-49ac-8f9c-5b5837feb80d",
+    "name": "Training Transform",
+    "value": {
+      "callable": "torchvision.transforms.Compose",
+      "params": ["p7"]
+    },
+    "type": "SECTION"
+  },
+  "p8": {
+    "id": "3e8bdae8-97c0-4d38-9276-29b9f7209d30",
+    "sectionId": "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
+    "name": "transform",
+    "value": "s7",
+    "type": "REF"
+  },
+  "p9": {
+    "id": "bef5d043-1626-4520-8ef0-25767830fc01",
+    "sectionId": "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
+    "name": "download",
+    "value": "true",
+    "type": "SWITCH"
+  },
+  "s6": {
+    "id": "2b0c8c26-a9b1-4996-8b2e-c3898faa9a42",
+    "name": "Training Dataset",
+    "value": {
+      "callable": "torchvision.datasets.Food101",
+      "params": ["p1", "p2", "p8", "p9"]
+    },
+    "type": "SECTION"
+  },
+  "p10": {
+    "id": "cafe6c6b-120e-44c0-93f5-a87fc21973dc",
+    "sectionId": "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
+    "name": "dataset",
+    "value": "s6",
+    "type": "REF"
+  },
+  "p11": {
+    "id": "8b680dce-10c9-48bf-bfdf-8023108ebbec",
+    "sectionId": "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
+    "name": "batch_size",
+    "value": "32",
+    "type": "TEXT"
+  },
+  "p12": {
+    "id": "3442de8d-9f64-4f26-8e80-6a4704912e15",
+    "sectionId": "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
+    "name": "shuffle",
+    "value": "true",
+    "type": "SWITCH"
+  },
+  "p13": {
+    "id": "60fbce55-f16a-4cc0-9009-c6ce923e956e",
+    "sectionId": "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
+    "name": "drop_last",
+    "value": "true",
+    "type": "SWITCH"
+  },
+  "s5": {
+    "id": "90a654d6-b1bd-4e29-9327-113f75b8f2fa",
+    "name": "Training Dataloader",
+    "value": {
+      "callable": "torch.utils.data.DataLoader",
+      "params": ["p10", "p11", "p12", "p13"]
+    },
+    "type": "SECTION"
+  },
+  "s4": {
+    "id": "5d890f43-1ff0-4e47-950d-23c43e160e8c",
+    "name": "Training",
+    "value": ["s5", "s6", "s7"],
+    "type": "DECK"
+  },
+  "p14": {
+    "id": "1c43d884-8d66-4906-b32b-1ac4e7e8f9e3",
+    "sectionId": "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+    "name": "root",
+    "value": "\"C:/Users/Kevin/MachineLearningDatasets\"",
+    "type": "TEXT"
+  },
+  "p15": {
+    "id": "c59b7e44-2d6e-470e-b420-d5c289d08245",
+    "sectionId": "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+    "name": "split",
+    "value": "\"test\"",
+    "type": "TEXT"
+  },
+  "p16": {
+    "id": "d9050cc3-5864-42c2-8111-f544d2c4707f",
+    "sectionId": "fe23c7d7-15ae-4137-836d-0b16defdbe51",
+    "name": "size",
+    "value": "256",
+    "type": "TEXT"
+  },
+  "s19": {
+    "id": "fe23c7d7-15ae-4137-836d-0b16defdbe51",
+    "name": "[0]",
+    "value": {
+      "callable": "torchvision.transforms.Resize",
+      "params": ["p16"]
+    },
+    "type": "SECTION"
+  },
+  "p17": {
+    "id": "0b0f526a-753b-4ebe-9616-593eb1c927be",
+    "sectionId": "486afb30-ed4b-43db-acbc-097f3d575f40",
+    "name": "size",
+    "value": "224",
+    "type": "TEXT"
+  },
+  "s20": {
+    "id": "486afb30-ed4b-43db-acbc-097f3d575f40",
+    "name": "[1]",
+    "value": {
+      "callable": "torchvision.transforms.CenterCrop",
+      "params": ["p17"]
+    },
+    "type": "SECTION"
+  },
+  "s21": {
+    "id": "2983b469-c363-4332-83f8-3d3991f2d8f9",
+    "name": "[2]",
+    "value": {
+      "callable": "torchvision.transforms.ToTensor",
+      "params": []
+    },
+    "type": "SECTION"
+  },
+  "p18": {
+    "id": "703a4b4c-fc1b-425f-9470-f824ef89032a",
+    "sectionId": "3dab4514-ad65-416e-aa3b-038314ef119f",
+    "name": "mean",
+    "value": "[0.485, 0.456, 0.406]",
+    "type": "TEXT"
+  },
+  "p19": {
+    "id": "b2b9788d-86bb-478c-8743-72487f3984c8",
+    "sectionId": "3dab4514-ad65-416e-aa3b-038314ef119f",
+    "name": "std",
+    "value": "[0.229, 0.224, 0.225]",
+    "type": "TEXT"
+  },
+  "s22": {
+    "id": "3dab4514-ad65-416e-aa3b-038314ef119f",
+    "name": "[3]",
+    "value": {
+      "callable": "torchvision.transforms.Normalize",
+      "params": ["p18", "p19"]
+    },
+    "type": "SECTION"
+  },
+  "s18": {
+    "id": "6da834af-b00d-492e-aa31-51be3f93b61f",
+    "name": "transforms",
+    "value": ["s19", "s20", "s21", "s22"],
+    "type": "LIST_ROOT"
+  },
+  "p20": {
+    "id": "bd7f3de1-f0e1-4d90-ae73-bd2d4a38823f",
+    "sectionId": "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
+    "name": "transforms",
+    "value": "s18",
+    "type": "REF"
+  },
+  "s17": {
+    "id": "e5b1f2c7-2ac0-49c5-acc7-9bfbc18e177e",
+    "name": "Validation Transform",
+    "value": {
+      "callable": "torchvision.transforms.Compose",
+      "params": ["p20"]
+    },
+    "type": "SECTION"
+  },
+  "p21": {
+    "id": "3e8bdae8-97c0-4d38-9276-29b9f7209d30",
+    "sectionId": "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+    "name": "transform",
+    "value": "s17",
+    "type": "REF"
+  },
+  "p22": {
+    "id": "bef5d043-1626-4520-8ef0-25767830fc01",
+    "sectionId": "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+    "name": "download",
+    "value": "true",
+    "type": "SWITCH"
+  },
+  "s16": {
+    "id": "b4026079-d0ca-4524-8ee4-4aae614cfec3",
+    "name": "Validation Dataset",
+    "value": {
+      "callable": "torchvision.datasets.Food101",
+      "params": ["p14", "p15", "p21", "p22"]
+    },
+    "type": "SECTION"
+  },
+  "p23": {
+    "id": "cafe6c6b-120e-44c0-93f5-a87fc21973dc",
+    "sectionId": "6621cd83-3be9-4f37-8b9e-6201a124ea28",
+    "name": "dataset",
+    "value": "s16",
+    "type": "REF"
+  },
+  "p24": {
+    "id": "8b680dce-10c9-48bf-bfdf-8023108ebbec",
+    "sectionId": "6621cd83-3be9-4f37-8b9e-6201a124ea28",
+    "name": "batch_size",
+    "value": "32",
+    "type": "TEXT"
+  },
+  "s15": {
+    "id": "6621cd83-3be9-4f37-8b9e-6201a124ea28",
+    "name": "Validation Dataloader",
+    "value": {
+      "callable": "torch.utils.data.DataLoader",
+      "params": ["p23", "p24"]
+    },
+    "type": "SECTION"
+  },
+  "s14": {
+    "id": "aa2078ab-8613-4498-951a-8c990f56be44",
+    "name": "Validation",
+    "value": ["s15", "s16", "s17"],
+    "type": "DECK"
+  },
+  "p25": {
+    "id": "ab487c7f-c29a-4176-a8ef-0d962f44312c",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "model",
+    "value": "s1",
+    "type": "REF"
+  },
+  "p26": {
+    "id": "eefe5d7c-3479-4f97-b6ff-54d90c0df33f",
+    "sectionId": "6ef48cbf-dba5-4ba9-b98d-91d3a512a387",
+    "name": "params",
+    "value": "s2",
+    "type": "REF"
+  },
+  "p27": {
+    "id": "f868a26d-8937-4929-b2a7-c8ce0e80ddbb",
+    "sectionId": "6ef48cbf-dba5-4ba9-b98d-91d3a512a387",
+    "name": "lr",
+    "value": "0.001",
+    "type": "TEXT"
+  },
+  "s24": {
+    "id": "6ef48cbf-dba5-4ba9-b98d-91d3a512a387",
+    "name": "Optimizer",
+    "value": {
+      "callable": "torch.optim.Adam",
+      "params": ["p26", "p27"]
+    },
+    "type": "SECTION"
+  },
+  "p28": {
+    "id": "585637c2-3553-43d9-be46-c25a914ac4e9",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "optimizer",
+    "value": "s24",
+    "type": "REF"
+  },
+  "p29": {
+    "id": "191bf07e-e14d-4c87-84cc-dd54fd7c9c80",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "loss_fn",
+    "value": "s3",
+    "type": "REF"
+  },
+  "p30": {
+    "id": "8dc2eab5-b7bb-4f83-a96e-44028df49492",
+    "sectionId": "5c0517cb-28e2-4a69-b066-4872a0cd6f22",
+    "name": "num_classes",
+    "value": "101",
+    "type": "TEXT"
+  },
+  "s26": {
+    "id": "5c0517cb-28e2-4a69-b066-4872a0cd6f22",
+    "name": "[0]",
+    "value": {
+      "callable": "torchmetrics.classification.MulticlassAccuracy",
+      "params": ["p30"]
+    },
+    "type": "SECTION"
+  },
+  "p31": {
+    "id": "9bfe7266-6e55-4b06-9d96-a5b0b4890a51",
+    "sectionId": "379a611c-6584-4db0-85bd-5c419bbd110d",
+    "name": "num_classes",
+    "value": "101",
+    "type": "TEXT"
+  },
+  "s27": {
+    "id": "379a611c-6584-4db0-85bd-5c419bbd110d",
+    "name": "[1]",
+    "value": {
+      "callable": "torchmetrics.classification.MulticlassCalibrationError",
+      "params": ["p31"]
+    },
+    "type": "SECTION"
+  },
+  "s25": {
+    "id": "eaebcce1-ac14-4482-9cc7-80f9f5cb8f61",
+    "name": "Metrics",
+    "value": ["s26", "s27"],
+    "type": "LIST_ROOT"
+  },
+  "p32": {
+    "id": "a2579c06-b2ea-4207-8094-635e8f076803",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "metrics",
+    "value": "s25",
+    "type": "REF"
+  },
+  "p33": {
+    "id": "3e2305db-03f6-40a3-91b4-bb4d255be400",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "train_dataloader",
+    "value": "s5",
+    "type": "REF"
+  },
+  "p34": {
+    "id": "71fdbcfc-db7c-4894-9b3a-c0b0b7da5f2d",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "val_dataloader",
+    "value": "s15",
+    "type": "REF"
+  },
+  "s28": {
+    "id": "d9d464f9-3b16-4e8a-9452-40b9ebaba4aa",
+    "name": "Logger",
+    "value": {
+      "callable": "runcoder.Runcoder",
+      "params": []
+    },
+    "type": "SECTION"
+  },
+  "p35": {
+    "id": "8630f46d-b06d-45bd-ab98-a5e46c02b9e4",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "logger",
+    "value": "s28",
+    "type": "REF"
+  },
+  "p36": {
+    "id": "843b1645-2da8-450a-a4a6-0c04de02c0fa",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "epochs",
+    "value": "5",
+    "type": "TEXT"
+  },
+  "p37": {
+    "id": "92922b58-544d-49e0-828b-3ad9e6536551",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "val_interval",
+    "value": "1",
+    "type": "TEXT"
+  },
+  "p38": {
+    "id": "6f119a89-86bd-4768-9141-3cb2fb9df349",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "log_interval",
+    "value": "10",
+    "type": "TEXT"
+  },
+  "p39": {
+    "id": "78babade-02f1-4e4d-8386-0e9b2b2ef651",
+    "sectionId": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "optimizer",
+    "value": "s24",
+    "type": "REF"
+  },
+  "p40": {
+    "id": "2b9e2f8c-5a1b-492e-ae51-cd4becbd6845",
+    "sectionId": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "max_lr",
+    "value": "0.001",
+    "type": "TEXT"
+  },
+  "p41": {
+    "id": "aedec2aa-4f1d-430b-844c-57054a0ed384",
+    "sectionId": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "epochs",
+    "value": "5",
+    "type": "TEXT"
+  },
+  "p42": {
+    "id": "231cb466-16a0-44d1-925e-f2c60dff6d55",
+    "sectionId": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "steps_per_epoch",
+    "value": "500",
+    "type": "TEXT"
+  },
+  "p43": {
+    "id": "35e8bbbc-a4aa-4e26-809a-31740b39d453",
+    "sectionId": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "pct_start",
+    "value": "0.05",
+    "type": "TEXT"
+  },
+  "p44": {
+    "id": "3ebb2d7b-fa82-422e-9c3f-188976f59c5d",
+    "sectionId": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "div_factor",
+    "value": "100",
+    "type": "TEXT"
+  },
+  "p45": {
+    "id": "0e3db028-cf6f-4d84-b59b-3c2da988cd56",
+    "sectionId": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "final_div_factor",
+    "value": "float(\"inf\")",
+    "type": "TEXT"
+  },
+  "s29": {
+    "id": "73c7f2c5-1c05-49ee-9812-2fbd27a849c3",
+    "name": "LR Scheduler",
+    "value": {
+      "callable": "torch.optim.lr_scheduler.OneCycleLR",
+      "params": ["p39", "p40", "p41", "p42", "p43", "p44", "p45"]
+    },
+    "type": "SECTION"
+  },
+  "p46": {
+    "id": "b82d0cb7-ba27-40cc-946f-9e469c2ab748",
+    "sectionId": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "lr_scheduler",
+    "value": "s29",
+    "type": "REF"
+  },
+  "s23": {
+    "id": "fbb03ab0-4dbc-49b4-bdc8-26704961f0c9",
+    "name": "train",
+    "value": {
+      "callable": "src.pytorch_training.train.train",
+      "params": [
+        "p25",
+        "p28",
+        "p29",
+        "p32",
+        "p33",
+        "p34",
+        "p35",
+        "p36",
+        "p37",
+        "p38",
+        "p46"
+      ]
+    },
+    "type": "SECTION"
+  },
+  "s30": {
+    "id": "8f6b5dd4-ba63-4259-af49-77ea52c4ea99",
+    "name": "Optimizer + LR Scheduler",
+    "value": ["s24", "s29"],
+    "type": "DECK"
+  },
+  "s31": {
+    "id": "7af597f1-f9e2-4988-8b73-70c147c4b769",
+    "name": "Readme",
+    "type": "INFO"
+  }
 }

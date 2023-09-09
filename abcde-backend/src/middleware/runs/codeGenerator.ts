@@ -28,56 +28,60 @@ function getImport(x) {
   return null;
 }
 
-function getDictContents(ids, selected) {
-  const dictContents = ids.map((v) => `${selected[v].name}: ${v}`);
-  return dictContents.join(',');
+function getMappings(varNames, selected, operator) {
+  const mappings = varNames.map((v) =>
+    varDeclaration(selected[v].name, v, operator),
+  );
+  return mappings.join(', ');
 }
 
-function getCallableParams(ids, selected) {
-  const params = ids.map((v) => `${selected[v].name}=${v}`);
-  return params.join(', ');
+function getDictContents(varNames, selected) {
+  return getMappings(varNames, selected, ':');
+}
+
+function getCallableParams(varNames, selected) {
+  return getMappings(varNames, selected, '=');
 }
 
 function getBoolean(value) {
   return value ? 'True' : 'False';
 }
 
-// function getSmartText(value) {
-//   if (isNumeric(value)) {
-//     return parseFloat(value);
-//   } else if (value == '') {
-//     return null;
-//   }
-//   return `"${value}"`;
-// }
+function varDeclaration(varName, value, operator = '=') {
+  return `${varName}${operator}${value}`;
+}
 
 // x is the details of a var
-function getVarDeclaration(varName, x, selected) {
+function getValue(x, selected) {
   switch (x.type) {
     case TEXT:
     case SLIDER:
-      return `${varName} = ${x.value}`;
+    case REF:
+      return `${x.value}`;
     case SWITCH:
-      return `${varName} = ${getBoolean(x.value)}`;
+      return `${getBoolean(x.value)}`;
     case SECTION:
     case FN:
       if (!x.value.callable) {
-        return `${varName} = {${getDictContents(x.value.params, selected)}}`;
+        return `{${getDictContents(x.value.params, selected)}}`;
       } else {
-        return `${varName} = ${x.value.callable}(${getCallableParams(
+        return `${x.value.callable}(${getCallableParams(
           x.value.params,
           selected,
         )})`;
       }
     case LIST_ROOT:
-      return `${varName} = [${x.value.toString()}]`;
+      return `[${x.value.toString()}]`;
     case DICT_ROOT:
-      return `${varName} = {${getDictContents(x.value, selected)}}`;
-    case REF:
-      return `${varName} = ${x.value}`;
+      return `{${getDictContents(x.value, selected)}}`;
     default:
       return null;
   }
+}
+
+function createLine(varName, x, selected) {
+  const value = getValue(x, selected);
+  return value ? varDeclaration(varName, value) : value;
 }
 
 // ordering of variables does not need to be considered
@@ -86,7 +90,7 @@ export function generateCode(selected) {
   const lines: string[] = [];
   const imports = new Set();
   for (const [varName, x] of Object.entries(selected)) {
-    const varStr = getVarDeclaration(varName, x, selected);
+    const varStr = createLine(varName, x, selected);
     varStr && lines.push(varStr);
     const importStr = getImport(x);
     importStr && imports.add(importStr);

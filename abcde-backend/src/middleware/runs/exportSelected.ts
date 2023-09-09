@@ -109,6 +109,7 @@ class Exporter {
     const varName = getSectionVarName(this.sectionVarNames, id);
     if (!(varName in this.output)) {
       this.output[varName] = {
+        id,
         name: this.p.sections[id].name,
         value: this.exportSectionValue(id),
         type: getSectionType(this.p, id),
@@ -149,6 +150,8 @@ class Exporter {
     }
     const varName = getParamVarName(this.paramVarNames);
     this.output[varName] = {
+      id,
+      sectionId,
       name: this.p.codeInfo[id].name,
       value,
       type: getParamUIType(this.p, sectionId, id),
