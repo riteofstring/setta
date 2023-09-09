@@ -35,9 +35,9 @@ test("Test SectionSearch", async () => {
   await userEvent.type(searchBox, "SGD");
   await userEvent.keyboard("{arrowdown}");
   await userEvent.tab();
-  expect(searchBox.value).toEqual("SGD");
+  expect(searchBox.value).toEqual("torch.optim.SGD");
 
   // Expect that the SGD object is now selected
   ({ selectedItem } = getSectionInfo(sectionId));
-  expect(useCodeInfo.getState().allCodeInfo[selectedItem].name).toEqual("SGD");
+  expect(useCodeInfo.getState().x[selectedItem].name).toEqual("torch.optim.SGD");
 });

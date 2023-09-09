@@ -5,15 +5,9 @@ import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode() {
   const project = getProjectData();
-  const codeInfoState = useCodeInfo.getState();
-  const allCodeInfo = {
-    ...codeInfoState.allCodeInfo,
-    ...project.kwargInfo,
-  };
-  project.codeInfo = { allCodeInfo };
+  project.codeInfo = useCodeInfo.getState().x
   const presetUITypes = assembleUITypes(useUITypes.getState().x, true);
   project.uiTypes = { ...project.uiTypes, ...presetUITypes };
-  delete project.kwargInfo;
   delete project.project.defaultConfigId;
   return project;
 }

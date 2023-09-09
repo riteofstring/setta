@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { KwargsControls } from "components/UI/Section/SectionContainer/Main/KwargsControls/KwargsControls";
 import { createSectionInfo } from "thunks/sections/createSectionInfo";
-import { getKwargIds } from "thunks/sections/sectionContents";
+import { getParamInfos } from "thunks/sections/sectionContents";
 import { loadTestDataIntoState, ResizeObserver } from "__tests__utils/utils";
 
 // required to avoid "ReferenceError: ResizeObserver is not defined"
@@ -20,13 +20,13 @@ describe("KwargControls", () => {
     render(<KwargsControls {...props} />);
 
     // there should be no kwargs
-    let kwargIds = getKwargIds(sectionId, NULL_OBJ_ID);
-    expect(kwargIds.length).toEqual(0);
+    let params = getParamInfos(sectionId);
+    expect(params.length).toEqual(0);
 
     const button = screen.getByRole("button", { name: "Add Kwarg" });
     await userEvent.click(button);
     // now there should be 1 kwarg
-    kwargIds = getKwargIds(sectionId, NULL_OBJ_ID);
-    expect(kwargIds.length).toEqual(1);
+    params = getParamInfos(sectionId);
+    expect(params.length).toEqual(1);
   });
 });
