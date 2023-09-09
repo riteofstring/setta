@@ -1,5 +1,5 @@
 #!/bin/sh
-(cd ../abcde-utils && git fetch --all && git checkout main && yarn && yarn link) || exit 1
+(cd ../abcde-utils && git fetch --all && git checkout noCodeInfoSerious && yarn && yarn link) || exit 1
 (cd ../abcde-test && git fetch --all && git checkout noCodeInfoSerious && yarn && yarn link) || exit 1
 (cd ../abcde-backend && git fetch --all && git checkout noCodeInfoSerious && yarn) || exit 1
 (cd ../abcde-cli && git fetch --all && git checkout noCodeInfo && ./init_env.sh) || exit 1
