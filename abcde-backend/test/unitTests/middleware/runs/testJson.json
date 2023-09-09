@@ -1,0 +1,562 @@
+{
+    "p0": {
+        "name": "pretrained",
+        "value": "true",
+        "type": "SWITCH"
+    },
+    "s1": {
+        "name": "Model",
+        "value": {
+            "callable": "torchvision.models.resnet18",
+            "params": [
+                "p0"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s2": {
+        "name": "Model.Fn()",
+        "value": {
+            "callable": "s1.torchvision.models.ResNet.parameters",
+            "params": []
+        },
+        "type": "FN"
+    },
+    "s3": {
+        "name": "Loss Fn",
+        "value": {
+            "callable": "torch.nn.CrossEntropyLoss",
+            "params": []
+        },
+        "type": "SECTION"
+    },
+    "s0": {
+        "name": "Model + Loss",
+        "value": [
+            "s1",
+            "s2",
+            "s3"
+        ],
+        "type": "DECK"
+    },
+    "p1": {
+        "name": "root",
+        "value": "\"C:/Users/Kevin/MachineLearningDatasets\"",
+        "type": "TEXT"
+    },
+    "p2": {
+        "name": "split",
+        "value": "\"train\"",
+        "type": "TEXT"
+    },
+    "p3": {
+        "name": "size",
+        "value": "256",
+        "type": "TEXT"
+    },
+    "s9": {
+        "name": "[0]",
+        "value": {
+            "callable": "torchvision.transforms.Resize",
+            "params": [
+                "p3"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p4": {
+        "name": "size",
+        "value": "224",
+        "type": "TEXT"
+    },
+    "s10": {
+        "name": "[1]",
+        "value": {
+            "callable": "torchvision.transforms.RandomCrop",
+            "params": [
+                "p4"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s11": {
+        "name": "[2]",
+        "value": {
+            "callable": "torchvision.transforms.RandomHorizontalFlip",
+            "params": []
+        },
+        "type": "SECTION"
+    },
+    "s12": {
+        "name": "[3]",
+        "value": {
+            "callable": "torchvision.transforms.ToTensor",
+            "params": []
+        },
+        "type": "SECTION"
+    },
+    "p5": {
+        "name": "mean",
+        "value": "[0.485, 0.456, 0.406]",
+        "type": "TEXT"
+    },
+    "p6": {
+        "name": "std",
+        "value": "[0.229, 0.224, 0.225]",
+        "type": "TEXT"
+    },
+    "s13": {
+        "name": "[4]",
+        "value": {
+            "callable": "torchvision.transforms.Normalize",
+            "params": [
+                "p5",
+                "p6"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s8": {
+        "name": "transforms",
+        "value": [
+            "s9",
+            "s10",
+            "s11",
+            "s12",
+            "s13"
+        ],
+        "type": "LIST_ROOT"
+    },
+    "p7": {
+        "name": "transforms",
+        "value": "s8",
+        "type": "REF"
+    },
+    "s7": {
+        "name": "Training Transform",
+        "value": {
+            "callable": "torchvision.transforms.Compose",
+            "params": [
+                "p7"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p8": {
+        "name": "transform",
+        "value": "s7",
+        "type": "REF"
+    },
+    "p9": {
+        "name": "download",
+        "value": "true",
+        "type": "SWITCH"
+    },
+    "s6": {
+        "name": "Training Dataset",
+        "value": {
+            "callable": "torchvision.datasets.Food101",
+            "params": [
+                "p1",
+                "p2",
+                "p8",
+                "p9"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p10": {
+        "name": "dataset",
+        "value": "s6",
+        "type": "REF"
+    },
+    "p11": {
+        "name": "batch_size",
+        "value": "32",
+        "type": "TEXT"
+    },
+    "p12": {
+        "name": "shuffle",
+        "value": "true",
+        "type": "SWITCH"
+    },
+    "p13": {
+        "name": "drop_last",
+        "value": "true",
+        "type": "SWITCH"
+    },
+    "s5": {
+        "name": "Training Dataloader",
+        "value": {
+            "callable": "torch.utils.data.DataLoader",
+            "params": [
+                "p10",
+                "p11",
+                "p12",
+                "p13"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s4": {
+        "name": "Training",
+        "value": [
+            "s5",
+            "s6",
+            "s7"
+        ],
+        "type": "DECK"
+    },
+    "p14": {
+        "name": "root",
+        "value": "\"C:/Users/Kevin/MachineLearningDatasets\"",
+        "type": "TEXT"
+    },
+    "p15": {
+        "name": "split",
+        "value": "\"test\"",
+        "type": "TEXT"
+    },
+    "p16": {
+        "name": "size",
+        "value": "256",
+        "type": "TEXT"
+    },
+    "s19": {
+        "name": "[0]",
+        "value": {
+            "callable": "torchvision.transforms.Resize",
+            "params": [
+                "p16"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p17": {
+        "name": "size",
+        "value": "224",
+        "type": "TEXT"
+    },
+    "s20": {
+        "name": "[1]",
+        "value": {
+            "callable": "torchvision.transforms.CenterCrop",
+            "params": [
+                "p17"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s21": {
+        "name": "[2]",
+        "value": {
+            "callable": "torchvision.transforms.ToTensor",
+            "params": []
+        },
+        "type": "SECTION"
+    },
+    "p18": {
+        "name": "mean",
+        "value": "[0.485, 0.456, 0.406]",
+        "type": "TEXT"
+    },
+    "p19": {
+        "name": "std",
+        "value": "[0.229, 0.224, 0.225]",
+        "type": "TEXT"
+    },
+    "s22": {
+        "name": "[3]",
+        "value": {
+            "callable": "torchvision.transforms.Normalize",
+            "params": [
+                "p18",
+                "p19"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s18": {
+        "name": "transforms",
+        "value": [
+            "s19",
+            "s20",
+            "s21",
+            "s22"
+        ],
+        "type": "LIST_ROOT"
+    },
+    "p20": {
+        "name": "transforms",
+        "value": "s18",
+        "type": "REF"
+    },
+    "s17": {
+        "name": "Validation Transform",
+        "value": {
+            "callable": "torchvision.transforms.Compose",
+            "params": [
+                "p20"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p21": {
+        "name": "transform",
+        "value": "s17",
+        "type": "REF"
+    },
+    "p22": {
+        "name": "download",
+        "value": "true",
+        "type": "SWITCH"
+    },
+    "s16": {
+        "name": "Validation Dataset",
+        "value": {
+            "callable": "torchvision.datasets.Food101",
+            "params": [
+                "p14",
+                "p15",
+                "p21",
+                "p22"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p23": {
+        "name": "dataset",
+        "value": "s16",
+        "type": "REF"
+    },
+    "p24": {
+        "name": "batch_size",
+        "value": "32",
+        "type": "TEXT"
+    },
+    "s15": {
+        "name": "Validation Dataloader",
+        "value": {
+            "callable": "torch.utils.data.DataLoader",
+            "params": [
+                "p23",
+                "p24"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s14": {
+        "name": "Validation",
+        "value": [
+            "s15",
+            "s16",
+            "s17"
+        ],
+        "type": "DECK"
+    },
+    "p25": {
+        "name": "model",
+        "value": "s1",
+        "type": "REF"
+    },
+    "p26": {
+        "name": "params",
+        "value": "s2",
+        "type": "REF"
+    },
+    "p27": {
+        "name": "lr",
+        "value": "0.001",
+        "type": "TEXT"
+    },
+    "s24": {
+        "name": "Optimizer",
+        "value": {
+            "callable": "torch.optim.Adam",
+            "params": [
+                "p26",
+                "p27"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p28": {
+        "name": "optimizer",
+        "value": "s24",
+        "type": "REF"
+    },
+    "p29": {
+        "name": "loss_fn",
+        "value": "s3",
+        "type": "REF"
+    },
+    "p30": {
+        "name": "num_classes",
+        "value": "101",
+        "type": "TEXT"
+    },
+    "s26": {
+        "name": "[0]",
+        "value": {
+            "callable": "torchmetrics.classification.MulticlassAccuracy",
+            "params": [
+                "p30"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p31": {
+        "name": "num_classes",
+        "value": "101",
+        "type": "TEXT"
+    },
+    "s27": {
+        "name": "[1]",
+        "value": {
+            "callable": "torchmetrics.classification.MulticlassCalibrationError",
+            "params": [
+                "p31"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s25": {
+        "name": "Metrics",
+        "value": [
+            "s26",
+            "s27"
+        ],
+        "type": "LIST_ROOT"
+    },
+    "p32": {
+        "name": "metrics",
+        "value": "s25",
+        "type": "REF"
+    },
+    "p33": {
+        "name": "train_dataloader",
+        "value": "s5",
+        "type": "REF"
+    },
+    "p34": {
+        "name": "val_dataloader",
+        "value": "s15",
+        "type": "REF"
+    },
+    "s28": {
+        "name": "Logger",
+        "value": {
+            "callable": "runcoder.Runcoder",
+            "params": []
+        },
+        "type": "SECTION"
+    },
+    "p35": {
+        "name": "logger",
+        "value": "s28",
+        "type": "REF"
+    },
+    "p36": {
+        "name": "epochs",
+        "value": "5",
+        "type": "TEXT"
+    },
+    "p37": {
+        "name": "val_interval",
+        "value": "1",
+        "type": "TEXT"
+    },
+    "p38": {
+        "name": "log_interval",
+        "value": "10",
+        "type": "TEXT"
+    },
+    "p39": {
+        "name": "optimizer",
+        "value": "s24",
+        "type": "REF"
+    },
+    "p40": {
+        "name": "max_lr",
+        "value": "0.001",
+        "type": "TEXT"
+    },
+    "p41": {
+        "name": "epochs",
+        "value": "5",
+        "type": "TEXT"
+    },
+    "p42": {
+        "name": "steps_per_epoch",
+        "value": "500",
+        "type": "TEXT"
+    },
+    "p43": {
+        "name": "pct_start",
+        "value": "0.05",
+        "type": "TEXT"
+    },
+    "p44": {
+        "name": "div_factor",
+        "value": "100",
+        "type": "TEXT"
+    },
+    "p45": {
+        "name": "final_div_factor",
+        "value": "float(\"inf\")",
+        "type": "TEXT"
+    },
+    "s29": {
+        "name": "LR Scheduler",
+        "value": {
+            "callable": "torch.optim.lr_scheduler.OneCycleLR",
+            "params": [
+                "p39",
+                "p40",
+                "p41",
+                "p42",
+                "p43",
+                "p44",
+                "p45"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "p46": {
+        "name": "lr_scheduler",
+        "value": "s29",
+        "type": "REF"
+    },
+    "s23": {
+        "name": "train",
+        "value": {
+            "callable": "src.pytorch_training.train.train",
+            "params": [
+                "p25",
+                "p28",
+                "p29",
+                "p32",
+                "p33",
+                "p34",
+                "p35",
+                "p36",
+                "p37",
+                "p38",
+                "p46"
+            ]
+        },
+        "type": "SECTION"
+    },
+    "s30": {
+        "name": "Optimizer + LR Scheduler",
+        "value": [
+            "s24",
+            "s29"
+        ],
+        "type": "DECK"
+    },
+    "s31": {
+        "name": "Readme",
+        "type": "INFO"
+    }
+}

@@ -169,9 +169,3 @@ class Exporter {
     return value;
   }
 }
-
-// Look at parent of deck to determine what to do with children of deck
-// 1. If parent of deck is the pane, then children become top-level sections.
-// 2. If parent of deck is a list root, then children become list elements.
-// 3. If parent of deck is a dict root, then children become dict elements.
-// 4. If parent of deck is a section, then children become nested params.
