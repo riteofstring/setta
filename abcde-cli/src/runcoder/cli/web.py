@@ -70,15 +70,16 @@ def parametersRequest(message):
     code = message["message"]
     print("code", code)
     results = jedi.Script(code).get_signatures(line=1, column=len(code))[0].params
-    results = [
-        {
-            "name": x.name,
-            "defaultVal": parso.parse(x.to_string()).children[0].get_rhs().value,
-        }
-        for x in results
-    ]
-
-    return results, "parameters"
+    output = []
+    for x in results:
+        curr = {"name": x.name}
+        child = parso.parse(x.to_string()).children[0]
+        if (hasattr(child, "get_rhs")):
+            curr["defaultVal"] = child.get_rhs().value
+        else:
+            curr["defaultVal"] = None
+        output.append(curr)
+    return output, "parameters"
 
 
 def connectionEstablished(message):
