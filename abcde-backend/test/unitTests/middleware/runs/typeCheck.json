@@ -1,15 +1,15 @@
 {
-    "typeCheck": [
-        {
-            "location": "simple.py:5:37:5:38",
-            "file": "simple.py",
-            "line": "5",
-            "column": "37",
-            "endLine": "5",
-            "endColumn": "38",
-            "type": "error",
-            "message": "Argument \"weight\" to \"CrossEntropyLoss\" has incompatible type \"list[object]\"; expected \"Tensor | None\"",
-            "code": "arg-type"
-        }
-    ]
+  "typeCheck": [
+    {
+      "location": "simple.py:5:37:5:38",
+      "file": "simple.py",
+      "line": "5",
+      "column": "37",
+      "endLine": "5",
+      "endColumn": "38",
+      "type": "error",
+      "message": "Argument \"weight\" to \"CrossEntropyLoss\" has incompatible type \"list[object]\"; expected \"Tensor | None\"",
+      "code": "arg-type"
+    }
+  ]
 }

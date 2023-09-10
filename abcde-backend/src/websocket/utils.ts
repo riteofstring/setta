@@ -1,4 +1,5 @@
-import { getImportText } from 'src/middleware/runs/codeGenerator';
+import { generateCode, getImportText } from 'src/middleware/runs/codeGenerator';
+import { exportSelected } from 'src/middleware/runs/exportSelected';
 import { allSockets } from './allSockets';
 
 export function sendToUser(user, message) {
@@ -28,6 +29,10 @@ export function wsReceiveMessage(req, ws, websocketId) {
     }
     if (x.messageType === 'parametersRequest') {
       x.message = `${getImportText(x.message)}; ${x.message}(`;
+    }
+    if (x.messageType === 'typeCheckRequest') {
+      const codeJson = exportSelected(x.message);
+      x.message = generateCode(codeJson);
     }
     sendToUser(req.user, { ...x, location: ws.location, websocketId });
   };
