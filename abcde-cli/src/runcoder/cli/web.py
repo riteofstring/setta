@@ -44,7 +44,7 @@ async def getConsumerMessageAndSend(websocket, message):
         await websocket.send(
             json.dumps(
                 {
-                    "id": message.get("id", None),
+                    "id": message["id"],
                     "message": return_message,
                     "toWebsocketId": message["websocketId"],
                     "messageType": messageType,
