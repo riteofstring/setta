@@ -5,7 +5,7 @@ import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode() {
   const project = getProjectData();
-  project.codeInfo = useCodeInfo.getState().x
+  project.codeInfo = useCodeInfo.getState().x;
   const presetUITypes = assembleUITypes(useUITypes.getState().x, true);
   project.uiTypes = { ...project.uiTypes, ...presetUITypes };
   delete project.project.defaultConfigId;

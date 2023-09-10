@@ -23,7 +23,10 @@ describe("find descendants", () => {
   });
 
   test("find all parameter descendants", async () => {
-    const objId = _.find(codeInfo, (x) => x.name === "torchvision.models.resnet101").id;
+    const objId = _.find(
+      codeInfo,
+      (x) => x.name === "torchvision.models.resnet101"
+    ).id;
     const parameters = findAllParameters(codeInfo, [objId]);
     expect(new Set(parameters.map((x) => x.name))).toEqual(
       new Set(["pretrained", "progress"])

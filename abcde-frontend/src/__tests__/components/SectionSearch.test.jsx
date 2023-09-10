@@ -39,5 +39,7 @@ test("Test SectionSearch", async () => {
 
   // Expect that the SGD object is now selected
   ({ selectedItem } = getSectionInfo(sectionId));
-  expect(useCodeInfo.getState().x[selectedItem].name).toEqual("torch.optim.SGD");
+  expect(useCodeInfo.getState().x[selectedItem].name).toEqual(
+    "torch.optim.SGD"
+  );
 });

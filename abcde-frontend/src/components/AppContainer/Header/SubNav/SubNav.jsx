@@ -5,6 +5,7 @@ import { CommunityButton } from "./CommunityButton/CommunityButton";
 import { EditMenu } from "./EditMenu/EditMenu";
 import { FileMenu } from "./FileMenu/FileMenu";
 import { RunButton } from "./RunButton/RunButton";
+import { TypeCheckButton } from "./TypeCheckButton/TypeCheckButton";
 import { WebsocketConnections } from "./WebsocketConnections/WebsocketConnections";
 
 export function SubNav() {
@@ -35,6 +36,7 @@ function UiEditorSubNav() {
       <RunButton />
       {/* <StateCounter /> */}
       <WebsocketConnections />
+      <TypeCheckButton />
     </div>
   );
 }

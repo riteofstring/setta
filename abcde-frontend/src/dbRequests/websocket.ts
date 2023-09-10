@@ -37,13 +37,14 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
+  console.log(m);
   if (m.type === "LOG") {
     updateOutput(m.data);
   } else if (m.messageType === "connection") {
     // receives websocketId
   } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
-  } else {
+  } else if (m.id) {
     useWebsocketRooms.getState().setMessage(m.id, m.message);
   }
 }
