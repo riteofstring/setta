@@ -1,5 +1,6 @@
 import { createNewId } from "abcde-utils/src/utils";
 import { sendMessage } from "dbRequests/websocket";
+import { useTypeErrors } from "models/typeErrors";
 import { useWebsocketRooms } from "models/websocket";
 import { getProjectDataToGenerateCode } from "./generateCode";
 
@@ -19,7 +20,14 @@ export function requestParameters(name, callback) {
 }
 
 export function requestTypeCheck() {
+  const id = createNewId();
+  useWebsocketRooms.subscribe(
+    (x) => x[id],
+    (x) => {
+      useTypeErrors.setState(x, true);
+    }
+  );
   const project = getProjectDataToGenerateCode();
   console.log("requestTypeCheck");
-  sendMessage({ messageType: "typeCheckRequest", message: project });
+  sendMessage({ id, messageType: "typeCheckRequest", message: project });
 }
