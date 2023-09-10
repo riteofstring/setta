@@ -22,11 +22,19 @@ def web(access_token, websocket_id):
 
 async def connect(access_token, websocket_id=None):
     address = f"{WEBSOCKET}/{websocket_id}" if websocket_id else WEBSOCKET
-    async with websockets.connect(
-        address,
-        extra_headers={"cookie": f"connect.sid={access_token}"},
-    ) as websocket:
-        await consumer_handler(websocket)
+    try:
+        async with websockets.connect(
+            address,
+            extra_headers={"cookie": f"connect.sid={access_token}"},
+        ) as websocket:
+            await consumer_handler(websocket)
+    except websockets.InvalidStatusCode as e:
+        if e.status_code == 401:
+            print("Unauthorized")
+    except websockets.ConnectionClosedError:
+        print("Connection closed unexpectedly")
+    except ConnectionRefusedError:
+        print("Connection refused")
 
 
 async def consumer_handler(websocket):
