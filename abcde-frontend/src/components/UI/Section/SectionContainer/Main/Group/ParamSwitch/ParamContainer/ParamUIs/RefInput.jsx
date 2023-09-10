@@ -11,7 +11,7 @@ export function RefInputConfig() {
   return null;
 }
 
-export function RefInput({ sectionId, value, onBlur, className }) {
+export function RefInput({ sectionId, value, onChange, className }) {
   // TODO set an equalityFn here to reduce renders
   const availableSections = useSectionInfos((x) => x.x);
   const allItems = [
@@ -21,7 +21,7 @@ export function RefInput({ sectionId, value, onBlur, className }) {
     addAttrSection({
       sectionId,
       refSectionId: value,
-      onCreation: onBlur,
+      onCreation: onChange,
     });
   }
 
@@ -30,7 +30,7 @@ export function RefInput({ sectionId, value, onBlur, className }) {
       <IdNameCombobox
         allItems={allItems}
         initialSelection={value}
-        onSelectedItemChange={onBlur}
+        onSelectedItemChange={onChange}
         className={className}
         small={true}
       />

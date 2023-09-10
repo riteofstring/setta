@@ -8,7 +8,6 @@ export function TextInput({
   value,
   defaultVal,
   onChange,
-  onBlur,
   isDisabled,
   className,
 }) {
@@ -20,7 +19,6 @@ export function TextInput({
       disabled={isDisabled}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      onBlur={(e) => onBlur(e.target.value)}
     />
   );
 }

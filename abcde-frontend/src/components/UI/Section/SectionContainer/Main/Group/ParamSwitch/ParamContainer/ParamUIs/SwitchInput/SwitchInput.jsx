@@ -7,7 +7,7 @@ export function SwitchInputConfig() {
 export function SwitchInput({
   value,
   defaultVal,
-  onBlur,
+  onChange,
   isDisabled,
   className,
 }) {
@@ -18,7 +18,7 @@ export function SwitchInput({
       <Toggle
         checked={valueBool}
         disabled={isDisabled}
-        onCheckedChange={onBlur}
+        onCheckedChange={onChange}
         twRootClasses={`SwitchRoot ${className}`}
         twThumbClasses="SwitchThumb"
       />

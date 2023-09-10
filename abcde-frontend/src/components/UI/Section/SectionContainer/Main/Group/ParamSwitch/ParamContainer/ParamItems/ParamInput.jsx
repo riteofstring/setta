@@ -16,21 +16,9 @@ export function ParamInput({
 
   // value and enteredValue should always be string
   const onChange = (v) => {
-    setValue(_.toString(v));
-  };
-
-  // value and enteredValue should always be string
-  const onBlur = (v, changedByUser = true) => {
     const vStr = _.toString(v);
-    if (vStr !== enteredValue) {
-      onChange(vStr);
-      setParamEnteredValue({
-        sectionId,
-        paramInfoId,
-        value: vStr,
-        incrementVersion: changedByUser,
-      });
-    }
+    setValue(vStr);
+    setEnteredValue(sectionId, paramInfoId, enteredValue, vStr);
   };
 
   useEffect(() => {
@@ -47,7 +35,6 @@ export function ParamInput({
         value,
         defaultVal,
         onChange,
-        onBlur,
         isDisabled,
         className: "nodrag",
         ...uiType.config,
@@ -55,3 +42,17 @@ export function ParamInput({
     />
   );
 }
+
+const setEnteredValue = _.debounce(
+  (sectionId, paramInfoId, enteredValue, vStr, changedByUser = true) => {
+    if (vStr !== enteredValue) {
+      setParamEnteredValue({
+        sectionId,
+        paramInfoId,
+        value: vStr,
+        incrementVersion: changedByUser,
+      });
+    }
+  },
+  500
+);
