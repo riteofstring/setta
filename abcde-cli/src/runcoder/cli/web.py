@@ -14,7 +14,10 @@ from ..utils.constants import WEBSOCKET
 
 
 def web(access_token, websocket_id):
-    asyncio.run(connect(access_token, websocket_id))
+    try:
+        asyncio.run(connect(access_token, websocket_id))
+    finally:
+        killMyPyDaemon()
 
 
 async def connect(access_token, websocket_id=None):
@@ -27,21 +30,27 @@ async def connect(access_token, websocket_id=None):
 
 
 async def consumer_handler(websocket):
+    startMyPyDaemon()
     async for message in websocket:
         message = json.loads(message)
-        return_message, messageType = await consumer(message)
-        if return_message is not None:
-            print(return_message)
-            await websocket.send(
-                json.dumps(
-                    {
-                        "id": message.get("id", None),
-                        "message": return_message,
-                        "toWebsocketId": message["websocketId"],
-                        "messageType": messageType,
-                    }
-                )
+        # create_task so that we don't have to await consumer message
+        asyncio.create_task(getConsumerMessageAndSend(websocket, message))
+
+
+async def getConsumerMessageAndSend(websocket, message):
+    return_message, messageType = await consumer(message)
+    if return_message is not None:
+        print(return_message)
+        await websocket.send(
+            json.dumps(
+                {
+                    "id": message.get("id", None),
+                    "message": return_message,
+                    "toWebsocketId": message["websocketId"],
+                    "messageType": messageType,
+                }
             )
+        )
 
 
 async def consumer(message):
@@ -50,7 +59,7 @@ async def consumer(message):
     if message["messageType"] == "parametersRequest":
         return parametersRequest(message)
     if message["messageType"] == "typeCheckRequest":
-        return typeCheckRequest(message)
+        return await asyncio.create_task(typeCheckRequest(message))
     if message["messageType"] == "connection":
         return connectionEstablished(message)
     if message["messageType"] == "allConnections":
@@ -100,7 +109,7 @@ def parametersRequest(message):
     return output, "parameters"
 
 
-def typeCheckRequest(message):
+async def typeCheckRequest(message):
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:
         # set delete=False because otherwise the mypy call gets Permission Denied
         with tempfile.NamedTemporaryFile(
@@ -108,23 +117,21 @@ def typeCheckRequest(message):
         ) as temp_file:
             temp_file.write(message["message"])
             temp_file_path = temp_file.name
-        result = subprocess.run(
-            [
-                "mypy",
-                temp_file_path,
-                "--show-error-end",
-                "--no-error-summary",
-                "--no-pretty",
-                "--no-color-output",
-            ],
-            capture_output=True,
-            text=True,
+
+        process = await asyncio.create_subprocess_shell(
+            f'dmypy check "{temp_file_path}"',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        stdout, _ = await process.communicate()
         os.remove(temp_file_path)
 
-    print(result)
+    print("process.returncode", process.returncode)
+    print("stdout", stdout)
+    stdout = stdout.decode("utf-8")
+    # https://github.com/matangover/mypy-vscode/blob/master/src/mypy.ts
     pattern = r"^(?P<location>(?P<file>[^\n]+?):(?P<line>\d+):(?P<column>\d+):(?P<endLine>\d+):(?P<endColumn>\d+)): (?P<type>\w+): (?P<message>.*?)(?:  \[(?P<code>[\w-]+)\])?$"
-    result = re.split(r"\r?\n", result.stdout)
+    result = re.split(r"\r?\n", stdout)
 
     output = []
     for r in result:
@@ -149,3 +156,21 @@ def allConnections(message):
     print("All connections:")
     pprint(message["connections"])
     return None, ""
+
+
+def startMyPyDaemon():
+    subprocess.run(
+        [
+            "dmypy",
+            "start",
+            "--",
+            "--show-error-end",
+            "--no-error-summary",
+            "--no-pretty",
+            "--no-color-output",
+        ]
+    )
+
+
+def killMyPyDaemon():
+    subprocess.run(["dmypy", "stop"])

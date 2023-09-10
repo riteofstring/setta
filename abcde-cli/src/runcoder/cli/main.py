@@ -25,7 +25,7 @@ def login(username, password):
                 click.echo("The run command takes only one argument")
             _run(access_token, c[2])
         if c[1] == "web":
-            _web(access_token)
+            _web(access_token, None if len(c) < 3 else c[2])
 
 
 @click.command()

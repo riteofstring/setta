@@ -10,3 +10,4 @@ runcoder_code/
 abcde_env
 .DS_Store
 .mypy_cache/
+.dmypy.json
