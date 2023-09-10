@@ -57,3 +57,8 @@ export function updateParamsAndCallables(sectionId: string) {
     .getState()
     .setCallablesAndParams({ sectionId, callables, params });
 }
+
+export function updateCallables(sectionId: string) {
+  const callables = computeAllCallables(sectionId);
+  useSectionToParams.getState().setCallables({ sectionId, callables });
+}

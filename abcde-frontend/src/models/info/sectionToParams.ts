@@ -11,6 +11,10 @@ export const useSectionToParams = createProjectState(
   temporal(
     immer((set) => ({
       ...initialState,
+      setCallables: ({ sectionId, callables }) =>
+        set((state) => {
+          state.callables[sectionId] = callables;
+        }),
       setCallablesAndParams: ({ sectionId, callables, params }) =>
         set((state) => {
           state.callables[sectionId] = callables;
