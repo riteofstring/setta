@@ -1,6 +1,7 @@
 import { generateCode, getImportText } from 'src/middleware/runs/codeGenerator';
 import { exportSelected } from 'src/middleware/runs/exportSelected';
-import { allSockets } from './allSockets';
+import { typeCheck } from 'src/middleware/runs/typeChecker';
+import { allCodeJson, allSockets } from './allSockets';
 
 export function sendToUser(user, message) {
   if (user in allSockets && message.toWebsocketId in allSockets[user]) {
@@ -32,7 +33,14 @@ export function wsReceiveMessage(req, ws, websocketId) {
     }
     if (x.messageType === 'typeCheckRequest') {
       const codeJson = exportSelected(x.message);
-      x.message = generateCode(codeJson);
+      const code = generateCode(codeJson);
+      allCodeJson[x.id] = { code, codeJson };
+      x.message = code;
+    }
+    if (x.messageType === 'typeCheck') {
+      const { code, codeJson } = allCodeJson[x.id];
+      delete allCodeJson[x.id];
+      x.message = typeCheck(x.message, code, codeJson);
     }
     sendToUser(req.user, { ...x, location: ws.location, websocketId });
   };

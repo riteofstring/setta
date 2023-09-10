@@ -3,7 +3,7 @@ import http from 'http';
 import { app, passportSession } from './app/app';
 import { sessionParser } from './app/sessionParser';
 import { uniqueName } from './utils/utils';
-import { allSockets } from './websocket/allSockets';
+import { allCodeJson, allSockets } from './websocket/allSockets';
 import { sendAllConnectionsList, wsReceiveMessage } from './websocket/utils';
 import { wss } from './websocket/websocket';
 
@@ -33,6 +33,7 @@ function runPassportAuth(req, socket, head) {
     wss.handleUpgrade(req, socket, head, function (ws) {
       if (!(req.user in allSockets)) {
         allSockets[req.user] = {};
+        allCodeJson[req.user] = {};
       }
       const userSockets = allSockets[req.user];
       let websocketId = req.url.replace(/^\/+/, '');

@@ -9,7 +9,10 @@ export function typeCheck(typeCheckResults, code, codeJson) {
         parseInt(t.endColumn),
       );
       const { id, sectionId } = codeJson[problemVar];
-      output[sectionId] = { id, message: t.message };
+      if (!(sectionId in output)) {
+        output[sectionId] = {};
+      }
+      output[sectionId][id] = t.message;
     }
   }
   return output;
