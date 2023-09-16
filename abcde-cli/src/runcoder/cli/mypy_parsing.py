@@ -27,13 +27,13 @@ def parse_individual_error(info):
 
 
 def parse_call_arg_error(msg):
-    x_vars = re.findall(r'Missing positional argument[s]? "(.+?)" in', msg)
-    # y_var = re.findall(r'in call to (.+)$', input_string)
+    x_vars = re.search(r'Missing positional argument[s]? "(.+?)" in', msg)
+    # y_var = re.search(r'in call to "(.+?)"', msg)
 
     if x_vars:
-        x_vars = x_vars[0].split(", ")
+        x_vars = x_vars.group(1).split('", "')
 
     # if y_var:
-    # y_var = y_var[0]
+    # y_var = y_var.group(1)
 
     return x_vars

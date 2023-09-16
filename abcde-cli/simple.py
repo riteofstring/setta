@@ -1,4 +1,4 @@
 import torch.nn
 
 
-torch.nn.CrossMapLRN2d()
+torch.nn.Conv2d()
