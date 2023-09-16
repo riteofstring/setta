@@ -10,7 +10,6 @@ import parso
 import websockets
 
 from ..utils.constants import WEBSOCKET
-from .mypy_parsing import parse_all_errors
 
 
 def web(access_token, websocket_id):
@@ -136,9 +135,7 @@ async def typeCheckRequest(message):
 
     print("process.returncode", process.returncode)
     print("stdout", stdout)
-    stdout = stdout.decode("utf-8")
-    output = parse_all_errors(stdout)
-
+    output = stdout.decode("utf-8")
     return output, "typeCheck"
 
 
