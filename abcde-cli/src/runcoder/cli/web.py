@@ -1,7 +1,6 @@
 import asyncio
 import json
 import os
-import re
 import subprocess
 import tempfile
 from pprint import pprint
@@ -11,6 +10,7 @@ import parso
 import websockets
 
 from ..utils.constants import WEBSOCKET
+from .mypy_parsing import parse_all_errors
 
 
 def web(access_token, websocket_id):
@@ -137,20 +137,7 @@ async def typeCheckRequest(message):
     print("process.returncode", process.returncode)
     print("stdout", stdout)
     stdout = stdout.decode("utf-8")
-    # https://github.com/matangover/mypy-vscode/blob/master/src/mypy.ts
-    pattern = r"^(?P<location>(?P<file>[^\n]+?):(?P<line>\d+):(?P<column>\d+):(?P<endLine>\d+):(?P<endColumn>\d+)): (?P<type>\w+): (?P<message>.*?)(?:  \[(?P<code>[\w-]+)\])?$"
-    result = re.split(r"\r?\n", stdout)
-
-    output = []
-    for r in result:
-        print(r)
-        match = re.search(pattern, r)
-        if match:
-            # Extract all named groups as a dictionary
-            all_groups = match.groupdict()
-            output.append(all_groups)
-
-    print(output)
+    output = parse_all_errors(stdout)
 
     return output, "typeCheck"
 
