@@ -109,7 +109,7 @@ class Exporter {
     const varName = getSectionVarName(this.sectionVarNames, id);
     if (!(varName in this.output)) {
       this.output[varName] = {
-        id,
+        sectionId: id,
         name: this.p.sections[id].name,
         value: this.exportSectionValue(id),
         type: getSectionType(this.p, id),
@@ -121,17 +121,21 @@ class Exporter {
   exportSectionValue(id) {
     const type = getSectionType(this.p, id);
     if (type === SECTION) {
+      const { params, unusedParams } = this.exportParams(id);
       return {
         callable: getSelectedItem(this.p, id),
-        params: this.exportParams(id),
+        params,
+        unusedParams,
       };
     } else if (type === FN) {
       const chainedFromVarName = this.exportSection(
         this.p.sections[id].chainedFrom,
       );
+      const { params, unusedParams } = this.exportParams(id);
       return {
         callable: getChainedSelectedItem(this.p, chainedFromVarName, id),
-        params: this.exportParams(id),
+        params,
+        unusedParams,
       };
     } else if ([LIST_ROOT, DICT_ROOT, DECK].includes(type)) {
       return this.exportSections(this.p.sections[id].currChildren);
@@ -140,17 +144,24 @@ class Exporter {
 
   exportParams(sectionId) {
     const ids = getParamIds(this.p, sectionId);
-    return ids.map((x) => this.exportParam(sectionId, x)).filter((x) => x);
+    const varNames = ids.map((x) => this.exportParam(sectionId, x));
+    const params: string[] = [];
+    const unusedParams: string[] = [];
+    for (const v of varNames) {
+      if (noEnteredValue(this.output[v].value)) {
+        unusedParams.push(v);
+      } else {
+        params.push(v);
+      }
+    }
+    return { params, unusedParams };
   }
 
   exportParam(sectionId, id) {
     const value = this.exportParamValue(sectionId, id);
-    if (noEnteredValue(value)) {
-      return null;
-    }
     const varName = getParamVarName(this.paramVarNames);
     this.output[varName] = {
-      id,
+      paramInfoId: id,
       sectionId,
       name: this.p.codeInfo[id].name,
       value,
