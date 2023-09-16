@@ -26,8 +26,8 @@ function getChainedSelectedItem(p, chainedFromVarName, id) {
 }
 
 function getParamIds(p, id) {
-  const { evColId } = p.sections[id];
-  return Object.keys(p.evCols[evColId]);
+  const { selectedItem } = p.sections[id];
+  return p.codeInfo[selectedItem].children;
 }
 
 function getParamUITypeId(p, sectionId, id) {
