@@ -4,6 +4,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionInfo } from "./sections/getters";
 import { maybeIncrementProjectStateVersion } from "./undo";
+import { debouncedRequestTypeCheck } from "./websocket";
 
 export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
@@ -47,4 +48,5 @@ export function setParamEnteredValue({
     .getState()
     .setEnteredValue({ collectionId: evColId, paramInfoId, value });
   maybeIncrementProjectStateVersion(incrementVersion);
+  debouncedRequestTypeCheck();
 }
