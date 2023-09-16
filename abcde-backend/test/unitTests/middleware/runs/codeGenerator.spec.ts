@@ -1,4 +1,5 @@
 import { generateCode } from 'src/middleware/runs/codeGenerator';
+import { parseAllErrors } from 'src/middleware/runs/mypyParsing';
 import { typeCheck } from 'src/middleware/runs/typeChecker';
 
 const fs = require('fs');
@@ -20,5 +21,12 @@ describe('Generate code from output of exportSelected', () => {
 
     const output = typeCheck(typeCheckResults, code, codeJson);
     console.log(output);
+  });
+
+  test('mypyParsing', () => {
+    const x = parseAllErrors(
+      'simple.py:4:1:4:17: error: Missing positional arguments "in_channels", "out_channels", "kernel_size" in call to "Conv2d"  [call-arg]',
+    );
+    console.log(x);
   });
 });

@@ -1,3 +1,10 @@
+import { parseAllErrors } from './mypyParsing';
+
+export function parseAndTypeCheck(message, code, codeJson) {
+  const typeCheckResults = parseAllErrors(message);
+  return typeCheck(typeCheckResults, code, codeJson);
+}
+
 export function typeCheck(typeCheckResults, code, codeJson) {
   const codeSplit = code.split('\n');
 
@@ -9,6 +16,7 @@ export function typeCheck(typeCheckResults, code, codeJson) {
       parseCallArgError(t, codeSplit, codeJson, output);
     }
   }
+  console.log('output', output);
   return output;
 }
 
@@ -21,6 +29,7 @@ function parseArgTypeError(error, codeSplit, codeJson, output) {
 }
 
 function parseCallArgError(error, codeSplit, codeJson, output) {
+  console.log('error.missing', error.missing);
   const problemVar = codeSplit[parseInt(error.line) - 1].split('=')[0];
   const unusedParams = codeJson[problemVar].value.unusedParams;
   for (const p of unusedParams) {

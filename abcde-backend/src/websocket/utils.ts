@@ -1,6 +1,6 @@
 import { generateCode, getImportText } from 'src/middleware/runs/codeGenerator';
 import { exportSelected } from 'src/middleware/runs/exportSelected';
-import { typeCheck } from 'src/middleware/runs/typeChecker';
+import { parseAndTypeCheck } from 'src/middleware/runs/typeChecker';
 import { allCodeJson, allSockets } from './allSockets';
 
 export function sendToUser(user, message) {
@@ -40,7 +40,7 @@ export function wsReceiveMessage(req, ws, websocketId) {
     if (x.messageType === 'typeCheck') {
       const { code, codeJson } = allCodeJson[x.id];
       delete allCodeJson[x.id];
-      x.message = typeCheck(x.message, code, codeJson);
+      x.message = parseAndTypeCheck(x.message, code, codeJson);
     }
     sendToUser(req.user, { ...x, location: ws.location, websocketId });
   };
