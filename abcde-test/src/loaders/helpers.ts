@@ -12,5 +12,5 @@ export async function loadSpecificTestData({ name, projectName = "" }) {
 }
 
 export async function loadGlobalCodeInfo() {
-  return await loadSpecificTestData({ name: "codeInfo" });
+  return await loadSpecificTestData({ name: "CodeInfo" });
 }

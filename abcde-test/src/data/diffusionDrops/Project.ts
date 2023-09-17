@@ -17,7 +17,7 @@ export default {
       projectConfig: {
         id: "f8153d07-ae08-44a8-88a9-a107a7333218",
         name: "diffusionConfig1",
-        children: [],
+        children: {},
         viewport: {
           x: 0,
           y: 0,
@@ -38,7 +38,7 @@ export default {
       projectConfig: {
         id: "006f5de6-52de-4ded-bf0b-ac70b4bda655",
         name: "diffusionConfig2",
-        children: [],
+        children: {},
         viewport: {
           x: 0,
           y: 0,
