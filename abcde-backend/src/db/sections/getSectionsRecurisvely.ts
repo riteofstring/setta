@@ -9,7 +9,7 @@ export async function getSectionsRecursively(ids) {
               with recursive descendants as (
                   select "parentId", "childId"
                   from "SectionChildren"
-                  where "parentId" = ${c}::uuid
+                  where "parentId" = ${c}
                 union
                   select other."parentId", other."childId"
                   from "SectionChildren" other

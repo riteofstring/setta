@@ -20,7 +20,7 @@ export async function getCodeInfo(ids: string[]): Promise<ManyCodeInfoType> {
           with recursive descendants as (
               select "parentId", "childId"
               from "CodeInfoCol"
-              where "parentId" = ${c}::uuid
+              where "parentId" = ${c}
             union
               select x."parentId", x."childId"
               from "CodeInfoCol" x
