@@ -1,8 +1,7 @@
 import {
-  loadGlobalCodeInfo,
+  loadAllProjects,
   loadSpecificTestData,
-} from 'abcde-test/src/loaders/helpers';
-import { loadAllProjects } from 'abcde-test/src/loaders/loaders';
+} from 'abcde-test/src/loaders/loaders';
 import _ from 'lodash';
 import { saveCodeInfo } from 'src/db/codeInfo/save';
 import { saveAllUserCodeInfoMaps } from 'src/db/codeInfoMaps/user/save';
@@ -34,14 +33,14 @@ async function seedUsers() {
 }
 
 async function seedCodeInfo() {
-  const data = await loadGlobalCodeInfo();
+  const data = (await import('prisma/seedData/CodeInfo')).default;
   console.log('seedCodeInfo');
   await saveCodeInfo(data);
   console.log('done');
 }
 
 async function seedBaseUITypes() {
-  const data = await loadSpecificTestData({ name: 'BaseUITypes' });
+  const data = (await import('prisma/seedData/BaseUITypes')).default;
   console.log('seedBaseUITypes');
   await saveUITypes(null, data);
   console.log('done');
