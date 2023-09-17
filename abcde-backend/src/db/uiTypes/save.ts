@@ -64,10 +64,9 @@ function processConfig(uiType): Partial<Prisma.UITypeUpdateArgs['data']> {
 
 export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
   const ids = Object.keys(uiTypeCols);
-  await prisma.uITypeColId.createMany({
-    data: ids.map((x) => ({ id: x })),
-    skipDuplicates: true,
-  });
+  await prisma.$transaction(
+    ids.map((x) => prisma.uITypeColId.create({ data: { id: x } })),
+  );
 
   const inDbFormat: any[] = [];
   for (const idid of ids) {

@@ -41,7 +41,7 @@ export async function saveCodeInfo(
     ]);
   } else {
     await prisma.$transaction([
-      prisma.codeInfo.createMany({ data: create, skipDuplicates: true }),
+      ...create.map((v) => prisma.codeInfo.create({ data: v })),
       ...update.map((v) =>
         prisma.codeInfo.update({ where: { id: v.id as string }, data: v }),
       ),
