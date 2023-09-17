@@ -18,25 +18,45 @@ export function parseAllErrors(msg) {
 
 function parseIndividualError(info) {
   if (info.code === 'arg-type') {
+    info.code = 'argType';
     return info;
   }
   if (info.code === 'call-arg') {
-    info.missing = parseCallArgError(info.message);
+    const { xVars, errorType } = parseCallArgError(info.message);
+    info.code = errorType;
+    info.badVars = xVars;
     return info;
   }
+  return info;
 }
 
 function parseCallArgError(msg) {
-  let xVars = msg.match(/Missing positional argument[s]? "(.+?)" in/);
-  //   let yVar = msg.match(/in call to "(.+?)"/);
+  let errorType = '';
+  let xVars = [];
+  //   let yVar = null;
 
-  if (xVars) {
-    xVars = xVars[1].split('", "');
+  if (msg.includes('Missing positional argument')) {
+    errorType = 'missingArgs';
+    const xVarsMatch = msg.match(/Missing positional argument[s]? "(.+?)" in/);
+    const yVarMatch = msg.match(/in call to "(.+?)"/);
+
+    if (xVarsMatch) {
+      xVars = xVarsMatch[1].split('", "');
+    }
+    // if (yVarMatch) {
+    //   yVar = yVarMatch[1];
+    // }
+  } else if (msg.includes('Unexpected keyword argument')) {
+    errorType = 'unexpectedKeywordArg';
+    const xVarMatch = msg.match(/Unexpected keyword argument "(.+?)"/);
+    const yVarMatch = msg.match(/for "(.+?)"/);
+
+    if (xVarMatch) {
+      xVars = [xVarMatch[1]];
+    }
+    // if (yVarMatch) {
+    //   yVar = yVarMatch[1];
+    // }
   }
-
-  //   if (yVar) {
-  //     yVar = yVar[1];
-  //   }
-
-  return xVars;
+  return { xVars, errorType };
 }
