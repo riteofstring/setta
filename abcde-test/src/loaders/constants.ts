@@ -13,20 +13,3 @@ export const PROJECT_CONFIG_NAMES = {
   pytorchLightningMnist: ["mnistConfig1"],
   pytorchTraining: ["config1"],
 };
-
-export const PROJECT_STATES = [
-  "evCols",
-  "projectConfigCodeInfoMaps",
-  "sections",
-  "uiTypes",
-  "uiTypeCols",
-  "outputs",
-  "outputGroups",
-  "runs",
-];
-
-export const NON_PROJECT_STATES = [
-  "baseUITypes",
-  "userCodeInfoMaps",
-  "presetUITypes",
-];

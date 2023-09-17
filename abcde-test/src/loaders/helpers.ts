@@ -1,25 +1,9 @@
-import { NON_PROJECT_STATES, PROJECT_NAMES, PROJECT_STATES } from "./constants";
-
-export async function loadGlobalData() {
-  const output = {};
-  for (const k of NON_PROJECT_STATES) {
-    output[k] = await loadSpecificTestData({ name: k });
-  }
-  return output;
-}
-
-export async function loadSpecificTestData({
-  name,
-  projectName = "",
-  configName = "",
-}) {
+export async function loadSpecificTestData({ name, projectName = "" }) {
   const ext = ".ts";
 
   try {
     const output = (
-      await import(
-        /* @vite-ignore */ `../data/${projectName}/${configName}/${name}${ext}`
-      )
+      await import(/* @vite-ignore */ `../data/${projectName}/${name}${ext}`)
     ).default;
     return output;
   } catch (e) {
@@ -27,39 +11,6 @@ export async function loadSpecificTestData({
   }
 }
 
-export async function loadProjectSpecificData({ projectName, configName }) {
-  const output = {};
-  for (const k of PROJECT_STATES) {
-    output[k] = await loadSpecificTestData({
-      name: k,
-      projectName,
-      configName,
-    });
-  }
-  return output;
-}
-
-export async function loadProjectMetadata({ projectName, configName }) {
-  const loaded = {};
-
-  if (PROJECT_NAMES.includes(projectName)) {
-    loaded["project"] = await loadSpecificTestData({
-      name: "project",
-      projectName,
-    });
-    loaded["projectConfig"] = await loadSpecificTestData({
-      name: "projectConfig",
-      projectName,
-      configName,
-    });
-  }
-
-  return loaded;
-}
-
 export async function loadGlobalCodeInfo() {
-  return await loadSpecificTestData({
-    name: "codeInfo",
-    projectName: "_codeInfo",
-  });
+  return await loadSpecificTestData({ name: "codeInfo" });
 }

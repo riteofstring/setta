@@ -1,6 +1,6 @@
 export function seeding(loaded) {
   const {
-    allCodeInfo,
+    codeInfo,
     uiTypes,
     baseUITypes,
     presetUITypes,
@@ -10,7 +10,7 @@ export function seeding(loaded) {
 
   return {
     uiTypes: { ...uiTypes, ...presetUITypes },
-    codeInfo: allCodeInfo,
+    codeInfo,
     ...theRest,
   };
 }

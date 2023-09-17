@@ -2,11 +2,11 @@ import argparse
 
 
 def main(path, out_path):
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         text = f.read()
     text = text.replace("\n", "\\n")
-    text = text.replace("\"", "\\\"")
-    with open(out_path, 'w') as f:
+    text = text.replace('"', '\\"')
+    with open(out_path, "w") as f:
         f.write(text)
 
 
