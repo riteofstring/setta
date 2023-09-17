@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { PROJECT_CONFIG_NAMES, PROJECT_NAMES } from "./constants";
-import { loadSpecificTestData } from "./helpers";
 
 export async function loadTestData({ projectName, configName }) {
   // cloning avoids weird downstream mutation bugs that I don't fully understand...
@@ -32,4 +31,17 @@ export async function loadAllProjects() {
     }
   }
   return output;
+}
+
+export async function loadSpecificTestData({ name, projectName = "" }) {
+  const ext = ".ts";
+
+  try {
+    const output = (
+      await import(/* @vite-ignore */ `../data/${projectName}/${name}${ext}`)
+    ).default;
+    return output;
+  } catch (e) {
+    return {};
+  }
 }
