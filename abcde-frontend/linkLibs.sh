@@ -10,4 +10,3 @@ gitFetchAndCheckout() {
 (cd ../abcde-cli && gitFetchAndCheckout noCodeInfo && ./init_env.sh) || exit 1
 (cd ../abcde-frontend && yarn link abcde-utils && yarn link abcde-test) || exit 1
 (cd ../abcde-backend && yarn link abcde-utils && yarn link abcde-test) || exit 1
-cd ../abcde-test && yarn link abcde-utils

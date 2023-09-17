@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 import react from "@vitejs/plugin-react";
-import { defineConfig, searchForWorkspaceRoot } from "vite";
+import { defineConfig } from "vite";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 import type { UserConfig as VitestUserConfigInterface } from "vitest/config";
@@ -20,10 +20,6 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 3000,
     open: true,
-    fs: {
-      // Allow serving files from one level up to the project root
-      allow: [searchForWorkspaceRoot(process.cwd()), "../abcde-test"],
-    },
   },
   preview: {
     port: 3000,
