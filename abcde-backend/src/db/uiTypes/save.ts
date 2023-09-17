@@ -65,7 +65,13 @@ function processConfig(uiType): Partial<Prisma.UITypeUpdateArgs['data']> {
 export async function saveUITypeCols(uiTypeCols: ManyUITypeColType) {
   const ids = Object.keys(uiTypeCols);
   await prisma.$transaction(
-    ids.map((x) => prisma.uITypeColId.create({ data: { id: x } })),
+    ids.map((x) =>
+      prisma.uITypeColId.upsert({
+        where: { id: x },
+        update: {},
+        create: { id: x },
+      }),
+    ),
   );
 
   const inDbFormat: any[] = [];

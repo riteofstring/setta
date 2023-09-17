@@ -13,8 +13,10 @@ export async function saveEVCols(evCols: ManyEVColType) {
 
   await prisma.$transaction([
     ...ids.map((x) =>
-      prisma.eVColId.create({
-        data: { id: x },
+      prisma.eVColId.upsert({
+        where: { id: x },
+        update: {},
+        create: { id: x },
       }),
     ),
     prisma.eVCol.deleteMany({
