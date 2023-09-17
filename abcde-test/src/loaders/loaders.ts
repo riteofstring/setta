@@ -1,24 +1,10 @@
 import _ from "lodash";
 import { PROJECT_CONFIG_NAMES, PROJECT_NAMES } from "./constants";
-import { loadProjectToFrontend } from "./formats/loadProjectToFrontend";
-import { saveProjectToBackend } from "./formats/saveProjectToBackend";
-import { seeding } from "./formats/seeding";
 import { loadSpecificTestData } from "./helpers";
 
-export async function loadTestData({ projectName, configName, format }) {
+export async function loadTestData({ projectName, configName }) {
   // cloning avoids weird downstream mutation bugs that I don't fully understand...
-  const loaded = _.cloneDeep(await _loadTestData({ projectName, configName }));
-
-  switch (format) {
-    case "loadProjectToFrontend":
-      return loadProjectToFrontend(loaded);
-    case "saveProjectToBackend":
-      return saveProjectToBackend(loaded);
-    case "seeding":
-      return seeding(loaded);
-    default:
-      return {};
-  }
+  return _.cloneDeep(await _loadTestData({ projectName, configName }));
 }
 
 async function _loadTestData({ projectName, configName }) {
@@ -33,7 +19,7 @@ async function _loadTestData({ projectName, configName }) {
   return finalOutput;
 }
 
-export async function loadAllProjects(format) {
+export async function loadAllProjects() {
   const output: any[] = [];
   for (const p of PROJECT_NAMES) {
     for (const configName of PROJECT_CONFIG_NAMES[p]) {
@@ -41,7 +27,6 @@ export async function loadAllProjects(format) {
         await loadTestData({
           projectName: p,
           configName,
-          format,
         })
       );
     }
