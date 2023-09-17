@@ -25,13 +25,16 @@ export function SectionContainerCoreResizable({
   hasDescription,
   isActiveSection,
   toggleDescVis,
+  isWrongType,
 }) {
   const width = useSectionInfos((x) => x.x[sectionId].size.width);
   const [localWidth, setLocalWidth] = useState(width);
 
   // ${hasDescription && ""}
 
-  const outlineColor = isActiveSection
+  const outlineColor = isWrongType
+    ? "outline-red-600 dark:outline-red-400"
+    : isActiveSection
     ? `${
         isGlobalVariables
           ? "outline-green-600 dark:outline-turquoise-800"
