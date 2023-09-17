@@ -19,7 +19,12 @@ export function setSectionUITypeId({
   });
 
   if (paramInfoId) {
-    setParamUITypeId({ sectionId: parentId, paramInfoId, uiTypeId });
+    setParamUITypeId({
+      sectionId: parentId,
+      paramInfoId,
+      uiTypeId,
+      doInitializeChild: false,
+    });
   }
 
   updateParamsAndCallables(sectionId);
