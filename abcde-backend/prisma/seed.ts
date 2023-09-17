@@ -48,7 +48,7 @@ async function seedBaseUITypes() {
 }
 
 async function seedProjects() {
-  const allProjects = await loadAllProjects('seeding');
+  const allProjects = await loadAllProjects();
   console.log('seedProjects');
   for (const p of allProjects) {
     // set outputGroupId to null because outputs have not yet been created
