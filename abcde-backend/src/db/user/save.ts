@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { createNewId } from 'abcde-utils/src/utils';
 import { prisma } from 'src/db/prisma';
 import { getSaltAndHash } from 'src/utils/authUtils';
 import { ExistingUserType, NewUserType, SeedUserType } from './types';
@@ -8,7 +9,7 @@ export async function createUser(data: NewUserType) {
   const { salt, password } = getSaltAndHash(data.password);
   data.name = processUsername(data.name);
   return await prisma.user.create({
-    data: { ...data, salt, password },
+    data: { id: createNewId(), ...data, salt, password },
     select: { id: true, name: true },
   });
 }
