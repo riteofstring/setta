@@ -7,7 +7,7 @@ import { ParamNameInput } from "../ParamContainer/ParamItems/ParamNameInput";
 export function KwargParam(props) {
   const { sectionId, objInfoId, paramInfo: kwargInfo } = props;
   const onBlur = (v) => {
-    changeKwargName({ id: kwargInfo.id, name: v });
+    changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
   };
 
   const onClick = () => {

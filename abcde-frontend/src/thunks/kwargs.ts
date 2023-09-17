@@ -7,7 +7,7 @@ import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
 import { getSectionInfo } from "./sections/getters";
-import { updateParamsAndCallables } from "./sections/sectionContents";
+import { updateParams } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
@@ -30,7 +30,7 @@ export function addKwarg({
   });
   useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent: objInfoId });
   initializeParam(sectionId, [kwargInfo]);
-  updateParamsAndCallables(sectionId); // TODO: make this not so inefficient
+  updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
@@ -69,7 +69,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   if (childId) {
     deleteChild({ parentId: sectionId, startId: childId });
   }
-  updateParamsAndCallables(sectionId); // TODO: make this not so inefficient
+  updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -98,7 +98,8 @@ export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
   // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
 }
 
-export function changeKwargName({ id, name }) {
-  useCodeInfo.getState().setName({ id, name });
+export function changeKwargName({ sectionId, paramInfoId, name }) {
+  useCodeInfo.getState().setName({ id: paramInfoId, name });
+  updateParams(sectionId);
   maybeIncrementProjectStateVersion(true);
 }

@@ -50,15 +50,17 @@ export function updateManyParamsAndCallables(sectionIds: string[]) {
 }
 
 export function updateParamsAndCallables(sectionId: string) {
-  const { selectedItem } = getSectionInfo(sectionId);
-  const callables = computeAllCallables(sectionId);
-  const params = computeAllParams(sectionId, selectedItem);
-  useSectionToParams
-    .getState()
-    .setCallablesAndParams({ sectionId, callables, params });
+  updateCallables(sectionId);
+  updateParams(sectionId);
 }
 
 export function updateCallables(sectionId: string) {
   const callables = computeAllCallables(sectionId);
   useSectionToParams.getState().setCallables({ sectionId, callables });
+}
+
+export function updateParams(sectionId: string) {
+  const { selectedItem } = getSectionInfo(sectionId);
+  const params = computeAllParams(sectionId, selectedItem);
+  useSectionToParams.getState().setParams({ sectionId, params });
 }

@@ -8,7 +8,7 @@ import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { requestParameters } from "thunks/websocket";
 import { updateCurrChildren } from "./children";
 import { getSectionTypeConfig } from "./getters";
-import { updateCallables, updateParamsAndCallables } from "./sectionContents";
+import { updateCallables, updateParams } from "./sectionContents";
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
   let id = selectedItem;
@@ -54,7 +54,7 @@ function createChildrenCodeInfo(parent, params) {
 
 function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
   initializeChildParams([sectionId], [selectedItem]);
-  updateParamsAndCallables(sectionId);
+  updateParams(sectionId);
   updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(incrementVersion);
 }

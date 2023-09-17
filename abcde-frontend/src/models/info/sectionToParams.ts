@@ -15,9 +15,8 @@ export const useSectionToParams = createProjectState(
         set((state) => {
           state.callables[sectionId] = callables;
         }),
-      setCallablesAndParams: ({ sectionId, callables, params }) =>
+      setParams: ({ sectionId, params }) =>
         set((state) => {
-          state.callables[sectionId] = callables;
           state.params[sectionId] = params;
         }),
     }))
