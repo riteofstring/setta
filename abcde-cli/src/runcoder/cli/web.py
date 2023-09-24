@@ -10,6 +10,7 @@ import parso
 import websockets
 
 from ..utils.constants import WEBSOCKET
+from .generateCode import generate_code, get_import_text
 
 
 def web(access_token, websocket_id):
@@ -75,7 +76,7 @@ async def consumer(message):
 
 
 def codeCompletion(message):
-    code = message["toComplete"]
+    code = f'{get_import_text(message["message"])}; ${message["message"]}'
     if code == "":
         return []
     results = jedi.Script(code).complete(line=1, column=len(code))
@@ -89,7 +90,7 @@ def codeCompletion(message):
 
 
 def parametersRequest(message):
-    code = message["message"]
+    code = f'${get_import_text(message["message"])}; ${message["message"]}('
     print("code", code)
     results = jedi.Script(code).get_signatures(line=1, column=len(code))[0].params
     output = []
@@ -117,12 +118,13 @@ def parametersRequest(message):
 
 
 async def typeCheckRequest(message):
+    code = generate_code(message["message"])
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:
         # set delete=False because otherwise the mypy call gets Permission Denied
         with tempfile.NamedTemporaryFile(
             dir=temp_dir, mode="w+", suffix=".py", delete=False
         ) as temp_file:
-            temp_file.write(message["message"])
+            temp_file.write(code)
             temp_file_path = temp_file.name
 
         process = await asyncio.create_subprocess_shell(
@@ -135,7 +137,7 @@ async def typeCheckRequest(message):
 
     print("process.returncode", process.returncode)
     print("stdout", stdout)
-    output = stdout.decode("utf-8")
+    output = {"message": stdout.decode("utf-8"), "code": code}
     return output, "typeCheck"
 
 

@@ -1,4 +1,6 @@
 import torch.nn
 
 
-torch.nn.Conv2d()
+p0="dogs"
+p6=5
+s0=torch.nn.CrossEntropyLoss(weight=p0, some_random_arg=p6, anotho=5)
