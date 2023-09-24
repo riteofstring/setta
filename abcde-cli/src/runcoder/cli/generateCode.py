@@ -1,3 +1,7 @@
+import ast
+import builtins
+from collections import defaultdict
+
 from ..utils.constants import (
     DICT_ROOT,
     FN,
@@ -10,20 +14,60 @@ from ..utils.constants import (
 )
 
 
-def get_import_text(x):
-    split_name = x.split(".")
-    if len(split_name) > 1:
-        split_name.pop()
-    module_name = ".".join(split_name)
-    return f"import {module_name}"
+def get_location_str(node):
+    return f"{node.lineno}_{node.col_offset}"
 
 
-def get_import(x):
-    if x["type"] == SECTION:
-        if not x["value"]["callable"]:
-            return None
-        return get_import_text(x["value"]["callable"])
-    return None
+def infer_imports(code_str):
+    tree = ast.parse(code_str)
+    assigned_vars = set()
+    imports = defaultdict(list)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    assigned_vars.add(target.id)
+
+        elif (
+            isinstance(node, ast.Name)
+            and node.id not in assigned_vars
+            and node.id not in dir(builtins)
+        ):
+            imports[get_location_str(node)].append(node.id)
+
+        elif isinstance(node, ast.Attribute):
+            names = []
+            current_node = node
+            while isinstance(current_node, ast.Attribute):
+                names.append(current_node.attr)
+                current_node = current_node.value
+
+            if (
+                isinstance(current_node, ast.Name)
+                and current_node.id not in assigned_vars
+                and current_node.id not in dir(builtins)
+            ):
+                names.append(current_node.id)
+                names.reverse()
+                imports[get_location_str(node)].append(".".join(names))
+
+    final_imports = set()
+    for candidates in imports.values():
+        if len(candidates) == 1:
+            final_imports.add(candidates[0])
+        else:
+            final_imports.add(candidates[1])
+
+    return final_imports
+
+
+def import_str(x):
+    return f"import {x}"
+
+
+def get_import_text(code):
+    return "\n".join([import_str(x) for x in infer_imports(code)])
 
 
 def get_mappings(var_names, selected, operator):
@@ -73,13 +117,11 @@ def create_line(var_name, x, selected):
 
 def generate_code(selected):
     lines = []
-    imports = set()
     for var_name, x in selected.items():
         var_str = create_line(var_name, x, selected)
         if var_str:
             lines.append(var_str)
-        import_str = get_import(x)
-        if import_str:
-            imports.add(import_str)
-    final_array = list(imports) + ["\n"] + lines
-    return "\n".join(final_array)
+
+    code = "\n".join(lines)
+    imports = get_import_text(code)
+    return imports + "\n\n" + code
