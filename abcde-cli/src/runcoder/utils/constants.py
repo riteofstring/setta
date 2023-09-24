@@ -9,11 +9,17 @@ CODE_FOLDER = "runcoder_code"
 PARAMETER = "parameter"
 COLLECTION = "collection"
 CALLABLE = "callable"
-DICT_ROOT = "DICT_ROOT"
-FN = "FN"
-LIST_ROOT = "LIST_ROOT"
-REF = "REF"
-SECTION = "SECTION"
+
+TEXT = "TEXT"
 SLIDER = "SLIDER"
 SWITCH = "SWITCH"
-TEXT = "TEXT"
+REF = "REF"
+SECTION = "SECTION"
+LIST_ROOT = "LIST_ROOT"
+DICT_ROOT = "DICT_ROOT"
+DECK = "DECK"
+FN = "FN"
+
+
+def is_section_ui_type(x):
+    return x not in [TEXT, SLIDER, SWITCH, REF]

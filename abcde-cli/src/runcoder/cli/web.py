@@ -10,7 +10,9 @@ import parso
 import websockets
 
 from ..utils.constants import WEBSOCKET
-from .generateCode import generate_code, get_import_text
+from .export_selected import export_selected
+from .generate_code import generate_code, get_import_text
+from .type_checker import parse_and_type_check
 
 
 def web(access_token, websocket_id):
@@ -118,7 +120,8 @@ def parametersRequest(message):
 
 
 async def typeCheckRequest(message):
-    code = generate_code(message["message"])
+    code_json = export_selected(message["message"])
+    code = generate_code(code_json)
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:
         # set delete=False because otherwise the mypy call gets Permission Denied
         with tempfile.NamedTemporaryFile(
@@ -137,7 +140,8 @@ async def typeCheckRequest(message):
 
     print("process.returncode", process.returncode)
     print("stdout", stdout)
-    output = {"message": stdout.decode("utf-8"), "code": code}
+    errors = stdout.decode("utf-8")
+    output = parse_and_type_check(errors, code, code_json)
     return output, "typeCheck"
 
 

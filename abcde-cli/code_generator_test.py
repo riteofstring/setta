@@ -1,5 +1,5 @@
 import json
-from src.runcoder.cli.generateCode import generate_code
+from runcoder.cli.generate_code import generate_code
 
 with open("simple.json", 'r') as f:
     x = json.load(f)
