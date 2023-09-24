@@ -1,1 +1,0 @@
-flake8 src --count --show-source --statistics

@@ -1,3 +1,0 @@
-- torchmetrics.classification.MulticlassAccuracy
-- torchmetrics.classification.MulticlassCalibrationError
-- torchmetrics.classification.MulticlassF1Score
