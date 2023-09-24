@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String
+  expiresAt DateTime
+}
+
+model CodeInfo {
+  id                   String        @id
+  name                 String
+  editable             Boolean
+  rcType               String
+  defaultVal           String?
+  sectionsParamInfo    Section[]     @relation("SectionsParamInfo") // Section.paramInfo
+  evOwner              EVCol[] // EVCol.codeInfo
+  sectionsSelectedItem Section[]     @relation("SectionsSelectedItem") //Section.selectedItem
+  uiTypeCols           UITypeCol[] //UITypeCol.codeInfo
+  sectionUITypes       UIType[] //UIType.sectionConfigCollections
+  asParent             CodeInfoCol[] @relation("CodeInfoColParent") // CodeInfoCol.parent
+  asChild              CodeInfoCol[] @relation("CodeInfoColChildren") // CodeInfoCol.child
+}
+
+model CodeInfoCol {
+  parent   CodeInfo @relation("CodeInfoColParent", fields: [parentId], references: [id])
+  parentId String
+  child    CodeInfo @relation("CodeInfoColChildren", fields: [childId], references: [id])
+  childId  String
+  order    Int
+
+  @@id([parentId, childId]) // composite key
+}
+
+model User {
+  id               String                @id
+  name             String                @unique
+  password         Bytes
+  salt             Bytes
+  darkMode         Boolean               @default(false)
+  projects         Project[] //Project.owner
+  runs             Run[] //Run.owner
+  uiTypes          UIType[] //UIType.owner
+  codeInfoTypeMaps UserCodeInfoTypeMap[] //UserCodeInfoTypeMap.owner
+}
+
+model Section {
+  id                 String                  @id
+  name               String
+  paramInfo          CodeInfo?               @relation("SectionsParamInfo", fields: [paramInfoId], references: [id])
+  paramInfoId        String?
+  width              Int
+  height             Int
+  chainedFrom        Section?                @relation("SectionChainedFrom", fields: [chainedFromId], references: [id])
+  chainedTo          Section[]               @relation("SectionChainedFrom")
+  chainedFromId      String?
+  evCol              EVColId?                @relation(fields: [evColId], references: [id])
+  evColId            String?
+  selectedItem       CodeInfo?               @relation("SectionsSelectedItem", fields: [selectedItemId], references: [id])
+  selectedItemId     String?
+  uiType             UIType?                 @relation(fields: [uiTypeId], references: [id])
+  uiTypeId           String?
+  uiTypeCol          UITypeColId?            @relation(fields: [uiTypeColId], references: [id])
+  uiTypeColId        String?
+  social             String?
+  outputGroup        OutputGroup?            @relation(references: [id], fields: [outputGroupId])
+  outputGroupId      String?
+  description        String?
+  descriptionHeight  Float
+  descriptionVisible Boolean
+  nonPresetUITypes   UIType[]                @relation("sectionNonPresetUITypes")
+  children           SectionChildren[]       @relation("SectionParent") // SectionChildren.parent
+  asChild            SectionChildren?        @relation("SectionChildren") // SectionChildren.child
+  asChildId          String?
+  projectConfigs     ProjectConfigChildren[] @relation("ProjectConfigChildren") // ProjectConfigChildren.child
+}
+
+model SectionChildren {
+  child    Section @relation("SectionChildren", references: [id], fields: [childId])
+  childId  String
+  parent   Section @relation("SectionParent", fields: [parentId], references: [id])
+  parentId String
+  order    Int
+
+  @@id([childId])
+}
+
+model EVColId {
+  id       String    @id
+  children EVCol[]
+  sections Section[] //Section.evColId
+}
+
+model EVCol {
+  id         EVColId  @relation(fields: [idid], references: [id])
+  idid       String
+  codeInfo   CodeInfo @relation(fields: [codeInfoId], references: [id])
+  codeInfoId String
+  value      String?
+
+  @@id([idid, codeInfoId]) // composite key
+}
+
+model UIType {
+  id                            String                         @id
+  name                          String
+  owner                         User?                          @relation(fields: [ownerId], references: [id])
+  ownerId                       String?
+  type                          String
+  presetType                    String?
+  sectionConfigCollections      CodeInfo[]
+  sectionConfigSubType          String?
+  sectionConfigChildUIType      UIType?                        @relation("ChildUIType", fields: [sectionConfigChildUITypeId], references: [id])
+  sectionConfigChildUITypeId    String?                        @unique
+  sectionConfigParentUIType     UIType?                        @relation("ChildUIType")
+  sliderConfigMin               Float?
+  sliderConfigMax               Float?
+  sliderConfigStep              Float?
+  sections                      Section[] //Section.uiTypeId
+  uiTypeCols                    UITypeCol[] //UITypeCol.uiType
+  userCodeInfoTypeMaps          UserCodeInfoTypeMap[] //UserCodeInfoTypeMap.uiTypeId
+  projectConfigCodeInfoTypeMaps ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMaps.uiTypeId
+  asNonPresetForSection         Section?                       @relation("sectionNonPresetUITypes", references: [id], fields: [asNonPresetForSectionId]) //Section.nonPresetUITypes
+  asNonPresetForSectionId       String?
+  asNonPresetForUITypeCol       UITypeCol?                     @relation("uiTypeColNonPresetUITypes", references: [idid, codeInfoId], fields: [asNonPresetForUITypeColId, asNonPresetForCodeInfoId]) //UITypeCol.nonPresetUITypes
+  asNonPresetForUITypeColId     String? //UITypeCol.idid 
+  asNonPresetForCodeInfoId      String? //UITypeCol.codeInfoId
+}
+
+model UITypeColId {
+  id       String      @id
+  children UITypeCol[]
+  sections Section[] //Section.uiTypeColId
+}
+
+model UITypeCol {
+  id               UITypeColId @relation(fields: [idid], references: [id])
+  idid             String
+  codeInfo         CodeInfo    @relation(fields: [codeInfoId], references: [id])
+  codeInfoId       String
+  uiType           UIType      @relation(fields: [uiTypeId], references: [id])
+  uiTypeId         String
+  nonPresetUITypes UIType[]    @relation("uiTypeColNonPresetUITypes")
+
+  @@id([idid, codeInfoId]) // composite key
+}
+
+model Project {
+  id              String          @id
+  name            String
+  owner           User            @relation(fields: [ownerId], references: [id])
+  ownerId         String
+  configs         ProjectConfig[] @relation("configs") //ProjectConfig.project
+  defaultConfig   ProjectConfig?  @relation(fields: [defaultConfigId], references: [id])
+  defaultConfigId String?         @unique
+
+  @@unique([name, ownerId])
+}
+
+model ProjectConfig {
+  id               String                         @id
+  name             String
+  project          Project                        @relation("configs", fields: [projectId], references: [id])
+  projectId        String
+  x                Float                          @default(0)
+  y                Float                          @default(0)
+  zoom             Float                          @default(1)
+  codeInfoTypeMaps ProjectConfigCodeInfoTypeMap[] //ProjectConfigCodeInfoTypeMap.projectConfig
+  runs             Run[]
+  sections         ProjectConfigChildren[]        @relation("ProjectConfigParent") // ProjectConfigChildren.parent
+  isDefaultFor     Project?
+
+  @@unique([name, projectId])
+}
+
+model ProjectConfigChildren {
+  parent   ProjectConfig @relation("ProjectConfigParent", fields: [parentId], references: [id])
+  parentId String
+  child    Section       @relation("ProjectConfigChildren", fields: [childId], references: [id])
+  childId  String
+  x        Float         @default(0)
+  y        Float         @default(0)
+  zIndex   Float         @default(0)
+
+  @@id([parentId, childId]) // composite key
+}
+
+model UserCodeInfoTypeMap {
+  owner    User   @relation(fields: [ownerId], references: [id])
+  ownerId  String
+  type     String
+  uiType   UIType @relation(fields: [uiTypeId], references: [id])
+  uiTypeId String
+
+  @@id([ownerId, type])
+}
+
+model ProjectConfigCodeInfoTypeMap {
+  projectConfig   ProjectConfig @relation(fields: [projectConfigId], references: [id])
+  projectConfigId String
+  type            String
+  uiType          UIType        @relation(fields: [uiTypeId], references: [id])
+  uiTypeId        String
+
+  @@id([projectConfigId, type])
+}
+
+model Run {
+  id              String        @id
+  name            String
+  owner           User          @relation(fields: [ownerId], references: [id])
+  ownerId         String
+  projectConfig   ProjectConfig @relation(fields: [projectConfigId], references: [id])
+  projectConfigId String
+  code            String
+  outputGroups    OutputGroup[]
+}
+
+model OutputGroup {
+  id       String    @id
+  name     String
+  children Output[]
+  run      Run       @relation(fields: [runId], references: [id])
+  runId    String
+  sections Section[] //Section.outputGroup
+
+  @@unique([name, runId])
+}
+
+model Output {
+  id            String      @id
+  name          String
+  values        Float //TODO, make this a list
+  outputGroup   OutputGroup @relation(fields: [outputGroupId], references: [id])
+  outputGroupId String
+
+  @@unique([name, outputGroupId])
+}

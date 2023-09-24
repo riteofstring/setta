@@ -1,0 +1,40 @@
+{
+  "p0": {
+    "paramInfoId": "b16a617a-b5be-487b-94f6-63c4ce597bea",
+    "sectionId": "b935b829-ebdf-40eb-bfd4-e330e3f2f9ec",
+    "name": "size",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p1": {
+    "paramInfoId": "d636f422-782c-49a1-a157-3b2caad3bd9c",
+    "sectionId": "b935b829-ebdf-40eb-bfd4-e330e3f2f9ec",
+    "name": "alpha",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p2": {
+    "paramInfoId": "1de00292-5df4-42ca-916e-5d7639d427cc",
+    "sectionId": "b935b829-ebdf-40eb-bfd4-e330e3f2f9ec",
+    "name": "beta",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p3": {
+    "paramInfoId": "c76b3ae1-2ff4-4155-81fd-deca05f54dd3",
+    "sectionId": "b935b829-ebdf-40eb-bfd4-e330e3f2f9ec",
+    "name": "k",
+    "value": "",
+    "type": "TEXT"
+  },
+  "s0": {
+    "sectionId": "b935b829-ebdf-40eb-bfd4-e330e3f2f9ec",
+    "name": "New Section",
+    "value": {
+      "callable": "torch.nn.CrossMapLRN2d",
+      "params": [],
+      "unusedParams": ["p0", "p1", "p2", "p3"]
+    },
+    "type": "SECTION"
+  }
+}

@@ -1,0 +1,2 @@
+#!/bin/sh
+node_modules/.bin/ts-node prisma/seed.ts

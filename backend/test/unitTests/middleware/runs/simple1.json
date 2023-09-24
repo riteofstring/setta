@@ -1,0 +1,19 @@
+{
+  "p0": {
+    "paramInfoId": "afec8c1a-86c6-43ee-9a4c-ca83c793438f",
+    "sectionId": "f972abde-e773-4065-b476-b002f8efa3f4",
+    "name": "weight",
+    "value": "[0.2, 0.3, \"0.5\"]",
+    "type": "TEXT"
+  },
+  "s0": {
+    "sectionId": "f972abde-e773-4065-b476-b002f8efa3f4",
+    "name": "New Section",
+    "value": {
+      "callable": "torch.nn.CrossEntropyLoss",
+      "params": ["p0"],
+      "unusedParams": []
+    },
+    "type": "SECTION"
+  }
+}

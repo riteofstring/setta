@@ -1,0 +1,61 @@
+{
+  "p0": {
+    "paramInfoId": "4b92f9d8-719e-4efc-bc0b-2a854f405c10",
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "weight",
+    "value": "\"dogs\"",
+    "type": "TEXT"
+  },
+  "p1": {
+    "paramInfoId": "f8f93c22-2f0f-43e0-92a0-523474a11484",
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "size_average",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p2": {
+    "paramInfoId": "6258580b-224f-4ffe-836f-98f3a302250a",
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "ignore_index",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p3": {
+    "paramInfoId": "f2069ea6-4a2e-4d13-bc66-ff20574c6d0e",
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "reduce",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p4": {
+    "paramInfoId": "aa70f002-1889-4599-bffe-7ee256fb9325",
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "reduction",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p5": {
+    "paramInfoId": "be124001-2b0f-4964-90ee-e64ae5ff35b1",
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "label_smoothing",
+    "value": "",
+    "type": "TEXT"
+  },
+  "p6": {
+    "paramInfoId": "c78eee63-1dd9-4cf8-8928-b32c08e1e59c",
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "some_random_arg",
+    "value": "5",
+    "type": "TEXT"
+  },
+  "s0": {
+    "sectionId": "98c05eaa-5f64-40ab-9435-4b35159b21ca",
+    "name": "New Section",
+    "value": {
+      "callable": "torch.nn.CrossEntropyLoss",
+      "params": ["p0", "p6"],
+      "unusedParams": ["p1", "p2", "p3", "p4", "p5"]
+    },
+    "type": "SECTION"
+  }
+}
