@@ -1,9 +1,10 @@
 from fastapi import FastAPI
-from sqlmodel import SQLModel
 from schema import engine
+from sqlmodel import SQLModel
 
 app = FastAPI()
 SQLModel.metadata.create_all(engine)
+
 
 @app.post("/auth/login")
 def route_login():

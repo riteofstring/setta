@@ -6,7 +6,11 @@ setuptools.setup(
     package_dir={"": "."},
     packages=setuptools.find_packages(where="."),
     install_requires=[],
-    entry_points={"console_scripts": ["runcoder = cli.src.runcoder.cli.main:cli",],},
+    entry_points={
+        "console_scripts": [
+            "runcoder = cli.src.runcoder.cli.main:cli",
+        ],
+    },
     extras_require={
         "cli": [
             "click==8.1.3",

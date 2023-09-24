@@ -26,7 +26,8 @@ async def connect(access_token, websocket_id=None):
     address = f"{WEBSOCKET}/{websocket_id}" if websocket_id else WEBSOCKET
     try:
         async with websockets.connect(
-            address, extra_headers={"cookie": f"connect.sid={access_token}"},
+            address,
+            extra_headers={"cookie": f"connect.sid={access_token}"},
         ) as websocket:
             await consumer_handler(websocket)
     except websockets.InvalidStatusCode as e:
