@@ -27,7 +27,7 @@ yarn-error.log*
 */prisma/migrations
 */prisma/dev.db 
 */prisma/dev_test.db
-
+dev.db
 
 __pycache__/
 *.py[cod]
