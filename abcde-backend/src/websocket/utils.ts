@@ -1,6 +1,4 @@
-import { exportSelected } from 'src/middleware/runs/exportSelected';
-import { parseAndTypeCheck } from 'src/middleware/runs/typeChecker';
-import { allCodeJson, allSockets } from './allSockets';
+import { allSockets } from './allSockets';
 
 export function sendToUser(user, message) {
   if (user in allSockets && message.toWebsocketId in allSockets[user]) {
@@ -23,20 +21,6 @@ export function wsReceiveMessage(req, ws, websocketId) {
     const x = JSON.parse(data);
     if ('location' in x) {
       ws.location = x.location;
-    }
-    if (x.messageType === 'typeCheckRequest') {
-      const codeJson = exportSelected(x.message);
-      allCodeJson[x.id] = codeJson;
-      x.message = codeJson;
-    }
-    if (x.messageType === 'typeCheck') {
-      const codeJson = allCodeJson[x.id];
-      delete allCodeJson[x.id];
-      x.message = parseAndTypeCheck(
-        x.message.message,
-        x.message.code,
-        codeJson,
-      );
     }
     sendToUser(req.user, { ...x, location: ws.location, websocketId });
   };

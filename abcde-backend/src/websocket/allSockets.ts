@@ -9,5 +9,3 @@ type CustomWebSocket = WebSocket & {
 };
 
 export const allSockets: Record<string, Record<string, CustomWebSocket>> = {};
-
-export const allCodeJson: Record<string, Record<string, any>> = {};
