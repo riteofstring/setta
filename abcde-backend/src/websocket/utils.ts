@@ -1,4 +1,3 @@
-import { generateCode, getImportText } from 'src/middleware/runs/codeGenerator';
 import { exportSelected } from 'src/middleware/runs/exportSelected';
 import { parseAndTypeCheck } from 'src/middleware/runs/typeChecker';
 import { allCodeJson, allSockets } from './allSockets';
@@ -25,22 +24,19 @@ export function wsReceiveMessage(req, ws, websocketId) {
     if ('location' in x) {
       ws.location = x.location;
     }
-    if (x.messageType === 'codeCompletionRequest') {
-      x.toComplete = `${getImportText(x.message)}; ${x.message}`;
-    }
-    if (x.messageType === 'parametersRequest') {
-      x.message = `${getImportText(x.message)}; ${x.message}(`;
-    }
     if (x.messageType === 'typeCheckRequest') {
       const codeJson = exportSelected(x.message);
-      const code = generateCode(codeJson);
-      allCodeJson[x.id] = { code, codeJson };
-      x.message = code;
+      allCodeJson[x.id] = codeJson;
+      x.message = codeJson;
     }
     if (x.messageType === 'typeCheck') {
-      const { code, codeJson } = allCodeJson[x.id];
+      const codeJson = allCodeJson[x.id];
       delete allCodeJson[x.id];
-      x.message = parseAndTypeCheck(x.message, code, codeJson);
+      x.message = parseAndTypeCheck(
+        x.message.message,
+        x.message.code,
+        codeJson,
+      );
     }
     sendToUser(req.user, { ...x, location: ws.location, websocketId });
   };
