@@ -1,0 +1,16 @@
+{
+  "name": "abcde-test",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "lodash": "4.17.21"
+  },
+  "scripts": {
+    "f": "yarn prettier src --write"
+  },
+  "devDependencies": {
+    "prettier": "2.4.1",
+    "prettier-plugin-organize-imports": "3.2.1",
+    "typescript": "4.9.4"
+  }
+}
