@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.nfs*
+build/
+dist/
+*.egg-info/
+site/
+venv/
+runcoder_code/
+abcde_env
+.DS_Store
+.mypy_cache/
+.dmypy.json
