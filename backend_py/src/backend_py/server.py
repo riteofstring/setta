@@ -1,3 +1,98 @@
 from fastapi import FastAPI
 
 app = FastAPI()
+
+
+@app.post("/auth/login")
+def route_login():
+    pass
+
+
+@app.post("/auth/register")
+def route_register():
+    pass
+
+
+@app.post("/auth/logout")
+def route_logout():
+    pass
+
+
+@app.post("/projects")
+def route_projects():
+    pass
+
+
+@app.post("/projects/load/{username}/{projectName}/{configName}")
+def route_load_project():
+    pass
+
+
+@app.post("/projects/save")
+def route_save_project():
+    pass
+
+
+@app.post("/projects/createProject")
+def route_create_project():
+    pass
+
+
+@app.post("/projects/saveAsNewProjectConfig")
+def route_save_as_new_project_config():
+    pass
+
+
+@app.post("/projects/saveAsExistingProjectConfig")
+def route_save_as_existing_project_config():
+    pass
+
+
+@app.post("/codeInfo/getCollectionsAndModules")
+def route_get_collections_and_modules():
+    pass
+
+
+@app.post("/codeInfo/saveCollections")
+def route_save_collections():
+    pass
+
+
+@app.post("/codeInfo/getCollectionDetails")
+def route_get_collection_details():
+    pass
+
+
+@app.post("/codeGenerator/generateCode")
+def route_generate_code():
+    pass
+
+
+@app.post("/codeGenerator/getCode")
+def route_get_code():
+    pass
+
+
+@app.post("/projects/setProjectName")
+def route_set_project_name():
+    pass
+
+
+@app.post("/projects/setProjectConfigName")
+def route_set_project_config_name():
+    pass
+
+
+@app.post("/auth/setDarkMode")
+def route_set_dark_mode():
+    pass
+
+
+@app.post("/logging")
+def route_logging():
+    pass
+
+
+@app.post("/sections")
+def route_sections():
+    pass
