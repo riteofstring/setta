@@ -1,7 +1,8 @@
 import json
+
 from runcoder.cli.generate_code import generate_code
 
-with open("simple.json", 'r') as f:
+with open("simple.json", "r") as f:
     x = json.load(f)
 
 print(generate_code(x))
@@ -17,28 +18,28 @@ print(generate_code(x))
 #     tree = ast.parse(code_str)
 #     assigned_vars = set()
 #     imports = defaultdict(list)
-    
+
 #     for node in ast.walk(tree):
 #         if isinstance(node, ast.Assign):
 #             for target in node.targets:
 #                 if isinstance(target, ast.Name):
 #                     assigned_vars.add(target.id)
-        
+
 #         elif isinstance(node, ast.Name) and node.id not in assigned_vars and node.id not in dir(builtins):
-#             imports[get_location_str(node)].append(node.id) 
-        
+#             imports[get_location_str(node)].append(node.id)
+
 #         elif isinstance(node, ast.Attribute):
 #             names = []
 #             current_node = node
 #             while isinstance(current_node, ast.Attribute):
 #                 names.append(current_node.attr)
 #                 current_node = current_node.value
-            
+
 #             if isinstance(current_node, ast.Name) and current_node.id not in assigned_vars and current_node.id not in dir(builtins):
 #                 names.append(current_node.id)
 #                 names.reverse()
 #                 imports[get_location_str(node)].append('.'.join(names))
-    
+
 #     final_imports = set()
 #     for candidates in imports.values():
 #         if len(candidates) == 1:
