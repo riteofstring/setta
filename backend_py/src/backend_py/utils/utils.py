@@ -1,3 +1,4 @@
+from pathlib import Path
 from uuid import uuid4
 
 
@@ -7,3 +8,7 @@ def create_new_id():
 
 def maybe_new_id(x):
     return x if x else create_new_id()
+
+
+def get_absolute_path(src_path, file_path):
+    return (Path(src_path).parent / file_path).resolve()
