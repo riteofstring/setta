@@ -1,9 +1,7 @@
+import schema
 from fastapi import FastAPI
-from schema import engine
-from sqlmodel import SQLModel
 
 app = FastAPI()
-SQLModel.metadata.create_all(engine)
 
 
 @app.post("/auth/login")
