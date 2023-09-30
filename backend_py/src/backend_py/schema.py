@@ -32,6 +32,9 @@ class DB:
     def execute(self, *args, **kwargs):
         db.cursor.execute(*args, **kwargs)
 
+    def executemany(self, *args, **kwargs):
+        db.cursor.executemany(*args, **kwargs)
+
 
 db = DB()
 
@@ -275,7 +278,6 @@ def create_tables():
         db.execute(com)
 
     db.commit()
-    db.disconnect()
 
 
 if __name__ == "__main__":
