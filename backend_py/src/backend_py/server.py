@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -17,27 +18,17 @@ app.add_middleware(
 )
 
 
-@app.post("/auth/login")
-def route_login():
-    pass
-
-
-@app.post("/auth/register")
-def route_register():
-    pass
-
-
-@app.post("/auth/logout")
-def route_logout():
-    pass
+class ProjectRequest(BaseModel):
+    format: str
 
 
 @app.post("/projects")
-def route_projects():
-    pass
+def route_projects(x: ProjectRequest):
+    print(x)
+    return []
 
 
-@app.post("/projects/load/{username}/{projectName}/{configName}")
+@app.post("/projects/load/{projectName}/{configName}")
 def route_load_project():
     pass
 

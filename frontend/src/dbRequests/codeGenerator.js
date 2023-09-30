@@ -5,6 +5,5 @@ export async function generateCode({ codeId, project }) {
   return post({
     address: GENERATE_CODE,
     body: { codeId, project },
-    withCredentials: true,
   });
 }

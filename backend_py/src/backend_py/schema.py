@@ -42,15 +42,6 @@ db = DB()
 def create_tables():
     db.connect()
     commands = [
-        # Session model
-        """
-        CREATE TABLE IF NOT EXISTS Session (
-            id TEXT PRIMARY KEY,
-            sid TEXT UNIQUE,
-            data TEXT,
-            expiresAt DATETIME
-        );
-        """,
         # CodeInfo model
         """
         CREATE TABLE IF NOT EXISTS CodeInfo (

@@ -5,6 +5,5 @@ export async function dbSetDarkMode(darkMode) {
   return await post({
     address: SET_DARK_MODE,
     body: { darkMode },
-    withCredentials: true,
   });
 }

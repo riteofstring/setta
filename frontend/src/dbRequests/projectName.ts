@@ -10,7 +10,6 @@ export async function dbSetProjectName(newProjectName) {
   return await post({
     body: { currProjectName: useProject.getState().name, newProjectName },
     address: SET_PROJECT_NAME,
-    withCredentials: true,
   });
 }
 
@@ -22,6 +21,5 @@ export async function dbSetProjectConfigName(newProjectConfigName) {
       newProjectConfigName,
     },
     address: SET_PROJECT_CONFIG_NAME,
-    withCredentials: true,
   });
 }
