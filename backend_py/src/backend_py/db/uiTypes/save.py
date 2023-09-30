@@ -2,29 +2,28 @@ from ...schema import db
 
 
 def save_ui_types(uiTypes):
-    uiTypes = list(uiTypes.values())
+    with db:
+        uiTypes = list(uiTypes.values())
 
-    query = """
-        INSERT INTO UIType (id, type, name, presetType)
-        VALUES (:id, :type, :name, :presetType)
-    """
+        query = """
+            INSERT INTO UIType (id, type, name, presetType)
+            VALUES (:id, :type, :name, :presetType)
+        """
 
-    query_parameters = uiTypes
-    db.executemany(query, query_parameters)
+        query_parameters = uiTypes
+        db.executemany(query, query_parameters)
 
-    query = """
-        UPDATE UIType
-        SET sliderConfigMin = :sliderConfigMin,
-            sliderConfigMax = :sliderConfigMax,
-            sliderConfigStep = :sliderConfigStep
-        WHERE id = :id
-    """
-    query_parameters = [
-        {"id": x["id"], **process_config(x)} for x in uiTypes if x["type"] == "SLIDER"
-    ]
-    db.executemany(query, query_parameters)
-
-    db.commit()
+        query = """
+            UPDATE UIType
+            SET sliderConfigMin = :sliderConfigMin,
+                sliderConfigMax = :sliderConfigMax,
+                sliderConfigStep = :sliderConfigStep
+            WHERE id = :id
+        """
+        query_parameters = [
+            {"id": x["id"], **process_config(x)} for x in uiTypes if x["type"] == "SLIDER"
+        ]
+        db.executemany(query, query_parameters)
 
 
 def process_config(ui_type):

@@ -11,13 +11,14 @@ class DB:
 
     def connect(self):
         if not self.conn:
-            self.conn = sqlite3.connect(self.db_path)
+            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         if not self.cursor:
             self.cursor = self.conn.cursor()
 
     def disconnect(self):
         if self.conn:
             self.conn.close()
+            self.cursor.close()
             self.conn = None
             self.cursor = None
 
@@ -27,20 +28,29 @@ class DB:
             os.remove(self.db_path)
 
     def commit(self):
-        db.conn.commit()
+        self.conn.commit()
 
     def execute(self, *args, **kwargs):
-        db.cursor.execute(*args, **kwargs)
+        self.cursor.execute(*args, **kwargs)
 
     def executemany(self, *args, **kwargs):
-        db.cursor.executemany(*args, **kwargs)
+        self.cursor.executemany(*args, **kwargs)
+
+    def fetchall(self, *args, **kwargs):
+        return self.cursor.fetchall(*args, **kwargs)
+
+    def __enter__(self, *args, **kwargs):
+        self.connect()
+        return self.conn.__enter__(*args, **kwargs)
+
+    def __exit__(self, *args, **kwargs):
+        return self.conn.__exit__(*args, **kwargs)
 
 
 db = DB()
 
 
 def create_tables():
-    db.connect()
     commands = [
         # CodeInfo model
         """
@@ -246,10 +256,9 @@ def create_tables():
         """,
     ]
 
-    for com in commands:
-        db.execute(com)
-
-    db.commit()
+    with db:
+        for com in commands:
+            db.execute(com)
 
 
 if __name__ == "__main__":

@@ -2,43 +2,42 @@ from ...schema import db
 
 
 def save_code_info(codeInfo):
-    query = """
-        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal)
-        VALUES (:id, :name, :editable, :rcType, :defaultVal)
-        ON CONFLICT (id)
-        DO UPDATE SET
-        name = excluded.name,
-        editable = excluded.editable,
-        rcType = excluded.rcType,
-        defaultVal = excluded.defaultVal;
-    """
+    with db:
+        query = """
+            INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal)
+            VALUES (:id, :name, :editable, :rcType, :defaultVal)
+            ON CONFLICT (id)
+            DO UPDATE SET
+            name = excluded.name,
+            editable = excluded.editable,
+            rcType = excluded.rcType,
+            defaultVal = excluded.defaultVal;
+        """
 
-    # insert into codeinfo table
-    query_params = list(codeInfo.values())
-    db.executemany(query, query_params)
+        # insert into codeinfo table
+        query_params = list(codeInfo.values())
+        db.executemany(query, query_params)
 
-    # delete children
-    placeholders = ", ".join(["?"] * len(codeInfo))
-    query = f"""
-        DELETE FROM CodeInfoCol
-        WHERE parentId IN ({placeholders});
-    """
-    query_params = list(codeInfo.keys())
-    db.execute(query, query_params)
+        # delete children
+        placeholders = ", ".join(["?"] * len(codeInfo))
+        query = f"""
+            DELETE FROM CodeInfoCol
+            WHERE parentId IN ({placeholders});
+        """
+        query_params = list(codeInfo.keys())
+        db.execute(query, query_params)
 
-    # add children
-    query = """
-        INSERT INTO CodeInfoCol (parentId, childId, "order")
-        VALUES (:parentId, :childId, :order)
-    """
-    query_params = []
-    for c in codeInfo.values():
-        query_params.extend(
-            [
-                {"parentId": c["id"], "childI": x, "order": i}
-                for i, x in enumerate(c["children"])
-            ]
-        )
-    db.executemany(query, query_params)
-
-    db.commit()
+        # add children
+        query = """
+            INSERT INTO CodeInfoCol (parentId, childId, "order")
+            VALUES (:parentId, :childId, :order)
+        """
+        query_params = []
+        for c in codeInfo.values():
+            query_params.extend(
+                [
+                    {"parentId": c["id"], "childI": x, "order": i}
+                    for i, x in enumerate(c["children"])
+                ]
+            )
+        db.executemany(query, query_params)

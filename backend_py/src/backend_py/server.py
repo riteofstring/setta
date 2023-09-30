@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from .schema import db
+from .db.projects.load import load_all_projects
 
+db.connect()
 app = FastAPI()
 
 origins = [
@@ -24,7 +27,7 @@ class ProjectRequest(BaseModel):
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
-    print(x)
+    load_all_projects(x.format)
     return []
 
 
