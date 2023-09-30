@@ -72,7 +72,7 @@
   },
   "scripts": {
     "start": "concurrently --kill-others \"vite\" \"yarn start-backend\"",
-    "start-backend": "cd ../backend && yarn start",
+    "start-backend": "./backendStart.sh",
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"yarn start-backend\"",
     "reset": "cd ../backend && ./db/blankSlate.sh && cd ../frontend && yarn start",
     "build": "vite build",
