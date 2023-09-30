@@ -4,16 +4,13 @@ from ...schema import db
 def save_code_info(codeInfo):
     query = """
         INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (:id, :name, :editable, :rcType, :defaultVal)
         ON CONFLICT (id)
         DO NOTHING
     """
 
     # insert into codeinfo table
-    query_params = [
-        (x["id"], x["name"], x["editable"], x["rcType"], x["defaultVal"])
-        for x in codeInfo.values()
-    ]
+    query_params = list(codeInfo.values())
     db.executemany(query, query_params)
     db.commit()
 
@@ -29,11 +26,16 @@ def save_code_info(codeInfo):
     # add children
     query = """
         INSERT INTO CodeInfoCol (parentId, childId, "order")
-        VALUES (?, ?, ?)
+        VALUES (:parentId, :childId, :order)
     """
     query_params = []
     for c in codeInfo.values():
-        query_params.extend([(c["id"], x, i) for i, x in enumerate(c["children"])])
+        query_params.extend(
+            [
+                {"parentId": c["id"], "childI": x, "order": i}
+                for i, x in enumerate(c["children"])
+            ]
+        )
     db.executemany(query, query_params)
 
     db.commit()

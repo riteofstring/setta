@@ -13,10 +13,9 @@ def create_user(data):
 
     query = """
         INSERT INTO User (id, name, salt, password)
-        VALUES (?, ?, ?, ?);
+        VALUES (:id, :name, :salt, :password);
     """
-    print(query)
-    db.execute(query, (data["id"], data["name"], x["salt"], x["password"]))
+    db.execute(query, {**data, **x})
     db.commit()
 
 
