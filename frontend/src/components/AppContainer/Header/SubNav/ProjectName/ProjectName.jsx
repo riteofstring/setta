@@ -6,7 +6,6 @@ import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useUser } from "models/user";
 import { Editable } from "utils/Editable/Editable";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
@@ -23,16 +22,14 @@ export function ProjectName() {
 
   async function setName(v) {
     await dbSetProjectName(v);
-    const username = useUser.getState().username;
-    router.navigate(`${username}/${v}/${configName}`, {
+    router.navigate(`${v}/${configName}`, {
       state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
     });
   }
 
   async function setConfigName(v) {
     await dbSetProjectConfigName(v);
-    const username = useUser.getState().username;
-    router.navigate(`${username}/${name}/${v}`, {
+    router.navigate(`${name}/${v}`, {
       state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
     });
   }

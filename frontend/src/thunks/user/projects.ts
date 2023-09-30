@@ -13,9 +13,8 @@ export function loadProjectIntoState({
   return true;
 }
 
-export async function loadProject({ username, projectName, configName }) {
+export async function loadProject({ projectName, configName }) {
   const res = await dbLoadProject({
-    username,
     projectName,
     configName,
   });

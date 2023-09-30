@@ -1,5 +1,4 @@
 export type ProjectAddressType = {
-  username: string;
   projectName: string;
   configName: string;
 };

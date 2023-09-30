@@ -5,7 +5,6 @@ import {
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useUser } from "models/user";
 import { useState } from "react";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
@@ -45,8 +44,7 @@ export function FileMenu() {
     const configInfo = projects.find((x) => x.id === selected);
     if (configInfo) {
       const { name, projectName } = configInfo;
-      const username = useUser.getState().username;
-      router.navigate(`${username}/${projectName}/${name}`, {
+      router.navigate(`${projectName}/${name}`, {
         state: { pageLoadType: NEW_PROJECT },
       });
     }
@@ -64,9 +62,8 @@ export function FileMenu() {
             newConfigName: filename,
           });
 
-      const username = useUser.getState().username;
       const projectName = useProject.getState().name;
-      router.navigate(`${username}/${projectName}/${filename}`, {
+      router.navigate(`${projectName}/${filename}`, {
         state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
       });
     }

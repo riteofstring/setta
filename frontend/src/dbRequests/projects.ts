@@ -24,10 +24,10 @@ export async function dbGetProjectsForHomePage() {
   });
 }
 
-export async function dbLoadProject({ username, projectName, configName }) {
+export async function dbLoadProject({ projectName, configName }) {
   return await post({
     body: {},
-    address: LOAD_PROJECT({ username, projectName, configName }),
+    address: LOAD_PROJECT({ projectName, configName }),
     withCredentials: true,
   });
 }

@@ -1,15 +1,11 @@
 import { ProjectAddressType } from "./types/project";
 
-export const LOGIN = "/auth/login";
-export const REGISTER = "/auth/register";
-export const LOGOUT = "/auth/logout";
 export const PROJECTS = "/projects";
 export function LOAD_PROJECT({
-  username,
   projectName,
   configName,
 }: ProjectAddressType) {
-  return `/projects/load/${username}/${projectName}/${configName}`;
+  return `/projects/load/${projectName}/${configName}`;
 }
 export const SAVE_PROJECT = "/projects/save";
 export const CREATE_PROJECT = "/projects/createProject";
