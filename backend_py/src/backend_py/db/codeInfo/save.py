@@ -6,13 +6,16 @@ def save_code_info(codeInfo):
         INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal)
         VALUES (:id, :name, :editable, :rcType, :defaultVal)
         ON CONFLICT (id)
-        DO NOTHING
+        DO UPDATE SET
+        name = excluded.name,
+        editable = excluded.editable,
+        rcType = excluded.rcType,
+        defaultVal = excluded.defaultVal;
     """
 
     # insert into codeinfo table
     query_params = list(codeInfo.values())
     db.executemany(query, query_params)
-    db.commit()
 
     # delete children
     placeholders = ", ".join(["?"] * len(codeInfo))

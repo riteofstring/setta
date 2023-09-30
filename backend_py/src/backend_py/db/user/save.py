@@ -19,5 +19,10 @@ def create_user(data):
     db.commit()
 
 
+def create_many_users(data):
+    for v in data.values():
+        create_user(v)
+
+
 def process_username(name: str) -> str:
     return name.lower()

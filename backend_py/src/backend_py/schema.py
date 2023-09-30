@@ -274,7 +274,6 @@ def create_tables():
     ]
 
     for com in commands:
-        print(com)
         db.execute(com)
 
     db.commit()
