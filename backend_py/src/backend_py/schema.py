@@ -1,7 +1,8 @@
 import sqlite3
+from pathlib import Path
 
-conn = sqlite3.connect("dev.db")
-c = conn.cursor()
+conn = sqlite3.connect((Path(__file__).parent / "dev.db").resolve())
+cursor = conn.cursor()
 
 commands = [
     # Session model
@@ -238,7 +239,6 @@ commands = [
 
 for com in commands:
     print(com)
-    c.execute(com)
+    cursor.execute(com)
 
 conn.commit()
-conn.close()
