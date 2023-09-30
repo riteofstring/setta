@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import text
-from sqlmodel import Field, SQLModel, create_engine
+from sqlmodel import Field, SQLModel, create_engine, Relationship
 
 
 class Session(SQLModel, table=True):
@@ -62,12 +62,24 @@ class EVCol(SQLModel, table=True):
     value: str = Field(default=None)
 
 
+class SectionConfigCollections(SQLModel, table=True):
+    uiTypeId: str = Field(
+        foreign_key="uitype.id", primary_key=True
+    )
+    codeInfoId: str = Field(
+        foreign_key="codeinfo.id", primary_key=True
+    )
+
+
 class UIType(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
     ownerId: str = Field(default=None, foreign_key="user.id")
     type: str
     presetType: str = Field(default=None)
+    sectionConfigCollections: List["CodeInfo"] = Relationship(back_populates="codeinfo", link_model=SectionConfigCollections)
+    sectionConfigSubType: str = Field(default=None)
+    sectionConfigChildUITypeId: str = Field(default=None, foreign_key="uitype.id")
 
 
 engine = create_engine("sqlite:///dev.db")
