@@ -1,7 +1,6 @@
 {
   "3fdaeb6a-e989-4888-b844-17a76f0b0192": {
     "id": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-    "ownerId": null,
     "type": "TEXT",
     "name": "",
     "presetType": "BASE",
@@ -9,7 +8,6 @@
   },
   "eab8f446-17cc-4512-bab5-42bff8570f1f": {
     "id": "eab8f446-17cc-4512-bab5-42bff8570f1f",
-    "ownerId": null,
     "type": "SLIDER",
     "name": "",
     "presetType": "BASE",
@@ -21,7 +19,6 @@
   },
   "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
     "id": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-    "ownerId": null,
     "type": "SWITCH",
     "name": "",
     "presetType": "BASE",
@@ -29,7 +26,6 @@
   },
   "0595871f-4506-4bda-b6f1-9a3864e02a68": {
     "id": "0595871f-4506-4bda-b6f1-9a3864e02a68",
-    "ownerId": null,
     "type": "REF",
     "name": "",
     "presetType": "BASE",
@@ -37,7 +33,6 @@
   },
   "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
     "id": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-    "ownerId": null,
     "type": "SECTION",
     "name": "",
     "presetType": "BASE",
@@ -49,7 +44,6 @@
   },
   "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
     "id": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
-    "ownerId": null,
     "type": "LIST_ROOT",
     "name": "",
     "presetType": "BASE",
@@ -61,7 +55,6 @@
   },
   "623a9242-53e9-4b42-b695-431e9754a836": {
     "id": "623a9242-53e9-4b42-b695-431e9754a836",
-    "ownerId": null,
     "type": "DICT_ROOT",
     "name": "",
     "presetType": "BASE",
@@ -73,7 +66,6 @@
   },
   "0e050316-06ca-48f4-92c1-9845abdf85f7": {
     "id": "0e050316-06ca-48f4-92c1-9845abdf85f7",
-    "ownerId": null,
     "type": "DECK",
     "name": "",
     "presetType": "BASE",
@@ -85,7 +77,6 @@
   },
   "06b511f3-dced-43be-97d7-1ceaddc763d5": {
     "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-    "ownerId": null,
     "type": "OUTPUT",
     "name": "",
     "presetType": "BASE",
@@ -97,7 +88,6 @@
   },
   "2b06a83b-b96a-490d-a2d7-3631619e6495": {
     "id": "2b06a83b-b96a-490d-a2d7-3631619e6495",
-    "ownerId": null,
     "type": "INFO",
     "name": "",
     "presetType": "BASE",
@@ -109,7 +99,6 @@
   },
   "76cd4b19-cc63-4e2c-8214-5a4246ca637c": {
     "id": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
-    "ownerId": null,
     "type": "SOCIAL",
     "name": "",
     "presetType": "BASE",
@@ -121,7 +110,6 @@
   },
   "51470547-1f60-4933-952c-ac8745b30b22": {
     "id": "51470547-1f60-4933-952c-ac8745b30b22",
-    "ownerId": null,
     "type": "FN",
     "name": "",
     "presetType": "BASE",
@@ -133,7 +121,6 @@
   },
   "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a": {
     "id": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
-    "ownerId": null,
     "type": "GLOBAL_VARIABLES",
     "name": "",
     "presetType": "BASE",

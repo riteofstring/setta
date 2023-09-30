@@ -5,8 +5,8 @@ def save_ui_types(uiTypes):
     uiTypes = list(uiTypes.values())
 
     query = """
-        INSERT INTO UIType (id, ownerId, type, name, presetType)
-        VALUES (:id, :ownerId, :type, :name, :presetType)
+        INSERT INTO UIType (id, type, name, presetType)
+        VALUES (:id, :type, :name, :presetType)
     """
 
     query_parameters = uiTypes

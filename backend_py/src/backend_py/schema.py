@@ -72,16 +72,6 @@ def create_tables():
             FOREIGN KEY (childId) REFERENCES CodeInfo(id)
         );
         """,
-        # User model
-        """
-        CREATE TABLE IF NOT EXISTS User (
-            id TEXT PRIMARY KEY,
-            name TEXT UNIQUE,
-            password BLOB,
-            salt BLOB,
-            darkMode BOOLEAN DEFAULT 0
-        );
-        """,
         # Section model
         """
         CREATE TABLE IF NOT EXISTS Section (
@@ -143,7 +133,6 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS UIType (
             id TEXT PRIMARY KEY,
             name TEXT,
-            ownerId TEXT,
             type TEXT,
             presetType TEXT,
             sectionConfigChildUITypeId TEXT UNIQUE,
@@ -154,7 +143,6 @@ def create_tables():
             asNonPresetForSectionId TEXT,
             asNonPresetForUITypeColId TEXT,
             asNonPresetForCodeInfoId TEXT,
-            FOREIGN KEY (ownerId) REFERENCES User(id),
             FOREIGN KEY (sectionConfigChildUITypeId) REFERENCES UIType(id),
             FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id),
             FOREIGN KEY (asNonPresetForUITypeColId) REFERENCES UITypeCol(idid),
@@ -184,10 +172,8 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS Project (
             id TEXT PRIMARY KEY,
             name TEXT,
-            ownerId TEXT,
             defaultConfigId TEXT UNIQUE,
-            UNIQUE (name, ownerId),
-            FOREIGN KEY (ownerId) REFERENCES User(id),
+            UNIQUE (name),
             FOREIGN KEY (defaultConfigId) REFERENCES ProjectConfig(id)
         );
         """,
@@ -220,11 +206,9 @@ def create_tables():
         # UserCodeInfoTypeMap model
         """
         CREATE TABLE IF NOT EXISTS UserCodeInfoTypeMap (
-            ownerId TEXT,
             type TEXT,
             uiTypeId TEXT,
-            PRIMARY KEY (ownerId, type),
-            FOREIGN KEY (ownerId) REFERENCES User(id),
+            PRIMARY KEY (type),
             FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
         );
         """,
@@ -244,10 +228,8 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS Run (
             id TEXT PRIMARY KEY,
             name TEXT,
-            ownerId TEXT,
             projectConfigId TEXT,
             code TEXT,
-            FOREIGN KEY (ownerId) REFERENCES User(id),
             FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
         );
         """,
