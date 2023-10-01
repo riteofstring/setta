@@ -25,8 +25,7 @@ class ProjectRequest(BaseModel):
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
-    load_all_projects(x.format)
-    return []
+    return load_all_projects(x.format)
 
 
 @app.post("/projects/load/{projectName}/{configName}")

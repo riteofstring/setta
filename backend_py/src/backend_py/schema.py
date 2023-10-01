@@ -12,6 +12,7 @@ class DB:
     def connect(self):
         if not self.conn:
             self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.conn.row_factory = sqlite3.Row
         if not self.cursor:
             self.cursor = self.conn.cursor()
 
