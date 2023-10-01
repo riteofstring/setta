@@ -1,18 +1,19 @@
 from ...schema import db
 
+
 def load_all_projects(format):
     query = """
-        SELECT 
+        SELECT
             Project.*,
             ProjectConfig.*
-        FROM 
+        FROM
             Project
-        JOIN 
-            ProjectConfig 
-        ON 
+        JOIN
+            ProjectConfig
+        ON
             ProjectConfig.projectId = Project.id;
     """
 
     db.execute(query)
-    # results = db.fetchall()
-    # print(results)
+    results = db.fetchall()
+    print(results)

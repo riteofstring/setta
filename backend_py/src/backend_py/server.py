@@ -1,16 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .schema import db
+
 from .db.projects.load import load_all_projects
+from .schema import db
 
 db.connect()
 app = FastAPI()
 
-origins = [
-    "http://127.0.0.1:3000",
-    "http://localhost:3000"
-]
+origins = ["http://127.0.0.1:3000", "http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,

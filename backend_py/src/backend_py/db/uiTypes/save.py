@@ -21,7 +21,9 @@ def save_ui_types(uiTypes):
             WHERE id = :id
         """
         query_parameters = [
-            {"id": x["id"], **process_config(x)} for x in uiTypes if x["type"] == "SLIDER"
+            {"id": x["id"], **process_config(x)}
+            for x in uiTypes
+            if x["type"] == "SLIDER"
         ]
         db.executemany(query, query_parameters)
 
