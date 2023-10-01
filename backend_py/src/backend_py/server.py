@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+import json
+
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -21,6 +23,15 @@ app.add_middleware(
 
 class ProjectRequest(BaseModel):
     format: str
+
+
+@app.websocket("/")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        message = json.dumps({"test": f"You sent: {data}"})
+        await websocket.send_text(message)
 
 
 @app.post("/projects")
