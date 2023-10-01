@@ -1,7 +1,13 @@
 from ...schema import db
+from ..codeInfo.save import save_code_info
+from ..enteredValues.save import save_ev_cols
+from ..uiTypes.save import save_ui_types
 
 
 def save_project_details(p):
+    save_code_info(merge_configs(p, "codeInfo"))
+    save_ev_cols(merge_configs(p, "evCols"))
+    save_ui_types(merge_configs(p, "uiTypes"))
     save_project(p)
     save_project_configs(p["id"], p["configs"])
     update_default_project_config(p)
@@ -49,3 +55,10 @@ def update_default_project_config(p):
 
         query_params = {"id": p["id"], "defaultConfigId": p["defaultConfigId"]}
         db.execute(query, query_params)
+
+
+def merge_configs(p, key):
+    output = {}
+    for c in p["configs"]:
+        output.update(c[key])
+    return output
