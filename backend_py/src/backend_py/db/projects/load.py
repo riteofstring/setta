@@ -43,3 +43,30 @@ def load_all_projects(format):
     projects_with_configs = list(project_dict.values())
 
     return projects_with_configs
+
+
+def load_project_metadata(project_name):
+    query = """
+        SELECT * FROM Project
+        WHERE name = :name
+    """
+    query_params = {"name": project_name}
+    db.execute(query, query_params)
+    return dict(db.fetchall()[0])
+
+
+def load_project_config_metadata(project_id, config_name):
+    query = """
+        SELECT id, name, x, y, zoom FROM ProjectConfig
+        WHERE projectId = :projectId AND name = :name
+    """
+    query_params = {"projectId": project_id, "name": config_name}
+    db.execute(query, query_params)
+    return dict(db.fetchall()[0])
+
+
+def load_project(project_name, config_name):
+    project = load_project_metadata(project_name)
+    projectConfig = load_project_config_metadata(project["id"], config_name)
+
+    return {"project": project, "projectConfig": projectConfig}

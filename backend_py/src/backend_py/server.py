@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .db.projects.load import load_all_projects
+from .db.projects.load import load_all_projects, load_project
 from .schema import db
 
 db.connect()
@@ -40,8 +40,8 @@ def route_projects(x: ProjectRequest):
 
 
 @app.post("/projects/load/{projectName}/{configName}")
-def route_load_project():
-    pass
+def route_load_project(projectName, configName):
+    return load_project(projectName, configName)
 
 
 @app.post("/projects/save")
