@@ -4,14 +4,8 @@ from ...schema import db
 def save_code_info(codeInfo):
     with db:
         query = """
-            INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal)
+            INSERT OR REPLACE INTO CodeInfo (id, name, editable, rcType, defaultVal)
             VALUES (:id, :name, :editable, :rcType, :defaultVal)
-            ON CONFLICT (id)
-            DO UPDATE SET
-            name = excluded.name,
-            editable = excluded.editable,
-            rcType = excluded.rcType,
-            defaultVal = excluded.defaultVal;
         """
 
         # insert into codeinfo table

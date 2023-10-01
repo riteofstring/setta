@@ -1,6 +1,7 @@
 from ...schema import db
 from ..codeInfo.save import save_code_info
 from ..enteredValues.save import save_ev_cols
+from ..sections.save import save_sections
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
@@ -9,6 +10,7 @@ def save_project_details(p):
     save_ev_cols(merge_configs(p, "evCols"))
     save_ui_types(merge_configs(p, "uiTypes"))
     save_ui_type_cols(merge_configs(p, "uiTypeCols"))
+    save_sections(merge_configs(p, "sections"))
     save_project(p)
     save_project_configs(p["id"], p["configs"])
     update_default_project_config(p)
@@ -17,10 +19,8 @@ def save_project_details(p):
 def save_project(project):
     with db:
         query = """
-            INSERT INTO Project (id, name)
+            INSERT OR REPLACE INTO Project (id, name)
             VALUES (:id, :name)
-            ON CONFLICT(id)
-            DO UPDATE SET name = excluded.name;
         """
 
         query_params = {"id": project["id"], "name": project["name"]}
@@ -31,10 +31,8 @@ def save_project_configs(projectId, configs):
     print()
     with db:
         query = """
-            INSERT INTO ProjectConfig (id, name, projectId)
+            INSERT OR REPLACE INTO ProjectConfig (id, name, projectId)
             VALUES (:id, :name, :projectId)
-            ON CONFLICT(id)
-            DO UPDATE SET name = excluded.name
         """
 
         query_params = []
