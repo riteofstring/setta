@@ -1,13 +1,14 @@
 from ...schema import db
 from ..codeInfo.save import save_code_info
 from ..enteredValues.save import save_ev_cols
-from ..uiTypes.save import save_ui_types
+from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(p):
     save_code_info(merge_configs(p, "codeInfo"))
     save_ev_cols(merge_configs(p, "evCols"))
     save_ui_types(merge_configs(p, "uiTypes"))
+    save_ui_type_cols(merge_configs(p, "uiTypeCols"))
     save_project(p)
     save_project_configs(p["id"], p["configs"])
     update_default_project_config(p)
