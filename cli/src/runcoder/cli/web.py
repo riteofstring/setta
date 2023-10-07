@@ -78,7 +78,7 @@ async def consumer(message):
 
 
 def codeCompletion(message):
-    code = f'{get_import_text(message["message"])}; ${message["message"]}'
+    code = f'{get_import_text(message["message"])}; {message["message"]}'
     if code == "":
         return []
     results = jedi.Script(code).complete(line=1, column=len(code))

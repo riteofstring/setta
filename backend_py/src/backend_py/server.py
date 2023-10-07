@@ -54,9 +54,12 @@ class ConnectionManager:
         del self.sockets[id]
         await self.broadcast_connections()
 
-    async def send_message(self, message):
-        websocket = self.sockets[message["toWebsocketId"]]["websocket"]
-        await websocket.send_text(json.dumps(message))
+    async def send_message(self, message, fromWebsocketId=None):
+        if "toWebsocketId" in message:
+            websocket = self.sockets[message["toWebsocketId"]]["websocket"]
+            await websocket.send_text(
+                json.dumps({**message, "websocketId": fromWebsocketId})
+            )
 
     async def broadcast(self, message):
         for s in self.sockets.values():
@@ -77,15 +80,12 @@ manager = ConnectionManager()
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     id = await manager.connect(websocket)
-    print(websocket.headers)
     try:
         while True:
             data = await websocket.receive_text()
-            # await manager.send_personal_message(f"You wrote: {data}", websocket)
-            # await manager.broadcast(f"Client #{client_id} says: {data}")
+            await manager.send_message(json.loads(data), id)
     except WebSocketDisconnect:
         await manager.disconnect(id)
-        # await manager.broadcast(f"Client #{client_id} left the chat")
 
 
 @app.post("/projects")
