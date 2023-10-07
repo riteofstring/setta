@@ -13,40 +13,70 @@ def save_ui_types(uiTypes):
         query_parameters = uiTypes
         db.executemany(query, query_parameters)
 
-        query = """
-            UPDATE UIType
-            SET sliderConfigMin = :sliderConfigMin,
-                sliderConfigMax = :sliderConfigMax,
-                sliderConfigStep = :sliderConfigStep
-            WHERE id = :id
-        """
-        query_parameters = [
-            {"id": x["id"], **process_config(x)}
-            for x in uiTypes
-            if x["type"] == "SLIDER"
-        ]
-        db.executemany(query, query_parameters)
+        save_section_types(uiTypes)
+        save_slider_types(uiTypes)
 
 
-def process_config(ui_type):
-    config, type_ = ui_type["config"], ui_type["type"]
-    # TODO
-    # if is_section_ui_type(ui_type):
-    #     return {
-    #         "sectionConfigSubType": config.get('subType'),
-    #         "sectionConfigCollections": {
-    #             "set": [{"id": x} for x in config.get('collections', [])]
-    #         },
-    #         "sectionConfigChildUITypeId": config.get('childUITypeId')
-    #     }
-    if type_ == "SLIDER":
-        return {
-            "sliderConfigMin": config.get("min"),
-            "sliderConfigMax": config.get("max"),
-            "sliderConfigStep": config.get("step"),
-        }
-    else:
-        return {}
+def save_section_types(uiTypes):
+    uiTypes = [x for x in uiTypes if x["type"] in ["SECTION", "LIST_ROOT", "DICT_ROOT"]]
+    query = """
+        UPDATE UIType
+        SET sectionConfigSubType = :sectionConfigSubType,
+            sectionConfigChildUITypeId = :sectionConfigChildUITypeId
+        WHERE id = :id
+    """
+    query_parameters = [{"id": x["id"], **parse_section_config(x)} for x in uiTypes]
+    db.executemany(query, query_parameters)
+
+    placeholders = ", ".join(["?"] * len(uiTypes))
+    query = f"""
+        DELETE FROM SectionConfigCollections
+        WHERE uiTypeId IN ({placeholders})
+    """
+    query_params = [x["id"] for x in uiTypes]
+    db.execute(query, query_params)
+
+    query = """
+        INSERT INTO SectionConfigCollections (uiTypeId, codeInfoId)
+        VALUES (:uiTypeId, :codeInfoId)
+    """
+    query_params = []
+    for x in uiTypes:
+        query_params.extend(
+            [{"uiTypeId": x["id"], "codeInfoId": c} for c in x["config"]["collections"]]
+        )
+
+    db.executemany(query, query_params)
+
+
+def parse_section_config(uiType):
+    config = uiType["config"]
+    return {
+        "sectionConfigSubType": config.get("subType"),
+        "sectionConfigChildUITypeId": config.get("childUITypeId"),
+    }
+
+
+def save_slider_types(uiTypes):
+    uiTypes = [x for x in uiTypes if x["type"] == "SLIDER"]
+    query = """
+        UPDATE UIType
+        SET sliderConfigMin = :sliderConfigMin,
+            sliderConfigMax = :sliderConfigMax,
+            sliderConfigStep = :sliderConfigStep
+        WHERE id = :id
+    """
+    query_parameters = [{"id": x["id"], **parse_slider_config(x)} for x in uiTypes]
+    db.executemany(query, query_parameters)
+
+
+def parse_slider_config(uiType):
+    config = uiType["config"]
+    return {
+        "sliderConfigMin": config.get("min"),
+        "sliderConfigMax": config.get("max"),
+        "sliderConfigStep": config.get("step"),
+    }
 
 
 def save_ui_type_cols(uitype_cols):

@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from ...schema import db
+from ..uiTypes.load import load_base_uitypes
 
 
 def load_all_projects(format):
@@ -68,5 +69,19 @@ def load_project_config_metadata(project_id, config_name):
 def load_project(project_name, config_name):
     project = load_project_metadata(project_name)
     projectConfig = load_project_config_metadata(project["id"], config_name)
+    baseUITypes = load_base_uitypes()
+    print(baseUITypes)
 
-    return {"project": project, "projectConfig": projectConfig}
+    return {
+        "project": project,
+        "projectConfig": projectConfig,
+        "sections": {},
+        "evCols": {},
+        "uiTypes": {**baseUITypes},
+        "uiTypeCols": {},
+        "codeInfo": {},
+        "userCodeInfoMaps": {},
+        "projectConfigCodeInfoMaps": {},
+        "outputGroups": {},
+        "outputs": {},
+    }

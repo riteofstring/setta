@@ -92,15 +92,13 @@ def create_tables():
             description TEXT,
             descriptionHeight REAL,
             descriptionVisible BOOLEAN,
-            asChildId TEXT,
             FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id),
             FOREIGN KEY (chainedFromId) REFERENCES Section(id),
             FOREIGN KEY (evColId) REFERENCES EVColId(id),
             FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id),
             FOREIGN KEY (uiTypeId) REFERENCES UIType(id),
             FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id),
-            FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id),
-            FOREIGN KEY (asChildId) REFERENCES SectionChildren(childId)
+            FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id)
         );
         """,
         # SectionChildren model
@@ -149,6 +147,15 @@ def create_tables():
             FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id),
             FOREIGN KEY (asNonPresetForUITypeColId) REFERENCES UITypeCol(idid),
             FOREIGN KEY (asNonPresetForCodeInfoId) REFERENCES UITypeCol(codeInfoId)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS SectionConfigCollections (
+            uiTypeId TEXT,
+            codeInfoId TEXT,
+            PRIMARY KEY (uiTypeId, codeInfoId),
+            FOREIGN KEY (uiTypeId) REFERENCES UIType(id),
+            FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id)
         );
         """,
         # UITypeColId model
