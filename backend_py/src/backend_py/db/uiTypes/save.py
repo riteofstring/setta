@@ -82,7 +82,7 @@ def parse_slider_config(uiType):
 def save_ui_type_cols(uitype_cols):
     with db:
         query = """
-            INSERT INTO UITypeColId (id)
+            INSERT OR REPLACE INTO UITypeColId (id)
             VALUES (:id)
             ON CONFLICT (id)
             DO NOTHING
@@ -93,7 +93,7 @@ def save_ui_type_cols(uitype_cols):
 
         placeholders = ", ".join(["?"] * len(uitype_cols))
         query = f"""
-            DELETE FROM EVCol
+            DELETE FROM UITypeCol
             WHERE idid IN ({placeholders})
         """
         query_params = list(uitype_cols.keys())
