@@ -24,3 +24,15 @@ def generate_memorable_string():
         f"{random.choice(adjectives)}_{random.choice(nouns)}_{random.choice(states)}"
     )
     return random_string
+
+
+def aggregate_join_results(results, top_level_key, aggregate):
+    output = {}
+    for row in results:
+        row = dict(row)
+        key = row[top_level_key]
+        if key not in output:
+            output[key] = {**row, **{a: [] for a in aggregate}}
+        for a in aggregate:
+            output[key][a].append(row[a])
+    return output

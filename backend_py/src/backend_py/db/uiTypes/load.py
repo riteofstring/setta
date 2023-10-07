@@ -1,6 +1,5 @@
-from ast import literal_eval
-
 from ...schema import db
+from ...utils.utils import aggregate_join_results
 
 
 def load_base_uitypes():
@@ -10,16 +9,16 @@ def load_base_uitypes():
 def load_uitypes_by_preset_type(preset_types):
     placeholders = ", ".join(["?"] * len(preset_types))
     query = f"""
-        SELECT UIType.*, GROUP_CONCAT(SectionConfigCollections.codeInfoId) as collections
+        SELECT UIType.*, SectionConfigCollections.codeInfoId
         FROM UIType
         LEFT JOIN SectionConfigCollections
         ON UIType.id = SectionConfigCollections.uiTypeId
         WHERE presetType in ({placeholders})
-        GROUP BY UIType.id
     """
 
     db.execute(query, preset_types)
-    return {row["id"]: process_uitype(dict(row)) for row in db.fetchall()}
+    output = aggregate_join_results(db.fetchall(), "id", ["codeInfoId"])
+    return {x["id"]: process_uitype(x) for x in output.values()}
 
 
 def process_uitype(uitype):
@@ -40,9 +39,7 @@ def process_uitype(uitype):
 def load_section_config(uitype):
     return {
         "subType": uitype["sectionConfigSubType"],
-        "collections": literal_eval(uitype["collections"])
-        if uitype["collections"]
-        else [],
+        "collections": [x for x in uitype["codeInfoId"] if x],
         "childUITypeId": uitype["sectionConfigChildUITypeId"],
     }
 

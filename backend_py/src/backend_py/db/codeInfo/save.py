@@ -30,7 +30,7 @@ def save_code_info(codeInfo):
         for c in codeInfo.values():
             query_params.extend(
                 [
-                    {"parentId": c["id"], "childI": x, "order": i}
+                    {"parentId": c["id"], "childId": x, "order": i}
                     for i, x in enumerate(c["children"])
                 ]
             )

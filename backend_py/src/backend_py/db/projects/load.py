@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from ...schema import db
+from ...utils.utils import aggregate_join_results
 from ..codeInfo.load import load_code_info_for_sections
 from ..uiTypes.load import load_base_uitypes
 
@@ -59,12 +60,51 @@ def load_project_metadata(project_name):
 
 def load_project_config_metadata(project_id, config_name):
     query = """
-        SELECT id, name, x, y, zoom FROM ProjectConfig
-        WHERE projectId = :projectId AND name = :name
+        SELECT
+            ProjectConfig.id,
+            ProjectConfig.name,
+            ProjectConfig.x,
+            ProjectConfig.y,
+            ProjectConfig.zoom,
+            ProjectConfigChildren.childId as childId,
+            ProjectConfigChildren.x as childX,
+            ProjectConfigChildren.y as childY,
+            ProjectConfigChildren.zIndex as childZIndex
+        FROM
+            ProjectConfig
+        LEFT JOIN
+            ProjectConfigChildren
+        ON
+            ProjectConfig.id = ProjectConfigChildren.parentId
+        WHERE
+            projectId = :projectId
+        AND
+            name = :name
     """
+
     query_params = {"projectId": project_id, "name": config_name}
     db.execute(query, query_params)
-    return dict(db.fetchall()[0])
+    out = aggregate_join_results(
+        db.fetchall(), "id", ["childId", "childX", "childY", "childZIndex"]
+    )
+    if len(out) > 1:
+        raise ValueError(f"output should be of length 1 but has length {len(out)}")
+    out = list(out.values())[0]
+    children = {}
+    for i, c in enumerate(out["childId"]):
+        if c:
+            children[c] = {
+                "x": out["childX"][i],
+                "y": out["childY"][i],
+                "zIndex": out["childZIndex"][i],
+            }
+
+    return {
+        "id": out["id"],
+        "name": out["name"],
+        "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
+        "children": children,
+    }
 
 
 def load_project(project_name, config_name):
