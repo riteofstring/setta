@@ -37,11 +37,11 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  console.log(m);
+  console.log(m)
   if (m.type === "LOG") {
     updateOutput(m.data);
   } else if (m.messageType === "connection") {
-    // receives websocketId
+    console.log("connected as", m["websocketId"])
   } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
   } else if (m.id) {

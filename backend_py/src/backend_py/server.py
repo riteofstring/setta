@@ -43,19 +43,31 @@ class ConnectionManager:
         while (not id) or id in self.sockets:
             id = generate_memorable_string()
         self.sockets[id] = websocket
-        print(self.sockets)
+        await self.send_message(
+            {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
+        )
+        await self.broadcast_connections()
         return id
 
-    def disconnect(self, id):
+    async def disconnect(self, id):
         del self.sockets[id]
+        await self.broadcast_connections()
 
     async def send_message(self, message):
         websocket = self.sockets[message["toWebsocketId"]]
         await websocket.send_text(json.dumps(message))
 
-    # async def broadcast(self, message: str):
-    #     for connection in self.active_connections:
-    #         await connection.send_text(message)
+    async def broadcast(self, message):
+        for websocket in self.sockets.values():
+            await websocket.send_text(json.dumps(message))
+
+    async def broadcast_connections(self):
+        connections = []
+        for id, s in self.sockets.items():
+            connections.append({"websocketId": id, "isCLI": True})
+        await self.broadcast(
+            {"messageType": "allConnections", "connections": connections}
+        )
 
 
 manager = ConnectionManager()
@@ -64,16 +76,13 @@ manager = ConnectionManager()
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     id = await manager.connect(websocket)
-    await manager.send_message(
-        {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
-    )
     try:
         while True:
             data = await websocket.receive_text()
             # await manager.send_personal_message(f"You wrote: {data}", websocket)
             # await manager.broadcast(f"Client #{client_id} says: {data}")
     except WebSocketDisconnect:
-        manager.disconnect(id)
+        await manager.disconnect(id)
         # await manager.broadcast(f"Client #{client_id} left the chat")
 
 
