@@ -57,6 +57,8 @@ export function useOnClickAddSection() {
       ? getPosition(x, y)
       : newSectionPosition({ x, y });
 
+    topLevelPosition.zIndex = 0;
+
     addSectionAtPosition({
       isDeck,
       topLevelPosition,

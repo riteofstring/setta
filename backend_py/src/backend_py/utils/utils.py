@@ -1,4 +1,5 @@
 import random
+from collections import defaultdict
 from pathlib import Path
 from uuid import uuid4
 
@@ -36,3 +37,18 @@ def aggregate_join_results(results, top_level_key, aggregate):
         for a in aggregate:
             output[key][a].append(row[a])
     return output
+
+
+def get_children_recursively(db, ids, query):
+    all_ids = set(ids)
+    parent_to_children = defaultdict(list, {c: [] for c in ids})
+    for c in ids:
+        db.execute(query, {"parentId": c})
+        parent_child_pairs = db.fetchall()
+        for row in parent_child_pairs:
+            row = dict(row)
+            childId = row["childId"]
+            all_ids.add(childId)
+            parent_to_children[row["parentId"]].append(childId)
+
+    return list(all_ids), parent_to_children

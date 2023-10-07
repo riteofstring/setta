@@ -3,6 +3,7 @@ from collections import defaultdict
 from ...schema import db
 from ...utils.utils import aggregate_join_results
 from ..codeInfo.load import load_code_info_for_sections
+from ..sections.load import load_sections
 from ..uiTypes.load import load_base_uitypes
 
 
@@ -110,6 +111,7 @@ def load_project_config_metadata(project_id, config_name):
 def load_project(project_name, config_name):
     project = load_project_metadata(project_name)
     projectConfig = load_project_config_metadata(project["id"], config_name)
+    sections = load_sections(list(projectConfig["children"].keys()))
     baseUITypes = load_base_uitypes()
     codeInfo = load_code_info_for_sections(baseUITypes)
 

@@ -30,15 +30,49 @@ def save_project(project):
 def save_project_configs(projectId, configs):
     with db:
         query = """
-            INSERT OR REPLACE INTO ProjectConfig (id, name, projectId)
-            VALUES (:id, :name, :projectId)
+            INSERT OR REPLACE INTO ProjectConfig (id, name, projectId, x, y, zoom)
+            VALUES (:id, :name, :projectId, :x, :y, :zoom)
         """
 
         query_params = []
         for c in configs:
             c = c["projectConfig"]
             query_params.append(
-                {"id": c["id"], "name": c["name"], "projectId": projectId}
+                {
+                    "id": c["id"],
+                    "name": c["name"],
+                    "projectId": projectId,
+                    **c["viewport"],
+                }
+            )
+        db.executemany(query, query_params)
+
+        placeholders = ", ".join(["?"] * len(configs))
+        query = f"""
+            DELETE FROM ProjectConfigChildren
+            WHERE parentId IN ({placeholders})
+        """
+        query_params = [c["projectConfig"]["id"] for c in configs]
+        db.execute(query, query_params)
+
+        query = """
+            INSERT INTO ProjectConfigChildren (parentId, childId, x, y, zIndex)
+            VALUES (:parentId, :childId, :x, :y, :zIndex)
+        """
+        query_params = []
+        for c in configs:
+            c = c["projectConfig"]
+            query_params.extend(
+                [
+                    {
+                        "parentId": c["id"],
+                        "childId": childId,
+                        "x": details["x"],
+                        "y": details["y"],
+                        "zIndex": details["zIndex"],
+                    }
+                    for childId, details in c["children"].items()
+                ]
             )
         db.executemany(query, query_params)
 

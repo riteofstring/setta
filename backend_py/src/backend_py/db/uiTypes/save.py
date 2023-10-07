@@ -6,7 +6,7 @@ def save_ui_types(uiTypes):
         uiTypes = list(uiTypes.values())
 
         query = """
-            INSERT INTO UIType (id, type, name, presetType)
+            INSERT OR REPLACE INTO UIType (id, type, name, presetType)
             VALUES (:id, :type, :name, :presetType)
         """
 

@@ -1,6 +1,5 @@
-from collections import defaultdict
-
 from ...schema import db
+from ...utils.utils import get_children_recursively
 
 NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac"
 
@@ -26,7 +25,7 @@ def load_code_info(ids):
         ORDER BY "order";
     """
 
-    all_ids, parent_to_children = get_children_recursively(ids, query)
+    all_ids, parent_to_children = get_children_recursively(db, ids, query)
 
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
@@ -40,18 +39,3 @@ def load_code_info(ids):
         x["children"] = parent_to_children[x["id"]]
         output[x["id"]] = x
     return output
-
-
-def get_children_recursively(ids, query):
-    all_ids = set(ids)
-    parent_to_children = defaultdict(list, {c: [] for c in ids})
-    for c in ids:
-        db.execute(query, {"parentId": c})
-        parent_child_pairs = db.fetchall()
-        for row in parent_child_pairs:
-            row = dict(row)
-            childId = row["childId"]
-            all_ids.add(childId)
-            parent_to_children[row["parentId"]].append(childId)
-
-    return list(all_ids), parent_to_children
