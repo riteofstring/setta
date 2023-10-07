@@ -1,5 +1,5 @@
 from ...schema import db
-from ...utils.utils import aggregate_join_results
+from ...utils.utils import aggregate_results
 
 
 def load_base_uitypes():
@@ -17,7 +17,7 @@ def load_uitypes_by_preset_type(preset_types):
     """
 
     db.execute(query, preset_types)
-    output = aggregate_join_results(db.fetchall(), "id", ["codeInfoId"])
+    output = aggregate_results(db.fetchall(), "id", ["codeInfoId"])
     return {x["id"]: process_uitype(x) for x in output.values()}
 
 

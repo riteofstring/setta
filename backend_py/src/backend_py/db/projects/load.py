@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from ...schema import db
-from ...utils.utils import aggregate_join_results
+from ...utils.utils import aggregate_results
 from ..codeInfo.load import load_code_info_for_sections
 from ..sections.load import load_sections
 from ..uiTypes.load import load_base_uitypes
@@ -85,7 +85,7 @@ def load_project_config_metadata(project_id, config_name):
 
     query_params = {"projectId": project_id, "name": config_name}
     db.execute(query, query_params)
-    out = aggregate_join_results(
+    out = aggregate_results(
         db.fetchall(), "id", ["childId", "childX", "childY", "childZIndex"]
     )
     if len(out) > 1:

@@ -1,7 +1,8 @@
 from pprint import pprint
 
 from ...schema import db
-from ...utils.utils import aggregate_join_results, get_children_recursively
+from ...utils.utils import aggregate_results, get_children_recursively
+from ..enteredValues.load import load_evcols
 
 
 def load_sections(ids):
@@ -31,7 +32,7 @@ def load_sections(ids):
     """
     db.execute(query, all_ids)
 
-    sections = aggregate_join_results(db.fetchall(), "id", ["nonPresetUITypeId"])
+    sections = aggregate_results(db.fetchall(), "id", ["nonPresetUITypeId"])
     for v in sections.values():
         v["children"] = parent_to_children[v["id"]]
         v["size"] = {
@@ -41,6 +42,9 @@ def load_sections(ids):
         v["nonPresetUITypeIds"] = [
             uitypeid for uitypeid in v.pop("nonPresetUITypeId") if uitypeid
         ]
+
+    evCols = load_evcols([s["evColId"] for s in sections.values()])
+
 
 
 def convert_size(x):

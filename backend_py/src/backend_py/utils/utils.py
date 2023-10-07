@@ -27,7 +27,7 @@ def generate_memorable_string():
     return random_string
 
 
-def aggregate_join_results(results, top_level_key, aggregate):
+def aggregate_results(results, top_level_key, aggregate):
     output = {}
     for row in results:
         row = dict(row)
