@@ -111,17 +111,21 @@ def load_project_config_metadata(project_id, config_name):
 def load_project(project_name, config_name):
     project = load_project_metadata(project_name)
     projectConfig = load_project_config_metadata(project["id"], config_name)
-    sections = load_sections(list(projectConfig["children"].keys()))
+    sections_data = load_sections(list(projectConfig["children"].keys()))
+    sections = sections_data["sections"]
+    evCols = sections_data["evCols"]
+    uiTypeCols = sections_data["uiTypeCols"]
     baseUITypes = load_base_uitypes()
-    codeInfo = load_code_info_for_sections(baseUITypes)
+    uiTypes = {**baseUITypes, **sections_data["nonPresetUITypes"]}
+    codeInfo = load_code_info_for_sections(uiTypes)
 
     return {
         "project": project,
         "projectConfig": projectConfig,
-        "sections": {},
-        "evCols": {},
-        "uiTypes": {**baseUITypes},
-        "uiTypeCols": {},
+        "sections": sections,
+        "evCols": evCols,
+        "uiTypes": uiTypes,
+        "uiTypeCols": uiTypeCols,
         "codeInfo": codeInfo,
         "userCodeInfoMaps": {},
         "projectConfigCodeInfoMaps": {},

@@ -2,21 +2,33 @@ from ...schema import db
 
 
 def load_base_uitypes():
-    return load_uitypes_by_preset_type(["BASE", "USER"])
+    return load_uitypes_by_condition(preset_types=["BASE", "USER"])
 
 
-def load_uitypes_by_preset_type(preset_types):
-    placeholders = ", ".join(["?"] * len(preset_types))
+def load_uitypes_by_condition(preset_types=None, ids=None):
+    if preset_types and ids:
+        raise ValueError
+    if preset_types:
+        query_params = preset_types
+        placeholders = ", ".join(["?"] * len(preset_types))
+        where = f"WHERE UIType.presetType in ({placeholders})"
+    elif ids:
+        query_params = ids
+        placeholders = ", ".join(["?"] * len(ids))
+        where = f"WHERE UIType.id in ({placeholders})"
+    else:
+        return {}
+
     query = f"""
         SELECT UIType.*, GROUP_CONCAT(SectionConfigCollections.codeInfoId) as collections
         FROM UIType
         LEFT JOIN SectionConfigCollections
         ON UIType.id = SectionConfigCollections.uiTypeId
-        WHERE presetType in ({placeholders})
+        {where}
         GROUP BY UIType.id
     """
 
-    db.execute(query, preset_types)
+    db.execute(query, query_params)
     output = {}
     for row in db.fetchall():
         row = dict(row)

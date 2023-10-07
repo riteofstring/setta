@@ -3,7 +3,7 @@ from pprint import pprint
 from ...schema import db
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols
-from ..uiTypes.load import load_uitypecols
+from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
 def load_sections(ids):
@@ -37,18 +37,38 @@ def load_sections(ids):
     sections = {}
     for v in db.fetchall():
         v = dict(v)
-        v["children"] = parent_to_children[v["id"]]
-        v["size"] = {
-            "width": convert_size(v.pop("width")),
-            "height": convert_size(v.pop("height")),
+        width = v.pop("width")
+        height = v.pop("height")
+        sections[v["id"]] = {
+            **v,
+            "children": parent_to_children[v["id"]],
+            "size": {
+                "width": convert_size(width),
+                "height": convert_size(height),
+            },
+            "nonPresetUITypeIds": (
+                v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
+            ),
         }
-        v["nonPresetUITypeIds"] = (
-            v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
-        )
-        sections[v["id"]] = v
-
     evCols = load_evcols([s["evColId"] for s in sections.values()])
     uiTypeCols = load_uitypecols([s["uiTypeColId"] for s in sections.values()])
+
+    nonPresetUITypeIds = []
+    for s in sections.values():
+        nonPresetUITypeIds.extend(s["nonPresetUITypeIds"])
+    for u in uiTypeCols.values():
+        for c in u.values():
+            nonPresetUITypeIds.extend(c["nonPresetUITypeIds"])
+
+    nonPresetUITypes = load_uitypes_by_condition(ids=nonPresetUITypeIds)
+    print("nonPresetUITypes", nonPresetUITypes)
+
+    return {
+        "sections": sections,
+        "evCols": evCols,
+        "uiTypeCols": uiTypeCols,
+        "nonPresetUITypes": nonPresetUITypes,
+    }
 
 
 def convert_size(x):
