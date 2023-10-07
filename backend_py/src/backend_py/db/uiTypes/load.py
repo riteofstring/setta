@@ -1,5 +1,4 @@
 from ...schema import db
-from ...utils.utils import aggregate_results
 
 
 def load_base_uitypes():
@@ -9,16 +8,20 @@ def load_base_uitypes():
 def load_uitypes_by_preset_type(preset_types):
     placeholders = ", ".join(["?"] * len(preset_types))
     query = f"""
-        SELECT UIType.*, SectionConfigCollections.codeInfoId
+        SELECT UIType.*, GROUP_CONCAT(SectionConfigCollections.codeInfoId) as collections
         FROM UIType
         LEFT JOIN SectionConfigCollections
         ON UIType.id = SectionConfigCollections.uiTypeId
         WHERE presetType in ({placeholders})
+        GROUP BY UIType.id
     """
 
     db.execute(query, preset_types)
-    output = aggregate_results(db.fetchall(), "id", ["codeInfoId"])
-    return {x["id"]: process_uitype(x) for x in output.values()}
+    output = {}
+    for row in db.fetchall():
+        row = dict(row)
+        output[row["id"]] = process_uitype(row)
+    return output
 
 
 def process_uitype(uitype):
@@ -39,7 +42,9 @@ def process_uitype(uitype):
 def load_section_config(uitype):
     return {
         "subType": uitype["sectionConfigSubType"],
-        "collections": [x for x in uitype["codeInfoId"] if x],
+        "collections": uitype["collections"].split(",")
+        if uitype["collections"]
+        else [],
         "childUITypeId": uitype["sectionConfigChildUITypeId"],
     }
 
@@ -50,3 +55,31 @@ def load_slider_config(uitype):
         "max": uitype["sliderConfigMax"],
         "step": uitype["sliderConfigStep"],
     }
+
+
+def load_uitypecols(ids):
+    placeholders = ", ".join(["?"] * len(ids))
+    query = f"""
+        SELECT UITypeCol.*, GROUP_CONCAT(UIType.id) as nonPresetUITypeIds
+        FROM UITypeCol
+        LEFT JOIN UIType
+        ON
+            UITypeCol.idid = UIType.asNonPresetForUITypeColId
+        AND
+            UITypeCol.codeInfoId = UIType.asNonPresetForCodeInfoId
+        WHERE UITypeCol.idid in ({placeholders})
+    """
+    db.execute(query, ids)
+    output = {}
+    for row in db.fetchall():
+        row = dict(row)
+        if row["idid"]:
+            output[row["idid"]] = {
+                row["codeInfoId"]: {
+                    "uiTypeId": row["uiTypeId"],
+                    "nonPresetUITypeIds": row["nonPresetUITypeIds"].split(",")
+                    if row["nonPresetUITypeIds"]
+                    else [],
+                }
+            }
+    return output
