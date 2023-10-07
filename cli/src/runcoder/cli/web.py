@@ -78,9 +78,14 @@ async def consumer(message):
 
 
 def codeCompletion(message):
-    code = f'{get_import_text(message["message"])}; {message["message"]}'
+    for_parser = message["message"].rstrip(".")
+    try:
+        code = f'{get_import_text(for_parser)}; {message["message"]}'
+    except SyntaxError as e:
+        print(f"Syntax Error: {e}")
+        return [], "codeCompletion"
     if code == "":
-        return []
+        return [], "codeCompletion"
     results = jedi.Script(code).complete(line=1, column=len(code))
     output = [
         f"{message['message']}{x.complete}"
