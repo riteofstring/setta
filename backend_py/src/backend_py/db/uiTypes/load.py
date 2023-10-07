@@ -72,26 +72,30 @@ def load_slider_config(uitype):
 def load_uitypecols(ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT UITypeCol.*, GROUP_CONCAT(UIType.id) as nonPresetUITypeIds
-        FROM UITypeCol
+        SELECT UITypeColId.id, UITypeCol.codeInfoId, UITypeCol.uiTypeId, GROUP_CONCAT(UIType.id) as nonPresetUITypeIds
+        FROM UITypeColId
+        LEFT JOIN UITypeCol
+        ON UITypeColId.id = UITypeCol.idid
         LEFT JOIN UIType
         ON
-            UITypeCol.idid = UIType.asNonPresetForUITypeColId
+            UITypeColId.id = UIType.asNonPresetForUITypeColId
         AND
             UITypeCol.codeInfoId = UIType.asNonPresetForCodeInfoId
-        WHERE UITypeCol.idid in ({placeholders})
+        WHERE UITypeColId.id in ({placeholders})
+        GROUP BY UITypeColId.id, UITypeCol.codeInfoId
     """
     db.execute(query, ids)
     output = {}
     for row in db.fetchall():
         row = dict(row)
-        if row["idid"]:
-            output[row["idid"]] = {
-                row["codeInfoId"]: {
-                    "uiTypeId": row["uiTypeId"],
-                    "nonPresetUITypeIds": row["nonPresetUITypeIds"].split(",")
-                    if row["nonPresetUITypeIds"]
-                    else [],
-                }
-            }
+        if row["id"] not in output:
+            output[row["id"]] = {}
+        output[row["id"]][row["codeInfoId"]] = {
+            "uiTypeId": row["uiTypeId"],
+            "nonPresetUITypeIds": row["nonPresetUITypeIds"].split(",")
+            if row["nonPresetUITypeIds"]
+            else [],
+        }
+    for v in output.values():
+        v.pop(None, None)
     return output
