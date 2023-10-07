@@ -100,7 +100,10 @@ def route_load_project(projectName, configName):
 
 @app.post("/projects/save")
 def route_save_project(x: ProjectSaveRequest):
-    save_project_details(x.project)
+    p = x.project
+    p_metadata = p.pop("project")
+    formatted = {**p_metadata, "configs": [{**p}]}
+    save_project_details(formatted)
 
 
 @app.post("/projects/createProject")
