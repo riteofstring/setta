@@ -42,7 +42,8 @@ class ConnectionManager:
         id = websocket.headers.get("websocketId")
         while (not id) or id in self.sockets:
             id = generate_memorable_string()
-        self.sockets[id] = websocket
+        isCLI = "Python" in websocket.headers.get("user-agent", "")
+        self.sockets[id] = {"websocket": websocket, "isCLI": isCLI}
         await self.send_message(
             {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
         )
@@ -54,17 +55,17 @@ class ConnectionManager:
         await self.broadcast_connections()
 
     async def send_message(self, message):
-        websocket = self.sockets[message["toWebsocketId"]]
+        websocket = self.sockets[message["toWebsocketId"]]["websocket"]
         await websocket.send_text(json.dumps(message))
 
     async def broadcast(self, message):
-        for websocket in self.sockets.values():
-            await websocket.send_text(json.dumps(message))
+        for s in self.sockets.values():
+            await s["websocket"].send_text(json.dumps(message))
 
     async def broadcast_connections(self):
         connections = []
         for id, s in self.sockets.items():
-            connections.append({"websocketId": id, "isCLI": True})
+            connections.append({"websocketId": id, "isCLI": s["isCLI"]})
         await self.broadcast(
             {"messageType": "allConnections", "connections": connections}
         )
@@ -76,6 +77,7 @@ manager = ConnectionManager()
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     id = await manager.connect(websocket)
+    print(websocket.headers)
     try:
         while True:
             data = await websocket.receive_text()
