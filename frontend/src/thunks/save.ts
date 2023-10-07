@@ -39,14 +39,18 @@ export function getProjectData(): ProjectSaveType {
     .exportForDb();
 
   const output = {
-    project,
-    projectConfig,
-    evCols,
-    uiTypes,
-    uiTypeCols,
-    sections,
-    codeInfo,
-    projectConfigCodeInfoMaps,
+    ...project,
+    configs: [
+      {
+        projectConfig,
+        evCols,
+        uiTypes,
+        uiTypeCols,
+        sections,
+        codeInfo,
+        projectConfigCodeInfoMaps,
+      },
+    ],
   };
   // console.log(output);
 

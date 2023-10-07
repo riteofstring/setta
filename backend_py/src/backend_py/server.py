@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .db.projects.load import load_all_projects, load_project
+from .db.projects.save import save_project_details
 from .schema import db
 
 db.connect()
@@ -23,6 +24,9 @@ app.add_middleware(
 
 class ProjectRequest(BaseModel):
     format: str
+
+class ProjectSaveRequest(BaseModel):
+    project: dict
 
 
 @app.websocket("/")
@@ -45,8 +49,8 @@ def route_load_project(projectName, configName):
 
 
 @app.post("/projects/save")
-def route_save_project():
-    pass
+def route_save_project(x: ProjectSaveRequest):
+    save_project_details(x.project)
 
 
 @app.post("/projects/createProject")
