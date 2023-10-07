@@ -5,9 +5,15 @@ NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac"
 
 
 def load_code_info_for_sections(ui_types):
-    # section_ui_types = {k: v for k, v in ui_types.items() if is_section_ui_type(v)}
-    # collection_ids = [x for v in section_ui_types.values() for x in v['config']['collections']]
-    return load_code_info([NULL_OBJ_ID])
+    section_ui_types = {
+        k: v
+        for k, v in ui_types.items()
+        if v["type"] in ["SECTION", "LIST_ROOT", "DICT_ROOT"]
+    }
+    collection_ids = [
+        x for v in section_ui_types.values() for x in v["config"]["collections"]
+    ]
+    return load_code_info([*collection_ids, NULL_OBJ_ID])
 
 
 def load_code_info(ids):
