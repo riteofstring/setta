@@ -28,7 +28,6 @@ def save_project(project):
 
 
 def save_project_configs(projectId, configs):
-    print()
     with db:
         query = """
             INSERT OR REPLACE INTO ProjectConfig (id, name, projectId)

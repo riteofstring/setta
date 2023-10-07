@@ -1,0 +1,57 @@
+from collections import defaultdict
+
+from ...schema import db
+
+NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac"
+
+
+def load_code_info_for_sections(ui_types):
+    # section_ui_types = {k: v for k, v in ui_types.items() if is_section_ui_type(v)}
+    # collection_ids = [x for v in section_ui_types.values() for x in v['config']['collections']]
+    return load_code_info([NULL_OBJ_ID])
+
+
+def load_code_info(ids):
+    query = """
+        WITH RECURSIVE DESCENDANTS AS (
+            SELECT parentId, childId
+            FROM CodeInfoCol
+            WHERE parentId = :parentId
+        UNION
+            SELECT X.parentId, X.childId
+            FROM CodeInfoCol X
+            JOIN DESCENDANTS ON X.parentId = DESCENDANTS.childId
+        )
+        SELECT * FROM DESCENDANTS
+        ORDER BY "order";
+    """
+
+    all_ids, parent_to_children = get_children_recursively(ids, query)
+
+    placeholders = ", ".join(["?"] * len(all_ids))
+    query = f"""
+        SELECT * FROM CodeInfo
+        WHERE id IN ({placeholders})
+    """
+    db.execute(query, all_ids)
+    output = {}
+    for row in db.fetchall():
+        x = dict(row)
+        x["children"] = parent_to_children[x["id"]]
+        output[x["id"]] = x
+    return output
+
+
+def get_children_recursively(ids, query):
+    all_ids = set(ids)
+    parent_to_children = defaultdict(list, {c: [] for c in ids})
+    for c in ids:
+        db.execute(query, {"parentId": c})
+        parent_child_pairs = db.fetchall()
+        for row in parent_child_pairs:
+            row = dict(row)
+            childId = row["childId"]
+            all_ids.add(childId)
+            parent_to_children[row["parentId"]].append(childId)
+
+    return list(all_ids), parent_to_children

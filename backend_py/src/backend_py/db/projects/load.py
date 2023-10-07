@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from ...schema import db
+from ..codeInfo.load import load_code_info_for_sections
 from ..uiTypes.load import load_base_uitypes
 
 
@@ -70,7 +71,7 @@ def load_project(project_name, config_name):
     project = load_project_metadata(project_name)
     projectConfig = load_project_config_metadata(project["id"], config_name)
     baseUITypes = load_base_uitypes()
-    print(baseUITypes)
+    codeInfo = load_code_info_for_sections(baseUITypes)
 
     return {
         "project": project,
@@ -79,7 +80,7 @@ def load_project(project_name, config_name):
         "evCols": {},
         "uiTypes": {**baseUITypes},
         "uiTypeCols": {},
-        "codeInfo": {},
+        "codeInfo": codeInfo,
         "userCodeInfoMaps": {},
         "projectConfigCodeInfoMaps": {},
         "outputGroups": {},

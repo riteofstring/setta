@@ -4,20 +4,21 @@ from ...schema import db
 
 
 def load_base_uitypes():
-    return load_uitypes_by_preset_type("BASE")
+    return load_uitypes_by_preset_type(["BASE", "USER"])
 
 
-def load_uitypes_by_preset_type(preset_type):
-    query = """
+def load_uitypes_by_preset_type(preset_types):
+    placeholders = ", ".join(["?"] * len(preset_types))
+    query = f"""
         SELECT UIType.*, GROUP_CONCAT(SectionConfigCollections.codeInfoId) as collections
         FROM UIType
         LEFT JOIN SectionConfigCollections
         ON UIType.id = SectionConfigCollections.uiTypeId
-        WHERE presetType = :presetType
+        WHERE presetType in ({placeholders})
         GROUP BY UIType.id
     """
 
-    db.execute(query, {"presetType": preset_type})
+    db.execute(query, preset_types)
     return {row["id"]: process_uitype(dict(row)) for row in db.fetchall()}
 
 
@@ -37,10 +38,11 @@ def process_uitype(uitype):
 
 
 def load_section_config(uitype):
-    print(uitype["collections"])
     return {
         "subType": uitype["sectionConfigSubType"],
-        "collections": literal_eval(uitype["collections"]) if uitype["collections"] else [],
+        "collections": literal_eval(uitype["collections"])
+        if uitype["collections"]
+        else [],
         "childUITypeId": uitype["sectionConfigChildUITypeId"],
     }
 
