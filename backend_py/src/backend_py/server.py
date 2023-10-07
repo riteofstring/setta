@@ -39,7 +39,7 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        id = websocket.headers.get("websocket_id")
+        id = websocket.headers.get("websocketId")
         while (not id) or id in self.sockets:
             id = generate_memorable_string()
         self.sockets[id] = websocket
@@ -49,8 +49,9 @@ class ConnectionManager:
     def disconnect(self, id):
         del self.sockets[id]
 
-    # async def send_message(self, message: str, websocket: WebSocket):
-    #     await websocket.send_text(message)
+    async def send_message(self, message):
+        websocket = self.sockets[message["toWebsocketId"]]
+        await websocket.send_text(json.dumps(message))
 
     # async def broadcast(self, message: str):
     #     for connection in self.active_connections:
@@ -63,6 +64,9 @@ manager = ConnectionManager()
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     id = await manager.connect(websocket)
+    await manager.send_message(
+        {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
+    )
     try:
         while True:
             data = await websocket.receive_text()

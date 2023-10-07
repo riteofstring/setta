@@ -24,7 +24,7 @@ def web(access_token, websocket_id):
 
 async def connect(access_token, websocket_id=None):
     try:
-        extra_headers = {} if not websocket_id else {"websocket_id": websocket_id}
+        extra_headers = {} if not websocket_id else {"websocketId": websocket_id}
         async with websockets.connect(
             WEBSOCKET,
             extra_headers=extra_headers,
