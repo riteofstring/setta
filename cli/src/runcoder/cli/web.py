@@ -23,11 +23,11 @@ def web(access_token, websocket_id):
 
 
 async def connect(access_token, websocket_id=None):
-    address = f"{WEBSOCKET}/{websocket_id}" if websocket_id else WEBSOCKET
     try:
+        extra_headers = {} if not websocket_id else {"websocket_id": websocket_id}
         async with websockets.connect(
-            address,
-            extra_headers={"cookie": f"connect.sid={access_token}"},
+            WEBSOCKET,
+            extra_headers=extra_headers,
         ) as websocket:
             await consumer_handler(websocket)
     except websockets.InvalidStatusCode as e:

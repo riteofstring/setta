@@ -1,12 +1,14 @@
 import json
+import re
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .db.projects.load import load_all_projects, load_project
 from .db.projects.save import save_project_details
 from .schema import db
+from .utils.utils import generate_memorable_string
 
 db.connect()
 app = FastAPI()
@@ -25,17 +27,50 @@ app.add_middleware(
 class ProjectRequest(BaseModel):
     format: str
 
+
 class ProjectSaveRequest(BaseModel):
     project: dict
 
 
+# https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
+class ConnectionManager:
+    def __init__(self):
+        self.sockets = {}
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        id = websocket.headers.get("websocket_id")
+        while (not id) or id in self.sockets:
+            id = generate_memorable_string()
+        self.sockets[id] = websocket
+        print(self.sockets)
+        return id
+
+    def disconnect(self, id):
+        del self.sockets[id]
+
+    # async def send_message(self, message: str, websocket: WebSocket):
+    #     await websocket.send_text(message)
+
+    # async def broadcast(self, message: str):
+    #     for connection in self.active_connections:
+    #         await connection.send_text(message)
+
+
+manager = ConnectionManager()
+
+
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        message = json.dumps({"test": f"You sent: {data}"})
-        await websocket.send_text(message)
+    id = await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # await manager.send_personal_message(f"You wrote: {data}", websocket)
+            # await manager.broadcast(f"Client #{client_id} says: {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(id)
+        # await manager.broadcast(f"Client #{client_id} left the chat")
 
 
 @app.post("/projects")
