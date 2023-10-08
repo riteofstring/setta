@@ -56,6 +56,13 @@ db = DB()
 
 def create_tables():
     commands = [
+        # Settings model
+        """
+        CREATE TABLE IF NOT EXISTS Settings (
+            profileName TEXT PRIMARY KEY,
+            darkMode BOOLEAN DEFAULT 0
+        );
+        """,
         # CodeInfo model
         """
         CREATE TABLE IF NOT EXISTS CodeInfo (

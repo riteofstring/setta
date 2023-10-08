@@ -17,19 +17,3 @@ export async function post<S, R>({
     .then((res) => res)
     .catch((res) => res);
 }
-
-// function tokenConfig(access_token) {
-//   // Headers
-//   const config = {
-//     headers: {
-//       "Content-Type": "application/json",
-//     },
-//   };
-
-//   // If token, add to headers config
-//   if (access_token) {
-//     config.headers["Authorization"] = `Bearer ${access_token}`;
-//   }
-
-//   return config;
-// }

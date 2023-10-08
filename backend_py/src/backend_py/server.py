@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 from .db.projects.load import load_all_projects, load_project
 from .db.projects.save import create_project, save_project_details
+from .db.settings.load import load_settings
+from .db.settings.save import save_dark_mode
 from .schema import db
 from .utils.utils import generate_memorable_string
 
@@ -36,6 +38,10 @@ class ProjectSaveRequest(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: Optional[str]
+
+
+class SetDarkModeRequest(BaseModel):
+    darkMode: bool
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -162,9 +168,14 @@ def route_set_project_config_name():
     pass
 
 
-@app.post("/auth/setDarkMode")
-def route_set_dark_mode():
-    pass
+@app.post("/settings")
+def route_load_settings():
+    return load_settings()
+
+
+@app.post("/settings/setDarkMode")
+def route_set_dark_mode(x: SetDarkModeRequest):
+    save_dark_mode(x.darkMode)
 
 
 @app.post("/logging")

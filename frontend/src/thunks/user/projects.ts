@@ -7,7 +7,7 @@ export function loadProjectIntoState({
 }: {
   projectInfo: ProjectLoadType;
 }) {
-  console.log("projectInfo", projectInfo)
+  console.log("projectInfo", projectInfo);
   loadProjectState({
     ...projectInfo,
   });
