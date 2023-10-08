@@ -22,6 +22,7 @@ def load_sections(ids):
     """
 
     all_ids, parent_to_children = get_children_recursively(db, ids, query)
+    child_to_parent = {v:k for k,children in parent_to_children.items() for v in children}
 
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
@@ -44,6 +45,7 @@ def load_sections(ids):
         outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
+            "parentId": child_to_parent.get(v["id"], None),
             "chainedFrom": chainedFrom,
             "selectedItem": selectedItem,
             "outputGroup": outputGroup,
