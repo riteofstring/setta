@@ -129,7 +129,7 @@ def save_ui_type_cols(uitype_cols):
         """
         db.execute(query, query_params)
 
-        query = f"""
+        query = """
             UPDATE UIType
             SET asNonPresetForUITypeColId = :uiTypeColId,
                 asNonPresetForCodeInfoId = :codeInfoId
