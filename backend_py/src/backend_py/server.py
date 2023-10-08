@@ -7,7 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .db.projects.load import load_all_projects, load_project
-from .db.projects.save import create_project, save_project_details
+from .db.projects.save import (
+    create_project,
+    save_project_config_name,
+    save_project_details,
+    save_project_name,
+)
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .schema import db
@@ -38,6 +43,17 @@ class ProjectSaveRequest(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: Optional[str]
+
+
+class SetProjectNameRequest(BaseModel):
+    currProjectName: str
+    newProjectName: str
+
+
+class SetProjectConfigNameRequest(BaseModel):
+    projectId: str
+    currProjectConfigName: str
+    newProjectConfigName: str
 
 
 class SetDarkModeRequest(BaseModel):
@@ -159,13 +175,15 @@ def route_get_code():
 
 
 @app.post("/projects/setProjectName")
-def route_set_project_name():
-    pass
+def route_set_project_name(x: SetProjectNameRequest):
+    save_project_name(x.currProjectName, x.newProjectName)
 
 
 @app.post("/projects/setProjectConfigName")
-def route_set_project_config_name():
-    pass
+def route_set_project_config_name(x: SetProjectConfigNameRequest):
+    save_project_config_name(
+        x.projectId, x.currProjectConfigName, x.newProjectConfigName
+    )
 
 
 @app.post("/settings")

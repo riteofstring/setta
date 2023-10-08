@@ -158,6 +158,35 @@ def create_project(name):
         return out
 
 
+def save_project_name(curr_name, new_name):
+    with db:
+        query = """
+            UPDATE Project
+            SET name = :new_name
+            WHERE name = :curr_name
+        """
+        query_params = {"curr_name": curr_name, "new_name": new_name}
+        db.execute(query, query_params)
+
+
+def save_project_config_name(project_id, curr_name, new_name):
+    with db:
+        query = """
+            UPDATE ProjectConfig
+            SET name = :new_name
+            WHERE
+                name = :curr_name
+            AND
+                projectId = :projectId
+        """
+        query_params = {
+            "projectId": project_id,
+            "curr_name": curr_name,
+            "new_name": new_name,
+        }
+        db.execute(query, query_params)
+
+
 def merge_configs(p, key):
     output = {}
     for c in p["configs"]:
