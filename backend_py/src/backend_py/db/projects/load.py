@@ -5,9 +5,10 @@ from ...utils.utils import aggregate_results
 from ..codeInfo.load import load_code_info_for_sections
 from ..sections.load import load_sections
 from ..uiTypes.load import load_base_uitypes
+from .utils import convert_to_file_menu_format
 
 
-def load_all_projects(format):
+def load_all_projects(format, input_project_id):
     query = """
         SELECT
             Project.id AS projectId,
@@ -45,6 +46,9 @@ def load_all_projects(format):
 
     # Convert the dictionary to a list of project dictionaries
     projects_with_configs = list(project_dict.values())
+
+    if format == "fileMenu":
+        return convert_to_file_menu_format(projects_with_configs, input_project_id)
 
     return projects_with_configs
 

@@ -27,6 +27,7 @@ app.add_middleware(
 
 class ProjectRequest(BaseModel):
     format: str
+    projectId: Optional[str]
 
 
 class ProjectSaveRequest(BaseModel):
@@ -95,7 +96,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
-    return load_all_projects(x.format)
+    return load_all_projects(x.format, x.projectId)
 
 
 @app.post("/projects/load/{projectName}/{configName}")
