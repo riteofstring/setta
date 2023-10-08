@@ -56,7 +56,7 @@ def load_project_metadata(project_name):
     """
     query_params = {"name": project_name}
     db.execute(query, query_params)
-    return dict(db.fetchall()[0])
+    return dict(db.fetchone())
 
 
 def load_project_config_metadata(project_id, config_name):

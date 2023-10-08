@@ -1,4 +1,5 @@
 from ...schema import db
+from ...utils.utils import create_new_id, generate_memorable_string
 from ..codeInfo.save import save_code_info
 from ..enteredValues.save import save_ev_cols
 from ..sections.save import save_sections
@@ -87,6 +88,74 @@ def update_default_project_config(p):
 
         query_params = {"id": p["id"], "defaultConfigId": p["defaultConfigId"]}
         db.execute(query, query_params)
+
+
+# def
+
+
+def create_project(name):
+    query = """
+        SELECT name
+        FROM Project
+    """
+    db.execute(query)
+    taken_names = [row[0] for row in db.fetchall()]
+
+    while (not name) or name in taken_names:
+        name = generate_memorable_string()
+
+    with db:
+        query = """
+            INSERT INTO Project (id, name)
+            VALUES (:id, :name)
+        """
+        projectId = create_new_id()
+        query_params = {"id": projectId, "name": name}
+        db.execute(query, query_params)
+
+        query = """
+            INSERT INTO ProjectConfig (id, name, projectId)
+            VALUES (:id, :name, :projectId)
+        """
+        projectConfigId = create_new_id()
+        query_params = {
+            "id": projectConfigId,
+            "name": "config1",
+            "projectId": projectId,
+        }
+        db.execute(query, query_params)
+
+        query = """
+            UPDATE Project
+            SET defaultConfigId = :defaultConfigId
+            WHERE Project.id = :projectId
+        """
+        query_params = {"projectId": projectId, "defaultConfigId": projectConfigId}
+        db.execute(query, query_params)
+
+        query = """
+            SELECT
+                Project.id,
+                Project.name,
+                Project.defaultConfigId,
+                ProjectConfig.id as configId,
+                ProjectConfig.name as configName
+            FROM
+                Project
+            JOIN
+                ProjectConfig
+            ON
+                ProjectConfig.projectId = Project.id
+            WHERE
+                Project.id = :projectId
+        """
+        query_params = {"projectId": projectId}
+        db.execute(query, query_params)
+        out = dict(db.fetchone())
+        out["configs"] = [{"id": out["configId"], "name": out["configName"]}]
+        del out["configId"]
+        del out["configName"]
+        return out
 
 
 def merge_configs(p, key):

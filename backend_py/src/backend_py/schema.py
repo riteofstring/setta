@@ -40,6 +40,9 @@ class DB:
     def fetchall(self, *args, **kwargs):
         return self.cursor.fetchall(*args, **kwargs)
 
+    def fetchone(self, *args, **kwargs):
+        return self.cursor.fetchone(*args, **kwargs)
+
     def __enter__(self, *args, **kwargs):
         self.connect()
         return self.conn.__enter__(*args, **kwargs)

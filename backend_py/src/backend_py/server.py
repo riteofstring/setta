@@ -1,12 +1,13 @@
 import json
 import re
+from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .db.projects.load import load_all_projects, load_project
-from .db.projects.save import save_project_details
+from .db.projects.save import create_project, save_project_details
 from .schema import db
 from .utils.utils import generate_memorable_string
 
@@ -30,6 +31,10 @@ class ProjectRequest(BaseModel):
 
 class ProjectSaveRequest(BaseModel):
     project: dict
+
+
+class CreateProjectRequest(BaseModel):
+    name: Optional[str]
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -107,8 +112,8 @@ def route_save_project(x: ProjectSaveRequest):
 
 
 @app.post("/projects/createProject")
-def route_create_project():
-    pass
+def route_create_project(x: CreateProjectRequest):
+    return create_project(x.name)
 
 
 @app.post("/projects/saveAsNewProjectConfig")

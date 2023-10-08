@@ -22,7 +22,9 @@ def load_sections(ids):
     """
 
     all_ids, parent_to_children = get_children_recursively(db, ids, query)
-    child_to_parent = {v:k for k,children in parent_to_children.items() for v in children}
+    child_to_parent = {
+        v: k for k, children in parent_to_children.items() for v in children
+    }
 
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
