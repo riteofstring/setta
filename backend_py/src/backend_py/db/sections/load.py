@@ -67,7 +67,6 @@ def load_sections(ids):
             nonPresetUITypeIds.extend(c["nonPresetUITypeIds"])
 
     nonPresetUITypes = load_uitypes_by_condition(ids=nonPresetUITypeIds)
-    print("nonPresetUITypes", nonPresetUITypes)
 
     return {
         "sections": sections,

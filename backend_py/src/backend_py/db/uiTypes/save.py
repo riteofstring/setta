@@ -115,3 +115,38 @@ def save_ui_type_cols(uitype_cols):
                 )
 
         db.executemany(query, query_params)
+
+        query_params = []
+        for idid in uitype_cols.keys():
+            for code_info_id in uitype_cols[idid].keys():
+                query_params.extend([idid, code_info_id])
+        placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
+        query = f"""
+            UPDATE UIType
+            SET asNonPresetForUITypeColId = null,
+                asNonPresetForCodeInfoId = null
+            WHERE (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) IN ({placeholders})
+        """
+        db.execute(query, query_params)
+
+        query = f"""
+            UPDATE UIType
+            SET asNonPresetForUITypeColId = :uiTypeColId,
+                asNonPresetForCodeInfoId = :codeInfoId
+            WHERE id = :nonPresetUITypeId
+        """
+        query_params = []
+        for idid in uitype_cols.keys():
+            for code_info_id, ui_info in uitype_cols[idid].items():
+                query_params.extend(
+                    [
+                        {
+                            "uiTypeColId": idid,
+                            "codeInfoId": code_info_id,
+                            "nonPresetUITypeId": x,
+                        }
+                        for x in ui_info["nonPresetUITypeIds"]
+                    ]
+                )
+
+        db.executemany(query, query_params)
