@@ -28,12 +28,11 @@ export function addKwarg({
     rcType: RCType.PARAMETER,
     editable: true,
   });
-  const parent = objInfoId ?? getSectionTypeConfig(sectionId).collections[0];
+  const parent = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
   useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent });
   initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
-  console.log(useCodeInfo.getState().x);
   return kwargInfo.id;
 }
 
@@ -55,7 +54,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   let { kwargId = "" } = payload;
   const { evColId } = getSectionInfo(sectionId);
   const { uiTypeColId } = getSectionInfo(sectionId);
-  objInfoId = objInfoId ?? getSectionTypeConfig(sectionId).collections[0];
+  objInfoId = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
   if (deleteLast) {
     const kwargIds = getKwargIds(objInfoId);
     const numKwargs = kwargIds.length;

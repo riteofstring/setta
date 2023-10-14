@@ -8,9 +8,7 @@ def load_code_info_for_sections(ui_types):
         for k, v in ui_types.items()
         if v["type"] in ["SECTION", "LIST_ROOT", "DICT_ROOT"]
     }
-    collection_ids = [
-        x for v in section_ui_types.values() for x in v["config"]["collections"]
-    ]
+    collection_ids = [v["config"]["codeInfoId"] for v in section_ui_types.values()]
     return load_code_info(collection_ids)
 
 

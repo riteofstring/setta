@@ -15,8 +15,8 @@ export function useGetParamInfos(sectionId: string) {
 }
 
 export function useGetSelectedCollections(sectionId: string) {
-  const collectionIds = useGetSectionTypeConfig(sectionId, "collections");
-  return useCodeInfo((x) => _.pick(x.x, collectionIds), _.isEqual);
+  const codeInfoId = useGetSectionTypeConfig(sectionId, "codeInfoId");
+  return useCodeInfo((x) => _.pick(x.x, x.x[codeInfoId].children), _.isEqual);
 }
 
 export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {

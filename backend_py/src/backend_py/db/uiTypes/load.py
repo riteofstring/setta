@@ -20,12 +20,9 @@ def load_uitypes_by_condition(preset_types=None, ids=None):
         return {}
 
     query = f"""
-        SELECT UIType.*, GROUP_CONCAT(SectionConfigCollections.codeInfoId) as collections
+        SELECT *
         FROM UIType
-        LEFT JOIN SectionConfigCollections
-        ON UIType.id = SectionConfigCollections.uiTypeId
         {where}
-        GROUP BY UIType.id
     """
 
     db.execute(query, query_params)
@@ -54,9 +51,7 @@ def process_uitype(uitype):
 def load_section_config(uitype):
     return {
         "subType": uitype["sectionConfigSubType"],
-        "collections": uitype["collections"].split(",")
-        if uitype["collections"]
-        else [],
+        "codeInfoId": uitype["sectionConfigCodeInfoId"],
         "childUITypeId": uitype["sectionConfigChildUITypeId"],
     }
 

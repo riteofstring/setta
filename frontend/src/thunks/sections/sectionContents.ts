@@ -27,19 +27,19 @@ export function getParamWithSameName(sectionId, parentId) {
 }
 
 function computeAllCallables(sectionId: string) {
-  const { collections } = getSectionTypeConfig(sectionId);
-  return findAllCallables(useCodeInfo.getState().x, collections);
+  const { codeInfoId } = getSectionTypeConfig(sectionId);
+  return findAllCallables(useCodeInfo.getState().x, [codeInfoId]);
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
-  const { collections } = getSectionTypeConfig(sectionId);
-  const parentId = objInfoId ? objInfoId : collections[0];
+  const { codeInfoId } = getSectionTypeConfig(sectionId);
+  const parentId = objInfoId ?? codeInfoId;
 
   const objParamInfos = findAllParameters(useCodeInfo.getState().x, [parentId]);
 
   const paramCollections = findAllParameterCollections(
     useCodeInfo.getState().x,
-    collections
+    [codeInfoId]
   );
 
   return [...objParamInfos, ...paramCollections];

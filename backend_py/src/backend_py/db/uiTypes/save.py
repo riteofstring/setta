@@ -21,37 +21,19 @@ def save_section_types(uiTypes):
     uiTypes = [x for x in uiTypes if x["type"] in ["SECTION", "LIST_ROOT", "DICT_ROOT"]]
     query = """
         UPDATE UIType
-        SET sectionConfigSubType = :sectionConfigSubType,
+        SET sectionConfigCodeInfoId = :sectionConfigCodeInfoId,
+            sectionConfigSubType = :sectionConfigSubType,
             sectionConfigChildUITypeId = :sectionConfigChildUITypeId
         WHERE id = :id
     """
     query_parameters = [{"id": x["id"], **parse_section_config(x)} for x in uiTypes]
     db.executemany(query, query_parameters)
 
-    placeholders = ", ".join(["?"] * len(uiTypes))
-    query = f"""
-        DELETE FROM SectionConfigCollections
-        WHERE uiTypeId IN ({placeholders})
-    """
-    query_params = [x["id"] for x in uiTypes]
-    db.execute(query, query_params)
-
-    query = """
-        INSERT INTO SectionConfigCollections (uiTypeId, codeInfoId)
-        VALUES (:uiTypeId, :codeInfoId)
-    """
-    query_params = []
-    for x in uiTypes:
-        query_params.extend(
-            [{"uiTypeId": x["id"], "codeInfoId": c} for c in x["config"]["collections"]]
-        )
-
-    db.executemany(query, query_params)
-
 
 def parse_section_config(uiType):
     config = uiType["config"]
     return {
+        "sectionConfigCodeInfoId": config.get("codeInfoId"),
         "sectionConfigSubType": config.get("subType"),
         "sectionConfigChildUITypeId": config.get("childUITypeId"),
     }

@@ -64,8 +64,8 @@ export function addSectionsToState(
 
   for (const s of sectionIds) {
     initializeNewSectionConfig(s);
-    const { collections } = getSectionTypeConfig(s);
-    initializeChildParams([s], collections);
+    const { codeInfoId } = getSectionTypeConfig(s);
+    initializeChildParams([s], [codeInfoId]);
   }
 
   if (topLevelPosition) {
@@ -84,8 +84,8 @@ export function initializeNewSectionConfig(sectionId) {
   setSectionUITypeConfig({
     sectionId,
     configProps: {
-      configName: "collections",
-      newValueFn: () => [collection.id],
+      configName: "codeInfoId",
+      newValueFn: () => collection.id,
     },
   });
 }

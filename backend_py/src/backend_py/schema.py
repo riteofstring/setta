@@ -146,6 +146,7 @@ def create_tables():
             name TEXT,
             type TEXT,
             presetType TEXT,
+            sectionConfigCodeInfoId TEXT,
             sectionConfigChildUITypeId TEXT UNIQUE,
             sectionConfigSubType TEXT,
             sliderConfigMin REAL,
@@ -154,18 +155,10 @@ def create_tables():
             asNonPresetForSectionId TEXT,
             asNonPresetForUITypeColId TEXT,
             asNonPresetForCodeInfoId TEXT,
+            FOREIGN KEY (sectionConfigCodeInfoId) REFERENCES CodeInfo(id),
             FOREIGN KEY (sectionConfigChildUITypeId) REFERENCES UIType(id),
             FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id),
             FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId)
-        );
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS SectionConfigCollections (
-            uiTypeId TEXT,
-            codeInfoId TEXT,
-            PRIMARY KEY (uiTypeId, codeInfoId),
-            FOREIGN KEY (uiTypeId) REFERENCES UIType(id),
-            FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id)
         );
         """,
         # UITypeColId model

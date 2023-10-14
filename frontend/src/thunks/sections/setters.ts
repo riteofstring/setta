@@ -18,8 +18,8 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
       editable: false,
       rcType: RCType.CALLABLE,
     });
-    const { collections } = getSectionTypeConfig(sectionId);
-    useCodeInfo.getState().addCodeInfo({ info, parent: collections[0] });
+    const { codeInfoId } = getSectionTypeConfig(sectionId);
+    useCodeInfo.getState().addCodeInfo({ info, parent: codeInfoId });
     id = info.id;
     updateCallables(sectionId);
   }

@@ -20,10 +20,8 @@ export function useGetSectionTypeConfig<
   K extends keyof SectionUITypeConfigType
 >(sectionId: string, key: K) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const equalityFn = key === "collections" ? _.isEqual : undefined;
   return useUITypes(
-    (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key],
-    equalityFn
+    (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key]
   );
 }
 
