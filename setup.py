@@ -3,12 +3,12 @@ import setuptools
 setuptools.setup(
     name="runcoder",
     version="0.0.0",
-    package_dir={"": "."},
-    packages=setuptools.find_packages(where="."),
+    package_dir={"": "python"},
+    packages=setuptools.find_packages(where="python"),
     install_requires=[],
     entry_points={
         "console_scripts": [
-            "runcoder = cli.src.runcoder.cli.main:cli",
+            "runcoder = runcoder.cli.cli.main:cli",
         ],
     },
     extras_require={
