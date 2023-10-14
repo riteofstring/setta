@@ -27,7 +27,6 @@ export const SECTION_TYPE_NAMES = [
   GLOBAL_VARIABLES,
 ];
 
-export const NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac";
 export const DEFAULT_BASE_UI_TYPE_ID = "3fdaeb6a-e989-4888-b844-17a76f0b0192";
 export const DEFAULT_SECTION_UI_TYPE_ID =
   "0191cde4-3d98-4ba0-972a-fead19b8ac73";

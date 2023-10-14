@@ -1,8 +1,6 @@
 from ...schema import db
 from ...utils.utils import get_children_recursively
 
-NULL_OBJ_ID = "c838c2c2-0a33-4738-8307-dd01179fbeac"
-
 
 def load_code_info_for_sections(ui_types):
     section_ui_types = {
@@ -13,7 +11,7 @@ def load_code_info_for_sections(ui_types):
     collection_ids = [
         x for v in section_ui_types.values() for x in v["config"]["collections"]
     ]
-    return load_code_info([*collection_ids, NULL_OBJ_ID])
+    return load_code_info(collection_ids)
 
 
 def load_code_info(ids):

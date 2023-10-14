@@ -32,11 +32,11 @@ function computeAllCallables(sectionId: string) {
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
-  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [
-    objInfoId,
-  ]);
-
   const { collections } = getSectionTypeConfig(sectionId);
+  const parentId = objInfoId ? objInfoId : collections[0];
+
+  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [parentId]);
+
   const paramCollections = findAllParameterCollections(
     useCodeInfo.getState().x,
     collections

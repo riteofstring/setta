@@ -1,4 +1,4 @@
-import { DEFAULT_SECTION_UI_TYPE_ID, NULL_OBJ_ID } from "../constants";
+import { DEFAULT_SECTION_UI_TYPE_ID } from "../constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";
 import { maybeNewId } from "../utils";
@@ -15,7 +15,7 @@ export function newSectionInfo({
   uiTypeId = DEFAULT_SECTION_UI_TYPE_ID,
   evColId,
   uiTypeColId,
-  selectedItem = NULL_OBJ_ID,
+  selectedItem = null,
   social = null,
   outputGroup = null,
   description = "",

@@ -6,7 +6,7 @@ import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
-import { getSectionInfo } from "./sections/getters";
+import { getSectionInfo, getSectionTypeConfig } from "./sections/getters";
 import { updateParams } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -28,10 +28,12 @@ export function addKwarg({
     rcType: RCType.PARAMETER,
     editable: true,
   });
-  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent: objInfoId });
+  const parent = objInfoId ?? getSectionTypeConfig(sectionId).collections[0];
+  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent });
   initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
+  console.log(useCodeInfo.getState().x);
   return kwargInfo.id;
 }
 
@@ -44,7 +46,7 @@ type DeleteKwargPayload = {
 };
 
 export function deleteKwarg(payload: DeleteKwargPayload) {
-  const {
+  let {
     sectionId,
     objInfoId,
     deleteLast = false,
@@ -53,6 +55,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   let { kwargId = "" } = payload;
   const { evColId } = getSectionInfo(sectionId);
   const { uiTypeColId } = getSectionInfo(sectionId);
+  objInfoId = objInfoId ?? getSectionTypeConfig(sectionId).collections[0];
   if (deleteLast) {
     const kwargIds = getKwargIds(objInfoId);
     const numKwargs = kwargIds.length;

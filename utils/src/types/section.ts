@@ -13,7 +13,7 @@ export type SectionType = {
   uiTypeId: string;
   evColId: string;
   uiTypeColId: string;
-  selectedItem: string;
+  selectedItem: string | null;
   social: string | null;
   outputGroup: string | null;
   description: string;
