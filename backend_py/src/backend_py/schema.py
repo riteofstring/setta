@@ -15,6 +15,7 @@ class DB:
             self.conn.row_factory = sqlite3.Row
         if not self.cursor:
             self.cursor = self.conn.cursor()
+        self.execute("PRAGMA foreign_keys = ON;")
 
     def disconnect(self):
         if self.conn:
@@ -155,8 +156,7 @@ def create_tables():
             asNonPresetForCodeInfoId TEXT,
             FOREIGN KEY (sectionConfigChildUITypeId) REFERENCES UIType(id),
             FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id),
-            FOREIGN KEY (asNonPresetForUITypeColId) REFERENCES UITypeCol(idid),
-            FOREIGN KEY (asNonPresetForCodeInfoId) REFERENCES UITypeCol(codeInfoId)
+            FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId)
         );
         """,
         """

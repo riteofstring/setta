@@ -10,7 +10,7 @@ from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
 def copy_project_details(project, new_config_name=None, do_create_new_id=False):
     new_code_info, code_info_id_map = copy_code_info(project["codeInfo"])
     new_ev_cols, ev_col_id_map = copy_ev_cols(project["evCols"], code_info_id_map)
-    new_ui_types, ui_type_id_map = copy_ui_types(project["uiTypes"])
+    new_ui_types, ui_type_id_map = copy_ui_types(project["uiTypes"], code_info_id_map)
     new_ui_type_cols, ui_type_col_id_map = copy_ui_type_cols(
         project["uiTypeCols"], ui_type_id_map, code_info_id_map
     )

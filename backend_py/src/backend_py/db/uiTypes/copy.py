@@ -1,11 +1,14 @@
 from ...utils.utils import remap_ids, rename_keys
 
 
-def copy_ui_types(ui_types):
+def copy_ui_types(ui_types, code_info_id_map):
     new_ui_types, ui_type_id_map = remap_ids(ui_types)
 
     for u in new_ui_types.values():
         u["id"] = ui_type_id_map[u["id"]]
+        config = u["config"]
+        if "collections" in config:
+            config["collections"] = [code_info_id_map[x] for x in config["collections"]]
 
     return new_ui_types, ui_type_id_map
 
