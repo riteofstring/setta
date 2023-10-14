@@ -1,3 +1,8 @@
+# import mimetypes
+# mimetypes.add_type('application/javascript', '.js')
+# mimetypes.add_type('text/css', '.css')
+# mimetypes.add_type('text/html', '.html')
+
 import json
 import re
 from typing import Optional
@@ -25,7 +30,14 @@ from .utils.utils import convert_to_backend_format, generate_memorable_string
 db.connect()
 app = FastAPI()
 
-origins = ["http://127.0.0.1:3000", "http://localhost:3000"]
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+
+origins = ["http://127.0.0.1:8000", "http://localhost:8000"]
+
+# origins = ["http://127.0.0.1:3000", "http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -216,3 +228,18 @@ def route_logging():
 @app.post("/sections")
 def route_sections():
     pass
+
+
+# Mount the 'frontend/dist' directory at '/static'
+app.mount("/static", StaticFiles(directory="../../frontend/dist", html=True), name="static")
+
+# {full_path:path} is to catch all paths not explicitly covered here
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def read_root(full_path: str):
+    print("full_path", full_path)
+    # Adjust the path to match the location of your 'index.html'
+    with open("../../frontend/dist/index.html") as f:
+        content = f.read()
+    return content
+
+
