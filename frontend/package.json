@@ -72,7 +72,7 @@
   },
   "scripts": {
     "start": "concurrently --kill-others \"vite\" \"yarn start-backend\"",
-    "start-backend": "./backendStart.sh",
+    "start-backend": "bash ./backendStart.sh",
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"yarn start-backend\"",
     "reset": "cd ../backend_py/src && python -m backend_py.seed && cd ../../frontend && yarn start",
     "build": "vite build",
