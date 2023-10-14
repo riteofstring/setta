@@ -1,3 +1,4 @@
+import copy
 import random
 from collections import defaultdict
 from pathlib import Path
@@ -52,3 +53,29 @@ def get_children_recursively(db, ids, query):
             parent_to_children[row["parentId"]].append(childId)
 
     return list(all_ids), parent_to_children
+
+
+def rename_keys(x, to_rename):
+    output = copy.deepcopy(x)
+    for old_key in to_rename.keys():
+        new_key = to_rename[old_key]
+        if old_key in output:
+            output[new_key] = output[old_key]
+            del output[old_key]
+    return output
+
+
+def create_id_map(old_ids):
+    return dict((x, create_new_id()) for x in old_ids)
+
+
+def remap_ids(x):
+    old_ids = list(x.keys())
+    id_map = create_id_map(old_ids)
+    new_ids = rename_keys(x, id_map)
+    return new_ids, id_map
+
+
+def convert_to_backend_format(p):
+    p_metadata = p.pop("project")
+    return {**p_metadata, "configs": [{**p}]}

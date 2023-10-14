@@ -1,5 +1,3 @@
-from pprint import pprint
-
 from ...schema import db
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols

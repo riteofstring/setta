@@ -13,10 +13,11 @@ from .db.projects.save import (
     save_project_details,
     save_project_name,
 )
+from .db.projects.saveAs import save_as_new_project_config
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .schema import db
-from .utils.utils import generate_memorable_string
+from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 db.connect()
 app = FastAPI()
@@ -39,6 +40,11 @@ class ProjectRequest(BaseModel):
 
 class ProjectSaveRequest(BaseModel):
     project: dict
+
+
+class SaveAsNewProjectConfigRequest(BaseModel):
+    project: dict
+    newConfigName: str
 
 
 class CreateProjectRequest(BaseModel):
@@ -128,9 +134,7 @@ def route_load_project(projectName, configName):
 
 @app.post("/projects/save")
 def route_save_project(x: ProjectSaveRequest):
-    p = x.project
-    p_metadata = p.pop("project")
-    formatted = {**p_metadata, "configs": [{**p}]}
+    formatted = convert_to_backend_format(x.project)
     save_project_details(formatted)
 
 
@@ -140,8 +144,8 @@ def route_create_project(x: CreateProjectRequest):
 
 
 @app.post("/projects/saveAsNewProjectConfig")
-def route_save_as_new_project_config():
-    pass
+def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
+    return save_as_new_project_config(x.project, x.newConfigName)
 
 
 @app.post("/projects/saveAsExistingProjectConfig")
