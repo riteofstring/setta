@@ -12,12 +12,14 @@ from ..utils.constants import CODE_FOLDER
 from ..utils.utils import get_retry_session
 
 
-def try_getting_code(access_token, code_id):
+def try_getting_code(code_id):
     s = get_retry_session()
     failed, r = True, None
     try:
         r = post(
-            s, "codeGenerator/getCode", json={"codeId": code_id}, cookies=access_token
+            s,
+            "codeGenerator/getCode",
+            json={"codeId": code_id},
         )
         failed = r.status_code != 200
         if r.status_code == 422:
@@ -31,8 +33,8 @@ def try_getting_code(access_token, code_id):
     return failed, r
 
 
-def run(access_token, code_id):
-    failed, r = try_getting_code(access_token, code_id)
+def run(code_id):
+    failed, r = try_getting_code(code_id)
 
     if failed:
         return
@@ -50,8 +52,6 @@ def run(access_token, code_id):
     with open(code_file_path, "w") as f:
         f.write(code)
 
-    # set token so it's available for logger
-    Runcoder.token = access_token
     Runcoder.toLocation = toLocation
     Runcoder.run_id = code_id
 

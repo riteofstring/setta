@@ -1,6 +1,5 @@
 import requests
 
-from ..backend.login import login
 from ..backend.post import post
 
 
@@ -9,16 +8,10 @@ class RuncoderLoginError(Exception):
 
 
 class Runcoder:
-    token = None
     toLocation = None
     run_id = None
 
-    def __init__(self, username=None, password=None):
-        if username and password:
-            failed, token = login(username, password)
-            self.token = token
-            if failed:
-                raise RuncoderLoginError
+    def __init__(self):
         self.groupkey_to_ids = {}
 
     def log(self, group, key, value):
@@ -38,7 +31,7 @@ class Runcoder:
             "needIds": need_ids,
             "runId": self.run_id,
         }
-        r = post(requests, "logging", cookies=self.token, json=x)
+        r = post(requests, "logging", json=x)
 
         if need_ids and r.status_code == 200:
             returned_data = r.json()

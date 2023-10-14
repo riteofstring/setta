@@ -15,14 +15,14 @@ from .generate_code import generate_code, get_import_text
 from .type_checker import parse_and_type_check
 
 
-def web(access_token, websocket_id):
+def web(websocket_id):
     try:
-        asyncio.run(connect(access_token, websocket_id))
+        asyncio.run(connect(websocket_id))
     finally:
         killMyPyDaemon()
 
 
-async def connect(access_token, websocket_id=None):
+async def connect(websocket_id=None):
     try:
         extra_headers = {} if not websocket_id else {"websocketId": websocket_id}
         async with websockets.connect(
