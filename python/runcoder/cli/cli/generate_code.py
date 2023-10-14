@@ -71,14 +71,12 @@ def get_import_text(code):
 
 
 def get_mappings(var_names, selected, operator):
-    mappings = [
-        var_declaration(f'"{selected[v]["name"]}"', v, operator) for v in var_names
-    ]
+    mappings = [var_declaration(selected[v]["name"], v, operator) for v in var_names]
     return ", ".join(mappings)
 
 
 def get_dict_contents(var_names, selected):
-    return get_mappings(var_names, selected, ":")
+    return get_mappings([f"{v}" for v in var_names], selected, ":")
 
 
 def get_callable_params(var_names, selected):

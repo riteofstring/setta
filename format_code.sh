@@ -1,3 +1,3 @@
 #!/bin/sh
-black setup.py cli backend
-isort setup.py cli backend --profile black
+black setup.py python
+isort setup.py python --profile black

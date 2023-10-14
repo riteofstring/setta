@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import tempfile
+from concurrent.futures import ProcessPoolExecutor
 from pprint import pprint
 
 import jedi
@@ -43,33 +44,39 @@ async def consumer_handler(websocket):
     startMyPyDaemon()
     async for message in websocket:
         message = json.loads(message)
+        print(message)
         # create_task so that we don't have to await consumer message
         asyncio.create_task(getConsumerMessageAndSend(websocket, message))
 
 
 async def getConsumerMessageAndSend(websocket, message):
-    return_message, messageType = await consumer(message)
-    if return_message is not None:
-        print(return_message)
-        await websocket.send(
-            json.dumps(
-                {
-                    "id": message["id"],
-                    "message": return_message,
-                    "toWebsocketId": message["websocketId"],
-                    "messageType": messageType,
-                }
-            )
+    loop = asyncio.get_event_loop()
+    print(f"Start processing message ID: {message.get('id', None)}")
+    with ProcessPoolExecutor() as executor:
+        return_message, messageType = await loop.run_in_executor(
+            executor, consumer, message
         )
+        if return_message is not None:
+            print(f"Done processing message ID {message.get('id', None)}")
+            await websocket.send(
+                json.dumps(
+                    {
+                        "id": message["id"],
+                        "message": return_message,
+                        "toWebsocketId": message["websocketId"],
+                        "messageType": messageType,
+                    }
+                )
+            )
 
 
-async def consumer(message):
+def consumer(message):
     if message["messageType"] == "codeCompletionRequest":
         return codeCompletion(message)
     if message["messageType"] == "parametersRequest":
         return parametersRequest(message)
     if message["messageType"] == "typeCheckRequest":
-        return await asyncio.create_task(typeCheckRequest(message))
+        return typeCheckRequest(message)
     if message["messageType"] == "connection":
         return connectionEstablished(message)
     if message["messageType"] == "allConnections":
@@ -126,7 +133,7 @@ def parametersRequest(message):
     return output, "parameters"
 
 
-async def typeCheckRequest(message):
+def typeCheckRequest(message):
     code_json = export_selected(message["message"])
     code = generate_code(code_json)
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:
@@ -137,30 +144,35 @@ async def typeCheckRequest(message):
             temp_file.write(code)
             temp_file_path = temp_file.name
 
-        process = await asyncio.create_subprocess_shell(
-            f'dmypy check "{temp_file_path}"',
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await process.communicate()
+        try:
+            process = subprocess.run(
+                ["dmypy", "check", temp_file_path],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            stdout = process.stdout
+        except subprocess.CalledProcessError as e:
+            stdout = e.stdout
+
         os.remove(temp_file_path)
 
-    print("process.returncode", process.returncode)
     print("stdout", stdout)
-    errors = stdout.decode("utf-8")
+    errors = stdout
     output = parse_and_type_check(errors, code, code_json)
+    print(output)
     return output, "typeCheck"
 
 
 def connectionEstablished(message):
     print(f"Connected as {message['websocketId']}")
-    return None, ""
+    return None, None
 
 
 def allConnections(message):
     print("All connections:")
     pprint(message["connections"])
-    return None, ""
+    return None, None
 
 
 def startMyPyDaemon():

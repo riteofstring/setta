@@ -3,7 +3,7 @@ import re
 
 def parse_all_errors(msg):
     pattern = r"^(?P<location>(?P<file>[^\n]+?):(?P<line>\d+):(?P<column>\d+):(?P<endLine>\d+):(?P<endColumn>\d+)): (?P<type>\w+): (?P<message>.*?)(?:  \[(?P<code>[\w-]+)\])?$"
-    result = msg.split("\r\n")
+    result = msg.split("\n")
     output = []
 
     for r in result:
