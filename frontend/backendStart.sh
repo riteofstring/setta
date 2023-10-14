@@ -2,4 +2,4 @@
 cd ..
 . ./activate.sh
 cd backend_py/src
-python -m backend_py.start
+RUNCODER_DEV_MODE="true" python -m backend_py.start
