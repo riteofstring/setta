@@ -2,7 +2,7 @@ import { createNewId } from "abcde-utils/src/utils";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { generateCode } from "thunks/generateCode";
+import { runCode } from "thunks/generateCode";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { CodeGenPopover } from "utils/atoms/popover/codegenpopover";
 
@@ -16,7 +16,8 @@ export function RunButton() {
     setCommand(command);
     setDescription("Paste this into your command line:");
     navigator.clipboard.writeText(command);
-    const ready = await generateCode({ codeId });
+    // const ready = await generateCode({ codeId });
+    runCode({ codeId });
   };
 
   return (

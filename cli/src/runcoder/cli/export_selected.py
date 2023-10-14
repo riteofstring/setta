@@ -9,6 +9,11 @@ from ..utils.constants import (
 )
 
 
+def get_section_config(p, id):
+    ui_type_id = p["sections"][id]["uiTypeId"]
+    return p["uiTypes"][ui_type_id]["config"]
+
+
 def get_section_type(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
     return p["uiTypes"][ui_type_id]["type"]
@@ -16,18 +21,24 @@ def get_section_type(p, id):
 
 def get_selected_item(p, id):
     selected_item = p["sections"][id]["selectedItem"]
-    return p["codeInfo"][selected_item]["name"]
+    if selected_item:
+        return p["codeInfo"][selected_item]["name"]
+    return None
 
 
 def get_chained_selected_item(p, chained_from_var_name, id):
     selected_item = p["sections"][id]["selectedItem"]
-    name = p["codeInfo"][selected_item]["name"]
-    return f"{chained_from_var_name}.{name}"
+    if selected_item:
+        name = p["codeInfo"][selected_item]["name"]
+        return f"{chained_from_var_name}.{name}"
+    return None
 
 
 def get_param_ids(p, id):
     selected_item = p["sections"][id]["selectedItem"]
-    return p["codeInfo"][selected_item]["children"]
+    if selected_item:
+        return p["codeInfo"][selected_item]["children"]
+    return p["codeInfo"][get_section_config(p, id)["collections"][0]]["children"]
 
 
 def get_param_ui_type_id(p, section_id, id):

@@ -74,6 +74,8 @@ async def consumer(message):
         return connectionEstablished(message)
     if message["messageType"] == "allConnections":
         return allConnections(message)
+    if message["messageType"] == "runCode":
+        return runCode(message)
     raise ValueError
 
 
@@ -177,3 +179,11 @@ def startMyPyDaemon():
 
 def killMyPyDaemon():
     subprocess.run(["dmypy", "stop"])
+
+
+def runCode(message):
+    code = generate_code(export_selected(message["message"]))
+    print(code)
+    exec(code)
+    print("DONE")
+    return None, None

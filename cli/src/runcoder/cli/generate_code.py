@@ -71,7 +71,9 @@ def get_import_text(code):
 
 
 def get_mappings(var_names, selected, operator):
-    mappings = [var_declaration(selected[v]["name"], v, operator) for v in var_names]
+    mappings = [
+        var_declaration(f'"{selected[v]["name"]}"', v, operator) for v in var_names
+    ]
     return ", ".join(mappings)
 
 
