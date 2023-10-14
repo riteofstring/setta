@@ -1,6 +1,6 @@
-import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
-import { RCType } from "abcde-utils/src/types/codeInfo";
-import { isUUID } from "abcde-utils/src/utils";
+import { newCodeInfo } from "z_utils/objs/codeInfo";
+import { RCType } from "z_utils/types/codeInfo";
+import { isUUID } from "z_utils/utils";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";

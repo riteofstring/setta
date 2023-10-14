@@ -1,4 +1,4 @@
-import { SECTIONS } from "abcde-utils/src/routes";
+import { SECTIONS } from "z_utils/routes";
 import { post } from "./utils";
 
 export async function dbGetSections() {

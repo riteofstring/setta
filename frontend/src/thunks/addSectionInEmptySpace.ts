@@ -1,4 +1,4 @@
-import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
+import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { usePanes } from "models/panes";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";

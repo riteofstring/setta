@@ -1,4 +1,4 @@
-import { requiresNestedSection } from "abcde-utils/src/constants";
+import { requiresNestedSection } from "z_utils/constants";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import React from "react";
 import { KwargParam } from "./ParamSwitchOptions/KwargParam";

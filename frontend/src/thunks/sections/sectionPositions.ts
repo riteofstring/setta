@@ -1,4 +1,4 @@
-import { SectionType } from "abcde-utils/src/types/section";
+import { SectionType } from "z_utils/types/section";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";

@@ -2,7 +2,7 @@ import {
   findAllCallables,
   findAllParameterCollections,
   findAllParameters,
-} from "abcde-utils/src/getDescendants";
+} from "z_utils/getDescendants";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {

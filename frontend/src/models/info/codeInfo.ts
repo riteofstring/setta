@@ -1,7 +1,7 @@
 import {
   CodeInfoStateFrontendType,
   CodeInfoZustandType,
-} from "abcde-utils/src/types/codeInfo";
+} from "z_utils/types/codeInfo";
 import _ from "lodash";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";

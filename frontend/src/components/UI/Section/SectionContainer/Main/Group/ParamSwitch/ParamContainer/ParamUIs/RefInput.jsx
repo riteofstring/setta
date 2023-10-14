@@ -1,5 +1,5 @@
-import { FN_UI_TYPE_ID } from "abcde-utils/src/constants";
-import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
+import { FN_UI_TYPE_ID } from "z_utils/constants";
+import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getSectionInfo, getSectionName } from "thunks/sections/getters";

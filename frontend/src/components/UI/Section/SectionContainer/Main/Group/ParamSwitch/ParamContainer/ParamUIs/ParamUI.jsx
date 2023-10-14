@@ -5,7 +5,7 @@ import {
   SECTION,
   SLIDER,
   SWITCH,
-} from "abcde-utils/src/constants";
+} from "z_utils/constants";
 import { RefInput, RefInputConfig } from "./RefInput";
 import { SliderInput, SliderInputConfig } from "./SliderInput/SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput/SwitchInput";

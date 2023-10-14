@@ -1,4 +1,4 @@
-import { createNewId } from "abcde-utils/src/utils";
+import { createNewId } from "z_utils/utils";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useState } from "react";
 import { RiPlayMiniFill } from "react-icons/ri";

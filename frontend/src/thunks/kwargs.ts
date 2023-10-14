@@ -1,5 +1,5 @@
-import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
-import { RCType } from "abcde-utils/src/types/codeInfo";
+import { newCodeInfo } from "z_utils/objs/codeInfo";
+import { RCType } from "z_utils/types/codeInfo";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { getKwargIds } from "./codeInfo/codeInfo";

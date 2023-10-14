@@ -1,6 +1,6 @@
-import { DECK_UI_TYPE_ID } from "abcde-utils/src/constants";
-import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
-import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
+import { DECK_UI_TYPE_ID } from "z_utils/constants";
+import { newSectionInfo } from "z_utils/objs/sectionInfo";
+import { SectionPositionType } from "z_utils/types/sectionPosition";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { createSectionInfo } from "./createSectionInfo";
 

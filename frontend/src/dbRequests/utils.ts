@@ -1,4 +1,4 @@
-import { BACKEND } from "abcde-utils/src/addresses";
+import { BACKEND } from "z_utils/addresses";
 import axios, { AxiosResponse } from "axios";
 
 export async function post<S, R>({

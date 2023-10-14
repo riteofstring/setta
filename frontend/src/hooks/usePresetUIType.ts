@@ -1,14 +1,14 @@
-import { isSectionUIType, uiTypesToPretty } from "abcde-utils/src/constants";
+import { isSectionUIType, uiTypesToPretty } from "z_utils/constants";
 import {
   ManyUITypeType,
   PresetType,
   UITypeType,
-} from "abcde-utils/src/types/uiType";
+} from "z_utils/types/uiType";
 import {
   isBasePreset,
   isPreset,
   isUserPreset,
-} from "abcde-utils/src/uiTypeConstants";
+} from "z_utils/uiTypeConstants";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";

@@ -1,4 +1,4 @@
-import { LOAD_SETTINGS, SET_DARK_MODE } from "abcde-utils/src/routes";
+import { LOAD_SETTINGS, SET_DARK_MODE } from "z_utils/routes";
 import { post } from "./utils";
 
 export async function dbSetDarkMode(darkMode) {

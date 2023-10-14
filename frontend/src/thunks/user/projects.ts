@@ -1,4 +1,4 @@
-import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
+import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { dbLoadProject } from "dbRequests/projects";
 import { loadProjectState } from "thunks/loadProjectState";
 

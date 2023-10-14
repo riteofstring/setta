@@ -1,4 +1,4 @@
-import { WEBSOCKET } from "abcde-utils/src/addresses";
+import { WEBSOCKET } from "z_utils/addresses";
 import {
   useWebsocketConnectionList,
   useWebsocketRooms,

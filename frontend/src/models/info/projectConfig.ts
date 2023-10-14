@@ -1,7 +1,7 @@
 import {
   ProjectConfigFrontendType,
   ProjectConfigZustandType,
-} from "abcde-utils/src/types/projectConfig";
+} from "z_utils/types/projectConfig";
 import _ from "lodash";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";

@@ -1,4 +1,4 @@
-import { isSectionUIType } from "abcde-utils/src/constants";
+import { isSectionUIType } from "z_utils/constants";
 import { BiWrench } from "react-icons/bi";
 import { goToSectionConfigTab } from "thunks/switchTabs";
 import { Button } from "utils/atoms/buttons/Button";

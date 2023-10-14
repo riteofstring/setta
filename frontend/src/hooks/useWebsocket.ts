@@ -1,4 +1,4 @@
-import { createNewId } from "abcde-utils/src/utils";
+import { createNewId } from "z_utils/utils";
 import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
 import { useWebsocketRooms } from "models/websocket";
 import { useEffect, useState } from "react";

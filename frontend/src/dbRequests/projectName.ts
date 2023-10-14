@@ -1,7 +1,7 @@
 import {
   SET_PROJECT_CONFIG_NAME,
   SET_PROJECT_NAME,
-} from "abcde-utils/src/routes";
+} from "z_utils/routes";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { post } from "./utils";
