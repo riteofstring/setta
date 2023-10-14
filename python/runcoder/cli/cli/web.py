@@ -42,32 +42,34 @@ async def connect(websocket_id=None):
 
 async def consumer_handler(websocket):
     startMyPyDaemon()
+    executor = ProcessPoolExecutor()
+    loop = asyncio.get_event_loop()
     async for message in websocket:
         message = json.loads(message)
         print(message)
         # create_task so that we don't have to await consumer message
-        asyncio.create_task(getConsumerMessageAndSend(websocket, message))
-
-
-async def getConsumerMessageAndSend(websocket, message):
-    loop = asyncio.get_event_loop()
-    print(f"Start processing message ID: {message.get('id', None)}")
-    with ProcessPoolExecutor() as executor:
-        return_message, messageType = await loop.run_in_executor(
-            executor, consumer, message
+        asyncio.create_task(
+            getConsumerMessageAndSend(websocket, message, executor, loop)
         )
-        if return_message is not None:
-            print(f"Done processing message ID {message.get('id', None)}")
-            await websocket.send(
-                json.dumps(
-                    {
-                        "id": message["id"],
-                        "message": return_message,
-                        "toWebsocketId": message["websocketId"],
-                        "messageType": messageType,
-                    }
-                )
+
+
+async def getConsumerMessageAndSend(websocket, message, executor, loop):
+    print(f"Start processing message ID: {message.get('id', None)}")
+    return_message, messageType = await loop.run_in_executor(
+        executor, consumer, message
+    )
+    if return_message is not None:
+        print(f"Done processing message ID {message.get('id', None)}")
+        await websocket.send(
+            json.dumps(
+                {
+                    "id": message["id"],
+                    "message": return_message,
+                    "toWebsocketId": message["websocketId"],
+                    "messageType": messageType,
+                }
             )
+        )
 
 
 def consumer(message):
