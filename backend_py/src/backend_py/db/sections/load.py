@@ -7,11 +7,11 @@ from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 def load_sections(ids):
     query = """
         WITH RECURSIVE DESCENDANTS AS (
-            SELECT parentId, childId
+            SELECT parentId, childId, "order"
             FROM SectionChildren
             WHERE parentId = :parentId
         UNION
-            SELECT X.parentId, X.childId
+            SELECT X.parentId, X.childId, X."order"
             FROM SectionChildren X
             JOIN DESCENDANTS ON X.parentId = DESCENDANTS.childId
         )

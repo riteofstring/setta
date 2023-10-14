@@ -15,11 +15,11 @@ def load_code_info_for_sections(ui_types):
 def load_code_info(ids):
     query = """
         WITH RECURSIVE DESCENDANTS AS (
-            SELECT parentId, childId
+            SELECT parentId, childId, "order"
             FROM CodeInfoCol
             WHERE parentId = :parentId
         UNION
-            SELECT X.parentId, X.childId
+            SELECT X.parentId, X.childId, X."order"
             FROM CodeInfoCol X
             JOIN DESCENDANTS ON X.parentId = DESCENDANTS.childId
         )
