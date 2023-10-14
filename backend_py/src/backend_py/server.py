@@ -13,7 +13,10 @@ from .db.projects.save import (
     save_project_details,
     save_project_name,
 )
-from .db.projects.saveAs import save_as_new_project_config
+from .db.projects.saveAs import (
+    save_as_existing_project_config,
+    save_as_new_project_config,
+)
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .schema import db
@@ -45,6 +48,11 @@ class ProjectSaveRequest(BaseModel):
 class SaveAsNewProjectConfigRequest(BaseModel):
     project: dict
     newConfigName: str
+
+
+class SaveAsExistingProjectConfigRequest(BaseModel):
+    project: dict
+    configName: str
 
 
 class CreateProjectRequest(BaseModel):
@@ -149,8 +157,8 @@ def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
 
 
 @app.post("/projects/saveAsExistingProjectConfig")
-def route_save_as_existing_project_config():
-    pass
+def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
+    return save_as_existing_project_config(x.project, x.configName)
 
 
 @app.post("/codeInfo/getCollectionsAndModules")
