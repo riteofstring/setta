@@ -5,4 +5,4 @@ fi
 
 python3 -m venv abcde_env
 . ./activate.sh
-# pip install -e ".[cli,backend,dev,test]"
+pip install -e ".[cli,backend,dev,test]"

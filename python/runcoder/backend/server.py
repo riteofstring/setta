@@ -45,9 +45,7 @@ app = FastAPI()
 async def startup_event():
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
-        dist_path = (
-            Path(__file__).resolve().parent / ".." / "frontend"
-        )
+        dist_path = Path(__file__).resolve().parent / ".." / "frontend"
         app.mount(
             "/static",
             StaticFiles(directory=dist_path, html=True),
