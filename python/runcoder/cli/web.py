@@ -42,15 +42,15 @@ async def consumer_handler(websocket):
         print(message)
         # create_task so that we don't have to await consumer message
         asyncio.create_task(
-            getConsumerMessageAndSend(websocket, message, executor, loop)
+            getConsumerMessageAndSend(message, executor, loop, websocket.send)
         )
 
 
-async def getConsumerMessageAndSend(websocket, message, executor, loop):
+async def getConsumerMessageAndSend(message, executor, loop, send_fn):
     return_message, messageType = await getConsumerMessage(message, executor, loop)
     if return_message is not None:
         print(f"Done processing message ID {message.get('id', None)}")
-        await websocket.send(
+        await send_fn(
             json.dumps(
                 {
                     "id": message["id"],

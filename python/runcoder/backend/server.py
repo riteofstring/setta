@@ -1,5 +1,7 @@
+import asyncio
 import json
 import os
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -8,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from runcoder.cli.web import getConsumerMessageAndSend
 
 from .db.projects.load import load_all_projects, load_project
 from .db.projects.save import (
@@ -112,6 +116,8 @@ class ConnectionManager:
         self.sockets = {}
         self.use_server_as_cli = True
         self.server_cli_name = "main"
+        self.executor = ProcessPoolExecutor()
+        self.loop = asyncio.get_event_loop()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -134,7 +140,13 @@ class ConnectionManager:
         if "toWebsocketId" in message:
             wid = message["toWebsocketId"]
             if wid == self.server_cli_name:
-                pass
+                websocket = self.sockets[fromWebsocketId]["websocket"]
+                message["websocketId"] = wid
+                asyncio.create_task(
+                    getConsumerMessageAndSend(
+                        message, self.executor, self.loop, websocket.send_text
+                    )
+                )
             else:
                 websocket = self.sockets[wid]["websocket"]
                 await websocket.send_text(
