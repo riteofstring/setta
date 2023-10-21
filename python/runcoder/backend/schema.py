@@ -1,17 +1,17 @@
 import os
 import sqlite3
 
-from .utils.utils import get_absolute_path
+from .db_path import get_db_path
 
 
 class DB:
     conn = None
     cursor = None
-    db_path = get_absolute_path(__file__, "dev.db")
 
     def connect(self):
         if not self.conn:
-            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            print("connect to", get_db_path())
+            self.conn = sqlite3.connect(get_db_path(), check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
         if not self.cursor:
             self.cursor = self.conn.cursor()
@@ -25,9 +25,10 @@ class DB:
             self.cursor = None
 
     def delete(self):
-        if os.path.exists(self.db_path):
+        path = get_db_path()
+        if os.path.exists(path):
             self.disconnect()
-            os.remove(self.db_path)
+            os.remove(path)
 
     def commit(self):
         self.conn.commit()

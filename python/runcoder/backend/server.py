@@ -26,6 +26,7 @@ from .db.projects.saveAs import (
 )
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
+from .db_path import use_db
 from .schema import db
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
@@ -37,12 +38,15 @@ origins = (
     else ["http://127.0.0.1:8000", "http://localhost:8000"]
 )
 
-db.connect()
 app = FastAPI()
 
 
 @app.on_event("startup")
 async def startup_event():
+    db_alias = os.environ.get("RUNCODER_DB_ALIAS")
+    if db_alias:
+        use_db(db_alias)
+    db.connect()
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
         dist_path = Path(__file__).resolve().parent / ".." / "frontend"
