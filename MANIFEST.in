@@ -1,0 +1,2 @@
+include python/runcoder/frontend/*
+include python/runcoder/frontend/assets/*
