@@ -2,4 +2,4 @@
 cd ..
 . ./activate.sh
 cd python/runcoder
-RUNCODER_DEV_MODE="true" runcoder
+RUNCODER_DEV_MODE="true" runcoder --reload

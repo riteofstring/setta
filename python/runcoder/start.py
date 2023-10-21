@@ -21,8 +21,9 @@ def web(websocket_id):
 
 
 @click.group(invoke_without_command=True)
+@click.option("--reload", is_flag=True)
 @click.pass_context
-def cli(ctx):
+def cli(ctx, reload):
     if ctx.invoked_subcommand is None:
         sys.path.append(str(Path(__file__).resolve().parent))
         uvicorn.run(
@@ -30,7 +31,7 @@ def cli(ctx):
             host="0.0.0.0",
             port=8000,
             log_level="info",
-            reload=True,
+            reload=reload,
         )
 
 
