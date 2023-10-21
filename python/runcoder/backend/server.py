@@ -29,6 +29,7 @@ from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .schema import db
 from .utils.utils import convert_to_backend_format, generate_memorable_string
+# from ..cli.cli.web import getConsumerMessageAndSend
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -112,6 +113,8 @@ class SetDarkModeRequest(BaseModel):
 class ConnectionManager:
     def __init__(self):
         self.sockets = {}
+        self.use_server_as_cli = True
+        self.server_cli_name = "main"
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -132,10 +135,14 @@ class ConnectionManager:
 
     async def send_message(self, message, fromWebsocketId=None):
         if "toWebsocketId" in message:
-            websocket = self.sockets[message["toWebsocketId"]]["websocket"]
-            await websocket.send_text(
-                json.dumps({**message, "websocketId": fromWebsocketId})
-            )
+            wid = message["toWebsocketId"]
+            if wid == self.server_cli_name:
+                pass
+            else:
+                websocket = self.sockets[wid]["websocket"]
+                await websocket.send_text(
+                    json.dumps({**message, "websocketId": fromWebsocketId})
+                )
 
     async def broadcast(self, message):
         for s in self.sockets.values():
@@ -145,6 +152,8 @@ class ConnectionManager:
         connections = []
         for id, s in self.sockets.items():
             connections.append({"websocketId": id, "isCLI": s["isCLI"]})
+        if self.use_server_as_cli:
+            connections.append({"websocketId": self.server_cli_name, "isCLI": True})
         await self.broadcast(
             {"messageType": "allConnections", "connections": connections}
         )
