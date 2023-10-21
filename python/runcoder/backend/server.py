@@ -1,11 +1,5 @@
-# import mimetypes
-# mimetypes.add_type('application/javascript', '.js')
-# mimetypes.add_type('text/css', '.css')
-# mimetypes.add_type('text/html', '.html')
-
 import json
 import os
-import re
 from pathlib import Path
 from typing import Optional
 
@@ -76,7 +70,7 @@ app.add_middleware(
 
 class ProjectRequest(BaseModel):
     format: str
-    projectId: Optional[str]
+    projectId: Optional[str] = None
 
 
 class ProjectSaveRequest(BaseModel):
