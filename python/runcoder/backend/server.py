@@ -6,6 +6,7 @@
 import json
 import os
 import re
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -29,7 +30,6 @@ from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .schema import db
 from .utils.utils import convert_to_backend_format, generate_memorable_string
-# from ..cli.cli.web import getConsumerMessageAndSend
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -47,9 +47,12 @@ app = FastAPI()
 async def startup_event():
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
+        dist_path = (
+            Path(__file__).resolve().parent / ".." / ".." / ".." / "frontend" / "dist"
+        )
         app.mount(
             "/static",
-            StaticFiles(directory="../../frontend/dist", html=True),
+            StaticFiles(directory=dist_path, html=True),
             name="static",
         )
 
@@ -58,7 +61,7 @@ async def startup_event():
         async def read_root(full_path: str):
             print("full_path", full_path)
             # Adjust the path to match the location of your 'index.html'
-            with open("../../frontend/dist/index.html") as f:
+            with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
 

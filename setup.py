@@ -1,14 +1,16 @@
 import setuptools
 
+from python.runcoder import __version__
+
 setuptools.setup(
     name="runcoder",
-    version="0.0.0",
+    version=__version__,
     package_dir={"": "python"},
     packages=setuptools.find_packages(where="python"),
     install_requires=[],
     entry_points={
         "console_scripts": [
-            "runcoder = runcoder.cli.cli.main:cli",
+            "runcoder = runcoder.start:cli",
         ],
     },
     extras_require={
