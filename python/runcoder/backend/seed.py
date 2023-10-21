@@ -3,7 +3,6 @@ import json
 from .db.projects.save import save_project_details
 from .db.settings.save import save_settings
 from .db.uiTypes.save import save_ui_types
-from .schema import create_tables, db
 from .utils.utils import get_absolute_path
 
 
@@ -27,9 +26,8 @@ def seed_settings():
     save_settings(data)
 
 
-if __name__ == "__main__":
-    db.delete()
-    create_tables()
+def seed(include_projects):
     seed_base_ui_types()
-    seed_projects()
+    if include_projects:
+        seed_projects()
     seed_settings()
