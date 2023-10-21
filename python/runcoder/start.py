@@ -4,8 +4,8 @@ from pathlib import Path
 import click
 import uvicorn
 
-from .cli.cli.run import run as _run
-from .cli.cli.web import web as _web
+from .cli.run import run as _run
+from .cli.web import web as _web
 
 
 @click.command()

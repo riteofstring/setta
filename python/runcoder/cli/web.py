@@ -10,10 +10,10 @@ import jedi
 import parso
 import websockets
 
+from ..code.export_selected import export_selected
+from ..code.generate_code import generate_code, get_import_text
+from ..code.type_checker import parse_and_type_check
 from ..utils.constants import WEBSOCKET
-from .export_selected import export_selected
-from .generate_code import generate_code, get_import_text
-from .type_checker import parse_and_type_check
 
 
 def web(websocket_id):
