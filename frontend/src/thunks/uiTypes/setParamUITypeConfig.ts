@@ -1,5 +1,5 @@
-import { SLIDER } from "z_utils/constants";
-import { getValueForUIType } from "z_utils/objs/ev";
+import { SLIDER } from "abcde-utils/src/constants";
+import { getValueForUIType } from "abcde-utils/src/objs/ev";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";

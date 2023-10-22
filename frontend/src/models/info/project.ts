@@ -1,4 +1,4 @@
-import { ProjectType, ProjectZustandType } from "z_utils/types/project";
+import { ProjectType, ProjectZustandType } from "abcde-utils/src/types/project";
 import _ from "lodash";
 import { createProjectState } from "../utils";
 

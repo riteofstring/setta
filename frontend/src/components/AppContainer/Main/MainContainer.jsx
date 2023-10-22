@@ -6,9 +6,10 @@ import { Overview } from "./UiEditorContainer/SidePanes/Overview/Overview";
 import { UiEditor } from "./UiEditorContainer/SidePanes/UiEditor/UiEditor";
 
 export function MainContainer() {
-  const { projectName, configName } = useParams();
+  const { username, projectName, configName } = useParams();
   const { state } = useLocation();
   const doneLoading = useLoadProject({
+    username,
     projectName,
     configName,
     ...state,

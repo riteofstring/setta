@@ -1,4 +1,4 @@
-import { CodeInfoType } from "z_utils/types/codeInfo";
+import { CodeInfoType } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 
 export function groupedObjInfo(infos) {

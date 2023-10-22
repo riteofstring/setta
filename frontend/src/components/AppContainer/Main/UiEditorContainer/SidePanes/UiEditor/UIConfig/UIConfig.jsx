@@ -1,5 +1,5 @@
-import { PresetType } from "z_utils/types/uiType";
-import { isPreset } from "z_utils/uiTypeConstants";
+import { PresetType } from "abcde-utils/src/types/uiType";
+import { isPreset } from "abcde-utils/src/uiTypeConstants";
 import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";

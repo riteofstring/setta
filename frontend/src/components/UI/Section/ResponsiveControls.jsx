@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import _ from "lodash";
 import { usePanes } from "models/panes";
-import { useSettings } from "models/settings";
+import { useUser } from "models/user";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
 import { ControlButton, Controls, useReactFlow } from "reactflow";
@@ -11,7 +11,7 @@ import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 export function ResponsiveControls() {
   const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
   const rf = useReactFlow();
-  const darkMode = useSettings((x) => x.darkMode);
+  const darkMode = useUser((x) => x.darkMode);
 
   function onClickLayout() {
     const margin = 50;

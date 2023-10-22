@@ -3,12 +3,12 @@ import {
   isRoot,
   REF_UI_TYPE_ID,
   rootTypeToChildSubType,
-} from "z_utils/constants";
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
+} from "abcde-utils/src/constants";
+import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
-} from "z_utils/types/uiType";
+} from "abcde-utils/src/types/uiType";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";

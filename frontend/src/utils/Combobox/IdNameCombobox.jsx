@@ -1,3 +1,4 @@
+import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import _ from "lodash";
 import { ComboboxSearch } from "./ComboboxSearch";
 import { flattenedItems } from "./utils";
@@ -22,8 +23,8 @@ export function IdNameCombobox({
     setSelection,
     changedByUser
   ) => {
-    const sid = newSelectedItem ? newSelectedItem.id : null;
-    const currId = currSelectedItem ? currSelectedItem.id : null;
+    const sid = newSelectedItem ? newSelectedItem.id : NULL_OBJ_ID;
+    const currId = currSelectedItem ? currSelectedItem.id : NULL_OBJ_ID;
     if (sid !== currId) {
       setSelection(newSelectedItem);
     }

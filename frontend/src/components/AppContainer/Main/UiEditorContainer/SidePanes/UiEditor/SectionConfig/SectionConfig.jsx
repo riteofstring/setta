@@ -1,4 +1,4 @@
-import { OUTPUT, SOCIAL } from "z_utils/constants";
+import { OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { useGetSectionType } from "hooks/useSectionType";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useUIEditor } from "models/uiEditor";

@@ -1,8 +1,8 @@
-import { newCodeInfo } from "z_utils/objs/codeInfo";
-import { newSectionInfo } from "z_utils/objs/sectionInfo";
-import { RCType } from "z_utils/types/codeInfo";
-import { ManySectionType } from "z_utils/types/section";
-import { SectionPositionType } from "z_utils/types/sectionPosition";
+import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
+import { newSectionInfo } from "abcde-utils/src/objs/sectionInfo";
+import { RCType } from "abcde-utils/src/types/codeInfo";
+import { ManySectionType } from "abcde-utils/src/types/section";
+import { SectionPositionType } from "abcde-utils/src/types/sectionPosition";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -64,8 +64,8 @@ export function addSectionsToState(
 
   for (const s of sectionIds) {
     initializeNewSectionConfig(s);
-    const { codeInfoId } = getSectionTypeConfig(s);
-    initializeChildParams([s], [codeInfoId]);
+    const { collections } = getSectionTypeConfig(s);
+    initializeChildParams([s], collections);
   }
 
   if (topLevelPosition) {
@@ -84,8 +84,8 @@ export function initializeNewSectionConfig(sectionId) {
   setSectionUITypeConfig({
     sectionId,
     configProps: {
-      configName: "codeInfoId",
-      newValueFn: () => collection.id,
+      configName: "collections",
+      newValueFn: () => [collection.id],
     },
   });
 }

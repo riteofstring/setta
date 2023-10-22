@@ -23,7 +23,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-runcoder.db
+# migrations
+*/prisma/migrations
+*/prisma/dev.db 
+*/prisma/dev_test.db
+
 
 __pycache__/
 *.py[cod]
@@ -38,4 +42,3 @@ abcde_env
 .DS_Store
 .mypy_cache/
 .dmypy.json
-python/runcoder/frontend

@@ -1,4 +1,4 @@
-import { requiresNestedSection } from "z_utils/constants";
+import { requiresNestedSection } from "abcde-utils/src/constants";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";

@@ -1,7 +1,7 @@
 import {
   CodeInfoMapStateType,
   CodeInfoMapZustandType,
-} from "z_utils/types/codeInfoMap";
+} from "abcde-utils/src/types/codeInfoMap";
 import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 

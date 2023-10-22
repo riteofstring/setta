@@ -1,3 +1,4 @@
+import { NULL_OBJ_ID } from "abcde-utils/src/constants";
 import { useGetAllCallables } from "hooks/useSectionContents";
 import { useCodeCompletionWebsocketRoom } from "hooks/useWebsocket";
 import _ from "lodash";
@@ -32,8 +33,8 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
-    if (!hasSearchableItems && initialSelection) {
-      onSelectedItemChange(null);
+    if (!hasSearchableItems && initialSelection !== NULL_OBJ_ID) {
+      onSelectedItemChange(NULL_OBJ_ID);
     }
   }, [hasSearchableItems]);
 

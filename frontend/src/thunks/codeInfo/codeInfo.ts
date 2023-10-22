@@ -1,4 +1,4 @@
-import { RCType } from "z_utils/types/codeInfo";
+import { RCType } from "abcde-utils/src/types/codeInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 

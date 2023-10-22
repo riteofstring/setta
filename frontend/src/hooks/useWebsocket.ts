@@ -1,15 +1,26 @@
-import { createNewId } from "z_utils/utils";
-import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
+import { createNewId } from "abcde-utils/src/utils";
+import {
+  closeWebSocket,
+  openWebSocket,
+  sendLocation,
+  sendMessage,
+} from "dbRequests/websocket";
+import { useUser } from "models/user";
 import { useWebsocketRooms } from "models/websocket";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 export function useOpenCloseWebsocket() {
+  const isAuthenticated = useUser((x) => x.isAuthenticated);
   const location = useLocation();
 
   useEffect(() => {
-    openWebSocket(location.pathname);
-  }, []);
+    if (isAuthenticated) {
+      openWebSocket(location.pathname);
+    } else {
+      closeWebSocket();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     sendLocation(location.pathname);

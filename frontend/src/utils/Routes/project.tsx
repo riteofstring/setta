@@ -17,7 +17,7 @@ function ProjectWrapper() {
 }
 
 export const projectRoute: RouteObject = {
-  path: ":projectName/:configName",
+  path: ":username/:projectName/:configName",
   element: (
     <GlobalWrapper>
       <ProjectWrapper />

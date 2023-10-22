@@ -1,4 +1,4 @@
-import { SectionType } from "z_utils/types/section";
+import { SectionType } from "abcde-utils/src/types/section";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 

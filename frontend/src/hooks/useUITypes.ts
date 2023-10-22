@@ -1,4 +1,4 @@
-import { INFO, OUTPUT, SOCIAL } from "z_utils/constants";
+import { INFO, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
 import { useUITypes } from "models/info/uiTypes";
 import {
   INFO_CONFIG_TAB,

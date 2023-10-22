@@ -1,7 +1,7 @@
 import {
   UITypeStateType,
   UITypeZustandType,
-} from "z_utils/types/uiType";
+} from "abcde-utils/src/types/uiType";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";

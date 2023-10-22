@@ -1,8 +1,8 @@
-import { newEV } from "z_utils/objs/ev";
+import { newEV } from "abcde-utils/src/objs/ev";
 import {
   ParamInfoStateType,
   ParamInfoZustandType,
-} from "z_utils/types/paramInfo";
+} from "abcde-utils/src/types/paramInfo";
 import _ from "lodash";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";

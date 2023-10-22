@@ -1,5 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { FiMenu } from "react-icons/fi";
+import { logout } from "thunks/user/logout";
 import { Item } from "utils/atoms/dropdown/item";
 
 export function MainSideMenu() {
@@ -14,7 +15,7 @@ export function MainSideMenu() {
             align="start"
             className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white py-2 px-4 drop-shadow dark:bg-runcoder-800"
           >
-            <Items />
+            <Items onClickLogout={logout} />
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </section>
@@ -22,11 +23,12 @@ export function MainSideMenu() {
   );
 }
 
-function Items() {
+function Items({ onClickLogout }) {
   return (
     <>
       <Item>Profile</Item>
       <Item>Settings</Item>
+      <Item onClick={onClickLogout}>Logout</Item>
     </>
   );
 }

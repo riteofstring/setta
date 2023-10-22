@@ -1,10 +1,10 @@
-import { useSettings } from "models/settings";
+import { useUser } from "models/user";
 import { useEffect } from "react";
 import { toggleDarkMode } from "thunks/user/settings";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {
-  const darkMode = useSettings((x) => x.darkMode);
+  const darkMode = useUser((x) => x.darkMode);
 
   useEffect(() => {
     if (darkMode) {
