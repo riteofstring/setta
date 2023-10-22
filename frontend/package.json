@@ -72,9 +72,10 @@
     "zustand": "4.3.7"
   },
   "scripts": {
-    "start": "concurrently --kill-others \"vite\" \"yarn start-backend\"",
-    "start-backend": "./backendStart.sh",
-    "ncm": "concurrently --kill-others \"vite --mode ncm\" \"yarn start-backend\"",
+    "start": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh\"",
+    "startr": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh --reload\"",
+    "ncm": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh\"",
+    "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",
     "reset": "cd ../backend/src && python -m backend.seed && cd ../../frontend && yarn start",
     "build": "vite build --base=/static/",
     "test": "yarn vitest",
