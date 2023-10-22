@@ -94,7 +94,7 @@ class SaveAsExistingProjectConfigRequest(BaseModel):
 
 
 class CreateProjectRequest(BaseModel):
-    name: Optional[str]
+    name: Optional[str] = None
 
 
 class SetProjectNameRequest(BaseModel):
