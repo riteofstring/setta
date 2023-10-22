@@ -1,4 +1,4 @@
-import { ProjectLoadType } from "abcde-utils/src/types/projectSaveLoad";
+import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { dbLoadProject } from "dbRequests/projects";
 import { loadProjectState } from "thunks/loadProjectState";
 
@@ -7,15 +7,15 @@ export function loadProjectIntoState({
 }: {
   projectInfo: ProjectLoadType;
 }) {
+  console.log("projectInfo", projectInfo);
   loadProjectState({
     ...projectInfo,
   });
   return true;
 }
 
-export async function loadProject({ username, projectName, configName }) {
+export async function loadProject({ projectName, configName }) {
   const res = await dbLoadProject({
-    username,
     projectName,
     configName,
   });

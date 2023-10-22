@@ -10,19 +10,13 @@ import {
 } from "utils/Routes/pageLoadTypes";
 
 // setDoneLoading sets the doneLoading state in MainContainer
-export function useLoadProject({
-  username,
-  projectName,
-  configName,
-  pageLoadType,
-}) {
+export function useLoadProject({ projectName, configName, pageLoadType }) {
   const [doneLoading, setDoneLoading] = useState(false);
 
   useEffect(() => {
     async function loadAllProjectData() {
       setDoneLoading(false);
       const res = await loadProject({
-        username,
         projectName,
         configName,
       });
@@ -40,7 +34,7 @@ export function useLoadProject({
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
       useProjectConfig.getState().setName(configName);
     }
-  }, [username, projectName, configName]);
+  }, [projectName, configName]);
 
   return doneLoading;
 }

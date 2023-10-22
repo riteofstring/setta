@@ -1,4 +1,4 @@
-import { createNewId } from "abcde-utils/src/utils";
+import { createNewId } from "z_utils/utils";
 import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
 import { useNotification } from "models/notification";

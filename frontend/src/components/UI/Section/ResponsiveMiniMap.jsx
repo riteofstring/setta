@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
 import { usePanes } from "models/panes";
-import { useUser } from "models/user";
+import { useSettings } from "models/settings";
 import { MiniMap } from "reactflow";
 import { UI_EDITOR } from "utils/constants";
 
 export function ResponsiveMiniMap() {
   const uiEditorWidth = usePanes((x) => x.trueWidth[UI_EDITOR]);
-  const darkMode = useUser((x) => x.darkMode);
+  const darkMode = useSettings((x) => x.darkMode);
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
   // It's the style used inside of MiniMap.

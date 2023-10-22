@@ -4,7 +4,6 @@ import {
 } from "hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
 import { useSearch } from "models/search";
-import { useUser } from "models/user";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { Link } from "react-router-dom";
@@ -157,9 +156,8 @@ function DefaultConfigBadge({ isDefault }) {
 }
 
 function useConfigAddress({ project, configId }) {
-  const username = useUser((x) => x.username);
   const configName = project.configs.find((x) => x.id === configId).name;
-  return `${username}/${project.name}/${configName}`;
+  return `${project.name}/${configName}`;
 }
 
 function useDefaultConfigAddress(project) {

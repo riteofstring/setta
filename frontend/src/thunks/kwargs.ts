@@ -1,12 +1,12 @@
-import { newCodeInfo } from "abcde-utils/src/objs/codeInfo";
-import { RCType } from "abcde-utils/src/types/codeInfo";
+import { newCodeInfo } from "z_utils/objs/codeInfo";
+import { RCType } from "z_utils/types/codeInfo";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
 import { getParamChildId } from "./paramInfos";
 import { deleteChild } from "./sections/deleteChild";
-import { getSectionInfo } from "./sections/getters";
+import { getSectionInfo, getSectionTypeConfig } from "./sections/getters";
 import { updateParams } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -28,7 +28,8 @@ export function addKwarg({
     rcType: RCType.PARAMETER,
     editable: true,
   });
-  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent: objInfoId });
+  const parent = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
+  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent });
   initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
@@ -44,7 +45,7 @@ type DeleteKwargPayload = {
 };
 
 export function deleteKwarg(payload: DeleteKwargPayload) {
-  const {
+  let {
     sectionId,
     objInfoId,
     deleteLast = false,
@@ -53,6 +54,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   let { kwargId = "" } = payload;
   const { evColId } = getSectionInfo(sectionId);
   const { uiTypeColId } = getSectionInfo(sectionId);
+  objInfoId = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
   if (deleteLast) {
     const kwargIds = getKwargIds(objInfoId);
     const numKwargs = kwargIds.length;

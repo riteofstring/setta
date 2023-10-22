@@ -1,4 +1,4 @@
-import { WEBSOCKET } from "abcde-utils/src/addresses";
+import { WEBSOCKET } from "z_utils/addresses";
 import {
   useWebsocketConnectionList,
   useWebsocketRooms,
@@ -41,7 +41,7 @@ function receiveMessage(message) {
   if (m.type === "LOG") {
     updateOutput(m.data);
   } else if (m.messageType === "connection") {
-    // receives websocketId
+    console.log("connected as", m["websocketId"]);
   } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
   } else if (m.id) {

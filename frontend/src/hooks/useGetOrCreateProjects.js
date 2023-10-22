@@ -3,7 +3,6 @@ import {
   dbGetProjectsForFileMenu,
   dbGetProjectsForHomePage,
 } from "dbRequests/projects";
-import { useUser } from "models/user";
 import { useState } from "react";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
@@ -33,9 +32,8 @@ export async function createAndGoToProject({ name }) {
 }
 
 function goToProject({ project, configId }) {
-  const username = useUser.getState().username;
   const configName = project.configs.find((x) => x.id === configId).name;
-  const address = `${username}/${project.name}/${configName}`;
+  const address = `${project.name}/${configName}`;
   router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });
 }
 

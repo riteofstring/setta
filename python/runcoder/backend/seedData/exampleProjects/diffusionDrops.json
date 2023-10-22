@@ -1,0 +1,50 @@
+{
+  "id": "d7d82407-46bf-4a08-b36e-4a34350c51d5",
+  "name": "diffusionDrops",
+  "owner": "25961114-6655-4e2c-b70f-e2e3aaa84131",
+  "defaultConfigId": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
+  "configs": [
+    {
+      "codeInfo": {},
+      "evCols": {},
+      "projectConfigCodeInfoMaps": {},
+      "sections": {},
+      "uiTypes": {},
+      "uiTypeCols": {},
+      "outputs": {},
+      "outputGroups": {},
+      "runs": {},
+      "projectConfig": {
+        "id": "f8153d07-ae08-44a8-88a9-a107a7333218",
+        "name": "diffusionConfig1",
+        "children": {},
+        "viewport": {
+          "x": 100,
+          "y": -100,
+          "zoom": 1
+        }
+      }
+    },
+    {
+      "codeInfo": {},
+      "evCols": {},
+      "projectConfigCodeInfoMaps": {},
+      "sections": {},
+      "uiTypes": {},
+      "uiTypeCols": {},
+      "outputs": {},
+      "outputGroups": {},
+      "runs": {},
+      "projectConfig": {
+        "id": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
+        "name": "diffusionConfig2",
+        "children": {},
+        "viewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      }
+    }
+  ]
+}

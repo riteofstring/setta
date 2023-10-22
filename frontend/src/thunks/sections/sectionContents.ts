@@ -2,7 +2,7 @@ import {
   findAllCallables,
   findAllParameterCollections,
   findAllParameters,
-} from "abcde-utils/src/getDescendants";
+} from "z_utils/getDescendants";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {
@@ -27,19 +27,19 @@ export function getParamWithSameName(sectionId, parentId) {
 }
 
 function computeAllCallables(sectionId: string) {
-  const { collections } = getSectionTypeConfig(sectionId);
-  return findAllCallables(useCodeInfo.getState().x, collections);
+  const { codeInfoId } = getSectionTypeConfig(sectionId);
+  return findAllCallables(useCodeInfo.getState().x, [codeInfoId]);
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
-  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [
-    objInfoId,
-  ]);
+  const { codeInfoId } = getSectionTypeConfig(sectionId);
+  const parentId = objInfoId ?? codeInfoId;
 
-  const { collections } = getSectionTypeConfig(sectionId);
+  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [parentId]);
+
   const paramCollections = findAllParameterCollections(
     useCodeInfo.getState().x,
-    collections
+    [codeInfoId]
   );
 
   return [...objParamInfos, ...paramCollections];

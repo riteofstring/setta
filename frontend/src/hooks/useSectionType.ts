@@ -7,11 +7,11 @@ import {
   isSeriesElement,
   OUTPUT,
   SOCIAL,
-} from "abcde-utils/src/constants";
+} from "z_utils/constants";
 import {
   SectionUITypeConfigType,
   SectionUITypeType,
-} from "abcde-utils/src/types/uiType";
+} from "z_utils/types/uiType";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { useGetSectionInfo } from "./useSectionInfo";
@@ -20,10 +20,8 @@ export function useGetSectionTypeConfig<
   K extends keyof SectionUITypeConfigType
 >(sectionId: string, key: K) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const equalityFn = key === "collections" ? _.isEqual : undefined;
   return useUITypes(
-    (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key],
-    equalityFn
+    (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key]
   );
 }
 

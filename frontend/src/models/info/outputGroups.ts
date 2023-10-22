@@ -1,7 +1,7 @@
 import {
   OutputGroupStateType,
   OutputGroupZustandType,
-} from "abcde-utils/src/types/outputGroup";
+} from "z_utils/types/outputGroup";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
 

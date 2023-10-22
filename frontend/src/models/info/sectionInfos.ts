@@ -1,8 +1,8 @@
-import { isListRoot } from "abcde-utils/src/constants";
+import { isListRoot } from "z_utils/constants";
 import {
   SectionInfoStateType,
   SectionInfoZustandType,
-} from "abcde-utils/src/types/section";
+} from "z_utils/types/section";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";

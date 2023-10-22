@@ -1,4 +1,4 @@
-import { newSectionPosition } from "abcde-utils/src/objs/sectionPosition";
+import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -56,6 +56,8 @@ export function useOnClickAddSection() {
     const topLevelPosition = projectXY
       ? getPosition(x, y)
       : newSectionPosition({ x, y });
+
+    topLevelPosition.zIndex = 0;
 
     addSectionAtPosition({
       isDeck,

@@ -1,4 +1,4 @@
-import { ManyCodeInfoType } from "abcde-utils/src/types/codeInfo";
+import { ManyCodeInfoType } from "z_utils/types/codeInfo";
 import _ from "lodash";
 
 export function assembleCollectionsForSectionConfig(

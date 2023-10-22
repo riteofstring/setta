@@ -1,5 +1,5 @@
-import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "abcde-utils/src/constants";
-import { SectionUITypeConfigType } from "abcde-utils/src/types/uiType";
+import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
+import { SectionUITypeConfigType } from "z_utils/types/uiType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 
