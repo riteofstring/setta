@@ -1,12 +1,12 @@
 import asyncio
 import json
-from concurrent.futures import ProcessPoolExecutor
 
 import websockets
 
 from ..processors.processors import getConsumerMessage
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.constants import WEBSOCKET
+from ..utils.tasks import Tasks
 
 
 def web(websocket_id):
@@ -35,19 +35,19 @@ async def connect(websocket_id=None):
 
 async def consumer_handler(websocket):
     startMyPyDaemon()
-    executor = ProcessPoolExecutor()
-    loop = asyncio.get_event_loop()
+    task_obj = Tasks()
     async for message in websocket:
         message = json.loads(message)
         print(message)
         # create_task so that we don't have to await consumer message
-        asyncio.create_task(
-            getConsumerMessageAndSend(message, executor, loop, websocket.send)
+        await task_obj.create_task(
+            message.get("id", None),
+            getConsumerMessageAndSend(message, websocket.send, task_obj),
         )
 
 
-async def getConsumerMessageAndSend(message, executor, loop, send_fn):
-    return_message, messageType = await getConsumerMessage(message, executor, loop)
+async def getConsumerMessageAndSend(message, send_fn, tasks_obj):
+    return_message, messageType = await getConsumerMessage(message, tasks_obj)
     if return_message is not None:
         print(f"Done processing message ID {message.get('id', None)}", flush=True)
         await send_fn(

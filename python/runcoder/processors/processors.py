@@ -12,10 +12,12 @@ from ..code.generate_code import generate_code, get_import_text
 from ..code.type_checker import parse_and_type_check
 
 
-async def getConsumerMessage(message, executor, loop):
+async def getConsumerMessage(message, tasks_obj):
     try:
         print(f"Start processing message ID: {message.get('id', None)}", flush=True)
-        return await loop.run_in_executor(executor, consumer, message)
+        return await tasks_obj.loop.run_in_executor(
+            tasks_obj.executor, consumer, message
+        )
     except CancelledError:
         print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
         return None, None

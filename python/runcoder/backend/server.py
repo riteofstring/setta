@@ -1,7 +1,5 @@
-import asyncio
 import json
 import os
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -12,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.utils.tasks import Tasks
 
 from .db.projects.load import load_all_projects, load_project
 from .db.projects.save import (
@@ -118,9 +117,7 @@ class ConnectionManager:
         self.sockets = {}
         self.use_server_as_cli = True
         self.server_cli_name = "main"
-        self.executor = ProcessPoolExecutor()
-        self.loop = asyncio.get_event_loop()
-        self.tasks_dict = {}
+        self.T = Tasks()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -145,13 +142,9 @@ class ConnectionManager:
             if wid == self.server_cli_name:
                 websocket = self.sockets[fromWebsocketId]["websocket"]
                 message["websocketId"] = wid
-                msg_id = message.get("id", None)
-                if msg_id in self.tasks_dict:
-                    self.tasks_dict[msg_id].cancel()
-                self.tasks_dict[msg_id] = asyncio.create_task(
-                    getConsumerMessageAndSend(
-                        message, self.executor, self.loop, websocket.send_text
-                    )
+                await self.T.create_task(
+                    message.get("id", None),
+                    getConsumerMessageAndSend(message, websocket.send_text, self.T),
                 )
             else:
                 websocket = self.sockets[wid]["websocket"]
@@ -183,6 +176,7 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+            print("received message", flush=True)
             await manager.send_message(json.loads(data), id)
     except WebSocketDisconnect:
         await manager.disconnect(id)
