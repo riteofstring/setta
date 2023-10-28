@@ -120,6 +120,7 @@ class ConnectionManager:
         self.server_cli_name = "main"
         self.executor = ProcessPoolExecutor()
         self.loop = asyncio.get_event_loop()
+        self.tasks_dict = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -144,7 +145,10 @@ class ConnectionManager:
             if wid == self.server_cli_name:
                 websocket = self.sockets[fromWebsocketId]["websocket"]
                 message["websocketId"] = wid
-                asyncio.create_task(
+                msg_id = message.get("id", None)
+                if msg_id in self.tasks_dict:
+                    self.tasks_dict[msg_id].cancel()
+                self.tasks_dict[msg_id] = asyncio.create_task(
                     getConsumerMessageAndSend(
                         message, self.executor, self.loop, websocket.send_text
                     )

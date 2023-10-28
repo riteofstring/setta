@@ -1,6 +1,7 @@
 import os
 import subprocess
 import tempfile
+from asyncio import CancelledError
 from pprint import pprint
 
 import jedi
@@ -12,8 +13,12 @@ from ..code.type_checker import parse_and_type_check
 
 
 async def getConsumerMessage(message, executor, loop):
-    print(f"Start processing message ID: {message.get('id', None)}")
-    return await loop.run_in_executor(executor, consumer, message)
+    try:
+        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
+        return await loop.run_in_executor(executor, consumer, message)
+    except CancelledError:
+        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
+        return None, None
 
 
 def consumer(message):

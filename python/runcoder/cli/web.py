@@ -49,7 +49,7 @@ async def consumer_handler(websocket):
 async def getConsumerMessageAndSend(message, executor, loop, send_fn):
     return_message, messageType = await getConsumerMessage(message, executor, loop)
     if return_message is not None:
-        print(f"Done processing message ID {message.get('id', None)}")
+        print(f"Done processing message ID {message.get('id', None)}", flush=True)
         await send_fn(
             json.dumps(
                 {
