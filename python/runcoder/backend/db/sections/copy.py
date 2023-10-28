@@ -8,6 +8,8 @@ def copy_sections(
     for section in new_sections.values():
         section["id"] = section_id_map[section["id"]]
         section["children"] = [section_id_map[x] for x in section["children"]]
+        if section.get("selectedItem"):
+            section["selectedItem"] = code_info_id_map[section["selectedItem"]]
         if section.get("paramInfoId"):
             section["paramInfoId"] = code_info_id_map[section["paramInfoId"]]
         section["evColId"] = ev_col_id_map[section["evColId"]]

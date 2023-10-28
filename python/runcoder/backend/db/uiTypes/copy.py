@@ -7,8 +7,8 @@ def copy_ui_types(ui_types, code_info_id_map):
     for u in new_ui_types.values():
         u["id"] = ui_type_id_map[u["id"]]
         config = u["config"]
-        if "collections" in config:
-            config["collections"] = [code_info_id_map[x] for x in config["collections"]]
+        if "codeInfoId" in config:
+            config["codeInfoId"] = code_info_id_map[config["codeInfoId"]]
 
     return new_ui_types, ui_type_id_map
 
