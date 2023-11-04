@@ -62,6 +62,12 @@ def create_alias(name, path):
     save_config(config)
 
 
+def delete_alias(name):
+    config = load_config()
+    config["databases"].pop(name, None)
+    save_config(config)
+
+
 def get_db_path_from_config(name):
     if name == DEFAULT_DB_ALIAS:
         return get_default_db_path()
