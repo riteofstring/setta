@@ -7,7 +7,8 @@ import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { groupedObjInfo } from "utils/getFullObjPath";
 
 export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
-  const [completions, sendCompletionRequest] = useCodeCompletionWebsocketRoom();
+  const [completions, sendCompletionRequest] =
+    useCodeCompletionWebsocketRoom(sectionId);
   const _searchableItems = useGetAllCallables(sectionId);
   const searchableItems = mergeCompletionsAndHistory(
     completions,

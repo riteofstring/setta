@@ -1,3 +1,5 @@
+from runcoder.utils.constants import is_section_ui_type
+
 from ...schema import db
 
 
@@ -18,7 +20,7 @@ def save_ui_types(uiTypes):
 
 
 def save_section_types(uiTypes):
-    uiTypes = [x for x in uiTypes if x["type"] in ["SECTION", "LIST_ROOT", "DICT_ROOT"]]
+    uiTypes = [x for x in uiTypes if is_section_ui_type(x["type"])]
     query = """
         UPDATE UIType
         SET sectionConfigCodeInfoId = :sectionConfigCodeInfoId,

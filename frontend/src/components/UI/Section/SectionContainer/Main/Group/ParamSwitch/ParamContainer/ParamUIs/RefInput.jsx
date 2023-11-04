@@ -1,7 +1,6 @@
-import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { getSectionInfo, getSectionName } from "thunks/sections/getters";
-import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { createSectionInfo } from "thunks/sections/createSectionInfo";
+import { getSectionName } from "thunks/sections/getters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { FN_UI_TYPE_ID } from "z_utils/constants";
@@ -21,7 +20,6 @@ export function RefInput({ sectionId, value, onChange, className }) {
     addAttrSection({
       sectionId,
       refSectionId: value,
-      onCreation: onChange,
     });
   }
 
@@ -46,7 +44,7 @@ export function RefInput({ sectionId, value, onChange, className }) {
   );
 }
 
-function addAttrSection({ sectionId, refSectionId, onCreation }) {
+function addAttrSection({ sectionId, refSectionId }) {
   const reactFlowStore = REACT_FLOW_STORE.store;
   const refSectionName = getSectionName(refSectionId);
   const { position: sectionPosition, width: sectionWidth } = reactFlowStore
@@ -59,23 +57,11 @@ function addAttrSection({ sectionId, refSectionId, onCreation }) {
     uiTypeId: FN_UI_TYPE_ID,
   };
 
-  const [newId] = createSectionInfo({
+  createSectionInfo({
     sectionProps,
     topLevelPosition: newSectionPosition({
       x: sectionPosition.x + sectionWidth,
       y: sectionPosition.y,
     }),
   });
-
-  const { selectedItem } = getSectionInfo(refSectionId);
-  const { returnTypeId } = useCodeInfo.getState().x[selectedItem];
-  setSectionUITypeConfig({
-    sectionId: newId,
-    configProps: {
-      configName: "collections",
-      newValueFn: () => [returnTypeId],
-    },
-  });
-
-  onCreation(newId);
 }

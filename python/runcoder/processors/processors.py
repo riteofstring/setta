@@ -47,7 +47,7 @@ def codeCompletion(message):
         return [], "codeCompletion"
     if code == "":
         return [], "codeCompletion"
-    results = jedi.Script(code).complete(line=1, column=len(code))
+    results = jedi.Script(code).complete()
     output = [
         f"{message['message']}{x.complete}"
         for x in results

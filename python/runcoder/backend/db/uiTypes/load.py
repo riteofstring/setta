@@ -1,3 +1,5 @@
+from runcoder.utils.constants import is_section_ui_type
+
 from ...schema import db
 
 
@@ -41,7 +43,7 @@ def process_uitype(uitype):
         "presetType": uitype["presetType"],
         "config": {},
     }
-    if uitype["type"] in ["SECTION", "LIST_ROOT", "DICT_ROOT"]:
+    if is_section_ui_type(uitype["type"]):
         output["config"] = load_section_config(uitype)
     if uitype["type"] == "SLIDER":
         output["config"] = load_slider_config(uitype)
