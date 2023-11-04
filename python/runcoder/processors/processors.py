@@ -5,7 +5,6 @@ from asyncio import CancelledError
 from pprint import pprint
 
 import jedi
-import parso
 
 from ..code.export_selected import export_selected
 from ..code.generate_code import generate_code, get_import_text
@@ -61,28 +60,18 @@ def codeCompletion(message):
 def parametersRequest(message):
     code = f'${get_import_text(message["message"])}; ${message["message"]}('
     print("code", code)
-    results = jedi.Script(code).get_signatures(line=1, column=len(code))[0].params
+    signatures = jedi.Script(code).get_signatures()
     output = []
-    for x in results:
-        curr = {"name": x.name}
-        child = parso.parse(x.to_string()).children[0]
-        while "defaultVal" not in curr:
-            if isinstance(child, parso.python.tree.ExprStmt):
-                child = child.get_rhs()
-            elif isinstance(
-                child,
-                (
-                    parso.python.tree.Keyword,
-                    parso.python.tree.String,
-                    parso.python.tree.Number,
-                ),
-            ):
-                curr["defaultVal"] = child.value
-            elif isinstance(child, parso.python.tree.PythonNode):
-                child = child.children[1]
-            else:
-                curr["defaultVal"] = None
-        output.append(curr)
+    if signatures:
+        signature = signatures[0]
+        for param in signature.params:
+            # If a default value is present, it will be included in the bracket.
+            defaultVal = (
+                param.description.split("=")[-1].strip()
+                if "=" in param.description
+                else None
+            )
+            output.append({"name": param.name, "defaultVal": defaultVal})
     return output, "parameters"
 
 
