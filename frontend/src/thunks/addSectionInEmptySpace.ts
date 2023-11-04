@@ -1,7 +1,7 @@
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { usePanes } from "models/panes";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
+import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function addSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
   const store = REACT_FLOW_STORE.store;

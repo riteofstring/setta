@@ -1,4 +1,3 @@
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -11,6 +10,7 @@ import { updateManyParamsAndCallables } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
+import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function useCreateDeck() {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {

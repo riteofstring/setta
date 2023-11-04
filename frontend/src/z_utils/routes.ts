@@ -1,10 +1,7 @@
 import { ProjectAddressType } from "./types/project";
 
 export const PROJECTS = "/projects";
-export function LOAD_PROJECT({
-  projectName,
-  configName,
-}: ProjectAddressType) {
+export function LOAD_PROJECT({ projectName, configName }: ProjectAddressType) {
   return `/projects/load/${projectName}/${configName}`;
 }
 export const SAVE_PROJECT = "/projects/save";
@@ -21,4 +18,4 @@ export const SET_PROJECT_NAME = "/projects/setProjectName";
 export const SET_PROJECT_CONFIG_NAME = "/projects/setProjectConfigName";
 export const SET_DARK_MODE = "/settings/setDarkMode";
 export const SECTIONS = "/sections";
-export const LOAD_SETTINGS = "/settings"
+export const LOAD_SETTINGS = "/settings";

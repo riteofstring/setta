@@ -1,3 +1,5 @@
+import _ from "lodash";
+import { useUITypes } from "models/info/uiTypes";
 import {
   isSeriesElement,
   rootTypeToChildSubType,
@@ -6,8 +8,6 @@ import {
 import { UITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
 import { createNewId } from "z_utils/utils";
-import _ from "lodash";
-import { useUITypes } from "models/info/uiTypes";
 
 export function maybeCloneUIType({
   currUIType,

@@ -1,7 +1,7 @@
-import { requiresNestedSection } from "z_utils/constants";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { requiresNestedSection } from "z_utils/constants";
 import { getSectionInfo } from "./sections/getters";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { debouncedRequestTypeCheck } from "./websocket";

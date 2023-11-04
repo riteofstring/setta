@@ -1,28 +1,20 @@
 import {
   createAndGoToProject,
+  useExportProjectConfigJson,
   useGetProjectsForFileMenu,
 } from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import { useProject } from "models/info/project";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useState } from "react";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
-import {
-  saveAsExistingProjectConfig,
-  saveAsNewProjectConfig,
-  saveProject,
-} from "thunks/save";
+import { saveProject } from "thunks/save";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
-import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
-import {
-  NEW_PROJECT,
-  SAME_PROJECT_NEW_PROJECT_CONFIG,
-} from "utils/Routes/pageLoadTypes";
-import { router } from "utils/Routes/router";
+import { FileMenuModal } from "utils/FileExplorer/FileMenuModal";
 
 export function FileMenu() {
   const { projects, getProjects } = useGetProjectsForFileMenu();
+  const { projectJson, exportProjectJson } = useExportProjectConfigJson();
   const [modalType, setModalType] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -38,61 +30,32 @@ export function FileMenu() {
     setOpen(true);
   }
 
+  function openExportJSONModal() {
+    setModalType("Export JSON");
+    exportProjectJson();
+    setOpen(true);
+  }
+
   useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
-  function onClickLoadProject({ selected }) {
-    const configInfo = projects.find((x) => x.id === selected);
-    if (configInfo) {
-      const { name, projectName } = configInfo;
-      router.navigate(`${projectName}/${name}`, {
-        state: { pageLoadType: NEW_PROJECT },
-      });
-    }
-  }
-
-  async function onClickSaveAsProject({ selected, filename }) {
-    if (selected === useProjectConfig.getState().id) {
-      saveProject();
-    } else {
-      selected
-        ? await saveAsExistingProjectConfig({
-            configName: filename,
-          })
-        : await saveAsNewProjectConfig({
-            newConfigName: filename,
-          });
-
-      const projectName = useProject.getState().name;
-      router.navigate(`${projectName}/${filename}`, {
-        state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
-      });
-    }
-  }
-
-  const onClickActionButton =
-    modalType === "Load" ? onClickLoadProject : onClickSaveAsProject;
-  const title = modalType === "Load" ? "Load Project" : "Save Project As";
-
   return (
-    <SaveLoadModal
+    <FileMenuModal
       modalType={modalType}
-      files={projects}
-      onClickActionButton={onClickActionButton}
-      title={title}
-      buttonText={modalType}
-      placeholder="Config Name"
+      projects={projects}
+      projectJson={projectJson}
       open={open}
       setOpen={setOpen}
     >
       <MenuItems
         openLoadModal={openLoadModal}
         openSaveAsModal={openSaveAsModal}
+        openExportJSONModal={openExportJSONModal}
       />
-    </SaveLoadModal>
+    </FileMenuModal>
   );
 }
 
-function MenuItems({ openLoadModal, openSaveAsModal }) {
+function MenuItems({ openLoadModal, openSaveAsModal, openExportJSONModal }) {
   return (
     <MenuDropdown trigger="File">
       <MenuItem
@@ -111,6 +74,10 @@ function MenuItems({ openLoadModal, openSaveAsModal }) {
       <MenuItem onClick={openSaveAsModal} shortcut="Ctrl + Shift + S">
         <VscSaveAs />
         Save As
+      </MenuItem>
+      <MenuItem onClick={openExportJSONModal}>
+        <VscSaveAs />
+        Export JSON
       </MenuItem>
     </MenuDropdown>
   );

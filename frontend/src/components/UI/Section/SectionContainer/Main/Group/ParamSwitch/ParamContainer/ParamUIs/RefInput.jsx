@@ -1,11 +1,11 @@
-import { FN_UI_TYPE_ID } from "z_utils/constants";
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getSectionInfo, getSectionName } from "thunks/sections/getters";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { REACT_FLOW_STORE } from "utils/constants";
+import { FN_UI_TYPE_ID } from "z_utils/constants";
+import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function RefInputConfig() {
   return null;

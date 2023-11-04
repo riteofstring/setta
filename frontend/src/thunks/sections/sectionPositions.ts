@@ -1,7 +1,7 @@
-import { SectionType } from "z_utils/types/section";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { SectionType } from "z_utils/types/section";
 
 export function setPositionState(inputNodes, incrementVersion) {
   const nodes = inputNodes.filter((x) => x.id);

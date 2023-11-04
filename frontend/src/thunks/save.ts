@@ -1,7 +1,3 @@
-import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
-import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
-import { ManyUITypeType } from "z_utils/types/uiType";
-import { isPreset } from "z_utils/uiTypeConstants";
 import {
   dbSaveAsExistingProjectConfig,
   dbSaveAsNewProjectConfig,
@@ -17,6 +13,10 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
 import { xnor } from "utils/utils";
+import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
+import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
+import { ManyUITypeType } from "z_utils/types/uiType";
+import { isPreset } from "z_utils/uiTypeConstants";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();

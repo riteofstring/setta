@@ -1,5 +1,5 @@
-import { ProjectType, ProjectZustandType } from "z_utils/types/project";
 import _ from "lodash";
+import { ProjectType, ProjectZustandType } from "z_utils/types/project";
 import { createProjectState } from "../utils";
 
 const initialState: ProjectType = {

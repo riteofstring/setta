@@ -1,4 +1,3 @@
-import { INFO, OUTPUT, SOCIAL } from "z_utils/constants";
 import { useUITypes } from "models/info/uiTypes";
 import {
   INFO_CONFIG_TAB,
@@ -6,6 +5,7 @@ import {
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
 } from "models/uiEditor";
+import { INFO, OUTPUT, SOCIAL } from "z_utils/constants";
 import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useRequiredUIEditorTabs(sectionId) {

@@ -1,6 +1,6 @@
-import { RCType } from "z_utils/types/codeInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { RCType } from "z_utils/types/codeInfo";
 
 export function getAllCollections() {
   return _.pickBy(

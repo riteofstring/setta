@@ -1,7 +1,7 @@
-import { getDepthListing } from "z_utils/childrenToDepth";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { getDepthListing } from "z_utils/childrenToDepth";
 import { useMatchSorterFilter } from "./useMatchSorterFilter";
 import { useSectionInfoNames } from "./useSectionInfo";
 

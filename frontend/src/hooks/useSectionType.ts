@@ -1,3 +1,5 @@
+import _ from "lodash";
+import { useUITypes } from "models/info/uiTypes";
 import {
   DECK,
   FN,
@@ -12,8 +14,6 @@ import {
   SectionUITypeConfigType,
   SectionUITypeType,
 } from "z_utils/types/uiType";
-import _ from "lodash";
-import { useUITypes } from "models/info/uiTypes";
 import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useGetSectionTypeConfig<

@@ -1,5 +1,5 @@
-import { BACKEND } from "z_utils/addresses";
 import axios, { AxiosResponse } from "axios";
+import { BACKEND } from "z_utils/addresses";
 
 export async function post<S, R>({
   address,

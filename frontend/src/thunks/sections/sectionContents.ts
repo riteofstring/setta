@@ -1,10 +1,10 @@
+import { useCodeInfo } from "models/info/codeInfo";
+import { useSectionToParams } from "models/info/sectionToParams";
 import {
   findAllCallables,
   findAllParameterCollections,
   findAllParameters,
 } from "z_utils/getDescendants";
-import { useCodeInfo } from "models/info/codeInfo";
-import { useSectionToParams } from "models/info/sectionToParams";
 import {
   getSectionInfo,
   getSectionName,

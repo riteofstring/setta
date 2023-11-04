@@ -1,8 +1,8 @@
+import { immer } from "zustand/middleware/immer";
 import {
   OutputGroupStateType,
   OutputGroupZustandType,
 } from "z_utils/types/outputGroup";
-import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
 
 const initialState: OutputGroupStateType = { x: {} };

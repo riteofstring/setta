@@ -1,10 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { isUserPreset } from "z_utils/uiTypeConstants";
 import { useUITypes } from "models/info/uiTypes";
 import { useState } from "react";
 import { BiSave } from "react-icons/bi";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
+import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
+import { isUserPreset } from "z_utils/uiTypeConstants";
 
 export function SaveUITypeConfig({ onSubmit }) {
   const [open, setOpen] = useState(false);

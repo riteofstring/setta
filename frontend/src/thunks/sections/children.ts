@@ -1,6 +1,6 @@
-import { requiresNestedSection } from "z_utils/constants";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getParamUIType } from "thunks/paramInfos";
+import { requiresNestedSection } from "z_utils/constants";
 import { getSectionInfo, getSectionIsRoot, getSectionType } from "./getters";
 import { getParamInfos } from "./sectionContents";
 

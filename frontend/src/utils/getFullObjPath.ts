@@ -1,5 +1,5 @@
-import { CodeInfoType } from "z_utils/types/codeInfo";
 import _ from "lodash";
+import { CodeInfoType } from "z_utils/types/codeInfo";
 
 export function groupedObjInfo(infos) {
   return _.groupBy(infos, (x) => {

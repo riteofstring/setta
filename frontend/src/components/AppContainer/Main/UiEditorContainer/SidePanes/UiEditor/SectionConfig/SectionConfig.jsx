@@ -1,4 +1,3 @@
-import { OUTPUT, SOCIAL } from "z_utils/constants";
 import { useGetSectionType } from "hooks/useSectionType";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useUIEditor } from "models/uiEditor";
@@ -6,6 +5,7 @@ import React from "react";
 import { IoArrowBack } from "react-icons/io5";
 import { goToParamConfigTab } from "thunks/switchTabs";
 import { Button } from "utils/atoms/buttons/Button";
+import { OUTPUT, SOCIAL } from "z_utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { OutputsSearch } from "./OutputSearch";

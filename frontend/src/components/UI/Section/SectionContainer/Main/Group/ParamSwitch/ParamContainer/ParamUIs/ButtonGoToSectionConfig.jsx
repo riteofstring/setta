@@ -1,7 +1,7 @@
-import { isSectionUIType } from "z_utils/constants";
 import { BiWrench } from "react-icons/bi";
 import { goToSectionConfigTab } from "thunks/switchTabs";
 import { Button } from "utils/atoms/buttons/Button";
+import { isSectionUIType } from "z_utils/constants";
 
 export function ButtonGoToSectionConfig({ sectionId, paramInfoId, uiType }) {
   const onClick = () => goToSectionConfigTab({ sectionId, paramInfoId });

@@ -1,10 +1,10 @@
-import { requiresNestedSection } from "z_utils/constants";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { updateCurrChildren } from "thunks/sections/children";
 import { getSectionInfo } from "thunks/sections/getters";
 import { setSectionInfoAttr } from "thunks/sections/setters";
+import { requiresNestedSection } from "z_utils/constants";
 import { initializeChild } from "../initializeParam";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { convertValue } from "./convertValue";

@@ -1,10 +1,10 @@
+import _ from "lodash";
+import { temporal } from "zundo";
+import { immer } from "zustand/middleware/immer";
 import {
   ProjectConfigFrontendType,
   ProjectConfigZustandType,
 } from "z_utils/types/projectConfig";
-import _ from "lodash";
-import { temporal } from "zundo";
-import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
 
 const initialState: ProjectConfigFrontendType = {

@@ -1,5 +1,5 @@
-import { ManyCodeInfoType } from "z_utils/types/codeInfo";
 import _ from "lodash";
+import { ManyCodeInfoType } from "z_utils/types/codeInfo";
 
 export function assembleCollectionsForSectionConfig(
   allCodeInfo: ManyCodeInfoType,

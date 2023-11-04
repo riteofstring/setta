@@ -1,6 +1,6 @@
-import { SectionType } from "z_utils/types/section";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { SectionType } from "z_utils/types/section";
 
 export function useGetSectionInfo<K extends keyof SectionType>(
   sectionId: string,

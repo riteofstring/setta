@@ -6,7 +6,7 @@ import { getSectionInfo } from "thunks/sections/getters";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
-import { SaveLoadModal } from "utils/FileExplorer/SaveLoadModal";
+import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
 
 export function SaveButton({ sectionId }) {
   const [files, setFiles] = useState([]);

@@ -1,11 +1,11 @@
-import { SLIDER } from "z_utils/constants";
-import { getValueForUIType } from "z_utils/objs/ev";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionInfo } from "thunks/sections/getters";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
+import { SLIDER } from "z_utils/constants";
+import { getValueForUIType } from "z_utils/objs/ev";
 import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";

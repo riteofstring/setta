@@ -1,7 +1,7 @@
-import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
-import { SectionUITypeConfigType } from "z_utils/types/uiType";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
+import { SectionUITypeConfigType } from "z_utils/types/uiType";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];

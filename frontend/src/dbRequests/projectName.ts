@@ -1,9 +1,6 @@
-import {
-  SET_PROJECT_CONFIG_NAME,
-  SET_PROJECT_NAME,
-} from "z_utils/routes";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
+import { SET_PROJECT_CONFIG_NAME, SET_PROJECT_NAME } from "z_utils/routes";
 import { post } from "./utils";
 
 export async function dbSetProjectName(newProjectName) {

@@ -1,4 +1,3 @@
-import { OUTPUT } from "z_utils/constants";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
@@ -13,6 +12,7 @@ import {
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect } from "react";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
+import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { ResizeIcon } from "./ResizeIcon";
 

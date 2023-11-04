@@ -1,3 +1,13 @@
+import { useActiveSection } from "models/activeSection";
+import { useProjectConfig } from "models/info/projectConfig";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { addKwarg } from "thunks/kwargs";
+import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { PANEID } from "utils/constants";
+import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
+import { insertIntoArray } from "utils/utils";
 import {
   DECK,
   isRoot,
@@ -9,16 +19,6 @@ import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
 } from "z_utils/types/uiType";
-import { useActiveSection } from "models/activeSection";
-import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { addKwarg } from "thunks/kwargs";
-import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
-import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID } from "utils/constants";
-import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
-import { insertIntoArray } from "utils/utils";
 import { getParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setAllChildren } from "./children";
 import { getSectionInfo, getSectionName, getSectionType } from "./getters";

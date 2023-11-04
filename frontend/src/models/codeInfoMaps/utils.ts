@@ -1,8 +1,8 @@
+import { immer } from "zustand/middleware/immer";
 import {
   CodeInfoMapStateType,
   CodeInfoMapZustandType,
 } from "z_utils/types/codeInfoMap";
-import { immer } from "zustand/middleware/immer";
 import { create } from "../utils";
 
 export const initialState: CodeInfoMapStateType = {

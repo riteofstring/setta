@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { ModalContainer } from "utils/ModalContainer/ModalContainer";
-import { FileExplorer } from "./FileExplorer";
-import { FileNameInput } from "./FileNameInput";
+import { FileExplorer } from "../FileExplorer/FileExplorer";
+import { FileNameInput } from "../FileExplorer/FileNameInput";
 
 export function SaveLoadModal({
   modalType,
@@ -14,23 +14,22 @@ export function SaveLoadModal({
   open,
   setOpen,
   children,
+  content,
 }) {
-  return (
-    <ModalContainer
-      open={open}
+  const _content = content ?? (
+    <ModalContent
+      modalType={modalType}
+      files={files}
+      onClickActionButton={onClickActionButton}
+      title={title}
+      buttonText={buttonText}
+      placeholder={placeholder}
       setOpen={setOpen}
-      content={
-        <ModalContent
-          modalType={modalType}
-          files={files}
-          onClickActionButton={onClickActionButton}
-          title={title}
-          buttonText={buttonText}
-          placeholder={placeholder}
-          setOpen={setOpen}
-        />
-      }
-    >
+    />
+  );
+
+  return (
+    <ModalContainer open={open} setOpen={setOpen} content={_content}>
       {children}
     </ModalContainer>
   );

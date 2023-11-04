@@ -1,10 +1,10 @@
+import { temporal } from "zundo";
+import { immer } from "zustand/middleware/immer";
 import { isListRoot } from "z_utils/constants";
 import {
   SectionInfoStateType,
   SectionInfoZustandType,
 } from "z_utils/types/section";
-import { temporal } from "zundo";
-import { immer } from "zustand/middleware/immer";
 import { createProjectState } from "../utils";
 
 const initialState: SectionInfoStateType = {

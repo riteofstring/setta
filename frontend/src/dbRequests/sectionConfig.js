@@ -1,9 +1,9 @@
+import { useCodeInfo } from "models/info/codeInfo";
 import {
   GET_COLLECTIONS_AND_MODULES,
   GET_COLLECTION_DETAILS,
   SAVE_COLLECTIONS,
 } from "z_utils/routes";
-import { useCodeInfo } from "models/info/codeInfo";
 import { post } from "./utils";
 
 async function dbGetCollectionsAndModules({ searchTerm }) {
