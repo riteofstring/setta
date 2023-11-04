@@ -5,6 +5,7 @@ import click
 
 DEFAULT_DB_FOLDER = os.getcwd()
 DEFAULT_DB_NAME = "runcoder.db"
+DEFAULT_DB_ALIAS = "default"
 CONFIG_FOLDER = click.get_app_dir("runcoder")
 
 
@@ -31,7 +32,7 @@ def load_config():
         with open(config_path, "r") as file:
             config = json.load(file)
     else:
-        config = {"databases": {"default": get_default_db_path()}}
+        config = {"databases": {}}
         save_config(config)
     return config
 
@@ -51,15 +52,25 @@ def validate_path(path):
 
 
 def create_alias(name, path):
+    if name == DEFAULT_DB_ALIAS:
+        raise ValueError(
+            f"Alias cannot be '{DEFAULT_DB_ALIAS}' because that is a reserved name."
+        )
     config = load_config()
     validate_path(path)
     config["databases"][name] = path
     save_config(config)
 
 
-def use_db(name):
+def get_db_path_from_config(name):
+    if name == DEFAULT_DB_ALIAS:
+        return get_default_db_path()
     config = load_config()
-    path = config["databases"].get(name)
+    return config["databases"].get(name)
+
+
+def use_db(name):
+    path = get_db_path_from_config(name)
     if path:
         foldername, filename = validate_path(path)
         DBPath.FOLDER = foldername

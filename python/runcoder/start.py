@@ -7,7 +7,13 @@ import uvicorn
 
 from . import __version__
 from .backend.db_init import maybe_create_tables_and_seed
-from .backend.db_path import create_alias, use_db
+from .backend.db_path import (
+    DEFAULT_DB_ALIAS,
+    create_alias,
+    get_db_path_from_config,
+    get_default_db_path,
+    use_db,
+)
 from .cli.run import run as _run
 from .cli.web import web as _web
 
@@ -29,6 +35,28 @@ def version():
     print(f"runcoder version {__version__}")
 
 
+@click.command()
+@click.argument("db", required=False)
+def delete_db(db):
+    db = db if db else DEFAULT_DB_ALIAS
+    path = get_db_path_from_config(db) if db else get_default_db_path()
+    if path:
+        confirmation = click.confirm(
+            f"Are you sure you want to delete the database '{db}' located at {path}?"
+        )
+    else:
+        print(f"No db found with alias {db}")
+        return
+    if confirmation:
+        try:
+            os.remove(path)
+            print(f"Deleted database {db} located at {path}")
+        except FileNotFoundError:
+            print("File not found. No action taken.")
+    else:
+        print("Operation cancelled.")
+
+
 @click.group(invoke_without_command=True)
 @click.option("--reload", is_flag=True)
 @click.option("--with_example_projects", is_flag=True)
@@ -36,7 +64,7 @@ def version():
 @click.option("--new_path", type=click.Path())
 @click.pass_context
 def cli(ctx, reload, with_example_projects, db, new_path):
-    if ctx.invoked_subcommand == "version":
+    if ctx.invoked_subcommand in ["version", "delete-db"]:
         return
     if db:
         if new_path:
@@ -59,3 +87,4 @@ def cli(ctx, reload, with_example_projects, db, new_path):
 cli.add_command(run)
 cli.add_command(web)
 cli.add_command(version)
+cli.add_command(delete_db)
