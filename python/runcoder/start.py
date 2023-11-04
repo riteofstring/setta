@@ -5,6 +5,7 @@ from pathlib import Path
 import click
 import uvicorn
 
+from . import __version__
 from .backend.db_init import maybe_create_tables_and_seed
 from .backend.db_path import create_alias, use_db
 from .cli.run import run as _run
@@ -23,6 +24,11 @@ def web(websocket_id):
     _web(websocket_id)
 
 
+@click.command()
+def version():
+    print(f"runcoder version {__version__}")
+
+
 @click.group(invoke_without_command=True)
 @click.option("--reload", is_flag=True)
 @click.option("--with_example_projects", is_flag=True)
@@ -30,6 +36,8 @@ def web(websocket_id):
 @click.option("--new_path", type=click.Path())
 @click.pass_context
 def cli(ctx, reload, with_example_projects, db, new_path):
+    if ctx.invoked_subcommand == "version":
+        return
     if db:
         if new_path:
             create_alias(db, new_path)
@@ -50,3 +58,4 @@ def cli(ctx, reload, with_example_projects, db, new_path):
 
 cli.add_command(run)
 cli.add_command(web)
+cli.add_command(version)
