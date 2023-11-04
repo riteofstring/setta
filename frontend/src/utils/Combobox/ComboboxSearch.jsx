@@ -41,6 +41,8 @@ export function ComboboxSearch({
     onSelectedItemChange(selection, selectedItem, setSelection, true);
   };
 
+  const singleListItems = flattenedItems(filteredItems);
+
   const {
     isOpen,
     getToggleButtonProps,
@@ -52,10 +54,12 @@ export function ComboboxSearch({
   } = useCombobox({
     stateReducer,
     selectedItem: selection,
-    items: flattenedItems(filteredItems),
+    items: singleListItems,
     itemToString,
     onSelectedItemChange: localOnSelectedItemChange,
   });
+
+  const isReallyOpen = isOpen && singleListItems.length > 0;
 
   return (
     <div
@@ -67,14 +71,14 @@ export function ComboboxSearch({
       <ComboboxInput
         getInputProps={getInputProps}
         getToggleButtonProps={getToggleButtonProps}
-        isOpen={isOpen}
+        isOpen={isReallyOpen}
         small={small}
         onClick={onClick}
         inputCallback={inputCallback}
       />
 
       <ComboboxList
-        isOpen={isOpen}
+        isOpen={isReallyOpen}
         getMenuProps={getMenuProps}
         width={width}
         position={position}
