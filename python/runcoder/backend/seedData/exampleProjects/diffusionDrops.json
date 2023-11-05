@@ -26,25 +26,100 @@
       }
     },
     {
-      "codeInfo": {},
-      "evCols": {},
-      "projectConfigCodeInfoMaps": {},
-      "sections": {},
-      "uiTypes": {},
-      "uiTypeCols": {},
-      "outputs": {},
-      "outputGroups": {},
-      "runs": {},
       "projectConfig": {
         "id": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
         "name": "diffusionConfig2",
-        "children": {},
+        "children": {
+          "e2d44c1a-5f11-4f64-a510-ff31cc1eb13b": {
+            "x": 496,
+            "y": 147.70833206176758,
+            "zIndex": 0
+          }
+        },
         "viewport": {
           "x": 0,
           "y": 0,
           "zoom": 1
         }
-      }
+      },
+      "evCols": {
+        "4193594d-26a7-4d2b-aea3-62e9650f02e4": {
+          "23da4753-c82a-425b-be1e-b8cdd994dc6e": [
+            {
+              "type": "raw",
+              "value": ""
+            },
+            {
+              "type": "raw",
+              "value": "john"
+            }
+          ]
+        }
+      },
+      "uiTypes": {
+        "1a371f15-5c57-498f-a853-3386acf004a9": {
+          "id": "1a371f15-5c57-498f-a853-3386acf004a9",
+          "name": "New Section",
+          "type": "SECTION",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "9aa68140-b9f5-439f-acd8-d2536accd4bd",
+            "childUITypeId": null
+          }
+        }
+      },
+      "uiTypeCols": {
+        "c8f4ec28-4bd6-48ad-b4d0-dfeb91dd67f7": {
+          "23da4753-c82a-425b-be1e-b8cdd994dc6e": {
+            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+            "nonPresetUITypeIds": []
+          }
+        }
+      },
+      "sections": {
+        "e2d44c1a-5f11-4f64-a510-ff31cc1eb13b": {
+          "id": "e2d44c1a-5f11-4f64-a510-ff31cc1eb13b",
+          "name": "New Section",
+          "children": [],
+          "currChildren": [],
+          "paramInfoId": null,
+          "size": {
+            "width": 458,
+            "height": 213
+          },
+          "chainedFrom": null,
+          "uiTypeId": "1a371f15-5c57-498f-a853-3386acf004a9",
+          "evColId": "4193594d-26a7-4d2b-aea3-62e9650f02e4",
+          "uiTypeColId": "c8f4ec28-4bd6-48ad-b4d0-dfeb91dd67f7",
+          "selectedItem": null,
+          "social": null,
+          "outputGroup": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": false,
+          "nonPresetUITypeIds": ["1a371f15-5c57-498f-a853-3386acf004a9"]
+        }
+      },
+      "codeInfo": {
+        "9aa68140-b9f5-439f-acd8-d2536accd4bd": {
+          "id": "9aa68140-b9f5-439f-acd8-d2536accd4bd",
+          "name": "Contents",
+          "editable": false,
+          "rcType": "collection",
+          "defaultVal": null,
+          "children": ["23da4753-c82a-425b-be1e-b8cdd994dc6e"]
+        },
+        "23da4753-c82a-425b-be1e-b8cdd994dc6e": {
+          "id": "23da4753-c82a-425b-be1e-b8cdd994dc6e",
+          "name": "dog",
+          "editable": true,
+          "rcType": "parameter",
+          "defaultVal": null,
+          "children": []
+        }
+      },
+      "projectConfigCodeInfoMaps": {}
     }
   ]
 }
