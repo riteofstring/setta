@@ -1,4 +1,8 @@
+import { useCombobox } from "downshift";
+import { useSectionInfoIdNamePairs } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { ComboboxItems, ComboboxList } from "utils/Combobox/Combobox";
+import { flattenedItems } from "utils/Combobox/utils";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
 export function TextInputConfig() {
@@ -17,13 +21,48 @@ export function TextInput({
 
   const { styledText, text } = computeStyledText(value);
 
+  const availableSections = useSectionInfoIdNamePairs();
+  const allItems = [{ group: "sections", items: availableSections }];
+
+  const singleListItems = flattenedItems(allItems);
+
+  const {
+    isOpen,
+    getMenuProps,
+    getItemProps,
+    highlightedIndex,
+    getToggleButtonProps,
+    getComboboxProps,
+  } = useCombobox({
+    items: singleListItems,
+    // itemToString,
+    // onSelectedItemChange: localOnSelectedItemChange,
+  });
+
+  const isReallyOpen = isOpen && singleListItems.length > 0;
+  const itemToString = (x) => (x ? x.name : "");
+
   return (
-    <ContentEditable
-      html={styledText} // innerHTML of the editable div
-      contentEditable="plaintext-only" // use true to disable editing
-      // onChange={handleChange} // handle innerHTML change
-      className={classes}
-    />
+    <div
+      className={`flex h-7 w-full flex-col items-stretch overflow-visible`}
+      {...getComboboxProps()}
+    >
+      <ContentEditable
+        html={styledText} // innerHTML of the editable div
+        contentEditable="plaintext-only" // use true to disable editing
+        // onChange={handleChange} // handle innerHTML change
+        className={classes}
+        {...getToggleButtonProps()}
+      />
+      <ComboboxList isOpen={isReallyOpen} getMenuProps={getMenuProps}>
+        <ComboboxItems
+          filteredItems={allItems}
+          getItemProps={getItemProps}
+          highlightedIndex={highlightedIndex}
+          itemToString={itemToString}
+        />
+      </ComboboxList>
+    </div>
   );
 }
 
