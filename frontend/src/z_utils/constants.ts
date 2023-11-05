@@ -13,7 +13,6 @@ export const DICT_ROOT = "DICT_ROOT";
 export const OUTPUT = "OUTPUT";
 export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
-export const FN = "FN";
 export const GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
 export const SECTION_TYPE_NAMES = [
   SECTION,
@@ -23,7 +22,6 @@ export const SECTION_TYPE_NAMES = [
   OUTPUT,
   INFO,
   SOCIAL,
-  FN,
   GLOBAL_VARIABLES,
 ];
 
@@ -72,7 +70,6 @@ export const uiTypesToPretty = Object.freeze(
       [REF]: "Reference to Object",
       [INFO]: "Info",
       [SOCIAL]: "Social",
-      [FN]: "Function",
       [GLOBAL_VARIABLES]: "Global Variables",
     })
   )

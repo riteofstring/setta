@@ -15,7 +15,6 @@ SECTION = "SECTION"
 LIST_ROOT = "LIST_ROOT"
 DICT_ROOT = "DICT_ROOT"
 DECK = "DECK"
-FN = "FN"
 
 
 def is_section_ui_type(x):

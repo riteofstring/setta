@@ -1,7 +1,6 @@
 from ..utils.constants import (
     DECK,
     DICT_ROOT,
-    FN,
     LIST_ROOT,
     REF,
     SECTION,
@@ -124,18 +123,18 @@ class Exporter:
                 "params": params,
                 "unusedParams": unused_params,
             }
-        elif type == FN:
-            chained_from_var_name = self.export_section(
-                self.p["sections"][id]["chainedFrom"]
-            )
-            params, unused_params = self.export_params(id)
-            return {
-                "callable": get_chained_selected_item(
-                    self.p, chained_from_var_name, id
-                ),
-                "params": params,
-                "unusedParams": unused_params,
-            }
+        # elif type == FN:
+        #     chained_from_var_name = self.export_section(
+        #         self.p["sections"][id]["chainedFrom"]
+        #     )
+        #     params, unused_params = self.export_params(id)
+        #     return {
+        #         "callable": get_chained_selected_item(
+        #             self.p, chained_from_var_name, id
+        #         ),
+        #         "params": params,
+        #         "unusedParams": unused_params,
+        #     }
         elif type in [LIST_ROOT, DICT_ROOT, DECK]:
             return self.export_sections(self.p["sections"][id]["currChildren"])
 

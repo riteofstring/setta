@@ -2,16 +2,7 @@ import ast
 import builtins
 from collections import defaultdict
 
-from ..utils.constants import (
-    DICT_ROOT,
-    FN,
-    LIST_ROOT,
-    REF,
-    SECTION,
-    SLIDER,
-    SWITCH,
-    TEXT,
-)
+from ..utils.constants import DICT_ROOT, LIST_ROOT, REF, SECTION, SLIDER, SWITCH, TEXT
 
 
 def get_location_str(node):
@@ -97,7 +88,7 @@ def get_value(x, selected):
         return str(x["value"])
     elif type_value == SWITCH:
         return str(get_boolean(x["value"]))
-    elif type_value in [SECTION, FN]:
+    elif type_value in [SECTION]:  # , FN]:
         if not x["value"]["callable"]:
             return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:

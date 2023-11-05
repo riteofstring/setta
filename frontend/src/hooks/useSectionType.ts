@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import {
   DECK,
-  FN,
   GLOBAL_VARIABLES,
   INFO,
   isRoot,
@@ -68,10 +67,6 @@ export function useIsInfo(sectionId: string) {
 
 export function useIsSocial(sectionId: string) {
   return useIsType(sectionId, SOCIAL);
-}
-
-export function useIsFn(sectionId: string) {
-  return useIsType(sectionId, FN);
 }
 
 export function useIsGlobalVariables(sectionId: string) {
