@@ -1,5 +1,4 @@
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useState } from "react";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
 export function TextInputConfig() {
@@ -13,61 +12,36 @@ export function TextInput({
   isDisabled,
   className,
 }) {
-  const _className = className + " border-b border-slate-700 text-xs";
   const classes =
-    "nodrag border-0 border-b cursor-auto border-slate-400 border-solid text-sm dark:text-slate-300 font-code pb-1 focus-visible:border-blue-400";
+    "nodrag outline-none border-0 border-b cursor-auto border-slate-400 border-solid text-sm dark:text-slate-300 font-code pb-1 focus-visible:border-blue-400";
 
-  const lengths = value.map((v) => v.value.length);
-  const [styledText, setStyledText] = useState(computeStyledText(value));
-
-  const handleChange = (evt) => {
-    // Check if the active element is the event target, which should be the contenteditable div
-    if (document.activeElement !== evt.currentTarget) {
-      return;
-    }
-    const selection = window.getSelection();
-    // Further check if the selection is contained within the event target, if needed
-    // This might be relevant if the editable content is complex and you have nested elements
-    if (!evt.currentTarget.contains(selection.anchorNode)) {
-      return;
-    }
-    // const cursorPos = getCursorPos(selection, evt);
-    // const index = getNearestStringIndex(value, cursorPos);
-    // onChange(
-    //   index,
-    //   value[index].type,
-    //   `${value[index].value}${evt.currentTarget.innerText}`
-    // );
-  };
-
-  // useEffect(() => {
-  //   setStyledText(computeStyledText(value));
-  // }, [value]);
+  const { styledText, text } = computeStyledText(value);
 
   return (
     <ContentEditable
       html={styledText} // innerHTML of the editable div
-      contentEditable={"plaintext-only"} // use true to disable editing
-      onChange={handleChange} // handle innerHTML change
-      tagName="article" // Use a custom HTML tag (uses a div by default)
-      className="nodrag"
+      contentEditable="plaintext-only" // use true to disable editing
+      // onChange={handleChange} // handle innerHTML change
+      className={classes}
     />
   );
 }
 
 function computeStyledText(value) {
   const output = [];
+  const regularOutput = [];
   const sectionState = useSectionInfos.getState().x;
   for (const v of value) {
     if (v.type === "ref") {
-      output.push(
-        `<span style="color: red;">${sectionState[v.value].name}</span>`
-      );
+      const x = sectionState[v.value].name;
+      output.push(`<span style="color: red;">${x}</span>`);
+      regularOutput.push(x);
     } else {
       output.push(`<span style="color: black;">${v.value}</span>`);
+      regularOutput.push(v.value);
     }
   }
-  return output.join("");
+  return { styledText: output.join(""), text: regularOutput.join("") };
 }
 
 // function getNewValue(value, cursorPos) {
@@ -101,3 +75,27 @@ function computeStyledText(value) {
 //   }
 //   return null;
 // }
+
+// const handleChange = (evt) => {
+//   // Check if the active element is the event target, which should be the contenteditable div
+//   if (document.activeElement !== evt.currentTarget) {
+//     return;
+//   }
+//   const selection = window.getSelection();
+//   // Further check if the selection is contained within the event target, if needed
+//   // This might be relevant if the editable content is complex and you have nested elements
+//   if (!evt.currentTarget.contains(selection.anchorNode)) {
+//     return;
+//   }
+//   const cursorPos = getCursorPos(selection, evt);
+//   const index = getNearestStringIndex(value, cursorPos);
+//   onChange(
+//     index,
+//     value[index].type,
+//     `${value[index].value}${evt.currentTarget.innerText}`
+//   );
+// };
+
+// useEffect(() => {
+//   setStyledText(computeStyledText(value));
+// }, [value]);
