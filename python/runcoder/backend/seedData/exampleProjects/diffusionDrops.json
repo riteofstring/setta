@@ -46,12 +46,12 @@
         "4193594d-26a7-4d2b-aea3-62e9650f02e4": {
           "23da4753-c82a-425b-be1e-b8cdd994dc6e": [
             {
-              "type": "raw",
-              "value": ""
+              "type": "ref",
+              "value": "Model"
             },
             {
               "type": "raw",
-              "value": "john"
+              "value": "[0]"
             }
           ]
         }
