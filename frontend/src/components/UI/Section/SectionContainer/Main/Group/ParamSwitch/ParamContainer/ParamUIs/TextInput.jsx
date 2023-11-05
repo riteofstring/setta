@@ -1,3 +1,4 @@
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
@@ -56,14 +57,17 @@ export function TextInput({
 
 function computeStyledText(value) {
   const output = [];
+  const sectionState = useSectionInfos.getState().x;
   for (const v of value) {
     if (v.type === "ref") {
-      output.push(`<span style="color: red;">${v.value}</span>`);
+      output.push(
+        `<span style="color: red;">${sectionState[v.value].name}</span>`
+      );
     } else {
       output.push(`<span style="color: black;">${v.value}</span>`);
     }
   }
-  return output.join(" ");
+  return output.join("");
 }
 
 // function getNewValue(value, cursorPos) {
