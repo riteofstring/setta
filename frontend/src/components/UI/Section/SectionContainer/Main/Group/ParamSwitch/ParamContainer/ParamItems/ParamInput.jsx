@@ -15,18 +15,19 @@ export function ParamInput({
   const [value, setValue] = useState(enteredValue);
 
   // value and enteredValue should always be string
-  function onChange(v) {
+  function onChange(idx, type, v) {
     const vStr = _.toString(v);
-    setValue(vStr);
-    setEnteredValue(vStr);
+    setValue(value.map((x, i) => (i === idx ? { type, value: vStr } : x)));
+    setEnteredValue(idx, type, vStr);
   }
 
   const setEnteredValue = useCallback(
-    _.debounce((vStr, changedByUser = true) => {
-      if (vStr !== enteredValue) {
+    _.debounce((idx, type, vStr, changedByUser = true) => {
+      if (!_.isEqual({ type, value: vStr }, enteredValue[idx])) {
         setParamEnteredValue({
           sectionId,
           paramInfoId,
+          idx,
           value: vStr,
           incrementVersion: changedByUser,
         });
@@ -36,7 +37,7 @@ export function ParamInput({
   );
 
   useEffect(() => {
-    if (value !== enteredValue) {
+    if (!_.isEqual(value, enteredValue)) {
       setValue(enteredValue);
     }
   }, [enteredValue]);

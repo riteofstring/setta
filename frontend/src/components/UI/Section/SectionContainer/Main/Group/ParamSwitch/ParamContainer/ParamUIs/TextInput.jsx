@@ -17,8 +17,8 @@ export function TextInput({
     <StandardInput
       placeholder={defaultVal}
       disabled={isDisabled}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
+      value={value[0].value}
+      onChange={(e) => onChange(0, "raw", e.target.value)}
     />
   );
 }

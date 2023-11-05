@@ -40,13 +40,14 @@ export function getParamIsNested(sectionId, paramInfoId) {
 export function setParamEnteredValue({
   sectionId,
   paramInfoId,
+  idx,
   value,
   incrementVersion = false,
 }) {
   const { evColId } = getSectionInfo(sectionId);
   useParamInfos
     .getState()
-    .setEnteredValue({ collectionId: evColId, paramInfoId, value });
+    .setEnteredValue({ collectionId: evColId, paramInfoId, idx, value });
   maybeIncrementProjectStateVersion(incrementVersion);
   debouncedRequestTypeCheck();
 }

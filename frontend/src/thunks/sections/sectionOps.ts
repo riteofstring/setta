@@ -245,6 +245,7 @@ function unlinkParamFromSection({ parentId, sectionId }) {
   setParamEnteredValue({
     sectionId: parentId,
     paramInfoId,
+    idx: 0,
     value: sectionId,
   });
 }

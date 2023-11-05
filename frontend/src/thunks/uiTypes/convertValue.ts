@@ -5,6 +5,6 @@ import { getValueForUIType } from "z_utils/objs/ev";
 export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
   const uiType = useUITypes.getState().x[uiTypeId];
   const currValue = getParamEV(sectionId, paramInfoId);
-  const value = getValueForUIType({ uiType, currValue });
-  setParamEnteredValue({ sectionId, paramInfoId, value });
+  const value = getValueForUIType({ uiType, currValue: currValue[0].value });
+  setParamEnteredValue({ sectionId, paramInfoId, idx: 0, value });
 }

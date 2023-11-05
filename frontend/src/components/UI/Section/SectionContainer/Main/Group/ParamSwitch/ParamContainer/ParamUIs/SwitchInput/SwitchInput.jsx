@@ -11,14 +11,14 @@ export function SwitchInput({
   isDisabled,
   className,
 }) {
-  const valueBool = value === "true";
+  const valueBool = value[0].value === "true";
 
   return (
     <div className="flex justify-end">
       <Toggle
         checked={valueBool}
         disabled={isDisabled}
-        onCheckedChange={onChange}
+        onCheckedChange={(v) => onChange(0, "raw", v)}
         twRootClasses={`SwitchRoot ${className}`}
         twThumbClasses="SwitchThumb"
       />
