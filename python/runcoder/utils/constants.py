@@ -10,7 +10,6 @@ CALLABLE = "callable"
 TEXT = "TEXT"
 SLIDER = "SLIDER"
 SWITCH = "SWITCH"
-REF = "REF"
 SECTION = "SECTION"
 LIST_ROOT = "LIST_ROOT"
 DICT_ROOT = "DICT_ROOT"
@@ -18,4 +17,4 @@ DECK = "DECK"
 
 
 def is_section_ui_type(x):
-    return x not in [TEXT, SLIDER, SWITCH, REF]
+    return x not in [TEXT, SLIDER, SWITCH]

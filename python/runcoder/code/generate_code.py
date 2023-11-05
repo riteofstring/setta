@@ -2,7 +2,7 @@ import ast
 import builtins
 from collections import defaultdict
 
-from ..utils.constants import DICT_ROOT, LIST_ROOT, REF, SECTION, SLIDER, SWITCH, TEXT
+from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
 
 
 def get_location_str(node):
@@ -84,7 +84,7 @@ def var_declaration(var_name, value, operator="="):
 
 def get_value(x, selected):
     type_value = x["type"]
-    if type_value in [TEXT, SLIDER, REF]:
+    if type_value in [TEXT, SLIDER]:  # , REF]:
         return str(x["value"])
     elif type_value == SWITCH:
         return str(get_boolean(x["value"]))

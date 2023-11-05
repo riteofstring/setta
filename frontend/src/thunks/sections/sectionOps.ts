@@ -11,7 +11,6 @@ import { insertIntoArray } from "utils/utils";
 import {
   DECK,
   isRoot,
-  REF_UI_TYPE_ID,
   rootTypeToChildSubType,
 } from "z_utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
@@ -237,11 +236,11 @@ function unlinkParamFromSection({ parentId, sectionId }) {
     return;
   }
   setSectionParamInfoId(sectionId, null);
-  setParamUITypeId({
-    uiTypeId: REF_UI_TYPE_ID,
-    sectionId: parentId,
-    paramInfoId,
-  });
+  // setParamUITypeId({
+  //   uiTypeId: REF_UI_TYPE_ID,
+  //   sectionId: parentId,
+  //   paramInfoId,
+  // });
   setParamEnteredValue({
     sectionId: parentId,
     paramInfoId,

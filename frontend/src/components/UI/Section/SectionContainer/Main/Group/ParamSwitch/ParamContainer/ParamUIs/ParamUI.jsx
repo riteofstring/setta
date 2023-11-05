@@ -1,12 +1,10 @@
 import {
   DICT_ROOT,
   LIST_ROOT,
-  REF,
   SECTION,
   SLIDER,
   SWITCH,
 } from "z_utils/constants";
-import { RefInput, RefInputConfig } from "./RefInput";
 import { SliderInput, SliderInputConfig } from "./SliderInput/SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput/SwitchInput";
 import { TextInput, TextInputConfig } from "./TextInput";
@@ -19,8 +17,6 @@ export function ParamUIConfig({ name, ...props }) {
       return <SliderInputConfig {...props} />;
     case SWITCH:
       return <SwitchInputConfig {...props} />;
-    case REF:
-      return <RefInputConfig {...props} />;
     case SECTION:
     case LIST_ROOT:
     case DICT_ROOT:
@@ -36,7 +32,5 @@ export function ParamUI({ name, childProps }) {
       return <SliderInput {...childProps} />;
     case SWITCH:
       return <SwitchInput {...childProps} />;
-    case REF:
-      return <RefInput {...childProps} />;
   }
 }

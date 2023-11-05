@@ -1,11 +1,4 @@
-from ..utils.constants import (
-    DECK,
-    DICT_ROOT,
-    LIST_ROOT,
-    REF,
-    SECTION,
-    is_section_ui_type,
-)
+from ..utils.constants import DECK, DICT_ROOT, LIST_ROOT, SECTION
 
 
 def get_section_config(p, id):
@@ -48,8 +41,8 @@ def get_param_ui_type_id(p, section_id, id):
 def get_param_ui_type(p, section_id, id):
     ui_type_id = get_param_ui_type_id(p, section_id, id)
     ui_type = p["uiTypes"][ui_type_id]
-    if is_section_ui_type(ui_type):
-        return REF
+    # if is_section_ui_type(ui_type):
+    #     return REF
     return ui_type["type"]
 
 
@@ -165,10 +158,10 @@ class Exporter:
     def export_param_value(self, section_id, id):
         ev_col_id = self.p["sections"][section_id]["evColId"]
         value = self.p["evCols"][ev_col_id][id]
-        original_type = get_original_param_ui_type(self.p, section_id, id)
+        # original_type = get_original_param_ui_type(self.p, section_id, id)
         possible_child_id = get_param_child_id(self.p, section_id, id)
         if possible_child_id:
             return self.export_section(possible_child_id)
-        elif value and original_type == REF:
-            return self.export_section(value)
+        # elif value and original_type == REF:
+        #     return self.export_section(value)
         return value

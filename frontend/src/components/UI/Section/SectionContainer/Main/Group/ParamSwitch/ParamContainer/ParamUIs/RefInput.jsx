@@ -3,7 +3,6 @@ import { createSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionName } from "thunks/sections/getters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { REACT_FLOW_STORE } from "utils/constants";
-import { FN_UI_TYPE_ID } from "z_utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function RefInputConfig() {
@@ -54,7 +53,6 @@ function addAttrSection({ sectionId, refSectionId }) {
   const sectionProps = {
     name: `${refSectionName}.Fn()`,
     chainedFrom: refSectionId,
-    uiTypeId: FN_UI_TYPE_ID,
   };
 
   createSectionInfo({
