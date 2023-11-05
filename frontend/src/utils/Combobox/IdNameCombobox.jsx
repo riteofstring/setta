@@ -1,45 +1,30 @@
-import _ from "lodash";
 import { ComboboxSearch } from "./ComboboxSearch";
-import { flattenedItems } from "./utils";
+import { idNameHelper } from "./useTotalCombobox";
 
 export function IdNameCombobox({
   allItems,
   onSelectedItemChange,
   initialSelection,
-  itemStyleGetter,
   small,
   onClick,
   position,
   inputClasses,
   inputCallback,
 }) {
-  const init = _.find(flattenedItems(allItems), { id: initialSelection });
-  const itemToString = (x) => (x ? x.name : "");
-
-  const localOnSelectedItemChange = (
-    currSelectedItem,
-    newSelectedItem,
-    setSelection,
-    changedByUser
-  ) => {
-    const sid = newSelectedItem ? newSelectedItem.id : null;
-    const currId = currSelectedItem ? currSelectedItem.id : null;
-    if (sid !== currId) {
-      setSelection(newSelectedItem);
-    }
-    if (sid !== initialSelection) {
-      onSelectedItemChange(sid, changedByUser);
-    }
-  };
+  const { localOnSelectedItemChange, init, itemToString, matchSorterProps } =
+    idNameHelper({
+      allItems,
+      onSelectedItemChange,
+      initialSelection,
+    });
 
   return (
     <ComboboxSearch
       allItems={allItems}
-      initialSelection={init ? init : null}
+      initialSelection={init}
       itemToString={itemToString}
       onSelectedItemChange={localOnSelectedItemChange}
-      matchSorterProps={{ keys: ["name"] }}
-      itemStyleGetter={itemStyleGetter}
+      matchSorterProps={matchSorterProps}
       small={small}
       onClick={onClick}
       position={position}

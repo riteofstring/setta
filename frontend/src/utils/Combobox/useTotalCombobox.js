@@ -1,0 +1,102 @@
+import { useCombobox } from "downshift";
+import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
+import _ from "lodash";
+import { useEffect, useState } from "react";
+import { useComboboxStateReducer } from "./ComboboxStateReducer";
+import { flattenedItems } from "./utils";
+
+export function useTotalCombobox({
+  allItems,
+  matchSorterProps,
+  onSelectedItemChange,
+  initialSelection,
+  itemToString,
+}) {
+  const {
+    sizeRef,
+    size: { width },
+  } = useSizeOfResizableElement({ delay: 200 });
+
+  const [selection, setSelection] = useState(null);
+  const { filteredItems, stateReducer } = useComboboxStateReducer({
+    allItems,
+    matchSorterProps,
+  });
+
+  useEffect(() => {
+    if (!_.isEqual(selection, initialSelection)) {
+      onSelectedItemChange(selection, initialSelection, setSelection, false);
+    }
+  }, [initialSelection]);
+
+  const localOnSelectedItemChange = ({ selectedItem }) => {
+    onSelectedItemChange(selection, selectedItem, setSelection, true);
+  };
+
+  const singleListItems = flattenedItems(filteredItems);
+
+  const {
+    isOpen,
+    getToggleButtonProps,
+    getMenuProps,
+    getInputProps,
+    getComboboxProps,
+    highlightedIndex,
+    getItemProps,
+  } = useCombobox({
+    stateReducer,
+    selectedItem: selection,
+    items: singleListItems,
+    itemToString,
+    onSelectedItemChange: localOnSelectedItemChange,
+  });
+
+  const isReallyOpen = isOpen && singleListItems.length > 0;
+
+  return {
+    sizeRef,
+    width,
+    isOpen: isReallyOpen,
+    filteredItems,
+    getToggleButtonProps,
+    getMenuProps,
+    getInputProps,
+    getComboboxProps,
+    highlightedIndex,
+    getItemProps,
+  };
+}
+
+export function idNameHelper({
+  allItems,
+  onSelectedItemChange,
+  initialSelection,
+}) {
+  const init =
+    _.find(flattenedItems(allItems), { id: initialSelection }) ?? null;
+  const itemToString = (x) => (x ? x.name : "");
+  const matchSorterProps = { keys: ["name"] };
+
+  const localOnSelectedItemChange = (
+    currSelectedItem,
+    newSelectedItem,
+    setSelection,
+    changedByUser
+  ) => {
+    const sid = newSelectedItem ? newSelectedItem.id : null;
+    const currId = currSelectedItem ? currSelectedItem.id : null;
+    if (sid !== currId) {
+      setSelection(newSelectedItem);
+    }
+    if (sid !== initialSelection) {
+      onSelectedItemChange(sid, changedByUser);
+    }
+  };
+
+  return {
+    localOnSelectedItemChange,
+    init,
+    itemToString,
+    matchSorterProps,
+  };
+}

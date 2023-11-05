@@ -82,3 +82,38 @@ function _ComboboxItem({
 }
 
 export const ComboboxItem = React.memo(_ComboboxItem);
+
+export function ComboboxItems({
+  filteredItems,
+  getItemProps,
+  highlightedIndex,
+  itemToString,
+}) {
+  return filteredItems.reduce(
+    (result, group, groupIndex) => {
+      result.groups.push(
+        <dl key={groupIndex}>
+          <dt className="mx-5 mb-2 truncate border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+            {group.group}
+          </dt>
+          {group.items.map((item, itemIndex) => {
+            const globalIndex = result.itemIndex++;
+            return (
+              <ComboboxItem
+                getItemProps={getItemProps}
+                item={item}
+                index={globalIndex}
+                isHighlighted={globalIndex === highlightedIndex}
+                itemString={itemToString(item)}
+                key={itemIndex}
+              />
+            );
+          })}
+        </dl>
+      );
+
+      return result;
+    },
+    { groups: [], itemIndex: 0 }
+  ).groups;
+}

@@ -8,11 +8,7 @@ import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import {
-  DECK,
-  isRoot,
-  rootTypeToChildSubType,
-} from "z_utils/constants";
+import { DECK, isRoot, rootTypeToChildSubType } from "z_utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import {
   SectionUITypeConfigType,
