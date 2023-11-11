@@ -1,6 +1,7 @@
 from runcoder.code.export_selected import export_selected
 from runcoder.code.generate_code import generate_code
 import json
+from pprint import pprint
 
 with open("python/runcoder/backend/seedData/exampleProjects/diffusionDrops.json", 'r') as f:
     x = json.load(f)
@@ -14,5 +15,6 @@ with open("python/runcoder/backend/seedData/BaseUITypes.json", 'r') as f:
 
 x["uiTypes"].update(baseu)
 
+x = export_selected(x)
+print(generate_code(x, push_var_name="p8"))
 
-exec(generate_code(export_selected(x)))

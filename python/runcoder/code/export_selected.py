@@ -144,13 +144,14 @@ class Exporter:
         return params, unused_params
 
     def export_param(self, section_id, id):
-        value = self.export_param_value(section_id, id)
+        value, deps = self.export_param_value(section_id, id)
         var_name = get_param_var_name(self.param_var_names)
         self.output[var_name] = {
             "paramInfoId": id,
             "sectionId": section_id,
             "name": self.p["codeInfo"][id]["name"],
             "value": value,
+            "deps": deps,
             "type": get_param_ui_type(self.p, section_id, id),
         }
         return var_name
@@ -161,13 +162,17 @@ class Exporter:
         # original_type = get_original_param_ui_type(self.p, section_id, id)
         possible_child_id = get_param_child_id(self.p, section_id, id)
         if possible_child_id:
-            return self.export_section(possible_child_id)
+            var_name = self.export_section(possible_child_id)
+            return var_name, [var_name]
         elif value:
             output = []
+            deps = []
             for v in value:
                 if v["type"] == "ref":
-                    output.append(self.export_section(v["value"]))
+                    var_name = self.export_section(v["value"])
+                    output.append(var_name)
+                    deps.append(var_name)
                 else:
                     output.append(v["value"])
-            return "".join(output)
-        return value
+            return "".join(output), deps
+        return value, []

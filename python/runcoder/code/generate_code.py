@@ -3,6 +3,7 @@ import builtins
 from collections import defaultdict
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
+from .utils import push_var_deep
 
 
 def get_location_str(node):
@@ -106,8 +107,12 @@ def create_line(var_name, x, selected):
     return var_declaration(var_name, value) if value else value
 
 
-def generate_code(selected):
+def generate_code(selected, push_var_name=None):
     lines = []
+    if push_var_name:
+        selected = [{"var_name": k, **v} for k, v in selected.items()]
+        selected = push_var_deep(selected, push_var_name)
+        selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
         var_str = create_line(var_name, x, selected)
         if var_str:
