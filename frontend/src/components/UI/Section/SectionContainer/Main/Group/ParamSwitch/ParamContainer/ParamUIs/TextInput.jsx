@@ -1,5 +1,6 @@
 import { useCombobox } from "downshift";
 import { useSectionInfoIdNamePairs } from "hooks/useSectionInfo";
+import { textFieldInitializeCode } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { ComboboxItems, ComboboxList } from "utils/Combobox/Combobox";
 import { flattenedItems } from "utils/Combobox/utils";
@@ -10,6 +11,7 @@ export function TextInputConfig() {
 }
 
 export function TextInput({
+  sectionId,
   value,
   defaultVal,
   onChange,
@@ -26,10 +28,15 @@ export function TextInput({
 
   const singleListItems = flattenedItems(allItems);
 
+  function onClick() {
+    textFieldInitializeCode(sectionId);
+  }
+
   const {
     isOpen,
     getMenuProps,
     getItemProps,
+    getInputProps,
     highlightedIndex,
     getToggleButtonProps,
     getComboboxProps,
@@ -41,6 +48,7 @@ export function TextInput({
 
   const isReallyOpen = isOpen && singleListItems.length > 0;
   const itemToString = (x) => (x ? x.name : "");
+  const toggleButtonProps = getToggleButtonProps({ onClick });
 
   return (
     <div
@@ -52,7 +60,8 @@ export function TextInput({
         contentEditable="plaintext-only" // use true to disable editing
         // onChange={handleChange} // handle innerHTML change
         className={classes}
-        {...getToggleButtonProps()}
+        {...toggleButtonProps}
+        {...getInputProps()}
       />
       <ComboboxList isOpen={isReallyOpen} getMenuProps={getMenuProps}>
         <ComboboxItems

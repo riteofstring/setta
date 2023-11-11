@@ -3,6 +3,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useWebsocketRooms } from "models/websocket";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { getSectionInfo } from "thunks/sections/getters";
 import { createNewId } from "z_utils/utils";
 
@@ -59,4 +60,14 @@ export function useCodeCompletionWebsocketRoom(sectionId) {
   }
 
   return [searchResults, _send];
+}
+
+export function textFieldInitializeCode(sectionId) {
+  const id = createNewId();
+  const project = getProjectDataToGenerateCode();
+  sendMessage({
+    id,
+    messageType: "textFieldInitializeCode",
+    message: { project, sectionId },
+  });
 }
