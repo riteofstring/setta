@@ -12,8 +12,8 @@ function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
   return (
     <div
       className={`flex ${
-        isKwarg ? "ml-0 mr-6 flex-grow gap-4" : "mx-6 flex-1 gap-4"
-      }  min-h-[36px] items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b] [&>*]:flex-1 ${border}`}
+        isKwarg ? "ml-0 mr-5 flex-grow gap-4" : "mx-5 flex-1 gap-4"
+      }  min-h-[36px] items-center justify-between rounded-lg px-2 py-[0.25rem] hover:bg-[#cbd5e02b] dark:hover:bg-runcoder-900/25 [&>*]:flex-1 ${border}`}
       {...infoViewHandlers}
     >
       {children}

@@ -73,10 +73,12 @@ function computeStyledText(value) {
   for (const v of value) {
     if (v.type === "ref") {
       const x = sectionState[v.value].name;
-      output.push(`<span style="color: red;">${x}</span>`);
+      output.push(`<span class="text-red-600 dark:text-red-400">${x}</span>`);
       regularOutput.push(x);
     } else {
-      output.push(`<span style="color: black;">${v.value}</span>`);
+      output.push(
+        `<span class="text-runcoder-800 dark:text-runcoder-100">${v.value}</span>`
+      );
       regularOutput.push(v.value);
     }
   }
