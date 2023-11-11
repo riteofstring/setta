@@ -162,6 +162,12 @@ class Exporter:
         possible_child_id = get_param_child_id(self.p, section_id, id)
         if possible_child_id:
             return self.export_section(possible_child_id)
-        # elif value and original_type == REF:
-        #     return self.export_section(value)
+        elif value:
+            output = []
+            for v in value:
+                if v["type"] == "ref":
+                    output.append(self.export_section(v["value"]))
+                else:
+                    output.append(v["value"])
+            return "".join(output)
         return value
