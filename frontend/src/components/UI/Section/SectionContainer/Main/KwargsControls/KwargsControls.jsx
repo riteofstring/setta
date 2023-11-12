@@ -33,7 +33,7 @@ export function KwargsControls({ sectionId, objInfoId, isGlobalVariables }) {
     "flex-1 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-7 py-1";
 
   return (
-    <section className="${ flex items-center  rounded-xl border-b border-solid  border-white bg-gradient-to-t from-slate-50 py-2 px-9 shadow-sm dark:border-runcoder-700 dark:from-transparent">
+    <section className="${ flex items-center  rounded-xl border-b border-solid  border-white bg-gradient-to-t from-slate-50 py-2 px-7 shadow-sm dark:border-runcoder-700 dark:from-transparent">
       <h3 className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-slate-400">
         arguments
       </h3>

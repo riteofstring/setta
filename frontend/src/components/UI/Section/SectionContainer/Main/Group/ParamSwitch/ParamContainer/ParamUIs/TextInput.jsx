@@ -17,7 +17,7 @@ export function TextInput({
   className,
 }) {
   const classes =
-    "nodrag outline-none border-0 border-b cursor-auto border-slate-400 border-solid text-sm dark:text-slate-300 font-code pb-1 focus-visible:border-blue-400";
+    "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
 
   const { styledText, text } = computeStyledText(value);
 
@@ -44,7 +44,7 @@ export function TextInput({
 
   return (
     <div
-      className={`flex h-7 w-full flex-col items-stretch overflow-visible`}
+      className={`flex w-full flex-col items-stretch overflow-visible`}
       {...getComboboxProps()}
     >
       <ContentEditable

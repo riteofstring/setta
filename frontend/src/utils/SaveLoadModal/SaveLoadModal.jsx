@@ -164,7 +164,7 @@ function Body({
   );
 }
 
-function Footer({ onClose, onClick, buttonText }) {
+export function Footer({ onClose, onClick, buttonText }) {
   return (
     <div className="mb-2 mt-4 flex justify-end gap-2">
       {buttonText && (

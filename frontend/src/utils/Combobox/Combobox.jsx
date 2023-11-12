@@ -52,7 +52,7 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-1 max-h-96  rounded-2xl bg-white shadow-xl dark:bg-runcoder-700 dark:text-runcoder-200`}
+      className={`nowheel nodrag absolute w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-6 max-h-96  rounded-2xl bg-white shadow-xl dark:bg-runcoder-700 dark:text-runcoder-200`}
       {...getMenuProps()}
       style={{ width }}
     >

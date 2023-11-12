@@ -57,7 +57,14 @@ export function FileMenuModal({
 
   const onClickActionButton =
     modalType === "Load" ? onClickLoadProject : onClickSaveAsProject;
-  const title = modalType === "Load" ? "Load Project" : "Save Project As";
+
+  const modalTypeObj = {
+    Load: "Load Project",
+    "Save As": "Save Project As",
+    "Export JSON": "Export JSON",
+  };
+
+  const title = modalTypeObj[modalType];
 
   return (
     <SaveLoadModal

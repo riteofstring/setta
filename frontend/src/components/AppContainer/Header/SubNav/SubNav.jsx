@@ -1,6 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useParams } from "react-router-dom";
-import { CommunityButton } from "./CommunityButton/CommunityButton";
 import { EditMenu } from "./EditMenu/EditMenu";
 import { FileMenu } from "./FileMenu/FileMenu";
 import { RunButton } from "./RunButton/RunButton";
@@ -27,11 +26,12 @@ function UiEditorSubNav() {
       <Menubar.Root className="contents">
         <FileMenu />
         <EditMenu />
+        <WebsocketConnections />
       </Menubar.Root>
-      <CommunityButton />
+      {/* <CommunityButton /> */}
       <RunButton />
       {/* <StateCounter /> */}
-      <WebsocketConnections />
+
       <TypeCheckButton />
     </div>
   );
