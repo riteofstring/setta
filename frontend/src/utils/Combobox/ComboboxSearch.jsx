@@ -16,14 +16,11 @@ export function ComboboxSearch({
   inputCallback,
 }) {
   const {
-    sizeRef,
-    width,
     isOpen: isReallyOpen,
     filteredItems,
     getToggleButtonProps,
     getMenuProps,
     getInputProps,
-    getComboboxProps,
     highlightedIndex,
     getItemProps,
   } = useTotalCombobox({
@@ -39,7 +36,6 @@ export function ComboboxSearch({
       className={`flex ${
         small ? "h-7" : "h-10"
       } w-full flex-col items-stretch overflow-visible ${comboboxInputClasses}`}
-      {...getComboboxProps({ ref: sizeRef })}
     >
       <ComboboxInput
         getInputProps={getInputProps}
@@ -53,7 +49,6 @@ export function ComboboxSearch({
       <ComboboxList
         isOpen={isReallyOpen}
         getMenuProps={getMenuProps}
-        width={width}
         position={position}
       >
         <ComboboxItems

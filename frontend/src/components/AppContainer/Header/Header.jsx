@@ -1,7 +1,6 @@
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
 import { useSearch } from "models/search";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { MainSideMenu } from "./MainSideMenu/MainSideMenu";
 import { Notification } from "./Notification/Notification";
 import { SiteLogo } from "./SiteLogo";
 import { ColorModeSwitch } from "./SubNav/ColorMode/ColorModeSwitch";
@@ -15,7 +14,7 @@ export function HeaderContainer() {
       <Search searchPlaceholder="Search Project" />
       <Notification />
       <ColorModeSwitch />
-      <MainSideMenu />
+      {/* <MainSideMenu /> */}
     </FlexContainer>
   );
 }

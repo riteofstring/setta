@@ -1,5 +1,4 @@
 import { useCombobox } from "downshift";
-import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useComboboxStateReducer } from "./ComboboxStateReducer";
@@ -12,11 +11,6 @@ export function useTotalCombobox({
   initialSelection,
   itemToString,
 }) {
-  const {
-    sizeRef,
-    size: { width },
-  } = useSizeOfResizableElement({ delay: 200 });
-
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
     allItems,
@@ -40,7 +34,6 @@ export function useTotalCombobox({
     getToggleButtonProps,
     getMenuProps,
     getInputProps,
-    getComboboxProps,
     highlightedIndex,
     getItemProps,
   } = useCombobox({
@@ -54,14 +47,11 @@ export function useTotalCombobox({
   const isReallyOpen = isOpen && singleListItems.length > 0;
 
   return {
-    sizeRef,
-    width,
     isOpen: isReallyOpen,
     filteredItems,
     getToggleButtonProps,
     getMenuProps,
     getInputProps,
-    getComboboxProps,
     highlightedIndex,
     getItemProps,
   };

@@ -27,7 +27,6 @@ export function ComboboxInput({
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
-      {...toggleButtonProps}
       {...inputProps}
       rightElement={
         <StandardSearchRightBtn
@@ -52,7 +51,27 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[150px] p-3 ${display} ${position} z-20 mt-2 max-h-96  rounded-3xl bg-white shadow-xl dark:bg-runcoder-700 dark:text-runcoder-200`}
+      className={`nowheel nodrag relative w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-1 max-h-96  rounded-2xl border bg-white/80 shadow-xl backdrop-blur-sm dark:border-runcoder-500/20 dark:bg-runcoder-800/80 dark:text-runcoder-200`}
+      {...getMenuProps()}
+      style={{ width }}
+    >
+      <ScrollingArea styles="w-full">{children}</ScrollingArea>
+    </div>
+  );
+}
+
+export function ComboboxTextFieldList({
+  isOpen,
+  children,
+  getMenuProps,
+  width,
+  position = "fixed",
+}) {
+  const display = isOpen ? "flex" : "hidden";
+
+  return (
+    <div
+      className={`nowheel nodrag fixed w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-6 max-h-96  rounded-2xl border bg-white/80 shadow-xl backdrop-blur-sm dark:border-runcoder-500/20 dark:bg-runcoder-800/80 dark:text-runcoder-200`}
       {...getMenuProps()}
       style={{ width }}
     >
@@ -69,10 +88,10 @@ function _ComboboxItem({
   itemStyle = "",
   itemString,
 }) {
-  const bg = isHighlighted ? "bg-slate-100" : "";
+  const bg = isHighlighted ? "bg-slate-300/50 dark:bg-runcoder-800/50l" : "";
   return (
     <dd
-      className={`mx-1 my-0.5 cursor-pointer truncate rounded-xl px-4 py-2 text-sm ${bg} ${itemStyle}`}
+      className={`mx-1 cursor-pointer truncate rounded-xl px-2 py-1 text-xs ${bg} ${itemStyle}`}
       {...getItemProps({ item, index })}
       data-testid={"ComboboxListItem"}
     >
@@ -93,7 +112,7 @@ export function ComboboxItems({
     (result, group, groupIndex) => {
       result.groups.push(
         <dl key={groupIndex}>
-          <dt className="mx-5 mb-2 truncate border-b border-solid border-slate-300 pt-5 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <dt className="mx-3 mb-1 truncate border-b border-solid border-runcoder-300/50 pt-3 pb-1 text-[0.6rem] font-bold uppercase text-runcoder-400">
             {group.group}
           </dt>
           {group.items.map((item, itemIndex) => {

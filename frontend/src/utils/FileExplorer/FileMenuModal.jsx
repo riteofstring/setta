@@ -21,10 +21,39 @@ export function FileMenuModal({
   setOpen,
   children,
 }) {
-  const content =
-    modalType === "Export JSON" ? (
-      <ImportExportModalContent projectJson={projectJson} />
-    ) : null;
+  const modalTypeObj = {
+    Load: "Load Project",
+    "Save As": "Save Project As",
+    "Export JSON": "Export JSON",
+    "Import JSON": "Import JSON",
+  };
+
+  const title = modalTypeObj[modalType];
+
+  function renderModalContent() {
+    if (modalType === "Export JSON") {
+      return (
+        <ImportExportModalContent
+          projectJson={projectJson}
+          title={title}
+          copyBtn={true}
+          buttonText="Export"
+        />
+      );
+    }
+    if (modalType === "Import JSON") {
+      return (
+        <ImportExportModalContent
+          title={title}
+          disabled={false}
+          buttonText="Import"
+        />
+      );
+    }
+    return null;
+  }
+
+  const content = renderModalContent();
 
   function onClickLoadProject({ selected }) {
     const configInfo = projects.find((x) => x.id === selected);
@@ -57,7 +86,6 @@ export function FileMenuModal({
 
   const onClickActionButton =
     modalType === "Load" ? onClickLoadProject : onClickSaveAsProject;
-  const title = modalType === "Load" ? "Load Project" : "Save Project As";
 
   return (
     <SaveLoadModal

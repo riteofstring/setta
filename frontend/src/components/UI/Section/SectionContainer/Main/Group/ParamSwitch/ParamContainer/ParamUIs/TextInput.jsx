@@ -1,8 +1,9 @@
 import { useCombobox } from "downshift";
 import { useSectionInfoIdNamePairs } from "hooks/useSectionInfo";
 import { textFieldInitializeCode } from "hooks/useWebsocket";
+import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { ComboboxItems, ComboboxList } from "utils/Combobox/Combobox";
+import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
 import { flattenedItems } from "utils/Combobox/utils";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
@@ -19,7 +20,7 @@ export function TextInput({
   className,
 }) {
   const classes =
-    "nodrag outline-none border-0 border-b cursor-auto border-slate-400 border-solid text-sm dark:text-slate-300 font-code pb-1 focus-visible:border-blue-400";
+    "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
 
   const { styledText, text } = computeStyledText(value);
 
@@ -36,10 +37,8 @@ export function TextInput({
     isOpen,
     getMenuProps,
     getItemProps,
-    getInputProps,
     highlightedIndex,
-    getToggleButtonProps,
-    getComboboxProps,
+    getInputProps,
   } = useCombobox({
     items: singleListItems,
     // itemToString,
@@ -48,29 +47,36 @@ export function TextInput({
 
   const isReallyOpen = isOpen && singleListItems.length > 0;
   const itemToString = (x) => (x ? x.name : "");
-  const toggleButtonProps = getToggleButtonProps({ onClick });
+
+  const {
+    sizeRef,
+    size: { width },
+  } = useSizeOfResizableElement({ delay: 200 });
 
   return (
     <div
-      className={`flex h-7 w-full flex-col items-stretch overflow-visible`}
-      {...getComboboxProps()}
+      className={`flex w-full flex-col items-stretch overflow-visible`}
+      ref={sizeRef}
     >
       <ContentEditable
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         // onChange={handleChange} // handle innerHTML change
         className={classes}
-        {...toggleButtonProps}
         {...getInputProps()}
       />
-      <ComboboxList isOpen={isReallyOpen} getMenuProps={getMenuProps}>
+      <ComboboxTextFieldList
+        isOpen={isReallyOpen}
+        getMenuProps={getMenuProps}
+        width={width}
+      >
         <ComboboxItems
           filteredItems={allItems}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
           itemToString={itemToString}
         />
-      </ComboboxList>
+      </ComboboxTextFieldList>
     </div>
   );
 }
@@ -82,10 +88,12 @@ function computeStyledText(value) {
   for (const v of value) {
     if (v.type === "ref") {
       const x = sectionState[v.value].name;
-      output.push(`<span style="color: red;">${x}</span>`);
+      output.push(`<span class="text-red-600 dark:text-red-400">${x}</span>`);
       regularOutput.push(x);
     } else {
-      output.push(`<span style="color: black;">${v.value}</span>`);
+      output.push(
+        `<span class="text-runcoder-800 dark:text-runcoder-100">${v.value}</span>`
+      );
       regularOutput.push(v.value);
     }
   }
