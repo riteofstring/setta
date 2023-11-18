@@ -6,7 +6,7 @@ import _ from "lodash";
 import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
-import { BiFilter, BiPencil } from "react-icons/bi";
+import { BiPencil } from "react-icons/bi";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
@@ -31,17 +31,13 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-300 dark:border-runcoder-800 focus-visible:border-blue-300 pl-7 py-1";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 focus-visible:border-blue-300 pl-7 py-1";
 
   return (
     <>
       <StandardSearch
         inputStyles={inputStyles}
         leftElementStyles="pl-1"
-        placeholder="Filter"
-        leftElement={
-          <BiFilter className="text-runcoder-600 dark:text-runcoder-400" />
-        }
         onChange={(e) => setFilter(e.target.value)}
       />
       <ScrollingArea styles="mt-4 flex flex-col gap-4">

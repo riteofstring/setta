@@ -6,11 +6,8 @@ import { matchSorter } from "match-sorter";
 import { useSearch } from "models/search";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
-import { IoMdCheckmark } from "react-icons/io";
-import { IoClose } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { Badge } from "utils/atoms/badges/badge";
-import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
@@ -18,6 +15,7 @@ import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
+
 export function HomePage() {
   const { projects, getProjects } = useGetProjectsForHomePage();
 
@@ -38,10 +36,7 @@ function RightColumn({ projects }) {
   }
 
   const stdbtnStyles =
-    "py-2 px-4 rounded-full font-bold font-heading text-white bg-runcoder-600  hover:bg-blue-500 gap-2";
-
-  const closebtnStyles =
-    "py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-red-500 hover:text-white gap-2";
+    "py-2 px-4 rounded-full font-bold font-heading text-white bg-slate-600  hover:shadow-xl hover:bg-blue-500 gap-2";
 
   return (
     <div className="overflow-y-auto px-10 py-8">
@@ -49,10 +44,6 @@ function RightColumn({ projects }) {
         <StandardButton twClasses={stdbtnStyles} onClick={onClick}>
           <BiPlus />
           New Project
-        </StandardButton>
-        <StandardButton twClasses={closebtnStyles} onClick={onClick}>
-          <IoClose />
-          Delete
         </StandardButton>
       </div>
       <ProjectItems projects={projects} />
@@ -115,28 +106,19 @@ const ProjectItem = forwardRef(({ project }, forwardedRef) => {
 function ThumbnailArea({ onClickConfigsButton, project, configs }) {
   return (
     <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4 dark:bg-runcoder-600">
-      <aside className="col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
-        <IconButton
-          icon={<IoMdCheckmark />}
-          color="text-white/50 hover:text-white"
-          bg="bg-runcoder-300/25 hover:bg-blue-500"
-          size="w-4 h-4"
-        />
-        <StandardDropdown
-          trigger={
-            <div
-              className="flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs  hover:bg-slate-50 dark:bg-runcoder-700 dark:text-slate-300 dark:hover:bg-slate-500"
-              onClick={onClickConfigsButton}
-            >
-              <BiGitBranch />
-              Configs
-            </div>
-          }
-          content={<Body project={project} configs={configs} />}
-          align="end"
-        />
-      </aside>
-
+      <StandardDropdown
+        trigger={
+          <div
+            className="col-start-1 col-end-2 row-start-1 row-end-2 flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs [place-self:flex-start_flex-end] hover:bg-slate-50 dark:bg-runcoder-700 dark:text-slate-300 dark:hover:bg-slate-500"
+            onClick={onClickConfigsButton}
+          >
+            <BiGitBranch />
+            Configs
+          </div>
+        }
+        content={<Body project={project} configs={configs} />}
+        align="end"
+      />
       <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
         svgStyles="fill-slate-200"

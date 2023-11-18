@@ -3,7 +3,6 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useUpdateMapPosition } from "hooks/useUpdateMapPosition";
 import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
-import { BiFilter } from "react-icons/bi";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
@@ -36,10 +35,6 @@ export function Overview() {
         inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 dark:border-runcoder-800  focus-visible:border-blue-300 pl-7 py-1"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
-        placeholder="Filter"
-        leftElement={
-          <BiFilter className="text-runcoder-600 dark:text-runcoder-400" />
-        }
         onChange={(e) => setFilter(e.target.value)}
         aria-label="Overview Search"
         {...infoViewHandlersSearch}

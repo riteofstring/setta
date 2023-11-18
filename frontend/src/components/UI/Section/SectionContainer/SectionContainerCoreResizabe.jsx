@@ -49,7 +49,7 @@ export function SectionContainerCoreResizable({
     isGlobalVariables
       ? "bg-white dark:bg-black"
       : "bg-slate-100 dark:bg-runcoder-800"
-  }  pt-3 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
+  }  pt-4 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 

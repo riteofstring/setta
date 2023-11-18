@@ -27,7 +27,7 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   return (
-    <header className="flex flex-row items-center px-7">
+    <header className="flex flex-row items-center px-9">
       {!isInfo && (
         <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
           <CardTitle

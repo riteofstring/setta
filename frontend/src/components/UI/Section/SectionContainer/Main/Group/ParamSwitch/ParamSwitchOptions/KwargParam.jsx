@@ -26,7 +26,7 @@ export function KwargParam(props) {
         icon={<IoClose />}
         bg="bg-transparent"
         color="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-        twClasses="ml-[0.15rem]"
+        twClasses="ml-1"
       />
       <ParamContainer {...props} isKwarg={true}>
         <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />
