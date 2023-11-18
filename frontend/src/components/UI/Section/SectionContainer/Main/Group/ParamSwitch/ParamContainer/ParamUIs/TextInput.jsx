@@ -63,7 +63,7 @@ export function TextInput({
         contentEditable="plaintext-only" // use true to disable editing
         // onChange={handleChange} // handle innerHTML change
         className={classes}
-        {...getInputProps()}
+        {...getInputProps({onClick})}
       />
       <ComboboxTextFieldList
         isOpen={isReallyOpen}

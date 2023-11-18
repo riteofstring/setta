@@ -63,14 +63,13 @@ def textFieldInitializeCode(message):
     codeJson = export_selected(message["message"]["project"])
     sectionId = message["message"]["sectionId"]
     push_var_name = None
-    for k,v in codeJson.items():
+    for k, v in codeJson.items():
         if v["sectionId"] == sectionId and "paramInfoId" not in v:
             push_var_name = k
             break
     print("push_var_name", push_var_name, flush=True)
     print(generate_code(codeJson, push_var_name=push_var_name), flush=True)
     return None, None
-
 
 
 def parametersRequest(message):
