@@ -33,11 +33,22 @@ export function FileMenuModal({
   function renderModalContent() {
     if (modalType === "Export JSON") {
       return (
-        <ImportExportModalContent projectJson={projectJson} title={title} />
+        <ImportExportModalContent
+          projectJson={projectJson}
+          title={title}
+          copyBtn={true}
+          buttonText="Export"
+        />
       );
     }
     if (modalType === "Import JSON") {
-      return <ImportExportModalContent title={title} disabled={false} />;
+      return (
+        <ImportExportModalContent
+          title={title}
+          disabled={false}
+          buttonText="Import"
+        />
+      );
     }
     return null;
   }
