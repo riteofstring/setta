@@ -1,3 +1,4 @@
+import * as Menubar from "@radix-ui/react-menubar";
 import {
   createAndGoToProject,
   useExportProjectConfigJson,
@@ -11,7 +12,6 @@ import { saveProject } from "thunks/save";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { FileMenuModal } from "utils/FileExplorer/FileMenuModal";
-
 export function FileMenu() {
   const { projects, getProjects } = useGetProjectsForFileMenu();
   const { projectJson, exportProjectJson } = useExportProjectConfigJson();
@@ -36,6 +36,11 @@ export function FileMenu() {
     setOpen(true);
   }
 
+  function openImportJSONModal() {
+    setModalType("Import JSON");
+    setOpen(true);
+  }
+
   useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
   return (
@@ -50,12 +55,18 @@ export function FileMenu() {
         openLoadModal={openLoadModal}
         openSaveAsModal={openSaveAsModal}
         openExportJSONModal={openExportJSONModal}
+        openImportJSONModal={openImportJSONModal}
       />
     </FileMenuModal>
   );
 }
 
-function MenuItems({ openLoadModal, openSaveAsModal, openExportJSONModal }) {
+function MenuItems({
+  openLoadModal,
+  openSaveAsModal,
+  openExportJSONModal,
+  openImportJSONModal,
+}) {
   return (
     <MenuDropdown trigger="File">
       <MenuItem
@@ -75,8 +86,14 @@ function MenuItems({ openLoadModal, openSaveAsModal, openExportJSONModal }) {
         <VscSaveAs />
         Save As
       </MenuItem>
+      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-runcoder-100 dark:bg-runcoder-600" />
+
+      <MenuItem onClick={openImportJSONModal}>
+        {/* <BiImport /> */}
+        Import JSON
+      </MenuItem>
       <MenuItem onClick={openExportJSONModal}>
-        <VscSaveAs />
+        {/* <BiExport /> */}
         Export JSON
       </MenuItem>
     </MenuDropdown>
