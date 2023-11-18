@@ -31,6 +31,7 @@ export const ContentEditable = React.forwardRef(
     return (
       <ReactContentEditable
         {...props}
+        innerRef={ref}
         onChange={
           onChange
             ? (...args) => {
