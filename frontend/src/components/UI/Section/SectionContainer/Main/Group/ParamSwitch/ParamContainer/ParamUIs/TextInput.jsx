@@ -1,7 +1,8 @@
 import { useCombobox } from "downshift";
 import { useSectionInfoIdNamePairs } from "hooks/useSectionInfo";
+import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { ComboboxItems, ComboboxList } from "utils/Combobox/Combobox";
+import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
 import { flattenedItems } from "utils/Combobox/utils";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
@@ -42,10 +43,15 @@ export function TextInput({
   const isReallyOpen = isOpen && singleListItems.length > 0;
   const itemToString = (x) => (x ? x.name : "");
 
+  const {
+    sizeRef,
+    size: { width },
+  } = useSizeOfResizableElement({ delay: 200 });
+
   return (
     <div
       className={`flex w-full flex-col items-stretch overflow-visible`}
-      {...getComboboxProps()}
+      {...getComboboxProps({ ref: sizeRef })}
     >
       <ContentEditable
         html={styledText} // innerHTML of the editable div
@@ -54,14 +60,18 @@ export function TextInput({
         className={classes}
         {...getToggleButtonProps()}
       />
-      <ComboboxList isOpen={isReallyOpen} getMenuProps={getMenuProps}>
+      <ComboboxTextFieldList
+        isOpen={isReallyOpen}
+        getMenuProps={getMenuProps}
+        width={width}
+      >
         <ComboboxItems
           filteredItems={allItems}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
           itemToString={itemToString}
         />
-      </ComboboxList>
+      </ComboboxTextFieldList>
     </div>
   );
 }
