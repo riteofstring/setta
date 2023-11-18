@@ -32,7 +32,8 @@ export function TextInput({
     getMenuProps,
     getItemProps,
     highlightedIndex,
-    getInputProps,
+    getToggleButtonProps,
+    getComboboxProps,
   } = useCombobox({
     items: singleListItems,
     // itemToString,
@@ -50,14 +51,14 @@ export function TextInput({
   return (
     <div
       className={`flex w-full flex-col items-stretch overflow-visible`}
-      ref={sizeRef}
+      {...getComboboxProps({ ref: sizeRef })}
     >
       <ContentEditable
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         // onChange={handleChange} // handle innerHTML change
         className={classes}
-        {...getInputProps()}
+        {...getToggleButtonProps()}
       />
       <ComboboxTextFieldList
         isOpen={isReallyOpen}

@@ -27,6 +27,7 @@ export function ComboboxInput({
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
+      {...toggleButtonProps}
       {...inputProps}
       rightElement={
         <StandardSearchRightBtn
