@@ -21,7 +21,6 @@ export function ComboboxSearch({
     getToggleButtonProps,
     getMenuProps,
     getInputProps,
-    getComboboxProps,
     highlightedIndex,
     getItemProps,
   } = useTotalCombobox({
@@ -37,7 +36,6 @@ export function ComboboxSearch({
       className={`flex ${
         small ? "h-7" : "h-10"
       } w-full flex-col items-stretch overflow-visible ${comboboxInputClasses}`}
-      {...getComboboxProps()}
     >
       <ComboboxInput
         getInputProps={getInputProps}
