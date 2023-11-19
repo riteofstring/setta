@@ -1,46 +1,82 @@
-# def push_id_deep(objects, target_var_name):
-#     def get_dependencies(obj):
-#         """Retrieve dependencies from either 'deps' or 'params' within 'values'."""
-#         return obj.get('deps', []) + obj.get('values', {}).get('params', [])
+# import re
 
-#     def find_dependents(obj_list, var_name):
-#         """Find all objects that directly or indirectly depend on the given object."""
-#         dependents = set()
-#         for obj in obj_list:
-#             if var_name in get_dependencies(obj):
-#                 dependents.add(obj['var_name'])
-#                 dependents.update(find_dependents(obj_list, obj['var_name']))
-#         return dependents
+# def clean_line(line):
+#     # Remove trailing operators
+#     while line and line[-1] in {'.', ',', '+', '-', '*', '/', '%', '<', '>', '&', '|', '^', '~', ':', ';'}:
+#         line = line[:-1]
 
-#     dependents = find_dependents(objects, target_var_name)
-#     everything_else = []
-#     target_and_dependents = []
-#     for obj in objects:
-#         if obj['var_name'] != target_var_name and obj['var_name'] not in dependents:
-#             everything_else.append(obj)
-#         else:
-#             target_and_dependents.append(obj)
+#     # Balance parentheses and brackets
+#     stack = []
+#     for char in line:
+#         if char in '([{':
+#             stack.append(char)
+#         elif char in ')]}':
+#             if stack:
+#                 last_open = stack[-1]
+#                 if (char == ')' and last_open == '(') or \
+#                    (char == ']' and last_open == '[') or \
+#                    (char == '}' and last_open == '{'):
+#                     stack.pop()
+#                 else:
+#                     line = line.replace(char, '', 1)
+#             else:
+#                 line = line.replace(char, '', 1)
 
-#     return everything_else + target_and_dependents
+#     # Add closing brackets for unmatched opening brackets
+#     closing_brackets = {'(': ')', '[': ']', '{': '}'}
+#     for open_bracket in reversed(stack):
+#         line += closing_brackets[open_bracket]
 
-# # Example usage
-# the_list = [
-#     {"var_name": "A", "deps": []},
-#     {"var_name": "B", "deps": ["A"]},
-#     {"var_name": "W", "deps": []},
-#     {"var_name": "Z", "deps": ["A", "B"]},
-#     {"var_name": "D", "values": {"params": ["A"]}},
-#     {"var_name": "X", "deps": ["A", "Z"]},
-#     {"var_name": "C", "deps": ["W"]},
-# ]
-# new_list = push_id_deep(the_list, "A")
+#     # Use regex to find and complete incomplete assignments
+#     incomplete_assignment_regex = r'(\=\s*($|\,|\)|\]|\}|\;))'
+#     line = re.sub(incomplete_assignment_regex, '=None\\2', line)
 
-# from pprint import pprint
-# pprint(new_list)
+#     return line
 
 
-from runcoder.code.generate_code import infer_imports
-from pprint import pprint
+# # Test the function
+# result = clean_line("x=torch==")
+# print(result) 
 
-code = "p8=None"
-pprint(infer_imports(code))
+# import ast
+# ast.parse(result)
+
+
+def balance_brackets_quotes(s):
+    stack = []
+    balanced_string = ''
+
+    # Maps of opening and closing brackets
+    opening_brackets = {'(': ')', '{': '}', '[': ']'}
+    closing_brackets = {')': '(', '}': '{', ']': '['}
+
+    for char in s:
+        if char in opening_brackets or char in ['"', "'"]:
+            # Push opening brackets and quotes onto the stack
+            stack.append(char)
+        elif char in closing_brackets:
+            if stack and stack[-1] == closing_brackets[char]:
+                # Properly closed bracket
+                stack.pop()
+            else:
+                # Unbalanced closing bracket, insert corresponding opening bracket
+                balanced_string += closing_brackets[char]
+        balanced_string += char
+
+    # Add any unmatched opening brackets or quotes at the end
+    while stack:
+        opening = stack.pop()
+        if opening in opening_brackets:
+            balanced_string += opening_brackets[opening]
+        else:
+            balanced_string += opening  # For quotes, just repeat the same character
+
+    return balanced_string
+
+# Example usage
+input_string = 'x=torch(y="'
+balanced_string = balance_brackets_quotes(input_string)
+print(balanced_string)
+
+import ast
+ast.parse(balanced_string)

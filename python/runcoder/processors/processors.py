@@ -141,7 +141,10 @@ def parametersRequest(message):
 
 def typeCheckRequest(message):
     code_json = export_selected(message["message"])
-    code = generate_code(code_json)
+    try:
+        code = generate_code(code_json)
+    except SyntaxError:
+        return {"output": {}, "name": "typeCheck", "cache": None}
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:
         # set delete=False because otherwise the mypy call gets Permission Denied
         with tempfile.NamedTemporaryFile(
