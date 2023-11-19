@@ -47,6 +47,7 @@ export function ParamInput({
       name={uiType.type}
       childProps={{
         sectionId,
+        paramInfoId,
         value,
         defaultVal,
         onChange,

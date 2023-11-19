@@ -1,7 +1,7 @@
 import { useCombobox } from "downshift";
 import { useSectionInfoIdNamePairs } from "hooks/useSectionInfo";
-import { textFieldInitializeCode } from "hooks/useWebsocket";
 import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
+import { textFieldInitializeCode } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
 import { flattenedItems } from "utils/Combobox/utils";
@@ -13,6 +13,7 @@ export function TextInputConfig() {
 
 export function TextInput({
   sectionId,
+  paramInfoId,
   value,
   defaultVal,
   onChange,
@@ -30,7 +31,7 @@ export function TextInput({
   const singleListItems = flattenedItems(allItems);
 
   function onClick() {
-    textFieldInitializeCode(sectionId);
+    textFieldInitializeCode(sectionId, paramInfoId);
   }
 
   const {
@@ -63,7 +64,7 @@ export function TextInput({
         contentEditable="plaintext-only" // use true to disable editing
         // onChange={handleChange} // handle innerHTML change
         className={classes}
-        {...getInputProps({onClick})}
+        {...getInputProps({ onClick })}
       />
       <ComboboxTextFieldList
         isOpen={isReallyOpen}

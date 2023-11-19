@@ -50,18 +50,18 @@ def maybe_cache_result(message, result, cache):
         cache.add_text_field_generated_code(
             project["projectConfig"]["id"], sectionId, result["cache"]
         )
-        print(cache.text_field_generated_code, flush=True)
 
 
 def codeCompletion(message):
     for_parser = message["message"].rstrip(".")
+    empty_output = {"output": [], "name": "codeCompletion", "cache": None}
     try:
         code = f'{get_import_text(for_parser)}; {message["message"]}'
     except SyntaxError as e:
         print(f"Syntax Error: {e}")
-        return [], "codeCompletion"
+        return empty_output
     if code == "":
-        return [], "codeCompletion"
+        return empty_output
     results = jedi.Script(code).complete()
     output = [
         f"{message['message']}{x.complete}"
@@ -77,14 +77,18 @@ def textFieldInitializeCode(message):
     project = message["project"]
     codeJson = export_selected(project)
     sectionId = message["sectionId"]
+    paramInfoId = message["paramInfoId"]
     push_var_name = None
     for k, v in codeJson.items():
-        if v["sectionId"] == sectionId and "paramInfoId" not in v:
+        if v["sectionId"] == sectionId and v["paramInfoId"] == paramInfoId:
             push_var_name = k
             break
-    code = generate_code(codeJson, push_var_name=push_var_name)
-    # cache[sectionId] = code
-    # print(cache, flush=True)
+    code = generate_code(
+        codeJson,
+        push_var_name=push_var_name,
+        force_appear_var_name=push_var_name,
+    )
+    print(code, flush=True)
     return {"output": None, "name": "textFieldInitializeCode", "cache": code}
 
 

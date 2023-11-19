@@ -62,12 +62,12 @@ export function useCodeCompletionWebsocketRoom(sectionId) {
   return [searchResults, _send];
 }
 
-export function textFieldInitializeCode(sectionId) {
+export function textFieldInitializeCode(sectionId, paramInfoId) {
   const id = createNewId();
   const project = getProjectDataToGenerateCode();
   sendMessage({
     id,
     messageType: "textFieldInitializeCode",
-    message: { project, sectionId },
+    message: { project, sectionId, paramInfoId },
   });
 }

@@ -1,5 +1,6 @@
 import ast
 import builtins
+import copy
 from collections import defaultdict
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
@@ -102,22 +103,61 @@ def get_value(x, selected):
         return None
 
 
-def create_line(var_name, x, selected):
+def create_line(var_name, x, selected, force_appear):
     value = get_value(x, selected)
-    return var_declaration(var_name, value) if value else value
+    dec = var_declaration(var_name, value) if value or force_appear else value
+    return dec, value
 
 
-def generate_code(selected, push_var_name=None):
+def generate_lines_of_code_without_imports(
+    selected, push_var_name=None, force_appear_var_name=None
+):
+    selected = copy.deepcopy(selected)
     lines = []
+    var_name_to_line_num = {}
+    original_force_appear_var_str = ""
     if push_var_name:
+        for v in selected.values():
+            if (
+                isinstance(v["value"], dict)
+                and force_appear_var_name in v["value"]["unusedParams"]
+            ):
+                v["value"]["params"].append(force_appear_var_name)
+                v["value"]["unusedParams"].remove(force_appear_var_name)
         selected = [{"var_name": k, **v} for k, v in selected.items()]
         selected = push_var_deep(selected, push_var_name)
         selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
-        var_str = create_line(var_name, x, selected)
+        force_appear = force_appear_var_name == var_name
+        var_str, value = create_line(var_name, x, selected, force_appear=force_appear)
+        if force_appear:
+            original_force_appear_var_str = var_str
+            if not value:
+                var_str = f"{var_str}None"
+            else:
+                var_str = var_str.rstrip(".")
         if var_str:
+            var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
 
+    return lines, original_force_appear_var_str, var_name_to_line_num
+
+
+def generate_code(selected, push_var_name=None, force_appear_var_name=None):
+    (
+        lines,
+        original_force_appear_var_str,
+        var_name_to_line_num,
+    ) = generate_lines_of_code_without_imports(
+        selected,
+        push_var_name=push_var_name,
+        force_appear_var_name=force_appear_var_name,
+    )
     code = "\n".join(lines)
     imports = get_import_text(code)
+    if force_appear_var_name:
+        lines[
+            var_name_to_line_num[force_appear_var_name]
+        ] = original_force_appear_var_str
+        code = "\n".join(lines)
     return imports + "\n\n" + code
