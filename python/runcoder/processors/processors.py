@@ -11,14 +11,18 @@ from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
     get_import_text,
+    prepend_with_imports,
+    set_line,
 )
 from ..code.type_checker import parse_and_type_check
+from ..code.utils import get_var_name
 
 
 async def getConsumerMessage(message, tasks_obj, cache):
     try:
         print(f"Start processing message ID: {message.get('id', None)}", flush=True)
         fn = get_consumer_fn(message)
+        maybe_read_cache(message, cache)
         result = await tasks_obj.loop.run_in_executor(tasks_obj.executor, fn, message)
         maybe_cache_result(message, result, cache)
         return result
@@ -32,6 +36,8 @@ def get_consumer_fn(message):
         return codeCompletion
     if message["messageType"] == "textFieldInitializeCode":
         return textFieldInitializeCode
+    if message["messageType"] == "textFieldCompletion":
+        return textFieldCompletion
     if message["messageType"] == "parametersRequest":
         return parametersRequest
     if message["messageType"] == "typeCheckRequest":
@@ -43,6 +49,14 @@ def get_consumer_fn(message):
     if message["messageType"] == "runCode":
         return runCode
     raise ValueError
+
+
+def maybe_read_cache(message, cache):
+    if message["messageType"] == "textFieldCompletion":
+        message = message["message"]
+        message["cached"] = cache.text_field_generated_code[message["projectConfigId"]][
+            message["sectionId"]
+        ]
 
 
 def maybe_cache_result(message, result, cache):
@@ -82,18 +96,29 @@ def textFieldInitializeCode(message):
     codeJson = export_selected(project)
     sectionId = message["sectionId"]
     paramInfoId = message["paramInfoId"]
-    push_var_name = None
-    for k, v in codeJson.items():
-        if v["sectionId"] == sectionId and v["paramInfoId"] == paramInfoId:
-            push_var_name = k
-            break
+    push_var_name = get_var_name(codeJson, sectionId, paramInfoId)
     to_cache = generate_lines_of_code_without_imports(
         codeJson,
         push_var_name=push_var_name,
         force_appear_var_name=push_var_name,
     )
     print(to_cache, flush=True)
-    return {"output": None, "name": "textFieldInitializeCode", "cache": to_cache}
+    return {
+        "output": None,
+        "name": "textFieldInitializeCode",
+        "cache": [*to_cache, codeJson],
+    }
+
+
+def textFieldCompletion(message):
+    message = message["message"]
+    lines, var_name_to_line_num, codeJson = message.pop("cached")
+    var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
+    print("message", message)
+    set_line(lines, var_name_to_line_num, var_name, message["value"])
+    code = prepend_with_imports(lines, var_name, var_name_to_line_num)
+    print(code, flush=True)
+    return {"output": None, "name": "textFieldCompletion", "cache": None}
 
 
 def parametersRequest(message):

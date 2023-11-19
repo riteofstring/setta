@@ -1,7 +1,9 @@
 import { useCombobox } from "downshift";
-import { useSectionInfoIdNamePairs } from "hooks/useSectionInfo";
 import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
-import { textFieldInitializeCode } from "hooks/useWebsocket";
+import {
+  textFieldInitializeCode,
+  useTextFieldCompletionWebsocketRoom,
+} from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
 import { flattenedItems } from "utils/Combobox/utils";
@@ -23,15 +25,30 @@ export function TextInput({
   const classes =
     "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
 
-  const { styledText, text } = computeStyledText(value);
+  // const [text, setText] = useState("");
+  const { styledText } = computeStyledText(value);
 
-  const availableSections = useSectionInfoIdNamePairs();
-  const allItems = [{ group: "sections", items: availableSections }];
+  // const availableSections = useSectionInfoIdNamePairs();
+  // const allItems = [{ group: "sections", items: availableSections }];
+
+  const [message, send] = useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId);
+
+  const allItems = [];
 
   const singleListItems = flattenedItems(allItems);
 
   function onClick() {
     textFieldInitializeCode(sectionId, paramInfoId);
+  }
+
+  function handleChange(e) {
+    // Check if the active element is the event target, which should be the contenteditable div
+    if (document.activeElement !== e.currentTarget) {
+      return;
+    }
+    const x = e.currentTarget.innerText.trim()
+    onChange(0, value[0].type, x);
+    send(x)
   }
 
   const {
@@ -62,9 +79,8 @@ export function TextInput({
       <ContentEditable
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
-        // onChange={handleChange} // handle innerHTML change
         className={classes}
-        {...getInputProps({ onClick })}
+        {...getInputProps({ onClick, onChange: handleChange })}
       />
       <ComboboxTextFieldList
         isOpen={isReallyOpen}

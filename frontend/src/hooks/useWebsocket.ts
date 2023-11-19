@@ -1,5 +1,6 @@
 import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useWebsocketRooms } from "models/websocket";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -70,4 +71,15 @@ export function textFieldInitializeCode(sectionId, paramInfoId) {
     messageType: "textFieldInitializeCode",
     message: { project, sectionId, paramInfoId },
   });
+}
+
+export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
+  const [message, send] = useWebsocketRoom("textFieldCompletion");
+
+  function _send(value) {
+    const projectConfigId = useProjectConfig.getState().id
+    send({ projectConfigId, sectionId, paramInfoId, value });
+  }
+
+  return [message, _send];
 }

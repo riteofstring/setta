@@ -115,7 +115,6 @@ def generate_lines_of_code_without_imports(
     selected = copy.deepcopy(selected)
     lines = []
     var_name_to_line_num = {}
-    original_force_appear_var_str = ""
     if push_var_name:
         for v in selected.values():
             if (
@@ -130,36 +129,39 @@ def generate_lines_of_code_without_imports(
     for var_name, x in selected.items():
         force_appear = force_appear_var_name == var_name
         var_str, value = create_line(var_name, x, selected, force_appear=force_appear)
-        if force_appear:
-            original_force_appear_var_str = var_str
-            if not value:
-                var_str = f"{var_str}None"
-            else:
-                var_str = var_str.rstrip(".")
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
 
-    return lines, original_force_appear_var_str, var_name_to_line_num
+    return lines, var_name_to_line_num
 
 
-def prepend_with_imports(
-    lines, force_appear_var_name, original_force_appear_var_str, var_name_to_line_num
-):
-    code = "\n".join(lines)
-    imports = get_import_text(code)
+def set_line(lines, var_name_to_line_num, var_name, value):
+    line_num = var_name_to_line_num[var_name]
+    lines[line_num] = var_declaration(var_name, value)
+
+
+def prepend_with_imports(lines, force_appear_var_name, var_name_to_line_num):
     if force_appear_var_name:
-        lines[
-            var_name_to_line_num[force_appear_var_name]
-        ] = original_force_appear_var_str
-        code = "\n".join(lines)
-    return imports + "\n\n" + code
+        line_num = var_name_to_line_num[force_appear_var_name]
+        original_force_appear_var_str = lines[line_num]
+        var_str = original_force_appear_var_str
+        if original_force_appear_var_str == var_declaration(force_appear_var_name, ""):
+            var_str = var_declaration(force_appear_var_name, "None")
+        var_str = var_str.rstrip(".")
+        lines[line_num] = var_str
+
+    imports = get_import_text("\n".join(lines))
+
+    if force_appear_var_name:
+        lines[line_num] = original_force_appear_var_str
+
+    return imports + "\n\n" + "\n".join(lines)
 
 
 def generate_code(selected, push_var_name=None, force_appear_var_name=None):
     (
         lines,
-        original_force_appear_var_str,
         var_name_to_line_num,
     ) = generate_lines_of_code_without_imports(
         selected,
@@ -169,6 +171,5 @@ def generate_code(selected, push_var_name=None, force_appear_var_name=None):
     return prepend_with_imports(
         lines,
         force_appear_var_name,
-        original_force_appear_var_str,
         var_name_to_line_num,
     )
