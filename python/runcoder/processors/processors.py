@@ -74,7 +74,7 @@ def codeCompletion(message):
     for_parser = message["message"].rstrip(".")
     empty_output = {"output": [], "name": "codeCompletion", "cache": None}
     try:
-        code = f'{get_import_text(for_parser)}; {message["message"]}'
+        code = f'{get_import_text(for_parser)[0]}; {message["message"]}'
     except SyntaxError as e:
         print(f"Syntax Error: {e}")
         return empty_output
@@ -84,7 +84,7 @@ def codeCompletion(message):
     output = [
         f"{message['message']}{x.complete}"
         for x in results
-        if x.type in ["class", "function"]
+        if x.type in ["module", "class", "function"] and x.complete
     ]
     output = [x for x in output if x][:5]
     return {"output": output, "name": "codeCompletion", "cache": None}
@@ -114,15 +114,20 @@ def textFieldCompletion(message):
     message = message["message"]
     lines, var_name_to_line_num, codeJson = message.pop("cached")
     var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
-    print("message", message)
     set_line(lines, var_name_to_line_num, var_name, message["value"])
-    code = prepend_with_imports(lines, var_name, var_name_to_line_num)
+    code, var_name_to_line_num = prepend_with_imports(
+        lines, var_name, var_name_to_line_num
+    )
     print(code, flush=True)
+    print("line=", var_name_to_line_num[var_name] + 1, flush=True)
+    results = jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1)
+    results = [r.complete for r in results if r.type in ["class", "function"]]
+    print(results, flush=True)
     return {"output": None, "name": "textFieldCompletion", "cache": None}
 
 
 def parametersRequest(message):
-    code = f'${get_import_text(message["message"])}; ${message["message"]}('
+    code = f'${get_import_text(message["message"])[0]}; ${message["message"]}('
     print("code", code)
     signatures = jedi.Script(code).get_signatures()
     output = []
@@ -142,7 +147,7 @@ def parametersRequest(message):
 def typeCheckRequest(message):
     code_json = export_selected(message["message"])
     try:
-        code = generate_code(code_json)
+        code, _ = generate_code(code_json)
     except SyntaxError:
         return {"output": {}, "name": "typeCheck", "cache": None}
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:

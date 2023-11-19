@@ -60,7 +60,8 @@ def import_str(x):
 
 
 def get_import_text(code):
-    return "\n".join([import_str(x) for x in infer_imports(code)])
+    imports = [import_str(x) for x in infer_imports(code)]
+    return "\n".join(imports), len(imports)
 
 
 def get_mappings(var_names, selected, operator):
@@ -152,12 +153,15 @@ def prepend_with_imports(lines, force_appear_var_name, var_name_to_line_num):
             var_str = var_declaration(force_appear_var_name, "None")
         lines[line_num] = var_str
 
-    imports = get_import_text("\n".join(lines))
+    imports, num_imports = get_import_text("\n".join(lines))
 
     if force_appear_var_name:
         lines[line_num] = original_force_appear_var_str
 
-    return imports + "\n\n" + "\n".join(lines)
+    new_var_name_to_line_num = {
+        k: v + num_imports + 1 for k, v in var_name_to_line_num.items()
+    }
+    return imports + "\n\n" + "\n".join(lines), new_var_name_to_line_num
 
 
 def generate_code(selected, push_var_name=None, force_appear_var_name=None):
