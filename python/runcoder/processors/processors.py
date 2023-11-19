@@ -7,7 +7,11 @@ from pprint import pprint
 import jedi
 
 from ..code.export_selected import export_selected
-from ..code.generate_code import generate_code, get_import_text
+from ..code.generate_code import (
+    generate_code,
+    generate_lines_of_code_without_imports,
+    get_import_text,
+)
 from ..code.type_checker import parse_and_type_check
 
 
@@ -83,13 +87,13 @@ def textFieldInitializeCode(message):
         if v["sectionId"] == sectionId and v["paramInfoId"] == paramInfoId:
             push_var_name = k
             break
-    code = generate_code(
+    to_cache = generate_lines_of_code_without_imports(
         codeJson,
         push_var_name=push_var_name,
         force_appear_var_name=push_var_name,
     )
-    print(code, flush=True)
-    return {"output": None, "name": "textFieldInitializeCode", "cache": code}
+    print(to_cache, flush=True)
+    return {"output": None, "name": "textFieldInitializeCode", "cache": to_cache}
 
 
 def parametersRequest(message):

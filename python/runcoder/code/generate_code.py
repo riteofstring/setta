@@ -143,6 +143,19 @@ def generate_lines_of_code_without_imports(
     return lines, original_force_appear_var_str, var_name_to_line_num
 
 
+def prepend_with_imports(
+    lines, force_appear_var_name, original_force_appear_var_str, var_name_to_line_num
+):
+    code = "\n".join(lines)
+    imports = get_import_text(code)
+    if force_appear_var_name:
+        lines[
+            var_name_to_line_num[force_appear_var_name]
+        ] = original_force_appear_var_str
+        code = "\n".join(lines)
+    return imports + "\n\n" + code
+
+
 def generate_code(selected, push_var_name=None, force_appear_var_name=None):
     (
         lines,
@@ -153,11 +166,9 @@ def generate_code(selected, push_var_name=None, force_appear_var_name=None):
         push_var_name=push_var_name,
         force_appear_var_name=force_appear_var_name,
     )
-    code = "\n".join(lines)
-    imports = get_import_text(code)
-    if force_appear_var_name:
-        lines[
-            var_name_to_line_num[force_appear_var_name]
-        ] = original_force_appear_var_str
-        code = "\n".join(lines)
-    return imports + "\n\n" + code
+    return prepend_with_imports(
+        lines,
+        force_appear_var_name,
+        original_force_appear_var_str,
+        var_name_to_line_num,
+    )
