@@ -11,33 +11,46 @@ from ..code.generate_code import generate_code, get_import_text
 from ..code.type_checker import parse_and_type_check
 
 
-async def getConsumerMessage(message, tasks_obj):
+async def getConsumerMessage(message, tasks_obj, cache):
     try:
         print(f"Start processing message ID: {message.get('id', None)}", flush=True)
-        return await tasks_obj.loop.run_in_executor(
-            tasks_obj.executor, consumer, message
-        )
+        fn = get_consumer_fn(message)
+        result = await tasks_obj.loop.run_in_executor(tasks_obj.executor, fn, message)
+        maybe_cache_result(message, result, cache)
+        return result
     except CancelledError:
         print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
-        return None, None
+        return {"output": None, "name": None}
 
 
-def consumer(message):
+def get_consumer_fn(message):
     if message["messageType"] == "codeCompletionRequest":
-        return codeCompletion(message)
+        return codeCompletion
     if message["messageType"] == "textFieldInitializeCode":
-        return textFieldInitializeCode(message)
+        return textFieldInitializeCode
     if message["messageType"] == "parametersRequest":
-        return parametersRequest(message)
+        return parametersRequest
     if message["messageType"] == "typeCheckRequest":
-        return typeCheckRequest(message)
+        return typeCheckRequest
     if message["messageType"] == "connection":
-        return connectionEstablished(message)
+        return connectionEstablished
     if message["messageType"] == "allConnections":
-        return allConnections(message)
+        return allConnections
     if message["messageType"] == "runCode":
-        return runCode(message)
+        return runCode
     raise ValueError
+
+
+def maybe_cache_result(message, result, cache):
+    if result["cache"] is None:
+        return
+    if result["name"] == "textFieldInitializeCode":
+        project = message["message"]["project"]
+        sectionId = message["message"]["sectionId"]
+        cache.add_text_field_generated_code(
+            project["projectConfig"]["id"], sectionId, result["cache"]
+        )
+        print(cache.text_field_generated_code, flush=True)
 
 
 def codeCompletion(message):
@@ -56,20 +69,23 @@ def codeCompletion(message):
         if x.type in ["class", "function"]
     ]
     output = [x for x in output if x][:5]
-    return output, "codeCompletion"
+    return {"output": output, "name": "codeCompletion", "cache": None}
 
 
 def textFieldInitializeCode(message):
-    codeJson = export_selected(message["message"]["project"])
-    sectionId = message["message"]["sectionId"]
+    message = message["message"]
+    project = message["project"]
+    codeJson = export_selected(project)
+    sectionId = message["sectionId"]
     push_var_name = None
     for k, v in codeJson.items():
         if v["sectionId"] == sectionId and "paramInfoId" not in v:
             push_var_name = k
             break
-    print("push_var_name", push_var_name, flush=True)
-    print(generate_code(codeJson, push_var_name=push_var_name), flush=True)
-    return None, None
+    code = generate_code(codeJson, push_var_name=push_var_name)
+    # cache[sectionId] = code
+    # print(cache, flush=True)
+    return {"output": None, "name": "textFieldInitializeCode", "cache": code}
 
 
 def parametersRequest(message):
@@ -87,7 +103,7 @@ def parametersRequest(message):
                 else None
             )
             output.append({"name": param.name, "defaultVal": defaultVal})
-    return output, "parameters"
+    return {"output": output, "name": "parameters", "cache": None}
 
 
 def typeCheckRequest(message):
@@ -118,18 +134,18 @@ def typeCheckRequest(message):
     errors = stdout
     output = parse_and_type_check(errors, code, code_json)
     print(output)
-    return output, "typeCheck"
+    return {"output": output, "name": "typeCheck", "cache": None}
 
 
 def connectionEstablished(message):
     print(f"Connected as {message['websocketId']}")
-    return None, None
+    return {"output": None, "name": None, "cache": None}
 
 
 def allConnections(message):
     print("All connections:")
     pprint(message["connections"])
-    return None, None
+    return {"output": None, "name": None, "cache": None}
 
 
 def runCode(message):
@@ -137,4 +153,4 @@ def runCode(message):
     print(code)
     exec(code)
     print("DONE")
-    return None, None
+    return {"output": None, "name": None, "cache": None}

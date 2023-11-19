@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
 
 from .db.projects.load import load_all_projects, load_project
@@ -111,13 +112,16 @@ class SetDarkModeRequest(BaseModel):
     darkMode: bool
 
 
+tasks_obj = Tasks()
+cache = Cache()
+
+
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
     def __init__(self):
         self.sockets = {}
         self.use_server_as_cli = True
         self.server_cli_name = "main"
-        self.T = Tasks()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -142,9 +146,11 @@ class ConnectionManager:
             if wid == self.server_cli_name:
                 websocket = self.sockets[fromWebsocketId]["websocket"]
                 message["websocketId"] = wid
-                await self.T.create_task(
+                await tasks_obj.create_task(
                     message.get("id", None),
-                    getConsumerMessageAndSend(message, websocket.send_text, self.T),
+                    getConsumerMessageAndSend(
+                        message, websocket.send_text, tasks_obj, cache
+                    ),
                 )
             else:
                 websocket = self.sockets[wid]["websocket"]
