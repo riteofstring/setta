@@ -1,7 +1,8 @@
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 function resetToPreviousVal(state) {
   const sname = state.selectedItem?.name;
@@ -81,7 +82,7 @@ function getReducerModifications(
     setFilteredItems(latestItems);
     inputCallback?.(changes.inputValue);
   } else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
-    // Call the callback when the input value is updated by us 
+    // Call the callback when the input value is updated by us
     // (like when loading the project for the first time, the input field is populated with the saved selected item.)
     inputCallback?.(changes.inputValue);
   }
@@ -115,7 +116,7 @@ export function useComboboxStateReducer({
 }) {
   const [filteredItems, setFilteredItems] = useState(allItems);
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     setFilteredItems(allItems);
   }, [allItems]);
 

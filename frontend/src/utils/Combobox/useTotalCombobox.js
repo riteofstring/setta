@@ -27,12 +27,12 @@ export function useTotalCombobox({
 
   useEffect(() => {
     if (!_.isEqual(selection, initialSelection)) {
-      onSelectedItemChange(selection, initialSelection, setSelection, false);
+      onSelectedItemChange?.(selection, initialSelection, setSelection, false);
     }
   }, [initialSelection]);
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
-    onSelectedItemChange(selection, selectedItem, setSelection, true);
+    onSelectedItemChange?.(selection, selectedItem, setSelection, true);
   };
 
   const singleListItems = flattenedItems(filteredItems);

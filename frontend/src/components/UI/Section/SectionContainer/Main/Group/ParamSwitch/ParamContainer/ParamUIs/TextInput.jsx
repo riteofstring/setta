@@ -1,12 +1,12 @@
-import { useCombobox } from "downshift";
 import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import {
   textFieldInitializeCode,
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useEffect } from "react";
 import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
-import { flattenedItems } from "utils/Combobox/utils";
+import { useTotalCombobox } from "utils/Combobox/useTotalCombobox";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
 export function TextInputConfig() {
@@ -26,16 +26,15 @@ export function TextInput({
     "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
 
   // const [text, setText] = useState("");
+
+  console.log("value", value);
   const { styledText } = computeStyledText(value);
 
-  // const availableSections = useSectionInfoIdNamePairs();
-  // const allItems = [{ group: "sections", items: availableSections }];
-
-  const [message, send] = useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId);
-
-  const allItems = [];
-
-  const singleListItems = flattenedItems(allItems);
+  const [results, send] = useTextFieldCompletionWebsocketRoom(
+    sectionId,
+    paramInfoId
+  );
+  const allItems = [{ group: "search results", items: results }];
 
   function onClick() {
     textFieldInitializeCode(sectionId, paramInfoId);
@@ -46,30 +45,37 @@ export function TextInput({
     if (document.activeElement !== e.currentTarget) {
       return;
     }
-    const x = e.currentTarget.innerText.trim()
+    const x = e.currentTarget.innerText.trim();
     onChange(0, value[0].type, x);
-    send(x)
+    send(x);
   }
 
-  const {
-    isOpen,
-    getMenuProps,
-    getItemProps,
-    highlightedIndex,
-    getInputProps,
-  } = useCombobox({
-    items: singleListItems,
-    // itemToString,
-    // onSelectedItemChange: localOnSelectedItemChange,
-  });
-
-  const isReallyOpen = isOpen && singleListItems.length > 0;
   const itemToString = (x) => (x ? x.name : "");
+
+  const {
+    isOpen: isReallyOpen,
+    filteredItems,
+    getMenuProps,
+    getInputProps,
+    highlightedIndex,
+    getItemProps,
+  } = useTotalCombobox({
+    allItems,
+    matchSorterProps: { keys: ["name"] },
+    initialSelection: null,
+    itemToString,
+  });
 
   const {
     sizeRef,
     size: { width },
   } = useSizeOfResizableElement({ delay: 200 });
+
+  const inputProps = getInputProps({ onClick, onChange: handleChange });
+
+  useEffect(() => {
+    onChange(0, value[0].type, inputProps.value);
+  }, [inputProps.value]);
 
   return (
     <div
@@ -80,7 +86,7 @@ export function TextInput({
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         className={classes}
-        {...getInputProps({ onClick, onChange: handleChange })}
+        {...inputProps}
       />
       <ComboboxTextFieldList
         isOpen={isReallyOpen}
@@ -88,7 +94,7 @@ export function TextInput({
         width={width}
       >
         <ComboboxItems
-          filteredItems={allItems}
+          filteredItems={filteredItems}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
           itemToString={itemToString}

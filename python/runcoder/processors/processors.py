@@ -86,7 +86,7 @@ def codeCompletion(message):
         for x in results
         if x.type in ["module", "class", "function"] and x.complete
     ]
-    output = [x for x in output if x][:5]
+    output = [x for x in output if x]
     return {"output": output, "name": "codeCompletion", "cache": None}
 
 
@@ -121,9 +121,12 @@ def textFieldCompletion(message):
     print(code, flush=True)
     print("line=", var_name_to_line_num[var_name] + 1, flush=True)
     results = jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1)
-    results = [r.complete for r in results if r.type in ["class", "function"]]
-    print(results, flush=True)
-    return {"output": None, "name": "textFieldCompletion", "cache": None}
+    output = [
+        f"{message['value']}{x.complete}"
+        for x in results
+        if x.complete
+    ]
+    return {"output": output, "name": "textFieldCompletion", "cache": None}
 
 
 def parametersRequest(message):
