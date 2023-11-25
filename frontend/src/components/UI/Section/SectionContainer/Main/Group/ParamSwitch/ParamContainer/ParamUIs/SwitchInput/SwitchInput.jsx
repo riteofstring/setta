@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function SwitchInputConfig() {
@@ -18,7 +19,7 @@ export function SwitchInput({
       <Toggle
         checked={valueBool}
         disabled={isDisabled}
-        onCheckedChange={(v) => onChange(0, "raw", v)}
+        onCheckedChange={(v) => onChange({ type: "raw", value: _.toString(v) })}
         twRootClasses={`SwitchRoot ${className}`}
         twThumbClasses="SwitchThumb"
       />

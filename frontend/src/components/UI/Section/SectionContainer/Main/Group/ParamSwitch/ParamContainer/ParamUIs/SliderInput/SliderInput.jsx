@@ -92,7 +92,7 @@ export function SliderInput({
       max={max}
       step={step}
       disabled={isDisabled}
-      onValueChange={(v) => onChange(0, "raw", v[0])}
+      onValueChange={(v) => onChange({ type: "raw", value: _.toString(v[0]) })}
     >
       <Slider.Track className="relative flex-grow rounded-full bg-slate-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-runcoder-700">
         <Slider.Range className="absolute h-full rounded-full bg-blue-500" />

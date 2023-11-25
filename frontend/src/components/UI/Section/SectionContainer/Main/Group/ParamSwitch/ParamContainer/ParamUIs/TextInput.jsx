@@ -4,7 +4,6 @@ import {
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useEffect } from "react";
 import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
 import { useTotalCombobox } from "utils/Combobox/useTotalCombobox";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
@@ -27,14 +26,14 @@ export function TextInput({
 
   // const [text, setText] = useState("");
 
-  console.log("value", value);
+  // console.log("value", value);
   const { styledText } = computeStyledText(value);
 
   const [results, send] = useTextFieldCompletionWebsocketRoom(
     sectionId,
     paramInfoId
   );
-  const allItems = [{ group: "search results", items: results }];
+  const allItems = [{ group: "search results", items: [] }];
 
   function onClick() {
     textFieldInitializeCode(sectionId, paramInfoId);
@@ -45,12 +44,22 @@ export function TextInput({
     if (document.activeElement !== e.currentTarget) {
       return;
     }
-    const x = e.currentTarget.innerText.trim();
-    onChange(0, value[0].type, x);
-    send(x);
+    const x = e.currentTarget.innerText;
+    const [idx, newStr] = findChangedElement(value, x);
+    if (idx !== -1) {
+      const newVal = value.map((x, i) =>
+        i === idx ? { type: value[idx].type, value: newStr } : x
+      );
+      onChange(newVal);
+      send(newVal);
+    }
   }
 
   const itemToString = (x) => (x ? x.name : "");
+
+  function inputCallback(v) {
+    console.log("inputCallback", v);
+  }
 
   const {
     isOpen: isReallyOpen,
@@ -64,6 +73,7 @@ export function TextInput({
     matchSorterProps: { keys: ["name"] },
     initialSelection: null,
     itemToString,
+    // inputCallback: handleChange,
   });
 
   const {
@@ -71,11 +81,17 @@ export function TextInput({
     size: { width },
   } = useSizeOfResizableElement({ delay: 200 });
 
-  const inputProps = getInputProps({ onClick, onChange: handleChange });
+  // exclude downshift's onClick because it seems to cause
+  // issues with the location of the cursor
+  const { onClick: dsOnClick, ...inputProps } = getInputProps({
+    onChange: handleChange,
+  });
 
-  useEffect(() => {
-    onChange(0, value[0].type, inputProps.value);
-  }, [inputProps.value]);
+  // useEffect(() => {
+  //   onChange(0, value[0].type, inputProps.value);
+  // }, [inputProps.value]);
+
+  // console.log("inputProps.value", inputProps.value)
 
   return (
     <div
@@ -86,6 +102,7 @@ export function TextInput({
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         className={classes}
+        onClick={onClick}
         {...inputProps}
       />
       <ComboboxTextFieldList
@@ -120,7 +137,27 @@ function computeStyledText(value) {
       regularOutput.push(v.value);
     }
   }
-  return { styledText: output.join(""), text: regularOutput.join("") };
+  return { styledText: output.join(""), plainText: regularOutput.join("") };
+}
+
+function findChangedElement(list, newString) {
+  let currentIndex = 0;
+  const sectionState = useSectionInfos.getState().x;
+  for (let i = 0; i < list.length; i++) {
+    const curr = list[i];
+    const element =
+      curr.type === "ref" ? sectionState[curr.value].name : curr.value;
+    const nextIndex = currentIndex + element.length;
+    const segment = newString.substring(currentIndex, nextIndex);
+
+    if (segment !== element) {
+      return [i, segment]; // Return the element that has changed
+    }
+
+    currentIndex = nextIndex;
+  }
+
+  return [-1, null]; // Return null if no change is detected
 }
 
 // function getNewValue(value, cursorPos) {

@@ -14,21 +14,18 @@ export function ParamInput({
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
 
-  // value and enteredValue should always be string
-  function onChange(idx, type, v) {
-    const vStr = _.toString(v);
-    setValue(value.map((x, i) => (i === idx ? { type, value: vStr } : x)));
-    setEnteredValue(idx, type, vStr);
+  function onChange(newValue) {
+    setValue(newValue);
+    setEnteredValue(newValue);
   }
 
   const setEnteredValue = useCallback(
-    _.debounce((idx, type, vStr, changedByUser = true) => {
-      if (!_.isEqual({ type, value: vStr }, enteredValue[idx])) {
+    _.debounce((newValue, changedByUser = true) => {
+      if (!_.isEqual(newValue, enteredValue)) {
         setParamEnteredValue({
           sectionId,
           paramInfoId,
-          idx,
-          value: vStr,
+          value: newValue,
           incrementVersion: changedByUser,
         });
       }

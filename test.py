@@ -84,7 +84,7 @@
 
 import jedi
 from pprint import pprint
-from runcoder.code.utils import get_var_name
+from runcoder.code.utils import get_str_from_value, get_value_from_completions
 import string
 import copy
 
@@ -100,14 +100,7 @@ def append_will_change_var_name(char_to_append):
         return False  # Appending will not create a valid variable name, possibly an operator
 
 
-def get_str_from_value(value, codeJson):
-    output = []
-    for v in value:
-        if v["type"] == "raw":
-            output.append(v["value"])
-        else:
-            output.append(get_var_name(codeJson, v["value"]))
-    return "".join(output)
+
 
 
 from_frontend = [
@@ -126,28 +119,6 @@ value = get_str_from_value(from_frontend, codeJson)
 x = f"import torch;s0=[3];x={value}"
 print(x)
 results = jedi.Script(x).complete()
-output = []
-# from_frontend_excluding_last = from_frontend[:-1]
-# is_completing_raw = from_frontend[-1]["type"] == "raw"
-for r in results:
-    if r.name in codeJson and r.type == "statement":
-        x = {
-            "type": "ref",
-            "value": codeJson[r.name]["sectionId"],
-        }
-        ff_copy = copy.deepcopy(from_frontend)
-        ff_copy[-1]["value"] = ff_copy[-1]["value"][:r.get_completion_prefix_length()]
-        new_entry = [*ff_copy, x]
-
-    else:
-        x = {
-            "type": "raw",
-            "value": r.complete,
-        }
-        x["value"] = f"{from_frontend[-1]['value']}{x['value']}"
-        new_entry = [*from_frontend[:-1], x]
-    
-    output.append(new_entry)
-
+output = get_value_from_completions(codeJson, results, from_frontend)
 
 pprint(output)
