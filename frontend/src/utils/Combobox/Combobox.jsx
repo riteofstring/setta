@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
@@ -10,16 +10,9 @@ export function ComboboxInput({
   isOpen,
   small,
   onClick,
-  inputCallback,
 }) {
   const toggleButtonProps = getToggleButtonProps({ onClick });
   const inputProps = getInputProps();
-
-  useEffect(() => {
-    if (inputCallback) {
-      inputCallback(inputProps.value);
-    }
-  }, [inputProps.value]);
 
   return (
     <StandardSearch

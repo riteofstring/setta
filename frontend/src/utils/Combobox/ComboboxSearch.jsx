@@ -29,6 +29,7 @@ export function ComboboxSearch({
     onSelectedItemChange,
     initialSelection,
     itemToString,
+    inputCallback,
   });
 
   return (
@@ -43,7 +44,6 @@ export function ComboboxSearch({
         isOpen={isReallyOpen}
         small={small}
         onClick={onClick}
-        inputCallback={inputCallback}
       />
 
       <ComboboxList

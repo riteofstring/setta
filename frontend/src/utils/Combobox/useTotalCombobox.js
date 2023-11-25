@@ -4,17 +4,25 @@ import { useEffect, useState } from "react";
 import { useComboboxStateReducer } from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
 
+// useEffect(() => {
+//   if (inputCallback) {
+//     inputCallback(inputProps.value);
+//   }
+// }, [inputProps.value]);
+
 export function useTotalCombobox({
   allItems,
   matchSorterProps,
   onSelectedItemChange,
   initialSelection,
   itemToString,
+  inputCallback,
 }) {
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
     allItems,
     matchSorterProps,
+    inputCallback,
   });
 
   useEffect(() => {
