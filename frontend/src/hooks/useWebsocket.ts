@@ -75,7 +75,7 @@ export function textFieldInitializeCode(sectionId, paramInfoId) {
 
 export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
   const [message, send] = useWebsocketRoom("textFieldCompletion");
-  const searchResults = message ? message.map((x) => ({ id: x, name: x })) : [];
+  const searchResults = message ?? [];
 
   function _send(value) {
     const projectConfigId = useProjectConfig.getState().id;

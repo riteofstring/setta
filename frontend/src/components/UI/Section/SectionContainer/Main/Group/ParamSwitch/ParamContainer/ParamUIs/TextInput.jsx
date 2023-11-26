@@ -33,7 +33,10 @@ export function TextInput({
     sectionId,
     paramInfoId
   );
-  const allItems = [{ group: "search results", items: [] }];
+
+  const allItems = [
+    { group: "search results", items: processResults(results) },
+  ];
 
   function onClick() {
     textFieldInitializeCode(sectionId, paramInfoId);
@@ -158,6 +161,18 @@ function findChangedElement(list, newString) {
   }
 
   return [-1, null]; // Return null if no change is detected
+}
+
+function processResults(results) {
+  const output = [];
+  const sectionState = useSectionInfos.getState().x;
+  for (const res of results) {
+    const curr = res
+      .map((r) => (r.type === "ref" ? sectionState[r.value].name : r.value))
+      .join("");
+    output.push({ id: curr, name: curr });
+  }
+  return output;
 }
 
 // function getNewValue(value, cursorPos) {
