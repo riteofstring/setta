@@ -6,7 +6,6 @@ export function IdNameCombobox({
   onSelectedItemChange,
   initialSelection,
   small,
-  onClick,
   position,
   inputClasses,
   inputCallback,
@@ -26,7 +25,6 @@ export function IdNameCombobox({
       onSelectedItemChange={localOnSelectedItemChange}
       matchSorterProps={matchSorterProps}
       small={small}
-      onClick={onClick}
       position={position}
       comboboxInputClasses={inputClasses}
       inputCallback={inputCallback}

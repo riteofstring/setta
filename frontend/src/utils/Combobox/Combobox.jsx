@@ -9,21 +9,17 @@ export function ComboboxInput({
   getToggleButtonProps,
   isOpen,
   small,
-  onClick,
 }) {
-  const toggleButtonProps = getToggleButtonProps({ onClick });
-  const inputProps = getInputProps();
-
   return (
     <StandardSearch
       inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-sm pl-10 focus-visible:border-white dark:text-runcoder-200 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-runcoder-700 ${
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
-      {...inputProps}
+      {...getInputProps()}
       rightElement={
         <StandardSearchRightBtn
-          {...toggleButtonProps}
+          {...getToggleButtonProps()}
           icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
           size={small ? "w-7 h-7" : "w-10 h-10"}
         />

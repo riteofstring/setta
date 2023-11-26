@@ -10,7 +10,6 @@ export function ComboboxSearch({
   onSelectedItemChange,
   matchSorterProps,
   small,
-  onClick,
   position,
   comboboxInputClasses,
   inputCallback,
@@ -43,7 +42,6 @@ export function ComboboxSearch({
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isReallyOpen}
         small={small}
-        onClick={onClick}
       />
 
       <ComboboxList
