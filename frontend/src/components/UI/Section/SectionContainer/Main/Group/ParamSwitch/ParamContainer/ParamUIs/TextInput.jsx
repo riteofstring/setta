@@ -4,6 +4,7 @@ import {
   textFieldInitializeCode,
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
+import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useState } from "react";
 import {
@@ -47,16 +48,14 @@ export function TextInput({
       return;
     }
     const x = e.currentTarget.innerText;
-    const [idx, newStr] = findChangedElement(value, x);
-    if (idx !== -1) {
-      const newVal = value.map((x, i) =>
-        i === idx ? { type: value[idx].type, value: newStr } : x
-      );
-      updateValue(newVal, true);
-    }
+    const newVal = getNewVal(value, x);
+    updateValue(newVal, true);
   }
 
   function updateValue(newVal, requestCompletions = false) {
+    if (_.isEqual(value, newVal)) {
+      return;
+    }
     onChange(newVal);
     if (requestCompletions) {
       send(newVal);
@@ -72,7 +71,7 @@ export function TextInput({
     itemToString,
   } = useTextFieldCombobox({ allItems, updateValue });
 
-  function onClick(e) {
+  function onClick() {
     textFieldInitializeCode(sectionId, paramInfoId);
   }
 
@@ -134,9 +133,10 @@ function computeStyledText(value) {
   return { styledText: output.join(""), plainText: regularOutput.join("") };
 }
 
-function findChangedElement(list, newString) {
+function getNewVal(list, newString) {
   let currentIndex = 0;
   const sectionState = useSectionInfos.getState().x;
+  const newVal = [];
   for (let i = 0; i < list.length; i++) {
     const curr = list[i];
     const element =
@@ -145,13 +145,15 @@ function findChangedElement(list, newString) {
     const segment = newString.substring(currentIndex, nextIndex);
 
     if (segment !== element) {
-      return [i, segment]; // Return the element that has changed
+      newVal.push({ type: "raw", value: segment });
+    } else {
+      newVal.push(curr);
     }
 
     currentIndex = nextIndex;
   }
 
-  return [-1, null]; // Return null if no change is detected
+  return newVal;
 }
 
 function processResults(results) {
