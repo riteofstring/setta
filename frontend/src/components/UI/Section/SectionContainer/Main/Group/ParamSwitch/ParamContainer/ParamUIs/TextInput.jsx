@@ -4,6 +4,7 @@ import {
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useEffect } from "react";
 import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
 import { useTotalCombobox } from "utils/Combobox/useTotalCombobox";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
@@ -86,15 +87,15 @@ export function TextInput({
 
   // exclude downshift's onClick because it seems to cause
   // issues with the location of the cursor
-  const { onClick: dsOnClick, ...inputProps } = getInputProps({
+  const { onClick: dsOnClick, value: dsValue, ...inputProps } = getInputProps({
     onChange: handleChange,
   });
 
   // useEffect(() => {
-  //   onChange(0, value[0].type, inputProps.value);
+  //   console.log("inputProps.value", inputProps.value);
   // }, [inputProps.value]);
 
-  // console.log("inputProps.value", inputProps.value)
+  console.log("inputProps", inputProps)
 
   return (
     <div
