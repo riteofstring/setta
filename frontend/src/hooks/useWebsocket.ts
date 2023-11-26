@@ -83,7 +83,7 @@ export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
       const projectConfigId = useProjectConfig.getState().id;
       send({ projectConfigId, sectionId, paramInfoId, value });
     }, 100),
-    []
+    [send]
   );
 
   return [searchResults, _send];
