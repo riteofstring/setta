@@ -5,12 +5,16 @@ import React from "react";
 // https://github.com/lovasoa/react-contenteditable
 // https://github.com/lovasoa/react-contenteditable/issues/161#issuecomment-669633470
 export const ContentEditable = React.forwardRef(
-  ({ onChange, onInput, onBlur, onKeyPress, onKeyDown, ...props }, ref) => {
+  (
+    { onChange, onInput, onBlur, onKeyPress, onKeyDown, onClick, ...props },
+    ref
+  ) => {
     const onChangeRef = React.useRef(onChange);
     const onInputRef = React.useRef(onInput);
     const onBlurRef = React.useRef(onBlur);
     const onKeyPressRef = React.useRef(onKeyPress);
     const onKeyDownRef = React.useRef(onKeyDown);
+    const onClickRef = React.useRef(onClick);
 
     React.useEffect(() => {
       onChangeRef.current = onChange;
@@ -27,6 +31,9 @@ export const ContentEditable = React.forwardRef(
     React.useEffect(() => {
       onKeyDownRef.current = onKeyDown;
     }, [onKeyDown]);
+    React.useEffect(() => {
+      onClickRef.current = onClick;
+    }, [onClick]);
 
     return (
       <ReactContentEditable
@@ -73,6 +80,15 @@ export const ContentEditable = React.forwardRef(
             ? (...args) => {
                 if (onKeyDownRef.current) {
                   onKeyDownRef.current(...args);
+                }
+              }
+            : undefined
+        }
+        onClick={
+          onClick
+            ? (...args) => {
+                if (onClickRef.current) {
+                  onClickRef.current(...args);
                 }
               }
             : undefined
@@ -164,11 +180,13 @@ class ReactContentEditable extends React.Component<Props> {
     }
 
     // Handle additional properties
+    // Commented out innerRef comparison because it was causing issues with cursor location.
+    // Seems to work for now?!
     return (
       props.contentEditable !== nextProps.contentEditable ||
       props.tagName !== nextProps.tagName ||
       props.className !== nextProps.className ||
-      props.innerRef !== nextProps.innerRef ||
+      // props.innerRef !== nextProps.innerRef ||
       props.placeholder !== nextProps.placeholder ||
       !deepEqual(props.style, nextProps.style)
     );

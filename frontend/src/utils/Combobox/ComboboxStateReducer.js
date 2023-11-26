@@ -13,10 +13,10 @@ function resetToPreviousVal(state) {
   };
 }
 
-function getHighlightedIndex(latestItems, selectedItem) {
+function getHighlightedIndex(items, selectedItem) {
   if (selectedItem) {
     let idx = 0;
-    for (const group of latestItems) {
+    for (const group of items) {
       const currIdx = _.findIndex(group.items, selectedItem);
       if (currIdx !== -1) {
         return { highlightedIndex: idx + currIdx };
@@ -31,52 +31,15 @@ function getReducerModifications({
   type,
   state,
   changes,
-  setFilteredItems,
-  allItems,
-  filteredItems,
-  matchSorterProps,
-  inputCallback,
+  items,
   onArrowUpOrDown,
 }) {
   const changeTypes = useCombobox.stateChangeTypes;
-  let latestItems = filteredItems;
-
-  if (
-    type === changeTypes.ItemClick ||
-    type === changeTypes.InputClick ||
-    type === changeTypes.ToggleButtonClick
-  ) {
-    // The user clicked on the search field, or the toggle button, or an item.
-    // So show all search results. To understand why, imagine the user has previously selected
-    // an item called "Slider". When the user revisits this combobox, we want them
-    // to be able to see all the results, not just the ones that match "Slider..."
-    // We don't want them to have to backspace just to see the full results.
-    if (!_.isEqual(allItems, filteredItems)) {
-      latestItems = allItems;
-      setFilteredItems(latestItems);
-    }
-  } else if (type === changeTypes.InputChange) {
-    // The user is typing, so filter the search results.
-    // Or the combobox field is updated by external state, so also filter results in this case.
-    latestItems = allItems
-      .map((group) => ({
-        group: group.group,
-        items: matchSorter(group.items, changes.inputValue, matchSorterProps),
-      }))
-      .filter((group) => group.items.length > 0);
-
-    setFilteredItems(latestItems);
-    inputCallback?.(changes.inputValue);
-  } else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
-    // Call the callback when the input value is updated by us
-    // (like when loading the project for the first time, the input field is populated with the saved selected item.)
-    inputCallback?.(changes.inputValue);
-  }
 
   switch (type) {
     case changeTypes.InputChange:
     case changeTypes.ToggleButtonClick:
-      return getHighlightedIndex(latestItems, changes.selectedItem);
+      return getHighlightedIndex(items, changes.selectedItem);
     case changeTypes.InputKeyDownEscape:
       return resetToPreviousVal(state);
     case changeTypes.InputBlur:
@@ -86,13 +49,13 @@ function getReducerModifications({
       return {};
     case changeTypes.InputKeyDownArrowUp:
     case changeTypes.InputKeyDownArrowDown:
-      return onArrowUpOrDown?.(latestItems, changes.highlightedIndex);
+      return onArrowUpOrDown?.(items, changes.highlightedIndex);
     default:
       return {};
   }
 }
 
-export function useComboboxStateReducer({
+export function useComboboxStateReducerWithFilteredItems({
   allItems,
   matchSorterProps,
   inputCallback,
@@ -106,16 +69,46 @@ export function useComboboxStateReducer({
 
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
+    const changeTypes = useCombobox.stateChangeTypes;
+    let latestItems = filteredItems;
+
+    if (
+      type === changeTypes.ItemClick ||
+      type === changeTypes.InputClick ||
+      type === changeTypes.ToggleButtonClick
+    ) {
+      // The user clicked on the search field, or the toggle button, or an item.
+      // So show all search results. To understand why, imagine the user has previously selected
+      // an item called "Slider". When the user revisits this combobox, we want them
+      // to be able to see all the results, not just the ones that match "Slider..."
+      // We don't want them to have to backspace just to see the full results.
+      if (!_.isEqual(allItems, filteredItems)) {
+        latestItems = allItems;
+        setFilteredItems(latestItems);
+      }
+    } else if (type === changeTypes.InputChange) {
+      // The user is typing, so filter the search results.
+      // Or the combobox field is updated by external state, so also filter results in this case.
+      latestItems = allItems
+        .map((group) => ({
+          group: group.group,
+          items: matchSorter(group.items, changes.inputValue, matchSorterProps),
+        }))
+        .filter((group) => group.items.length > 0);
+
+      setFilteredItems(latestItems);
+      inputCallback?.(changes.inputValue);
+    } else if (type === changeTypes.ControlledPropUpdatedSelectedItem) {
+      // Call the callback when the input value is updated by us
+      // (like when loading the project for the first time, the input field is populated with the saved selected item.)
+      inputCallback?.(changes.inputValue);
+    }
 
     const mods = getReducerModifications({
       type,
       state,
       changes,
-      setFilteredItems,
-      allItems,
-      filteredItems,
-      matchSorterProps,
-      inputCallback,
+      items: latestItems,
       onArrowUpOrDown,
     });
 
@@ -123,4 +116,23 @@ export function useComboboxStateReducer({
   }
 
   return { filteredItems, stateReducer };
+}
+
+export function useComboboxStateReducer({ allItems, onArrowUpOrDown }) {
+  function stateReducer(state, actionAndChanges) {
+    const { type, changes } = actionAndChanges;
+    console.log(state, actionAndChanges);
+
+    const mods = getReducerModifications({
+      type,
+      state,
+      changes,
+      items: allItems,
+      onArrowUpOrDown,
+    });
+
+    return { ...changes, ...mods };
+  }
+
+  return stateReducer;
 }

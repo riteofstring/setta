@@ -1,5 +1,5 @@
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
-import { idNameHelper, useTotalCombobox } from "./useTotalCombobox";
+import { idNameHelper, useIdNameCombobox } from "./useIdNameCombobox";
 
 // TODO: make allItems be a list of {group: string, items: list}
 // TODO: add "display groups" argument
@@ -32,7 +32,7 @@ export function IdNameCombobox({
     getInputProps,
     highlightedIndex,
     getItemProps,
-  } = useTotalCombobox({
+  } = useIdNameCombobox({
     allItems,
     matchSorterProps,
     onSelectedItemChange: localOnSelectedItemChange,

@@ -1,3 +1,4 @@
+import { useCombobox } from "downshift";
 import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import {
   textFieldInitializeCode,
@@ -8,7 +9,8 @@ import {
   ComboboxItems,
   ComboboxTextFieldList,
 } from "utils/Combobox/ComboboxParts";
-import { useTotalCombobox } from "utils/Combobox/useTotalCombobox";
+import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
+import { flattenedItems } from "utils/Combobox/utils";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
 export function TextInputConfig() {
@@ -27,9 +29,6 @@ export function TextInput({
   const classes =
     "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
 
-  // const [text, setText] = useState("");
-
-  // console.log("value", value);
   const { styledText } = computeStyledText(value);
 
   const [results, send] = useTextFieldCompletionWebsocketRoom(
@@ -41,12 +40,7 @@ export function TextInput({
     { group: "search results", items: processResults(results) },
   ];
 
-  function onClick() {
-    textFieldInitializeCode(sectionId, paramInfoId);
-  }
-
   function handleChange(e) {
-    console.log("handleChange");
     // Check if the active element is the event target, which should be the contenteditable div
     if (document.activeElement !== e.currentTarget) {
       return;
@@ -57,48 +51,40 @@ export function TextInput({
       const newVal = value.map((x, i) =>
         i === idx ? { type: value[idx].type, value: newStr } : x
       );
-      onChange(newVal);
+      updateValue(newVal, true);
+    }
+  }
+
+  function updateValue(newVal, requestCompletions = false) {
+    onChange(newVal);
+    if (requestCompletions) {
       send(newVal);
     }
   }
 
-  const itemToString = (x) => (x ? x.name : "");
-
-  function inputCallback(v) {
-    console.log("inputCallback", v);
-  }
-
   const {
-    isOpen: isReallyOpen,
-    filteredItems,
+    isOpen,
     getMenuProps,
     getInputProps,
     highlightedIndex,
     getItemProps,
-  } = useTotalCombobox({
-    allItems,
-    matchSorterProps: { keys: ["name"] },
-    initialSelection: null,
     itemToString,
-    // inputCallback,
+  } = useTextFieldCombobox({ allItems, updateValue });
+
+  function onClick(e) {
+    textFieldInitializeCode(sectionId, paramInfoId);
+  }
+
+  // Exclude downshift's value because we don't need it.
+  const { value: dsValue, ...inputProps } = getInputProps({
+    onChange: handleChange,
+    onClick,
   });
 
   const {
     sizeRef,
     size: { width },
   } = useSizeOfResizableElement({ delay: 200 });
-
-  // exclude downshift's onClick because it seems to cause
-  // issues with the location of the cursor
-  const { onClick: dsOnClick, value: dsValue, ...inputProps } = getInputProps({
-    onChange: handleChange,
-  });
-
-  // useEffect(() => {
-  //   console.log("inputProps.value", inputProps.value);
-  // }, [inputProps.value]);
-
-  // console.log("inputProps", inputProps)
 
   return (
     <div
@@ -109,16 +95,15 @@ export function TextInput({
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         className={classes}
-        onClick={onClick}
         {...inputProps}
       />
       <ComboboxTextFieldList
-        isOpen={isReallyOpen}
+        isOpen={isOpen}
         getMenuProps={getMenuProps}
         width={width}
       >
         <ComboboxItems
-          filteredItems={filteredItems}
+          filteredItems={allItems}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
           itemToString={itemToString}
@@ -174,9 +159,62 @@ function processResults(results) {
     const curr = res
       .map((r) => (r.type === "ref" ? sectionState[r.value].name : r.value))
       .join("");
-    output.push({ id: res, name: curr });
+    output.push({ listForm: res, name: curr });
   }
   return output;
+}
+
+function useTextFieldCombobox({ allItems, updateValue }) {
+  const itemToString = (x) => (x ? x.name : "");
+  const stateReducer = useComboboxStateReducer({
+    allItems,
+    onArrowUpOrDown: getOnArrowUpOrDownFn(updateValue),
+    // inputCallback,
+    // onArrowUpOrDown,
+  });
+
+  const singleListItems = flattenedItems(allItems);
+
+  const {
+    isOpen,
+    getMenuProps,
+    getInputProps,
+    highlightedIndex,
+    getItemProps,
+  } = useCombobox({
+    stateReducer,
+    items: singleListItems,
+    itemToString,
+  });
+
+  const isReallyOpen = isOpen && singleListItems.length > 0;
+
+  return {
+    isOpen: isReallyOpen,
+    getMenuProps,
+    getInputProps,
+    highlightedIndex,
+    getItemProps,
+    itemToString,
+  };
+}
+
+function getOnArrowUpOrDownFn(updateValue) {
+  return (latestItems, highlightedIndex) => {
+    if (highlightedIndex >= 0) {
+      let idx = 0;
+      for (const group of latestItems) {
+        for (const item of group.items) {
+          if (idx === highlightedIndex) {
+            updateValue(item.listForm);
+            return {};
+          }
+          idx += 1;
+        }
+      }
+    }
+    return {};
+  };
 }
 
 // function getNewValue(value, cursorPos) {

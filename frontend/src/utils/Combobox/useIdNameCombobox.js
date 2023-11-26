@@ -1,10 +1,10 @@
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { useComboboxStateReducer } from "./ComboboxStateReducer";
+import { useComboboxStateReducerWithFilteredItems } from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
 
-export function useTotalCombobox({
+export function useIdNameCombobox({
   allItems,
   matchSorterProps,
   onSelectedItemChange,
@@ -14,12 +14,13 @@ export function useTotalCombobox({
   onArrowUpOrDown,
 }) {
   const [selection, setSelection] = useState(null);
-  const { filteredItems, stateReducer } = useComboboxStateReducer({
-    allItems,
-    matchSorterProps,
-    inputCallback,
-    onArrowUpOrDown,
-  });
+  const { filteredItems, stateReducer } =
+    useComboboxStateReducerWithFilteredItems({
+      allItems,
+      matchSorterProps,
+      inputCallback,
+      onArrowUpOrDown,
+    });
 
   useEffect(() => {
     if (!_.isEqual(selection, initialSelection)) {
