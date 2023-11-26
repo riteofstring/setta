@@ -4,8 +4,10 @@ import {
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useEffect } from "react";
-import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
+import {
+  ComboboxItems,
+  ComboboxTextFieldList,
+} from "utils/Combobox/ComboboxParts";
 import { useTotalCombobox } from "utils/Combobox/useTotalCombobox";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
@@ -77,7 +79,7 @@ export function TextInput({
     matchSorterProps: { keys: ["name"] },
     initialSelection: null,
     itemToString,
-    // inputCallback: handleChange,
+    // inputCallback,
   });
 
   const {
@@ -87,15 +89,15 @@ export function TextInput({
 
   // exclude downshift's onClick because it seems to cause
   // issues with the location of the cursor
-  const { onClick: dsOnClick, value: dsValue, ...inputProps } = getInputProps({
+  const { onClick: dsOnClick, ...inputProps } = getInputProps({
     onChange: handleChange,
   });
 
   // useEffect(() => {
-  //   console.log("inputProps.value", inputProps.value);
+  //   onChange(0, value[0].type, inputProps.value);
   // }, [inputProps.value]);
 
-  console.log("inputProps", inputProps)
+  // console.log("inputProps.value", inputProps.value)
 
   return (
     <div
@@ -171,7 +173,7 @@ function processResults(results) {
     const curr = res
       .map((r) => (r.type === "ref" ? sectionState[r.value].name : r.value))
       .join("");
-    output.push({ id: curr, name: curr });
+    output.push({ id: res, name: curr });
   }
   return output;
 }
