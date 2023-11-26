@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
 
@@ -64,6 +65,14 @@ async def startup_event():
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
+
+    startMyPyDaemon()
+
+
+@app.on_event("shutdown")
+def shutdown_event():
+    print("shutdown_event", flush=True)
+    killMyPyDaemon()
 
 
 app.add_middleware(
