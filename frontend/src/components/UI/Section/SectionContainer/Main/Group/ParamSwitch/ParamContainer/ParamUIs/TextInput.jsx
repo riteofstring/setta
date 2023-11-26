@@ -4,7 +4,10 @@ import {
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
+import {
+  ComboboxItems,
+  ComboboxTextFieldList,
+} from "utils/Combobox/ComboboxParts";
 import { useTotalCombobox } from "utils/Combobox/useTotalCombobox";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
@@ -76,7 +79,7 @@ export function TextInput({
     matchSorterProps: { keys: ["name"] },
     initialSelection: null,
     itemToString,
-    // inputCallback: handleChange,
+    // inputCallback,
   });
 
   const {
@@ -170,7 +173,7 @@ function processResults(results) {
     const curr = res
       .map((r) => (r.type === "ref" ? sectionState[r.value].name : r.value))
       .join("");
-    output.push({ id: curr, name: curr });
+    output.push({ id: res, name: curr });
   }
   return output;
 }
