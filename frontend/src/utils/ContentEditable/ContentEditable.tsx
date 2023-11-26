@@ -1,4 +1,5 @@
 import deepEqual from "fast-deep-equal";
+import _ from "lodash";
 import PropTypes from "prop-types";
 import React from "react";
 
@@ -6,7 +7,16 @@ import React from "react";
 // https://github.com/lovasoa/react-contenteditable/issues/161#issuecomment-669633470
 export const ContentEditable = React.forwardRef(
   (
-    { onChange, onInput, onBlur, onKeyPress, onKeyDown, onClick, ...props },
+    {
+      onChange,
+      onInput,
+      onBlur,
+      onKeyPress,
+      onKeyDown,
+      onClick,
+      onChangeDelay,
+      ...props
+    },
     ref
   ) => {
     const onChangeRef = React.useRef(onChange);
@@ -41,11 +51,11 @@ export const ContentEditable = React.forwardRef(
         innerRef={ref}
         onChange={
           onChange
-            ? (...args) => {
+            ? _.debounce((...args) => {
                 if (onChangeRef.current) {
                   onChangeRef.current(...args);
                 }
-              }
+              }, onChangeDelay)
             : undefined
         }
         onInput={

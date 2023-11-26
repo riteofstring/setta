@@ -96,6 +96,7 @@ export function TextInput({
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         className={classes}
+        onChangeDelay={100}
         {...inputProps}
       />
       <ComboboxTextFieldList
