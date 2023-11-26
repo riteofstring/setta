@@ -12,7 +12,7 @@ function _InputArea({ sectionId, isGlobalVariables }) {
       <SectionSearch
         sectionId={sectionId}
         initialSelection={selectedItem}
-        outerDivClasses="px-3"
+        inputClasses="px-3"
       />
 
       <KwargsControls

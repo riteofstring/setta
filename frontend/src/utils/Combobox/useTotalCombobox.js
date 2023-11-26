@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useComboboxStateReducer } from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
 
+// useEffect(() => {
+//   if (inputCallback) {
+//     inputCallback(inputProps.value);
+//   }
+// }, [inputProps.value]);
+
 export function useTotalCombobox({
   allItems,
   matchSorterProps,

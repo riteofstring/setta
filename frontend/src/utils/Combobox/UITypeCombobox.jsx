@@ -3,7 +3,7 @@ import {
   useAvailableUITypesForSection,
 } from "hooks/usePresetUIType";
 import _ from "lodash";
-import { IdNameCombobox } from "./IdNameCombobox";
+import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
   const grouped = _.groupBy(availableUITypes, "displayType");

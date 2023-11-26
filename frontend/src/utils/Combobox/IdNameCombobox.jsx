@@ -1,15 +1,14 @@
-import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
-import { idNameHelper, useTotalCombobox } from "./useTotalCombobox";
+import { ComboboxSearch } from "./ComboboxSearch";
+import { idNameHelper } from "./useTotalCombobox";
 
-// TODO: make allItems be a list of {group: string, items: list}
-// TODO: add "display groups" argument
 export function IdNameCombobox({
   allItems,
-  initialSelection,
   onSelectedItemChange,
+  initialSelection,
   small,
+  onClick,
   position,
-  outerDivClasses,
+  inputClasses,
   inputCallback,
 }) {
   const { localOnSelectedItemChange, init, itemToString, matchSorterProps } =
@@ -19,48 +18,18 @@ export function IdNameCombobox({
       initialSelection,
     });
 
-  const {
-    isOpen: isReallyOpen,
-    filteredItems,
-    getToggleButtonProps,
-    getMenuProps,
-    getInputProps,
-    highlightedIndex,
-    getItemProps,
-  } = useTotalCombobox({
-    allItems,
-    matchSorterProps,
-    onSelectedItemChange: localOnSelectedItemChange,
-    initialSelection: init,
-    itemToString,
-    inputCallback,
-  });
-
   return (
-    <div
-      className={`flex ${
-        small ? "h-7" : "h-10"
-      } w-full flex-col items-stretch overflow-visible ${outerDivClasses}`}
-    >
-      <ComboboxInput
-        getInputProps={getInputProps}
-        getToggleButtonProps={getToggleButtonProps}
-        isOpen={isReallyOpen}
-        small={small}
-      />
-
-      <ComboboxList
-        isOpen={isReallyOpen}
-        getMenuProps={getMenuProps}
-        position={position}
-      >
-        <ComboboxItems
-          filteredItems={filteredItems}
-          getItemProps={getItemProps}
-          highlightedIndex={highlightedIndex}
-          itemToString={itemToString}
-        />
-      </ComboboxList>
-    </div>
+    <ComboboxSearch
+      allItems={allItems}
+      initialSelection={init}
+      itemToString={itemToString}
+      onSelectedItemChange={localOnSelectedItemChange}
+      matchSorterProps={matchSorterProps}
+      small={small}
+      onClick={onClick}
+      position={position}
+      comboboxInputClasses={inputClasses}
+      inputCallback={inputCallback}
+    />
   );
 }
