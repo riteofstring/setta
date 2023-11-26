@@ -11,12 +11,14 @@ export function useTotalCombobox({
   initialSelection,
   itemToString,
   inputCallback,
+  onArrowUpOrDown,
 }) {
   const [selection, setSelection] = useState(null);
   const { filteredItems, stateReducer } = useComboboxStateReducer({
     allItems,
     matchSorterProps,
     inputCallback,
+    onArrowUpOrDown,
   });
 
   useEffect(() => {
@@ -90,5 +92,21 @@ export function idNameHelper({
     init,
     itemToString,
     matchSorterProps,
+    onArrowUpOrDown: getValueFromHighlightedIndex,
   };
+}
+
+function getValueFromHighlightedIndex(latestItems, highlightedIndex) {
+  if (highlightedIndex >= 0) {
+    let idx = 0;
+    for (const group of latestItems) {
+      for (const item of group.items) {
+        if (idx === highlightedIndex) {
+          return { inputValue: item.name };
+        }
+        idx += 1;
+      }
+    }
+  }
+  return {};
 }

@@ -46,6 +46,7 @@ export function TextInput({
   }
 
   function handleChange(e) {
+    console.log("handleChange");
     // Check if the active element is the event target, which should be the contenteditable div
     if (document.activeElement !== e.currentTarget) {
       return;
@@ -89,15 +90,15 @@ export function TextInput({
 
   // exclude downshift's onClick because it seems to cause
   // issues with the location of the cursor
-  const { onClick: dsOnClick, ...inputProps } = getInputProps({
+  const { onClick: dsOnClick, value: dsValue, ...inputProps } = getInputProps({
     onChange: handleChange,
   });
 
   // useEffect(() => {
-  //   onChange(0, value[0].type, inputProps.value);
+  //   console.log("inputProps.value", inputProps.value);
   // }, [inputProps.value]);
 
-  // console.log("inputProps.value", inputProps.value)
+  // console.log("inputProps", inputProps)
 
   return (
     <div

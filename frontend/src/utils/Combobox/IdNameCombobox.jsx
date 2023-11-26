@@ -12,12 +12,17 @@ export function IdNameCombobox({
   outerDivClasses,
   inputCallback,
 }) {
-  const { localOnSelectedItemChange, init, itemToString, matchSorterProps } =
-    idNameHelper({
-      allItems,
-      onSelectedItemChange,
-      initialSelection,
-    });
+  const {
+    localOnSelectedItemChange,
+    init,
+    itemToString,
+    matchSorterProps,
+    onArrowUpOrDown,
+  } = idNameHelper({
+    allItems,
+    onSelectedItemChange,
+    initialSelection,
+  });
 
   const {
     isOpen: isReallyOpen,
@@ -34,6 +39,7 @@ export function IdNameCombobox({
     initialSelection: init,
     itemToString,
     inputCallback,
+    onArrowUpOrDown,
   });
 
   return (

@@ -27,22 +27,7 @@ function getHighlightedIndex(latestItems, selectedItem) {
   return { highlightedIndex: -1 };
 }
 
-function getValueFromHighlightedIndex(latestItems, highlightedIndex) {
-  if (highlightedIndex >= 0) {
-    let idx = 0;
-    for (const group of latestItems) {
-      for (const item of group.items) {
-        if (idx === highlightedIndex) {
-          return { inputValue: item.name };
-        }
-        idx += 1;
-      }
-    }
-  }
-  return {};
-}
-
-function getReducerModifications(
+function getReducerModifications({
   type,
   state,
   changes,
@@ -50,8 +35,9 @@ function getReducerModifications(
   allItems,
   filteredItems,
   matchSorterProps,
-  inputCallback
-) {
+  inputCallback,
+  onArrowUpOrDown,
+}) {
   const changeTypes = useCombobox.stateChangeTypes;
   let latestItems = filteredItems;
 
@@ -100,10 +86,7 @@ function getReducerModifications(
       return {};
     case changeTypes.InputKeyDownArrowUp:
     case changeTypes.InputKeyDownArrowDown:
-      return getValueFromHighlightedIndex(
-        latestItems,
-        changes.highlightedIndex
-      );
+      return onArrowUpOrDown?.(latestItems, changes.highlightedIndex);
     default:
       return {};
   }
@@ -113,6 +96,7 @@ export function useComboboxStateReducer({
   allItems,
   matchSorterProps,
   inputCallback,
+  onArrowUpOrDown,
 }) {
   const [filteredItems, setFilteredItems] = useState(allItems);
 
@@ -123,7 +107,7 @@ export function useComboboxStateReducer({
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
 
-    const mods = getReducerModifications(
+    const mods = getReducerModifications({
       type,
       state,
       changes,
@@ -131,8 +115,9 @@ export function useComboboxStateReducer({
       allItems,
       filteredItems,
       matchSorterProps,
-      inputCallback
-    );
+      inputCallback,
+      onArrowUpOrDown,
+    });
 
     return { ...changes, ...mods };
   }
