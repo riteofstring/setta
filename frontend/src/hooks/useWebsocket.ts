@@ -1,8 +1,9 @@
 import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
+import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useWebsocketRooms } from "models/websocket";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { getSectionInfo } from "thunks/sections/getters";
@@ -77,10 +78,13 @@ export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
   const [message, send] = useWebsocketRoom("textFieldCompletion");
   const searchResults = message ?? [];
 
-  function _send(value) {
-    const projectConfigId = useProjectConfig.getState().id;
-    send({ projectConfigId, sectionId, paramInfoId, value });
-  }
+  const _send = useCallback(
+    _.debounce((value) => {
+      const projectConfigId = useProjectConfig.getState().id;
+      send({ projectConfigId, sectionId, paramInfoId, value });
+    }, 100),
+    []
+  );
 
   return [searchResults, _send];
 }

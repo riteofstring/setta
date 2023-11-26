@@ -1,5 +1,4 @@
 import deepEqual from "fast-deep-equal";
-import _ from "lodash";
 import PropTypes from "prop-types";
 import React from "react";
 
@@ -7,16 +6,7 @@ import React from "react";
 // https://github.com/lovasoa/react-contenteditable/issues/161#issuecomment-669633470
 export const ContentEditable = React.forwardRef(
   (
-    {
-      onChange,
-      onInput,
-      onBlur,
-      onKeyPress,
-      onKeyDown,
-      onClick,
-      onChangeDelay,
-      ...props
-    },
+    { onChange, onInput, onBlur, onKeyPress, onKeyDown, onClick, ...props },
     ref
   ) => {
     const onChangeRef = React.useRef(onChange);
@@ -51,11 +41,11 @@ export const ContentEditable = React.forwardRef(
         innerRef={ref}
         onChange={
           onChange
-            ? _.debounce((...args) => {
+            ? (...args) => {
                 if (onChangeRef.current) {
                   onChangeRef.current(...args);
                 }
-              }, onChangeDelay)
+              }
             : undefined
         }
         onInput={
@@ -143,6 +133,51 @@ class ReactContentEditable extends React.Component<Props> {
       ? { current: null }
       : React.createRef<HTMLElement>();
 
+  constructor(props) {
+    super(props);
+    this.cursorInfo = 0;
+  }
+
+  saveCursorPosition = (element) => {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(element);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    this.cursorOffset = preCaretRange.toString().length;
+  };
+
+  restoreCursorPosition = (element) => {
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    let charCount = 0,
+      node;
+    const walkNodes = (parentNode) => {
+      for (node = parentNode.firstChild; node; node = node.nextSibling) {
+        if (node.nodeType === 3) {
+          // Text node
+          if (charCount + node.length >= this.cursorOffset) {
+            selection.removeAllRanges();
+            const range = document.createRange();
+            range.setStart(node, this.cursorOffset - charCount);
+            range.collapse(true);
+            selection.addRange(range);
+            return;
+          }
+          charCount += node.length;
+        } else if (node.nodeType === 1) {
+          // Element node
+          walkNodes(node);
+        }
+      }
+    };
+
+    walkNodes(element);
+  };
+
   getEl = () =>
     (this.props.innerRef && typeof this.props.innerRef !== "function"
       ? this.props.innerRef
@@ -212,7 +247,8 @@ class ReactContentEditable extends React.Component<Props> {
       el.innerHTML = this.props.html;
     }
     this.lastHtml = this.props.html;
-    replaceCaret(el);
+    // replaceCaret(el);
+    this.restoreCursorPosition(el);
   }
 
   emitChange = (originalEvt: React.SyntheticEvent<any>) => {
@@ -231,6 +267,8 @@ class ReactContentEditable extends React.Component<Props> {
       this.props.onChange(evt);
     }
     this.lastHtml = html;
+    console.log("emitChange");
+    this.saveCursorPosition(el);
   };
 
   static propTypes = {

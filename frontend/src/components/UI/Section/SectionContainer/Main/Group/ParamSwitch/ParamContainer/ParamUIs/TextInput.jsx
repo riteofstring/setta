@@ -95,7 +95,6 @@ export function TextInput({
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         className={classes}
-        onChangeDelay={100}
         {...inputProps}
       />
       <ComboboxTextFieldList
@@ -152,6 +151,8 @@ function getNewVal(list, newString) {
 
     currentIndex = nextIndex;
   }
+
+  console.log(newVal)
 
   return newVal;
 }
