@@ -121,7 +121,6 @@ export function useComboboxStateReducerWithFilteredItems({
 export function useComboboxStateReducer({ allItems, onArrowUpOrDown }) {
   function stateReducer(state, actionAndChanges) {
     const { type, changes } = actionAndChanges;
-    console.log(state, actionAndChanges);
 
     const mods = getReducerModifications({
       type,

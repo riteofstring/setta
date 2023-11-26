@@ -5,6 +5,7 @@ import {
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useEffect, useState } from "react";
 import {
   ComboboxItems,
   ComboboxTextFieldList,
@@ -165,15 +166,20 @@ function processResults(results) {
 }
 
 function useTextFieldCombobox({ allItems, updateValue }) {
+  const [valSelectedByArrow, setValSelectedByArrow] = useState([]);
   const itemToString = (x) => (x ? x.name : "");
   const stateReducer = useComboboxStateReducer({
     allItems,
-    onArrowUpOrDown: getOnArrowUpOrDownFn(updateValue),
-    // inputCallback,
-    // onArrowUpOrDown,
+    onArrowUpOrDown: getOnArrowUpOrDownFn(setValSelectedByArrow),
   });
-
   const singleListItems = flattenedItems(allItems);
+
+  useEffect(() => {
+    if (valSelectedByArrow.length > 0) {
+      updateValue(valSelectedByArrow);
+      setValSelectedByArrow([]);
+    }
+  }, [valSelectedByArrow]);
 
   const {
     isOpen,
@@ -199,14 +205,14 @@ function useTextFieldCombobox({ allItems, updateValue }) {
   };
 }
 
-function getOnArrowUpOrDownFn(updateValue) {
+function getOnArrowUpOrDownFn(setValSelectedByArrow) {
   return (latestItems, highlightedIndex) => {
     if (highlightedIndex >= 0) {
       let idx = 0;
       for (const group of latestItems) {
         for (const item of group.items) {
           if (idx === highlightedIndex) {
-            updateValue(item.listForm);
+            setValSelectedByArrow(item.listForm);
             return {};
           }
           idx += 1;
