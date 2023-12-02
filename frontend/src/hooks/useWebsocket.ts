@@ -24,11 +24,14 @@ export function useOpenCloseWebsocket() {
 export function useWebsocketRoom(messageType) {
   const [id, setId] = useState(null);
   const received = useWebsocketRooms((x) => x[id] ?? "");
-  function send(message) {
-    if (id) {
-      sendMessage({ message, id, messageType });
-    }
-  }
+  const send = useCallback(
+    (message) => {
+      if (id) {
+        sendMessage({ message, id, messageType });
+      }
+    },
+    [id]
+  );
 
   useEffect(() => {
     const _id = createNewId();
