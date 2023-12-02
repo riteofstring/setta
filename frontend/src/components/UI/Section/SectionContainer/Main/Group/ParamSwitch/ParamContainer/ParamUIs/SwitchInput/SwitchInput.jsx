@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function SwitchInputConfig() {
@@ -12,14 +11,14 @@ export function SwitchInput({
   isDisabled,
   className,
 }) {
-  const valueBool = value[0].value === "true";
+  const valueBool = value === "true";
 
   return (
     <div className="flex justify-end">
       <Toggle
         checked={valueBool}
         disabled={isDisabled}
-        onCheckedChange={(v) => onChange({ type: "raw", value: _.toString(v) })}
+        onCheckedChange={onChange}
         twRootClasses={`SwitchRoot ${className}`}
         twThumbClasses="SwitchThumb"
       />

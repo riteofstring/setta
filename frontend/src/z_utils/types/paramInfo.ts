@@ -1,4 +1,4 @@
-import { EVType, ManyEVColType } from "./evCol";
+import { ManyEVColType } from "./evCol";
 import { UITypeType } from "./uiType";
 import { ManyUITypeColType, UITypeColType } from "./uiTypeCol";
 import { ManyOf } from "./utils";
@@ -25,7 +25,7 @@ export type ParamInfoActionType = {
   setEnteredValue: (payload: {
     collectionId: string;
     paramInfoId: string;
-    value: EVType;
+    value: string;
   }) => void;
 
   initManyUITypeColIds: (payload: { collectionIds: string[] }) => void;
