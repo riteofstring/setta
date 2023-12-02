@@ -146,9 +146,11 @@ def parametersRequest(message):
 
 def typeCheckRequest(message):
     code_json = export_selected(message["message"])
+    print("typeCheckRequest", flush=True)
     try:
         code, _ = generate_code(code_json)
     except SyntaxError:
+        print("typeCheckRequest SyntaxError", flush=True)
         return {"output": {}, "name": "typeCheck", "cache": None}
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:
         # set delete=False because otherwise the mypy call gets Permission Denied
@@ -167,14 +169,15 @@ def typeCheckRequest(message):
             )
             stdout = process.stdout
         except subprocess.CalledProcessError as e:
+            print(e, flush=True)
             stdout = e.stdout
 
         os.remove(temp_file_path)
 
-    print("stdout", stdout)
+    print("stdout", stdout, flush=True)
     errors = stdout
     output = parse_and_type_check(errors, code, code_json)
-    print(output)
+    print(output, flush=True)
     return {"output": output, "name": "typeCheck", "cache": None}
 
 
