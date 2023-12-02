@@ -59,14 +59,6 @@ def get_param_child_id(p, section_id, id):
     return None
 
 
-def get_section_var_name(section_var_names, id):
-    if id in section_var_names:
-        return section_var_names[id]
-    name = f"s{len(section_var_names)}"
-    section_var_names[id] = name
-    return name
-
-
 def get_param_var_name(param_var_names):
     name = f"p{len(param_var_names)}"
     param_var_names.add(name)
@@ -97,11 +89,11 @@ class Exporter:
         return [self.export_section(x) for x in ids]
 
     def export_section(self, id):
-        var_name = get_section_var_name(self.section_var_names, id)
+        var_name = self.p["sections"][id]["name"]
         if var_name not in self.output:
             self.output[var_name] = {
                 "sectionId": id,
-                "name": self.p["sections"][id]["name"],
+                "name": var_name,
                 "value": self.export_section_value(id),
                 "type": get_section_type(self.p, id),
             }
