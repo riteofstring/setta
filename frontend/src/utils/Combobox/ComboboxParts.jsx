@@ -112,7 +112,7 @@ export function ComboboxItems({
                 item={item}
                 index={globalIndex}
                 isHighlighted={globalIndex === highlightedIndex}
-                itemString={itemToString(item)}
+                itemString={itemToString ? itemToString(item) : item}
                 key={itemIndex}
               />
             );

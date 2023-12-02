@@ -4,7 +4,6 @@ import {
   textFieldInitializeCode,
   useTextFieldCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
-import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useState } from "react";
 import {
@@ -31,16 +30,14 @@ export function TextInput({
   const classes =
     "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
 
-  const { styledText } = computeStyledText(value);
+  // const { styledText } = computeStyledText(value);
 
   const [results, send] = useTextFieldCompletionWebsocketRoom(
     sectionId,
     paramInfoId
   );
 
-  const allItems = [
-    { group: "search results", items: processResults(results) },
-  ];
+  const allItems = [{ group: "search results", items: results }];
 
   function handleChange(e) {
     // Check if the active element is the event target, which should be the contenteditable div
@@ -48,12 +45,11 @@ export function TextInput({
       return;
     }
     const x = e.currentTarget.innerText;
-    const newVal = getNewVal(value, x);
-    updateValue(newVal, true);
+    updateValue(x, true);
   }
 
   function updateValue(newVal, requestCompletions = false) {
-    if (_.isEqual(value, newVal)) {
+    if (value === newVal) {
       return;
     }
     onChange(newVal);
@@ -68,7 +64,6 @@ export function TextInput({
     getInputProps,
     highlightedIndex,
     getItemProps,
-    itemToString,
   } = useTextFieldCombobox({ allItems, updateValue });
 
   function onClick() {
@@ -92,7 +87,7 @@ export function TextInput({
       ref={sizeRef}
     >
       <ContentEditable
-        html={styledText} // innerHTML of the editable div
+        html={value} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
         className={classes}
         {...inputProps}
@@ -106,7 +101,6 @@ export function TextInput({
           filteredItems={allItems}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
-          itemToString={itemToString}
         />
       </ComboboxTextFieldList>
     </div>
@@ -152,7 +146,7 @@ function getNewVal(list, newString) {
     currentIndex = nextIndex;
   }
 
-  console.log(newVal)
+  console.log(newVal);
 
   return newVal;
 }
@@ -171,7 +165,6 @@ function processResults(results) {
 
 function useTextFieldCombobox({ allItems, updateValue }) {
   const [valSelectedByArrow, setValSelectedByArrow] = useState([]);
-  const itemToString = (x) => (x ? x.name : "");
   const stateReducer = useComboboxStateReducer({
     allItems,
     onArrowUpOrDown: getOnArrowUpOrDownFn(setValSelectedByArrow),
@@ -194,7 +187,6 @@ function useTextFieldCombobox({ allItems, updateValue }) {
   } = useCombobox({
     stateReducer,
     items: singleListItems,
-    itemToString,
   });
 
   const isReallyOpen = isOpen && singleListItems.length > 0;
@@ -205,7 +197,6 @@ function useTextFieldCombobox({ allItems, updateValue }) {
     getInputProps,
     highlightedIndex,
     getItemProps,
-    itemToString,
   };
 }
 

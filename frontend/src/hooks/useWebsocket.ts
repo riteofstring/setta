@@ -76,7 +76,7 @@ export function textFieldInitializeCode(sectionId, paramInfoId) {
 
 export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
   const [message, send] = useWebsocketRoom("textFieldCompletion");
-  const searchResults = message ?? [];
+  const searchResults = message || [];
 
   const _send = useCallback(
     _.debounce((value) => {

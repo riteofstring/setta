@@ -15,7 +15,7 @@ from ..code.generate_code import (
     set_line,
 )
 from ..code.type_checker import parse_and_type_check
-from ..code.utils import get_str_from_value, get_value_from_completions, get_var_name
+from ..code.utils import get_var_name
 
 
 async def getConsumerMessage(message, tasks_obj, cache):
@@ -115,14 +115,13 @@ def textFieldCompletion(message):
     message = message["message"]
     lines, var_name_to_line_num, codeJson = message.pop("cached")
     var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
-    value_str = get_str_from_value(message["value"], codeJson)
-    set_line(lines, var_name_to_line_num, var_name, value_str)
+    set_line(lines, var_name_to_line_num, var_name, message["value"])
     code, var_name_to_line_num = prepend_with_imports(
         lines, var_name, var_name_to_line_num
     )
     print("textFieldCompletion", flush=True)
-    results = jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1)
-    output = get_value_from_completions(codeJson, results, message["value"])
+    output = jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1)
+    output = [f"{message['value']}{x.complete}" for x in output]
     return {"output": output, "name": "textFieldCompletion", "cache": None}
 
 

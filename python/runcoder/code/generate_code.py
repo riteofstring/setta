@@ -107,7 +107,7 @@ def get_value(x, selected):
 def create_line(var_name, x, selected, force_appear):
     value = get_value(x, selected)
     dec = var_declaration(var_name, value) if value or force_appear else value
-    return dec, value
+    return dec
 
 
 def generate_lines_of_code_without_imports(
@@ -129,7 +129,7 @@ def generate_lines_of_code_without_imports(
         selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
         force_appear = force_appear_var_name == var_name
-        var_str, value = create_line(var_name, x, selected, force_appear=force_appear)
+        var_str = create_line(var_name, x, selected, force_appear=force_appear)
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
             lines.append(var_str)
