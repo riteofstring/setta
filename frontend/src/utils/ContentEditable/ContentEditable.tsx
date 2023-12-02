@@ -153,11 +153,14 @@ class ReactContentEditable extends React.Component<Props> {
     const selection = window.getSelection();
     if (!selection) return;
 
-    let charCount = 0,
-      node;
+    let charCount = 0;
     const walkNodes = (parentNode) => {
-      for (node = parentNode.firstChild; node; node = node.nextSibling) {
-        if (node.nodeType === 3) {
+      for (
+        let node = parentNode.firstChild;
+        node != null;
+        node = node.nextSibling
+      ) {
+        if (node.nodeType === Node.TEXT_NODE) {
           // Text node
           if (charCount + node.length >= this.cursorOffset) {
             selection.removeAllRanges();
@@ -165,14 +168,15 @@ class ReactContentEditable extends React.Component<Props> {
             range.setStart(node, this.cursorOffset - charCount);
             range.collapse(true);
             selection.addRange(range);
-            return;
+            return true; // Stop the recursion
           }
           charCount += node.length;
-        } else if (node.nodeType === 1) {
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
           // Element node
-          walkNodes(node);
+          if (walkNodes(node)) return true; // Stop traversing if cursor position is found
         }
       }
+      return false; // Continue traversal
     };
 
     walkNodes(element);
@@ -267,7 +271,6 @@ class ReactContentEditable extends React.Component<Props> {
       this.props.onChange(evt);
     }
     this.lastHtml = html;
-    console.log("emitChange");
     this.saveCursorPosition(el);
   };
 
