@@ -91,6 +91,7 @@ export function TextInput({
         contentEditable="plaintext-only" // use true to disable editing
         className={classes}
         {...inputProps}
+        spellCheck="false"
       />
       <ComboboxTextFieldList
         isOpen={isOpen}
@@ -164,7 +165,7 @@ function processResults(results) {
 }
 
 function useTextFieldCombobox({ allItems, updateValue }) {
-  const [valSelectedByArrow, setValSelectedByArrow] = useState([]);
+  const [valSelectedByArrow, setValSelectedByArrow] = useState("");
   const stateReducer = useComboboxStateReducer({
     allItems,
     onArrowUpOrDown: getOnArrowUpOrDownFn(setValSelectedByArrow),
@@ -172,9 +173,9 @@ function useTextFieldCombobox({ allItems, updateValue }) {
   const singleListItems = flattenedItems(allItems);
 
   useEffect(() => {
-    if (valSelectedByArrow.length > 0) {
+    if (valSelectedByArrow !== "") {
       updateValue(valSelectedByArrow);
-      setValSelectedByArrow([]);
+      setValSelectedByArrow("");
     }
   }, [valSelectedByArrow]);
 
@@ -207,7 +208,7 @@ function getOnArrowUpOrDownFn(setValSelectedByArrow) {
       for (const group of latestItems) {
         for (const item of group.items) {
           if (idx === highlightedIndex) {
-            setValSelectedByArrow(item.listForm);
+            setValSelectedByArrow(item);
             return {};
           }
           idx += 1;
