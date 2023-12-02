@@ -23,7 +23,7 @@ async def getConsumerMessage(message, tasks_obj, cache):
         print(f"Start processing message ID: {message.get('id', None)}", flush=True)
         fn = get_consumer_fn(message)
         maybe_read_cache(message, cache)
-        result = await tasks_obj.loop.run_in_executor(tasks_obj.executor, fn, message)
+        result = await tasks_obj.run_non_blocking_subprocess(fn, message)
         maybe_cache_result(message, result, cache)
         return result
     except CancelledError:
