@@ -10,6 +10,7 @@ import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { screenToFlowPosition } from "utils/reactFlowUtils";
+import { DECK } from "z_utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
@@ -25,7 +26,7 @@ export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   }
 
   onClickAddSection({
-    isDeck: true,
+    type: DECK,
     x,
     y,
     callbackBeforeExit: getCallbackBeforeExit({
@@ -38,7 +39,7 @@ export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
 }
 
 export function onClickAddSection({
-  isDeck,
+  type,
   x,
   y,
   callbackBeforeExit,
@@ -53,14 +54,14 @@ export function onClickAddSection({
   topLevelPosition.zIndex = 0;
 
   addSectionAtPosition({
-    isDeck,
+    type,
     topLevelPosition,
     callbackBeforeExit,
     incrementVersion,
   });
 }
 
-export function useLoadSectionIntoState() {
+export function loadSectionIntoState() {
   return ({
     sections,
     uiTypes,

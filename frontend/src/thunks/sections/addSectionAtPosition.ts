@@ -1,5 +1,10 @@
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { DECK_UI_TYPE_ID } from "z_utils/constants";
+import {
+  DECK,
+  DECK_UI_TYPE_ID,
+  GLOBAL_VARIABLES,
+  GLOBAL_VARIABLES_UI_TYPE_ID,
+} from "z_utils/constants";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { SectionPositionType } from "z_utils/types/sectionPosition";
 import { createSectionInfo } from "./createSectionInfo";
@@ -7,20 +12,23 @@ import { createSectionInfo } from "./createSectionInfo";
 type callbackBeforeExitType = (newId: string) => void;
 
 export function addSectionAtPosition({
-  isDeck,
+  type,
   topLevelPosition,
   callbackBeforeExit = () => undefined,
   incrementVersion = false,
 }: {
-  isDeck: boolean;
+  type: string;
   topLevelPosition: SectionPositionType;
   callbackBeforeExit?: callbackBeforeExitType;
   incrementVersion?: boolean;
 }) {
   const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {};
-  if (isDeck) {
+  if (type === DECK) {
     sectionProps.name = "Group";
     sectionProps.uiTypeId = DECK_UI_TYPE_ID;
+  } else if (type === GLOBAL_VARIABLES) {
+    sectionProps.name = "Global Variables";
+    sectionProps.uiTypeId = GLOBAL_VARIABLES_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({
     sectionProps,

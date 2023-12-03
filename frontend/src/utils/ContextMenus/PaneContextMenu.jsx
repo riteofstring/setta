@@ -1,11 +1,12 @@
 import { dbGetSections, dbLoadSection } from "dbRequests/sections";
 import {
+  loadSectionIntoState,
   onClickAddSection,
-  useLoadSectionIntoState,
 } from "hooks/useCreateSectionOrDeck";
 import { useEffect, useState } from "react";
 import { Item } from "utils/atoms/dropdown/item";
 import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
+import { DECK, GLOBAL_VARIABLES, SECTION } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
@@ -16,7 +17,6 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
     }
   }, [isOpen]);
 
-  const loadSectionIntoState = useLoadSectionIntoState();
   const commonProps = {
     ...coords,
     callbackBeforeExit: closeContextMenu,
@@ -62,20 +62,20 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         isOpen={isOpen}
       >
         <Item
-          onClick={() => onClickAddSection({ isDeck: false, ...commonProps })}
+          onClick={() => onClickAddSection({ type: SECTION, ...commonProps })}
         >
           New Section
         </Item>
-        <Item
-          onClick={() => onClickAddSection({ isDeck: true, ...commonProps })}
-        >
+        <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
           New Group
         </Item>
-        {/* <Item
-          onClick={() => onClickAddSection({ isDeck: true, ...commonProps })}
+        <Item
+          onClick={() =>
+            onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
+          }
         >
           New Global Variables
-        </Item> */}
+        </Item>
         <Item onClick={openLoadModal}>Load Section</Item>
       </ContextMenuCore>
     </SaveLoadModal>

@@ -6,6 +6,7 @@ import { redoProjectState, undoProjectState } from "thunks/undo";
 import { requestTypeCheck } from "thunks/websocket";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
+import { DECK, SECTION } from "z_utils/constants";
 
 export function EditMenu() {
   return (
@@ -16,8 +17,8 @@ export function EditMenu() {
 }
 
 function Items() {
-  const addSection = () => addSectionInEmptySpace({ isDeck: false });
-  const addGroup = () => addSectionInEmptySpace({ isDeck: true });
+  const addSection = () => addSectionInEmptySpace({ type: SECTION });
+  const addGroup = () => addSectionInEmptySpace({ type: DECK });
   const typeCheck = () => requestTypeCheck();
 
   return (
