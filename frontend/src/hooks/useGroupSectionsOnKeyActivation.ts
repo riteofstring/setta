@@ -1,11 +1,10 @@
 import { useKeyActivations } from "models/keyActivations";
 import { useEffect } from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
-import { useCreateDeck } from "./useCreateSectionOrDeck";
+import { createDeck } from "./useCreateSectionOrDeck";
 
 export function useGroupSectionsOnKeyActivation() {
   const groupSections = useKeyActivations((x) => x.groupSections);
-  const createDeck = useCreateDeck();
 
   useEffect(() => {
     if (groupSections) {

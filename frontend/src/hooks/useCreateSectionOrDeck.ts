@@ -1,4 +1,4 @@
-import { useMouseToReactFlowPosition } from "hooks/useMouseToReactFlowPosition";
+import { screenToFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -12,7 +12,7 @@ import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
-export function useCreateDeck() {
+export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
     return (deckId) => {
       moveSections({
@@ -20,57 +20,47 @@ export function useCreateDeck() {
         newParentId: deckId,
         sectionIds: nodeIds,
       });
-      callbackBeforeExit && callbackBeforeExit(deckId);
+      callbackBeforeExit?.(deckId);
     };
   }
 
-  const fn = useOnClickAddSection();
-
-  return ({ nodeIds, x, y, callbackBeforeExit, projectXY }) => {
-    fn({
-      isDeck: true,
-      x,
-      y,
-      callbackBeforeExit: getCallbackBeforeExit({
-        nodeIds,
-        callbackBeforeExit,
-      }),
-      projectXY,
-      incrementVersion: true,
-    });
-  };
-}
-
-export function useOnClickAddSection() {
-  const getPosition = useMouseToReactFlowPosition();
-
-  return ({
-    isDeck,
+  onClickAddSection({
+    isDeck: true,
     x,
     y,
-    callbackBeforeExit,
-    projectXY,
-    incrementVersion,
-  }) => {
-    // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-    const topLevelPosition = projectXY
-      ? getPosition(x, y)
-      : newSectionPosition({ x, y });
-
-    topLevelPosition.zIndex = 0;
-
-    addSectionAtPosition({
-      isDeck,
-      topLevelPosition,
+    callbackBeforeExit: getCallbackBeforeExit({
+      nodeIds,
       callbackBeforeExit,
-      incrementVersion,
-    });
-  };
+    }),
+    projectXY,
+    incrementVersion: true,
+  });
+}
+
+export function onClickAddSection({
+  isDeck,
+  x,
+  y,
+  callbackBeforeExit,
+  projectXY,
+  incrementVersion,
+}) {
+  // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
+  const topLevelPosition = projectXY
+    ? screenToFlowPosition({ x, y })
+    : newSectionPosition({ x, y });
+
+  topLevelPosition.zIndex = 0;
+
+  addSectionAtPosition({
+    isDeck,
+    topLevelPosition,
+    callbackBeforeExit,
+    incrementVersion,
+  });
 }
 
 export function useLoadSectionIntoState() {
-  const getPosition = useMouseToReactFlowPosition();
-
   return ({
     sections,
     uiTypes,
@@ -84,7 +74,7 @@ export function useLoadSectionIntoState() {
     incrementVersion,
   }) => {
     // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-    const topLevelPosition = getPosition(x, y);
+    const topLevelPosition = screenToFlowPosition({ x, y });
     const topLevelMapping = topLevelIds.map((i) => [
       i,
       { ...topLevelPosition, zIndex: 0 },

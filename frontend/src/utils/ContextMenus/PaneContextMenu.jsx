@@ -1,7 +1,7 @@
 import { dbGetSections, dbLoadSection } from "dbRequests/sections";
 import {
+  onClickAddSection,
   useLoadSectionIntoState,
-  useOnClickAddSection,
 } from "hooks/useCreateSectionOrDeck";
 import { useEffect, useState } from "react";
 import { Item } from "utils/atoms/dropdown/item";
@@ -16,7 +16,6 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
     }
   }, [isOpen]);
 
-  const onClickNewSection = useOnClickAddSection();
   const loadSectionIntoState = useLoadSectionIntoState();
   const commonProps = {
     ...coords,
@@ -63,15 +62,20 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         isOpen={isOpen}
       >
         <Item
-          onClick={() => onClickNewSection({ isDeck: false, ...commonProps })}
+          onClick={() => onClickAddSection({ isDeck: false, ...commonProps })}
         >
           New Section
         </Item>
         <Item
-          onClick={() => onClickNewSection({ isDeck: true, ...commonProps })}
+          onClick={() => onClickAddSection({ isDeck: true, ...commonProps })}
         >
           New Group
         </Item>
+        {/* <Item
+          onClick={() => onClickAddSection({ isDeck: true, ...commonProps })}
+        >
+          New Global Variables
+        </Item> */}
         <Item onClick={openLoadModal}>Load Section</Item>
       </ContextMenuCore>
     </SaveLoadModal>
