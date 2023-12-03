@@ -134,12 +134,15 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function findVariableOccurrences(code, variable_names) {
+function findVariableOccurrences(code, variables) {
   // Escape special characters and create a regex pattern with word boundaries
-  const escapedVariables = [];
-  for (const v of variable_names) {
-    escapedVariables.push(escapeRegExp(v));
+  const escapedVariables = variables.map(escapeRegExp).filter((v) => v);
+
+  // Check if there are no variables to match
+  if (escapedVariables.length === 0) {
+    return [];
   }
+
   const pattern = new RegExp(`\\b(${escapedVariables.join("|")})\\b`, "g");
 
   const occurrences = [];
