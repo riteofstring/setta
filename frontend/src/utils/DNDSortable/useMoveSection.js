@@ -1,5 +1,4 @@
 import { useDndMode } from "hooks/useDndUtils";
-import { screenToFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
 import { useRef } from "react";
@@ -8,6 +7,7 @@ import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
+import { screenToFlowPosition } from "utils/reactFlowUtils";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
 

@@ -3,7 +3,7 @@ import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
 import { useReactFlow } from "reactflow";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
-import { screenToFlowPosition } from "./useMouseToReactFlowPosition";
+import { screenToFlowPosition } from "../utils/reactFlowUtils";
 
 export function relativePos(sectionId) {
   const s = useSectionRefs.getState();

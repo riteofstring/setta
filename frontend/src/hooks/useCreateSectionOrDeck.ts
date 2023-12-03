@@ -1,4 +1,3 @@
-import { screenToFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -10,6 +9,7 @@ import { updateManyParamsAndCallables } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
+import { screenToFlowPosition } from "utils/reactFlowUtils";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
