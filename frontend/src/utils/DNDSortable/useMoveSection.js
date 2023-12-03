@@ -1,13 +1,13 @@
 import { useDndMode } from "hooks/useDndUtils";
+import { screenToFlowPosition } from "hooks/useMouseToReactFlowPosition";
 import _ from "lodash";
 import { useDndState } from "models/info/dndState";
 import { useRef } from "react";
-import { useReactFlow } from "reactflow";
 import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { NAVBAR_HEIGHT, PANEID } from "utils/constants";
+import { PANEID } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
 
@@ -22,7 +22,7 @@ function onSortEnd({ active, over }) {
   }
 }
 
-function onFreeMoveEnd({ dummyRef, project }) {
+function onFreeMoveEnd({ dummyRef }) {
   const dndState = useDndState.getState();
   const { activeId: sectionId, overId } = dndState;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
@@ -36,7 +36,7 @@ function onFreeMoveEnd({ dummyRef, project }) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
-    position = project({ x, y: y - NAVBAR_HEIGHT });
+    position = screenToFlowPosition({ x, y });
   } else if (overId) {
     const dropType = getDropType({
       centerYCondition: dndState.centerYCondition,
@@ -60,7 +60,6 @@ function onFreeMoveEnd({ dummyRef, project }) {
 
 export function useOnDragEnd() {
   const { isSorting, isMovingFree } = useDndMode();
-  const { project } = useReactFlow();
   const dummyRef = useRef(null);
 
   function onDragEnd({ active, over, collisions }) {
@@ -72,7 +71,6 @@ export function useOnDragEnd() {
         over,
         collisions,
         dummyRef,
-        project,
       });
     }
   }

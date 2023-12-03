@@ -3,6 +3,7 @@ import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
 import { useReactFlow } from "reactflow";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
+import { screenToFlowPosition } from "./useMouseToReactFlowPosition";
 
 export function relativePos(sectionId) {
   const s = useSectionRefs.getState();
@@ -11,7 +12,7 @@ export function relativePos(sectionId) {
 }
 
 export function useGoToSection() {
-  const { screenToFlowPosition, setCenter } = useReactFlow();
+  const { setCenter } = useReactFlow();
 
   return (sectionId: string) => {
     const store = REACT_FLOW_STORE.store;
