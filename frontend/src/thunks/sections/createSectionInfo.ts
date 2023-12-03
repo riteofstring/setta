@@ -37,6 +37,10 @@ export function createSectionInfo({
 }) {
   const newInfos = {};
   sectionProps["size"] = { width: "auto", height: "auto" };
+  sectionProps["existingVarNames"] = _.map(
+    useSectionInfos.getState().x,
+    (s) => s.name
+  );
   for (let i = 0; i < numSections; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;

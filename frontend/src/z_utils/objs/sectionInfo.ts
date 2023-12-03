@@ -1,11 +1,11 @@
 import { DEFAULT_SECTION_UI_TYPE_ID } from "../constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";
-import { maybeNewId } from "../utils";
+import { createVarName, maybeNewId } from "../utils";
 
 export function newSectionInfo({
   id,
-  name = "New Section",
+  name,
   children = [],
   currChildren = [],
   paramInfoId = null,
@@ -22,12 +22,14 @@ export function newSectionInfo({
   descriptionHeight = 100,
   descriptionVisible = false,
   nonPresetUITypeIds = [],
+  existingVarNames,
 }: Partial<SectionType> & {
   size: SizeType;
+  existingVarNames: string[];
 }): SectionType {
   return {
     id: maybeNewId(id),
-    name,
+    name: name ? name : createVarName(existingVarNames),
     children,
     currChildren,
     parentId,
