@@ -1,3 +1,4 @@
+import glob
 import json
 
 from .db.projects.save import save_project_details
@@ -13,11 +14,13 @@ def seed_base_ui_types():
 
 
 def seed_projects():
-    with open(
-        get_absolute_path(__file__, "seedData/exampleProjects/diffusionDrops.json"), "r"
-    ) as f:
-        data = json.load(f)
-    save_project_details(data)
+    example_jsons = glob.glob(
+        str(get_absolute_path(__file__, "seedData/exampleProjects/*.json"))
+    )
+    for filepath in example_jsons:
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        save_project_details(data)
 
 
 def seed_settings():

@@ -14,7 +14,7 @@ from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
 
-from .db.projects.load import load_all_projects, load_project
+from .db.projects.load import load_all_projects, load_full_project, load_project
 from .db.projects.save import (
     create_project,
     save_project_config_name,
@@ -205,6 +205,11 @@ def route_projects(x: ProjectRequest):
 @app.post("/projects/load/{projectName}/{configName}")
 def route_load_project(projectName, configName):
     return load_project(projectName, configName)
+
+
+@app.post("/projects/load/{projectName}")
+def route_load_full_project(projectName):
+    return load_full_project(projectName)
 
 
 @app.post("/projects/save")
