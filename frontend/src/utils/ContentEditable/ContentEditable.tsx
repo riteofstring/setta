@@ -1,6 +1,7 @@
 import deepEqual from "fast-deep-equal";
 import PropTypes from "prop-types";
 import React from "react";
+import "./contenteditable.css"
 
 // https://github.com/lovasoa/react-contenteditable
 // https://github.com/lovasoa/react-contenteditable/issues/161#issuecomment-669633470

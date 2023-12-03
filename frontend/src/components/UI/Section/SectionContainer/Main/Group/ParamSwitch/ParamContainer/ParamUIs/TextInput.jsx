@@ -109,6 +109,7 @@ export function TextInput({
         className={classes}
         {...inputProps}
         spellCheck="false"
+        placeholder={defaultVal}
       />
       <ComboboxTextFieldList
         isOpen={isOpen}
