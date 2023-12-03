@@ -7,126 +7,58 @@ from pprint import pprint
 import jedi
 
 from ..code.export_selected import export_selected
-from ..code.generate_code import (
-    generate_code,
-    generate_lines_of_code_without_imports,
-    get_import_text,
-    prepend_with_imports,
-    set_line,
-)
+from ..code.generate_code import generate_code, get_import_text
 from ..code.type_checker import parse_and_type_check
-from ..code.utils import get_var_name
 
 
-async def getConsumerMessage(message, tasks_obj, cache):
+async def getConsumerMessage(message, tasks_obj):
     try:
         print(f"Start processing message ID: {message.get('id', None)}", flush=True)
-        fn = get_consumer_fn(message)
-        maybe_read_cache(message, cache)
-        result = await tasks_obj.run_non_blocking_subprocess(fn, message)
-        maybe_cache_result(message, result, cache)
-        return result
+        return await tasks_obj.loop.run_in_executor(
+            tasks_obj.executor, consumer, message
+        )
     except CancelledError:
         print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
-        return {"output": None, "name": None}
+        return None, None
 
 
-def get_consumer_fn(message):
+def consumer(message):
     if message["messageType"] == "codeCompletionRequest":
-        return codeCompletion
-    if message["messageType"] == "textFieldInitializeCode":
-        return textFieldInitializeCode
-    if message["messageType"] == "textFieldCompletion":
-        return textFieldCompletion
+        return codeCompletion(message)
     if message["messageType"] == "parametersRequest":
-        return parametersRequest
+        return parametersRequest(message)
     if message["messageType"] == "typeCheckRequest":
-        return typeCheckRequest
+        return typeCheckRequest(message)
     if message["messageType"] == "connection":
-        return connectionEstablished
+        return connectionEstablished(message)
     if message["messageType"] == "allConnections":
-        return allConnections
+        return allConnections(message)
     if message["messageType"] == "runCode":
-        return runCode
+        return runCode(message)
     raise ValueError
-
-
-def maybe_read_cache(message, cache):
-    if message["messageType"] == "textFieldCompletion":
-        message = message["message"]
-        message["cached"] = cache.text_field_generated_code[message["projectConfigId"]][
-            message["sectionId"]
-        ]
-
-
-def maybe_cache_result(message, result, cache):
-    if result["cache"] is None:
-        return
-    if result["name"] == "textFieldInitializeCode":
-        project = message["message"]["project"]
-        sectionId = message["message"]["sectionId"]
-        cache.add_text_field_generated_code(
-            project["projectConfig"]["id"], sectionId, result["cache"]
-        )
 
 
 def codeCompletion(message):
     for_parser = message["message"].rstrip(".")
-    empty_output = {"output": [], "name": "codeCompletion", "cache": None}
     try:
-        code = f'{get_import_text(for_parser)[0]}; {message["message"]}'
+        code = f'{get_import_text(for_parser)}; {message["message"]}'
     except SyntaxError as e:
         print(f"Syntax Error: {e}")
-        return empty_output
+        return [], "codeCompletion"
     if code == "":
-        return empty_output
+        return [], "codeCompletion"
     results = jedi.Script(code).complete()
     output = [
         f"{message['message']}{x.complete}"
         for x in results
-        if x.type in ["module", "class", "function"] and x.complete
+        if x.type in ["class", "function"]
     ]
-    output = [x for x in output if x]
-    return {"output": output, "name": "codeCompletion", "cache": None}
-
-
-def textFieldInitializeCode(message):
-    message = message["message"]
-    project = message["project"]
-    codeJson = export_selected(project)
-    sectionId = message["sectionId"]
-    paramInfoId = message["paramInfoId"]
-    push_var_name = get_var_name(codeJson, sectionId, paramInfoId)
-    to_cache = generate_lines_of_code_without_imports(
-        codeJson,
-        push_var_name=push_var_name,
-        force_appear_var_name=push_var_name,
-    )
-    print("textFieldInitializeCode", flush=True)
-    print(to_cache, flush=True)
-    return {
-        "output": None,
-        "name": "textFieldInitializeCode",
-        "cache": [*to_cache, codeJson],
-    }
-
-
-def textFieldCompletion(message):
-    message = message["message"]
-    lines, var_name_to_line_num, codeJson = message.pop("cached")
-    var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
-    set_line(lines, var_name_to_line_num, var_name, message["value"])
-    code, var_name_to_line_num = prepend_with_imports(
-        lines, var_name, var_name_to_line_num
-    )
-    print("textFieldCompletion", flush=True)
-    output = jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1)
-    output = [f"{message['value']}{x.complete}" for x in output]
-    return {"output": output, "name": "textFieldCompletion", "cache": None}
+    output = [x for x in output if x][:5]
+    return output, "codeCompletion"
 
 
 def parametersRequest(message):
-    code = f'${get_import_text(message["message"])[0]}; ${message["message"]}('
+    code = f'${get_import_text(message["message"])}; ${message["message"]}('
     print("code", code)
     signatures = jedi.Script(code).get_signatures()
     output = []
@@ -140,17 +72,12 @@ def parametersRequest(message):
                 else None
             )
             output.append({"name": param.name, "defaultVal": defaultVal})
-    return {"output": output, "name": "parameters", "cache": None}
+    return output, "parameters"
 
 
 def typeCheckRequest(message):
     code_json = export_selected(message["message"])
-    print("typeCheckRequest", flush=True)
-    try:
-        code, _ = generate_code(code_json)
-    except SyntaxError:
-        print("typeCheckRequest SyntaxError", flush=True)
-        return {"output": {}, "name": "typeCheck", "cache": None}
+    code = generate_code(code_json)
     with tempfile.TemporaryDirectory(dir=".") as temp_dir:
         # set delete=False because otherwise the mypy call gets Permission Denied
         with tempfile.NamedTemporaryFile(
@@ -168,27 +95,26 @@ def typeCheckRequest(message):
             )
             stdout = process.stdout
         except subprocess.CalledProcessError as e:
-            print(e, flush=True)
             stdout = e.stdout
 
         os.remove(temp_file_path)
 
-    print("stdout", stdout, flush=True)
+    print("stdout", stdout)
     errors = stdout
     output = parse_and_type_check(errors, code, code_json)
-    print(output, flush=True)
-    return {"output": output, "name": "typeCheck", "cache": None}
+    print(output)
+    return output, "typeCheck"
 
 
 def connectionEstablished(message):
     print(f"Connected as {message['websocketId']}")
-    return {"output": None, "name": None, "cache": None}
+    return None, None
 
 
 def allConnections(message):
     print("All connections:")
     pprint(message["connections"])
-    return {"output": None, "name": None, "cache": None}
+    return None, None
 
 
 def runCode(message):
@@ -196,4 +122,4 @@ def runCode(message):
     print(code)
     exec(code)
     print("DONE")
-    return {"output": None, "name": None, "cache": None}
+    return None, None

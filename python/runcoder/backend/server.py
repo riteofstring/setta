@@ -10,11 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
-from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
-from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
 
-from .db.projects.load import load_all_projects, load_full_project, load_project
+from .db.projects.load import load_all_projects, load_project
 from .db.projects.save import (
     create_project,
     save_project_config_name,
@@ -66,14 +64,6 @@ async def startup_event():
                 content = f.read()
             return content
 
-    startMyPyDaemon()
-
-
-@app.on_event("shutdown")
-def shutdown_event():
-    print("shutdown_event", flush=True)
-    killMyPyDaemon()
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -121,16 +111,13 @@ class SetDarkModeRequest(BaseModel):
     darkMode: bool
 
 
-tasks_obj = Tasks()
-cache = Cache()
-
-
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
     def __init__(self):
         self.sockets = {}
         self.use_server_as_cli = True
         self.server_cli_name = "main"
+        self.T = Tasks()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -155,11 +142,9 @@ class ConnectionManager:
             if wid == self.server_cli_name:
                 websocket = self.sockets[fromWebsocketId]["websocket"]
                 message["websocketId"] = wid
-                await tasks_obj.create_task(
+                await self.T.create_task(
                     message.get("id", None),
-                    getConsumerMessageAndSend(
-                        message, websocket.send_text, tasks_obj, cache
-                    ),
+                    getConsumerMessageAndSend(message, websocket.send_text, self.T),
                 )
             else:
                 websocket = self.sockets[wid]["websocket"]
@@ -205,11 +190,6 @@ def route_projects(x: ProjectRequest):
 @app.post("/projects/load/{projectName}/{configName}")
 def route_load_project(projectName, configName):
     return load_project(projectName, configName)
-
-
-@app.post("/projects/load/{projectName}")
-def route_load_full_project(projectName):
-    return load_full_project(projectName)
 
 
 @app.post("/projects/save")

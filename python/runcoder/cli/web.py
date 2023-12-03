@@ -5,7 +5,6 @@ import websockets
 
 from ..processors.processors import getConsumerMessage
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
-from ..utils.cache import Cache
 from ..utils.constants import WEBSOCKET
 from ..utils.tasks import Tasks
 
@@ -37,28 +36,27 @@ async def connect(websocket_id=None):
 async def consumer_handler(websocket):
     startMyPyDaemon()
     task_obj = Tasks()
-    cache = Cache()
     async for message in websocket:
         message = json.loads(message)
         print(message)
         # create_task so that we don't have to await consumer message
         await task_obj.create_task(
             message.get("id", None),
-            getConsumerMessageAndSend(message, websocket.send, task_obj, cache),
+            getConsumerMessageAndSend(message, websocket.send, task_obj),
         )
 
 
-async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache):
-    result = await getConsumerMessage(message, tasks_obj, cache)
-    if result["output"] is not None:
+async def getConsumerMessageAndSend(message, send_fn, tasks_obj):
+    return_message, messageType = await getConsumerMessage(message, tasks_obj)
+    if return_message is not None:
         print(f"Done processing message ID {message.get('id', None)}", flush=True)
         await send_fn(
             json.dumps(
                 {
                     "id": message["id"],
-                    "message": result["output"],
+                    "message": return_message,
                     "toWebsocketId": message["websocketId"],
-                    "messageType": result["name"],
+                    "messageType": messageType,
                 }
             )
         )

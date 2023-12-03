@@ -1,21 +1,16 @@
 import deepEqual from "fast-deep-equal";
 import PropTypes from "prop-types";
 import React from "react";
-import "./contenteditable.css";
 
 // https://github.com/lovasoa/react-contenteditable
 // https://github.com/lovasoa/react-contenteditable/issues/161#issuecomment-669633470
 export const ContentEditable = React.forwardRef(
-  (
-    { onChange, onInput, onBlur, onKeyPress, onKeyDown, onClick, ...props },
-    ref
-  ) => {
+  ({ onChange, onInput, onBlur, onKeyPress, onKeyDown, ...props }, ref) => {
     const onChangeRef = React.useRef(onChange);
     const onInputRef = React.useRef(onInput);
     const onBlurRef = React.useRef(onBlur);
     const onKeyPressRef = React.useRef(onKeyPress);
     const onKeyDownRef = React.useRef(onKeyDown);
-    const onClickRef = React.useRef(onClick);
 
     React.useEffect(() => {
       onChangeRef.current = onChange;
@@ -32,9 +27,6 @@ export const ContentEditable = React.forwardRef(
     React.useEffect(() => {
       onKeyDownRef.current = onKeyDown;
     }, [onKeyDown]);
-    React.useEffect(() => {
-      onClickRef.current = onClick;
-    }, [onClick]);
 
     return (
       <ReactContentEditable
@@ -85,15 +77,6 @@ export const ContentEditable = React.forwardRef(
               }
             : undefined
         }
-        onClick={
-          onClick
-            ? (...args) => {
-                if (onClickRef.current) {
-                  onClickRef.current(...args);
-                }
-              }
-            : undefined
-        }
       />
     );
   }
@@ -133,55 +116,6 @@ class ReactContentEditable extends React.Component<Props> {
     typeof this.props.innerRef === "function"
       ? { current: null }
       : React.createRef<HTMLElement>();
-
-  constructor(props) {
-    super(props);
-    this.cursorInfo = 0;
-  }
-
-  saveCursorPosition = (element) => {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return;
-
-    const range = selection.getRangeAt(0);
-    const preCaretRange = range.cloneRange();
-    preCaretRange.selectNodeContents(element);
-    preCaretRange.setEnd(range.endContainer, range.endOffset);
-    this.cursorOffset = preCaretRange.toString().length;
-  };
-
-  restoreCursorPosition = (element) => {
-    const selection = window.getSelection();
-    if (!selection) return;
-
-    let charCount = 0;
-    const walkNodes = (parentNode) => {
-      for (
-        let node = parentNode.firstChild;
-        node != null;
-        node = node.nextSibling
-      ) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          // Text node
-          if (charCount + node.length >= this.cursorOffset) {
-            selection.removeAllRanges();
-            const range = document.createRange();
-            range.setStart(node, this.cursorOffset - charCount);
-            range.collapse(true);
-            selection.addRange(range);
-            return true; // Stop the recursion
-          }
-          charCount += node.length;
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          // Element node
-          if (walkNodes(node)) return true; // Stop traversing if cursor position is found
-        }
-      }
-      return false; // Continue traversal
-    };
-
-    walkNodes(element);
-  };
 
   getEl = () =>
     (this.props.innerRef && typeof this.props.innerRef !== "function"
@@ -230,13 +164,11 @@ class ReactContentEditable extends React.Component<Props> {
     }
 
     // Handle additional properties
-    // Commented out innerRef comparison because it was causing issues with cursor location.
-    // Seems to work for now?!
     return (
       props.contentEditable !== nextProps.contentEditable ||
       props.tagName !== nextProps.tagName ||
       props.className !== nextProps.className ||
-      // props.innerRef !== nextProps.innerRef ||
+      props.innerRef !== nextProps.innerRef ||
       props.placeholder !== nextProps.placeholder ||
       !deepEqual(props.style, nextProps.style)
     );
@@ -252,8 +184,7 @@ class ReactContentEditable extends React.Component<Props> {
       el.innerHTML = this.props.html;
     }
     this.lastHtml = this.props.html;
-    // replaceCaret(el);
-    this.restoreCursorPosition(el);
+    replaceCaret(el);
   }
 
   emitChange = (originalEvt: React.SyntheticEvent<any>) => {
@@ -272,7 +203,6 @@ class ReactContentEditable extends React.Component<Props> {
       this.props.onChange(evt);
     }
     this.lastHtml = html;
-    this.saveCursorPosition(el);
   };
 
   static propTypes = {

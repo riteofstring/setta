@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
@@ -9,17 +9,28 @@ export function ComboboxInput({
   getToggleButtonProps,
   isOpen,
   small,
+  onClick,
+  inputCallback,
 }) {
+  const toggleButtonProps = getToggleButtonProps({ onClick });
+  const inputProps = getInputProps();
+
+  useEffect(() => {
+    if (inputCallback) {
+      inputCallback(inputProps.value);
+    }
+  }, [inputProps.value]);
+
   return (
     <StandardSearch
       inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-sm pl-10 focus-visible:border-white dark:text-runcoder-200 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-runcoder-700 ${
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
-      {...getInputProps()}
+      {...inputProps}
       rightElement={
         <StandardSearchRightBtn
-          {...getToggleButtonProps()}
+          {...toggleButtonProps}
           icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
           size={small ? "w-7 h-7" : "w-10 h-10"}
         />
@@ -112,7 +123,7 @@ export function ComboboxItems({
                 item={item}
                 index={globalIndex}
                 isHighlighted={globalIndex === highlightedIndex}
-                itemString={itemToString ? itemToString(item) : item}
+                itemString={itemToString(item)}
                 key={itemIndex}
               />
             );

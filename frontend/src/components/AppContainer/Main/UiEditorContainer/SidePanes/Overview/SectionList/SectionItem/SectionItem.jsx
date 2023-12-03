@@ -2,10 +2,10 @@ import { useGoToSection } from "hooks/useGetSectionPosition";
 import React from "react";
 
 function _SectionItem({ sectionId, sectionHeading }) {
-  const goToSection = useGoToSection();
+  const goToSection = useGoToSection(sectionId);
 
   const onClick = () => {
-    goToSection(sectionId);
+    goToSection();
   };
 
   return (

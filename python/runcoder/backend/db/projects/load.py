@@ -82,7 +82,7 @@ def load_project_config_metadata(project_id, config_name):
         ON
             ProjectConfig.id = ProjectConfigChildren.parentId
         WHERE
-            ProjectConfig.projectId = :projectId
+            projectId = :projectId
         AND
             name = :name
     """
@@ -136,34 +136,3 @@ def load_project(project_name, config_name):
         "outputGroups": {},
         "outputs": {},
     }
-
-
-def load_full_project(project_name):
-    query = """
-        SELECT
-            ProjectConfig.name as configName
-        FROM
-            ProjectConfig
-        JOIN
-            Project
-        ON
-            ProjectConfig.projectId = Project.id
-        WHERE
-            Project.name = :projectName
-    """
-
-    db.execute(query, {"projectName": project_name})
-
-    config_names = [r[0] for r in db.fetchall()]
-    configs = []
-    project = None
-    for c in config_names:
-        p = load_project(project_name, c)
-        project = p.pop("project")
-        p["uiTypes"] = {
-            k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
-        }
-        configs.append(p)
-
-    output = {**project, "configs": configs}
-    return output

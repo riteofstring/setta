@@ -80,8 +80,10 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS EVCol (
             idid TEXT,
             codeInfoId TEXT,
+            "order" INTEGER,
+            type TEXT,
             value TEXT,
-            PRIMARY KEY (idid, codeInfoId),
+            PRIMARY KEY (idid, codeInfoId, "order"),
             FOREIGN KEY (idid) REFERENCES EVColId(id),
             FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id)
         );

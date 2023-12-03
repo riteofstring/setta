@@ -24,7 +24,7 @@ export function getValueForUIType({
 
 // Entered Value
 export function newEV(uiType: UITypeType): EVType {
-  return getValueForUIType({ uiType });
+  return [{ type: "raw", value: getValueForUIType({ uiType }) }];
 }
 
 function convertValueForSlider({ uiType, currValue }) {

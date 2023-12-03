@@ -1,33 +1,25 @@
-def push_var_deep(objects, target_var_name):
-    def get_dependencies(obj):
-        """Retrieve dependencies from either 'deps' or 'params' within 'value'."""
-        if "deps" in obj:
-            return obj["deps"]
-        return obj["value"]["params"]
+def push_var_deep(objects, target_name):
+    # Find the index of the target object
+    target_index = next(
+        (i for i, obj in enumerate(objects) if obj["var_name"] == target_name), None
+    )
+    if target_index is None:
+        return objects  # Target not found, return the list unchanged
 
-    def find_dependents(obj_list, var_name):
-        """Find all objects that directly or indirectly depend on the given object."""
-        dependents = set()
-        for obj in obj_list:
-            if var_name in get_dependencies(obj):
-                dependents.add(obj["var_name"])
-                dependents.update(find_dependents(obj_list, obj["var_name"]))
-        return dependents
+    # Check the dependencies of objects after the target to see how far we can move it
+    # We can move the target down as long as no object depends on it
+    move_to_index = target_index
+    for i in range(target_index + 1, len(objects)):
+        curr = objects[i]
+        if ("deps" in curr and target_name in curr["deps"]) or (
+            isinstance(curr["value"], dict) and target_name in curr["value"]["params"]
+        ):
+            break
+        move_to_index = i
 
-    dependents = find_dependents(objects, target_var_name)
-    everything_else = []
-    target_and_dependents = []
-    for obj in objects:
-        if obj["var_name"] != target_var_name and obj["var_name"] not in dependents:
-            everything_else.append(obj)
-        else:
-            target_and_dependents.append(obj)
+    # If the target can be moved down in the list, perform the rearrangement
+    if move_to_index != target_index:
+        # Remove the target object and insert it at the new position
+        objects.insert(move_to_index, objects.pop(target_index))
 
-    return everything_else + target_and_dependents
-
-
-def get_var_name(codeJson, sectionId, paramInfoId=None):
-    for k, v in codeJson.items():
-        if v["sectionId"] == sectionId and v.get("paramInfoId", None) == paramInfoId:
-            return k
-    return None
+    return objects

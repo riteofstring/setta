@@ -28,9 +28,9 @@ export const useParamInfos = createProjectState(
             state.x[collectionId][id] = newEV(uiType);
           });
         }),
-      setEnteredValue: ({ collectionId, paramInfoId, value }) =>
+      setEnteredValue: ({ collectionId, paramInfoId, idx, value }) =>
         set((state) => {
-          state.x[collectionId][paramInfoId] = value;
+          state.x[collectionId][paramInfoId][idx].value = value;
         }),
       initManyUITypeColIds: ({ collectionIds }) =>
         set((state) => {

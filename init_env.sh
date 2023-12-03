@@ -1,15 +1,14 @@
 #!/bin/sh
-conda list --name abcde_env
-exit_code=$?
+if ! . ./check_python.sh; then
+    [ "$PS1" ] && return 1 || exit 1;
+fi
 
-if [ $exit_code -eq 1 ]; then
-    conda create -y -n abcde_env python=3.11
+if [ ! -f "abcde_env/pyvenv.cfg" ]; then
+    python3 -m venv abcde_env
 fi
 
 . ./activate.sh
 
-if [[ "$1" == "dev" && "$CONDA_DEFAULT_ENV" == "abcde_env" ]]; then
-    pip install -e ".[dev,test]"
-elif [[ "$1" == "test" && "$CONDA_DEFAULT_ENV" == "abcde_env" ]]; then
-    pip install -e ".[dev]"
+if [[ "$1" == "dev" ]]; then
+    pip install -e ".[cli,backend,dev,test]"
 fi

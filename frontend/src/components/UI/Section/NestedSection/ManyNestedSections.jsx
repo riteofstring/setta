@@ -35,10 +35,10 @@ function NestedSectionsWithMargin({
   isDeck,
   droppableDisabled,
 }) {
-  const goToSection = useGoToSection();
+  const goToSection = useGoToSection(sectionId);
 
   const onClick = () => {
-    goToSection(sectionId);
+    goToSection();
   };
 
   const rightMargin = useRightMargin(droppableDisabled);

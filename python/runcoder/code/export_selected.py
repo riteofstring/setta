@@ -1,5 +1,3 @@
-import ast
-
 from ..utils.constants import DECK, DICT_ROOT, LIST_ROOT, SECTION
 
 
@@ -61,6 +59,14 @@ def get_param_child_id(p, section_id, id):
     return None
 
 
+def get_section_var_name(section_var_names, id):
+    if id in section_var_names:
+        return section_var_names[id]
+    name = f"s{len(section_var_names)}"
+    section_var_names[id] = name
+    return name
+
+
 def get_param_var_name(param_var_names):
     name = f"p{len(param_var_names)}"
     param_var_names.add(name)
@@ -69,20 +75,6 @@ def get_param_var_name(param_var_names):
 
 def no_entered_value(value):
     return value is None or value == ""
-
-
-def get_var_names_from_value(value):
-    root = ast.parse(value)
-    return {node.id for node in ast.walk(root) if isinstance(node, ast.Name)}
-
-
-def get_top_level_section_names(p):
-    top_level = p["projectConfig"]["children"]
-    return {p["sections"][x]["name"] for x in top_level.keys()}
-
-
-def get_section_name_to_id(p):
-    return {v["name"]: k for k, v in p["sections"].items()}
 
 
 def export_selected(p):
@@ -95,24 +87,21 @@ class Exporter:
     def __init__(self, p):
         self.output = {}
         self.p = p
-        self.top_level_section_names = set()
-        self.section_name_to_id = {}
+        self.section_var_names = {}
         self.param_var_names = set()
 
     def export(self):
-        self.top_level_section_names = get_top_level_section_names(self.p)
-        self.section_name_to_id = get_section_name_to_id(self.p)
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
 
     def export_sections(self, ids):
         return [self.export_section(x) for x in ids]
 
     def export_section(self, id):
-        var_name = self.p["sections"][id]["name"]
+        var_name = get_section_var_name(self.section_var_names, id)
         if var_name not in self.output:
             self.output[var_name] = {
                 "sectionId": id,
-                "name": var_name,
+                "name": self.p["sections"][id]["name"],
                 "value": self.export_section_value(id),
                 "type": get_section_type(self.p, id),
             }
@@ -176,10 +165,14 @@ class Exporter:
             var_name = self.export_section(possible_child_id)
             return var_name, [var_name]
         elif value:
+            output = []
             deps = []
-            var_names = get_var_names_from_value(value)
-            for v in var_names.intersection(self.top_level_section_names):
-                var_name = self.export_section(self.section_name_to_id[v])
-                deps.append(v)
-            return value, deps
+            for v in value:
+                if v["type"] == "ref":
+                    var_name = self.export_section(v["value"])
+                    output.append(var_name)
+                    deps.append(var_name)
+                else:
+                    output.append(v["value"])
+            return "".join(output), deps
         return value, []

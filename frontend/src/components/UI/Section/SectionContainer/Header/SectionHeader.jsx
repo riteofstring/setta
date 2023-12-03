@@ -2,7 +2,6 @@ import { useIsInfo } from "hooks/useSectionType";
 import React from "react";
 import { deleteChild } from "thunks/sections/deleteChild";
 import { Incrementer } from "../Incrementer/Incrementer";
-import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
@@ -37,7 +36,6 @@ function _SectionHeader({
             isGlobalVariables={isGlobalVariables}
           />
           <SaveButton sectionId={sectionId} />
-          <ChainButton sectionId={sectionId} />
         </div>
       )}
       {(isSeriesElement || isRoot) && (

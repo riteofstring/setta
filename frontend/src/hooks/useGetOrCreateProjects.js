@@ -2,9 +2,7 @@ import {
   dbCreateProject,
   dbGetProjectsForFileMenu,
   dbGetProjectsForHomePage,
-  dbLoadFullProject,
 } from "dbRequests/projects";
-import { useProject } from "models/info/project";
 import { useState } from "react";
 import { getProjectData } from "thunks/save";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
@@ -47,19 +45,11 @@ function goToDefaultConfig(project) {
   });
 }
 
-export function useExportProjectJson() {
+export function useExportProjectConfigJson() {
   const [projectJson, setProjectJson] = useState({});
   function exportProjectJson() {
     const { project, ...theRest } = getProjectData();
     setProjectJson(theRest);
   }
-  async function exportFullProjectJson() {
-    const projectName = useProject.getState().name;
-    const res = await dbLoadFullProject({ projectName });
-    if (res.status === 200) {
-      setProjectJson(res.data);
-    }
-  }
-
-  return { projectJson, exportProjectJson, exportFullProjectJson };
+  return { projectJson, exportProjectJson };
 }

@@ -80,7 +80,7 @@ export function SliderInput({
   step,
   isDisabled,
 }) {
-  const valueNum = _.toNumber(value);
+  const valueNum = _.toNumber(value[0].value);
 
   return (
     <Slider.Root
@@ -92,7 +92,7 @@ export function SliderInput({
       max={max}
       step={step}
       disabled={isDisabled}
-      onValueChange={(v) => onChange(v[0])}
+      onValueChange={(v) => onChange(0, "raw", v[0])}
     >
       <Slider.Track className="relative flex-grow rounded-full bg-slate-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-runcoder-700">
         <Slider.Range className="absolute h-full rounded-full bg-blue-500" />

@@ -1,6 +1,7 @@
 {
   "id": "d7d82407-46bf-4a08-b36e-4a34350c51d5",
   "name": "diffusionDrops",
+  "owner": "25961114-6655-4e2c-b70f-e2e3aaa84131",
   "defaultConfigId": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
   "configs": [
     {
@@ -48,27 +49,126 @@
       },
       "evCols": {
         "93db7817-3553-49d8-986b-0600d6a64cc0": {
-          "78a78722-ed02-4f6a-8f51-6166c70832be": "Model.parameters()",
-          "10eefa5e-ac71-4de9-852c-af9f7d7e3463": "",
-          "2c5d27d6-dfee-4a38-a082-1141925ec3f1": "",
-          "7755c806-a1d5-4f17-a5a4-5f015ed74c0e": "",
-          "85b1bd26-f0fb-4381-a133-016375ee7be5": "",
-          "7f665711-86a0-4972-8137-06d5bc4baedb": "",
-          "e94d1330-1f66-4521-a76d-050f71e008a5": "",
-          "c22d8d77-455b-41af-b987-a8cfd833a021": "",
-          "0e6e32cb-56df-4f4c-98da-f8358b69f42a": "",
-          "58f4f580-0213-4ead-be4e-496a377e091e": "",
-          "f6a0fc62-18e0-4407-ad78-067996f0238c": ""
+          "78a78722-ed02-4f6a-8f51-6166c70832be": [
+            {
+              "type": "ref",
+              "value": "5147e582-4968-419f-8c90-593a2b709ccf"
+            },
+            {
+              "type": "raw",
+              "value": ".parameters()"
+            }
+          ],
+          "10eefa5e-ac71-4de9-852c-af9f7d7e3463": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "2c5d27d6-dfee-4a38-a082-1141925ec3f1": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "7755c806-a1d5-4f17-a5a4-5f015ed74c0e": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "85b1bd26-f0fb-4381-a133-016375ee7be5": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "7f665711-86a0-4972-8137-06d5bc4baedb": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "e94d1330-1f66-4521-a76d-050f71e008a5": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "c22d8d77-455b-41af-b987-a8cfd833a021": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "0e6e32cb-56df-4f4c-98da-f8358b69f42a": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "58f4f580-0213-4ead-be4e-496a377e091e": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "f6a0fc62-18e0-4407-ad78-067996f0238c": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ]
         },
         "118d0bd8-993b-41a1-bae3-a8b33bc565cc": {
-          "fafa64ae-21c7-439f-8a29-a13b68992264": "",
-          "4317590f-3d0e-4c0b-9565-0e8add9f0606": "",
-          "46ee55a9-507a-4b34-9c2e-bced246c78bc": "",
-          "77d53ed7-de25-4b5e-bfd9-f0a02d811ddd": "",
-          "0aa49699-dfc1-4438-a030-c86a225d0079": "",
-          "ff2cbde5-0679-4dca-abb6-ba324e9dced3": "",
-          "d6a4f9fd-b723-495b-b06b-bc4c1c0c499f": "",
-          "82b91fe9-5fae-43d5-a976-4dae73c304b0": ""
+          "fafa64ae-21c7-439f-8a29-a13b68992264": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "4317590f-3d0e-4c0b-9565-0e8add9f0606": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "46ee55a9-507a-4b34-9c2e-bced246c78bc": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "77d53ed7-de25-4b5e-bfd9-f0a02d811ddd": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "0aa49699-dfc1-4438-a030-c86a225d0079": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "ff2cbde5-0679-4dca-abb6-ba324e9dced3": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "d6a4f9fd-b723-495b-b06b-bc4c1c0c499f": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ],
+          "82b91fe9-5fae-43d5-a976-4dae73c304b0": [
+            {
+              "type": "raw",
+              "value": ""
+            }
+          ]
         }
       },
       "uiTypes": {

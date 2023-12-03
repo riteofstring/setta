@@ -1,18 +1,8 @@
 import { useCombobox } from "downshift";
-import { useGoToSection } from "hooks/useGetSectionPosition";
+import { useSectionInfoIdNamePairs } from "hooks/useSectionInfo";
 import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
-import {
-  textFieldInitializeCode,
-  useTextFieldCompletionWebsocketRoom,
-} from "hooks/useWebsocket";
-import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useEffect, useState } from "react";
-import {
-  ComboboxItems,
-  ComboboxTextFieldList,
-} from "utils/Combobox/ComboboxParts";
-import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
+import { ComboboxItems, ComboboxTextFieldList } from "utils/Combobox/Combobox";
 import { flattenedItems } from "utils/Combobox/utils";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 
@@ -21,8 +11,6 @@ export function TextInputConfig() {
 }
 
 export function TextInput({
-  sectionId,
-  paramInfoId,
   value,
   defaultVal,
   onChange,
@@ -32,66 +20,27 @@ export function TextInput({
   const classes =
     "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
 
-  const goToSection = useGoToSection();
+  const { styledText, text } = computeStyledText(value);
 
-  window.onVariableClick = function (e, variable) {
-    if (e.ctrlKey) {
-      const section = _.find(
-        useSectionInfos.getState().x,
-        (s) => s.name === variable
-      );
-      const id = section?.id;
-      if (id) {
-        goToSection(id);
-      }
-    }
-  };
+  const availableSections = useSectionInfoIdNamePairs();
+  const allItems = [{ group: "sections", items: availableSections }];
 
-  const styledText = getStyledText(value);
-
-  const [results, send] = useTextFieldCompletionWebsocketRoom(
-    sectionId,
-    paramInfoId
-  );
-
-  const allItems = [{ group: "search results", items: results }];
-
-  function handleChange(e) {
-    // Check if the active element is the event target, which should be the contenteditable div
-    if (document.activeElement !== e.currentTarget) {
-      return;
-    }
-    const x = e.currentTarget.innerText;
-    updateValue(x, true);
-  }
-
-  function updateValue(newVal, requestCompletions = false) {
-    if (value === newVal) {
-      return;
-    }
-    onChange(newVal);
-    if (requestCompletions) {
-      send(newVal);
-    }
-  }
+  const singleListItems = flattenedItems(allItems);
 
   const {
     isOpen,
     getMenuProps,
-    getInputProps,
-    highlightedIndex,
     getItemProps,
-  } = useTextFieldCombobox({ allItems, updateValue });
-
-  function onClick() {
-    textFieldInitializeCode(sectionId, paramInfoId);
-  }
-
-  // Exclude downshift's value because we don't need it.
-  const { value: dsValue, ...inputProps } = getInputProps({
-    onChange: handleChange,
-    onClick,
+    highlightedIndex,
+    getInputProps,
+  } = useCombobox({
+    items: singleListItems,
+    // itemToString,
+    // onSelectedItemChange: localOnSelectedItemChange,
   });
+
+  const isReallyOpen = isOpen && singleListItems.length > 0;
+  const itemToString = (x) => (x ? x.name : "");
 
   const {
     sizeRef,
@@ -106,13 +55,12 @@ export function TextInput({
       <ContentEditable
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
+        // onChange={handleChange} // handle innerHTML change
         className={classes}
-        {...inputProps}
-        spellCheck="false"
-        placeholder={defaultVal}
+        {...getInputProps()}
       />
       <ComboboxTextFieldList
-        isOpen={isOpen}
+        isOpen={isReallyOpen}
         getMenuProps={getMenuProps}
         width={width}
       >
@@ -120,117 +68,84 @@ export function TextInput({
           filteredItems={allItems}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
+          itemToString={itemToString}
         />
       </ComboboxTextFieldList>
     </div>
   );
 }
 
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function findVariableOccurrences(code) {
-  // Escape special characters and create a regex pattern with word boundaries
-  const escapedVariables = [];
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    escapedVariables.push(escapeRegExp(s.name));
-  }
-  const pattern = new RegExp(`\\b(${escapedVariables.join("|")})\\b`, "g");
-
-  const occurrences = [];
-  let match;
-
-  // Use matchAll to find all occurrences
-  while ((match = pattern.exec(code)) !== null) {
-    occurrences.push({
-      variable: match[1],
-      start: match.index,
-      end: match.index + match[1].length,
-    });
-  }
-
-  return occurrences;
-}
-
-function colorCodeVariables(code, occurrences) {
-  // Sort occurrences by start index
-  occurrences.sort((a, b) => a.start - b.start);
-
-  let lastIndex = 0;
-  let result = "";
-
-  occurrences.forEach(({ variable, start, end }) => {
-    // Add text before the variable
-    result += code.substring(lastIndex, start);
-    // Add the variable within a span tag
-    result += `<span style="color: red;" onclick="onVariableClick(event, '${variable}')">${variable}</span>`;
-    // Update the lastIndex to the end of the current variable
-    lastIndex = end;
-  });
-
-  // Add any remaining text after the last variable
-  result += code.substring(lastIndex);
-
-  return result;
-}
-
-function getStyledText(value) {
-  const variablesExample = findVariableOccurrences(value);
-  return colorCodeVariables(value, variablesExample);
-}
-
-function useTextFieldCombobox({ allItems, updateValue }) {
-  const [valSelectedByArrow, setValSelectedByArrow] = useState("");
-  const stateReducer = useComboboxStateReducer({
-    allItems,
-    onArrowUpOrDown: getOnArrowUpOrDownFn(setValSelectedByArrow),
-  });
-  const singleListItems = flattenedItems(allItems);
-
-  useEffect(() => {
-    if (valSelectedByArrow !== "") {
-      updateValue(valSelectedByArrow);
-      setValSelectedByArrow("");
+function computeStyledText(value) {
+  const output = [];
+  const regularOutput = [];
+  const sectionState = useSectionInfos.getState().x;
+  for (const v of value) {
+    if (v.type === "ref") {
+      const x = sectionState[v.value].name;
+      output.push(`<span class="text-red-600 dark:text-red-400">${x}</span>`);
+      regularOutput.push(x);
+    } else {
+      output.push(
+        `<span class="text-runcoder-800 dark:text-runcoder-100">${v.value}</span>`
+      );
+      regularOutput.push(v.value);
     }
-  }, [valSelectedByArrow]);
-
-  const {
-    isOpen,
-    getMenuProps,
-    getInputProps,
-    highlightedIndex,
-    getItemProps,
-  } = useCombobox({
-    stateReducer,
-    items: singleListItems,
-  });
-
-  const isReallyOpen = isOpen && singleListItems.length > 0;
-
-  return {
-    isOpen: isReallyOpen,
-    getMenuProps,
-    getInputProps,
-    highlightedIndex,
-    getItemProps,
-  };
+  }
+  return { styledText: output.join(""), text: regularOutput.join("") };
 }
 
-function getOnArrowUpOrDownFn(setValSelectedByArrow) {
-  return (latestItems, highlightedIndex) => {
-    if (highlightedIndex >= 0) {
-      let idx = 0;
-      for (const group of latestItems) {
-        for (const item of group.items) {
-          if (idx === highlightedIndex) {
-            setValSelectedByArrow(item);
-            return {};
-          }
-          idx += 1;
-        }
-      }
-    }
-    return {};
-  };
-}
+// function getNewValue(value, cursorPos) {
+//   const output = [];
+//   let runningLength = 0;
+//   for (const v of value) {
+//     if (
+//       runningLength <= cursorPos &&
+//       cursorPos < runningLength + v.value.length
+//     ) {
+//       return i;
+//     } else {
+//       output.push(v);
+//     }
+//     runningLength += strings[i].length;
+//   }
+//   // If cursor is beyond the last string, return the index of the last string.
+//   return strings.length - 1;
+// }
+
+// function getCursorPos(selection, evt) {
+//   if (selection.rangeCount > 0) {
+//     const range = selection.getRangeAt(0);
+//     if (range.collapsed) {
+//       // Compute cursor position...
+//       const cursorRange = document.createRange();
+//       cursorRange.selectNodeContents(evt.currentTarget);
+//       cursorRange.setEnd(range.endContainer, range.endOffset);
+//       return cursorRange.toString().length;
+//     }
+//   }
+//   return null;
+// }
+
+// const handleChange = (evt) => {
+//   // Check if the active element is the event target, which should be the contenteditable div
+//   if (document.activeElement !== evt.currentTarget) {
+//     return;
+//   }
+//   const selection = window.getSelection();
+//   // Further check if the selection is contained within the event target, if needed
+//   // This might be relevant if the editable content is complex and you have nested elements
+//   if (!evt.currentTarget.contains(selection.anchorNode)) {
+//     return;
+//   }
+//   const cursorPos = getCursorPos(selection, evt);
+//   const index = getNearestStringIndex(value, cursorPos);
+//   onChange(
+//     index,
+//     value[index].type,
+//     `${value[index].value}${evt.currentTarget.innerText}`
+//   );
+// };
+
+// useEffect(() => {
+//   setStyledText(computeStyledText(value));
+// }, [value]);

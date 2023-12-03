@@ -29,13 +29,6 @@ export async function dbLoadProject({ projectName, configName }) {
   });
 }
 
-export async function dbLoadFullProject({ projectName }) {
-  return await post({
-    body: {},
-    address: `/projects/load/${projectName}`,
-  });
-}
-
 export async function dbCreateProject({ name }) {
   return await post({
     address: CREATE_PROJECT,
