@@ -1,4 +1,5 @@
-import { create as _create, StateCreator } from "zustand";
+import { StateCreator } from "zustand";
+import { createWithEqualityFn as _create } from "zustand/traditional";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
@@ -7,7 +8,7 @@ export const create = (<T>(f: StateCreator<T> | undefined) => {
   if (f === undefined) {
     return create;
   }
-  const store = _create(f);
+  const store = _create(f, Object.is);
   addResetter(store, STATE_TYPES.BASE_STATE);
   addStatePointer(store, STATE_TYPES.BASE_STATE);
   return store;
