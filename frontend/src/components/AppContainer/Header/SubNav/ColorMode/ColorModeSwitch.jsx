@@ -25,9 +25,9 @@ export function ColorModeSwitch() {
         disableBg={true}
         icon={
           darkMode ? (
-            <RiSunFill className="h-3 text-blue-200" />
+            <HiMoon className="h-3 text-blue-200" />
           ) : (
-            <HiMoon className="h-3 text-white" />
+            <RiSunFill className="h-3 text-white" />
           )
         }
       />

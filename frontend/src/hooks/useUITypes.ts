@@ -15,9 +15,9 @@ export function useRequiredUIEditorTabs(sectionId) {
     return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
   }
   return [
-    SECTION_CONFIG_TAB,
     UI_CONFIG_TAB,
+    SECTION_CONFIG_TAB,
     INFO_CONFIG_TAB,
-    RUNTIME_CONFIG_TAB,
+    // RUNTIME_CONFIG_TAB,
   ];
 }

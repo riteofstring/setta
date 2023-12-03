@@ -33,7 +33,7 @@ export function Overview() {
       <ProjectName />
 
       <StandardSearch
-        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-slate-300 dark:border-runcoder-800  focus-visible:border-blue-300 pl-7 py-1"
+        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800  focus-visible:border-blue-300 pl-7 py-1"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
         placeholder="Filter"
@@ -45,7 +45,7 @@ export function Overview() {
         {...infoViewHandlersSearch}
       />
 
-      <ScrollingArea styles="flex-1">
+      <ScrollingArea styles="flex-1 -mx-2 px-2">
         <ul className="flex-grow" {...infoViewHandlers}>
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
