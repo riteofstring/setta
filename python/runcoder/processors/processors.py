@@ -1,6 +1,4 @@
-import os
 import subprocess
-import tempfile
 from asyncio import CancelledError
 from pprint import pprint
 
@@ -16,6 +14,7 @@ from ..code.generate_code import (
 )
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
+from .utils import subprocessWithTempFile
 
 
 async def getConsumerMessage(message, tasks_obj, cache):
@@ -151,27 +150,17 @@ def typeCheckRequest(message):
     except SyntaxError:
         print("typeCheckRequest SyntaxError", flush=True)
         return {"output": {}, "name": "typeCheck", "cache": None}
-    with tempfile.TemporaryDirectory(dir=".") as temp_dir:
-        # set delete=False because otherwise the mypy call gets Permission Denied
-        with tempfile.NamedTemporaryFile(
-            dir=temp_dir, mode="w+", suffix=".py", delete=False
-        ) as temp_file:
-            temp_file.write(code)
-            temp_file_path = temp_file.name
 
-        try:
-            process = subprocess.run(
-                ["dmypy", "check", temp_file_path],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            stdout = process.stdout
-        except subprocess.CalledProcessError as e:
-            print(e, flush=True)
-            stdout = e.stdout
+    def fn(temp_file_path):
+        subprocess.run(
+            ["dmypy", "check", temp_file_path],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
 
-        os.remove(temp_file_path)
+    process = subprocessWithTempFile(code, fn)
+    stdout = process.stdout
 
     print("stdout", stdout, flush=True)
     errors = stdout
@@ -193,7 +182,17 @@ def allConnections(message):
 
 def runCode(message):
     code = generate_code(export_selected(message["message"]))
-    print(code)
-    exec(code)
-    print("DONE")
+
+    def fn(temp_file_path):
+        subprocess.run(
+            ["python", temp_file_path],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    process = subprocessWithTempFile(code[0], fn)
+    # print(code[0], flush=True)
+    # exec(code[0])
+    print("DONE", flush=True)
     return {"output": None, "name": None, "cache": None}
