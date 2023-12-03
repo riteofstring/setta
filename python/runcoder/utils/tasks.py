@@ -1,10 +1,8 @@
 import asyncio
 import multiprocessing
 from asyncio import CancelledError
-from concurrent.futures import ProcessPoolExecutor
-import uuid
-import os
-import signal
+from concurrent.futures import ThreadPoolExecutor
+
 
 def start_process(queue, function, *args):
     result = function(*args)
@@ -13,11 +11,9 @@ def start_process(queue, function, *args):
 
 class Tasks:
     def __init__(self):
-        self.executor = ProcessPoolExecutor()
+        self.executor = ThreadPoolExecutor()
+        self.loop = asyncio.get_event_loop()
         self.tasks_dict = {}
-        self.m = multiprocessing.Manager()
-        self.p_dict = self.m.dict()
-        self.counter = 0
 
     async def create_task(self, id, *args, **kwargs):
         await self.cancel_existing(id)
@@ -39,13 +35,26 @@ class Tasks:
         self.tasks_dict.pop(id, None)
 
     async def run_non_blocking_subprocess(self, fn, *args):
-        id = None
+        process = None
         try:
-            id = uuid.uuid4()
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(self.executor, fn, self.p_dict, id, *args)
+            # Create a Queue for inter-process communication
+            queue = multiprocessing.Queue()
+
+            # Start the long-running function in a separate process
+            process = multiprocessing.Process(
+                target=start_process, args=(queue, fn, *args)
+            )
+            await self.loop.run_in_executor(self.executor, process.start)
+
+            # Now, wait for the result in a non-blocking way
+            result = await self.loop.run_in_executor(self.executor, queue.get)
+            await self.loop.run_in_executor(self.executor, process.join)
+
+            return result
         except CancelledError:
-            if id in self.p_dict:
-                print("canceling pid", self.p_dict[id])
-                os.kill(self.p_dict[id], signal.SIGINT)
+            if process:
+                try:
+                    process.terminate()
+                except AttributeError:
+                    pass
             raise

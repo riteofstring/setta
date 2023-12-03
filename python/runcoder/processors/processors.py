@@ -16,7 +16,6 @@ from ..code.generate_code import (
 )
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
-from .utils import get_pid
 
 
 async def getConsumerMessage(message, tasks_obj, cache):
@@ -30,8 +29,6 @@ async def getConsumerMessage(message, tasks_obj, cache):
     except CancelledError:
         print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
         return {"output": None, "name": None}
-
-
 
 
 def get_consumer_fn(message):
@@ -72,7 +69,7 @@ def maybe_cache_result(message, result, cache):
             project["projectConfig"]["id"], sectionId, result["cache"]
         )
 
-@get_pid
+
 def codeCompletion(message):
     for_parser = message["message"].rstrip(".")
     empty_output = {"output": [], "name": "codeCompletion", "cache": None}
@@ -92,7 +89,7 @@ def codeCompletion(message):
     output = [x for x in output if x]
     return {"output": output, "name": "codeCompletion", "cache": None}
 
-@get_pid
+
 def textFieldInitializeCode(message):
     message = message["message"]
     project = message["project"]
@@ -113,7 +110,7 @@ def textFieldInitializeCode(message):
         "cache": [*to_cache, codeJson],
     }
 
-@get_pid
+
 def textFieldCompletion(message):
     message = message["message"]
     lines, var_name_to_line_num, codeJson = message.pop("cached")
@@ -127,7 +124,7 @@ def textFieldCompletion(message):
     output = [f"{message['value']}{x.complete}" for x in output]
     return {"output": output, "name": "textFieldCompletion", "cache": None}
 
-@get_pid
+
 def parametersRequest(message):
     code = f'${get_import_text(message["message"])[0]}; ${message["message"]}('
     print("code", code)
@@ -145,7 +142,7 @@ def parametersRequest(message):
             output.append({"name": param.name, "defaultVal": defaultVal})
     return {"output": output, "name": "parameters", "cache": None}
 
-@get_pid
+
 def typeCheckRequest(message):
     code_json = export_selected(message["message"])
     print("typeCheckRequest", flush=True)
@@ -182,18 +179,18 @@ def typeCheckRequest(message):
     print(output, flush=True)
     return {"output": output, "name": "typeCheck", "cache": None}
 
-@get_pid
+
 def connectionEstablished(message):
     print(f"Connected as {message['websocketId']}")
     return {"output": None, "name": None, "cache": None}
 
-@get_pid
+
 def allConnections(message):
     print("All connections:")
     pprint(message["connections"])
     return {"output": None, "name": None, "cache": None}
 
-@get_pid
+
 def runCode(message):
     code = generate_code(export_selected(message["message"]))
     print(code)
