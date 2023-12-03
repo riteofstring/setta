@@ -8,6 +8,8 @@ import {
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useState } from "react";
+import { getSectionType } from "thunks/sections/getters";
+import { getParamInfos } from "thunks/sections/sectionContents";
 import {
   ComboboxItems,
   ComboboxTextFieldList,
@@ -15,6 +17,7 @@ import {
 import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
 import { flattenedItems } from "utils/Combobox/utils";
 import { ContentEditable } from "utils/ContentEditable/ContentEditable";
+import { GLOBAL_VARIABLES } from "z_utils/constants";
 
 export function TextInputConfig() {
   return null;
@@ -34,11 +37,12 @@ export function TextInput({
 
   const goToSection = useGoToSection();
 
-  window.onVariableClick = function (e, variable) {
+  window.onVariableClick = function (e, variableType, variable) {
     if (e.ctrlKey) {
-      const section = _.find(
-        useSectionInfos.getState().x,
-        (s) => s.name === variable
+      const section = _.find(useSectionInfos.getState().x, (s) =>
+        variableType === "global"
+          ? getSectionType(s.id).type === GLOBAL_VARIABLES
+          : s.name === variable
       );
       const id = section?.id;
       if (id) {
@@ -130,11 +134,11 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function findVariableOccurrences(code) {
+function findVariableOccurrences(code, variable_names) {
   // Escape special characters and create a regex pattern with word boundaries
   const escapedVariables = [];
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    escapedVariables.push(escapeRegExp(s.name));
+  for (const v of variable_names) {
+    escapedVariables.push(escapeRegExp(v));
   }
   const pattern = new RegExp(`\\b(${escapedVariables.join("|")})\\b`, "g");
 
@@ -153,31 +157,45 @@ function findVariableOccurrences(code) {
   return occurrences;
 }
 
-function colorCodeVariables(code, occurrences) {
-  // Sort occurrences by start index
-  occurrences.sort((a, b) => a.start - b.start);
+function colorCodeVariables(code, sectionVarOccurrences, globalVarOccurrences) {
+  // Tagging each occurrence with its type and merging them
+  const taggedOccurrences = [
+    ...sectionVarOccurrences.map((occ) => ({ ...occ, type: "section" })),
+    ...globalVarOccurrences.map((occ) => ({ ...occ, type: "global" })),
+  ];
+
+  // Sorting the merged occurrences by start index
+  taggedOccurrences.sort((a, b) => a.start - b.start);
 
   let lastIndex = 0;
   let result = "";
 
-  occurrences.forEach(({ variable, start, end }) => {
-    // Add text before the variable
+  taggedOccurrences.forEach(({ variable, start, end, type }) => {
     result += code.substring(lastIndex, start);
-    // Add the variable within a span tag
-    result += `<span style="color: red;" onclick="onVariableClick(event, '${variable}')">${variable}</span>`;
-    // Update the lastIndex to the end of the current variable
+    const color = type === "section" ? "red" : "green";
+    result += `<span style="color: ${color};" onclick="onVariableClick(event, '${type}', '${variable}')">${variable}</span>`;
     lastIndex = end;
   });
 
-  // Add any remaining text after the last variable
   result += code.substring(lastIndex);
 
   return result;
 }
 
+// TODO make more efficient
 function getStyledText(value) {
-  const variablesExample = findVariableOccurrences(value);
-  return colorCodeVariables(value, variablesExample);
+  const sectionNames = [];
+  const globalVarNames = [];
+  for (const s of Object.values(useSectionInfos.getState().x)) {
+    if (getSectionType(s.id).type === GLOBAL_VARIABLES) {
+      globalVarNames.push(...getParamInfos(s.id).map((x) => x.name));
+    } else {
+      sectionNames.push(s.name);
+    }
+  }
+  const sectionVarOccurrences = findVariableOccurrences(value, sectionNames);
+  const globalVarOccurrences = findVariableOccurrences(value, globalVarNames);
+  return colorCodeVariables(value, sectionVarOccurrences, globalVarOccurrences);
 }
 
 function useTextFieldCombobox({ allItems, updateValue }) {

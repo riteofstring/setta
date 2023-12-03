@@ -8,11 +8,16 @@
         "id": "41f411f7-b14d-4375-bfcd-204446866745",
         "name": "config1",
         "viewport": {
-          "x": -215.72322737569425,
-          "y": -130.8796236168107,
+          "x": 130.27677262430564,
+          "y": 354.1203763831893,
           "zoom": 0.757858283255199
         },
         "children": {
+          "46dc6cab-03ac-4e73-919d-63b30da0688d": {
+            "x": 767.5884004025676,
+            "y": -278.9598649147857,
+            "zIndex": 2
+          },
           "d96cb110-6f72-435a-b745-2d55e277f983": {
             "x": 766,
             "y": 239.70833206176758,
@@ -26,6 +31,28 @@
         }
       },
       "sections": {
+        "46dc6cab-03ac-4e73-919d-63b30da0688d": {
+          "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
+          "name": "Global Variables",
+          "paramInfoId": null,
+          "evColId": "54571c59-7a51-42d5-bb8e-b6c06b41b023",
+          "uiTypeId": "74d80124-deb9-4577-8470-813cb9be4e56",
+          "uiTypeColId": "8d49f34e-ab85-46c2-b13d-66af60b363cf",
+          "social": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": 0,
+          "nonPresetUITypeIds": ["74d80124-deb9-4577-8470-813cb9be4e56"],
+          "parentId": null,
+          "chainedFrom": null,
+          "selectedItem": null,
+          "outputGroup": null,
+          "children": [],
+          "size": {
+            "width": 450,
+            "height": "auto"
+          }
+        },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
           "name": "dataset",
@@ -82,6 +109,10 @@
           "c066af9f-42b4-4359-8b44-cf774c400e81": "",
           "c2c05abc-dd95-4071-8f37-cb2019919bce": "0"
         },
+        "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
+          "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": "4",
+          "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": "4000"
+        },
         "66e4192c-c1fc-4935-b862-e722726c1217": {
           "03ee6530-d464-461c-a989-b310ee2d9b95": "",
           "0aa0f46a-e923-4528-a411-500cbda6e77b": "4000",
@@ -104,6 +135,17 @@
           "config": {
             "subType": null,
             "codeInfoId": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2",
+            "childUITypeId": null
+          }
+        },
+        "74d80124-deb9-4577-8470-813cb9be4e56": {
+          "id": "74d80124-deb9-4577-8470-813cb9be4e56",
+          "name": "Global Variables",
+          "type": "GLOBAL_VARIABLES",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
             "childUITypeId": null
           }
         },
@@ -195,6 +237,16 @@
             "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
             "nonPresetUITypeIds": []
           }
+        },
+        "8d49f34e-ab85-46c2-b13d-66af60b363cf": {
+          "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
+            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+            "nonPresetUITypeIds": []
+          },
+          "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
+            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+            "nonPresetUITypeIds": []
+          }
         }
       },
       "codeInfo": {
@@ -262,12 +314,28 @@
           "defaultVal": "None",
           "children": []
         },
+        "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
+          "id": "4e70c873-ead7-4c5a-b3a0-fe504e73ad27",
+          "name": "n_clusters",
+          "editable": 1,
+          "rcType": "parameter",
+          "defaultVal": null,
+          "children": []
+        },
         "669986a2-03d6-4de4-af41-f9395cf0ef57": {
           "id": "669986a2-03d6-4de4-af41-f9395cf0ef57",
           "name": "cluster_std",
           "editable": 0,
           "rcType": "parameter",
           "defaultVal": "1.0",
+          "children": []
+        },
+        "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
+          "id": "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
+          "name": "n_samples",
+          "editable": 1,
+          "rcType": "parameter",
+          "defaultVal": null,
           "children": []
         },
         "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
@@ -333,6 +401,17 @@
           "rcType": "parameter",
           "defaultVal": null,
           "children": []
+        },
+        "a382ec28-c244-4c90-9a58-a7c83a8512ea": {
+          "id": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
+          "name": "Contents",
+          "editable": 0,
+          "rcType": "collection",
+          "defaultVal": null,
+          "children": [
+            "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
+            "4e70c873-ead7-4c5a-b3a0-fe504e73ad27"
+          ]
         },
         "b30e8ce3-35db-4b39-8ff4-9da3123ce71b": {
           "id": "b30e8ce3-35db-4b39-8ff4-9da3123ce71b",
