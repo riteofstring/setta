@@ -1,0 +1,9 @@
+/* https://stackoverflow.com/questions/20726174/placeholder-for-contenteditable-div */
+
+[contenteditable="plaintext-only"]:empty:before {
+  content: attr(placeholder);
+  color: gray;
+  opacity: 0.5;
+  pointer-events: none;
+  display: block; /* For Firefox */
+}

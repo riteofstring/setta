@@ -8,10 +8,10 @@ export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
 export const tabNameToPretty = Object.freeze(
   new Map(
     Object.entries({
-      [UI_CONFIG_TAB]: "Parameters",
       [SECTION_CONFIG_TAB]: "Card",
+      [UI_CONFIG_TAB]: "Parameters",
       [INFO_CONFIG_TAB]: "Info",
-      // [RUNTIME_CONFIG_TAB]: "Runtime",
+      [RUNTIME_CONFIG_TAB]: "Runtime",
     })
   )
 );

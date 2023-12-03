@@ -1,30 +1,35 @@
 import { useCombobox } from "downshift";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { useComboboxStateReducer } from "./ComboboxStateReducer";
+import { useComboboxStateReducerWithFilteredItems } from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
 
-export function useTotalCombobox({
+export function useIdNameCombobox({
   allItems,
   matchSorterProps,
   onSelectedItemChange,
   initialSelection,
   itemToString,
+  inputCallback,
+  onArrowUpOrDown,
 }) {
   const [selection, setSelection] = useState(null);
-  const { filteredItems, stateReducer } = useComboboxStateReducer({
-    allItems,
-    matchSorterProps,
-  });
+  const { filteredItems, stateReducer } =
+    useComboboxStateReducerWithFilteredItems({
+      allItems,
+      matchSorterProps,
+      inputCallback,
+      onArrowUpOrDown,
+    });
 
   useEffect(() => {
     if (!_.isEqual(selection, initialSelection)) {
-      onSelectedItemChange(selection, initialSelection, setSelection, false);
+      onSelectedItemChange?.(selection, initialSelection, setSelection, false);
     }
   }, [initialSelection]);
 
   const localOnSelectedItemChange = ({ selectedItem }) => {
-    onSelectedItemChange(selection, selectedItem, setSelection, true);
+    onSelectedItemChange?.(selection, selectedItem, setSelection, true);
   };
 
   const singleListItems = flattenedItems(filteredItems);
@@ -88,5 +93,21 @@ export function idNameHelper({
     init,
     itemToString,
     matchSorterProps,
+    onArrowUpOrDown: getValueFromHighlightedIndex,
   };
+}
+
+function getValueFromHighlightedIndex(latestItems, highlightedIndex) {
+  if (highlightedIndex >= 0) {
+    let idx = 0;
+    for (const group of latestItems) {
+      for (const item of group.items) {
+        if (idx === highlightedIndex) {
+          return { inputValue: item.name };
+        }
+        idx += 1;
+      }
+    }
+  }
+  return {};
 }

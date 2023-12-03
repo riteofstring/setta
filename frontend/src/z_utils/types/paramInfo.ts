@@ -25,7 +25,6 @@ export type ParamInfoActionType = {
   setEnteredValue: (payload: {
     collectionId: string;
     paramInfoId: string;
-    idx: number;
     value: string;
   }) => void;
 

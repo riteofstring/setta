@@ -31,7 +31,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800 focus-visible:border-blue-300 pl-7 py-1";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-300 dark:border-runcoder-800 focus-visible:border-blue-300 pl-7 py-1";
 
   return (
     <>
@@ -44,7 +44,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <ScrollingArea styles="mt-4 -mx-2 px-2 flex flex-col gap-4">
+      <ScrollingArea styles="mt-4 flex flex-col gap-4">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement

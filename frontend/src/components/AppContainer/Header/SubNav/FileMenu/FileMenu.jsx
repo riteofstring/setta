@@ -1,7 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import {
   createAndGoToProject,
-  useExportProjectConfigJson,
+  useExportProjectJson,
   useGetProjectsForFileMenu,
 } from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
@@ -14,7 +14,8 @@ import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { FileMenuModal } from "utils/FileExplorer/FileMenuModal";
 export function FileMenu() {
   const { projects, getProjects } = useGetProjectsForFileMenu();
-  const { projectJson, exportProjectJson } = useExportProjectConfigJson();
+  const { projectJson, exportProjectJson, exportFullProjectJson } =
+    useExportProjectJson();
   const [modalType, setModalType] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -33,6 +34,12 @@ export function FileMenu() {
   function openExportJSONModal() {
     setModalType("Export JSON");
     exportProjectJson();
+    setOpen(true);
+  }
+
+  function openExportFullJSONModal() {
+    setModalType("Export Full JSON");
+    exportFullProjectJson();
     setOpen(true);
   }
 
@@ -55,6 +62,7 @@ export function FileMenu() {
         openLoadModal={openLoadModal}
         openSaveAsModal={openSaveAsModal}
         openExportJSONModal={openExportJSONModal}
+        openExportFullJSONModal={openExportFullJSONModal}
         openImportJSONModal={openImportJSONModal}
       />
     </FileMenuModal>
@@ -65,6 +73,7 @@ function MenuItems({
   openLoadModal,
   openSaveAsModal,
   openExportJSONModal,
+  openExportFullJSONModal,
   openImportJSONModal,
 }) {
   return (
@@ -95,6 +104,10 @@ function MenuItems({
       <MenuItem onClick={openExportJSONModal}>
         {/* <BiExport /> */}
         Export JSON
+      </MenuItem>
+      <MenuItem onClick={openExportFullJSONModal}>
+        {/* <BiExport /> */}
+        Export Full JSON
       </MenuItem>
     </MenuDropdown>
   );

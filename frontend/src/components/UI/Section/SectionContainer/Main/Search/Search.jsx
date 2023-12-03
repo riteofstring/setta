@@ -6,7 +6,11 @@ import { setSelectedItem } from "thunks/sections/setters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { groupedObjInfo } from "utils/getFullObjPath";
 
-export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
+export function SectionSearch({
+  sectionId,
+  initialSelection,
+  outerDivClasses,
+}) {
   const [completions, sendCompletionRequest] =
     useCodeCompletionWebsocketRoom(sectionId);
   const _searchableItems = useGetAllCallables(sectionId);
@@ -43,7 +47,7 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
       allItems={groupedItemsAsList}
       onSelectedItemChange={onSelectedItemChange}
       initialSelection={initialSelection}
-      inputClasses={inputClasses}
+      outerDivClasses={outerDivClasses}
       inputCallback={inputCallback}
     />
   );

@@ -11,10 +11,10 @@ export function relativePos(sectionId) {
   return { y: ref.y - paneRef.y, x: ref.x - paneRef.x };
 }
 
-export function useGoToSection(sectionId: string) {
+export function useGoToSection() {
   const { project, setCenter } = useReactFlow();
 
-  return () => {
+  return (sectionId: string) => {
     const store = REACT_FLOW_STORE.store;
     const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
     const margin = 20;

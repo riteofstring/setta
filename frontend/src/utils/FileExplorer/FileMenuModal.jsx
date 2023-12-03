@@ -25,13 +25,14 @@ export function FileMenuModal({
     Load: "Load Project",
     "Save As": "Save Project As",
     "Export JSON": "Export JSON",
+    "Export Full JSON": "Export Full JSON",
     "Import JSON": "Import JSON",
   };
 
   const title = modalTypeObj[modalType];
 
   function renderModalContent() {
-    if (modalType === "Export JSON") {
+    if (["Export JSON", "Export Full JSON"].includes(modalType)) {
       return (
         <ImportExportModalContent
           projectJson={projectJson}

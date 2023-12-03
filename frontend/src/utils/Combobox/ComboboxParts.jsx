@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
@@ -9,28 +9,17 @@ export function ComboboxInput({
   getToggleButtonProps,
   isOpen,
   small,
-  onClick,
-  inputCallback,
 }) {
-  const toggleButtonProps = getToggleButtonProps({ onClick });
-  const inputProps = getInputProps();
-
-  useEffect(() => {
-    if (inputCallback) {
-      inputCallback(inputProps.value);
-    }
-  }, [inputProps.value]);
-
   return (
     <StandardSearch
       inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-sm pl-10 focus-visible:border-white dark:text-runcoder-200 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-runcoder-700 ${
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
-      {...inputProps}
+      {...getInputProps()}
       rightElement={
         <StandardSearchRightBtn
-          {...toggleButtonProps}
+          {...getToggleButtonProps()}
           icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
           size={small ? "w-7 h-7" : "w-10 h-10"}
         />
@@ -51,7 +40,7 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-1 max-h-96  rounded-2xl border bg-white shadow-xl dark:border-runcoder-500 dark:bg-runcoder-800 dark:text-runcoder-200`}
+      className={`nowheel nodrag relative w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-1 max-h-96  rounded-2xl border bg-white/80 shadow-xl backdrop-blur-sm dark:border-runcoder-500/20 dark:bg-runcoder-800/80 dark:text-runcoder-200`}
       {...getMenuProps()}
       style={{ width }}
     >
@@ -123,7 +112,7 @@ export function ComboboxItems({
                 item={item}
                 index={globalIndex}
                 isHighlighted={globalIndex === highlightedIndex}
-                itemString={itemToString(item)}
+                itemString={itemToString ? itemToString(item) : item}
                 key={itemIndex}
               />
             );
