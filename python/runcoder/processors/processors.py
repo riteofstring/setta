@@ -180,6 +180,16 @@ def allConnections(message):
     return {"output": None, "name": None, "cache": None}
 
 
+def double_braces(x):
+    return f"{{{{ {x} }}}}"
+
+
+def replace_keywords(bash_script, replacements):
+    for key, value in replacements.items():
+        bash_script = bash_script.replace(double_braces(key), value)
+    return bash_script
+
+
 def runCode(message):
     code = generate_code(export_selected(message["message"]))
 
@@ -197,6 +207,7 @@ def runCode(message):
         script = get_script(message["message"])
         if script in [None, ""]:
             script = f"python {py_filepath}"
+        script = replace_keywords(script, {"RUNCODER_GENERATED_CODE": py_filepath})
 
         withTempFile(
             write=script,
