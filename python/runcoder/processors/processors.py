@@ -185,28 +185,25 @@ def runCode(message):
 
     def write_bash(py_filepath):
         def execute_bash(sh_filepath):
-            return subprocess.run(
+            with subprocess.Popen(
                 f"bash {sh_filepath}",
                 shell=True,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            ) as process:
+                for line in process.stdout:
+                    print(line.decode("utf8"), flush=True)
 
-        process = withTempFile(
+        withTempFile(
             write=f"python {py_filepath}",
             in_file_with_suffix=".sh",
             then_do=execute_bash,
         )
-        print(process.stdout, flush=True)
-        print(process.stderr, flush=True)
 
     withTempFile(
         write=f"{code[0]}\nprint('Printing from inside script!')",
         in_file_with_suffix=".py",
         then_do=write_bash,
     )
-    # print(code[0], flush=True)
-    # exec(code[0])
-    # print("DONE", flush=True)
+
     return {"output": None, "name": None, "cache": None}
