@@ -7,6 +7,7 @@ import {
   isRoot,
   isSeriesElement,
   OUTPUT,
+  SCRIPT,
   SOCIAL,
 } from "z_utils/constants";
 import {
@@ -71,4 +72,8 @@ export function useIsSocial(sectionId: string) {
 
 export function useIsGlobalVariables(sectionId: string) {
   return useIsType(sectionId, GLOBAL_VARIABLES);
+}
+
+export function useIsScript(sectionId: string) {
+  return useIsType(sectionId, SCRIPT);
 }

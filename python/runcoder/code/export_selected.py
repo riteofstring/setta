@@ -1,7 +1,14 @@
 import ast
 import copy
 
-from ..utils.constants import DECK, DICT_ROOT, GLOBAL_VARIABLES, LIST_ROOT, SECTION
+from ..utils.constants import (
+    DECK,
+    DICT_ROOT,
+    GLOBAL_VARIABLES,
+    LIST_ROOT,
+    SCRIPT,
+    SECTION,
+)
 
 
 def get_section_config(p, id):
@@ -92,6 +99,13 @@ def export_selected(p):
     return e.output
 
 
+def get_script(p):
+    for id, s in p["sections"].items():
+        if get_section_type(p, id) == SCRIPT:
+            return s["script"]
+    return None
+
+
 class Exporter:
     def __init__(self, p):
         self.output = {}
@@ -99,20 +113,25 @@ class Exporter:
         self.param_var_names = set()
         self.top_level_section_names = set()
         self.section_name_to_id = {}
+        self.script = None
 
     def export(self):
         self.top_level_section_names = get_top_level_section_names(self.p)
         self.section_name_to_id = get_section_name_to_id(self.p)
-        self.export_global_variables()
+        self.export_global_variables_and_remove_script()
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
 
-    def export_global_variables(self):
+    def export_global_variables_and_remove_script(self):
+        to_pop = []
         for id in self.p["sections"].keys():
-            if get_section_type(self.p, id) == GLOBAL_VARIABLES:
+            section_type = get_section_type(self.p, id)
+            if section_type == GLOBAL_VARIABLES:
                 self.export_params(id, generate_var_name=False)
-                self.p["sections"].pop(id)
-                self.p["projectConfig"]["children"].pop(id)
-                break  # assuming there's only 1 global var section
+            if section_type in [GLOBAL_VARIABLES, SCRIPT]:
+                to_pop.append(id)
+        for id in to_pop:
+            self.p["sections"].pop(id)
+            self.p["projectConfig"]["children"].pop(id)
 
     def export_sections(self, ids):
         return [self.export_section(x) for x in ids]

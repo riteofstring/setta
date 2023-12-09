@@ -111,5 +111,16 @@
       "subType": null,
       "childUITypeId": null
     }
+  },
+  "c24d248d-ce4c-441a-a05f-f4ff302407ff": {
+    "id": "c24d248d-ce4c-441a-a05f-f4ff302407ff",
+    "type": "SCRIPT",
+    "name": "",
+    "presetType": "BASE",
+    "config": {
+      "collections": [],
+      "subType": null,
+      "childUITypeId": null
+    }
   }
 }

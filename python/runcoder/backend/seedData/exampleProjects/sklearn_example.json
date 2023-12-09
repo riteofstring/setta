@@ -51,7 +51,8 @@
           "size": {
             "width": 450,
             "height": "auto"
-          }
+          },
+          "script": ""
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
@@ -73,7 +74,8 @@
           "size": {
             "width": 450,
             "height": "auto"
-          }
+          },
+          "script": ""
         },
         "e209e428-eea6-4e14-b61e-0648ec28dd76": {
           "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -95,7 +97,8 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          }
+          },
+          "script": ""
         }
       },
       "evCols": {

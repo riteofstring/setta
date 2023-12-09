@@ -20,6 +20,7 @@ export type SectionType = {
   descriptionHeight: number;
   descriptionVisible: boolean;
   nonPresetUITypeIds: string[];
+  script: string;
 };
 
 export type ManySectionType = ManyOf<SectionType>;

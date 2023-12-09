@@ -4,7 +4,7 @@ from pprint import pprint
 
 import jedi
 
-from ..code.export_selected import export_selected
+from ..code.export_selected import export_selected, get_script
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
@@ -194,14 +194,18 @@ def runCode(message):
                 for line in process.stdout:
                     print(line.decode("utf8"), flush=True)
 
+        script = get_script(message["message"])
+        if script in [None, ""]:
+            script = f"python {py_filepath}"
+
         withTempFile(
-            write=f"python {py_filepath}",
+            write=script,
             in_file_with_suffix=".sh",
             then_do=execute_bash,
         )
 
     withTempFile(
-        write=f"{code[0]}\nprint('Printing from inside script!')",
+        write=code[0],
         in_file_with_suffix=".py",
         then_do=write_bash,
     )

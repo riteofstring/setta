@@ -50,6 +50,7 @@ def create_tables():
             description TEXT,
             descriptionHeight REAL,
             descriptionVisible BOOLEAN,
+            script TEXT,
             FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id),
             FOREIGN KEY (chainedFromId) REFERENCES Section(id),
             FOREIGN KEY (evColId) REFERENCES EVColId(id),

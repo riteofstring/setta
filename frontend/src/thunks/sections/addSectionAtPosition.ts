@@ -4,6 +4,8 @@ import {
   DECK_UI_TYPE_ID,
   GLOBAL_VARIABLES,
   GLOBAL_VARIABLES_UI_TYPE_ID,
+  SCRIPT,
+  SCRIPT_UI_TYPE_ID,
 } from "z_utils/constants";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { SectionPositionType } from "z_utils/types/sectionPosition";
@@ -29,6 +31,9 @@ export function addSectionAtPosition({
   } else if (type === GLOBAL_VARIABLES) {
     sectionProps.name = "Global Variables";
     sectionProps.uiTypeId = GLOBAL_VARIABLES_UI_TYPE_ID;
+  } else if (type === SCRIPT) {
+    sectionProps.name = "Script";
+    sectionProps.uiTypeId = SCRIPT_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({
     sectionProps,

@@ -6,7 +6,7 @@ import {
 import { useEffect, useState } from "react";
 import { Item } from "utils/atoms/dropdown/item";
 import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
-import { DECK, GLOBAL_VARIABLES, SECTION } from "z_utils/constants";
+import { DECK, GLOBAL_VARIABLES, SCRIPT, SECTION } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
@@ -75,6 +75,11 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
           }
         >
           New Global Variables
+        </Item>
+        <Item
+          onClick={() => onClickAddSection({ type: SCRIPT, ...commonProps })}
+        >
+          New Script
         </Item>
         <Item onClick={openLoadModal}>Load Section</Item>
       </ContextMenuCore>
