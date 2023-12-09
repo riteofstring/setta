@@ -174,9 +174,9 @@ def prepend_with_imports(
     if force_appear_var_name:
         line_num = var_name_to_line_num[force_appear_var_name]
         original_force_appear_var_str = lines[line_num]
-        var_str = original_force_appear_var_str.rstrip(".")
+        var_str = original_force_appear_var_str.rstrip(".(")
         try:
-            ast.parse(original_force_appear_var_str)
+            ast.parse(var_str)
         except SyntaxError:
             var_str = var_declaration(force_appear_var_name, "None")
         lines[line_num] = var_str

@@ -33,7 +33,7 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
   if (isUUID(selectedItem)) {
     setSelectedItemChildren(sectionId, id, changedByUser);
   } else {
-    requestParameters(selectedItem, (x) => {
+    requestParameters(sectionId, `${selectedItem}(`, (x) => {
       createChildrenCodeInfo(id, x);
       setSelectedItemChildren(sectionId, id, changedByUser);
     });

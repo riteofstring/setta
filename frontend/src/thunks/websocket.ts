@@ -1,13 +1,15 @@
 import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useNotification } from "models/notification";
 import { useTypeErrors } from "models/typeErrors";
 import { useWebsocketRooms } from "models/websocket";
 import { createNewId } from "z_utils/utils";
 import { getProjectDataToGenerateCode } from "./generateCode";
 
-export function requestParameters(name, callback) {
+export function requestParameters(sectionId, value, callback) {
   const id = createNewId();
+  const projectConfigId = useProjectConfig.getState().id;
   const unsub = useWebsocketRooms.subscribe(
     (x) => x[id],
     (x) => {
@@ -18,7 +20,11 @@ export function requestParameters(name, callback) {
       }
     }
   );
-  sendMessage({ id, messageType: "parametersRequest", message: name });
+  sendMessage({
+    id,
+    messageType: "parametersRequest",
+    message: { projectConfigId, sectionId, paramInfoId: null, value },
+  });
 }
 
 export function requestTypeCheck() {

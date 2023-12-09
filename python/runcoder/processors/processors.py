@@ -9,7 +9,6 @@ from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
     generate_script,
-    get_import_text,
     prepend_with_imports,
     set_line,
 )
@@ -52,7 +51,11 @@ def get_consumer_fn(message):
 
 
 def maybe_read_cache(message, cache):
-    if message["messageType"] in ["codeCompletionRequest", "textFieldCompletion"]:
+    if message["messageType"] in [
+        "parametersRequest",
+        "codeCompletionRequest",
+        "textFieldCompletion",
+    ]:
         message = message["message"]
         message["cached"] = cache.text_field_generated_code.get(
             message["projectConfigId"], {}
@@ -71,7 +74,11 @@ def maybe_cache_result(message, result, cache):
 
 
 def codeCompletion(message):
-    return completionHelper(message, ["module", "class", "function"], "codeCompletion")
+    return completionHelper(
+        message,
+        "codeCompletion",
+        textFieldCompletionFn(["module", "class", "function"]),
+    )
 
 
 def textFieldInitializeCode(message):
@@ -97,10 +104,22 @@ def textFieldInitializeCode(message):
 
 
 def textFieldCompletion(message):
-    return completionHelper(message, None, "textFieldCompletion")
+    return completionHelper(message, "textFieldCompletion", textFieldCompletionFn(None))
 
 
-def completionHelper(message, return_types, return_name):
+def textFieldCompletionFn(return_types):
+    def fn(message, code, var_name_to_line_num, var_name):
+        output = []
+        for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1):
+            if return_types and c.type not in return_types:
+                continue
+            output.append(f"{message['value']}{c.complete}")
+        return output
+
+    return fn
+
+
+def completionHelper(message, return_name, fn):
     message = message["message"]
     cached = message.pop("cached")
     if cached is None:
@@ -111,18 +130,16 @@ def completionHelper(message, return_types, return_name):
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
-    output = []
-    for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1):
-        if return_types and c.type not in return_types:
-            continue
-        output.append(f"{message['value']}{c.complete}")
+    print("completionHelper", flush=True)
+    output = fn(message, code, var_name_to_line_num, var_name)
     return {"output": output, "name": return_name, "cache": None}
 
 
-def parametersRequest(message):
-    code = f'${get_import_text(message["message"])[0]}; ${message["message"]}('
-    print("code", code)
-    signatures = jedi.Script(code).get_signatures()
+def parametersRequestFn(message, code, var_name_to_line_num, var_name):
+    print("parametersRequest", flush=True)
+    signatures = jedi.Script(code).get_signatures(
+        line=var_name_to_line_num[var_name] + 1
+    )
     output = []
     if signatures:
         signature = signatures[0]
@@ -134,7 +151,12 @@ def parametersRequest(message):
                 else None
             )
             output.append({"name": param.name, "defaultVal": defaultVal})
-    return {"output": output, "name": "parameters", "cache": None}
+
+    return output
+
+
+def parametersRequest(message):
+    return completionHelper(message, "parameters", parametersRequestFn)
 
 
 def typeCheckRequest(message):
