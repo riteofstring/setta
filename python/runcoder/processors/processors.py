@@ -14,7 +14,7 @@ from ..code.generate_code import (
 )
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
-from .utils import subprocessWithTempFile
+from .utils import withTempFile
 
 
 async def getConsumerMessage(message, tasks_obj, cache):
@@ -152,14 +152,14 @@ def typeCheckRequest(message):
         return {"output": {}, "name": "typeCheck", "cache": None}
 
     def fn(temp_file_path):
-        subprocess.run(
+        return subprocess.run(
             ["dmypy", "check", temp_file_path],
             capture_output=True,
             text=True,
             check=True,
         )
 
-    process = subprocessWithTempFile(code, fn)
+    process = withTempFile(write=code, in_file_with_suffix=".py", then_do=fn)
     stdout = process.stdout
 
     print("stdout", stdout, flush=True)
@@ -183,16 +183,30 @@ def allConnections(message):
 def runCode(message):
     code = generate_code(export_selected(message["message"]))
 
-    def fn(temp_file_path):
-        subprocess.run(
-            ["python", temp_file_path],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+    def write_bash(py_filepath):
+        def execute_bash(sh_filepath):
+            return subprocess.run(
+                f"bash {sh_filepath}",
+                shell=True,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
 
-    process = subprocessWithTempFile(code[0], fn)
+        process = withTempFile(
+            write=f"python {py_filepath}",
+            in_file_with_suffix=".sh",
+            then_do=execute_bash,
+        )
+        print(process.stdout, flush=True)
+        print(process.stderr, flush=True)
+
+    withTempFile(
+        write=f"{code[0]}\nprint('Printing from inside script!')",
+        in_file_with_suffix=".py",
+        then_do=write_bash,
+    )
     # print(code[0], flush=True)
     # exec(code[0])
-    print("DONE", flush=True)
+    # print("DONE", flush=True)
     return {"output": None, "name": None, "cache": None}
