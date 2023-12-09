@@ -37,7 +37,7 @@ export function TextInput({
 
   const goToSection = useGoToSection();
 
-  window.onVariableClick = function (e, variableType, variable) {
+  window.onTextInputVariableClick = function (e, variableType, variable) {
     if (e.ctrlKey) {
       const section = _.find(useSectionInfos.getState().x, (s) =>
         variableType === "global"
@@ -46,6 +46,8 @@ export function TextInput({
       );
       const id = section?.id;
       if (id) {
+        e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+        e.srcElement.parentElement.blur(); //don't leave cursor behind
         goToSection(id);
       }
     }
@@ -176,7 +178,7 @@ function colorCodeVariables(code, sectionVarOccurrences, globalVarOccurrences) {
   taggedOccurrences.forEach(({ variable, start, end, type }) => {
     result += code.substring(lastIndex, start);
     const color = type === "section" ? "red" : "green";
-    result += `<span style="color: ${color};" onclick="onVariableClick(event, '${type}', '${variable}')">${variable}</span>`;
+    result += `<span style="color: ${color};" onclick="onTextInputVariableClick(event, '${type}', '${variable}')">${variable}</span>`;
     lastIndex = end;
   });
 
