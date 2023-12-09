@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import {
+  CODE,
   DECK,
   GLOBAL_VARIABLES,
   INFO,
@@ -76,4 +77,8 @@ export function useIsGlobalVariables(sectionId: string) {
 
 export function useIsScript(sectionId: string) {
   return useIsType(sectionId, SCRIPT);
+}
+
+export function useIsCode(sectionId: string) {
+  return useIsType(sectionId, CODE);
 }

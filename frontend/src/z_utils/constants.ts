@@ -14,6 +14,7 @@ export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
 export const GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
 export const SCRIPT = "SCRIPT";
+export const CODE = "CODE";
 export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
@@ -24,6 +25,7 @@ export const SECTION_TYPE_NAMES = [
   SOCIAL,
   GLOBAL_VARIABLES,
   SCRIPT,
+  CODE,
 ];
 
 export const DEFAULT_BASE_UI_TYPE_ID = "3fdaeb6a-e989-4888-b844-17a76f0b0192";
@@ -33,6 +35,7 @@ export const DECK_UI_TYPE_ID = "0e050316-06ca-48f4-92c1-9845abdf85f7";
 export const GLOBAL_VARIABLES_UI_TYPE_ID =
   "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a";
 export const SCRIPT_UI_TYPE_ID = "c24d248d-ce4c-441a-a05f-f4ff302407ff";
+export const CODE_UI_TYPE_ID = "af9f2cfd-8cb6-44fd-9736-eefffae4cd29";
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
@@ -73,6 +76,7 @@ export const uiTypesToPretty = Object.freeze(
       [SOCIAL]: "Social",
       [GLOBAL_VARIABLES]: "Global Variables",
       [SCRIPT]: "Script",
+      [CODE]: "Code",
     })
   )
 );

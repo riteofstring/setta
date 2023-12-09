@@ -3,6 +3,7 @@ import { useState } from "react";
 import { BiInfoCircle } from "react-icons/bi";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
+import { CodeArea } from "./CodeArea";
 import "./dndline.css";
 import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
@@ -23,6 +24,7 @@ export function SectionContainerCoreResizable({
   isInfo,
   isGlobalVariables,
   isScript,
+  isCode,
   hasNested,
   hasDescription,
   isActiveSection,
@@ -81,6 +83,7 @@ export function SectionContainerCoreResizable({
           isInfo={isInfo}
           isGlobalVariables={isGlobalVariables}
           isScript={isScript}
+          isCode={isCode}
         />
 
         {!isInfo && hasDescription && (
@@ -110,6 +113,7 @@ function AreaSwitch({
   isInfo,
   isGlobalVariables,
   isScript,
+  isCode,
 }) {
   if (isOutput) {
     return <OutputArea sectionId={sectionId} />;
@@ -125,6 +129,9 @@ function AreaSwitch({
   }
   if (isScript) {
     return <ScriptArea sectionId={sectionId} />;
+  }
+  if (isCode) {
+    return <CodeArea sectionId={sectionId} />;
   }
   if (!isRoot) {
     return (

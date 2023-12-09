@@ -16,6 +16,7 @@ DICT_ROOT = "DICT_ROOT"
 DECK = "DECK"
 GLOBAL_VARIABLES = "GLOBAL_VARIABLES"
 SCRIPT = "SCRIPT"
+CODE = "CODE"
 
 
 def is_section_ui_type(x):

@@ -4,6 +4,7 @@ import {
 } from "hooks/useSectionDescription";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import {
+  useIsCode,
   useIsGlobalVariables,
   useIsInfo,
   useIsOutput,
@@ -29,6 +30,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isInfo = useIsInfo(sectionId);
   const isGlobalVariables = useIsGlobalVariables(sectionId);
   const isScript = useIsScript(sectionId);
+  const isCode = useIsCode(sectionId);
   const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
@@ -63,6 +65,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         isInfo={isInfo}
         isGlobalVariables={isGlobalVariables}
         isScript={isScript}
+        isCode={isCode}
         hasNested={hasNested}
         hasDescription={hasDescription}
         isActiveSection={isActiveSection}

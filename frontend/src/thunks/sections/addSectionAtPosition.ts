@@ -1,5 +1,7 @@
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import {
+  CODE,
+  CODE_UI_TYPE_ID,
   DECK,
   DECK_UI_TYPE_ID,
   GLOBAL_VARIABLES,
@@ -34,6 +36,9 @@ export function addSectionAtPosition({
   } else if (type === SCRIPT) {
     sectionProps.name = "Script";
     sectionProps.uiTypeId = SCRIPT_UI_TYPE_ID;
+  } else if (type === CODE) {
+    sectionProps.name = "Code";
+    sectionProps.uiTypeId = CODE_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({
     sectionProps,

@@ -23,6 +23,7 @@ export function newSectionInfo({
   descriptionVisible = false,
   nonPresetUITypeIds = [],
   script = "",
+  code = "",
   existingVarNames,
 }: Partial<SectionType> & {
   size: SizeType;
@@ -47,6 +48,7 @@ export function newSectionInfo({
     descriptionHeight,
     descriptionVisible,
     script,
+    code,
     nonPresetUITypeIds,
   };
 }

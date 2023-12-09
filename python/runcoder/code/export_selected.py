@@ -2,6 +2,7 @@ import ast
 import copy
 
 from ..utils.constants import (
+    CODE,
     DECK,
     DICT_ROOT,
     GLOBAL_VARIABLES,
@@ -113,7 +114,6 @@ class Exporter:
         self.param_var_names = set()
         self.top_level_section_names = set()
         self.section_name_to_id = {}
-        self.script = None
 
     def export(self):
         self.top_level_section_names = get_top_level_section_names(self.p)
@@ -127,7 +127,7 @@ class Exporter:
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
                 self.export_params(id, generate_var_name=False)
-            if section_type in [GLOBAL_VARIABLES, SCRIPT]:
+            if section_type in [GLOBAL_VARIABLES, SCRIPT, CODE]:
                 to_pop.append(id)
         for id in to_pop:
             self.p["sections"].pop(id)

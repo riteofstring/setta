@@ -1,124 +1,132 @@
-# # import re
-
-# # def clean_line(line):
-# #     # Remove trailing operators
-# #     while line and line[-1] in {'.', ',', '+', '-', '*', '/', '%', '<', '>', '&', '|', '^', '~', ':', ';'}:
-# #         line = line[:-1]
-
-# #     # Balance parentheses and brackets
-# #     stack = []
-# #     for char in line:
-# #         if char in '([{':
-# #             stack.append(char)
-# #         elif char in ')]}':
-# #             if stack:
-# #                 last_open = stack[-1]
-# #                 if (char == ')' and last_open == '(') or \
-# #                    (char == ']' and last_open == '[') or \
-# #                    (char == '}' and last_open == '{'):
-# #                     stack.pop()
-# #                 else:
-# #                     line = line.replace(char, '', 1)
-# #             else:
-# #                 line = line.replace(char, '', 1)
-
-# #     # Add closing brackets for unmatched opening brackets
-# #     closing_brackets = {'(': ')', '[': ']', '{': '}'}
-# #     for open_bracket in reversed(stack):
-# #         line += closing_brackets[open_bracket]
-
-# #     # Use regex to find and complete incomplete assignments
-# #     incomplete_assignment_regex = r'(\=\s*($|\,|\)|\]|\}|\;))'
-# #     line = re.sub(incomplete_assignment_regex, '=None\\2', line)
-
-# #     return line
+# import jedi
+# from pprint import pprint
+# from runcoder.code.utils import get_str_from_value, get_value_from_completions
+# import string
+# import copy
 
 
-# # # Test the function
-# # result = clean_line("x=torch==")
-# # print(result)
+# def append_will_change_var_name(char_to_append):
+#     # Check if the original string is a valid identifier
+#     # if not var_name.isidentifier():
+#     #     raise ValueError("The provided string is not a valid Python identifier")
+#     # Check if the character to append is a letter, digit, or underscore
+#     if char_to_append in string.ascii_letters + string.digits + "_":
+#         return True  # Appending will result in a new variable name
+#     else:
+#         return False  # Appending will not create a valid variable name, possibly an operator
 
-# # import ast
-# # ast.parse(result)
 
 
-# def balance_brackets_quotes(s):
-#     stack = []
-#     balanced_string = ''
 
-#     # Maps of opening and closing brackets
-#     opening_brackets = {'(': ')', '{': '}', '[': ']'}
-#     closing_brackets = {')': '(', '}': '{', ']': '['}
 
-#     for char in s:
-#         if char in opening_brackets or char in ['"', "'"]:
-#             # Push opening brackets and quotes onto the stack
-#             stack.append(char)
-#         elif char in closing_brackets:
-#             if stack and stack[-1] == closing_brackets[char]:
-#                 # Properly closed bracket
-#                 stack.pop()
-#             else:
-#                 # Unbalanced closing bracket, insert corresponding opening bracket
-#                 balanced_string += closing_brackets[char]
-#         balanced_string += char
+# from_frontend = [
+#     {"type": "ref", "value": "e580c968-b48e-47d9-ab85-b55b951a9444"},
+#     {"type": "raw", "value": "+s"},
+# ]
+# codeJson = {
+#     "p0": {
+#         "paramInfoId": "4dfeda26-3039-4cd7-a8c4-3045d952ce89",
+#         "sectionId": "e580c968-b48e-47d9-ab85-b55b951a9444",
+#     },
+#     "s0": {"sectionId": "e580c968-b48e-47d9-ab85-b55b951a9444"},
+# }
 
-#     # Add any unmatched opening brackets or quotes at the end
-#     while stack:
-#         opening = stack.pop()
-#         if opening in opening_brackets:
-#             balanced_string += opening_brackets[opening]
-#         else:
-#             balanced_string += opening  # For quotes, just repeat the same character
+# value = get_str_from_value(from_frontend, codeJson)
+# x = f"import torch;s0=[3];x={value}"
+# print(x)
+# results = jedi.Script(x).complete()
+# output = get_value_from_completions(codeJson, results, from_frontend)
 
-#     return balanced_string
+# pprint(output)
 
-# # Example usage
-# input_string = 'x=torch(y="'
-# balanced_string = balance_brackets_quotes(input_string)
-# print(balanced_string)
+
+
+# from runcoder.code.export_selected import export_selected
+# from runcoder.code.generate_code import generate_code
+# import json
+# from pprint import pprint
+
+# with open("python/runcoder/backend/seedData/exampleProjects/diffusionDrops.json") as f:
+#     p = json.load(f)
+
+# with open("python/runcoder/backend/seedData/BaseUITypes.json") as f:
+#     u = json.load(f)
+
+# config = p.pop("configs")[1]
+# config["uiTypes"].update(u)
+# p.update(config)
+
+# e = export_selected(p)
+# pprint(e)
+
+# print(generate_code(e)[0])
+
+
 
 # import ast
-# ast.parse(balanced_string)
+
+# root = ast.parse("x=5\nyy=3\nz=2")
+
+# names = [node.id for node in ast.walk(root) if isinstance(node, ast.Name)]
+# print(names)
 
 
-import jedi
-from pprint import pprint
-from runcoder.code.utils import get_str_from_value, get_value_from_completions
-import string
-import copy
+# import sklearn.cluster
+# import sklearn.datasets
+
+# n_samples=4000
+# n_clusters=4
+# p0=n_samples
+# p3=n_clusters
+# p4=0.6
+# p7=0
+# dataset=sklearn.datasets.make_blobs(n_samples=p0, centers=p3, cluster_std=p4, random_state=p7)
+# p10=dataset[0][:,::-1]
+# p11=n_clusters
+# p15=0
+# algorithm=sklearn.cluster.kmeans_plusplus(X=p10, n_clusters=p11, random_state=p15)
+
+# def test():
+#     try:
+#         return 5
+#     finally:
+#         print("still printed")
+
+# result = test()
+# print(result)
+
+# import subprocess
+# import time
+
+# def stream_process(process):
+#     go = process.poll() is None
+#     for line in process.stdout:
+#         print(line)
+#     return go
+
+# process = subprocess.Popen("python runcoder_temp.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+# while stream_process(process):
+#     time.sleep(0.1)
+
+# # process = subprocess.run(, shell=True, capture_output=True, text=True, check=True)
+# with subprocess.Popen("bash runcoder_temp.sh", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, text=True, bufsize=1) as process:
+#     for line in process.stdout:
+#         print(line)
+
+# import subprocess
+# import sys
+
+# process = subprocess.Popen(["python3", "runcoder_temp.py"], stdout=subprocess.PIPE)
+# for c in iter(lambda: process.stdout.read(1), b""):
+#     print(c)
+#     # f.buffer.write(c)
 
 
-def append_will_change_var_name(char_to_append):
-    # Check if the original string is a valid identifier
-    # if not var_name.isidentifier():
-    #     raise ValueError("The provided string is not a valid Python identifier")
-    # Check if the character to append is a letter, digit, or underscore
-    if char_to_append in string.ascii_letters + string.digits + "_":
-        return True  # Appending will result in a new variable name
-    else:
-        return False  # Appending will not create a valid variable name, possibly an operator
+import subprocess
+import sys
+with subprocess.Popen("bash runcoder_temp.sh", shell=True) as process:
+    pass
+    # for line in process.stdout:
+    #     print(line.decode('utf8'))
 
 
-
-
-
-from_frontend = [
-    {"type": "ref", "value": "e580c968-b48e-47d9-ab85-b55b951a9444"},
-    {"type": "raw", "value": "+s"},
-]
-codeJson = {
-    "p0": {
-        "paramInfoId": "4dfeda26-3039-4cd7-a8c4-3045d952ce89",
-        "sectionId": "e580c968-b48e-47d9-ab85-b55b951a9444",
-    },
-    "s0": {"sectionId": "e580c968-b48e-47d9-ab85-b55b951a9444"},
-}
-
-value = get_str_from_value(from_frontend, codeJson)
-x = f"import torch;s0=[3];x={value}"
-print(x)
-results = jedi.Script(x).complete()
-output = get_value_from_completions(codeJson, results, from_frontend)
-
-pprint(output)

@@ -18,6 +18,16 @@
             "y": -11.099759027888169,
             "zIndex": 2
           },
+          "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
+            "x": 1813.9581736454732,
+            "y": 27.165970384525778,
+            "zIndex": 4
+          },
+          "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
+            "x": 1466.9275931122022,
+            "y": -223.54053266232413,
+            "zIndex": 3
+          },
           "d96cb110-6f72-435a-b745-2d55e277f983": {
             "x": 766,
             "y": 239.70833206176758,
@@ -42,6 +52,8 @@
           "description": "",
           "descriptionHeight": 100,
           "descriptionVisible": 0,
+          "script": "",
+          "code": "",
           "nonPresetUITypeIds": ["74d80124-deb9-4577-8470-813cb9be4e56"],
           "parentId": null,
           "chainedFrom": null,
@@ -51,8 +63,55 @@
           "size": {
             "width": 450,
             "height": "auto"
-          },
-          "script": ""
+          }
+        },
+        "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
+          "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
+          "name": "Code",
+          "paramInfoId": null,
+          "evColId": "69220358-73c1-49c3-9b78-d7cf733b2aa8",
+          "uiTypeId": "90ad65be-05c6-4f5b-81c4-ca7b4344db49",
+          "uiTypeColId": "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a",
+          "social": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": 0,
+          "script": "",
+          "code": "import numpy as np",
+          "nonPresetUITypeIds": ["90ad65be-05c6-4f5b-81c4-ca7b4344db49"],
+          "parentId": null,
+          "chainedFrom": null,
+          "selectedItem": null,
+          "outputGroup": null,
+          "children": [],
+          "size": {
+            "width": "auto",
+            "height": "auto"
+          }
+        },
+        "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
+          "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
+          "name": "Script",
+          "paramInfoId": null,
+          "evColId": "fca181fc-c326-4d50-b028-37b368372f49",
+          "uiTypeId": "25add466-bd0e-48f7-b497-cbcab96b7b1d",
+          "uiTypeColId": "f35d7b7b-d268-45c9-94de-748f8f1cd98d",
+          "social": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": 0,
+          "script": "source activate abcde_env\npython {{ RUNCODER_GENERATED_CODE }}",
+          "code": "",
+          "nonPresetUITypeIds": ["25add466-bd0e-48f7-b497-cbcab96b7b1d"],
+          "parentId": null,
+          "chainedFrom": null,
+          "selectedItem": null,
+          "outputGroup": null,
+          "children": [],
+          "size": {
+            "width": "auto",
+            "height": "auto"
+          }
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
@@ -65,6 +124,8 @@
           "description": "",
           "descriptionHeight": 100,
           "descriptionVisible": 0,
+          "script": "",
+          "code": "",
           "nonPresetUITypeIds": ["fd8de817-8fc1-4502-b3a5-58e3b99dc418"],
           "parentId": null,
           "chainedFrom": null,
@@ -74,8 +135,7 @@
           "size": {
             "width": 450,
             "height": "auto"
-          },
-          "script": ""
+          }
         },
         "e209e428-eea6-4e14-b61e-0648ec28dd76": {
           "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -88,6 +148,8 @@
           "description": "",
           "descriptionHeight": 100,
           "descriptionVisible": 0,
+          "script": "",
+          "code": "",
           "nonPresetUITypeIds": ["1a83a3ce-e415-4c2d-bed0-959ce18e7995"],
           "parentId": null,
           "chainedFrom": null,
@@ -97,8 +159,7 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          },
-          "script": ""
+          }
         }
       },
       "evCols": {
@@ -127,7 +188,9 @@
           "669986a2-03d6-4de4-af41-f9395cf0ef57": "0.6",
           "70f4e095-c286-4379-a5f5-4d02df40e1a5": "",
           "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": "n_clusters"
-        }
+        },
+        "69220358-73c1-49c3-9b78-d7cf733b2aa8": {},
+        "fca181fc-c326-4d50-b028-37b368372f49": {}
       },
       "uiTypes": {
         "1a83a3ce-e415-4c2d-bed0-959ce18e7995": {
@@ -141,6 +204,17 @@
             "childUITypeId": null
           }
         },
+        "25add466-bd0e-48f7-b497-cbcab96b7b1d": {
+          "id": "25add466-bd0e-48f7-b497-cbcab96b7b1d",
+          "name": "Script",
+          "type": "SCRIPT",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
+            "childUITypeId": null
+          }
+        },
         "74d80124-deb9-4577-8470-813cb9be4e56": {
           "id": "74d80124-deb9-4577-8470-813cb9be4e56",
           "name": "Global Variables",
@@ -149,6 +223,17 @@
           "config": {
             "subType": null,
             "codeInfoId": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
+            "childUITypeId": null
+          }
+        },
+        "90ad65be-05c6-4f5b-81c4-ca7b4344db49": {
+          "id": "90ad65be-05c6-4f5b-81c4-ca7b4344db49",
+          "name": "Code",
+          "type": "CODE",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "20619c35-a36c-4833-b329-e090c95b5af9",
             "childUITypeId": null
           }
         },
@@ -165,6 +250,7 @@
         }
       },
       "uiTypeCols": {
+        "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a": {},
         "2e7c7457-4ce1-4be5-8b35-3c86aff732d7": {
           "3e754333-caea-451a-abba-dd254c49502f": {
             "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
@@ -250,7 +336,8 @@
             "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
             "nonPresetUITypeIds": []
           }
-        }
+        },
+        "f35d7b7b-d268-45c9-94de-748f8f1cd98d": {}
       },
       "codeInfo": {
         "03ee6530-d464-461c-a989-b310ee2d9b95": {
@@ -282,6 +369,14 @@
           "name": "args",
           "editable": 0,
           "rcType": "parameter",
+          "defaultVal": null,
+          "children": []
+        },
+        "20619c35-a36c-4833-b329-e090c95b5af9": {
+          "id": "20619c35-a36c-4833-b329-e090c95b5af9",
+          "name": "Contents",
+          "editable": 0,
+          "rcType": "collection",
           "defaultVal": null,
           "children": []
         },
@@ -475,6 +570,14 @@
             "3e754333-caea-451a-abba-dd254c49502f",
             "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2"
           ]
+        },
+        "f4d65a12-49f4-4da5-9362-70f0df53ee10": {
+          "id": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
+          "name": "Contents",
+          "editable": 0,
+          "rcType": "collection",
+          "defaultVal": null,
+          "children": []
         }
       },
       "userCodeInfoMaps": {},

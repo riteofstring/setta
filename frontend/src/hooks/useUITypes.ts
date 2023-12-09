@@ -1,7 +1,6 @@
 import { useUITypes } from "models/info/uiTypes";
 import {
   INFO_CONFIG_TAB,
-  RUNTIME_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
 } from "models/uiEditor";
