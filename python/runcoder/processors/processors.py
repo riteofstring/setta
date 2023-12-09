@@ -53,9 +53,9 @@ def get_consumer_fn(message):
 def maybe_read_cache(message, cache):
     if message["messageType"] == "textFieldCompletion":
         message = message["message"]
-        message["cached"] = cache.text_field_generated_code[message["projectConfigId"]][
-            message["sectionId"]
-        ]
+        message["cached"] = cache.text_field_generated_code.get(
+            message["projectConfigId"], {}
+        ).get(message["sectionId"], None)
 
 
 def maybe_cache_result(message, result, cache):
@@ -112,7 +112,10 @@ def textFieldInitializeCode(message):
 
 def textFieldCompletion(message):
     message = message["message"]
-    lines, var_name_to_line_num, codeJson = message.pop("cached")
+    cached = message.pop("cached")
+    if cached is None:
+        return {"output": [], "name": "textFieldCompletion", "cache": None}
+    lines, var_name_to_line_num, codeJson = cached
     var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
     set_line(lines, var_name_to_line_num, var_name, message["value"])
     code, var_name_to_line_num = prepend_with_imports(
@@ -191,7 +194,7 @@ def replace_keywords(bash_script, replacements):
 
 
 def runCode(message):
-    code = generate_code(export_selected(message["message"]))
+    code, _ = generate_code(export_selected(message["message"]))
 
     def write_bash(py_filepath):
         def execute_bash(sh_filepath):
@@ -207,7 +210,7 @@ def runCode(message):
         script = get_script(message["message"])
         if script in [None, ""]:
             script = f"python {py_filepath}"
-        script = replace_keywords(script, {"RUNCODER_GENERATED_CODE": py_filepath})
+        script = replace_keywords(script, {"RUNCODER_PYTHON_FILE": py_filepath})
 
         withTempFile(
             write=script,
@@ -216,7 +219,7 @@ def runCode(message):
         )
 
     withTempFile(
-        write=code[0],
+        write=code,
         in_file_with_suffix=".py",
         then_do=write_bash,
     )
