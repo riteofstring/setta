@@ -107,6 +107,13 @@ def get_script(p):
     return None
 
 
+def get_code(p):
+    for id, s in p["sections"].items():
+        if get_section_type(p, id) == CODE:
+            return s["code"]
+    return None
+
+
 class Exporter:
     def __init__(self, p):
         self.output = {}

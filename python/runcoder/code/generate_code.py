@@ -4,6 +4,7 @@ import copy
 from collections import defaultdict
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
+from .export_selected import get_code, get_script
 from .utils import push_var_deep
 
 
@@ -164,7 +165,9 @@ def prepend_with_imports(lines, force_appear_var_name, var_name_to_line_num):
     return imports + "\n\n" + "\n".join(lines), new_var_name_to_line_num
 
 
-def generate_code(selected, push_var_name=None, force_appear_var_name=None):
+def generate_code_and_prepend_imports(
+    selected, push_var_name=None, force_appear_var_name=None
+):
     (
         lines,
         var_name_to_line_num,
@@ -178,3 +181,30 @@ def generate_code(selected, push_var_name=None, force_appear_var_name=None):
         force_appear_var_name,
         var_name_to_line_num,
     )
+
+
+def double_braces(x):
+    return f"{{{{ {x} }}}}"
+
+
+def replace_keywords(x, replacements):
+    for key, value in replacements.items():
+        x = x.replace(double_braces(key), value)
+    return x
+
+
+def generate_script(p, py_filepath):
+    script = get_script(p)
+    if script in [None, ""]:
+        script = f"python {py_filepath}"
+    return replace_keywords(script, {"RUNCODER_PYTHON_FILE": py_filepath})
+
+
+def generate_code(selected, p, push_var_name=None, force_appear_var_name=None):
+    x, _ = generate_code_and_prepend_imports(
+        selected, push_var_name, force_appear_var_name
+    )
+    code = get_code(p)
+    if code in [None, ""]:
+        return x
+    return replace_keywords(code, {"RUNCODER_GENERATED_CODE": x})

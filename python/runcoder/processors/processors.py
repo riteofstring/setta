@@ -4,10 +4,11 @@ from pprint import pprint
 
 import jedi
 
-from ..code.export_selected import export_selected, get_script
+from ..code.export_selected import export_selected
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
+    generate_script,
     get_import_text,
     prepend_with_imports,
     set_line,
@@ -146,10 +147,11 @@ def parametersRequest(message):
 
 
 def typeCheckRequest(message):
-    code_json = export_selected(message["message"])
+    p = message["message"]
+    code_json = export_selected(p)
     print("typeCheckRequest", flush=True)
     try:
-        code, _ = generate_code(code_json)
+        code = generate_code(code_json, p)
     except SyntaxError:
         print("typeCheckRequest SyntaxError", flush=True)
         return {"output": {}, "name": "typeCheck", "cache": None}
@@ -183,18 +185,9 @@ def allConnections(message):
     return {"output": None, "name": None, "cache": None}
 
 
-def double_braces(x):
-    return f"{{{{ {x} }}}}"
-
-
-def replace_keywords(bash_script, replacements):
-    for key, value in replacements.items():
-        bash_script = bash_script.replace(double_braces(key), value)
-    return bash_script
-
-
 def runCode(message):
-    code, _ = generate_code(export_selected(message["message"]))
+    p = message["message"]
+    code = generate_code(export_selected(p), p)
 
     def write_bash(py_filepath):
         def execute_bash(sh_filepath):
@@ -207,11 +200,7 @@ def runCode(message):
                 for line in process.stdout:
                     print(line.decode("utf8"), flush=True)
 
-        script = get_script(message["message"])
-        if script in [None, ""]:
-            script = f"python {py_filepath}"
-        script = replace_keywords(script, {"RUNCODER_PYTHON_FILE": py_filepath})
-
+        script = generate_script(p, py_filepath)
         withTempFile(
             write=script,
             in_file_with_suffix=".sh",
