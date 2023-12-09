@@ -51,18 +51,22 @@ export function useCodeCompletionWebsocketRoom(sectionId) {
   const [message, send] = useWebsocketRoom("codeCompletionRequest");
   const searchResults = message ? message.map((x) => ({ id: x, name: x })) : [];
 
-  function _send(value) {
-    let _value = value;
-    const { chainedFrom } = getSectionInfo(sectionId);
-    if (chainedFrom) {
-      const { selectedItem } = getSectionInfo(chainedFrom);
-      if (selectedItem) {
-        const { name } = useCodeInfo.getState().x[selectedItem];
-        _value = `${name}().${_value}`;
+  const _send = useCallback(
+    _.debounce((value) => {
+      const projectConfigId = useProjectConfig.getState().id;
+      let _value = value;
+      const { chainedFrom } = getSectionInfo(sectionId);
+      if (chainedFrom) {
+        const { selectedItem } = getSectionInfo(chainedFrom);
+        if (selectedItem) {
+          const { name } = useCodeInfo.getState().x[selectedItem];
+          _value = `${name}().${_value}`;
+        }
       }
-    }
-    send(_value);
-  }
+      send({ projectConfigId, sectionId, paramInfoId: null, value: _value });
+    }, 100),
+    [send]
+  );
 
   return [searchResults, _send];
 }

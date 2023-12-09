@@ -52,7 +52,7 @@ def get_consumer_fn(message):
 
 
 def maybe_read_cache(message, cache):
-    if message["messageType"] == "textFieldCompletion":
+    if message["messageType"] in ["codeCompletionRequest", "textFieldCompletion"]:
         message = message["message"]
         message["cached"] = cache.text_field_generated_code.get(
             message["projectConfigId"], {}
@@ -71,23 +71,7 @@ def maybe_cache_result(message, result, cache):
 
 
 def codeCompletion(message):
-    for_parser = message["message"].rstrip(".")
-    empty_output = {"output": [], "name": "codeCompletion", "cache": None}
-    try:
-        code = f'{get_import_text(for_parser)[0]}; {message["message"]}'
-    except SyntaxError as e:
-        print(f"Syntax Error: {e}")
-        return empty_output
-    if code == "":
-        return empty_output
-    results = jedi.Script(code).complete()
-    output = [
-        f"{message['message']}{x.complete}"
-        for x in results
-        if x.type in ["module", "class", "function"] and x.complete
-    ]
-    output = [x for x in output if x]
-    return {"output": output, "name": "codeCompletion", "cache": None}
+    return completionHelper(message, ["module", "class", "function"], "codeCompletion")
 
 
 def textFieldInitializeCode(message):
@@ -113,20 +97,26 @@ def textFieldInitializeCode(message):
 
 
 def textFieldCompletion(message):
+    return completionHelper(message, None, "textFieldCompletion")
+
+
+def completionHelper(message, return_types, return_name):
     message = message["message"]
     cached = message.pop("cached")
     if cached is None:
-        return {"output": [], "name": "textFieldCompletion", "cache": None}
+        return {"output": [], "name": return_name, "cache": None}
     lines, var_name_to_line_num, codeJson, templatedCode = cached
     var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
     set_line(lines, var_name_to_line_num, var_name, message["value"])
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
-    print("textFieldCompletion", flush=True)
-    output = jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1)
-    output = [f"{message['value']}{x.complete}" for x in output]
-    return {"output": output, "name": "textFieldCompletion", "cache": None}
+    output = []
+    for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1):
+        if return_types and c.type not in return_types:
+            continue
+        output.append(f"{message['value']}{c.complete}")
+    return {"output": output, "name": return_name, "cache": None}
 
 
 def parametersRequest(message):

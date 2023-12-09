@@ -11,6 +11,7 @@ export function IdNameCombobox({
   position,
   outerDivClasses,
   inputCallback,
+  onInputClick,
 }) {
   const {
     localOnSelectedItemChange,
@@ -53,6 +54,7 @@ export function IdNameCombobox({
         getToggleButtonProps={getToggleButtonProps}
         isOpen={isReallyOpen}
         small={small}
+        onInputClick={onInputClick}
       />
 
       <ComboboxList
