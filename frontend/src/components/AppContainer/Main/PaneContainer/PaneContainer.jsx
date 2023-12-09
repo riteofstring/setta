@@ -89,7 +89,7 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-0 min-w-0 flex-grow flex-col  border-slate-200 bg-slate-50 py-8 px-[2.66rem] shadow-md transition-transform dark:border-runcoder-800 dark:bg-runcoder-900 ${rightCondition}`}
+      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1 flex min-h-0 min-w-0 flex-grow  flex-col border-slate-200 bg-slate-50 py-8 px-12 shadow-md transition-transform dark:border-runcoder-800 dark:bg-runcoder-900 ${rightCondition}`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
       aria-label={`${paneTitle} Pane`}
     >

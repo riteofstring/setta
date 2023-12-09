@@ -5,7 +5,6 @@ import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import {
   INFO_CONFIG_TAB,
-  RUNTIME_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   tabNameToPretty,
   UI_CONFIG_TAB,
@@ -14,7 +13,6 @@ import {
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
-import { RunTimeOptions } from "./RuntimeOptions/RuntimeOptions";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { UIConfig } from "./UIConfig/UIConfig";
 
@@ -124,13 +122,13 @@ function InfoTab({ sectionId }) {
   );
 }
 
-function RuntimeTab({ sectionId }) {
-  return (
-    <TabContent value={RUNTIME_CONFIG_TAB}>
-      <RunTimeOptions sectionId={sectionId} />
-    </TabContent>
-  );
-}
+// function RuntimeTab({ sectionId }) {
+//   return (
+//     <TabContent value={RUNTIME_CONFIG_TAB}>
+//       <RunTimeOptions sectionId={sectionId} />
+//     </TabContent>
+//   );
+// }
 
 function TabContentSelector({ sectionId, tabName }) {
   if (tabName === SECTION_CONFIG_TAB) {
@@ -139,7 +137,8 @@ function TabContentSelector({ sectionId, tabName }) {
     return <UIConfigTab sectionId={sectionId} />;
   } else if (tabName === INFO_CONFIG_TAB) {
     return <InfoTab sectionId={sectionId} />;
-  } else if (tabName === RUNTIME_CONFIG_TAB) {
-    return <RuntimeTab sectionId={sectionId} />;
   }
+  // else if (tabName === RUNTIME_CONFIG_TAB) {
+  //   return <RuntimeTab sectionId={sectionId} />;
+  // }
 }
