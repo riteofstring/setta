@@ -16,20 +16,34 @@ def infer_imports(code_str):
     tree = ast.parse(code_str)
     assigned_vars = set()
     imports = defaultdict(list)
+    imported_modules = set()
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
+        # Handle import statements
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for name in node.names:
+                if name.asname:
+                    imported_modules.add(name.asname)
+                else:
+                    imported_modules.add(name.name)
+
+        # Handle variable assignments
+        elif isinstance(node, ast.Assign):
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     assigned_vars.add(target.id)
 
-        elif (
-            isinstance(node, ast.Name)
-            and node.id not in assigned_vars
-            and node.id not in dir(builtins)
-        ):
-            imports[get_location_str(node)].append(node.id)
+        # Handle names
+        elif isinstance(node, ast.Name):
+            id = node.id
+            if (
+                id not in assigned_vars
+                and id not in dir(builtins)
+                and id not in imported_modules
+            ):
+                imports[get_location_str(node)].append(id)
 
+        # Handle attributes
         elif isinstance(node, ast.Attribute):
             names = []
             current_node = node
@@ -37,14 +51,18 @@ def infer_imports(code_str):
                 names.append(current_node.attr)
                 current_node = current_node.value
 
-            if (
-                isinstance(current_node, ast.Name)
-                and current_node.id not in assigned_vars
-                and current_node.id not in dir(builtins)
-            ):
-                names.append(current_node.id)
-                names.reverse()
-                imports[get_location_str(node)].append(".".join(names))
+            if isinstance(current_node, ast.Name):
+                id = current_node.id
+                if (
+                    id not in assigned_vars
+                    and id not in dir(builtins)
+                    and id not in imported_modules
+                ):
+                    names.append(id)
+                    names.reverse()
+                    full_name = ".".join(names)
+                    if full_name not in imported_modules:
+                        imports[get_location_str(node)].append(full_name)
 
     final_imports = set()
     for candidates in imports.values():
@@ -143,7 +161,16 @@ def set_line(lines, var_name_to_line_num, var_name, value):
     lines[line_num] = var_declaration(var_name, value)
 
 
-def prepend_with_imports(lines, force_appear_var_name, var_name_to_line_num):
+def count_lines(string):
+    line_count = string.count("\n")
+    if string.endswith("\n"):
+        line_count -= 1
+    return line_count + 1  # Adjusting for the last line
+
+
+def prepend_with_imports(
+    lines, templated_code, force_appear_var_name, var_name_to_line_num
+):
     if force_appear_var_name:
         line_num = var_name_to_line_num[force_appear_var_name]
         original_force_appear_var_str = lines[line_num]
@@ -154,20 +181,31 @@ def prepend_with_imports(lines, force_appear_var_name, var_name_to_line_num):
             var_str = var_declaration(force_appear_var_name, "None")
         lines[line_num] = var_str
 
-    imports, num_imports = get_import_text("\n".join(lines))
+    code_to_infer = replace_keywords(
+        templated_code, {"RUNCODER_GENERATED_CODE": "\n".join(lines)}
+    )
+    imports, num_imports = get_import_text(code_to_infer)
 
     if force_appear_var_name:
         lines[line_num] = original_force_appear_var_str
 
+    num_preceding_lines = count_lines(
+        templated_code.split(double_braces("RUNCODER_GENERATED_CODE"))[0]
+    )
     new_var_name_to_line_num = {
-        k: v + num_imports + 1 for k, v in var_name_to_line_num.items()
+        k: v + num_preceding_lines + num_imports + 1
+        for k, v in var_name_to_line_num.items()
     }
-    return imports + "\n\n" + "\n".join(lines), new_var_name_to_line_num
+    return (
+        replace_keywords(
+            templated_code,
+            {"RUNCODER_GENERATED_CODE": imports + "\n\n" + "\n".join(lines)},
+        ),
+        new_var_name_to_line_num,
+    )
 
 
-def generate_code_and_prepend_imports(
-    selected, push_var_name=None, force_appear_var_name=None
-):
+def generate_code(selected, p, push_var_name=None, force_appear_var_name=None):
     (
         lines,
         var_name_to_line_num,
@@ -176,8 +214,12 @@ def generate_code_and_prepend_imports(
         push_var_name=push_var_name,
         force_appear_var_name=force_appear_var_name,
     )
+
+    code = get_code(p)
+
     return prepend_with_imports(
         lines,
+        code,
         force_appear_var_name,
         var_name_to_line_num,
     )
@@ -195,16 +237,6 @@ def replace_keywords(x, replacements):
 
 def generate_script(p, py_filepath):
     script = get_script(p)
-    if script in [None, ""]:
+    if script == "":
         script = f"python {py_filepath}"
     return replace_keywords(script, {"RUNCODER_PYTHON_FILE": py_filepath})
-
-
-def generate_code(selected, p, push_var_name=None, force_appear_var_name=None):
-    x, _ = generate_code_and_prepend_imports(
-        selected, push_var_name, force_appear_var_name
-    )
-    code = get_code(p)
-    if code in [None, ""]:
-        return x
-    return replace_keywords(code, {"RUNCODER_GENERATED_CODE": x})

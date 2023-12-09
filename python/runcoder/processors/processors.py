@@ -4,7 +4,7 @@ from pprint import pprint
 
 import jedi
 
-from ..code.export_selected import export_selected
+from ..code.export_selected import export_selected, get_code
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
@@ -94,6 +94,7 @@ def textFieldInitializeCode(message):
     message = message["message"]
     project = message["project"]
     codeJson = export_selected(project)
+    templatedCode = get_code(project)
     sectionId = message["sectionId"]
     paramInfoId = message["paramInfoId"]
     push_var_name = get_var_name(codeJson, sectionId, paramInfoId)
@@ -107,7 +108,7 @@ def textFieldInitializeCode(message):
     return {
         "output": None,
         "name": "textFieldInitializeCode",
-        "cache": [*to_cache, codeJson],
+        "cache": [*to_cache, codeJson, templatedCode],
     }
 
 
@@ -116,11 +117,11 @@ def textFieldCompletion(message):
     cached = message.pop("cached")
     if cached is None:
         return {"output": [], "name": "textFieldCompletion", "cache": None}
-    lines, var_name_to_line_num, codeJson = cached
+    lines, var_name_to_line_num, codeJson, templatedCode = cached
     var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
     set_line(lines, var_name_to_line_num, var_name, message["value"])
     code, var_name_to_line_num = prepend_with_imports(
-        lines, var_name, var_name_to_line_num
+        lines, templatedCode, var_name, var_name_to_line_num
     )
     print("textFieldCompletion", flush=True)
     output = jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1)
@@ -151,7 +152,7 @@ def typeCheckRequest(message):
     code_json = export_selected(p)
     print("typeCheckRequest", flush=True)
     try:
-        code = generate_code(code_json, p)
+        code, _ = generate_code(code_json, p)
     except SyntaxError:
         print("typeCheckRequest SyntaxError", flush=True)
         return {"output": {}, "name": "typeCheck", "cache": None}
@@ -187,7 +188,7 @@ def allConnections(message):
 
 def runCode(message):
     p = message["message"]
-    code = generate_code(export_selected(p), p)
+    code, _ = generate_code(export_selected(p), p)
 
     def write_bash(py_filepath):
         def execute_bash(sh_filepath):

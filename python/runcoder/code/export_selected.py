@@ -104,14 +104,14 @@ def get_script(p):
     for id, s in p["sections"].items():
         if get_section_type(p, id) == SCRIPT:
             return s["script"]
-    return None
+    return ""
 
 
 def get_code(p):
     for id, s in p["sections"].items():
         if get_section_type(p, id) == CODE:
             return s["code"]
-    return None
+    return ""
 
 
 class Exporter:
