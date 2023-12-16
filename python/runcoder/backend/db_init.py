@@ -160,7 +160,7 @@ def create_tables():
             y REAL DEFAULT 0,
             zIndex REAL DEFAULT 0,
             PRIMARY KEY (parentId, childId),
-            FOREIGN KEY (parentId) REFERENCES ProjectConfig(id),
+            FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
             FOREIGN KEY (childId) REFERENCES Section(id)
         );
         """,
@@ -180,7 +180,7 @@ def create_tables():
             type TEXT,
             uiTypeId TEXT,
             PRIMARY KEY (projectConfigId, type),
-            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
+            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
             FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
         );
         """,
@@ -191,7 +191,7 @@ def create_tables():
             name TEXT,
             projectConfigId TEXT,
             code TEXT,
-            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
+            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
         );
         """,
         # OutputGroup model
