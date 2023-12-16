@@ -148,7 +148,7 @@ def create_tables():
             y REAL DEFAULT 0,
             zoom REAL DEFAULT 1,
             UNIQUE (name, projectId),
-            FOREIGN KEY (projectId) REFERENCES Project(id)
+            FOREIGN KEY (projectId) REFERENCES Project(id) ON DELETE CASCADE
         );
         """,
         # ProjectConfigChildren model

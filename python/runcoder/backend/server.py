@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +14,7 @@ from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
 
+from .db.projects.delete import delete_projects
 from .db.projects.load import load_all_projects, load_full_project, load_project
 from .db.projects.save import (
     create_project,
@@ -105,6 +106,10 @@ class SaveAsExistingProjectConfigRequest(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: Optional[str] = None
+
+
+class DeleteProjectsRequest(BaseModel):
+    ids: List[str]
 
 
 class SetProjectNameRequest(BaseModel):
@@ -232,6 +237,11 @@ def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
 @app.post("/projects/saveAsExistingProjectConfig")
 def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
     return save_as_existing_project_config(x.project, x.configName)
+
+
+@app.post("/projects/deleteProjects")
+def route_delete_projects(x: DeleteProjectsRequest):
+    return delete_projects(x.ids)
 
 
 @app.post("/uiTypes/getBaseUITypes")

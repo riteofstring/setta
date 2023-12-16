@@ -63,3 +63,10 @@ export async function dbSaveAsExistingProjectConfig({ project, configName }) {
     body: { project, configName },
   });
 }
+
+export async function dbDeleteProjects({ ids }) {
+  return await post({
+    address: "/projects/deleteProjects",
+    body: { ids },
+  });
+}

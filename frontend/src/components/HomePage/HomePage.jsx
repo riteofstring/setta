@@ -1,3 +1,4 @@
+import { dbDeleteProjects } from "dbRequests/projects";
 import {
   createAndGoToProject,
   useGetProjectsForHomePage,
@@ -19,22 +20,44 @@ import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 export function HomePage() {
+  const [doRefresh, setDoRefresh] = useState(true);
   const { projects, getProjects } = useGetProjectsForHomePage();
 
   useEffect(() => {
-    getProjects();
-  }, []);
+    if (doRefresh) {
+      getProjects();
+      setDoRefresh(false);
+    }
+  }, [doRefresh]);
 
   return (
     <GridWrapper gridStyles="bg-rcbg-light dark:bg-rcbg-dark">
-      <RightColumn projects={projects} />
+      <RightColumn projects={projects} setDoRefresh={setDoRefresh} />
     </GridWrapper>
   );
 }
 
-function RightColumn({ projects }) {
+function RightColumn({ projects, setDoRefresh }) {
+  const [selectedProjects, setSelectedProjects] = useState([]);
+
   async function onClick() {
     await createAndGoToProject({});
+  }
+
+  function onSelectProject(e, projectId) {
+    e.preventDefault();
+    if (selectedProjects.includes(projectId)) {
+      setSelectedProjects(selectedProjects.filter((x) => x !== projectId));
+    } else {
+      setSelectedProjects([...selectedProjects, projectId]);
+    }
+  }
+
+  async function onClickDelete() {
+    const res = await dbDeleteProjects({ ids: selectedProjects });
+    if (res.status === 200) {
+      setDoRefresh(true);
+    }
   }
 
   const stdbtnStyles =
@@ -50,17 +73,21 @@ function RightColumn({ projects }) {
           <BiPlus />
           New Project
         </StandardButton>
-        <StandardButton twClasses={closebtnStyles} onClick={onClick}>
+        <StandardButton twClasses={closebtnStyles} onClick={onClickDelete}>
           <IoClose />
           Delete
         </StandardButton>
       </div>
-      <ProjectItems projects={projects} />
+      <ProjectItems
+        projects={projects}
+        selectedProjects={selectedProjects}
+        onSelectProject={onSelectProject}
+      />
     </div>
   );
 }
 
-function ProjectItems({ projects }) {
+function ProjectItems({ projects, selectedProjects, onSelectProject }) {
   const searchValue = useSearch((x) => x.value);
   const filteredProjects = matchSorter(projects, searchValue, {
     keys: ["name"],
@@ -72,55 +99,73 @@ function ProjectItems({ projects }) {
   return (
     <div className={gridStyles}>
       {filteredProjects.map((x, i) => (
-        <ProjectItem project={x} key={`Project ${i} ${x.name}`} />
+        <ProjectItem
+          project={x}
+          key={`Project ${i} ${x.name}`}
+          isSelected={selectedProjects.includes(x.id)}
+          onSelectProject={onSelectProject}
+        />
       ))}
     </div>
   );
 }
 
-const ProjectItem = forwardRef(({ project }, forwardedRef) => {
-  const { name, configs } = project;
-  const [openConfigs, setOpenConfigs] = useState(false);
-  const defaultConfigAddress = useDefaultConfigAddress(project);
+const ProjectItem = forwardRef(
+  ({ project, isSelected, onSelectProject }, forwardedRef) => {
+    const { name, configs } = project;
+    const [openConfigs, setOpenConfigs] = useState(false);
+    const defaultConfigAddress = useDefaultConfigAddress(project);
 
-  function onClickConfigsButton(e) {
-    e.stopPropagation();
-    setOpenConfigs(!openConfigs);
+    function onClickConfigsButton(e) {
+      e.stopPropagation();
+      setOpenConfigs(!openConfigs);
+    }
+
+    // bg-[url('https://via.placeholder.com/400')]
+
+    const itemStyles =
+      "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-slate-600 gap-0";
+
+    return (
+      <div ref={forwardedRef} className={itemStyles}>
+        <Link to={defaultConfigAddress} state={{ pageLoadType: NEW_PROJECT }}>
+          <ThumbnailArea
+            onClickConfigsButton={onClickConfigsButton}
+            project={project}
+            configs={configs}
+            isSelected={isSelected}
+            onSelectProject={onSelectProject}
+          />
+          <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
+            <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600 dark:text-slate-300">
+              {name}
+            </p>
+            <Badges name={name} />
+          </div>
+        </Link>
+      </div>
+    );
   }
+);
 
-  // bg-[url('https://via.placeholder.com/400')]
-
-  const itemStyles =
-    "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-slate-600 gap-0";
-
-  return (
-    <div ref={forwardedRef} className={itemStyles}>
-      <Link to={defaultConfigAddress} state={{ pageLoadType: NEW_PROJECT }}>
-        <ThumbnailArea
-          onClickConfigsButton={onClickConfigsButton}
-          project={project}
-          configs={configs}
-        />
-        <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
-          <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600 dark:text-slate-300">
-            {name}
-          </p>
-          <Badges name={name} />
-        </div>
-      </Link>
-    </div>
-  );
-});
-
-function ThumbnailArea({ onClickConfigsButton, project, configs }) {
+function ThumbnailArea({
+  onClickConfigsButton,
+  project,
+  configs,
+  isSelected,
+  onSelectProject,
+}) {
   return (
     <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4 dark:bg-runcoder-600">
       <aside className="col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <IconButton
           icon={<IoMdCheckmark />}
           color="text-white/50 hover:text-white"
-          bg="bg-runcoder-300/25 hover:bg-blue-500"
+          bg={`bg-runcoder-300/25 hover:bg-blue-500 ${
+            isSelected ? "bg-blue-500" : ""
+          }`}
           size="w-4 h-4"
+          onClick={(e) => onSelectProject(e, project.id)}
         />
         <StandardDropdown
           trigger={
