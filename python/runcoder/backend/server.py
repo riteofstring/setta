@@ -27,6 +27,7 @@ from .db.projects.saveAs import (
 )
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
+from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import db
 from .utils.utils import convert_to_backend_format, generate_memorable_string
@@ -231,6 +232,11 @@ def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
 @app.post("/projects/saveAsExistingProjectConfig")
 def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
     return save_as_existing_project_config(x.project, x.configName)
+
+
+@app.post("/uiTypes/getBaseUITypes")
+def route_get_base_uitypes():
+    return load_base_uitypes()
 
 
 @app.post("/codeInfo/getCollectionsAndModules")
