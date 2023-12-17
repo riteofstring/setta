@@ -5,7 +5,7 @@ export function DetailsContent() {
   // rounded-md border border-solid border-white bg-slate-50 py-8 px-12 shadow-md
   return (
     <section className="@container flex w-full max-w-screen-lg flex-col gap-4">
-      <h1 className="font-heading text-4xl font-bold text-slate-600">
+      <h1 className="font-sans text-4xl font-bold text-slate-600">
         PyTorch Adapt
       </h1>
       <div className="flex items-center gap-2">
@@ -58,7 +58,7 @@ export function DetailsContent() {
         </article>
         <div className="flex flex-col gap-8">
           <div>
-            <p className="font-heading font-bold uppercase tracking-widest text-slate-400">
+            <p className="font-sans font-bold uppercase tracking-widest text-slate-400">
               tags
             </p>
             <div className="flex flex-wrap gap-2">
@@ -71,7 +71,7 @@ export function DetailsContent() {
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <p className="font-heading font-bold uppercase tracking-widest text-slate-400">
+            <p className="font-sans font-bold uppercase tracking-widest text-slate-400">
               share
             </p>
             <div className="flex flex-wrap gap-4 ">

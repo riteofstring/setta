@@ -61,10 +61,10 @@ function RightColumn({ projects, setDoRefresh }) {
   }
 
   const stdbtnStyles =
-    "py-2 px-4 rounded-full font-bold font-heading text-white bg-runcoder-600  hover:bg-blue-500 gap-2";
+    "py-2 px-4 rounded-full font-bold font-sans text-white bg-runcoder-600  hover:bg-blue-500 gap-2";
 
   const closebtnStyles =
-    "py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-red-500 hover:text-white gap-2";
+    "py-2 px-4 rounded-full font-medium font-sans text-white/75 bg-runcoder-500/25 hover:bg-red-500 hover:text-white gap-2";
 
   return (
     <div className="overflow-y-auto px-10 py-8">
@@ -137,7 +137,7 @@ const ProjectItem = forwardRef(
             onSelectProject={onSelectProject}
           />
           <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
-            <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600 dark:text-slate-300">
+            <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-sans text-xs font-bold text-slate-600 dark:text-slate-300">
               {name}
             </p>
             <Badges name={name} />

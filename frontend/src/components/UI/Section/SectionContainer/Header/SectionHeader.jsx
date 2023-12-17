@@ -62,12 +62,12 @@ function _SectionHeader({
 
 function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
   const titleProps = {
-    editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full ${
+    editing: `cursor-text nodrag h-6 font-sans px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full ${
       isGlobalVariables
         ? "uppercase font-black tracking-widest"
         : "font-semibold"
     }`,
-    notEditing: `transition-colors font-heading cursor-pointer max-w-full truncate ${
+    notEditing: `transition-colors font-sans cursor-pointer max-w-full truncate ${
       isActiveSection
         ? isGlobalVariables
           ? "text-green-800 dark:text-green-200"

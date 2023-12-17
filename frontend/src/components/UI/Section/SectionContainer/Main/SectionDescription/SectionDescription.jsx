@@ -27,7 +27,7 @@ function Markdown({ markdownSource }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      className="prose min-w-[100%] [flex:1_1_auto] prose-headings:font-heading prose-headings:tracking-tighter prose-headings:text-slate-400 prose-p:text-sm dark:prose-invert [&_*]:[word-wrap:break-word]"
+      className="prose min-w-[100%] [flex:1_1_auto] prose-headings:font-sans prose-headings:tracking-tighter prose-headings:text-slate-400 prose-p:text-sm dark:prose-invert [&_*]:[word-wrap:break-word]"
     >
       {markdownSource}
     </ReactMarkdown>

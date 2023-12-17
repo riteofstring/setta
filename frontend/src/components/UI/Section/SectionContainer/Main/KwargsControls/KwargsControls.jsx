@@ -34,7 +34,7 @@ export function KwargsControls({ sectionId, objInfoId, isGlobalVariables }) {
 
   return (
     <section className="${ flex items-center  rounded-xl border-b border-solid  border-white bg-gradient-to-t from-slate-50 py-2 px-7 shadow-sm dark:border-runcoder-700 dark:from-transparent">
-      <h3 className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-slate-400">
+      <h3 className="pr-1 font-sans text-xs font-bold uppercase tracking-widest text-slate-400">
         arguments
       </h3>
       <IconButton

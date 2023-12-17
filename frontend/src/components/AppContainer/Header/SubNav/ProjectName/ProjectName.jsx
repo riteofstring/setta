@@ -42,7 +42,7 @@ export function ProjectName() {
 
   return (
     <header
-      className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
+      className="mb-2 flex w-full flex-col flex-wrap font-sans  tracking-tight "
       {...infoViewHandlers}
     >
       <ProjectNameCore
