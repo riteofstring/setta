@@ -32,7 +32,7 @@ export function ListContent() {
 function ListItem() {
   return (
     <div className="flex cursor-pointer flex-col rounded-lg py-2 px-4 transition-all hover:bg-white hover:shadow-md">
-      <p className="font-sans text-xl font-bold text-slate-500">Item</p>
+      <p className="font-heading text-xl font-bold text-slate-500">Item</p>
       <p className="text-sm">
         Nullam sit amet mi rutrum, consequat purus et, euismod elit. Nullam eu
         ex urna.
