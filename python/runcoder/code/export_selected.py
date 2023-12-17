@@ -10,6 +10,7 @@ from ..utils.constants import (
     SCRIPT,
     SECTION,
 )
+from .find_placeholders import double_braces
 
 
 def get_section_config(p, id):
@@ -104,7 +105,7 @@ def get_script(p):
     for id, s in p["sections"].items():
         if get_section_type(p, id) == SCRIPT:
             return s["script"]
-    return ""
+    return f"python {double_braces('RUNCODER_PYTHON_FILE')}"
 
 
 def get_code(p):
@@ -203,6 +204,7 @@ class Exporter:
             "value": value,
             "deps": deps,
             "type": get_param_ui_type(self.p, section_id, id),
+            "var_name_generated": generate_var_name,
         }
         return var_name
 

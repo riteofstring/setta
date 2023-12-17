@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
 from .export_selected import get_code, get_script
+from .find_placeholders import double_braces
 from .utils import push_var_deep
 
 
@@ -225,18 +226,18 @@ def generate_code(selected, p, push_var_name=None, force_appear_var_name=None):
     )
 
 
-def double_braces(x):
-    return f"{{{{ {x} }}}}"
-
-
 def replace_keywords(x, replacements):
     for key, value in replacements.items():
         x = x.replace(double_braces(key), value)
     return x
 
 
-def generate_script(p, py_filepath):
+def generate_script(p, filepaths):
     script = get_script(p)
-    if script == "":
-        script = f"python {py_filepath}"
-    return replace_keywords(script, {"RUNCODER_PYTHON_FILE": py_filepath})
+    replacements = {}
+    for f in filepaths:
+        if f.endswith(".py"):
+            replacements["RUNCODER_PYTHON_FILE"] = f
+        if f.endswith(".yaml"):
+            replacements["RUNCODER_YAML_FILE"] = f
+    return replace_keywords(script, replacements)
