@@ -33,7 +33,7 @@ export function RefInput({ sectionId, value, onChange, className }) {
       />
       <div>
         <button
-          className="grid h-7 w-7 place-items-center rounded-full bg-slate-700 font-serif text-sm font-bold italic text-slate-50 hover:cursor-pointer hover:bg-white hover:text-slate-200 hover:shadow-md dark:bg-runcoder-900 dark:hover:bg-runcoder-800"
+          className="grid h-7 w-7 place-items-center rounded-full bg-slate-700 font-fancy text-sm font-bold italic text-slate-50 hover:cursor-pointer hover:bg-white hover:text-slate-200 hover:shadow-md dark:bg-runcoder-900 dark:hover:bg-runcoder-800"
           onClick={onFnClick}
         >
           f
