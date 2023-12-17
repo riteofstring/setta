@@ -32,15 +32,17 @@ function _SectionHeader({
   return (
     <header className="flex flex-row items-center px-7">
       {!isInfo && (
-        <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
+        <section className="align-self-stretch flex w-full flex-1 items-center gap-[0.1rem]">
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
+
           <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
-        </div>
+          <VersionsButton />
+        </section>
       )}
       {(isSeriesElement || isRoot) && (
         <Incrementer
@@ -51,7 +53,7 @@ function _SectionHeader({
           hasNested={hasNested}
         />
       )}
-      <VersionsButton />
+
       <CustomCloseButton
         onClick={onCustomCloseButtonClick}
         aria-label="Delete self"

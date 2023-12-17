@@ -1,4 +1,5 @@
-import { CiLink } from "react-icons/ci";
+import { IoLinkSharp } from "react-icons/io5";
+
 import { createSectionInfo } from "thunks/sections/createSectionInfo";
 import { getSectionName } from "thunks/sections/getters";
 import { IconButton } from "utils/atoms/buttons/IconButton";
@@ -12,14 +13,15 @@ export function ChainButton({ sectionId }) {
 
   return (
     <IconButton
-      icon={<CiLink />}
-      color="text-slate-600 hover:text-white"
-      bg="bg-transparent hover:bg-red-500"
-      size="w-3 h-3"
+      icon={<IoLinkSharp />}
+      color="text-runcoder-300"
+      bg="bg-transparent p-1 transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-400/50 dark:hover:bg-runcoder-900 dark:hover:text-runcoder-300"
       onClick={onClick}
     />
   );
 }
+
+// bg-transparent p-1 text-runcoder-300 transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-600 dark:hover:bg-runcoder-900 dark:hover:text-runcoder-300
 
 function addDerivedSection(sectionId) {
   const reactFlowStore = REACT_FLOW_STORE.store;

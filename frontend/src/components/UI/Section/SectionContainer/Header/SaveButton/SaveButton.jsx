@@ -1,6 +1,6 @@
 import { getCollectionsAndModulesFn } from "dbRequests/sectionConfig";
 import { useState } from "react";
-import { BiSave } from "react-icons/bi";
+import { FiSave } from "react-icons/fi";
 import { saveKwargsAsCollection } from "thunks/kwargs";
 import { getSectionInfo } from "thunks/sections/getters";
 import { IconButton } from "utils/atoms/buttons/IconButton";
@@ -48,7 +48,13 @@ export function SaveButton({ sectionId }) {
 function MenuItems({ openCustomArgumentsModal }) {
   return (
     <StandardDropdown
-      trigger={<IconButton color="text-slate-400" icon={<BiSave />} />}
+      trigger={
+        <IconButton
+          color="text-runcoder-300"
+          bg="bg-transparent ml-1 p-1 transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-400/50 dark:hover:bg-runcoder-900 dark:hover:text-runcoder-300"
+          icon={<FiSave />}
+        />
+      }
       content={
         <DialogDropdownTriggerItem onClick={openCustomArgumentsModal}>
           Save Custom Arguments
