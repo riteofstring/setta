@@ -163,6 +163,8 @@ def set_line(lines, var_name_to_line_num, var_name, value):
 
 
 def count_lines(string):
+    if not string:  # Check if the string is empty
+        return 0
     line_count = string.count("\n")
     if string.endswith("\n"):
         line_count -= 1

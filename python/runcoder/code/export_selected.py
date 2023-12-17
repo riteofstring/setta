@@ -112,7 +112,7 @@ def get_code(p):
     for id, s in p["sections"].items():
         if get_section_type(p, id) == CODE:
             return s["code"]
-    return ""
+    return double_braces("RUNCODER_GENERATED_CODE")
 
 
 class Exporter:
