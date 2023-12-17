@@ -24,10 +24,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        body: ["Inter", "sans-serif"],
         heading: ["Work Sans", "sans-serif"],
-        code: ["Source Code Pro", "monospace"],
-        fancy: ["Cormorant Garamond", "serif"],
+        // fancy: ["Cormorant Garamond", "serif"],
       },
       keyframes: {
         dash: {
