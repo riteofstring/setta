@@ -106,7 +106,7 @@ export function TextInput({
 
   return (
     <div
-      className={`flex w-full flex-col items-stretch overflow-visible`}
+      className={`flex w-full flex-col items-stretch overflow-visible font-mono`}
       ref={sizeRef}
     >
       <ContentEditable
