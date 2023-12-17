@@ -1,11 +1,13 @@
 import { useIsInfo } from "hooks/useSectionType";
 import React from "react";
+
 import { deleteChild } from "thunks/sections/deleteChild";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
+import { VersionsButton } from "./VersionsButton/VersionsButtons";
 
 function _SectionHeader({
   sectionId,
@@ -49,7 +51,7 @@ function _SectionHeader({
           hasNested={hasNested}
         />
       )}
-
+      <VersionsButton />
       <CustomCloseButton
         onClick={onCustomCloseButtonClick}
         aria-label="Delete self"
