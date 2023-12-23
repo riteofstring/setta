@@ -8,7 +8,7 @@ import { debouncedRequestTypeCheck } from "./websocket";
 
 export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
-  return useParamInfos.getState().x[evColId][paramInfoId];
+  return useParamInfos.getState().x[evColId].values[paramInfoId];
 }
 
 export function getParamChildId(sectionId: string, paramInfoId: string) {

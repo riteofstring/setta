@@ -8,7 +8,7 @@ def create_tables():
         """
         CREATE TABLE IF NOT EXISTS Settings (
             profileName TEXT PRIMARY KEY,
-            darkMode BOOLEAN DEFAULT 0
+            darkMode BOOLEAN DEFAULT 1
         );
         """,
         # CodeInfo model
