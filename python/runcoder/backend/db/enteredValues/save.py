@@ -4,13 +4,13 @@ from ...schema import db
 def save_ev_cols(ev_cols):
     with db:
         query = """
-            INSERT INTO EVColId (id)
-            VALUES (:id)
+            INSERT INTO EVColId (id, name)
+            VALUES (:id, :name)
             ON CONFLICT (id)
-            DO NOTHING
+            DO UPDATE SET name = :name;
         """
 
-        query_params = [{"id": k} for k in ev_cols.keys()]
+        query_params = [{"id": k, "name": v["name"]} for k, v in ev_cols.items()]
         db.executemany(query, query_params)
 
         placeholders = ", ".join(["?"] * len(ev_cols))
@@ -27,7 +27,7 @@ def save_ev_cols(ev_cols):
         """
         query_params = []
         for idid, ev_col in ev_cols.items():
-            for code_info_id, value in ev_col.items():
+            for code_info_id, value in ev_col["values"].items():
                 query_params.append(
                     {"idid": idid, "codeInfoId": code_info_id, "value": value}
                 )

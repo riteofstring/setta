@@ -74,7 +74,8 @@ def create_tables():
         # EVColId model
         """
         CREATE TABLE IF NOT EXISTS EVColId (
-            id TEXT PRIMARY KEY
+            id TEXT PRIMARY KEY,
+            name TEXT
         );
         """,
         # EVCol model
