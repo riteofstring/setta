@@ -81,11 +81,11 @@ def create_tables():
         """
         CREATE TABLE IF NOT EXISTS EVCol (
             idid TEXT,
-            codeInfoId TEXT,
+            objName TEXT,
+            paramName TEXT,
             value TEXT,
-            PRIMARY KEY (idid, codeInfoId),
-            FOREIGN KEY (idid) REFERENCES EVColId(id),
-            FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id)
+            PRIMARY KEY (idid, objName, paramName),
+            FOREIGN KEY (idid) REFERENCES EVColId(id)
         );
         """,
         # UIType model

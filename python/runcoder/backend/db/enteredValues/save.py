@@ -22,13 +22,21 @@ def save_ev_cols(ev_cols):
         db.execute(query, query_params)
 
         query = """
-            INSERT INTO EVCol (idid, codeInfoId, value)
-            VALUES (:idid, :codeInfoId, :value)
+            INSERT INTO EVCol (idid, objName, paramName, value)
+            VALUES (:idid, :objName, :paramName, :value)
         """
         query_params = []
         for idid, ev_col in ev_cols.items():
-            for code_info_id, value in ev_col.items():
-                query_params.append(
-                    {"idid": idid, "codeInfoId": code_info_id, "value": value}
+            for objName, param_to_value in ev_col.items():
+                query_params.extend(
+                    [
+                        {
+                            "idid": idid,
+                            "objName": objName,
+                            "paramName": paramName,
+                            "value": value,
+                        }
+                        for paramName, value in param_to_value.items()
+                    ]
                 )
         db.executemany(query, query_params)
