@@ -89,6 +89,24 @@ def save_sections(sections):
                 query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
         db.executemany(query, query_params)
 
+        query = f"""
+            UPDATE EVColId
+            SET originSectionId = null
+            WHERE originSectionId IN ({placeholders})
+        """
+        db.execute(query, ids)
+
+        query = """
+            UPDATE EVColId
+            SET originSectionId = :sectionId
+            WHERE id = :evColId
+        """
+        query_params = []
+        for s in sections.values():
+            for evColId in s["evColIds"]:
+                query_params.append({"evColId": evColId, "sectionId": s["id"]})
+        db.executemany(query, query_params)
+
         # delete children
         placeholders = ", ".join(["?"] * len(sections))
         query = f"""

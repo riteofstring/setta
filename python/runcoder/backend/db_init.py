@@ -75,7 +75,9 @@ def create_tables():
         """
         CREATE TABLE IF NOT EXISTS EVColId (
             id TEXT PRIMARY KEY,
-            name TEXT
+            name TEXT,
+            originSectionId TEXT,
+            FOREIGN KEY (originSectionId) REFERENCES Section(id)
         );
         """,
         # EVCol model

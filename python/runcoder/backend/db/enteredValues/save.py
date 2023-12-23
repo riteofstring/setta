@@ -7,7 +7,7 @@ def save_ev_cols(ev_cols):
             INSERT INTO EVColId (id, name)
             VALUES (:id, :name)
             ON CONFLICT (id)
-            DO UPDATE SET name = :name;
+            DO UPDATE SET name = :name
         """
 
         query_params = [{"id": k, "name": v["name"]} for k, v in ev_cols.items()]

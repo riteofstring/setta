@@ -26,12 +26,20 @@ def load_sections(ids):
 
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
-        SELECT Section.*, GROUP_CONCAT(UIType.id) as nonPresetUITypeIds
-        FROM Section
-        LEFT JOIN UIType
-        ON Section.id = UIType.asNonPresetForSectionId
-        WHERE Section.id IN ({placeholders})
-        GROUP BY Section.id
+        SELECT
+            Section.*,
+            GROUP_CONCAT(UIType.id) as nonPresetUITypeIds,
+            GROUP_CONCAT(EVColId.id) as evColIds
+        FROM
+            Section
+        LEFT JOIN
+            UIType ON Section.id = UIType.asNonPresetForSectionId
+        LEFT JOIN
+            EVColId ON Section.id = EVColId.originSectionId
+        WHERE
+            Section.id IN ({placeholders})
+        GROUP BY
+            Section.id
     """
     db.execute(query, all_ids)
 
@@ -54,6 +62,7 @@ def load_sections(ids):
                 "width": convert_size(width),
                 "height": convert_size(height),
             },
+            "evColIds": v["evColIds"].split(",") if v["evColIds"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
