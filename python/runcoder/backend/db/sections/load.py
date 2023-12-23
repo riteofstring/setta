@@ -1,3 +1,5 @@
+import itertools
+
 from ...schema import db
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols
@@ -67,7 +69,9 @@ def load_sections(ids):
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
         }
-    evCols = load_evcols([s["evColId"] for s in sections.values()])
+    evCols = load_evcols(
+        list(itertools.chain.from_iterable([s["evColIds"] for s in sections.values()]))
+    )
     uiTypeCols = load_uitypecols([s["uiTypeColId"] for s in sections.values()])
 
     nonPresetUITypeIds = []

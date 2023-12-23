@@ -154,7 +154,10 @@
           "descriptionVisible": 0,
           "script": "",
           "code": "",
-          "evColIds": ["22f7a029-5660-4f3d-ba54-e79637f2ba61"],
+          "evColIds": [
+            "22f7a029-5660-4f3d-ba54-e79637f2ba61",
+            "1fc1e842-82fe-4a48-8794-23178822e22e"
+          ],
           "nonPresetUITypeIds": ["1a83a3ce-e415-4c2d-bed0-959ce18e7995"],
           "parentId": null,
           "chainedFrom": null,
@@ -181,6 +184,19 @@
             "c2c05abc-dd95-4071-8f37-cb2019919bce": "0"
           }
         },
+        "1fc1e842-82fe-4a48-8794-23178822e22e": {
+          "name": "carrot_soup",
+          "values": {
+            "3e754333-caea-451a-abba-dd254c49502f": "10",
+            "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": "",
+            "7ae757c9-9327-4931-95a3-bc200f7e10b7": "dataset[0][:,::-1]",
+            "7b4b2118-7cbf-4275-8582-90c66a966441": "",
+            "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": "",
+            "97e83315-adfc-4d50-a8ab-a8c34082eb93": "n_clusters",
+            "c066af9f-42b4-4359-8b44-cf774c400e81": "",
+            "c2c05abc-dd95-4071-8f37-cb2019919bce": "5000"
+          }
+        },
         "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
           "name": "purple_onion",
           "values": {
@@ -203,8 +219,14 @@
             "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": "n_clusters"
           }
         },
-        "69220358-73c1-49c3-9b78-d7cf733b2aa8": { "name": "green_grass", "values": {} },
-        "fca181fc-c326-4d50-b028-37b368372f49": { "name": "apple_pear", "values": {} }
+        "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
+          "name": "green_grass",
+          "values": {}
+        },
+        "fca181fc-c326-4d50-b028-37b368372f49": {
+          "name": "apple_pear",
+          "values": {}
+        }
       },
       "uiTypes": {
         "1a83a3ce-e415-4c2d-bed0-959ce18e7995": {
