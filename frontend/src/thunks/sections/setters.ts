@@ -53,7 +53,10 @@ function createChildrenCodeInfo(parent, params) {
 }
 
 function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
-  initializeChildParams([sectionId], [selectedItem]);
+  initializeChildParams({
+    sectionIds: [sectionId],
+    codeInfoIds: [selectedItem],
+  });
   updateParams(sectionId);
   updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(incrementVersion);

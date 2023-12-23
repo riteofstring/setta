@@ -20,13 +20,17 @@ export function addSectionAtPosition({
   topLevelPosition,
   callbackBeforeExit = () => undefined,
   incrementVersion = false,
+  inputSectionProps = {},
 }: {
   type: string;
   topLevelPosition: SectionPositionType;
   callbackBeforeExit?: callbackBeforeExitType;
   incrementVersion?: boolean;
+  inputSectionProps: any;
 }) {
-  const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {};
+  const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {
+    ...inputSectionProps,
+  };
   if (type === DECK) {
     sectionProps.name = "Group";
     sectionProps.uiTypeId = DECK_UI_TYPE_ID;
@@ -47,4 +51,5 @@ export function addSectionAtPosition({
   });
   callbackBeforeExit(newId);
   maybeIncrementProjectStateVersion(incrementVersion);
+  return newId;
 }

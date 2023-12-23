@@ -5,6 +5,7 @@ from pprint import pprint
 import jedi
 
 from ..code.export_selected import export_selected, get_code, get_script
+from ..code.extract_args_from_help import extract_args_from_help
 from ..code.find_placeholders import needs_python_code, needs_yaml
 from ..code.generate_code import (
     generate_code,
@@ -49,6 +50,8 @@ def get_consumer_fn(message):
         return allConnections
     if message["messageType"] == "runCode":
         return runCode
+    if message["messageType"] == "extractArgparseArgs":
+        return extractArgparseArgs
     raise ValueError
 
 
@@ -241,3 +244,9 @@ def runCode(message):
     )
 
     return {"output": None, "name": None, "cache": None}
+
+
+def extractArgparseArgs(message):
+    script_path = message["message"]
+    output = extract_args_from_help(script_path)
+    return {"output": output, "name": "extractArgparseArgs", "cache": None}
