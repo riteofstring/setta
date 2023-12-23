@@ -1,3 +1,4 @@
+import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -43,10 +44,14 @@ export function setParamEnteredValue({
   value,
   incrementVersion = false,
 }) {
-  const { evColId } = getSectionInfo(sectionId);
+  const { evColId, selectedItem } = getSectionInfo(sectionId);
+  const objName = selectedItem
+    ? useCodeInfo.getState().x[selectedItem].name
+    : "";
+  const paramName = useCodeInfo.getState().x[paramInfoId].name;
   useParamInfos
     .getState()
-    .setEnteredValue({ collectionId: evColId, paramInfoId, value });
+    .setEnteredValue({ collectionId: evColId, objName, paramName, value });
   maybeIncrementProjectStateVersion(incrementVersion);
   debouncedRequestTypeCheck();
 }
