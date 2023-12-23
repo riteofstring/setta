@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useGetSectionInfo } from "./useSectionInfo";
@@ -29,11 +28,6 @@ export function useGetParamEnteredValue(
   sectionId: string,
   paramInfoId: string
 ) {
-  const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
-  const objName = useCodeInfo((x) =>
-    selectedItem ? x.x[selectedItem].name : ""
-  );
-  const paramName = useCodeInfo((x) => x.x[paramInfoId].name);
   const evColId = useGetSectionInfo(sectionId, "evColId");
-  return useParamInfos((x) => x.x[evColId][objName][paramName]);
+  return useParamInfos((x) => x.x[evColId][paramInfoId]);
 }

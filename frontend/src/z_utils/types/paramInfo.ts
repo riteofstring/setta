@@ -19,13 +19,12 @@ export type ParamInfoActionType = {
 
   initManyEnteredValues: (payload: {
     collectionId: string;
-    objToParamToUIType: ManyOf<ManyOf<UITypeType>>;
+    paramIdsToUITypes: ManyOf<UITypeType>;
   }) => void;
 
   setEnteredValue: (payload: {
     collectionId: string;
-    objName: string;
-    paramName: string;
+    paramInfoId: string;
     value: string;
   }) => void;
 

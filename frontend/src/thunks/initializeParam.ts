@@ -40,29 +40,21 @@ function initializeParamEnteredValue(
   paramInfos: ManyCodeInfoType,
   paramIdToUITypeId: { [id: string]: string }
 ) {
-  const { evColId, selectedItem } = getSectionInfo(sectionId);
-  const objName = selectedItem
-    ? useCodeInfo.getState().x[selectedItem].name
-    : "";
+  const { evColId } = getSectionInfo(sectionId);
   const evCol = useParamInfos.getState().x[evColId];
   const paramIdToEv = _.mapValues(paramInfos, (v) => evCol[v.id]);
 
   const uiTypeState = useUITypes.getState();
-  const objToParamToUIType: ManyOf<ManyOf<UITypeType>> = {};
+  const paramIdsToUITypes: ManyOf<UITypeType> = {};
   for (const [paramId, ev] of Object.entries(paramIdToEv)) {
     if (_.isNil(ev)) {
-      const paramName = useCodeInfo.getState().x[paramId].name;
-      if (!(objName in objToParamToUIType)) {
-        objToParamToUIType[objName] = {};
-      }
-      objToParamToUIType[objName][paramName] =
-        uiTypeState.x[paramIdToUITypeId[paramId]];
+      paramIdsToUITypes[paramId] = uiTypeState.x[paramIdToUITypeId[paramId]];
     }
   }
 
   useParamInfos.getState().initManyEnteredValues({
     collectionId: evColId,
-    objToParamToUIType,
+    paramIdsToUITypes,
   });
 }
 
