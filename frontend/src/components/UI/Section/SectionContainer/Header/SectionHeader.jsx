@@ -1,13 +1,11 @@
 import { useIsInfo } from "hooks/useSectionType";
 import React from "react";
-
 import { deleteChild } from "thunks/sections/deleteChild";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
-import { VersionsButton } from "./VersionsButton/VersionsButtons";
 
 function _SectionHeader({
   sectionId,
@@ -32,17 +30,15 @@ function _SectionHeader({
   return (
     <header className="flex flex-row items-center px-7">
       {!isInfo && (
-        <section className="align-self-stretch flex w-full flex-1 items-center gap-[0.1rem]">
+        <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
-
           <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
-          <VersionsButton />
-        </section>
+        </div>
       )}
       {(isSeriesElement || isRoot) && (
         <Incrementer

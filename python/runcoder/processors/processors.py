@@ -4,7 +4,8 @@ from pprint import pprint
 
 import jedi
 
-from ..code.export_selected import export_selected, get_code
+from ..code.export_selected import export_selected, get_code, get_script
+from ..code.find_placeholders import needs_code, needs_yaml
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
@@ -12,9 +13,10 @@ from ..code.generate_code import (
     prepend_with_imports,
     set_line,
 )
+from ..code.generate_yaml import generate_yaml
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
-from .utils import withTempFile
+from .utils import withTempFiles
 
 
 async def getConsumerMessage(message, tasks_obj, cache):
@@ -169,15 +171,15 @@ def typeCheckRequest(message):
         print("typeCheckRequest SyntaxError", flush=True)
         return {"output": {}, "name": "typeCheck", "cache": None}
 
-    def fn(temp_file_path):
+    def fn(temp_file_paths):
         return subprocess.run(
-            ["dmypy", "check", temp_file_path],
+            ["dmypy", "check", temp_file_paths[0]],
             capture_output=True,
             text=True,
             check=True,
         )
 
-    process = withTempFile(write=code, in_file_with_suffix=".py", then_do=fn)
+    process = withTempFiles(write=[code], in_file_with_suffix=[".py"], then_do=fn)
     stdout = process.stdout
 
     print("stdout", stdout, flush=True)
@@ -200,12 +202,11 @@ def allConnections(message):
 
 def runCode(message):
     p = message["message"]
-    code, _ = generate_code(export_selected(p), p)
 
-    def write_bash(py_filepath):
-        def execute_bash(sh_filepath):
+    def write_bash(filepaths_for_bash):
+        def execute_bash(temp_filepaths):
             with subprocess.Popen(
-                f"bash {sh_filepath}",
+                f"bash {temp_filepaths[0]}",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -213,16 +214,29 @@ def runCode(message):
                 for line in process.stdout:
                     print(line.decode("utf8"), flush=True)
 
-        script = generate_script(p, py_filepath)
-        withTempFile(
-            write=script,
-            in_file_with_suffix=".sh",
+        script = generate_script(p, filepaths_for_bash)
+        withTempFiles(
+            write=[script],
+            in_file_with_suffix=[".sh"],
             then_do=execute_bash,
         )
 
-    withTempFile(
-        write=code,
-        in_file_with_suffix=".py",
+    unprocessed_script = get_script(p)
+    selected = export_selected(p)
+    write = []
+    in_file_with_suffix = []
+    if needs_code(unprocessed_script):
+        code, _ = generate_code(selected, p)
+        write.append(code)
+        in_file_with_suffix.append(".py")
+    if needs_yaml(unprocessed_script):
+        yaml_dict = generate_yaml(selected)
+        write.append(yaml_dict)
+        in_file_with_suffix.append(".yaml")
+
+    withTempFiles(
+        write=write,
+        in_file_with_suffix=in_file_with_suffix,
         then_do=write_bash,
     )
 
