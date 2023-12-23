@@ -19,6 +19,11 @@ export const useParamInfos = createProjectState(
       resetAndSetAll: ({ evCols, uiTypeCols }) => {
         set((state) => ({ ...state, x: evCols, y: uiTypeCols }), true);
       },
+      duplicateEvCol: ({ id, newId, newName }) =>
+        set((state) => {
+          state.x[newId] = _.cloneDeep(state.x[id]);
+          state.x[newId].name = newName;
+        }),
       initManyEvColIds: ({ collectionIds }) =>
         set((state) => {
           _.forEach(collectionIds, (id) =>
