@@ -61,7 +61,7 @@ export function ComboboxTextFieldList({
 
   return (
     <div
-      className={`nowheel nodrag fixed w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-6 max-h-96  rounded-2xl border bg-white/80 shadow-xl backdrop-blur-sm dark:border-runcoder-500/20 dark:bg-runcoder-800/80 dark:text-runcoder-200`}
+      className={`nowheel nodrag fixed w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-6 max-h-96  rounded-2xl border bg-white dark:border-runcoder-500/20 dark:bg-runcoder-800/80 dark:text-runcoder-200`}
       {...getMenuProps()}
       style={{ width }}
     >

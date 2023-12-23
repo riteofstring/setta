@@ -52,7 +52,7 @@ export function SectionContainerCoreResizable({
   const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] gap-2 ${
     isGlobalVariables
       ? "bg-white dark:bg-black"
-      : "bg-slate-100 dark:bg-runcoder-800"
+      : "bg-runcoder-50 dark:bg-runcoder-800"
   }  pt-3 flex h-full flex-grow flex-col rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
