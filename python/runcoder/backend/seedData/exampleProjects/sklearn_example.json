@@ -169,7 +169,7 @@
       },
       "evCols": {
         "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
-          "name": "",
+          "name": "tremendous_tree",
           "values": {
             "3e754333-caea-451a-abba-dd254c49502f": "",
             "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": "",
@@ -182,14 +182,14 @@
           }
         },
         "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
-          "name": "",
+          "name": "purple_onion",
           "values": {
             "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": "4",
             "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": "4000"
           }
         },
         "66e4192c-c1fc-4935-b862-e722726c1217": {
-          "name": "",
+          "name": "water_fall",
           "values": {
             "03ee6530-d464-461c-a989-b310ee2d9b95": "",
             "0aa0f46a-e923-4528-a411-500cbda6e77b": "n_samples",
@@ -203,8 +203,8 @@
             "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": "n_clusters"
           }
         },
-        "69220358-73c1-49c3-9b78-d7cf733b2aa8": { "name": "", "values": {} },
-        "fca181fc-c326-4d50-b028-37b368372f49": { "name": "", "values": {} }
+        "69220358-73c1-49c3-9b78-d7cf733b2aa8": { "name": "green_grass", "values": {} },
+        "fca181fc-c326-4d50-b028-37b368372f49": { "name": "apple_pear", "values": {} }
       },
       "uiTypes": {
         "1a83a3ce-e415-4c2d-bed0-959ce18e7995": {

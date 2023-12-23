@@ -16,6 +16,7 @@ def load_evcols(ids):
         id = row["id"]
         if id not in output:
             output[id] = {"name": row["name"], "values": {}}
-        if row["value"]:
+        if row["value"] is not None:
             output[id]["values"][row["codeInfoId"]] = row["value"]
+
     return output

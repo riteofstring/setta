@@ -41,7 +41,7 @@ function _SectionHeader({
 
           <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
-          <VersionsButton />
+          <VersionsButton sectionId={sectionId} />
         </section>
       )}
       {(isSeriesElement || isRoot) && (

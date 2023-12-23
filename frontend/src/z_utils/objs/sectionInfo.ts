@@ -21,6 +21,7 @@ export function newSectionInfo({
   description = "",
   descriptionHeight = 100,
   descriptionVisible = false,
+  evColIds = [],
   nonPresetUITypeIds = [],
   script = "",
   code = "",
@@ -49,6 +50,7 @@ export function newSectionInfo({
     descriptionVisible,
     script,
     code,
+    evColIds,
     nonPresetUITypeIds,
   };
 }

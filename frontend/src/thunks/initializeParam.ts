@@ -42,7 +42,7 @@ function initializeParamEnteredValue(
 ) {
   const { evColId } = getSectionInfo(sectionId);
   const evCol = useParamInfos.getState().x[evColId];
-  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol[v.id]);
+  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
 
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes: ManyOf<UITypeType> = {};

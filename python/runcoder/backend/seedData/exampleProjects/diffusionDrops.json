@@ -48,7 +48,7 @@
       },
       "evCols": {
         "93db7817-3553-49d8-986b-0600d6a64cc0": {
-          "name": "",
+          "name": "blue_hippo",
           "values": {
             "78a78722-ed02-4f6a-8f51-6166c70832be": "Model.parameters()",
             "10eefa5e-ac71-4de9-852c-af9f7d7e3463": "",
@@ -64,7 +64,7 @@
           }
         },
         "118d0bd8-993b-41a1-bae3-a8b33bc565cc": {
-          "name": "",
+          "name": "golden_retriever",
           "values": {
             "fafa64ae-21c7-439f-8a29-a13b68992264": "",
             "4317590f-3d0e-4c0b-9565-0e8add9f0606": "",

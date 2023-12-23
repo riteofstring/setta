@@ -20,17 +20,19 @@ export const useParamInfos = createProjectState(
       },
       initManyEvColIds: ({ collectionIds }) =>
         set((state) => {
-          _.forEach(collectionIds, (id) => initValue(state.x, id, {}));
+          _.forEach(collectionIds, (id) =>
+            initValue(state.x, id, { name: "", value: {} })
+          );
         }),
       initManyEnteredValues: ({ collectionId, paramIdsToUITypes }) =>
         set((state) => {
           _.forEach(paramIdsToUITypes, (uiType, id) => {
-            state.x[collectionId][id] = newEV(uiType);
+            state.x[collectionId].values[id] = newEV(uiType);
           });
         }),
       setEnteredValue: ({ collectionId, paramInfoId, value }) =>
         set((state) => {
-          state.x[collectionId][paramInfoId] = value;
+          state.x[collectionId].values[paramInfoId] = value;
         }),
       initManyUITypeColIds: ({ collectionIds }) =>
         set((state) => {
