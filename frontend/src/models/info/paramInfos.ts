@@ -21,7 +21,7 @@ export const useParamInfos = createProjectState(
       initManyEvColIds: ({ collectionIds }) =>
         set((state) => {
           _.forEach(collectionIds, (id) =>
-            initValue(state.x, id, { name: "", value: {} })
+            initValue(state.x, id, { name: "", values: {} })
           );
         }),
       initManyEnteredValues: ({ collectionId, paramIdsToUITypes }) =>

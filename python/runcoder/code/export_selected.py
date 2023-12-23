@@ -210,7 +210,7 @@ class Exporter:
 
     def export_param_value(self, section_id, id):
         ev_col_id = self.p["sections"][section_id]["evColId"]
-        value = self.p["evCols"][ev_col_id][id]
+        value = self.p["evCols"][ev_col_id]["values"][id]
         # original_type = get_original_param_ui_type(self.p, section_id, id)
         possible_child_id = get_param_child_id(self.p, section_id, id)
         if possible_child_id:
