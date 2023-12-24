@@ -4,8 +4,6 @@ import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { RCType } from "z_utils/types/codeInfo";
 import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
-import { getParamChildId } from "./paramInfos";
-import { deleteChild } from "./sections/deleteChild";
 import { getSectionInfo, getSectionTypeConfig } from "./sections/getters";
 import { updateParams } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
@@ -67,10 +65,6 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   useParamInfos
     .getState()
     .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });
-  const childId = getParamChildId(sectionId, kwargId);
-  if (childId) {
-    deleteChild({ parentId: sectionId, startId: childId });
-  }
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
 }

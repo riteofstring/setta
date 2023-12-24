@@ -1,5 +1,4 @@
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "z_utils/constants";
 import { getSectionInfo } from "./sections/getters";
@@ -10,17 +9,6 @@ import { debouncedRequestTypeCheck } from "./websocket";
 export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
   return useParamInfos.getState().x[evColId].values[paramInfoId];
-}
-
-export function getParamChildId(sectionId: string, paramInfoId: string) {
-  const s = useSectionInfos.getState().x;
-  const possibleChildren = s[sectionId].children;
-  for (const c of possibleChildren) {
-    if (s[c].paramInfoId === paramInfoId) {
-      return c;
-    }
-  }
-  return null;
 }
 
 export function getParamUITypeId(sectionId, paramInfoId) {
