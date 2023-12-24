@@ -12,6 +12,7 @@ import {
   useIsScript,
   useIsSeriesElement,
   useIsSocial,
+  useIsVarControl,
 } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
@@ -31,6 +32,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isGlobalVariables = useIsGlobalVariables(sectionId);
   const isScript = useIsScript(sectionId);
   const isCode = useIsCode(sectionId);
+  const isVarControl = useIsVarControl(sectionId);
   const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
@@ -66,6 +68,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         isGlobalVariables={isGlobalVariables}
         isScript={isScript}
         isCode={isCode}
+        isVarControl={isVarControl}
         hasNested={hasNested}
         hasDescription={hasDescription}
         isActiveSection={isActiveSection}

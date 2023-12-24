@@ -8,25 +8,30 @@
         "id": "41f411f7-b14d-4375-bfcd-204446866745",
         "name": "config1",
         "viewport": {
-          "x": 178.2767726243053,
-          "y": 359.1203763831893,
-          "zoom": 0.757858283255199
+          "x": -362.06343063838517,
+          "y": 304.57367006024543,
+          "zoom": 1
         },
         "children": {
+          "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e": {
+            "x": 1262.4038669424035,
+            "y": -19.016806492525546,
+            "zIndex": 5
+          },
           "46dc6cab-03ac-4e73-919d-63b30da0688d": {
-            "x": 968.1536028400475,
-            "y": -11.099759027888169,
-            "zIndex": 2
+            "x": 760.9908608487029,
+            "y": -9.780251117115284,
+            "zIndex": 4
           },
           "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
             "x": 1813.9581736454732,
             "y": 27.165970384525778,
-            "zIndex": 3
+            "zIndex": 2
           },
           "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
             "x": 1466.9275931122022,
             "y": -223.54053266232413,
-            "zIndex": 4
+            "zIndex": 3
           },
           "d96cb110-6f72-435a-b745-2d55e277f983": {
             "x": 766,
@@ -41,6 +46,32 @@
         }
       },
       "sections": {
+        "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e": {
+          "id": "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e",
+          "name": "Var Control",
+          "paramInfoId": null,
+          "evColId": "8a94f3ef-63e3-477b-a5ed-98f78358b427",
+          "uiTypeId": "aa87ed03-7b2b-4404-a246-7cd76f247697",
+          "uiTypeColId": "118af045-82ed-44fd-a116-8e1aa091bcf3",
+          "social": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": 0,
+          "script": "",
+          "code": "",
+          "varControl": "const newState = {}\n if (state.dataset === \"torch.nn.CrossEntropyLoss\"){\n     newState.algorithm = \"torch.optim.Adam\"\n}\nif (_.isNumber(_.toNumber(state.n_samples))){\n    newState.n_clusters = _.toString(_.toNumber(state.n_samples)*3)\n}\nnewState[\"dataset.n_samples\"] = state.n_samples\nreturn newState",
+          "nonPresetUITypeIds": ["aa87ed03-7b2b-4404-a246-7cd76f247697"],
+          "evColIds": ["8a94f3ef-63e3-477b-a5ed-98f78358b427"],
+          "parentId": null,
+          "chainedFrom": null,
+          "selectedItem": null,
+          "outputGroup": null,
+          "children": [],
+          "size": {
+            "width": 476,
+            "height": 237
+          }
+        },
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
           "name": "Global Variables",
@@ -54,8 +85,9 @@
           "descriptionVisible": 0,
           "script": "",
           "code": "",
-          "evColIds": ["54571c59-7a51-42d5-bb8e-b6c06b41b023"],
+          "varControl": "",
           "nonPresetUITypeIds": ["74d80124-deb9-4577-8470-813cb9be4e56"],
+          "evColIds": ["54571c59-7a51-42d5-bb8e-b6c06b41b023"],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -79,8 +111,9 @@
           "descriptionVisible": 0,
           "script": "",
           "code": "import numpy as np\n\n{{ RUNCODER_GENERATED_CODE }}\n\nprint(\"here\")",
-          "evColIds": ["69220358-73c1-49c3-9b78-d7cf733b2aa8"],
+          "varControl": "",
           "nonPresetUITypeIds": ["90ad65be-05c6-4f5b-81c4-ca7b4344db49"],
+          "evColIds": ["69220358-73c1-49c3-9b78-d7cf733b2aa8"],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -104,8 +137,9 @@
           "descriptionVisible": 0,
           "script": "source activate abcde_env\ncat {{ RUNCODER_PYTHON_FILE }}\npython {{ RUNCODER_PYTHON_FILE }}\necho \"Done\"",
           "code": "",
-          "evColIds": ["fca181fc-c326-4d50-b028-37b368372f49"],
+          "varControl": "",
           "nonPresetUITypeIds": ["25add466-bd0e-48f7-b497-cbcab96b7b1d"],
+          "evColIds": ["fca181fc-c326-4d50-b028-37b368372f49"],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -129,8 +163,9 @@
           "descriptionVisible": 0,
           "script": "",
           "code": "",
-          "evColIds": ["66e4192c-c1fc-4935-b862-e722726c1217"],
+          "varControl": "",
           "nonPresetUITypeIds": ["fd8de817-8fc1-4502-b3a5-58e3b99dc418"],
+          "evColIds": ["66e4192c-c1fc-4935-b862-e722726c1217"],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
@@ -154,11 +189,12 @@
           "descriptionVisible": 0,
           "script": "",
           "code": "",
-          "evColIds": [
-            "22f7a029-5660-4f3d-ba54-e79637f2ba61",
-            "1fc1e842-82fe-4a48-8794-23178822e22e"
-          ],
+          "varControl": "",
           "nonPresetUITypeIds": ["1a83a3ce-e415-4c2d-bed0-959ce18e7995"],
+          "evColIds": [
+            "1fc1e842-82fe-4a48-8794-23178822e22e",
+            "22f7a029-5660-4f3d-ba54-e79637f2ba61"
+          ],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
@@ -171,19 +207,6 @@
         }
       },
       "evCols": {
-        "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
-          "name": "tremendous_tree",
-          "values": {
-            "3e754333-caea-451a-abba-dd254c49502f": "",
-            "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": "",
-            "7ae757c9-9327-4931-95a3-bc200f7e10b7": "dataset[0][:,::-1]",
-            "7b4b2118-7cbf-4275-8582-90c66a966441": "",
-            "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": "",
-            "97e83315-adfc-4d50-a8ab-a8c34082eb93": "n_clusters",
-            "c066af9f-42b4-4359-8b44-cf774c400e81": "",
-            "c2c05abc-dd95-4071-8f37-cb2019919bce": "0"
-          }
-        },
         "1fc1e842-82fe-4a48-8794-23178822e22e": {
           "name": "carrot_soup",
           "values": {
@@ -195,6 +218,19 @@
             "97e83315-adfc-4d50-a8ab-a8c34082eb93": "n_clusters",
             "c066af9f-42b4-4359-8b44-cf774c400e81": "",
             "c2c05abc-dd95-4071-8f37-cb2019919bce": "5000"
+          }
+        },
+        "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
+          "name": "tremendous_tree",
+          "values": {
+            "3e754333-caea-451a-abba-dd254c49502f": "",
+            "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": "",
+            "7ae757c9-9327-4931-95a3-bc200f7e10b7": "dataset[0][:,::-1]",
+            "7b4b2118-7cbf-4275-8582-90c66a966441": "",
+            "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": "",
+            "97e83315-adfc-4d50-a8ab-a8c34082eb93": "n_clusters",
+            "c066af9f-42b4-4359-8b44-cf774c400e81": "",
+            "c2c05abc-dd95-4071-8f37-cb2019919bce": "0"
           }
         },
         "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
@@ -221,6 +257,10 @@
         },
         "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
           "name": "green_grass",
+          "values": {}
+        },
+        "8a94f3ef-63e3-477b-a5ed-98f78358b427": {
+          "name": "round_red",
           "values": {}
         },
         "fca181fc-c326-4d50-b028-37b368372f49": {
@@ -273,6 +313,17 @@
             "childUITypeId": null
           }
         },
+        "aa87ed03-7b2b-4404-a246-7cd76f247697": {
+          "id": "aa87ed03-7b2b-4404-a246-7cd76f247697",
+          "name": "Var Control",
+          "type": "VAR_CONTROL",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "b7c4ac1c-532c-4196-80ee-51ee87971737",
+            "childUITypeId": null
+          }
+        },
         "fd8de817-8fc1-4502-b3a5-58e3b99dc418": {
           "id": "fd8de817-8fc1-4502-b3a5-58e3b99dc418",
           "name": "New Section",
@@ -286,6 +337,7 @@
         }
       },
       "uiTypeCols": {
+        "118af045-82ed-44fd-a116-8e1aa091bcf3": {},
         "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a": {},
         "2e7c7457-4ce1-4be5-8b35-3c86aff732d7": {
           "3e754333-caea-451a-abba-dd254c49502f": {
@@ -554,6 +606,14 @@
           "rcType": "collection",
           "defaultVal": null,
           "children": ["bb52a19f-d69c-4973-94ae-c1d85596cbb7"]
+        },
+        "b7c4ac1c-532c-4196-80ee-51ee87971737": {
+          "id": "b7c4ac1c-532c-4196-80ee-51ee87971737",
+          "name": "Contents",
+          "editable": 0,
+          "rcType": "collection",
+          "defaultVal": null,
+          "children": []
         },
         "bb52a19f-d69c-4973-94ae-c1d85596cbb7": {
           "id": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
