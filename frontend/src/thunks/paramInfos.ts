@@ -1,6 +1,5 @@
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { requiresNestedSection } from "z_utils/constants";
 import { getSectionInfo } from "./sections/getters";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { varControlUpdate } from "./varControl";
@@ -19,11 +18,6 @@ export function getParamUITypeId(sectionId, paramInfoId) {
 export function getParamUIType(sectionId, paramInfoId) {
   const uiTypeId = getParamUITypeId(sectionId, paramInfoId);
   return useUITypes.getState().x[uiTypeId];
-}
-
-export function getParamIsNested(sectionId, paramInfoId) {
-  const uiType = getParamUIType(sectionId, paramInfoId);
-  return requiresNestedSection(uiType.type);
 }
 
 export function setParamEnteredValue({

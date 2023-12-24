@@ -2,7 +2,6 @@ import {
   toggleSectionDescription,
   useSectionHasDescription,
 } from "hooks/useSectionDescription";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
 import {
   useIsCode,
   useIsGlobalVariables,
@@ -17,7 +16,6 @@ import {
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useTypeErrors } from "models/typeErrors";
 import React from "react";
 import { setZIndices } from "thunks/sections/sectionPositions";
 import { getHighestAncestor } from "thunks/sections/sectionSizes";
@@ -37,8 +35,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const setActiveSection = useActiveSection((x) => x.setId);
-  const thisSectionParamInfo = useGetSectionInfo(sectionId, "paramInfoId");
-  const isWrongType = useTypeErrors((x) => x[parentId]?.[thisSectionParamInfo]);
 
   function onClick() {
     setActiveSection(sectionId);
