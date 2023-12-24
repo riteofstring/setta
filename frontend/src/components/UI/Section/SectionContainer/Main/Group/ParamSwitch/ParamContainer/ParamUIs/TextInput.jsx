@@ -112,7 +112,7 @@ export function TextInput({
       <ContentEditable
         html={styledText} // innerHTML of the editable div
         contentEditable="plaintext-only" // use true to disable editing
-        className={classes}
+        className={`h-full ${classes}`}
         {...inputProps}
         spellCheck="false"
         placeholder={defaultVal}
