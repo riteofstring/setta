@@ -273,3 +273,4 @@ def maybe_create_tables_and_seed(with_example_projects):
         create_tables()
     if not seed_data_exist(with_example_projects):
         seed(with_example_projects)
+    db.disconnect()

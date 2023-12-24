@@ -8,8 +8,8 @@ from ..utils.constants import (
     GLOBAL_VARIABLES,
     LIST_ROOT,
     SCRIPT,
-    VAR_CONTROL,
     SECTION,
+    VAR_CONTROL,
 )
 from .find_placeholders import double_braces
 
@@ -62,7 +62,6 @@ def get_param_ui_type(p, section_id, id):
 def get_original_param_ui_type(p, section_id, id):
     ui_type_id = get_param_ui_type_id(p, section_id, id)
     return p["uiTypes"][ui_type_id]["type"]
-
 
 
 def get_param_var_name(param_var_names):

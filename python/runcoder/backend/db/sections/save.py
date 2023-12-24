@@ -62,7 +62,7 @@ def save_sections(sections):
                 "descriptionVisible": s["descriptionVisible"],
                 "script": s["script"],
                 "code": s["code"],
-                "varControl": s["varControl"]
+                "varControl": s["varControl"],
             }
             for s in sections.values()
         ]
