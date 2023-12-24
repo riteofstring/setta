@@ -4,12 +4,11 @@ import { useUITypes } from "models/info/uiTypes";
 import { requiresNestedSection } from "z_utils/constants";
 import { getSectionInfo } from "./sections/getters";
 import { maybeIncrementProjectStateVersion } from "./undo";
-import { varControlUpdate } from "./varControl";
 import { debouncedRequestTypeCheck } from "./websocket";
 
 export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
-  return useParamInfos.getState().x[evColId].values[paramInfoId];
+  return useParamInfos.getState().x[evColId][paramInfoId];
 }
 
 export function getParamChildId(sectionId: string, paramInfoId: string) {
@@ -48,9 +47,6 @@ export function setParamEnteredValue({
   useParamInfos
     .getState()
     .setEnteredValue({ collectionId: evColId, paramInfoId, value });
-  if (incrementVersion) {
-    varControlUpdate();
-  }
   maybeIncrementProjectStateVersion(incrementVersion);
   debouncedRequestTypeCheck();
 }

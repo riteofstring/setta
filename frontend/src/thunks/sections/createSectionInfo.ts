@@ -69,7 +69,7 @@ export function addSectionsToState(
   for (const s of sectionIds) {
     initializeNewSectionConfig(s);
     const { codeInfoId } = getSectionTypeConfig(s);
-    initializeChildParams({ sectionIds: [s], codeInfoIds: [codeInfoId] });
+    initializeChildParams([s], [codeInfoId]);
   }
 
   if (topLevelPosition) {

@@ -31,13 +31,3 @@ export function createVarName(existingVarNames) {
 
   return varName;
 }
-
-export function createEVColName(){
-  const customConfig = {
-    dictionaries: [adjectives, colors],
-    separator: "_",
-    length: 2,
-  };
-
-  return uniqueNamesGenerator(customConfig);
-}

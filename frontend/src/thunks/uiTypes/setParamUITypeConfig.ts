@@ -93,9 +93,7 @@ function _updateEVs(uiType) {
 
     for (const s of Object.values(useSectionInfos.getState().x)) {
       if (s.uiTypeColId === colId) {
-        for (const [pid, currValue] of Object.entries(
-          pState.x[s.evColId].values
-        )) {
+        for (const [pid, currValue] of Object.entries(pState.x[s.evColId])) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({ uiType, currValue });
             if (newVal !== currValue) {

@@ -23,7 +23,7 @@ export function setCollections({
   sectionIds.push(sectionId);
 
   if (checked) {
-    initializeChildParams({ sectionIds, codeInfoIds: [id] });
+    initializeChildParams(sectionIds, [id]);
   }
 
   setSectionUITypeConfig({

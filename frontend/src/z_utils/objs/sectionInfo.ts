@@ -21,19 +21,14 @@ export function newSectionInfo({
   description = "",
   descriptionHeight = 100,
   descriptionVisible = false,
-  evColIds = [],
   nonPresetUITypeIds = [],
   script = "",
   code = "",
-  varControl = "",
   existingVarNames,
 }: Partial<SectionType> & {
   size: SizeType;
   existingVarNames: string[];
 }): SectionType {
-  const _evColId = maybeNewId(evColId);
-  const _evColIds = [...evColIds, _evColId];
-
   return {
     id: maybeNewId(id),
     name: name ? name : createVarName(existingVarNames),
@@ -44,7 +39,7 @@ export function newSectionInfo({
     size,
     chainedFrom,
     uiTypeId: maybeNewId(uiTypeId),
-    evColId: _evColId,
+    evColId: maybeNewId(evColId),
     uiTypeColId: maybeNewId(uiTypeColId),
     selectedItem,
     social,
@@ -54,8 +49,6 @@ export function newSectionInfo({
     descriptionVisible,
     script,
     code,
-    varControl,
-    evColIds: _evColIds,
     nonPresetUITypeIds,
   };
 }

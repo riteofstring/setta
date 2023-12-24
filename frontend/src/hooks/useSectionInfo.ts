@@ -10,7 +10,6 @@ export function useGetSectionInfo<K extends keyof SectionType>(
     "children",
     "currChildren",
     "size",
-    "evColIds",
     "nonPresetUITypeIds",
   ].includes(key)
     ? _.isEqual

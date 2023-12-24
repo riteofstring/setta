@@ -10,7 +10,6 @@ import {
   OUTPUT,
   SCRIPT,
   SOCIAL,
-  VAR_CONTROL,
 } from "z_utils/constants";
 import {
   SectionUITypeConfigType,
@@ -82,8 +81,4 @@ export function useIsScript(sectionId: string) {
 
 export function useIsCode(sectionId: string) {
   return useIsType(sectionId, CODE);
-}
-
-export function useIsVarControl(sectionId: string) {
-  return useIsType(sectionId, VAR_CONTROL);
 }

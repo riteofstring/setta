@@ -8,7 +8,6 @@ from ..utils.constants import (
     GLOBAL_VARIABLES,
     LIST_ROOT,
     SCRIPT,
-    VAR_CONTROL,
     SECTION,
 )
 from .find_placeholders import double_braces
@@ -136,7 +135,7 @@ class Exporter:
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
                 self.export_params(id, generate_var_name=False)
-            if section_type in [GLOBAL_VARIABLES, SCRIPT, CODE, VAR_CONTROL]:
+            if section_type in [GLOBAL_VARIABLES, SCRIPT, CODE]:
                 to_pop.append(id)
         for id in to_pop:
             self.p["sections"].pop(id)
@@ -211,7 +210,7 @@ class Exporter:
 
     def export_param_value(self, section_id, id):
         ev_col_id = self.p["sections"][section_id]["evColId"]
-        value = self.p["evCols"][ev_col_id]["values"][id]
+        value = self.p["evCols"][ev_col_id][id]
         # original_type = get_original_param_ui_type(self.p, section_id, id)
         possible_child_id = get_param_child_id(self.p, section_id, id)
         if possible_child_id:

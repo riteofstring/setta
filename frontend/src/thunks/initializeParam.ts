@@ -17,34 +17,20 @@ import { getParamChildId } from "./paramInfos";
 import { addChildForParam } from "./sections/addChild";
 import { getSectionInfo } from "./sections/getters";
 
-export function initializeChildParams({
-  sectionIds,
-  codeInfoIds,
-  childFinder = findAllParameters,
-  inputParamIdToUITypeId = {},
-}: {
-  sectionIds: string[];
-  codeInfoIds: string[];
-  childFinder: any;
-  inputParamIdToUITypeId: any;
-}) {
+export function initializeChildParams(
+  sectionIds: string[],
+  codeInfoIds: string[],
+  childFinder = findAllParameters
+) {
   const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
-    initializeParam(s, params, inputParamIdToUITypeId);
+    initializeParam(s, params);
   }
 }
 
-export function initializeParam(
-  sectionId: string,
-  paramInfos: CodeInfoType[],
-  inputParamIdToUITypeId = {}
-) {
+export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");
-  const paramIdToUITypeId = initializeParamUIType(
-    sectionId,
-    paramInfosAsObj,
-    inputParamIdToUITypeId
-  );
+  const paramIdToUITypeId = initializeParamUIType(sectionId, paramInfosAsObj);
   initializeParamEnteredValue(sectionId, paramInfosAsObj, paramIdToUITypeId);
   initializeChild(sectionId, paramInfosAsObj, paramIdToUITypeId);
 }
@@ -56,7 +42,7 @@ function initializeParamEnteredValue(
 ) {
   const { evColId } = getSectionInfo(sectionId);
   const evCol = useParamInfos.getState().x[evColId];
-  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
+  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol[v.id]);
 
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes: ManyOf<UITypeType> = {};
@@ -95,8 +81,7 @@ function getDefaultUIType({ mapState, paramInfo, uiTypesState }) {
 
 function initializeParamUIType(
   sectionId: string,
-  paramInfos: ManyCodeInfoType,
-  inputParamIdToUITypeId = {}
+  paramInfos: ManyCodeInfoType
 ) {
   const { paramIdToUITypeId, uiTypeColId } = getParamUITypeIds(
     sectionId,
@@ -124,9 +109,7 @@ function initializeParamUIType(
       });
 
       let newId: string;
-      if (paramId in inputParamIdToUITypeId) {
-        newId = inputParamIdToUITypeId[paramId];
-      } else if (projectDefaultUIType) {
+      if (projectDefaultUIType) {
         newId = projectDefaultUIType.id;
       } else if (userDefaultUIType) {
         newId = userDefaultUIType.id;
