@@ -9,7 +9,7 @@ export function ComboboxInput({
   getToggleButtonProps,
   isOpen,
   small,
-  onInputClick,
+  onInputMouseDown,
 }) {
   return (
     <StandardSearch
@@ -17,7 +17,7 @@ export function ComboboxInput({
         small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
-      {...getInputProps({ onClick: onInputClick })}
+      {...getInputProps({ onMouseDown: onInputMouseDown })}
       rightElement={
         <StandardSearchRightBtn
           {...getToggleButtonProps()}
