@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { requiresNestedSection } from "z_utils/constants";
 import { CodeInfoType } from "z_utils/types/codeInfo";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { useGetSectionInfo } from "./useSectionInfo";
@@ -43,15 +42,5 @@ export function useGetManyParamUITypeIds(
         p ? x.y[uiTypeColId][inputsAreIds ? p : p.id].uiTypeId : undefined
       ),
     _.isEqual
-  );
-}
-
-export function useAreAllParamsNested(
-  sectionId: string,
-  paramInfos: CodeInfoType[]
-) {
-  const uiTypeIds = useGetManyParamUITypeIds(sectionId, paramInfos, false);
-  return useUITypes((x) =>
-    uiTypeIds.map((y) => requiresNestedSection(x.x[y].type)).every((z) => z)
   );
 }

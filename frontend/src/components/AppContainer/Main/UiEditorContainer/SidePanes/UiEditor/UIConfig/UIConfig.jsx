@@ -1,4 +1,3 @@
-import { ButtonGoToSectionConfig } from "components/UI/Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ButtonGoToSectionConfig";
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetParamInfos } from "hooks/useSectionContents";
@@ -125,11 +124,6 @@ function _UIElement({ sectionId, paramInfo }) {
         config={uiType.config}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
-      />
-      <ButtonGoToSectionConfig
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        uiType={uiType}
       />
     </div>
   );
