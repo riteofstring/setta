@@ -24,7 +24,7 @@ export function openWebSocket(pathname) {
   wss.addEventListener("error", closeWebSocket);
 }
 
-export function closeWebSocket() {
+function closeWebSocket() {
   if (wss) {
     wss.close();
     wss = null;

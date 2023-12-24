@@ -90,7 +90,7 @@ function _ComboboxItem({
   );
 }
 
-export const ComboboxItem = React.memo(_ComboboxItem);
+const ComboboxItem = React.memo(_ComboboxItem);
 
 export function ComboboxItems({
   filteredItems,

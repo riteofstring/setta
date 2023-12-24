@@ -1,4 +1,3 @@
-import { generateCode as generateCodeDb } from "dbRequests/codeGenerator";
 import { sendMessage } from "dbRequests/websocket";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
@@ -11,11 +10,6 @@ export function getProjectDataToGenerateCode() {
   project.uiTypes = { ...project.uiTypes, ...presetUITypes };
   delete project.project.defaultConfigId;
   return project;
-}
-
-export async function generateCode({ codeId }) {
-  const project = getProjectDataToGenerateCode();
-  return await generateCodeDb({ codeId, project });
 }
 
 export function runCode({ codeId }) {
