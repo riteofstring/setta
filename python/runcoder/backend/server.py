@@ -14,6 +14,7 @@ from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
+from runcoder.utils.utils import import_from_path
 
 from .db.projects.delete import delete_projects
 from .db.projects.load import load_all_projects, load_full_project, load_project
@@ -43,6 +44,9 @@ origins = (
 )
 
 app = FastAPI()
+tasks_obj = Tasks()
+cache = Cache()
+processors = Processors()
 
 
 @app.on_event("startup")
@@ -70,6 +74,10 @@ async def startup_event():
             return content
 
     startMyPyDaemon()
+    i_path = os.environ.get("RUNCODER_I_PATH")
+    if i_path:
+        i_args = import_from_path(i_path).RUNCODER
+        processors.add_fn(i_args["project"], i_args["fn"])
 
 
 @app.on_event("shutdown")
@@ -126,11 +134,6 @@ class SetProjectConfigNameRequest(BaseModel):
 
 class SetDarkModeRequest(BaseModel):
     darkMode: bool
-
-
-tasks_obj = Tasks()
-cache = Cache()
-processors = Processors()
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
