@@ -1,7 +1,4 @@
-from ...schema import db
-
-
-def load_evcols(ids):
+def load_evcols(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
         SELECT EVColId.id, EVColId.name, EVCol.codeInfoId, EVCol.value

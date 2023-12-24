@@ -13,7 +13,7 @@ class DB:
 
     def connect(self):
         if not self.conn:
-            print("connect to", get_db_path())
+            print("connect to", get_db_path(), flush=True)
             self.conn = sqlite3.connect(get_db_path(), check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
@@ -29,8 +29,8 @@ class DB:
     def delete(self):
         path = get_db_path()
         if os.path.exists(path):
-            self.disconnect()
             os.remove(path)
+        self.disconnect()
 
     def commit(self):
         self.conn.commit()
@@ -48,7 +48,8 @@ class DB:
         return self.cursor.fetchone(*args, **kwargs)
 
     def __enter__(self, *args, **kwargs):
-        return self.conn.__enter__(*args, **kwargs)
+        self.conn.__enter__(*args, **kwargs)
+        return self
 
     def __exit__(self, *args, **kwargs):
         return self.conn.__exit__(*args, **kwargs)
@@ -62,11 +63,8 @@ class DBQueue:
 
     @contextmanager
     def get(self):
-        db = self.queue.get()
-        try:
+        with CombinedContextManager(self.queue) as db:
             yield db
-        finally:
-            self.queue.put(db)
 
     def process_conns(self, fn_name):
         all_dbs = []
@@ -92,33 +90,20 @@ class DBQueue:
     def delete(self):
         self.process_conns("delete")
 
-    def commit(self):
-        with self.get() as db:
-            db.commit()
 
-    def execute(self, *args, **kwargs):
-        with self.get() as db:
-            db.execute(*args, **kwargs)
-
-    def executemany(self, *args, **kwargs):
-        with self.get() as db:
-            db.executemany(*args, **kwargs)
-
-    def fetchall(self, *args, **kwargs):
-        with self.get() as db:
-            return db.fetchall(*args, **kwargs)
-
-    def fetchone(self, *args, **kwargs):
-        with self.get() as db:
-            return db.fetchone(*args, **kwargs)
+class CombinedContextManager:
+    def __init__(self, queue):
+        self.queue = queue
+        self.db = None
 
     def __enter__(self, *args, **kwargs):
-        with self.get() as db:
-            return db.__enter__(*args, **kwargs)
+        self.db = self.queue.get()
+        return self.db.__enter__(*args, **kwargs)
 
     def __exit__(self, *args, **kwargs):
-        with self.get() as db:
-            return db.__exit__(*args, **kwargs)
+        if self.db is not None:
+            self.db.__exit__(*args, **kwargs)
+            self.queue.put(self.db)
 
 
-db = DBQueue(1)
+dbq = DBQueue(1)
