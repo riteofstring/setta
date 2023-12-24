@@ -1,19 +1,16 @@
-import { dbGetSections, dbLoadSection } from "dbRequests/sections";
-import {
-  loadSectionIntoState,
-  onClickAddSection,
-} from "hooks/useCreateSectionOrDeck";
+import { onClickAddSection } from "hooks/useCreateSectionOrDeck";
 import { useEffect, useState } from "react";
 import { Item } from "utils/atoms/dropdown/item";
-import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
 import {
   CODE,
   DECK,
   GLOBAL_VARIABLES,
   SCRIPT,
   SECTION,
+  VAR_CONTROL,
 } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
+import { PaneContextMenuModal } from "./PaneContextMenuModal";
 
 export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
   const [coords, setCoords] = useState({ x: 0, y: 0 });
@@ -31,35 +28,18 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
   };
 
   const [open, setOpen] = useState(false);
-  const [sections, setSections] = useState([]);
-  async function openLoadModal() {
-    const res = await dbGetSections();
-    if (res.status === 200) {
-      setSections(res.data);
-      setOpen(true);
-    }
-  }
-
-  async function onClickLoadSection({ selected }) {
-    const res = await dbLoadSection({ sectionId: selected });
-    if (res.status === 200) {
-      loadSectionIntoState({
-        ...res.data,
-        ...commonProps,
-        topLevelIds: [selected],
-      });
-    }
+  const [modalType, setModalType] = useState("");
+  async function openLoadModal(_modalType) {
+    setModalType(_modalType);
+    setOpen(true);
   }
 
   return (
-    <SaveLoadModal
-      modalType={"Load"}
-      files={sections}
-      title={"Load Section"}
-      buttonText={"Load"}
-      onClickActionButton={onClickLoadSection}
+    <PaneContextMenuModal
+      modalType={modalType}
       open={open}
       setOpen={setOpen}
+      commonProps={commonProps}
     >
       <ContextMenuCore
         x={x}
@@ -90,8 +70,18 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
           New Code
         </Item>
-        <Item onClick={openLoadModal}>Load Section</Item>
+        <Item
+          onClick={() =>
+            onClickAddSection({ type: VAR_CONTROL, ...commonProps })
+          }
+        >
+          New Variable Control
+        </Item>
+        <Item onClick={() => openLoadModal("Create From Argparse")}>
+          Create From Argparse
+        </Item>
+        <Item onClick={() => openLoadModal("Load Section")}>Load Section</Item>
       </ContextMenuCore>
-    </SaveLoadModal>
+    </PaneContextMenuModal>
   );
 }

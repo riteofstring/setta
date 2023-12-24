@@ -21,7 +21,8 @@ def save_sections(sections):
                 descriptionHeight,
                 descriptionVisible,
                 script,
-                code
+                code,
+                varControl
             )
             VALUES (
                 :id,
@@ -40,7 +41,8 @@ def save_sections(sections):
                 :descriptionHeight,
                 :descriptionVisible,
                 :script,
-                :code
+                :code,
+                :varControl
             )
         """
 
@@ -63,6 +65,7 @@ def save_sections(sections):
                 "descriptionVisible": s["descriptionVisible"],
                 "script": s["script"],
                 "code": s["code"],
+                "varControl": s["varControl"]
             }
             for s in sections.values()
         ]
@@ -87,6 +90,24 @@ def save_sections(sections):
         for s in sections.values():
             for uiTypeId in s["nonPresetUITypeIds"]:
                 query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
+        db.executemany(query, query_params)
+
+        query = f"""
+            UPDATE EVColId
+            SET originSectionId = null
+            WHERE originSectionId IN ({placeholders})
+        """
+        db.execute(query, ids)
+
+        query = """
+            UPDATE EVColId
+            SET originSectionId = :sectionId
+            WHERE id = :evColId
+        """
+        query_params = []
+        for s in sections.values():
+            for evColId in s["evColIds"]:
+                query_params.append({"evColId": evColId, "sectionId": s["id"]})
         db.executemany(query, query_params)
 
         # delete children

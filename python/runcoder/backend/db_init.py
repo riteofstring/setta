@@ -8,7 +8,7 @@ def create_tables():
         """
         CREATE TABLE IF NOT EXISTS Settings (
             profileName TEXT PRIMARY KEY,
-            darkMode BOOLEAN DEFAULT 0
+            darkMode BOOLEAN DEFAULT 1
         );
         """,
         # CodeInfo model
@@ -52,6 +52,7 @@ def create_tables():
             descriptionVisible BOOLEAN,
             script TEXT,
             code TEXT,
+            varControl TEXT,
             FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id),
             FOREIGN KEY (chainedFromId) REFERENCES Section(id),
             FOREIGN KEY (evColId) REFERENCES EVColId(id),
@@ -74,7 +75,10 @@ def create_tables():
         # EVColId model
         """
         CREATE TABLE IF NOT EXISTS EVColId (
-            id TEXT PRIMARY KEY
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            originSectionId TEXT,
+            FOREIGN KEY (originSectionId) REFERENCES Section(id)
         );
         """,
         # EVCol model

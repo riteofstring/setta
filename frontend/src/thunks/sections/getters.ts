@@ -65,3 +65,7 @@ export function getSectionSiblingNames(sectionId: string) {
   output.delete(sectionName);
   return output;
 }
+
+export function getSectionByName(name: string) {
+  return _.find(useSectionInfos.getState().x, (x) => x.name === name);
+}

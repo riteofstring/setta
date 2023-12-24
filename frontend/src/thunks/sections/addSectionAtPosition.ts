@@ -8,6 +8,8 @@ import {
   GLOBAL_VARIABLES_UI_TYPE_ID,
   SCRIPT,
   SCRIPT_UI_TYPE_ID,
+  VAR_CONTROL,
+  VAR_CONTROL_UI_TYPE_ID,
 } from "z_utils/constants";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { SectionPositionType } from "z_utils/types/sectionPosition";
@@ -20,13 +22,17 @@ export function addSectionAtPosition({
   topLevelPosition,
   callbackBeforeExit = () => undefined,
   incrementVersion = false,
+  inputSectionProps = {},
 }: {
   type: string;
   topLevelPosition: SectionPositionType;
   callbackBeforeExit?: callbackBeforeExitType;
   incrementVersion?: boolean;
+  inputSectionProps: any;
 }) {
-  const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {};
+  const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {
+    ...inputSectionProps,
+  };
   if (type === DECK) {
     sectionProps.name = "Group";
     sectionProps.uiTypeId = DECK_UI_TYPE_ID;
@@ -39,6 +45,9 @@ export function addSectionAtPosition({
   } else if (type === CODE) {
     sectionProps.name = "Code";
     sectionProps.uiTypeId = CODE_UI_TYPE_ID;
+  } else if (type === VAR_CONTROL) {
+    sectionProps.name = "Var Control";
+    sectionProps.uiTypeId = VAR_CONTROL_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({
     sectionProps,
@@ -47,4 +56,5 @@ export function addSectionAtPosition({
   });
   callbackBeforeExit(newId);
   maybeIncrementProjectStateVersion(incrementVersion);
+  return newId;
 }

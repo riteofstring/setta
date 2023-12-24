@@ -5,7 +5,8 @@ from pprint import pprint
 import jedi
 
 from ..code.export_selected import export_selected, get_code, get_script
-from ..code.find_placeholders import needs_code, needs_yaml
+from ..code.extract_args_from_help import extract_args_from_help
+from ..code.find_placeholders import needs_python_code, needs_yaml
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
@@ -49,6 +50,8 @@ def get_consumer_fn(message):
         return allConnections
     if message["messageType"] == "runCode":
         return runCode
+    if message["messageType"] == "extractArgparseArgs":
+        return extractArgparseArgs
     raise ValueError
 
 
@@ -202,6 +205,7 @@ def allConnections(message):
 
 def runCode(message):
     p = message["message"]
+    selected = export_selected(p)
 
     def write_bash(filepaths_for_bash):
         def execute_bash(temp_filepaths):
@@ -214,7 +218,7 @@ def runCode(message):
                 for line in process.stdout:
                     print(line.decode("utf8"), flush=True)
 
-        script = generate_script(p, filepaths_for_bash)
+        script = generate_script(p, selected, filepaths_for_bash)
         withTempFiles(
             write=[script],
             in_file_with_suffix=[".sh"],
@@ -222,10 +226,9 @@ def runCode(message):
         )
 
     unprocessed_script = get_script(p)
-    selected = export_selected(p)
     write = []
     in_file_with_suffix = []
-    if needs_code(unprocessed_script):
+    if needs_python_code(unprocessed_script):
         code, _ = generate_code(selected, p)
         write.append(code)
         in_file_with_suffix.append(".py")
@@ -241,3 +244,9 @@ def runCode(message):
     )
 
     return {"output": None, "name": None, "cache": None}
+
+
+def extractArgparseArgs(message):
+    script_path = message["message"]
+    output = extract_args_from_help(script_path)
+    return {"output": output, "name": "extractArgparseArgs", "cache": None}

@@ -5,7 +5,8 @@ from collections import defaultdict
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
 from .export_selected import get_code, get_script
-from .find_placeholders import double_braces
+from .find_placeholders import double_braces, needs_python_argparse
+from .generate_argparse import generate_argparse
 from .utils import push_var_deep
 
 
@@ -98,7 +99,7 @@ def get_callable_params(var_names, selected):
 
 
 def get_boolean(value):
-    return "True" if value else "False"
+    return "True" if value == "true" else "False"
 
 
 def var_declaration(var_name, value, operator="="):
@@ -234,9 +235,12 @@ def replace_keywords(x, replacements):
     return x
 
 
-def generate_script(p, filepaths):
+def generate_script(p, selected, filepaths):
     script = get_script(p)
-    replacements = {}
+    if needs_python_argparse(script):
+        argparse_args = generate_argparse(selected)
+
+    replacements = {"RUNCODER_PYTHON_ARGPARSE": argparse_args}
     for f in filepaths:
         if f.endswith(".py"):
             replacements["RUNCODER_PYTHON_FILE"] = f
