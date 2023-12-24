@@ -1,8 +1,9 @@
-## TODO: don't connect to websocket. Instead, make it so that a function can be added to the list in get_consumer_fn.
+PROJECT = "interactive"
+
+def fn(message):
+    message = message["message"]
+    print(message, flush=True)
+    return {"output": None, "name": PROJECT, "cache": None}
 
 
-def fn(args):
-    return {"zesty_amber": args["c"] ** 2}
-
-
-RUNCODER = {"fn": fn, "project": "interactive"}
+RUNCODER = {"fn": fn, "project": PROJECT}

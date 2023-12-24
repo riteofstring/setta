@@ -153,6 +153,14 @@ class ConnectionManager:
         await self.send_message(
             {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
         )
+        await self.send_message(
+            {
+                "toWebsocketId": id,
+                "messageType": "interactiveProjects",
+                "websocketId": id,
+                "message": list(processors.interactive_projects),
+            }
+        )
         await self.broadcast_connections()
         return id
 

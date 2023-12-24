@@ -32,14 +32,20 @@ class Processors:
             "runCode": runCode,
             "extractArgparseArgs": extractArgparseArgs,
         }
+        self.interactive_projects = set()
 
     def add_fn(self, key, fn):
         self.fns[key] = fn
+        self.interactive_projects.add(key)
 
     async def __call__(self, message, tasks_obj, cache):
-        fn = self.fns[message["messageType"]]
+        key = message["messageType"]
+        fn = self.fns[key]
+        is_interactive = key in self.interactive_projects
         self.maybe_read_cache(message, cache)
-        result = await tasks_obj.run_non_blocking_subprocess(fn, message)
+        result = await tasks_obj.run_non_blocking_subprocess(
+            fn, is_interactive, message
+        )
         self.maybe_cache_result(message, result, cache)
         return result
 

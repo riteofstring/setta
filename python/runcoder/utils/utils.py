@@ -1,6 +1,5 @@
-import importlib
+import importlib.util
 import os
-import sys
 
 
 def import_from_path(file_path):
@@ -8,13 +7,17 @@ def import_from_path(file_path):
     module_dir, module_file = os.path.split(file_path)
     module_name, _ = os.path.splitext(module_file)
 
-    # Add the module's directory to sys.path
-    sys.path.insert(0, module_dir)
+    # Create a module spec from the file path
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None:
+        raise ImportError(f"Could not load module spec for {file_path}")
 
-    # Import the module using its name
-    module = importlib.import_module(module_name)
+    # Create a new module based on the spec
+    module = importlib.util.module_from_spec(spec)
+    if module is None:
+        raise ImportError(f"Could not create module from spec for {file_path}")
 
-    # Remove the directory from sys.path
-    sys.path.pop(0)
+    # Load the module
+    spec.loader.exec_module(module)
 
     return module
