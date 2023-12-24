@@ -18,7 +18,5 @@ export const tabNameToPretty = Object.freeze(
 
 export const useUIEditor = createProjectState((set) => ({
   tab: SECTION_CONFIG_TAB,
-  cameFromUIConfig: false,
   setTab: (payload) => set(() => ({ tab: payload })),
-  setCameFromUIConfig: (payload) => set(() => ({ cameFromUIConfig: payload })),
 }));

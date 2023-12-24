@@ -63,7 +63,7 @@ export const useParamInfos = createProjectState(
         }),
       deleteParamInfo: ({ evColId, uiTypeColId, ids }) =>
         set((state) => {
-          state.x[evColId] = _.omit(state.x[evColId], ids);
+          state.x[evColId].values = _.omit(state.x[evColId].values, ids);
           state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
         }),
       update: ({ evCols, uiTypeCols }) =>
