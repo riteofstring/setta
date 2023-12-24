@@ -5,25 +5,10 @@ import {
   findAllParameterCollections,
   findAllParameters,
 } from "z_utils/getDescendants";
-import {
-  getSectionInfo,
-  getSectionName,
-  getSectionTypeConfig,
-} from "./getters";
+import { getSectionInfo, getSectionTypeConfig } from "./getters";
 
 export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];
-}
-
-export function getParamWithSameName(sectionId, parentId) {
-  const sectionName = getSectionName(sectionId);
-  const params = getParamInfos(parentId);
-  for (const p of params) {
-    if (sectionName === p.name) {
-      return p;
-    }
-  }
-  return null;
 }
 
 function computeAllCallables(sectionId: string) {
