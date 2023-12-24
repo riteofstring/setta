@@ -1,10 +1,10 @@
 import { sendMessage } from "dbRequests/websocket";
 import { useGetParamEnteredValue } from "hooks/useEnteredValue";
 import _ from "lodash";
+import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
-import { createNewId } from "z_utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({
@@ -22,11 +22,12 @@ export function ParamInput({
     const vStr = _.toString(v);
     setValue(vStr);
     setEnteredValue(vStr);
-    if (useInteractive.getState().currProjectIsInteractive) {
+    const interactive_state = useInteractive.getState();
+    if (interactive_state.currProjectIsInteractive) {
       sendMessage({
-        id: createNewId(),
-        message: "interactive message!",
-        messageType: "interactive",
+        id: interactive_state.id,
+        message: value,
+        messageType: useProject.getState().name,
       });
     }
   }
