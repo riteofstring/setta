@@ -7,7 +7,6 @@ def save_sections(sections):
             INSERT OR REPLACE INTO Section (
                 id,
                 name,
-                paramInfoId,
                 width,
                 height,
                 chainedFromId,
@@ -27,7 +26,6 @@ def save_sections(sections):
             VALUES (
                 :id,
                 :name,
-                :paramInfoId,
                 :width,
                 :height,
                 :chainedFromId,
@@ -50,7 +48,6 @@ def save_sections(sections):
             {
                 "id": s["id"],
                 "name": s["name"],
-                "paramInfoId": s["paramInfoId"],
                 "width": convert_size(s["size"]["width"]),
                 "height": convert_size(s["size"]["height"]),
                 "chainedFromId": s["chainedFrom"],

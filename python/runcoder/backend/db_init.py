@@ -37,7 +37,6 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS Section (
             id TEXT PRIMARY KEY,
             name TEXT,
-            paramInfoId TEXT,
             width INTEGER,
             height INTEGER,
             chainedFromId TEXT,
@@ -53,7 +52,6 @@ def create_tables():
             script TEXT,
             code TEXT,
             varControl TEXT,
-            FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id),
             FOREIGN KEY (chainedFromId) REFERENCES Section(id),
             FOREIGN KEY (evColId) REFERENCES EVColId(id),
             FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id),

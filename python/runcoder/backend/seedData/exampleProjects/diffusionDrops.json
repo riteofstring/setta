@@ -189,7 +189,6 @@
           "name": "Optimizer",
           "children": [],
           "currChildren": [],
-          "paramInfoId": null,
           "size": {
             "width": "auto",
             "height": "auto"
@@ -215,7 +214,6 @@
           "name": "Model",
           "children": [],
           "currChildren": [],
-          "paramInfoId": null,
           "size": {
             "width": "auto",
             "height": "auto"

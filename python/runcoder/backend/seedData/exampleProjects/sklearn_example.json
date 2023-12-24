@@ -49,7 +49,6 @@
         "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e": {
           "id": "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e",
           "name": "Var Control",
-          "paramInfoId": null,
           "evColId": "8a94f3ef-63e3-477b-a5ed-98f78358b427",
           "uiTypeId": "aa87ed03-7b2b-4404-a246-7cd76f247697",
           "uiTypeColId": "118af045-82ed-44fd-a116-8e1aa091bcf3",
@@ -75,7 +74,6 @@
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
           "name": "Global Variables",
-          "paramInfoId": null,
           "evColId": "54571c59-7a51-42d5-bb8e-b6c06b41b023",
           "uiTypeId": "74d80124-deb9-4577-8470-813cb9be4e56",
           "uiTypeColId": "8d49f34e-ab85-46c2-b13d-66af60b363cf",
@@ -101,7 +99,6 @@
         "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
           "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
           "name": "Code",
-          "paramInfoId": null,
           "evColId": "69220358-73c1-49c3-9b78-d7cf733b2aa8",
           "uiTypeId": "90ad65be-05c6-4f5b-81c4-ca7b4344db49",
           "uiTypeColId": "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a",
@@ -127,7 +124,6 @@
         "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
           "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
           "name": "Script",
-          "paramInfoId": null,
           "evColId": "fca181fc-c326-4d50-b028-37b368372f49",
           "uiTypeId": "25add466-bd0e-48f7-b497-cbcab96b7b1d",
           "uiTypeColId": "f35d7b7b-d268-45c9-94de-748f8f1cd98d",
@@ -153,7 +149,6 @@
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
           "name": "dataset",
-          "paramInfoId": null,
           "evColId": "66e4192c-c1fc-4935-b862-e722726c1217",
           "uiTypeId": "fd8de817-8fc1-4502-b3a5-58e3b99dc418",
           "uiTypeColId": "3fe82a18-fa95-41ef-8474-c14df7e37620",
@@ -179,7 +174,6 @@
         "e209e428-eea6-4e14-b61e-0648ec28dd76": {
           "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
           "name": "algorithm",
-          "paramInfoId": null,
           "evColId": "22f7a029-5660-4f3d-ba54-e79637f2ba61",
           "uiTypeId": "1a83a3ce-e415-4c2d-bed0-959ce18e7995",
           "uiTypeColId": "2e7c7457-4ce1-4be5-8b35-3c86aff732d7",

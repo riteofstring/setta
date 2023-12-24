@@ -64,13 +64,6 @@ def get_original_param_ui_type(p, section_id, id):
     return p["uiTypes"][ui_type_id]["type"]
 
 
-def get_param_child_id(p, section_id, id):
-    section_children = p["sections"][section_id]["currChildren"]
-    for s in section_children:
-        if p["sections"][s]["paramInfoId"] == id:
-            return s
-    return None
-
 
 def get_param_var_name(param_var_names):
     name = f"p{len(param_var_names)}"
@@ -213,11 +206,7 @@ class Exporter:
         ev_col_id = self.p["sections"][section_id]["evColId"]
         value = self.p["evCols"][ev_col_id]["values"][id]
         # original_type = get_original_param_ui_type(self.p, section_id, id)
-        possible_child_id = get_param_child_id(self.p, section_id, id)
-        if possible_child_id:
-            var_name = self.export_section(possible_child_id)
-            return var_name, [var_name]
-        elif value:
+        if value:
             deps = []
             var_names = get_var_names_from_value(value)
             for v in var_names.intersection(self.top_level_section_names):
