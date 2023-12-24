@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
@@ -129,6 +130,7 @@ class SetDarkModeRequest(BaseModel):
 
 tasks_obj = Tasks()
 cache = Cache()
+processors = Processors()
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -164,7 +166,7 @@ class ConnectionManager:
                 await tasks_obj.create_task(
                     message.get("id", None),
                     getConsumerMessageAndSend(
-                        message, websocket.send_text, tasks_obj, cache
+                        message, websocket.send_text, tasks_obj, cache, processors
                     ),
                 )
             else:

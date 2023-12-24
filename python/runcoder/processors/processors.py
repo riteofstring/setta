@@ -1,5 +1,4 @@
 import subprocess
-from asyncio import CancelledError
 from pprint import pprint
 
 import jedi
@@ -20,62 +19,50 @@ from ..code.utils import get_var_name
 from .utils import withTempFiles
 
 
-async def getConsumerMessage(message, tasks_obj, cache):
-    try:
-        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
-        fn = get_consumer_fn(message)
-        maybe_read_cache(message, cache)
+class Processors:
+    def __init__(self):
+        self.fns = {
+            "codeCompletionRequest": codeCompletion,
+            "textFieldInitializeCode": textFieldInitializeCode,
+            "textFieldCompletion": textFieldCompletion,
+            "parametersRequest": parametersRequest,
+            "typeCheckRequest": typeCheckRequest,
+            "connection": connectionEstablished,
+            "allConnections": allConnections,
+            "runCode": runCode,
+            "extractArgparseArgs": extractArgparseArgs,
+        }
+
+    def add_fn(self, key, fn):
+        self.fns[key] = fn
+
+    async def __call__(self, message, tasks_obj, cache):
+        fn = self.fns[message["messageType"]]
+        self.maybe_read_cache(message, cache)
         result = await tasks_obj.run_non_blocking_subprocess(fn, message)
-        maybe_cache_result(message, result, cache)
+        self.maybe_cache_result(message, result, cache)
         return result
-    except CancelledError:
-        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
-        return {"output": None, "name": None}
 
+    def maybe_read_cache(self, message, cache):
+        if message["messageType"] in [
+            "parametersRequest",
+            "codeCompletionRequest",
+            "textFieldCompletion",
+        ]:
+            message = message["message"]
+            message["cached"] = cache.text_field_generated_code.get(
+                message["projectConfigId"], {}
+            ).get(message["sectionId"], None)
 
-def get_consumer_fn(message):
-    if message["messageType"] == "codeCompletionRequest":
-        return codeCompletion
-    if message["messageType"] == "textFieldInitializeCode":
-        return textFieldInitializeCode
-    if message["messageType"] == "textFieldCompletion":
-        return textFieldCompletion
-    if message["messageType"] == "parametersRequest":
-        return parametersRequest
-    if message["messageType"] == "typeCheckRequest":
-        return typeCheckRequest
-    if message["messageType"] == "connection":
-        return connectionEstablished
-    if message["messageType"] == "allConnections":
-        return allConnections
-    if message["messageType"] == "runCode":
-        return runCode
-    if message["messageType"] == "extractArgparseArgs":
-        return extractArgparseArgs
-    raise ValueError
-
-
-def maybe_read_cache(message, cache):
-    if message["messageType"] in [
-        "parametersRequest",
-        "codeCompletionRequest",
-        "textFieldCompletion",
-    ]:
-        message = message["message"]
-        message["cached"] = cache.text_field_generated_code.get(
-            message["projectConfigId"], {}
-        ).get(message["sectionId"], None)
-
-
-def maybe_cache_result(message, result, cache):
-    if result["cache"] is None:
-        return
-    if result["name"] == "textFieldInitializeCode":
-        project = message["message"]["project"]
-        sectionId = message["message"]["sectionId"]
-        cache.add_text_field_generated_code(
-            project["projectConfig"]["id"], sectionId, result["cache"]
-        )
+    def maybe_cache_result(self, message, result, cache):
+        if result["cache"] is None:
+            return
+        if result["name"] == "textFieldInitializeCode":
+            project = message["message"]["project"]
+            sectionId = message["message"]["sectionId"]
+            cache.add_text_field_generated_code(
+                project["projectConfig"]["id"], sectionId, result["cache"]
+            )
 
 
 def codeCompletion(message):
