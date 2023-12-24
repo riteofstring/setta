@@ -157,7 +157,7 @@ def load_full_project(db, project_name):
     configs = []
     project = None
     for c in config_names:
-        p = load_project(project_name, c)
+        p = load_project(db, project_name, c)
         project = p.pop("project")
         p["uiTypes"] = {
             k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
