@@ -2,7 +2,6 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { varControlUpdate } from "thunks/varControl";
 import { requestParameters } from "thunks/websocket";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { RCType } from "z_utils/types/codeInfo";
@@ -38,10 +37,6 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
       createChildrenCodeInfo(id, x);
       setSelectedItemChildren(sectionId, id, changedByUser);
     });
-  }
-
-  if (changedByUser) {
-    varControlUpdate();
   }
 }
 

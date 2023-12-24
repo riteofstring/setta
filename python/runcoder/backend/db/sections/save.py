@@ -21,8 +21,7 @@ def save_sections(sections):
                 descriptionHeight,
                 descriptionVisible,
                 script,
-                code,
-                varControl
+                code
             )
             VALUES (
                 :id,
@@ -41,8 +40,7 @@ def save_sections(sections):
                 :descriptionHeight,
                 :descriptionVisible,
                 :script,
-                :code,
-                :varControl
+                :code
             )
         """
 
@@ -65,7 +63,6 @@ def save_sections(sections):
                 "descriptionVisible": s["descriptionVisible"],
                 "script": s["script"],
                 "code": s["code"],
-                "varControl": s["varControl"]
             }
             for s in sections.values()
         ]

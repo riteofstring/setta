@@ -12,7 +12,6 @@ import { SectionDescription } from "./Main/SectionDescription/SectionDescription
 import { OutputArea } from "./OutputArea";
 import { ScriptArea } from "./ScriptArea";
 import { SocialArea } from "./SocialArea";
-import { VarControlArea } from "./VarControlArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -26,7 +25,6 @@ export function SectionContainerCoreResizable({
   isGlobalVariables,
   isScript,
   isCode,
-  isVarControl,
   hasNested,
   hasDescription,
   isActiveSection,
@@ -86,7 +84,6 @@ export function SectionContainerCoreResizable({
           isGlobalVariables={isGlobalVariables}
           isScript={isScript}
           isCode={isCode}
-          isVarControl={isVarControl}
         />
 
         {!isInfo && hasDescription && (
@@ -117,7 +114,6 @@ function AreaSwitch({
   isGlobalVariables,
   isScript,
   isCode,
-  isVarControl,
 }) {
   if (isOutput) {
     return <OutputArea sectionId={sectionId} />;
@@ -136,9 +132,6 @@ function AreaSwitch({
   }
   if (isCode) {
     return <CodeArea sectionId={sectionId} />;
-  }
-  if (isVarControl) {
-    return <VarControlArea sectionId={sectionId} />;
   }
   if (!isRoot) {
     return (

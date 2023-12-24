@@ -133,16 +133,5 @@
       "subType": null,
       "childUITypeId": null
     }
-  },
-  "a2ecb6fe-45c7-4e8b-8424-8d5955256f89": {
-    "id": "a2ecb6fe-45c7-4e8b-8424-8d5955256f89",
-    "type": "VAR_CONTROL",
-    "name": "",
-    "presetType": "BASE",
-    "config": {
-      "collections": [],
-      "subType": null,
-      "childUITypeId": null
-    }
   }
 }

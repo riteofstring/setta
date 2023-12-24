@@ -23,7 +23,6 @@ export type SectionType = {
   nonPresetUITypeIds: string[];
   script: string;
   code: string;
-  varControl: string;
 };
 
 export type ManySectionType = ManyOf<SectionType>;

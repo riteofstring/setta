@@ -7,7 +7,6 @@ import {
   GLOBAL_VARIABLES,
   SCRIPT,
   SECTION,
-  VAR_CONTROL,
 } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 import { PaneContextMenuModal } from "./PaneContextMenuModal";
@@ -69,13 +68,6 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         </Item>
         <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
           New Code
-        </Item>
-        <Item
-          onClick={() =>
-            onClickAddSection({ type: VAR_CONTROL, ...commonProps })
-          }
-        >
-          New Variable Control
         </Item>
         <Item onClick={() => openLoadModal("Create From Argparse")}>
           Create From Argparse
