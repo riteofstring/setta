@@ -8,30 +8,30 @@
         "id": "41f411f7-b14d-4375-bfcd-204446866745",
         "name": "config1",
         "viewport": {
-          "x": -248.7232273756947,
-          "y": 318.1203763831893,
-          "zoom": 0.757858283255199
+          "x": -362.06343063838517,
+          "y": 304.57367006024543,
+          "zoom": 1
         },
         "children": {
           "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e": {
-            "x": 1883.892092916437,
-            "y": 302.94312373606067,
+            "x": 1262.4038669424035,
+            "y": -19.016806492525546,
             "zIndex": 5
           },
           "46dc6cab-03ac-4e73-919d-63b30da0688d": {
-            "x": 968.1536028400475,
-            "y": -11.099759027888169,
-            "zIndex": 2
+            "x": 760.9908608487029,
+            "y": -9.780251117115284,
+            "zIndex": 4
           },
           "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
             "x": 1813.9581736454732,
             "y": 27.165970384525778,
-            "zIndex": 3
+            "zIndex": 2
           },
           "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
             "x": 1466.9275931122022,
             "y": -223.54053266232413,
-            "zIndex": 4
+            "zIndex": 3
           },
           "d96cb110-6f72-435a-b745-2d55e277f983": {
             "x": 766,
@@ -59,7 +59,7 @@
           "descriptionVisible": 0,
           "script": "",
           "code": "",
-          "varControl": "const newState = {}\n// if (state.algorithm === \"sklearn.cluster.kmeans_plusplus\"){\n//     newState.dataset = \"torch.nn.CrossEntropyLoss\"\n// }\nif (_.isNumber(_.toNumber(state.n_samples))){\n    newState.n_clusters = _.toString(_.toNumber(state.n_samples)*3)\n}\nnewState[\"dataset.n_samples\"] = state.n_samples\nreturn newState",
+          "varControl": "const newState = {}\n if (state.dataset === \"torch.nn.CrossEntropyLoss\"){\n     newState.algorithm = \"torch.optim.Adam\"\n}\nif (_.isNumber(_.toNumber(state.n_samples))){\n    newState.n_clusters = _.toString(_.toNumber(state.n_samples)*3)\n}\nnewState[\"dataset.n_samples\"] = state.n_samples\nreturn newState",
           "nonPresetUITypeIds": ["aa87ed03-7b2b-4404-a246-7cd76f247697"],
           "evColIds": ["8a94f3ef-63e3-477b-a5ed-98f78358b427"],
           "parentId": null,
