@@ -27,6 +27,7 @@ export const SECTION_TYPE_NAMES = [
   GLOBAL_VARIABLES,
   SCRIPT,
   CODE,
+  VAR_CONTROL,
 ];
 
 export const DEFAULT_BASE_UI_TYPE_ID = "3fdaeb6a-e989-4888-b844-17a76f0b0192";

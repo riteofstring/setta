@@ -69,7 +69,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         hasDescription={hasDescription}
         isActiveSection={isActiveSection}
         toggleDescVis={() => toggleSectionDescription(sectionId)}
-        isWrongType={isWrongType}
+        isWrongType={false} // TODO add the logic for this
       />
     </div>
   );

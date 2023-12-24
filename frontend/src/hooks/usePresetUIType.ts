@@ -76,7 +76,7 @@ export function useAvailableUITypesForParam(
 ) {
   const nonPresetUITypeIds = useParamNonPresetUITypeIds(sectionId, paramInfoId);
 
-  const generalFilterFn = () => true;
+  const generalFilterFn = (x) => !isSectionUIType(x);
   const nonPresetFilterFn = (uiType: UITypeType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
