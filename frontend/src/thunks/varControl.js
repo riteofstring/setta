@@ -6,15 +6,14 @@ import { useSectionToParams } from "models/info/sectionToParams";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { getSectionByName, getSectionType } from "thunks/sections/getters";
 import { setSelectedItem } from "thunks/sections/setters";
-import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { CODE, GLOBAL_VARIABLES, SCRIPT, VAR_CONTROL } from "z_utils/constants";
 
-export function TestButton() {
-  return <MenuBarButton onClick={onClick}>{"Test"}</MenuBarButton>;
-}
-
-function onClick() {
-  const fn = new Function("state", "_", JAVASCRIPT_CODE);
+export function varControlUpdate() {
+  const js_code = getVarControlSection().varControl;
+  if (!js_code) {
+    return;
+  }
+  const fn = new Function("state", "_", js_code);
   const newVals = fn(niceState(), _);
   console.log(newVals);
   for (const [k, v] of Object.entries(newVals)) {
@@ -80,6 +79,15 @@ function getGlobalVarsSection() {
   return null;
 }
 
+function getVarControlSection() {
+  for (const s of Object.values(useSectionInfos.getState().x)) {
+    if (getSectionType(s.id).type === VAR_CONTROL) {
+      return s;
+    }
+  }
+  return null;
+}
+
 function getGlobalVar(varName) {
   const globalVarSection = getGlobalVarsSection();
   if (!globalVarSection) {
@@ -92,15 +100,3 @@ function getGlobalVar(varName) {
       .params[globalVarSection.id].find((x) => x.name === varName),
   };
 }
-
-const JAVASCRIPT_CODE = `
-const newState = {}
-// if (state.algorithm === "sklearn.cluster.kmeans_plusplus"){
-//     newState.dataset = "torch.nn.CrossEntropyLoss"
-// }
-if (_.isNumber(_.toNumber(state.n_samples))){
-    newState.n_clusters = _.toString(_.toNumber(state.n_samples)*3)
-}
-newState["dataset.n_samples"] = state.n_samples
-return newState
-`;

@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { EditMenu } from "./EditMenu/EditMenu";
 import { FileMenu } from "./FileMenu/FileMenu";
 import { RunButton } from "./RunButton/RunButton";
-import { TestButton } from "./TestButton/TestButton";
 import { WebsocketConnections } from "./WebsocketConnections/WebsocketConnections";
 
 export function SubNav() {
@@ -33,7 +32,6 @@ function UiEditorSubNav() {
       {/* <StateCounter /> */}
 
       {/* <TypeCheckButton /> */}
-      <TestButton />
     </div>
   );
 }
