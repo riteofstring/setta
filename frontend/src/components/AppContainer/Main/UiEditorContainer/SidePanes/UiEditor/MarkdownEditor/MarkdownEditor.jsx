@@ -1,9 +1,9 @@
 import { useSetSectionDescription } from "hooks/useSectionDescription";
-import { useDescription } from "models/info/description";
+import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
 
 const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
-  const description = useDescription((x) => x.description);
+  const description = useSectionInfos((x) => x.x[sectionId].description);
   const setDescription = useSetSectionDescription(sectionId);
   // onChange={(v)=>setDescription(v.target.value)}
 
@@ -12,6 +12,13 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
       data-color-mode="light"
       className="[&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl border border-solid border-slate-300 dark:border-runcoder-600 [&_.w-md-editor-bar]:hidden"
     >
+      {/* <MDEditor
+        value={description}
+        onChange={setDescription}
+        preview="edit"
+        textareaProps={{ resize: "none" }}
+        className="flex-1 self-stretch"
+      /> */}
       <textarea
         value={description}
         onChange={(v) => setDescription(v.target.value)}

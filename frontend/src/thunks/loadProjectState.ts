@@ -1,4 +1,3 @@
-import { useDescription } from "models/info/description";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
@@ -38,13 +37,7 @@ export function loadProjectState({
   useProjectConfigCodeInfoMaps
     .getState()
     .resetAndSetAll(projectConfigCodeInfoMaps);
-  for (const v of Object.values(sections)) {
-    useDescription.getState().setDescription(v.id, v.description);
-    delete v.description;
-  }
-  console.log(useDescription.getState())
   useSectionInfos.getState().resetAndSetAll({ sections });
-
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));

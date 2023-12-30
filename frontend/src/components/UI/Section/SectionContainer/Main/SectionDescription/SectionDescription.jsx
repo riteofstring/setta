@@ -1,11 +1,11 @@
-import { useDescription } from "models/info/description";
+import { useSectionInfos } from "models/info/sectionInfos";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
 export function SectionDescription({ sectionId, width, card = false }) {
-  const description = useDescription((x) => x[sectionId]);
+  const description = useSectionInfos((x) => x.x[sectionId].description);
 
   if (!card) {
     return (

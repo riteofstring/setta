@@ -1,4 +1,3 @@
-import { useDescription } from "models/info/description";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { debouncedIncrementVersionFn } from "thunks/undo";
@@ -8,11 +7,11 @@ export function useSectionHasDescription(sectionId) {
 }
 
 export function useSetSectionDescription(sectionId) {
-  const setDescription = useDescription((x) => x.setDescription);
+  const setDescription = useSectionInfos((x) => x.setSectionInfoAttr);
 
   return (value) => {
-    setDescription(sectionId, value);
-    // debouncedIncrementVersionFn();
+    setDescription({ sectionId, attr: "description", value });
+    debouncedIncrementVersionFn();
   };
 }
 
