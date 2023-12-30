@@ -8,6 +8,7 @@ import {
 } from "./ImportExportModal/ImportExportModal";
 import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
 import { LoadSectionModal } from "./PaneContextModal/LoadSectionModal";
+import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
@@ -51,6 +52,8 @@ function ModalContent({ open }) {
       return <CreateFromArgparseModal />;
     case "Load Section":
       return <LoadSectionModal open={open} />;
+    case "SaveUITypeConfig":
+      return <SaveUITypeConfigModal open={open} />;
     default:
       return null;
   }
