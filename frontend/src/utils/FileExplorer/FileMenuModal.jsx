@@ -14,30 +14,14 @@ import {
 import { router } from "utils/Routes/router";
 import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
 
-export function FileMenuModal({ modalType, open }) {
+export function FileMenuLoadModal({ open }) {
   const { projects, getProjects } = useGetProjectsForFileMenu();
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-    if (modalType === "Load") {
+    if (open) {
       getProjects({});
     }
-    if (modalType === "Save As") {
-      getProjects({ projectId: useProject.getState().id });
-    }
   }, [open]);
-
-  const modalTypeObj = {
-    Load: "Load Project",
-    "Save As": "Save Project As",
-    "Export JSON": "Export JSON",
-    "Export Full JSON": "Export Full JSON",
-    "Import JSON": "Import JSON",
-  };
-
-  const title = modalTypeObj[modalType];
 
   function onClickLoadProject({ selected }) {
     const configInfo = projects.find((x) => x.id === selected);
@@ -48,6 +32,27 @@ export function FileMenuModal({ modalType, open }) {
       });
     }
   }
+
+  return (
+    <SaveLoadModal
+      modalType={"Load"}
+      files={projects}
+      onClickActionButton={onClickLoadProject}
+      title={"Load Project"}
+      buttonText={"Load"}
+      placeholder="Config Name"
+    />
+  );
+}
+
+export function FileMenuSaveAsModal({ open }) {
+  const { projects, getProjects } = useGetProjectsForFileMenu();
+
+  useEffect(() => {
+    if (open) {
+      getProjects({ projectId: useProject.getState().id });
+    }
+  }, [open]);
 
   async function onClickSaveAsProject({ selected, filename }) {
     if (selected === useProjectConfig.getState().id) {
@@ -68,16 +73,13 @@ export function FileMenuModal({ modalType, open }) {
     }
   }
 
-  const onClickActionButton =
-    modalType === "Load" ? onClickLoadProject : onClickSaveAsProject;
-
   return (
     <SaveLoadModal
-      modalType={modalType}
+      modalType={"Load"}
       files={projects}
-      onClickActionButton={onClickActionButton}
-      title={title}
-      buttonText={modalType}
+      onClickActionButton={onClickSaveAsProject}
+      title={"Save Project As"}
+      buttonText={"Load"}
       placeholder="Config Name"
     />
   );

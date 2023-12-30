@@ -9,6 +9,7 @@ import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { saveProject } from "thunks/save";
 import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
+
 export function FileMenu() {
   const { projectJson, exportProjectJson, exportFullProjectJson } =
     useExportProjectJson();
@@ -38,24 +39,6 @@ export function FileMenu() {
 
   useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
 
-  return (
-    <MenuItems
-      openLoadModal={openLoadModal}
-      openSaveAsModal={openSaveAsModal}
-      openExportJSONModal={openExportJSONModal}
-      openExportFullJSONModal={openExportFullJSONModal}
-      openImportJSONModal={openImportJSONModal}
-    />
-  );
-}
-
-function MenuItems({
-  openLoadModal,
-  openSaveAsModal,
-  openExportJSONModal,
-  openExportFullJSONModal,
-  openImportJSONModal,
-}) {
   return (
     <MenuDropdown trigger="File">
       <DialogMenuBarTriggerItem

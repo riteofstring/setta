@@ -1,6 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "models/modal";
-import { FileMenuModal } from "utils/FileExplorer/FileMenuModal";
+import {
+  FileMenuLoadModal,
+  FileMenuSaveAsModal,
+} from "utils/FileExplorer/FileMenuModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
@@ -30,8 +33,10 @@ function ModalContent({ open }) {
     return null;
   }
 
-  if (["Load", "Save As"].includes(modalType)) {
-    return <FileMenuModal modalType={modalType} open={open} />;
+  if (modalType === "Load") {
+    return <FileMenuLoadModal open={open} />;
+  } else if (modalType === "Save As") {
+    return <FileMenuSaveAsModal open={open} />;
   }
 
   return "This is a test";
