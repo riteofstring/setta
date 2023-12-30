@@ -1,10 +1,10 @@
-import { useSetSectionDescription } from "hooks/useSectionDescription";
+import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 
 const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
   const description = useSectionInfos((x) => x.x[sectionId].description);
-  const setDescription = useSetSectionDescription(sectionId);
   const [localDescription, setLocalDescription] = useState(description);
 
   useEffect(() => {
@@ -13,6 +13,23 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
     }
   }, [description]);
 
+  function onChange(v) {
+    setLocalDescription(v);
+    setDescription(v);
+  }
+
+  const setDescription = useCallback(
+    _.debounce((v) => {
+      if (v !== description) {
+        useSectionInfos
+          .getState()
+          .setSectionInfoAttr({ sectionId, attr: "description", value: v });
+        maybeIncrementProjectStateVersion(true);
+      }
+    }, 200),
+    [description]
+  );
+
   return (
     <div
       data-color-mode="light"
@@ -20,7 +37,7 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
     >
       <textarea
         value={localDescription}
-        onChange={(v) => setLocalDescription(v.target.value)}
+        onChange={(v) => onChange(v.target.value)}
         className="block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-sm text-runcoder-900 focus:border-blue-500 focus:ring-blue-500 dark:border-runcoder-700 dark:bg-runcoder-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500"
         placeholder="Write your description in Markdown..."
       />
