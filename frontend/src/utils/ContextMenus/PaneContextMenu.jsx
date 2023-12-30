@@ -1,5 +1,5 @@
-import { onClickAddSection } from "hooks/useCreateSectionOrDeck";
 import { useEffect, useState } from "react";
+import { onClickAddSection } from "thunks/createSectionOrDeck";
 import { Item } from "utils/atoms/dropdown/item";
 import {
   CODE,

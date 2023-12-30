@@ -1,10 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { dbGetSections, dbLoadSection } from "dbRequests/sections";
+import { useEffect, useRef, useState } from "react";
 import {
   extractArgparseArgs,
   loadSectionIntoState,
-} from "hooks/useCreateSectionOrDeck";
-import { useEffect, useRef, useState } from "react";
+} from "thunks/createSectionOrDeck";
 import { Footer, SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
 
 export function PaneContextMenuModal({
