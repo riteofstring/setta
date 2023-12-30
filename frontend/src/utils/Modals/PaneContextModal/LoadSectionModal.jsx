@@ -1,9 +1,11 @@
 import { dbGetSections, dbLoadSection } from "dbRequests/sections";
+import { useModal } from "models/modal";
 import { useEffect, useState } from "react";
 import { loadSectionIntoState } from "thunks/createSectionOrDeck";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function LoadSectionModal({ open }) {
+  const contextMenuLocation = useModal((x) => x.modalData);
   const [sections, setSections] = useState([]);
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export function LoadSectionModal({ open }) {
     if (res.status === 200) {
       loadSectionIntoState({
         ...res.data,
-        ...commonProps,
+        ...contextMenuLocation,
         topLevelIds: [selected],
       });
     }

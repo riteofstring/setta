@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "models/modal";
+import { useEffect } from "react";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import {
@@ -9,12 +10,20 @@ import {
 import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
 import { LoadSectionModal } from "./PaneContextModal/LoadSectionModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
-import { SectionSaveButtonModal } from "./SectionSaveButtonModal/SectionSaveButtonModal";
+import { CreateNewEnteredValuesModal } from "./SectionSaveButtonModal/CreateNewEnteredValuesModal";
+import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
   const setOpen = useModal((x) => x.setOpen);
+  const setModalData = useModal((x) => x.setModalData);
+
+  useEffect(() => {
+    if (!open) {
+      setModalData(null);
+    }
+  }, [open]);
 
   console.log("ModalContainer");
   console.log("open", open);
@@ -56,8 +65,9 @@ function ModalContent({ open }) {
     case "SaveUITypeConfig":
       return <SaveUITypeConfigModal open={open} />;
     case "Custom Arguments":
+      return <SaveCustomArgumentsModal open={open} />;
     case "Create New Entered Values":
-      return <SectionSaveButtonModal open={open} />;
+      return <CreateNewEnteredValuesModal />;
     default:
       return null;
   }

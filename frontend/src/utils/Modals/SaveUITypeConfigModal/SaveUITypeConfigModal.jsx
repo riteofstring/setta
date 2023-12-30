@@ -1,6 +1,9 @@
 import { useUITypes } from "models/info/uiTypes";
 import { useEffect, useState } from "react";
-import { isUserPreset } from "z_utils/uiTypeConstants";
+import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
+import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
+import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
+import { isPreset, isUserPreset } from "z_utils/uiTypeConstants";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
 export function SaveUITypeConfigModal({ open }) {
@@ -15,11 +18,29 @@ export function SaveUITypeConfigModal({ open }) {
     }
   }, [open]);
 
+  function onSaveAsSubmit({ filename }) {
+    const newUIType = cloneNewUIType({
+      uiType,
+      name: filename,
+      presetType: PresetType.USER,
+    });
+    setParamUITypeConfig({ uiType: newUIType });
+    setParamUITypeId({
+      uiTypeId: newUIType.id,
+      sectionId,
+      paramInfoId,
+    });
+    // delete old uitype if its a non-preset
+    if (!isPreset(uiType)) {
+      deleteUIType({ uiTypeId: uiType.id });
+    }
+  }
+
   return (
     <SaveLoadModal
       modalType={"Save"}
       files={files}
-      //   onClickActionButton={onSubmit}
+      onClickActionButton={onSaveAsSubmit}
       title="Save UI Type As"
       buttonText="Save As"
       placeholder="Preset Name"

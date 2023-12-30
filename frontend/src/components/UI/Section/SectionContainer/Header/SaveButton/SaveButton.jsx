@@ -6,12 +6,14 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 
 export function SaveButton({ sectionId }) {
   const setModalType = useModal((x) => x.setModalType);
+  const setModalData = useModal((x) => x.setModalData);
 
   function openCustomArgumentsModal() {
     setModalType("Custom Arguments");
   }
 
   function openEnteredValuesModal() {
+    setModalData(sectionId);
     setModalType("Create New Entered Values");
   }
 
