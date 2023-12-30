@@ -1,4 +1,3 @@
-import { useSectionRefAndInit } from "hooks/useStateRef";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import React from "react";
@@ -6,7 +5,6 @@ import ReactFlow, { useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { PANEID } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
@@ -37,7 +35,6 @@ function onSelectionDragStop(e, nodes) {
 }
 
 function _SectionsPane({ initialNodes, viewport }) {
-  const reactFlowRef = useSectionRefAndInit(PANEID);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
   console.log("_SectionsPane");
@@ -66,7 +63,6 @@ function _SectionsPane({ initialNodes, viewport }) {
 
   return (
     <ReactFlow
-      ref={reactFlowRef}
       nodes={nodes}
       minZoom={0.1}
       maxZoom={10}

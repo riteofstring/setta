@@ -1,7 +1,7 @@
 import { useHasNested } from "hooks/useSectionChildren";
-import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
-import React from "react";
+import { useSectionRefs } from "models/sectionRefs";
+import React, { useEffect, useRef } from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 
 function _Container({
@@ -64,4 +64,14 @@ function DeckSectionTitle({ sectionId }) {
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
+}
+
+function useSectionRefAndInit(sectionId) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    useSectionRefs.getState().setRef({ sectionId, ref: ref.current });
+  }, []);
+
+  return ref;
 }
