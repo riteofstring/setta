@@ -2,6 +2,7 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
+import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";
 import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
@@ -41,6 +42,7 @@ export function attachKeyEventListeners() {
     [ctrlPlus("s"), saveProject],
     [ctrlPlus("l"), openLoadModal],
     [ctrlShiftPlus("S"), openSaveAsModal],
+    [ctrlPlus("k"), focusOnArgsFilter],
   ];
 
   const cleanup_functions = [];
