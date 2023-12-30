@@ -5,25 +5,25 @@ import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
 export function SectionDescription({ sectionId, card = false }) {
-  const description = useSectionInfos((x) => x.x[sectionId].description);
-
   if (!card) {
     return (
       <ResizableDescription sectionId={sectionId}>
         <div className="relative m-8 flex w-min flex-1 flex-col self-stretch overflow-auto [&_.prose]:p-0 [&_pre]:w-full">
-          <Markdown markdownSource={description} />
+          <Markdown sectionId={sectionId} />
         </div>
       </ResizableDescription>
     );
   }
   return (
     <ScrollingArea styles="flex-1 self-stretch nodrag nowheel px-8 my-6 cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
-      <Markdown markdownSource={description} />
+      <Markdown sectionId={sectionId} />
     </ScrollingArea>
   );
 }
 
-function Markdown({ markdownSource }) {
+function Markdown({ sectionId }) {
+  const markdownSource = useSectionInfos((x) => x.x[sectionId].description);
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
