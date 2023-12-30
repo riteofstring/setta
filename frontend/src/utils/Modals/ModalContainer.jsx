@@ -6,6 +6,8 @@ import {
   ExportJSONModal,
   ImportJSONModal,
 } from "./ImportExportModal/ImportExportModal";
+import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
+import { LoadSectionModal } from "./PaneContextModal/LoadSectionModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
@@ -45,6 +47,10 @@ function ModalContent({ open }) {
       return <ExportJSONModal modalType={modalType} open={open} />;
     case "Import JSON":
       return <ImportJSONModal />;
+    case "Create From Argparse":
+      return <CreateFromArgparseModal />;
+    case "Load Section":
+      return <LoadSectionModal open={open} />;
     default:
       return null;
   }

@@ -1,5 +1,7 @@
+import { useModal } from "models/modal";
 import { useEffect, useState } from "react";
 import { onClickAddSection } from "thunks/createSectionOrDeck";
+import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
 import {
   CODE,
@@ -26,20 +28,13 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
     incrementVersion: true,
   };
 
-  const [open, setOpen] = useState(false);
-  const [modalType, setModalType] = useState("");
+  const setModalType = useModal((x) => x.setModalType);
   async function openLoadModal(_modalType) {
     setModalType(_modalType);
-    setOpen(true);
+    closeContextMenu();
   }
 
   return (
-    // <PaneContextMenuModal
-    //   modalType={modalType}
-    //   open={open}
-    //   setOpen={setOpen}
-    //   commonProps={commonProps}
-    // >
     <ContextMenuCore
       x={x}
       y={y}
@@ -72,11 +67,14 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
       >
         New Variable Control
       </Item>
-      <Item onClick={() => openLoadModal("Create From Argparse")}>
+      <DialogDropdownTriggerItem
+        onClick={() => openLoadModal("Create From Argparse")}
+      >
         Create From Argparse
-      </Item>
-      <Item onClick={() => openLoadModal("Load Section")}>Load Section</Item>
+      </DialogDropdownTriggerItem>
+      <DialogDropdownTriggerItem onClick={() => openLoadModal("Load Section")}>
+        Load Section
+      </DialogDropdownTriggerItem>
     </ContextMenuCore>
-    // </PaneContextMenuModal>
   );
 }
