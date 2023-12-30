@@ -1,37 +1,19 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { dbGetBaseUITypes } from "dbRequests/uiTypes";
-import { useExportProjectJson } from "hooks/useGetOrCreateProjects";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { unstable_batchedUpdates } from "react-dom";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { loadProjectState } from "thunks/loadProjectState";
-import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+import { Footer } from "utils/SaveLoadModal/SaveLoadModal";
 
-export function ExportJSONModal({ modalType, open }) {
-  const { projectJson, exportProjectJson, exportFullProjectJson } =
-    useExportProjectJson();
-
-  useEffect(() => {
-    if (open) {
-      if (modalType === "Export JSON") {
-        exportProjectJson();
-      } else if (modalType === "Export Full JSON") {
-        exportFullProjectJson();
-      }
-    }
-  }, [open]);
-
-  return (
-    <TextAreaModal
-      value={JSON.stringify(projectJson, null, 2)}
-      title="Export JSON"
-      copyBtn={true}
-    />
-  );
-}
-
-export function ImportJSONModal() {
-  const [value, setValue] = useState("");
+export function ImportExportModalContent({
+  projectJson,
+  title,
+  disabled = true,
+  copyBtn = false,
+  buttonText = null,
+}) {
+  const [value, setValue] = useState(JSON.stringify(projectJson, null, 2));
 
   async function onClick() {
     if (title === "Import JSON") {
@@ -45,27 +27,6 @@ export function ImportJSONModal() {
     }
   }
 
-  return (
-    <TextAreaModal
-      value={value}
-      setValue={setValue}
-      title="Import JSON"
-      disabled={false}
-      buttonText={"Import"}
-      onClick={onClick}
-    />
-  );
-}
-
-function TextAreaModal({
-  value,
-  setValue,
-  title,
-  disabled = true,
-  copyBtn = false,
-  buttonText = null,
-  onClick,
-}) {
   return (
     <>
       <div className="flex min-h-[70vh] flex-grow flex-col  ">
