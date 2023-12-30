@@ -1,8 +1,9 @@
 import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useInitGlobalReactFlowStore } from "hooks/useInitGlobalReactFlowStore";
-import { useUndoRedoOnKeyActivation } from "hooks/useUndoOnKeyActivation";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
+import { useEffect } from "react";
+import { attachKeyEventListeners } from "thunks/keyActivations";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { SectionsPane } from "./Section/SectionsPane";
 
@@ -21,8 +22,12 @@ export function UIPage() {
   }));
 
   useGroupSectionsOnKeyActivation();
-  useUndoRedoOnKeyActivation();
   useInitGlobalReactFlowStore();
+
+  useEffect(() => {
+    const cleanup = attachKeyEventListeners();
+    return cleanup;
+  }, []);
 
   return (
     <GlobalDndContext>

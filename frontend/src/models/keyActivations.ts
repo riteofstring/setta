@@ -34,8 +34,6 @@ function attachEventListeners(state) {
     isSorting: (e) => e.key === "Control",
     isMovingFree: (e) => e.key === "Alt",
     groupSections: ctrlPlus("g"),
-    undo: ctrlPlus("z"),
-    redo: ctrlShiftPlus("Z"), // has to be capital because of shift
     save: ctrlPlus("s"),
     load: ctrlPlus("l"),
     saveAs: ctrlShiftPlus("S"),
