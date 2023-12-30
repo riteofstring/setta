@@ -5,6 +5,7 @@ import ReactFlow, { useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { REACT_FLOW_STORE } from "utils/constants";
 import "./react-flow-css.css";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
@@ -26,6 +27,10 @@ function onNodeDragStop(e, node, nodes) {
 
 function onSelectionDragStop(e, nodes) {
   setPositionAndZIndices(nodes);
+}
+
+function onInit(rf) {
+  REACT_FLOW_STORE.rf = rf;
 }
 
 function _SectionsPane({
@@ -66,6 +71,7 @@ function _SectionsPane({
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
+      onInit={onInit}
       className="rcbg-light dark:rcbg-dark"
     />
   );
