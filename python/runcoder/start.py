@@ -82,9 +82,8 @@ def delete_alias(name):
 @click.option("--reload", is_flag=True)
 @click.option("--with_example_projects", is_flag=True)
 @click.option("--db", type=str, default=DEFAULT_DB_ALIAS)
-@click.option("--i", type=str, default=None)
 @click.pass_context
-def cli(ctx, reload, with_example_projects, db, i):
+def cli(ctx, reload, with_example_projects, db):
     if ctx.invoked_subcommand in ["version", "delete-db", "alias", "delete-alias"]:
         return
     use_db(db)
@@ -92,8 +91,6 @@ def cli(ctx, reload, with_example_projects, db, i):
     if ctx.invoked_subcommand is None:
         if db:
             os.environ["RUNCODER_DB_ALIAS"] = db
-        if i:
-            os.environ["RUNCODER_I_PATH"] = i
         sys.path.append(str(Path(__file__).resolve().parent))
         uvicorn.run(
             "backend.server:app",
