@@ -9,6 +9,7 @@ import {
 import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
 import { LoadSectionModal } from "./PaneContextModal/LoadSectionModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
+import { SectionSaveButtonModal } from "./SectionSaveButtonModal/SectionSaveButtonModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
@@ -54,6 +55,9 @@ function ModalContent({ open }) {
       return <LoadSectionModal open={open} />;
     case "SaveUITypeConfig":
       return <SaveUITypeConfigModal open={open} />;
+    case "Custom Arguments":
+    case "Create New Entered Values":
+      return <SectionSaveButtonModal open={open} />;
     default:
       return null;
   }
