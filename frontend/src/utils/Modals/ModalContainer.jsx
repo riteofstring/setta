@@ -25,9 +25,6 @@ export function ModalContainer({ children }) {
     }
   }, [open]);
 
-  console.log("ModalContainer");
-  console.log("open", open);
-
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       {children}
