@@ -13,32 +13,28 @@ import {
 } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
+const editing =
+  "flex-1 box-border border-solid border-transparent bg-transparent px-1 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";
+
+const notEditing =
+  "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
+
+const projectNameTitleProps = {
+  editing: `${editing} text-xl text-slate-900 dark:text-runcoder-50 font-bold `,
+  notEditing: `${notEditing} text-xl text-slate-900 dark:text-runcoder-50 font-bold `,
+};
+
+const configNameTitleProps = {
+  editing: `${editing} text-md text-slate-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
+  notEditing: `${notEditing} text-md text-slate-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
+};
+
 export function ProjectName() {
   const name = useProject((x) => x.name);
   const configName = useProjectConfig((x) => x.name);
   const infoViewHandlers = useSetCurrInfoView(
     ConstantInfoView.OVERVIEW_PROJNAME
   );
-
-  async function setName(v) {
-    await dbSetProjectName(v);
-    router.navigate(`${v}/${configName}`, {
-      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
-    });
-  }
-
-  async function setConfigName(v) {
-    await dbSetProjectConfigName(v);
-    router.navigate(`${name}/${v}`, {
-      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
-    });
-  }
-
-  const editing =
-    "flex-1 box-border border-solid border-transparent bg-transparent px-1 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";
-
-  const notEditing =
-    "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
 
   return (
     <header
@@ -48,18 +44,12 @@ export function ProjectName() {
       <ProjectNameCore
         name={name}
         setName={setName}
-        titleProps={{
-          editing: `${editing} text-xl text-slate-900 dark:text-runcoder-50 font-bold `,
-          notEditing: `${notEditing} text-xl text-slate-900 dark:text-runcoder-50 font-bold `,
-        }}
+        titleProps={projectNameTitleProps}
       />
       <ProjectNameCore
         name={configName}
         setName={setConfigName}
-        titleProps={{
-          editing: `${editing} text-md text-slate-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
-          notEditing: `${notEditing} text-md text-slate-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
-        }}
+        titleProps={configNameTitleProps}
       />
     </header>
   );
@@ -80,4 +70,20 @@ function ProjectNameCore({ name, setName, titleProps }) {
       onCancel={onCancel}
     />
   );
+}
+
+async function setName(v) {
+  const configName = useProjectConfig.getState().name;
+  await dbSetProjectName(v);
+  router.navigate(`${v}/${configName}`, {
+    state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
+  });
+}
+
+async function setConfigName(v) {
+  const projectName = useProject.getState().name;
+  await dbSetProjectConfigName(v);
+  router.navigate(`${projectName}/${v}`, {
+    state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
+  });
 }
