@@ -31,10 +31,9 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   return (
-    <header className="card-title flex flex-row items-center">
+    <header className="flex flex-row items-center px-7">
       {!isInfo && (
-        <>
-          {/* <section className="align-self-stretch flex w-full flex-1 items-center gap-[0.1rem]"> */}
+        <section className="align-self-stretch flex w-full flex-1 items-center gap-[0.1rem]">
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
@@ -44,8 +43,7 @@ function _SectionHeader({
           <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
           <VersionsButton sectionId={sectionId} />
-          {/* </section> */}
-        </>
+        </section>
       )}
       {(isSeriesElement || _isRoot) && (
         <Incrementer

@@ -9,7 +9,11 @@ function _InputArea({ sectionId }) {
 
   return (
     <>
-      <SectionSearch sectionId={sectionId} initialSelection={selectedItem} />
+      <SectionSearch
+        sectionId={sectionId}
+        initialSelection={selectedItem}
+        outerDivClasses="px-3"
+      />
 
       <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
       <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
