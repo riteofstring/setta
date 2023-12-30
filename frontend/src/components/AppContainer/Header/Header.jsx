@@ -31,7 +31,6 @@ function FlexContainer({ children }) {
 
 function Search({ searchPlaceholder }) {
   const value = useSearch((x) => x.value);
-  const setValue = useSearch((x) => x.setValue);
   const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.NAVBAR_SEARCH);
 
   return (
@@ -41,7 +40,7 @@ function Search({ searchPlaceholder }) {
       leftElementStyles="pl-1"
       placeholder={searchPlaceholder}
       value={value}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => useSearch.getState().setValue(e.target.value)}
       {...infoViewHandlers}
     />
   );
