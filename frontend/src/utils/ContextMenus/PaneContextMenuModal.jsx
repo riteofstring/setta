@@ -5,7 +5,10 @@ import {
   extractArgparseArgs,
   loadSectionIntoState,
 } from "thunks/createSectionOrDeck";
-import { Footer, SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
+import {
+  Footer,
+  SaveLoadModal,
+} from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function PaneContextMenuModal({
   modalType,

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { unstable_batchedUpdates } from "react-dom";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { loadProjectState } from "thunks/loadProjectState";
-import { Footer } from "utils/SaveLoadModal/SaveLoadModal";
+import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function ImportExportModalContent({
   projectJson,

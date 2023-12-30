@@ -1,9 +1,7 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { useUITypes } from "models/info/uiTypes";
 import { useState } from "react";
 import { BiSave } from "react-icons/bi";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
 import { isUserPreset } from "z_utils/uiTypeConstants";
 
 export function SaveUITypeConfig({ onSubmit }) {
@@ -28,14 +26,10 @@ export function SaveUITypeConfig({ onSubmit }) {
     //   setOpen={setOpen}
     // >
     //   <Dialog.Trigger asChild>
-        <IconButton
-          size="w-4 h-4"
-          padding="py-2 px-2"
-          onClick={openUITypesModal}
-        >
-          <BiSave className="text-slate-500 dark:text-runcoder-200" />
-        </IconButton>
-      // </Dialog.Trigger>
+    <IconButton size="w-4 h-4" padding="py-2 px-2" onClick={openUITypesModal}>
+      <BiSave className="text-slate-500 dark:text-runcoder-200" />
+    </IconButton>
+    // </Dialog.Trigger>
     // </SaveLoadModal>
   );
 }

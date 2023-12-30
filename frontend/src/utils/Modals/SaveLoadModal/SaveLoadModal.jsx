@@ -1,8 +1,8 @@
 import { useModal } from "models/modal";
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
-import { FileExplorer } from "../FileExplorer/FileExplorer";
-import { FileNameInput } from "../FileExplorer/FileNameInput";
+import { FileNameInput } from "./FileNameInput";
+import { FileExplorer } from "./FileExplorer";
 
 export function SaveLoadModal({
   modalType,

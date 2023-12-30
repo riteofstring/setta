@@ -7,12 +7,12 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "thunks/save";
+import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,
 } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
-import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
 
 export function FileMenuLoadModal({ open }) {
   const { projects, getProjects } = useGetProjectsForFileMenu();

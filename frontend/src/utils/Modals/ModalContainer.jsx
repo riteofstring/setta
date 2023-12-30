@@ -3,7 +3,7 @@ import { useModal } from "models/modal";
 import {
   FileMenuLoadModal,
   FileMenuSaveAsModal,
-} from "utils/FileExplorer/FileMenuModal";
+} from "utils/Modals/FileMenuModal/FileMenuModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
