@@ -1,6 +1,6 @@
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
-import { useGetParamInfosThatHaveNames } from "hooks/useSectionContents";
+import { useGetParamInfos } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
@@ -18,7 +18,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
-  const paramInfos = useGetParamInfosThatHaveNames(sectionId);
+  const paramInfos = useGetParamInfos(sectionId).filter((x) => x.name);
 
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,

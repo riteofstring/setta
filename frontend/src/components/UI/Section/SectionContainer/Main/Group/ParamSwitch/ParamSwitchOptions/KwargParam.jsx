@@ -20,17 +20,17 @@ export function KwargParam(props) {
   };
 
   return (
-    <div className="flex items-center">
+    <>
       <IconButton
         onClick={onClick}
         icon={<IoClose />}
         bg="bg-transparent"
         color="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-        twClasses="ml-[0.15rem]"
+        twClasses="card-close-arg-group place-self-center"
       />
       <ParamContainer {...props} isKwarg={true}>
         <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />
       </ParamContainer>
-    </div>
+    </>
   );
 }

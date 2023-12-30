@@ -15,7 +15,8 @@ import {
 } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID, REACT_FLOW_STORE } from "utils/constants";
+import { PANEID } from "utils/constants";
+import { screenToFlowPosition } from "utils/reactFlowUtils";
 import {
   DECK,
   GLOBAL_VARIABLES,
@@ -63,7 +64,7 @@ export function onClickAddSection({
 }) {
   // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
   const topLevelPosition = projectXY
-    ? REACT_FLOW_STORE.rf.screenToFlowPosition({ x, y })
+    ? screenToFlowPosition({ x, y })
     : newSectionPosition({ x, y });
 
   topLevelPosition.zIndex = 0;
@@ -90,7 +91,7 @@ export function loadSectionIntoState({
   incrementVersion,
 }) {
   // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-  const topLevelPosition = REACT_FLOW_STORE.rf.screenToFlowPosition({ x, y });
+  const topLevelPosition = screenToFlowPosition({ x, y });
   const topLevelMapping = topLevelIds.map((i) => [
     i,
     { ...topLevelPosition, zIndex: 0 },
