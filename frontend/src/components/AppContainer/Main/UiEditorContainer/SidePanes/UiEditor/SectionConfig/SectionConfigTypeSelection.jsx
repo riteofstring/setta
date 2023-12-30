@@ -27,7 +27,7 @@ export function SectionConfigTypeSelection({ sectionId }) {
           sectionId,
           configProps: {
             configName: "codeInfoId",
-            newValueFn: () => codeInfo.id,
+            newValueFn: () => [codeInfo.id],
           },
         });
         updateParamsAndCallables(sectionId);
