@@ -2,7 +2,7 @@ import { dbLoadProject } from "dbRequests/projects";
 import { loadProjectState } from "thunks/loadProjectState";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 
-function loadProjectIntoState({
+export function loadProjectIntoState({
   projectInfo,
 }: {
   projectInfo: ProjectLoadType;

@@ -1,8 +1,8 @@
-import { useModal } from "models/modal";
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
-import { FileNameInput } from "./FileNameInput";
-import { FileExplorer } from "./FileExplorer";
+import { ModalContainer } from "utils/ModalContainer/ModalContainer";
+import { FileExplorer } from "../FileExplorer/FileExplorer";
+import { FileNameInput } from "../FileExplorer/FileNameInput";
 
 export function SaveLoadModal({
   modalType,
@@ -11,13 +11,44 @@ export function SaveLoadModal({
   title,
   buttonText,
   placeholder,
+  open,
+  setOpen,
+  children,
+  content,
+}) {
+  const _content = content ?? (
+    <ModalContent
+      modalType={modalType}
+      files={files}
+      onClickActionButton={onClickActionButton}
+      title={title}
+      buttonText={buttonText}
+      placeholder={placeholder}
+      setOpen={setOpen}
+    />
+  );
+
+  return (
+    <ModalContainer open={open} setOpen={setOpen} content={_content}>
+      {children}
+    </ModalContainer>
+  );
+}
+
+function ModalContent({
+  modalType,
+  files,
+  onClickActionButton,
+  title,
+  buttonText,
+  placeholder,
+  setOpen,
 }) {
   const [selected, setSelected] = useState(null);
   const [folder, setFolder] = useState(null);
   const [filename, setFilename] = useState("");
   const [currFiles, setCurrFiles] = useState(files);
   const [breadCrumb, setBreadCrumb] = useState([]);
-  const setOpen = useModal((x) => x.setOpen);
 
   useEffect(() => {
     setCurrFiles(files);

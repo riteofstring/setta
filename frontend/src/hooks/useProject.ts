@@ -1,6 +1,5 @@
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useInteractive } from "models/interactive";
 import { useEffect, useState } from "react";
 import { loadProject } from "thunks/user/projects";
 import {
@@ -35,8 +34,6 @@ export function useLoadProject({ projectName, configName, pageLoadType }) {
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
       useProjectConfig.getState().setName(configName);
     }
-
-    useInteractive.getState().setCurrProjectIsInteractive(projectName);
   }, [projectName, configName]);
 
   return doneLoading;

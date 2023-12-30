@@ -1,8 +1,8 @@
-from .schema import dbq
+from .schema import db
 from .seed import seed
 
 
-def create_tables(db):
+def create_tables():
     commands = [
         # Settings model
         """
@@ -218,8 +218,9 @@ def create_tables(db):
         """,
     ]
 
-    for com in commands:
-        db.execute(com)
+    with db:
+        for com in commands:
+            db.execute(com)
 
 
 TABLE_NAMES = {
@@ -244,14 +245,14 @@ TABLE_NAMES = {
 }
 
 
-def tables_exist(db):
+def tables_exist():
     db.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = db.fetchall()
     existing_tables = {table[0] for table in tables}
     return TABLE_NAMES.issubset(existing_tables)
 
 
-def seed_data_exist(db, with_example_projects):
+def seed_data_exist(with_example_projects):
     to_check = ["Settings", "UIType"]
     if with_example_projects:
         to_check.append("Project")
@@ -267,10 +268,8 @@ def seed_data_exist(db, with_example_projects):
 
 
 def maybe_create_tables_and_seed(with_example_projects):
-    dbq.connect()
-    with dbq.get() as db:
-        if not tables_exist(db):
-            create_tables(db)
-        if not seed_data_exist(db, with_example_projects):
-            seed(db, with_example_projects)
-    dbq.disconnect()
+    db.connect()
+    if not tables_exist():
+        create_tables()
+    if not seed_data_exist(with_example_projects):
+        seed(with_example_projects)

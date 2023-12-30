@@ -21,7 +21,7 @@ export function useOpenCloseWebsocket() {
   }, [location.pathname]);
 }
 
-function useWebsocketRoom(messageType) {
+export function useWebsocketRoom(messageType) {
   const [id, setId] = useState(null);
   const received = useWebsocketRooms((x) => x[id] ?? "");
   const send = useCallback(

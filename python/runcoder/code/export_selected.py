@@ -8,8 +8,8 @@ from ..utils.constants import (
     GLOBAL_VARIABLES,
     LIST_ROOT,
     SCRIPT,
-    SECTION,
     VAR_CONTROL,
+    SECTION,
 )
 from .find_placeholders import double_braces
 
@@ -62,6 +62,7 @@ def get_param_ui_type(p, section_id, id):
 def get_original_param_ui_type(p, section_id, id):
     ui_type_id = get_param_ui_type_id(p, section_id, id)
     return p["uiTypes"][ui_type_id]["type"]
+
 
 
 def get_param_var_name(param_var_names):
@@ -209,7 +210,7 @@ class Exporter:
             deps = []
             var_names = get_var_names_from_value(value)
             for v in var_names.intersection(self.top_level_section_names):
-                self.export_section(self.section_name_to_id[v])
+                var_name = self.export_section(self.section_name_to_id[v])
                 deps.append(v)
             return value, deps
         return value, []
