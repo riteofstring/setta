@@ -25,17 +25,10 @@ function ctrlPlus(key: string) {
   return preventDefault((e) => e.ctrlKey && e.key === key);
 }
 
-function ctrlShiftPlus(key: string) {
-  return preventDefault((e) => e.ctrlKey && e.shiftKey && e.key === key);
-}
-
 function attachEventListeners(state) {
   const conditions = {
     isSorting: (e) => e.key === "Control",
     isMovingFree: (e) => e.key === "Alt",
-    save: ctrlPlus("s"),
-    load: ctrlPlus("l"),
-    saveAs: ctrlShiftPlus("S"),
     searchArgs: ctrlPlus("k"),
   };
 

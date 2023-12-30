@@ -1,4 +1,9 @@
+import {
+  openLoadModal,
+  openSaveAsModal,
+} from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
 import { groupSections } from "./groupSections";
+import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 
 function preventDefault(fn) {
@@ -33,6 +38,9 @@ export function attachKeyEventListeners() {
     [ctrlPlus("z"), undoProjectState],
     [ctrlShiftPlus("Z"), redoProjectState], // has to be capital because of shift
     [ctrlPlus("g"), groupSections],
+    [ctrlPlus("s"), saveProject],
+    [ctrlPlus("l"), openLoadModal],
+    [ctrlShiftPlus("S"), openSaveAsModal],
   ];
 
   const cleanup_functions = [];
