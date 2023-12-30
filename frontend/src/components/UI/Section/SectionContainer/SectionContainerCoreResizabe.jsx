@@ -1,5 +1,3 @@
-import { useSectionInfos } from "models/info/sectionInfos";
-import { useState } from "react";
 import { BiInfoCircle } from "react-icons/bi";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
@@ -36,8 +34,6 @@ export function SectionContainerCoreResizable({
   toggleDescVis,
   isWrongType,
 }) {
-  const width = useSectionInfos((x) => x.x[sectionId].size.width);
-  const [localWidth, setLocalWidth] = useState(width);
   const isGlobalVariables = sectionTypeName === GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === INFO;
 
@@ -66,7 +62,6 @@ export function SectionContainerCoreResizable({
     <>
       <CustomResizable
         sectionId={sectionId}
-        setLocalWidth={setLocalWidth}
         inputClasses={inputClasses}
         as="section"
       >
@@ -95,9 +90,7 @@ export function SectionContainerCoreResizable({
         )}
       </CustomResizable>
 
-      {!isInfo && (
-        <SectionDescription sectionId={sectionId} width={localWidth} />
-      )}
+      {!isInfo && <SectionDescription sectionId={sectionId} />}
     </>
   );
 }

@@ -10,7 +10,6 @@ import {
   youtubeSectionAspectRatio,
 } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useEffect } from "react";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
@@ -22,13 +21,7 @@ const SIZE_MODE = {
   manual_only: "manual_only",
 };
 
-export function CustomResizable({
-  sectionId,
-  setLocalWidth,
-  children,
-  inputClasses,
-  as,
-}) {
+export function CustomResizable({ sectionId, children, inputClasses, as }) {
   const minHeight = useMinSectionHeight(sectionId);
   const minWidth = useMinSectionWidth(sectionId);
   const maxWidth = useMaxSectionWidth(sectionId);
@@ -38,7 +31,6 @@ export function CustomResizable({
       minHeight={minHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
-      setLocalWidth={setLocalWidth}
       inputClasses={inputClasses}
       as={as}
     >
@@ -52,7 +44,6 @@ function CustomResizableCore({
   minHeight,
   minWidth,
   maxWidth,
-  setLocalWidth,
   inputClasses = "",
   children,
   as,
@@ -65,19 +56,10 @@ function CustomResizableCore({
     const { width, height } = getNewSize({
       props,
       minWidth,
-      setLocalWidth,
       sizeMode,
     });
     setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
   }
-
-  function onResize(e, direction, ref) {
-    setLocalWidth(parseCurrPx(ref.style.width));
-  }
-
-  useEffect(() => {
-    setLocalWidth(size.width);
-  }, [size.width]);
 
   const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
@@ -89,7 +71,6 @@ function CustomResizableCore({
       minHeight={minHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
-      onResize={onResize}
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
@@ -138,7 +119,7 @@ function getDoubleClickSize({ direction, ref, minWidth, sizeMode }) {
   return [pxWidth, pxHeight];
 }
 
-function getNewSize({ props, minWidth, setLocalWidth, sizeMode }) {
+function getNewSize({ props, minWidth, sizeMode }) {
   const [e, direction, ref, d] = props;
   let width;
   let height;
@@ -150,7 +131,6 @@ function getNewSize({ props, minWidth, setLocalWidth, sizeMode }) {
       minWidth,
       sizeMode,
     });
-    setLocalWidth(width);
   } else {
     width = parseCurrPx(ref.style.width);
     height = parseCurrPx(ref.style.height);

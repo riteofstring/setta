@@ -4,12 +4,12 @@ import remarkGfm from "remark-gfm";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
-export function SectionDescription({ sectionId, width, card = false }) {
+export function SectionDescription({ sectionId, card = false }) {
   const description = useSectionInfos((x) => x.x[sectionId].description);
 
   if (!card) {
     return (
-      <ResizableDescription sectionId={sectionId} width={width}>
+      <ResizableDescription sectionId={sectionId}>
         <div className="relative m-8 flex w-min flex-1 flex-col self-stretch overflow-auto [&_.prose]:p-0 [&_pre]:w-full">
           <Markdown markdownSource={description} />
         </div>
