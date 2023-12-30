@@ -24,9 +24,23 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
+function onMoveEnd(e, viewport) {
+  useProjectConfig.getState().setViewport(viewport);
+}
+
+function onNodeDragStop(e, node, nodes) {
+  setPositionAndZIndices(nodes);
+}
+
+function onSelectionDragStop(e, nodes) {
+  setPositionAndZIndices(nodes);
+}
+
 function _SectionsPane({ initialNodes, viewport }) {
   const reactFlowRef = useSectionRefAndInit(PANEID);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+
+  console.log("_SectionsPane");
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
@@ -45,21 +59,9 @@ function _SectionsPane({ initialNodes, viewport }) {
     closeCtxMenus,
   ] = useAllContextMenus();
 
-  function onMoveEnd(e, viewport) {
-    useProjectConfig.getState().setViewport(viewport);
-  }
-
   function onPaneClick() {
     closeCtxMenus();
     useActiveSection.getState().setId(null);
-  }
-
-  function onNodeDragStop(e, node, nodes) {
-    setPositionAndZIndices(nodes);
-  }
-
-  function onSelectionDragStop(e, nodes) {
-    setPositionAndZIndices(nodes);
   }
 
   return (

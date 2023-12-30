@@ -1,8 +1,9 @@
-import { useInitGlobalReactFlowStore } from "hooks/useInitGlobalReactFlowStore";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect } from "react";
+import { useStoreApi } from "reactflow";
 import { attachKeyEventListeners } from "thunks/keyActivations";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { SectionsPane } from "./Section/SectionsPane";
 
@@ -21,15 +22,25 @@ export function UIPage() {
   }));
 
   useInitGlobalReactFlowStore();
-
-  useEffect(() => {
-    const cleanup = attachKeyEventListeners();
-    return cleanup;
-  }, []);
+  useInitGlobalKeyEventListeners();
 
   return (
     <GlobalDndContext>
       <SectionsPane initialNodes={initialNodes} viewport={viewport} />
     </GlobalDndContext>
   );
+}
+
+function useInitGlobalReactFlowStore() {
+  const store = useStoreApi();
+  useEffect(() => {
+    REACT_FLOW_STORE.store = store;
+  }, []);
+}
+
+function useInitGlobalKeyEventListeners() {
+  useEffect(() => {
+    const cleanup = attachKeyEventListeners();
+    return cleanup;
+  }, []);
 }
