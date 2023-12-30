@@ -25,6 +25,7 @@ function ConnectionList() {
 
 function ConnectionItem({ info }) {
   const connectedTo = useWebsocketConnectionList((x) => x.connectedTo);
+  const setConnectedTo = useWebsocketConnectionList((x) => x.setConnectedTo);
 
   const twClasses =
     connectedTo === info.websocketId
@@ -32,11 +33,7 @@ function ConnectionItem({ info }) {
       : "bg-grey-100 dark:bg-grey-800 text-grey-800 dark:text-grey-100";
 
   return (
-    <MenuItem
-      onClick={() =>
-        useWebsocketConnectionList.getState().setConnectedTo(info.websocketId)
-      }
-    >
+    <MenuItem onClick={() => setConnectedTo(info.websocketId)}>
       <Badge twClasses={twClasses}>{"CLI"}</Badge>
       {info.websocketId}
     </MenuItem>
