@@ -1,7 +1,13 @@
 def save_code_info(db, codeInfo):
     query = """
-        INSERT OR REPLACE INTO CodeInfo (id, name, editable, rcType, defaultVal)
+        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal)
         VALUES (:id, :name, :editable, :rcType, :defaultVal)
+        ON CONFLICT (id)
+        DO UPDATE SET
+            name = :name,
+            editable = :editable,
+            rcType = :rcType,
+            defaultVal = :defaultVal
     """
 
     # insert into codeinfo table
