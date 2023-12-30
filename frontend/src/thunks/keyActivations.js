@@ -1,3 +1,4 @@
+import { groupSections } from "./groupSections";
 import { redoProjectState, undoProjectState } from "./undo";
 
 function preventDefault(fn) {
@@ -31,6 +32,7 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     [ctrlPlus("z"), undoProjectState],
     [ctrlShiftPlus("Z"), redoProjectState], // has to be capital because of shift
+    [ctrlPlus("g"), groupSections],
   ];
 
   const cleanup_functions = [];
@@ -43,5 +45,7 @@ export function attachKeyEventListeners() {
     cleanup_functions.push(cleanup);
   }
 
-  return () => cleanup_functions.forEach((x) => x());
+  return () => {
+    cleanup_functions.forEach((x) => x());
+  };
 }

@@ -1,4 +1,3 @@
-import { useGroupSectionsOnKeyActivation } from "hooks/useGroupSectionsOnKeyActivation";
 import { useInitGlobalReactFlowStore } from "hooks/useInitGlobalReactFlowStore";
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -21,7 +20,6 @@ export function UIPage() {
     style: { visibility: "visible" }, // needed to prevent flickering
   }));
 
-  useGroupSectionsOnKeyActivation();
   useInitGlobalReactFlowStore();
 
   useEffect(() => {

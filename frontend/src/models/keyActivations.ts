@@ -33,7 +33,6 @@ function attachEventListeners(state) {
   const conditions = {
     isSorting: (e) => e.key === "Control",
     isMovingFree: (e) => e.key === "Alt",
-    groupSections: ctrlPlus("g"),
     save: ctrlPlus("s"),
     load: ctrlPlus("l"),
     saveAs: ctrlShiftPlus("S"),
