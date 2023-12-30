@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useModal } from "models/modal";
 import { useEffect, useState } from "react";
 import { onClickAddSection } from "thunks/createSectionOrDeck";
@@ -29,8 +30,10 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
   };
 
   const setModalType = useModal((x) => x.setModalType);
-  async function openLoadModal(_modalType) {
+  const setModalData = useModal((x) => x.setModalData);
+  function openLoadModal(_modalType) {
     setModalType(_modalType);
+    setModalData(_.omit(commonProps, ["callbackBeforeExit"]));
     closeContextMenu();
   }
 

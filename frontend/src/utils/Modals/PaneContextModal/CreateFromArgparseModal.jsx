@@ -1,13 +1,15 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { useModal } from "models/modal";
 import { useRef } from "react";
 import { extractArgparseArgs } from "thunks/createSectionOrDeck";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
-export function CreateFromArgparseModal({ commonProps }) {
+export function CreateFromArgparseModal() {
+  const modalData = useModal((x) => x.modalData);
   const textValue = useRef("");
 
   function onClick() {
-    extractArgparseArgs({ pathToScript: textValue.current, ...commonProps });
+    extractArgparseArgs({ pathToScript: textValue.current, ...modalData });
   }
 
   return (
