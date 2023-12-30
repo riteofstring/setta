@@ -2,6 +2,7 @@ import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useInteractive } from "models/interactive";
 import { useEffect, useState } from "react";
+import { useLocation, useParams } from "react-router-dom";
 import { loadProject } from "thunks/user/projects";
 import {
   NEW_PROJECT,
@@ -10,8 +11,11 @@ import {
   SAME_PROJECT_NEW_PROJECT_NAME,
 } from "utils/Routes/pageLoadTypes";
 
-// setDoneLoading sets the doneLoading state in MainContainer
-export function useLoadProject({ projectName, configName, pageLoadType }) {
+export function useLoadProject() {
+  const { projectName, configName } = useParams();
+  const {
+    state: { pageLoadType },
+  } = useLocation();
   const [doneLoading, setDoneLoading] = useState(false);
 
   useEffect(() => {
