@@ -65,3 +65,19 @@ export function setCenter(x, y, options) {
 
   d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
 }
+
+// https://github.com/xyflow/xyflow/blob/main/packages/react/src/hooks/useViewportHelper.ts
+export function setViewport(transform, options) {
+  const {
+    transform: [x, y, zoom],
+    d3Zoom,
+    d3Selection,
+  } = REACT_FLOW_STORE.store.getState();
+  const nextTransform = zoomIdentity
+    .translate(transform.x ?? x, transform.y ?? y)
+    .scale(transform.zoom ?? zoom);
+  d3Zoom.transform(
+    getD3Transition(d3Selection, options?.duration),
+    nextTransform
+  );
+}
