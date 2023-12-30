@@ -8,42 +8,8 @@ import {
   saveProject,
 } from "thunks/save";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
-import {
-  NEW_PROJECT,
-  SAME_PROJECT_NEW_PROJECT_CONFIG,
-} from "utils/Routes/pageLoadTypes";
+import { SAME_PROJECT_NEW_PROJECT_CONFIG } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
-
-export function FileMenuLoadModal({ open }) {
-  const { projects, getProjects } = useGetProjectsForFileMenu();
-
-  useEffect(() => {
-    if (open) {
-      getProjects({});
-    }
-  }, [open]);
-
-  function onClickLoadProject({ selected }) {
-    const configInfo = projects.find((x) => x.id === selected);
-    if (configInfo) {
-      const { name, projectName } = configInfo;
-      router.navigate(`${projectName}/${name}`, {
-        state: { pageLoadType: NEW_PROJECT },
-      });
-    }
-  }
-
-  return (
-    <SaveLoadModal
-      modalType={"Load"}
-      files={projects}
-      onClickActionButton={onClickLoadProject}
-      title={"Load Project"}
-      buttonText={"Load"}
-      placeholder="Config Name"
-    />
-  );
-}
 
 export function FileMenuSaveAsModal({ open }) {
   const { projects, getProjects } = useGetProjectsForFileMenu();

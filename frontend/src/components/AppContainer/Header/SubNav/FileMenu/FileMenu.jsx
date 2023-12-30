@@ -1,8 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import {
-  createAndGoToProject,
-  useExportProjectJson,
-} from "hooks/useGetOrCreateProjects";
+import { createAndGoToProject } from "hooks/useGetOrCreateProjects";
 import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import { useModal } from "models/modal";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
@@ -11,8 +8,6 @@ import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 
 export function FileMenu() {
-  const { projectJson, exportProjectJson, exportFullProjectJson } =
-    useExportProjectJson();
   const setModalType = useModal((x) => x.setModalType);
 
   async function openLoadModal() {
@@ -25,12 +20,10 @@ export function FileMenu() {
 
   function openExportJSONModal() {
     setModalType("Export JSON");
-    exportProjectJson();
   }
 
   function openExportFullJSONModal() {
     setModalType("Export Full JSON");
-    exportFullProjectJson();
   }
 
   function openImportJSONModal() {

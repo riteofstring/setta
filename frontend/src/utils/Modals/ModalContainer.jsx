@@ -1,9 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "models/modal";
+import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
+import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import {
-  FileMenuLoadModal,
-  FileMenuSaveAsModal,
-} from "utils/Modals/FileMenuModal/FileMenuModal";
+  ExportJSONModal,
+  ImportJSONModal,
+} from "./ImportExportModal/ImportExportModal";
 import "./styles.css";
 
 export function ModalContainer({ children }) {
@@ -33,11 +35,17 @@ function ModalContent({ open }) {
     return null;
   }
 
-  if (modalType === "Load") {
-    return <FileMenuLoadModal open={open} />;
-  } else if (modalType === "Save As") {
-    return <FileMenuSaveAsModal open={open} />;
+  switch (modalType) {
+    case "Load":
+      return <FileMenuLoadModal open={open} />;
+    case "Save As":
+      return <FileMenuSaveAsModal open={open} />;
+    case "Export JSON":
+    case "Export Full JSON":
+      return <ExportJSONModal modalType={modalType} open={open} />;
+    case "Import JSON":
+      return <ImportJSONModal />;
+    default:
+      return null;
   }
-
-  return "This is a test";
 }
