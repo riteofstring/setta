@@ -47,7 +47,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     : "shadow-md active:shadow-2xl";
 
   return (
-    <section
+    <div
       className={`rounded-xl border border-white bg-white dark:border-slate-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
@@ -71,7 +71,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         toggleDescVis={() => toggleSectionDescription(sectionId)}
         isWrongType={false} // TODO add the logic for this
       />
-    </section>
+    </div>
   );
 }
 export const SectionContainerCore = React.memo(

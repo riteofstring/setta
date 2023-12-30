@@ -1,7 +1,7 @@
 import { useKeyActivations } from "models/keyActivations";
 import { useEffect } from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
-import { createDeck } from "./useCreateSectionOrDeck";
+import { createDeck } from "../thunks/createSectionOrDeck";
 
 export function useGroupSectionsOnKeyActivation() {
   const groupSections = useKeyActivations((x) => x.groupSections);

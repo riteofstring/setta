@@ -1,12 +1,11 @@
 import itertools
 
-from ...schema import db
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
-def load_sections(ids):
+def load_sections(db, ids):
     query = """
         WITH RECURSIVE DESCENDANTS AS (
             SELECT parentId, childId, "order"
@@ -70,9 +69,10 @@ def load_sections(ids):
             ),
         }
     evCols = load_evcols(
-        list(itertools.chain.from_iterable([s["evColIds"] for s in sections.values()]))
+        db,
+        list(itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])),
     )
-    uiTypeCols = load_uitypecols([s["uiTypeColId"] for s in sections.values()])
+    uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
 
     nonPresetUITypeIds = []
     for s in sections.values():
@@ -81,7 +81,7 @@ def load_sections(ids):
         for c in u.values():
             nonPresetUITypeIds.extend(c["nonPresetUITypeIds"])
 
-    nonPresetUITypes = load_uitypes_by_condition(ids=nonPresetUITypeIds)
+    nonPresetUITypes = load_uitypes_by_condition(db, ids=nonPresetUITypeIds)
 
     return {
         "sections": sections,

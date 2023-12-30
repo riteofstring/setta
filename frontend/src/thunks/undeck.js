@@ -1,8 +1,8 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import { deleteSections, moveSections } from "thunks/sections/sectionOps";
 import { PANEID } from "utils/constants";
+import { relativePos } from "../hooks/useGetSectionPosition";
 import { screenToFlowPosition } from "../utils/reactFlowUtils";
-import { relativePos } from "./useGetSectionPosition";
 
 export function undeck(deckId) {
   const childIds = useSectionInfos.getState().x[deckId].children;

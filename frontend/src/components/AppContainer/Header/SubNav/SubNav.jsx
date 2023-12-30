@@ -29,9 +29,6 @@ function UiEditorSubNav() {
       </Menubar.Root>
       {/* <CommunityButton /> */}
       <RunButton />
-      {/* <StateCounter /> */}
-
-      {/* <TypeCheckButton /> */}
     </div>
   );
 }
