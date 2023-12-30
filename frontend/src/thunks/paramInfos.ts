@@ -10,7 +10,7 @@ export function getParamEV(sectionId, paramInfoId) {
   return useParamInfos.getState().x[evColId].values[paramInfoId];
 }
 
-function getParamUITypeId(sectionId, paramInfoId) {
+export function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   return useParamInfos.getState().y[uiTypeColId][paramInfoId].uiTypeId;
 }

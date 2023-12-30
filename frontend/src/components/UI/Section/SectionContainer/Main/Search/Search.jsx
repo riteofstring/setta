@@ -31,7 +31,7 @@ export function SectionSearch({
     setSelectedItem(sectionId, value, changedByUser);
   }
 
-  function onInputMouseDown() {
+  function onInputClick() {
     textFieldInitializeCode(sectionId, null);
   }
 
@@ -49,7 +49,7 @@ export function SectionSearch({
       initialSelection={initialSelection}
       outerDivClasses={outerDivClasses}
       inputCallback={sendCompletionRequest}
-      onInputMouseDown={onInputMouseDown}
+      onInputClick={onInputClick}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useTypeErrors } from "models/typeErrors";
 import React from "react";
 import { ParamInput } from "./ParamItems/ParamInput";
 
-function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
+function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
   const infoViewHandlers = useSetCurrInfoView(paramInfo.id);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const border = maybeErrorMessage ? "border-red-600 border-2" : "";
@@ -23,6 +23,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
         sectionId={sectionId}
         paramInfoId={paramInfo.id}
         defaultVal={paramInfo.defaultVal}
+        uiType={uiType}
         isDisabled={!paramInfo.name}
       />
     </div>

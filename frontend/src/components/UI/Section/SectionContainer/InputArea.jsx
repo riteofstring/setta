@@ -4,7 +4,7 @@ import { ParamGroupContainer } from "./Main/Group/GroupContainer";
 import { KwargsControls } from "./Main/KwargsControls/KwargsControls";
 import { SectionSearch } from "./Main/Search/Search";
 
-function _InputArea({ sectionId }) {
+function _InputArea({ sectionId, isGlobalVariables }) {
   const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
 
   return (
@@ -15,7 +15,11 @@ function _InputArea({ sectionId }) {
         outerDivClasses="px-3"
       />
 
-      <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
+      <KwargsControls
+        sectionId={sectionId}
+        objInfoId={selectedItem}
+        isGlobalVariables={isGlobalVariables}
+      />
       <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
     </>
   );

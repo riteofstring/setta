@@ -1,5 +1,10 @@
-import { useGetParamUIType } from "hooks/useParamUIType";
-import { SLIDER, SWITCH } from "z_utils/constants";
+import {
+  DICT_ROOT,
+  LIST_ROOT,
+  SECTION,
+  SLIDER,
+  SWITCH,
+} from "z_utils/constants";
 import { SliderInput, SliderInputConfig } from "./SliderInput/SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput/SwitchInput";
 import { TextInput, TextInputConfig } from "./TextInput";
@@ -12,17 +17,20 @@ export function ParamUIConfig({ name, ...props }) {
       return <SliderInputConfig {...props} />;
     case SWITCH:
       return <SwitchInputConfig {...props} />;
+    case SECTION:
+    case LIST_ROOT:
+    case DICT_ROOT:
+      return null;
   }
 }
 
-export function ParamUI(props) {
-  const uiType = useGetParamUIType(props.sectionId, props.paramInfoId);
-  switch (uiType.type) {
+export function ParamUI({ name, childProps }) {
+  switch (name) {
     default:
-      return <TextInput {...props} {...uiType.config} />;
+      return <TextInput {...childProps} />;
     case SLIDER:
-      return <SliderInput {...props} {...uiType.config} />;
+      return <SliderInput {...childProps} />;
     case SWITCH:
-      return <SwitchInput {...props} {...uiType.config} />;
+      return <SwitchInput {...childProps} />;
   }
 }

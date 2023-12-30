@@ -1,7 +1,7 @@
 import { useHasNested } from "hooks/useSectionChildren";
+import { useSectionRefAndInit } from "hooks/useStateRef";
 import _ from "lodash";
-import { useSectionRefs } from "models/sectionRefs";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 
 function _Container({
@@ -50,6 +50,15 @@ function _Container({
       {children}
     </div>
   );
+  // TRY TO ELIMINATE ABOVE USELESS DIV
+  // if (className || (style && Object.keys(style).length > 0)) {
+  //   return (
+  //     <div className={className} style={style} {...commonProps}>
+  //       {children}
+  //     </div>
+  //   );
+  // }
+  // return React.cloneElement(children, commonProps);
 }
 
 export const Container = React.memo(_Container, _.isEqual);
@@ -64,14 +73,4 @@ function DeckSectionTitle({ sectionId }) {
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
-}
-
-function useSectionRefAndInit(sectionId) {
-  const ref = useRef(null);
-
-  useEffect(() => {
-    useSectionRefs.getState().setRef({ sectionId, ref: ref.current });
-  }, []);
-
-  return ref;
 }

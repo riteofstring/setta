@@ -43,3 +43,8 @@ export function findAllParameterCollections(allCodeInfo, collectionIds) {
     RCType.PARAMETER_COLLECTION
   );
 }
+
+export function findAllDescendants(allCodeInfo, collectionIds) {
+  const condition = () => true;
+  return _findAllDescendants(allCodeInfo, collectionIds, null, condition);
+}

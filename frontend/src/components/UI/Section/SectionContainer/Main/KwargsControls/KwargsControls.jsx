@@ -1,4 +1,7 @@
+import { useActiveSection } from "models/activeSection";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
+import { useKeyActivations } from "models/keyActivations";
+import { useEffect, useRef } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
@@ -6,8 +9,10 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 
-export function KwargsControls({ sectionId, objInfoId }) {
+export function KwargsControls({ sectionId, objInfoId, isGlobalVariables }) {
+  const searchRef = useRef(null);
   const setParamFilter = useSectionParamFilter((x) => x.setFilter);
+  useSearchShortcutKey({ sectionId, searchRef });
 
   function onClickAddKwarg() {
     addKwarg({ sectionId, objInfoId, incrementVersion: true });
@@ -45,13 +50,24 @@ export function KwargsControls({ sectionId, objInfoId }) {
       />
       <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
       <StandardSearch
-        id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
         leftElement={<BiFilter />}
         placeholder="Filter"
         inputStyles={inputStyles}
         outerClasses="flex-1"
         onChange={onSearchChange}
+        ref={searchRef}
       />
     </section>
   );
+}
+
+function useSearchShortcutKey({ sectionId, searchRef }) {
+  const isActive = useActiveSection((x) => x.id === sectionId);
+  const searchArgs = useKeyActivations((x) => x.searchArgs);
+
+  useEffect(() => {
+    if (isActive && searchArgs) {
+      searchRef.current.focus();
+    }
+  }, [isActive, searchArgs]);
 }

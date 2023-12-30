@@ -237,10 +237,10 @@ def replace_keywords(x, replacements):
 
 def generate_script(p, selected, filepaths):
     script = get_script(p)
-    replacements = {}
     if needs_python_argparse(script):
         argparse_args = generate_argparse(selected)
-        replacements["RUNCODER_PYTHON_ARGPARSE"] = argparse_args
+
+    replacements = {"RUNCODER_PYTHON_ARGPARSE": argparse_args}
     for f in filepaths:
         if f.endswith(".py"):
             replacements["RUNCODER_PYTHON_FILE"] = f

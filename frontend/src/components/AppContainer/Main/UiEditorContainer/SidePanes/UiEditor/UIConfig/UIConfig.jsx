@@ -6,12 +6,15 @@ import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";
+import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { PresetType } from "z_utils/types/uiType";
+import { isPreset } from "z_utils/uiTypeConstants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -80,6 +83,24 @@ function _UIElement({ sectionId, paramInfo }) {
     });
   };
 
+  function onSaveAsSubmit({ filename }) {
+    const newUIType = cloneNewUIType({
+      uiType,
+      name: filename,
+      presetType: PresetType.USER,
+    });
+    setUIType({ uiType: newUIType });
+    setParamUITypeId({
+      uiTypeId: newUIType.id,
+      sectionId,
+      paramInfoId,
+    });
+    // delete old uitype if its a non-preset
+    if (!isPreset(uiType)) {
+      deleteUIType({ uiTypeId: uiType.id });
+    }
+  }
+
   return (
     <div
       className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-runcoder-200"
@@ -91,7 +112,7 @@ function _UIElement({ sectionId, paramInfo }) {
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
           <InfoViewDescription paramInfoId={paramInfoId} />
-          <SaveUITypeConfig />
+          <SaveUITypeConfig onSubmit={onSaveAsSubmit} />
         </div>
       </div>
 
