@@ -35,12 +35,12 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
   }
 
   return (
-    <PaneContextMenuModal
-      modalType={modalType}
-      open={open}
-      setOpen={setOpen}
-      commonProps={commonProps}
-    >
+    // <PaneContextMenuModal
+    //   modalType={modalType}
+    //   open={open}
+    //   setOpen={setOpen}
+    //   commonProps={commonProps}
+    // >
       <ContextMenuCore
         x={x}
         y={y}
@@ -82,6 +82,6 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         </Item>
         <Item onClick={() => openLoadModal("Load Section")}>Load Section</Item>
       </ContextMenuCore>
-    </PaneContextMenuModal>
+    // </PaneContextMenuModal>
   );
 }

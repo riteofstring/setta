@@ -24,17 +24,17 @@ export function SaveButton({ sectionId }) {
   }
 
   return (
-    <SaveButtonModal
-      sectionId={sectionId}
-      modalType={modalType}
-      open={open}
-      setOpen={setOpen}
-    >
+    // <SaveButtonModal
+    //   sectionId={sectionId}
+    //   modalType={modalType}
+    //   open={open}
+    //   setOpen={setOpen}
+    // >
       <MenuItems
         openCustomArgumentsModal={openCustomArgumentsModal}
         openEnteredValuesModal={openEnteredValuesModal}
       />
-    </SaveButtonModal>
+    // </SaveButtonModal>
   );
 }
 
@@ -48,16 +48,16 @@ function MenuItems({ openCustomArgumentsModal, openEnteredValuesModal }) {
           icon={<FiSave />}
         />
       }
-      content={
-        <>
-          <DialogDropdownTriggerItem onClick={openCustomArgumentsModal}>
-            Save Custom Arguments
-          </DialogDropdownTriggerItem>
-          <DialogDropdownTriggerItem onClick={openEnteredValuesModal}>
-            Create New Entered Values
-          </DialogDropdownTriggerItem>
-        </>
-      }
+      // content={
+      //   <>
+      //     <DialogDropdownTriggerItem onClick={openCustomArgumentsModal}>
+      //       Save Custom Arguments
+      //     </DialogDropdownTriggerItem>
+      //     <DialogDropdownTriggerItem onClick={openEnteredValuesModal}>
+      //       Create New Entered Values
+      //     </DialogDropdownTriggerItem>
+      //   </>
+      // }
     />
   );
 }

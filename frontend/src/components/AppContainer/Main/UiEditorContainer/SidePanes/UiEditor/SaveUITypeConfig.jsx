@@ -17,17 +17,17 @@ export function SaveUITypeConfig({ onSubmit }) {
   }
 
   return (
-    <SaveLoadModal
-      modalType={"Save"}
-      files={files}
-      onClickActionButton={onSubmit}
-      title="Save UI Type As"
-      buttonText="Save As"
-      placeholder="Preset Name"
-      open={open}
-      setOpen={setOpen}
-    >
-      <Dialog.Trigger asChild>
+    // <SaveLoadModal
+    //   modalType={"Save"}
+    //   files={files}
+    //   onClickActionButton={onSubmit}
+    //   title="Save UI Type As"
+    //   buttonText="Save As"
+    //   placeholder="Preset Name"
+    //   open={open}
+    //   setOpen={setOpen}
+    // >
+    //   <Dialog.Trigger asChild>
         <IconButton
           size="w-4 h-4"
           padding="py-2 px-2"
@@ -35,7 +35,7 @@ export function SaveUITypeConfig({ onSubmit }) {
         >
           <BiSave className="text-slate-500 dark:text-runcoder-200" />
         </IconButton>
-      </Dialog.Trigger>
-    </SaveLoadModal>
+      // </Dialog.Trigger>
+    // </SaveLoadModal>
   );
 }
