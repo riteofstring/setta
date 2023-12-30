@@ -5,13 +5,7 @@ import ReactFlow, { useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
-import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
-import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
-import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
 import "./react-flow-css.css";
-import { ResponsiveControls } from "./ResponsiveControls";
-import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
@@ -34,27 +28,19 @@ function onSelectionDragStop(e, nodes) {
   setPositionAndZIndices(nodes);
 }
 
-function _SectionsPane({ initialNodes, viewport }) {
+function _SectionsPane({
+  initialNodes,
+  viewport,
+  closeCtxMenus,
+  openPaneCtxMenu,
+  openSelectionCtxMenu,
+  openNodeCtxMenu,
+}) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-
-  console.log("_SectionsPane");
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
   }, [initialNodes]);
-
-  const [
-    paneCtxMenuDetails,
-    openPaneCtxMenu,
-    closePaneCtxMenu,
-    selectionCtxMenuDetails,
-    openSelectionCtxMenu,
-    closeSelectionCtxMenu,
-    nodeCtxMenuDetails,
-    openNodeCtxMenu,
-    closeNodeCtxMenu,
-    closeCtxMenus,
-  ] = useAllContextMenus();
 
   function onPaneClick() {
     closeCtxMenus();
@@ -81,25 +67,7 @@ function _SectionsPane({ initialNodes, viewport }) {
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
       className="rcbg-light dark:rcbg-dark"
-    >
-      <PaneContextMenu
-        {...paneCtxMenuDetails}
-        closeContextMenu={closePaneCtxMenu}
-      />
-      <SelectionContextMenu
-        {...selectionCtxMenuDetails}
-        closeContextMenu={closeSelectionCtxMenu}
-      />
-      {nodeCtxMenuDetails.nodeId && (
-        <NodeContextMenu
-          {...nodeCtxMenuDetails}
-          closeContextMenu={closeNodeCtxMenu}
-        />
-      )}
-      <ResponsiveMiniMap />
-      <ResponsiveControls />
-      {/* <Background color={colors.slate[300]} size={0.75} gap={16} /> */}
-    </ReactFlow>
+    />
   );
 }
 
