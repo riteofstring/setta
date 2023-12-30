@@ -1,9 +1,7 @@
-import { useGoToSection } from "hooks/useGetSectionPosition";
+import { goToSection } from "thunks/goToSection";
 import React from "react";
 
 function _SectionItem({ sectionId, sectionHeading }) {
-  const goToSection = useGoToSection();
-
   const onClick = () => {
     goToSection(sectionId);
   };
