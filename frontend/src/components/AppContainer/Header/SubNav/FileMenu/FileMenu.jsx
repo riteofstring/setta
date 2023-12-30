@@ -1,71 +1,73 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { createAndGoToProject } from "hooks/useGetOrCreateProjects";
+import { useSaveLoadProjectOnKeyActivation } from "hooks/useSaveProjectOnKeyActivation";
 import { useModal } from "models/modal";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { saveProject } from "thunks/save";
+import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function FileMenu() {
+  const setModalType = useModal((x) => x.setModalType);
+
+  async function openLoadModal() {
+    setModalType("Load");
+  }
+
+  async function openSaveAsModal() {
+    setModalType("Save As");
+  }
+
+  function openExportJSONModal() {
+    setModalType("Export JSON");
+  }
+
+  function openExportFullJSONModal() {
+    setModalType("Export Full JSON");
+  }
+
+  function openImportJSONModal() {
+    setModalType("Import JSON");
+  }
+
+  useSaveLoadProjectOnKeyActivation({ openLoadModal, openSaveAsModal });
+
   return (
     <MenuDropdown trigger="File">
-      <MenuItem
+      <DialogMenuBarTriggerItem
         onClick={() => createAndGoToProject({})}
         shortcut="Ctrl + Shift + N"
       >
         New Project
-      </MenuItem>
-      <MenuItem onClick={openLoadModal} shortcut="Ctrl + L">
+      </DialogMenuBarTriggerItem>
+      <DialogMenuBarTriggerItem onClick={openLoadModal} shortcut="Ctrl + L">
         Load
-      </MenuItem>
-      <MenuItem onClick={saveProject} shortcut="Ctrl + S">
+      </DialogMenuBarTriggerItem>
+      <DialogMenuBarTriggerItem onClick={saveProject} shortcut="Ctrl + S">
         <VscSave />
         Save
-      </MenuItem>
-      <MenuItem onClick={openSaveAsModal} shortcut="Ctrl + Shift + S">
+      </DialogMenuBarTriggerItem>
+      <DialogMenuBarTriggerItem
+        onClick={openSaveAsModal}
+        shortcut="Ctrl + Shift + S"
+      >
         <VscSaveAs />
         Save As
-      </MenuItem>
+      </DialogMenuBarTriggerItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-runcoder-100 dark:bg-runcoder-600" />
 
-      <MenuItem onClick={openImportJSONModal}>
+      <DialogMenuBarTriggerItem onClick={openImportJSONModal}>
         {/* <BiImport /> */}
         Import JSON
-      </MenuItem>
-      <MenuItem onClick={openExportJSONModal}>
+      </DialogMenuBarTriggerItem>
+      <DialogMenuBarTriggerItem onClick={openExportJSONModal}>
         {/* <BiExport /> */}
         Export JSON
-      </MenuItem>
-      <MenuItem onClick={openExportFullJSONModal}>
+      </DialogMenuBarTriggerItem>
+      <DialogMenuBarTriggerItem onClick={openExportFullJSONModal}>
         {/* <BiExport /> */}
         Export Full JSON
-      </MenuItem>
+      </DialogMenuBarTriggerItem>
     </MenuDropdown>
   );
-}
-
-function openFileMenuModal(modalType) {
-  const x = useModal.getState();
-  x.setModalType(modalType);
-  x.setOpen(true);
-}
-
-export function openLoadModal() {
-  openFileMenuModal("Load");
-}
-
-export function openSaveAsModal() {
-  openFileMenuModal("Save As");
-}
-
-function openExportJSONModal() {
-  openFileMenuModal("Export JSON");
-}
-
-function openExportFullJSONModal() {
-  openFileMenuModal("Export Full JSON");
-}
-
-function openImportJSONModal() {
-  openFileMenuModal("Import JSON");
 }

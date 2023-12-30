@@ -17,6 +17,10 @@ export function EditMenu() {
 }
 
 function Items() {
+  const addSection = () => addSectionInEmptySpace({ type: SECTION });
+  const addGroup = () => addSectionInEmptySpace({ type: DECK });
+  const typeCheck = () => requestTypeCheck();
+
   return (
     <>
       <MenuItem onClick={addSection} shortcut="Ctrl + N">
@@ -26,24 +30,17 @@ function Items() {
         <AiOutlineGroup className="h-4 w-4" />
         Group
       </MenuItem>
-      <MenuItem onClick={requestTypeCheck} shortcut="Ctrl + Shift + T">
+      <MenuItem onClick={typeCheck} shortcut="Ctrl + Shift + T">
         Type Check
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-runcoder-100 dark:bg-runcoder-600" />
       <MenuItem onClick={redoProjectState} shortcut="Ctrl + Shift + Z">
         Redo
       </MenuItem>
+
       <MenuItem onClick={undoProjectState} shortcut="Ctrl + Z">
         Undo
       </MenuItem>
     </>
   );
-}
-
-function addSection() {
-  addSectionInEmptySpace({ type: SECTION });
-}
-
-function addGroup() {
-  addSectionInEmptySpace({ type: DECK });
 }
