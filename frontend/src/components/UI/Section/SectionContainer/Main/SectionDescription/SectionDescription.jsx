@@ -15,7 +15,7 @@ export function SectionDescription({ sectionId, card = false }) {
     );
   }
   return (
-    <ScrollingArea styles="card-markdown pr-4 mb-1 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
+    <ScrollingArea styles="card-markdown pr-6 pl-2 my-4 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
       <Markdown sectionId={sectionId} />
     </ScrollingArea>
   );
@@ -27,7 +27,7 @@ function Markdown({ sectionId }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      className="prose min-w-[100%] [flex:1_1_auto] prose-headings:font-heading prose-headings:tracking-tighter prose-headings:text-slate-400 prose-p:text-sm dark:prose-invert [&_*]:[word-wrap:break-word]"
+      className="prose min-w-[100%] [flex:1_1_auto] prose-headings:font-heading prose-headings:tracking-tighter prose-headings:text-runcoder-400 prose-p:text-sm dark:prose-invert [&_*]:[word-wrap:break-word]"
     >
       {markdownSource}
     </ReactMarkdown>
