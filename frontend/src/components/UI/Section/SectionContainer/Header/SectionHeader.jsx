@@ -34,17 +34,14 @@ function _SectionHeader({
     <header className="card-title flex flex-row items-center">
       {!isInfo && (
         <>
-          {/* <section className="align-self-stretch flex w-full flex-1 items-center gap-[0.1rem]"> */}
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
-
           <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
           <VersionsButton sectionId={sectionId} />
-          {/* </section> */}
         </>
       )}
       {(isSeriesElement || _isRoot) && (

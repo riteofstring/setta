@@ -15,7 +15,7 @@ export function SectionDescription({ sectionId, card = false }) {
     );
   }
   return (
-    <ScrollingArea styles="card-fullsize nodrag nowheel px-8 cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
+    <ScrollingArea styles="card-markdown pr-4 mb-1 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
       <Markdown sectionId={sectionId} />
     </ScrollingArea>
   );
