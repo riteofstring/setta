@@ -78,8 +78,8 @@
   grid-row: 2/ 4;
 }
 
-.card-markdown {
-  grid-row: 3 / 7;
+.card-fullsize {
+  grid-row: 4 / 7;
   grid-column: 2 / 6;
 }
 
