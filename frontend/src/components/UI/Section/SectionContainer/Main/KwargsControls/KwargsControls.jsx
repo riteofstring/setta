@@ -6,7 +6,7 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 
-export function KwargsControls({ sectionId, objInfoId, isGlobalVariables }) {
+export function KwargsControls({ sectionId, objInfoId }) {
   const setParamFilter = useSectionParamFilter((x) => x.setFilter);
 
   function onClickAddKwarg() {
