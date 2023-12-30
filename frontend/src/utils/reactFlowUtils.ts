@@ -1,4 +1,3 @@
-import { zoomIdentity } from "d3-zoom";
 import { REACT_FLOW_STORE } from "utils/constants";
 
 // https://github.com/xyflow/xyflow/blob/main/packages/system/src/utils/general.ts
@@ -45,39 +44,5 @@ export function screenToFlowPosition(position) {
     transform,
     snapToGrid,
     snapGrid || [1, 1]
-  );
-}
-
-const getD3Transition = (selection, duration = 0) =>
-  typeof duration === "number" && duration > 0
-    ? selection.transition().duration(duration)
-    : selection;
-
-// https://github.com/xyflow/xyflow/blob/main/packages/react/src/hooks/useViewportHelper.ts
-export function setCenter(x, y, options) {
-  const { width, height, maxZoom, d3Zoom, d3Selection } =
-    REACT_FLOW_STORE.store.getState();
-  const nextZoom =
-    typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
-  const centerX = width / 2 - x * nextZoom;
-  const centerY = height / 2 - y * nextZoom;
-  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
-
-  d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
-}
-
-// https://github.com/xyflow/xyflow/blob/main/packages/react/src/hooks/useViewportHelper.ts
-export function setViewport(transform, options) {
-  const {
-    transform: [x, y, zoom],
-    d3Zoom,
-    d3Selection,
-  } = REACT_FLOW_STORE.store.getState();
-  const nextTransform = zoomIdentity
-    .translate(transform.x ?? x, transform.y ?? y)
-    .scale(transform.zoom ?? zoom);
-  d3Zoom.transform(
-    getD3Transition(d3Selection, options?.duration),
-    nextTransform
   );
 }

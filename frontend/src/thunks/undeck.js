@@ -1,7 +1,7 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import { deleteSections, moveSections } from "thunks/sections/sectionOps";
 import { PANEID } from "utils/constants";
-import { relativePos } from "./goToSection";
+import { relativePos } from "../hooks/useGetSectionPosition";
 import { screenToFlowPosition } from "../utils/reactFlowUtils";
 
 export function undeck(deckId) {
