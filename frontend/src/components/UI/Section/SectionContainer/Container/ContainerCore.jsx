@@ -50,6 +50,15 @@ function _Container({
       {children}
     </div>
   );
+  // TRY TO ELIMINATE ABOVE USELESS DIV
+  // if (className || (style && Object.keys(style).length > 0)) {
+  //   return (
+  //     <div className={className} style={style} {...commonProps}>
+  //       {children}
+  //     </div>
+  //   );
+  // }
+  // return React.cloneElement(children, commonProps);
 }
 
 export const Container = React.memo(_Container, _.isEqual);
