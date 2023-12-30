@@ -7,13 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
-export function ParamInput({
-  sectionId,
-  paramInfoId,
-  defaultVal,
-  uiType,
-  isDisabled,
-}) {
+export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
 
@@ -54,17 +48,13 @@ export function ParamInput({
 
   return (
     <ParamUI
-      name={uiType.type}
-      childProps={{
-        sectionId,
-        paramInfoId,
-        value,
-        defaultVal,
-        onChange,
-        isDisabled,
-        className: "nodrag",
-        ...uiType.config,
-      }}
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      isDisabled={isDisabled}
+      className="nodrag"
     />
   );
 }
