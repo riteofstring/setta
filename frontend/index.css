@@ -78,6 +78,11 @@
   grid-row: 2/ 4;
 }
 
+.card-markdown {
+  grid-row: 3 / 7;
+  grid-column: 2 / 6;
+}
+
 * {
   /* outline: 1px solid green; */
   /* background: hsla(0, 100%, 50%, 0.1); */
