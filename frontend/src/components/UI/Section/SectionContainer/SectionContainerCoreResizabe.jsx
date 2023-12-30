@@ -1,8 +1,16 @@
-import { useSectionInfos } from "models/info/sectionInfos";
-import { useState } from "react";
 import { BiInfoCircle } from "react-icons/bi";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
+import {
+  CODE,
+  GLOBAL_VARIABLES,
+  INFO,
+  OUTPUT,
+  SCRIPT,
+  SECTION,
+  SOCIAL,
+  VAR_CONTROL,
+} from "z_utils/constants";
 import { CodeArea } from "./CodeArea";
 import "./dndline.css";
 import { GlobalVariablesArea } from "./GlobalVariablesArea";
@@ -19,24 +27,15 @@ export function SectionContainerCoreResizable({
   parentId,
   nextId,
   isSeriesElement,
-  isRoot,
-  isOutput,
-  isSocial,
-  isInfo,
-  isGlobalVariables,
-  isScript,
-  isCode,
-  isVarControl,
+  sectionTypeName,
   hasNested,
   hasDescription,
   isActiveSection,
   toggleDescVis,
   isWrongType,
 }) {
-  const width = useSectionInfos((x) => x.x[sectionId].size.width);
-  const [localWidth, setLocalWidth] = useState(width);
-
-  // ${hasDescription && ""}
+  const isGlobalVariables = sectionTypeName === GLOBAL_VARIABLES;
+  const isInfo = sectionTypeName === INFO;
 
   const outlineColor = isWrongType
     ? "outline-red-600 dark:outline-red-400"
@@ -63,7 +62,6 @@ export function SectionContainerCoreResizable({
     <>
       <CustomResizable
         sectionId={sectionId}
-        setLocalWidth={setLocalWidth}
         inputClasses={inputClasses}
         as="section"
       >
@@ -72,22 +70,13 @@ export function SectionContainerCoreResizable({
           parentId={parentId}
           nextId={nextId}
           isSeriesElement={isSeriesElement}
-          isRoot={isRoot}
           hasNested={hasNested}
           isActiveSection={isActiveSection}
           isGlobalVariables={isGlobalVariables}
-        />
-        <AreaSwitch
-          sectionId={sectionId}
-          isOutput={isOutput}
-          isSocial={isSocial}
-          isRoot={isRoot}
           isInfo={isInfo}
-          isGlobalVariables={isGlobalVariables}
-          isScript={isScript}
-          isCode={isCode}
-          isVarControl={isVarControl}
+          sectionTypeName={sectionTypeName}
         />
+        <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
 
         {!isInfo && hasDescription && (
           <Button
@@ -101,48 +90,30 @@ export function SectionContainerCoreResizable({
         )}
       </CustomResizable>
 
-      {!isInfo && (
-        <SectionDescription sectionId={sectionId} width={localWidth} />
-      )}
+      {!isInfo && <SectionDescription sectionId={sectionId} />}
     </>
   );
 }
 
-function AreaSwitch({
-  sectionId,
-  isOutput,
-  isSocial,
-  isRoot,
-  isInfo,
-  isGlobalVariables,
-  isScript,
-  isCode,
-  isVarControl,
-}) {
-  if (isOutput) {
-    return <OutputArea sectionId={sectionId} />;
-  }
-  if (isSocial) {
-    return <SocialArea sectionId={sectionId} />;
-  }
-  if (isInfo) {
-    return <SectionDescription sectionId={sectionId} card={true} />;
-  }
-  if (isGlobalVariables) {
-    return <GlobalVariablesArea sectionId={sectionId} />;
-  }
-  if (isScript) {
-    return <ScriptArea sectionId={sectionId} />;
-  }
-  if (isCode) {
-    return <CodeArea sectionId={sectionId} />;
-  }
-  if (isVarControl) {
-    return <VarControlArea sectionId={sectionId} />;
-  }
-  if (!isRoot) {
-    return (
-      <InputArea sectionId={sectionId} isGlobalVariables={isGlobalVariables} />
-    );
+function AreaSwitch({ sectionId, sectionTypeName }) {
+  switch (sectionTypeName) {
+    case SECTION:
+      return <InputArea sectionId={sectionId} />;
+    case OUTPUT:
+      return <OutputArea sectionId={sectionId} />;
+    case SOCIAL:
+      return <SocialArea sectionId={sectionId} />;
+    case INFO:
+      return <SectionDescription sectionId={sectionId} card={true} />;
+    case GLOBAL_VARIABLES:
+      return <GlobalVariablesArea sectionId={sectionId} />;
+    case SCRIPT:
+      return <ScriptArea sectionId={sectionId} />;
+    case CODE:
+      return <CodeArea sectionId={sectionId} />;
+    case VAR_CONTROL:
+      return <VarControlArea sectionId={sectionId} />;
+    default:
+      return null;
   }
 }

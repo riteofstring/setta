@@ -27,11 +27,7 @@ function UiEditorSubNav() {
         <EditMenu />
         <WebsocketConnections />
       </Menubar.Root>
-      {/* <CommunityButton /> */}
       <RunButton />
-      {/* <StateCounter /> */}
-
-      {/* <TypeCheckButton /> */}
     </div>
   );
 }

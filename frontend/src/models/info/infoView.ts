@@ -7,7 +7,6 @@ export const ConstantInfoView = {
   OVERVIEW_PROJNAME: "OVERVIEW_PROJNAME",
   NAVBAR_SEARCH: "NAVBAR_SEARCH",
   BUTTON_GENERATE: "BUTTON_GENERATE",
-  BUTTON_COMMUNITY: "BUTTON_COMMUNITY",
   SECTIONCONFIG_CARDTYPES_SEARCH: "SECTIONCONFIG_CARDTYPES_SEARCH",
   SECTIONCONFIG_CONTENTS_SEARCH: "SECTIONCONFIG_CONTENTS_SEARCH",
 };
@@ -17,8 +16,6 @@ const constantInfoViews = {
   [ConstantInfoView.NAVBAR_SEARCH]:
     "Search your entire project from one location.",
   [ConstantInfoView.BUTTON_GENERATE]: "Generate command to run your project.",
-  [ConstantInfoView.BUTTON_COMMUNITY]:
-    "Discover templates provided by the Runcoder Community.",
   [ConstantInfoView.OVERVIEW_PROJNAME]:
     "Your Project's Name and Config Name, editable all in one spot!",
   [ConstantInfoView.OVERVIEW_SEARCH]: "Search through your project's cards.",

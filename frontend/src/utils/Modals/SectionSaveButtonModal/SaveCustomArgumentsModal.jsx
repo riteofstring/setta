@@ -1,0 +1,37 @@
+import { getCollectionsAndModulesFn } from "dbRequests/sectionConfig";
+import { useEffect, useState } from "react";
+import { saveKwargsAsCollection } from "thunks/kwargs";
+import { getSectionInfo } from "thunks/sections/getters";
+import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+
+export function SaveCustomArgumentsModal({ open }) {
+  const [files, setFiles] = useState([]);
+
+  useEffect(() => {
+    async function fn() {
+      await getCollectionsAndModulesFn((x) => setFiles(Object.values(x)))();
+    }
+    if (open) {
+      fn();
+    }
+  }, [open]);
+
+  function onClickSaveCustomArguments({ filename }) {
+    saveKwargsAsCollection({
+      sectionId,
+      objInfoId: getSectionInfo(sectionId).selectedItem,
+      name: filename,
+    });
+  }
+
+  return (
+    <SaveLoadModal
+      modalType={"Save"}
+      files={files}
+      onClickActionButton={onClickSaveCustomArguments}
+      title="Save Collection As"
+      buttonText="Save As"
+      placeholder="Collection Name"
+    />
+  );
+}

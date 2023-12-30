@@ -1,7 +1,6 @@
-import { useIsInfo } from "hooks/useSectionType";
 import React from "react";
-
 import { deleteChild } from "thunks/sections/deleteChild";
+import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
@@ -14,18 +13,20 @@ function _SectionHeader({
   parentId,
   nextId,
   isSeriesElement,
-  isRoot,
   hasNested,
   isActiveSection,
+  sectionTypeName,
   isGlobalVariables,
+  isInfo,
 }) {
-  const isInfo = useIsInfo(sectionId);
   const onCustomCloseButtonClick = (e) => {
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
     e.stopPropagation();
     deleteChild({ parentId, startId: sectionId, incrementVersion: true });
   };
+
+  const _isRoot = isRoot(sectionTypeName);
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -44,12 +45,12 @@ function _SectionHeader({
           <VersionsButton sectionId={sectionId} />
         </section>
       )}
-      {(isSeriesElement || isRoot) && (
+      {(isSeriesElement || _isRoot) && (
         <Incrementer
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          isRoot={isRoot}
+          isRoot={_isRoot}
           hasNested={hasNested}
         />
       )}
