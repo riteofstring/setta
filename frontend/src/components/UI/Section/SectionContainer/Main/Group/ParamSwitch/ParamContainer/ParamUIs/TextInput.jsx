@@ -1,13 +1,6 @@
 import { useCombobox } from "downshift";
-import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
-import {
-  textFieldInitializeCode,
-  useTextFieldCompletionWebsocketRoom,
-} from "hooks/useWebsocket";
-import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useEffect, useState } from "react";
-import { goToSection } from "thunks/goToSection";
+import { useEffect, useRef, useState } from "react";
 import { getSectionType } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
@@ -32,90 +25,81 @@ export function TextInput({
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
   };
-  const classes =
-    "nodrag flex-1 w-full whitespace-nowrap truncate focus:text-clip  cursor-auto  text-xs outline-none font-code ";
+  // const classes =
+  //   "nodrag flex-1 w-full whitespace-nowrap truncate focus:text-clip  cursor-auto  text-xs outline-none font-code ";
 
-  window.onTextInputVariableClick = function (e, variableType, variable) {
-    if (e.ctrlKey) {
-      const section = _.find(useSectionInfos.getState().x, (s) =>
-        variableType === "global"
-          ? getSectionType(s.id).type === GLOBAL_VARIABLES
-          : s.name === variable
-      );
-      const id = section?.id;
-      if (id) {
-        e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-        e.srcElement.parentElement.blur(); //don't leave cursor behind
-        goToSection(id);
-      }
-    }
-  };
+  // window.onTextInputVariableClick = function (e, variableType, variable) {
+  //   if (e.ctrlKey) {
+  //     const section = _.find(useSectionInfos.getState().x, (s) =>
+  //       variableType === "global"
+  //         ? getSectionType(s.id).type === GLOBAL_VARIABLES
+  //         : s.name === variable
+  //     );
+  //     const id = section?.id;
+  //     if (id) {
+  //       e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+  //       e.srcElement.parentElement.blur(); //don't leave cursor behind
+  //       goToSection(id);
+  //     }
+  //   }
+  // };
 
-  const styledText = getStyledText(value);
+  // const styledText = getStyledText(value);
 
-  const [results, send] = useTextFieldCompletionWebsocketRoom(
-    sectionId,
-    paramInfoId
-  );
+  // const [results, send] = useTextFieldCompletionWebsocketRoom(
+  //   sectionId,
+  //   paramInfoId
+  // );
 
-  const allItems = [{ group: "search results", items: results }];
+  // const allItems = [{ group: "search results", items: results }];
 
-  function handleChange(e) {
-    // Check if the active element is the event target, which should be the contenteditable div
-    if (document.activeElement !== e.currentTarget) {
-      return;
-    }
-    const x = e.currentTarget.innerText;
-    updateValue(x, true);
-  }
+  // function handleChange(e) {
+  //   // Check if the active element is the event target, which should be the contenteditable div
+  //   if (document.activeElement !== e.currentTarget) {
+  //     return;
+  //   }
+  //   const x = e.currentTarget.innerText;
+  //   updateValue(x, true);
+  // }
 
-  function updateValue(newVal, requestCompletions = false) {
-    if (value === newVal) {
-      return;
-    }
-    onChange(newVal);
-    if (requestCompletions) {
-      send(newVal);
-    }
-  }
+  // function updateValue(newVal, requestCompletions = false) {
+  //   if (value === newVal) {
+  //     return;
+  //   }
+  //   onChange(newVal);
+  //   if (requestCompletions) {
+  //     send(newVal);
+  //   }
+  // }
 
-  const {
-    isOpen,
-    getMenuProps,
-    getInputProps,
-    highlightedIndex,
-    getItemProps,
-  } = useTextFieldCombobox({ allItems, updateValue });
+  // const {
+  //   isOpen,
+  //   getMenuProps,
+  //   getInputProps,
+  //   highlightedIndex,
+  //   getItemProps,
+  // } = useTextFieldCombobox({ allItems, updateValue });
 
-  function onClick() {
-    textFieldInitializeCode(sectionId, paramInfoId);
-  }
+  // function onClick() {
+  //   textFieldInitializeCode(sectionId, paramInfoId);
+  // }
 
-  // Exclude downshift's value because we don't need it.
-  const { value: dsValue, ...inputProps } = getInputProps({
-    onChange: handleChange,
-    onClick,
-  });
+  // // Exclude downshift's value because we don't need it.
+  // const { value: dsValue, ...inputProps } = getInputProps({
+  //   onChange: handleChange,
+  //   onClick,
+  // });
 
-  const {
-    sizeRef,
-    size: { width },
-  } = useSizeOfResizableElement({ delay: 200 });
+  // const {
+  //   sizeRef,
+  //   size: { width },
+  // } = useSizeOfResizableElement({ delay: 200 });
 
   return (
-    <>
-      <input
-        value={inputValue}
-        onChange={handleInputChange}
-        className="nodrag card-value z-[1] m-0 h-5 min-w-0 cursor-auto  border-b border-runcoder-300 border-transparent bg-transparent p-0 font-mono text-xs font-normal leading-normal text-transparent outline-none focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600"
-      />
-      <pre className="card-value card-value-display h-5 min-w-0 overflow-x-clip border-b text-xs font-normal leading-normal dark:text-runcoder-300">
-        <code>
-          {inputValue}
-          {/* <span className="blink-cursor h-5 w-[1px] bg-black align-middle" /> */}
-        </code>
-      </pre>
-    </>
+    <ActualInput
+      inputValue={inputValue}
+      handleInputChange={handleInputChange}
+    />
     // <div
     //   className={`row-span-1 min-w-0 flex-1 overflow-x-clip overflow-y-visible border-0 border-b border-runcoder-300  font-mono outline-none focus-visible:border-blue-400 dark:border-runcoder-600 dark:text-runcoder-300`}
     //   ref={sizeRef}
@@ -140,6 +124,46 @@ export function TextInput({
     //     />
     //   </ComboboxTextFieldList>
     // </div>
+  );
+}
+
+function ActualInput({ inputValue, handleInputChange }) {
+  const inputRef = useRef(null);
+  const [cursorPosition, setCursorPosition] = useState(0);
+
+  const handleInputSelect = () => {
+    if (inputRef.current) {
+      setCursorPosition(inputRef.current.selectionStart);
+    }
+  };
+  console.log("cursorPosition", cursorPosition);
+
+  const beforeCursor = inputValue.slice(0, cursorPosition);
+  const afterCursor = inputValue.slice(cursorPosition);
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        value={inputValue}
+        onChange={handleInputChange}
+        className="nodrag card-value z-[1] m-0 h-5 min-w-0 cursor-auto  border-b border-runcoder-300 border-transparent bg-transparent p-0 font-mono text-xs font-normal leading-normal text-transparent outline-none focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600"
+        spellCheck={false}
+        onSelect={handleInputSelect}
+      />
+      <pre className="card-value card-value-display h-5 min-w-0 overflow-x-clip border-b text-xs font-normal leading-normal dark:text-runcoder-300">
+        <code>
+          <span className="relative">
+            {beforeCursor}
+            <span
+              className="absolute h-full w-px bg-black"
+              style={{ left: `${cursorPosition}ch` }}
+            />
+            {afterCursor}
+          </span>
+        </code>
+      </pre>
+    </>
   );
 }
 
