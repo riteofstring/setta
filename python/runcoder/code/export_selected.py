@@ -6,11 +6,11 @@ from ..utils.constants import (
     DECK,
     DICT_ROOT,
     GLOBAL_VARIABLES,
+    INFO,
     LIST_ROOT,
     SCRIPT,
     SECTION,
     VAR_CONTROL,
-    INFO,
 )
 from .find_placeholders import double_braces
 

@@ -16,6 +16,7 @@ from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
 from runcoder.utils.utils import import_from_path
 
+from .db.codeInfo.save import save_code_info
 from .db.projects.delete import delete_projects
 from .db.projects.load import load_all_projects, load_full_project, load_project
 from .db.projects.save import (
@@ -34,7 +35,6 @@ from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
-from .db.codeInfo.save import save_code_info
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -139,7 +139,6 @@ class SetDarkModeRequest(BaseModel):
 
 class SaveCodeInfoRequest(BaseModel):
     codeInfo: dict
-
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients

@@ -1,6 +1,7 @@
 import subprocess
 from pprint import pprint
 
+import docstring_parser
 import jedi
 
 from ..code.export_selected import export_selected, get_code, get_script
@@ -10,6 +11,7 @@ from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
     generate_script,
+    get_line_from_string,
     prepend_with_imports,
     set_line,
 )
@@ -135,9 +137,14 @@ def completionHelper(message, return_name, fn):
 
 def parametersRequestFn(message, code, var_name_to_line_num, var_name):
     print("parametersRequest", flush=True)
-    signatures = jedi.Script(code).get_signatures(
-        line=var_name_to_line_num[var_name] + 1
-    )
+    line = var_name_to_line_num[var_name] + 1
+    results = jedi.Script(code).complete(
+        line=line, column=len(get_line_from_string(code, line)) - 2
+    )[0]
+    parsed = docstring_parser.parse(results.docstring(raw=True))
+    descriptions = {v.arg_name: v.description for v in parsed.params}
+
+    signatures = jedi.Script(code).get_signatures(line=line)
     output = []
     if signatures:
         signature = signatures[0]
@@ -148,7 +155,13 @@ def parametersRequestFn(message, code, var_name_to_line_num, var_name):
                 if "=" in param.description
                 else None
             )
-            output.append({"name": param.name, "defaultVal": defaultVal})
+            output.append(
+                {
+                    "name": param.name,
+                    "defaultVal": defaultVal,
+                    "description": descriptions.get(param.name, ""),
+                }
+            )
 
     return output
 
