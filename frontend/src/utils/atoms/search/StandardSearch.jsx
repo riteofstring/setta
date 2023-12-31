@@ -25,7 +25,7 @@ export const StandardSearch = React.forwardRef(
           className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
         >
           {leftElement || (
-            <AiOutlineSearch className="h-[0.85rem] self-center text-slate-400" />
+            <AiOutlineSearch className="self-center text-slate-400" />
           )}
         </div>
         <input

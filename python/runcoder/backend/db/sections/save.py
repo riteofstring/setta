@@ -1,6 +1,6 @@
 def save_sections(db, sections):
     query = """
-        INSERT OR REPLACE INTO Section (
+        INSERT INTO Section (
             id,
             name,
             width,
@@ -38,6 +38,24 @@ def save_sections(db, sections):
             :code,
             :varControl
         )
+        ON CONFLICT (id)
+        DO UPDATE SET
+            name = :name,
+            width = :width,
+            height = :height,
+            chainedFromId = :chainedFromId,
+            evColId = :evColId,
+            uiTypeId = :uiTypeId,
+            uiTypeColId = :uiTypeColId,
+            selectedItemId = :selectedItemId,
+            social = :social,
+            outputGroupId = :outputGroupId,
+            description = :description,
+            descriptionHeight = :descriptionHeight,
+            descriptionVisible = :descriptionVisible,
+            script = :script,
+            code = :code,
+            varControl = :varControl
     """
 
     query_params = [
