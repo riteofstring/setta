@@ -3,7 +3,7 @@ import json
 
 import websockets
 
-from ..processors.processors import getConsumerMessage
+from ..processors.processors import Processors
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.cache import Cache
 from ..utils.constants import WEBSOCKET
@@ -38,18 +38,21 @@ async def consumer_handler(websocket):
     startMyPyDaemon()
     task_obj = Tasks()
     cache = Cache()
+    processors = Processors()
     async for message in websocket:
         message = json.loads(message)
         print(message)
         # create_task so that we don't have to await consumer message
         await task_obj.create_task(
             message.get("id", None),
-            getConsumerMessageAndSend(message, websocket.send, task_obj, cache),
+            getConsumerMessageAndSend(
+                message, websocket.send, task_obj, cache, processors
+            ),
         )
 
 
-async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache):
-    result = await getConsumerMessage(message, tasks_obj, cache)
+async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache, processors):
+    result = await getConsumerMessage(message, tasks_obj, cache, processors)
     if result["output"] is not None:
         print(f"Done processing message ID {message.get('id', None)}", flush=True)
         await send_fn(
@@ -62,3 +65,12 @@ async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache):
                 }
             )
         )
+
+
+async def getConsumerMessage(message, tasks_obj, cache, processors):
+    try:
+        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
+        return await processors(message, tasks_obj, cache)
+    except asyncio.CancelledError:
+        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
+        return {"output": None, "name": None}

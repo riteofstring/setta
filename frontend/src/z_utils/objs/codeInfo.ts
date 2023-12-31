@@ -8,6 +8,7 @@ export function newCodeInfo({
   rcType,
   defaultVal = null,
   children = [],
+  description = "",
 }: Partial<CodeInfoType> & { rcType: RCType }): CodeInfoType {
   return {
     id: maybeNewId(id),
@@ -16,5 +17,6 @@ export function newCodeInfo({
     rcType,
     defaultVal,
     children,
+    description,
   };
 }

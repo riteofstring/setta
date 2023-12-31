@@ -1,16 +1,12 @@
-import { useGetParamUIType } from "hooks/useParamUIType";
 import React from "react";
 import { KwargParam } from "./ParamSwitchOptions/KwargParam";
 import { RegularParam } from "./ParamSwitchOptions/RegularParam";
 
 function _ParamSwitch(props) {
-  const { sectionId, paramInfo } = props;
-  const uiType = useGetParamUIType(sectionId, paramInfo.id);
-
   return props.isKwarg ? (
-    <KwargParam {...props} uiType={uiType} />
+    <KwargParam {...props} />
   ) : (
-    <RegularParam {...props} uiType={uiType} />
+    <RegularParam {...props} />
   );
 }
 

@@ -1,21 +1,13 @@
 import { useWebsocketConnectionList } from "models/websocket";
-
 import { Badge } from "utils/atoms/badges/badge";
-
-import { useState } from "react";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
-import { FileMenuModal } from "utils/FileExplorer/FileMenuModal";
 
 export function WebsocketConnections() {
-  const [open, setOpen] = useState(false);
-
   return (
-    <FileMenuModal open={open} setOpen={setOpen}>
-      <MenuDropdown trigger="CLI">
-        <ConnectionList />
-      </MenuDropdown>
-    </FileMenuModal>
+    <MenuDropdown trigger="CLI">
+      <ConnectionList />
+    </MenuDropdown>
   );
 }
 

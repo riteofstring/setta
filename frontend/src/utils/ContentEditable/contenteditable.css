@@ -5,5 +5,11 @@
   color: gray;
   opacity: 0.5;
   pointer-events: none;
-  display: block; /* For Firefox */
+  display: table-cell; /* For Firefox */
+  padding-top: 1px;
+}
+
+
+[contenteditable="plaintext-only"]:empty{
+  line-height: 26px
 }

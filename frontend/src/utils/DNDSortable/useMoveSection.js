@@ -6,8 +6,7 @@ import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID } from "utils/constants";
-import { screenToFlowPosition } from "utils/reactFlowUtils";
+import { PANEID, REACT_FLOW_STORE } from "utils/constants";
 import { updateWithArrayMove } from "utils/utils";
 import { getDropType } from "./useDropType";
 
@@ -36,7 +35,7 @@ function onFreeMoveEnd({ dummyRef }) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
-    position = screenToFlowPosition({ x, y });
+    position = REACT_FLOW_STORE.rf.screenToFlowPosition({ x, y });
   } else if (overId) {
     const dropType = getDropType({
       centerYCondition: dndState.centerYCondition,

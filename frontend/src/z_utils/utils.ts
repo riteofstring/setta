@@ -32,7 +32,7 @@ export function createVarName(existingVarNames) {
   return varName;
 }
 
-export function createEVColName(){
+export function createEVColName() {
   const customConfig = {
     dictionaries: [adjectives, colors],
     separator: "_",

@@ -18,8 +18,10 @@ def save_project_details(db, p):
 
 def save_project(db, project):
     query = """
-        INSERT OR REPLACE INTO Project (id, name)
+        INSERT INTO Project (id, name)
         VALUES (:id, :name)
+        ON CONFLICT (id)
+        DO UPDATE SET name = :name
     """
 
     query_params = {"id": project["id"], "name": project["name"]}
@@ -28,8 +30,15 @@ def save_project(db, project):
 
 def save_project_configs(db, projectId, configs):
     query = """
-        INSERT OR REPLACE INTO ProjectConfig (id, name, projectId, x, y, zoom)
+        INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom)
         VALUES (:id, :name, :projectId, :x, :y, :zoom)
+        ON CONFLICT (id)
+        DO UPDATE SET
+            name = :name,
+            projectId = :projectId,
+            x = :x,
+            y = :y,
+            zoom = :zoom
     """
 
     query_params = []

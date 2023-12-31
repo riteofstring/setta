@@ -1,0 +1,171 @@
+{
+  "id": "eea98f45-6e8d-4cd5-87c8-5ef9d6326d19",
+  "name": "interactive_example",
+  "defaultConfigId": "03a28f24-e773-43a3-a1cf-da0fe7c1b8f9",
+  "configs": [
+    {
+      "projectConfig": {
+        "id": "03a28f24-e773-43a3-a1cf-da0fe7c1b8f9",
+        "name": "config1",
+        "viewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "children": {
+          "1d3b6524-17bf-48f3-9954-794affcc58a8": {
+            "x": 1164,
+            "y": 188.70833206176758,
+            "zIndex": 0
+          },
+          "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
+            "x": 550,
+            "y": 188.70833206176758,
+            "zIndex": 1
+          }
+        }
+      },
+      "sections": {
+        "1d3b6524-17bf-48f3-9954-794affcc58a8": {
+          "id": "1d3b6524-17bf-48f3-9954-794affcc58a8",
+          "name": "zesty_amber",
+          "evColId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
+          "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
+          "uiTypeColId": "4db54baa-e45f-456c-9fb3-4baa0d3f6caf",
+          "social": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": 0,
+          "script": "",
+          "code": "",
+          "varControl": "",
+          "nonPresetUITypeIds": ["0ea28d59-81d3-446f-a0c2-1c3813f60112"],
+          "evColIds": ["0723f95a-e74c-4c1e-9aea-2eacad673293"],
+          "parentId": null,
+          "chainedFrom": null,
+          "selectedItem": null,
+          "outputGroup": null,
+          "children": [],
+          "size": {
+            "width": "auto",
+            "height": "auto"
+          }
+        },
+        "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
+          "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
+          "name": "Global Variables",
+          "evColId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
+          "uiTypeId": "9f52ec07-9bed-4a6d-ab95-c9dd6a003260",
+          "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
+          "social": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": 0,
+          "script": "",
+          "code": "",
+          "varControl": "",
+          "nonPresetUITypeIds": ["9f52ec07-9bed-4a6d-ab95-c9dd6a003260"],
+          "evColIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
+          "parentId": null,
+          "chainedFrom": null,
+          "selectedItem": null,
+          "outputGroup": null,
+          "children": [],
+          "size": {
+            "width": "auto",
+            "height": "auto"
+          }
+        }
+      },
+      "evCols": {
+        "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
+          "name": "acceptable_purple",
+          "values": {
+            "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
+          }
+        },
+        "0723f95a-e74c-4c1e-9aea-2eacad673293": {
+          "name": "intensive_ivory",
+          "values": {}
+        }
+      },
+      "uiTypes": {
+        "0ea28d59-81d3-446f-a0c2-1c3813f60112": {
+          "id": "0ea28d59-81d3-446f-a0c2-1c3813f60112",
+          "name": "zesty_amber",
+          "type": "SECTION",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
+            "childUITypeId": null
+          }
+        },
+        "76c639bd-eae5-4497-bf8b-0e668d8baf6c": {
+          "id": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
+          "name": "c",
+          "type": "SLIDER",
+          "presetType": null,
+          "config": {
+            "min": 0,
+            "max": 10,
+            "step": 1
+          }
+        },
+        "9f52ec07-9bed-4a6d-ab95-c9dd6a003260": {
+          "id": "9f52ec07-9bed-4a6d-ab95-c9dd6a003260",
+          "name": "Global Variables",
+          "type": "GLOBAL_VARIABLES",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
+            "childUITypeId": null
+          }
+        }
+      },
+      "uiTypeCols": {
+        "4db54baa-e45f-456c-9fb3-4baa0d3f6caf": {},
+        "b3449dbb-8328-43bb-8e45-b76173bf679c": {
+          "20512036-3e0f-41f3-9738-6573ee71bdaf": {
+            "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
+            "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
+          }
+        }
+      },
+      "codeInfo": {
+        "20512036-3e0f-41f3-9738-6573ee71bdaf": {
+          "id": "20512036-3e0f-41f3-9738-6573ee71bdaf",
+          "name": "c",
+          "editable": 1,
+          "rcType": "parameter",
+          "defaultVal": null,
+          "children": [],
+          "description": ""
+        },
+        "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
+          "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
+          "name": "Contents",
+          "editable": 0,
+          "rcType": "collection",
+          "defaultVal": null,
+          "children": ["20512036-3e0f-41f3-9738-6573ee71bdaf"],
+          "description": ""
+        },
+        "9193e5d1-544b-4490-99ee-f7ba34a0ed80": {
+          "id": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
+          "name": "Contents",
+          "editable": 0,
+          "rcType": "collection",
+          "defaultVal": null,
+          "children": [],
+          "description": ""
+        }
+      },
+      "userCodeInfoMaps": {},
+      "projectConfigCodeInfoMaps": {},
+      "outputGroups": {},
+      "outputs": {}
+    }
+  ]
+}

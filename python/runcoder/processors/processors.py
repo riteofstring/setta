@@ -1,7 +1,7 @@
 import subprocess
-from asyncio import CancelledError
 from pprint import pprint
 
+import docstring_parser
 import jedi
 
 from ..code.export_selected import export_selected, get_code, get_script
@@ -11,6 +11,7 @@ from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
     generate_script,
+    get_line_from_string,
     prepend_with_imports,
     set_line,
 )
@@ -20,62 +21,56 @@ from ..code.utils import get_var_name
 from .utils import withTempFiles
 
 
-async def getConsumerMessage(message, tasks_obj, cache):
-    try:
-        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
-        fn = get_consumer_fn(message)
-        maybe_read_cache(message, cache)
-        result = await tasks_obj.run_non_blocking_subprocess(fn, message)
-        maybe_cache_result(message, result, cache)
-        return result
-    except CancelledError:
-        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
-        return {"output": None, "name": None}
+class Processors:
+    def __init__(self):
+        self.fns = {
+            "codeCompletionRequest": codeCompletion,
+            "textFieldInitializeCode": textFieldInitializeCode,
+            "textFieldCompletion": textFieldCompletion,
+            "parametersRequest": parametersRequest,
+            "typeCheckRequest": typeCheckRequest,
+            "connection": connectionEstablished,
+            "allConnections": allConnections,
+            "runCode": runCode,
+            "extractArgparseArgs": extractArgparseArgs,
+        }
+        self.interactive_projects = set()
 
+    def add_fn(self, key, fn):
+        self.fns[key] = fn
+        self.interactive_projects.add(key)
 
-def get_consumer_fn(message):
-    if message["messageType"] == "codeCompletionRequest":
-        return codeCompletion
-    if message["messageType"] == "textFieldInitializeCode":
-        return textFieldInitializeCode
-    if message["messageType"] == "textFieldCompletion":
-        return textFieldCompletion
-    if message["messageType"] == "parametersRequest":
-        return parametersRequest
-    if message["messageType"] == "typeCheckRequest":
-        return typeCheckRequest
-    if message["messageType"] == "connection":
-        return connectionEstablished
-    if message["messageType"] == "allConnections":
-        return allConnections
-    if message["messageType"] == "runCode":
-        return runCode
-    if message["messageType"] == "extractArgparseArgs":
-        return extractArgparseArgs
-    raise ValueError
-
-
-def maybe_read_cache(message, cache):
-    if message["messageType"] in [
-        "parametersRequest",
-        "codeCompletionRequest",
-        "textFieldCompletion",
-    ]:
-        message = message["message"]
-        message["cached"] = cache.text_field_generated_code.get(
-            message["projectConfigId"], {}
-        ).get(message["sectionId"], None)
-
-
-def maybe_cache_result(message, result, cache):
-    if result["cache"] is None:
-        return
-    if result["name"] == "textFieldInitializeCode":
-        project = message["message"]["project"]
-        sectionId = message["message"]["sectionId"]
-        cache.add_text_field_generated_code(
-            project["projectConfig"]["id"], sectionId, result["cache"]
+    async def __call__(self, message, tasks_obj, cache):
+        key = message["messageType"]
+        fn = self.fns[key]
+        is_interactive = key in self.interactive_projects
+        self.maybe_read_cache(message, cache)
+        result = await tasks_obj.run_non_blocking_subprocess(
+            fn, is_interactive, message
         )
+        self.maybe_cache_result(message, result, cache)
+        return result
+
+    def maybe_read_cache(self, message, cache):
+        if message["messageType"] in [
+            "parametersRequest",
+            "codeCompletionRequest",
+            "textFieldCompletion",
+        ]:
+            message = message["message"]
+            message["cached"] = cache.text_field_generated_code.get(
+                message["projectConfigId"], {}
+            ).get(message["sectionId"], None)
+
+    def maybe_cache_result(self, message, result, cache):
+        if result["cache"] is None:
+            return
+        if result["name"] == "textFieldInitializeCode":
+            project = message["message"]["project"]
+            sectionId = message["message"]["sectionId"]
+            cache.add_text_field_generated_code(
+                project["projectConfig"]["id"], sectionId, result["cache"]
+            )
 
 
 def codeCompletion(message):
@@ -142,9 +137,14 @@ def completionHelper(message, return_name, fn):
 
 def parametersRequestFn(message, code, var_name_to_line_num, var_name):
     print("parametersRequest", flush=True)
-    signatures = jedi.Script(code).get_signatures(
-        line=var_name_to_line_num[var_name] + 1
-    )
+    line = var_name_to_line_num[var_name] + 1
+    results = jedi.Script(code).complete(
+        line=line, column=len(get_line_from_string(code, line)) - 2
+    )[0]
+    parsed = docstring_parser.parse(results.docstring(raw=True))
+    descriptions = {v.arg_name: v.description for v in parsed.params}
+
+    signatures = jedi.Script(code).get_signatures(line=line)
     output = []
     if signatures:
         signature = signatures[0]
@@ -155,7 +155,13 @@ def parametersRequestFn(message, code, var_name_to_line_num, var_name):
                 if "=" in param.description
                 else None
             )
-            output.append({"name": param.name, "defaultVal": defaultVal})
+            output.append(
+                {
+                    "name": param.name,
+                    "defaultVal": defaultVal,
+                    "description": descriptions.get(param.name, ""),
+                }
+            )
 
     return output
 

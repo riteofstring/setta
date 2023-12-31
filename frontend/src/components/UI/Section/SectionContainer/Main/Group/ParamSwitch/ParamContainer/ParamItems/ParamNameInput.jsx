@@ -11,6 +11,7 @@ export function ParamNameInput({ value, onBlur }) {
   return (
     <StandardInput
       placeholder="Please Enter Key"
+      twClasses="row-span-1"
       value={liveValue}
       onChange={(v) => setLiveValue(v.target.value)}
       onBlur={(v) => onBlur(v.target.value)}

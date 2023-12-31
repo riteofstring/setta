@@ -86,10 +86,6 @@ export const uiTypesToPretty = Object.freeze(
   )
 );
 
-export function requiresNestedSection(uiTypeType) {
-  return SECTION_TYPE_NAMES.includes(uiTypeType);
-}
-
 export function requiresKeyInput(sectionSubTypeName) {
   return [null, DICT].includes(sectionSubTypeName);
 }

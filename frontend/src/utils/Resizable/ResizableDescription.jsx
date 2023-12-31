@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
 
-export function ResizableDescription({ sectionId, width, children }) {
+export function ResizableDescription({ sectionId, children }) {
   const height = useSectionInfos((x) => x.x[sectionId].descriptionHeight);
 
   function onResizeStop(e, direction, ref, d) {
@@ -17,7 +17,7 @@ export function ResizableDescription({ sectionId, width, children }) {
   return (
     <MotionDiv sectionId={sectionId} height={height}>
       <ResizableWithScale
-        size={{ width, height }}
+        size={{ width: "100%", height }}
         minHeight={minHeight}
         onResizeStop={onResizeStop}
         handleWrapperClass="nodrag"
@@ -86,6 +86,6 @@ function MotionDiv({ sectionId, height, children }) {
 
 function Handle() {
   return (
-    <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-slate-400" />
+    <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-runcoder-400" />
   );
 }

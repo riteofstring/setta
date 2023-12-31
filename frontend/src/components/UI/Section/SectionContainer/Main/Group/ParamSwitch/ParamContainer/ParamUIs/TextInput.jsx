@@ -1,5 +1,5 @@
 import { useCombobox } from "downshift";
-import { useGoToSection } from "hooks/useGetSectionPosition";
+import { goToSection } from "thunks/goToSection";
 import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import {
   textFieldInitializeCode,
@@ -33,9 +33,7 @@ export function TextInput({
   className,
 }) {
   const classes =
-    "nodrag outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code pb-1 focus-visible:border-blue-400";
-
-  const goToSection = useGoToSection();
+    "nodrag flex items-center outline-none border-0 flex-1 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code focus-visible:border-blue-400";
 
   window.onTextInputVariableClick = function (e, variableType, variable) {
     if (e.ctrlKey) {
@@ -106,7 +104,7 @@ export function TextInput({
 
   return (
     <div
-      className={`flex w-full flex-col items-stretch overflow-visible font-mono`}
+      className={`row-span-1 flex w-full overflow-visible font-mono`}
       ref={sizeRef}
     >
       <ContentEditable
