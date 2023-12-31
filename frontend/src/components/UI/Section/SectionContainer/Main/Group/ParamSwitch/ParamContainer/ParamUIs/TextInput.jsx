@@ -32,8 +32,8 @@ export function TextInput({
   isDisabled,
   className,
 }) {
-  const emptyClassName = value === "" ? "empty-with-placeholder" : "";
-  const classes = `nodrag flex items-center outline-none border-0 flex-1 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code focus-visible:border-blue-400`;
+  const classes =
+    "nodrag flex items-center outline-none border-0 flex-1 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code focus-visible:border-blue-400";
 
   const goToSection = useGoToSection();
 
@@ -189,12 +189,6 @@ function colorCodeVariables(code, sectionVarOccurrences, globalVarOccurrences) {
 
 // TODO make more efficient
 function getStyledText(value) {
-  // VERY IMPORTANT, DO NOT DELETE
-  // This returns a &ZWNJ; character, which makes the cursor appear correctly
-  if (value === "") {
-    return "\u200C";
-  }
-
   const sectionNames = [];
   const globalVarNames = [];
   for (const s of Object.values(useSectionInfos.getState().x)) {

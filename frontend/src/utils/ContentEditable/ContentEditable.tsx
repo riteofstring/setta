@@ -105,14 +105,23 @@ function normalizeHtml(str: string): string {
   );
 }
 
-function removeLeadingZWNJ(str) {
-  // Check if the string is composed entirely of ZWNJ characters
-  if (!/^[\u200C]+$/.test(str)) {
-    // Remove all leading ZWNJ characters
-    return str.replace(/^[\u200C]+/, "");
+function replaceCaret(el: HTMLElement) {
+  // Place the caret at the end of the element
+  const target = document.createTextNode("");
+  el.appendChild(target);
+  // do not move caret if element was not focused
+  const isTargetFocused = document.activeElement === el;
+  if (target !== null && target.nodeValue !== null && isTargetFocused) {
+    var sel = window.getSelection();
+    if (sel !== null) {
+      var range = document.createRange();
+      range.setStart(target, target.nodeValue.length);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    if (el instanceof HTMLElement) el.focus();
   }
-  // Return the original string if it's only ZWNJ characters
-  return str;
 }
 
 /**
@@ -127,55 +136,51 @@ class ReactContentEditable extends React.Component<Props> {
 
   constructor(props) {
     super(props);
+    this.cursorInfo = 0;
   }
 
   saveCursorPosition = (element) => {
     const selection = window.getSelection();
-    if (selection.rangeCount === 0) return null;
+    if (selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
-    const selectedObj = range.cloneContents();
-    const temp = document.createElement("div");
-    temp.appendChild(selectedObj);
-
-    const childNodes = Array.prototype.slice.call(element.childNodes);
-    let charCount = 0;
-    let endNodeFound = false;
-    childNodes.forEach((node) => {
-      if (node === range.endContainer) endNodeFound = true;
-      if (!endNodeFound) charCount += node.textContent.length;
-    });
-
-    return { html: temp.innerHTML, charCount: charCount + range.endOffset };
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(element);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    this.cursorOffset = preCaretRange.toString().length;
   };
 
-  restoreCursorPosition = (element, savedPosition) => {
-    if (!savedPosition) return;
+  restoreCursorPosition = (element) => {
+    const selection = window.getSelection();
+    if (!selection) return;
 
     let charCount = 0;
-    let node;
-    const childNodes = Array.prototype.slice.call(element.childNodes);
-    for (let i = 0; i < childNodes.length; i++) {
-      node = childNodes[i];
-      charCount += node.textContent.length;
-      if (charCount >= savedPosition.charCount) {
-        charCount -= node.textContent.length;
-        break;
+    const walkNodes = (parentNode) => {
+      for (
+        let node = parentNode.firstChild;
+        node != null;
+        node = node.nextSibling
+      ) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          // Text node
+          if (charCount + node.length >= this.cursorOffset) {
+            selection.removeAllRanges();
+            const range = document.createRange();
+            range.setStart(node, this.cursorOffset - charCount);
+            range.collapse(true);
+            selection.addRange(range);
+            return true; // Stop the recursion
+          }
+          charCount += node.length;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          // Element node
+          if (walkNodes(node)) return true; // Stop traversing if cursor position is found
+        }
       }
-    }
+      return false; // Continue traversal
+    };
 
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    const range = document.createRange();
-
-    const offset = savedPosition.charCount - charCount;
-    if (node.nodeType === Node.TEXT_NODE) {
-      range.setStart(node, offset);
-    } else {
-      range.setStartBefore(node);
-    }
-    range.collapse(true);
-    selection.addRange(range);
+    walkNodes(element);
   };
 
   getEl = () =>
@@ -241,34 +246,19 @@ class ReactContentEditable extends React.Component<Props> {
     const el = this.getEl();
     if (!el) return;
 
-    function withVisibleUnicode(str) {
-      // Replace invisible characters with a visible placeholder
-      // Here, using [ZWNJ] to represent the ZWNJ character
-      return str.replace(/\u200C/g, "[ZWNJ]");
-    }
-
-    // console.log("componentDidUpdate");
-    // console.log("this.props.html", withVisibleUnicode(this.props.html));
-    // console.log("el.innerHTML", withVisibleUnicode(el.innerHTML));
-
     // Perhaps React (whose VDOM gets outdated because we often prevent
     // rerendering) did not update the DOM. So we update it manually now.
     if (this.props.html !== el.innerHTML) {
       el.innerHTML = this.props.html;
     }
     this.lastHtml = this.props.html;
-    // const savedPos = this.saveCursorPosition(el);
-    // el.innerHTML = removeLeadingZWNJ(el.innerHTML);
-    // this.restoreCursorPosition(el, savedPos);
+    // replaceCaret(el);
+    this.restoreCursorPosition(el);
   }
 
   emitChange = (originalEvt: React.SyntheticEvent<any>) => {
     const el = this.getEl();
     if (!el) return;
-
-    const savedPos = this.saveCursorPosition(el);
-    el.innerHTML = removeLeadingZWNJ(el.innerHTML);
-    this.restoreCursorPosition(el, savedPos);
 
     const html = el.innerHTML;
     if (this.props.onChange && html !== this.lastHtml) {
@@ -282,6 +272,7 @@ class ReactContentEditable extends React.Component<Props> {
       this.props.onChange(evt);
     }
     this.lastHtml = html;
+    this.saveCursorPosition(el);
   };
 
   static propTypes = {
