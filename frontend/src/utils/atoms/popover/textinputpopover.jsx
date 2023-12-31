@@ -17,7 +17,7 @@ export function TextInputPopover({
   return (
     <StandardPopover
       trigger={trigger}
-      contentClasses="bg-slate-200 p-3 rounded-lg shadow-md drop-shadow-md text-sm cursor-pointer"
+      contentClasses="bg-runcoder-200 p-3 rounded-lg shadow-md drop-shadow-md text-sm cursor-pointer"
       popoverContent={
         <Content
           header={header}
@@ -38,7 +38,7 @@ function Content({ header, footer, onChange, value, onClick }) {
   return (
     <>
       <p className="text-xs font-bold uppercase text-runcoder-600">{header}</p>
-      <div className="mt-1 flex flex-row items-center gap-2 rounded-full border border-solid border-slate-300 bg-white px-3 py-2 text-runcoder-800 [&:has(input:focus-visible)]:border-blue-500">
+      <div className="mt-1 flex flex-row items-center gap-2 rounded-full border border-solid border-runcoder-300 bg-white px-3 py-2 text-runcoder-800 [&:has(input:focus-visible)]:border-blue-500">
         <Body onChange={onChange} value={value} onClick={onClick} />
       </div>
       <p>{footer}</p>

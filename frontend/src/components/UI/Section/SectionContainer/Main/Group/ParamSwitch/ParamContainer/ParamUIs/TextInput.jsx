@@ -1,5 +1,4 @@
 import { useCombobox } from "downshift";
-import { goToSection } from "thunks/goToSection";
 import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
 import {
   textFieldInitializeCode,
@@ -8,6 +7,7 @@ import {
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useState } from "react";
+import { goToSection } from "thunks/goToSection";
 import { getSectionType } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import {
@@ -32,8 +32,9 @@ export function TextInput({
   isDisabled,
   className,
 }) {
+  // flex before:truncate truncate before:text-ellipsis text-ellipsis items-center before:flex-1 before:max-w-full flex-1
   const classes =
-    "nodrag flex items-center outline-none border-0 flex-1 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code focus-visible:border-blue-400";
+    "nodrag min-w-full max-w-full whitespace-nowrap truncate outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code focus-visible:border-blue-400";
 
   window.onTextInputVariableClick = function (e, variableType, variable) {
     if (e.ctrlKey) {
@@ -104,7 +105,7 @@ export function TextInput({
 
   return (
     <div
-      className={`row-span-1 flex w-full overflow-visible font-mono`}
+      className={`row-span-1 flex w-full min-w-0 overflow-x-clip overflow-y-visible font-mono`}
       ref={sizeRef}
     >
       <ContentEditable

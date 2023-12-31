@@ -30,7 +30,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
 
   return (
     <section
-      className={`rounded-xl border border-white bg-white dark:border-slate-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
+      className={`rounded-xl border border-white bg-white dark:border-runcoder-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
     >

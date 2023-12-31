@@ -7,8 +7,4 @@ export const UI_EDITOR = "uiEditor";
 export const CLOSED_PANE_WIDTH = 40;
 export const INITIAL_CHART_SIZE = { width: SECTIONWIDTH, height: SECTIONWIDTH };
 
-export const REACT_FLOW_STORE = {
-  store: null,
-  rf: null,
-  lastPaneClickLocation: {},
-};
+export const REACT_FLOW_STORE = { store: null, rf: null };
