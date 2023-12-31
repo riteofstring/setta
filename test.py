@@ -258,48 +258,28 @@
 # print(count_lines(example_string.split(delimiter)[0]))
 
 
-# import argparse
+import argparse
 
 
-# def main():
-#     parser = argparse.ArgumentParser(description="Example script using argparse.")
+def main():
+    parser = argparse.ArgumentParser(description="Example script using argparse.")
 
-#     parser.add_argument("--name", type=str, help="Your name", required=True)
-#     parser.add_argument("--age", type=int, help="Your age", required=True)
-#     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-#     parser.add_argument(
-#         "--number", type=int, default=0, help="An example integer flag", required=True
-#     )
+    parser.add_argument("--name", type=str, help="Your name", required=True)
+    parser.add_argument("--age", type=int, help="Your age", required=True)
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument(
+        "--number", type=int, default=0, help="An example integer flag", required=True
+    )
 
-#     args = parser.parse_args()
+    args = parser.parse_args()
 
-#     if args.verbose:
-#         print("Verbose mode is enabled.")
-#     print(f"Hello, {args.name}! You are {args.age} years old.")
-#     print(f"The number provided is {args.number}.")
-
-
-# if __name__ == "__main__":
-#     main()
+    if args.verbose:
+        print("Verbose mode is enabled.")
+    print(f"Hello, {args.name}! You are {args.age} years old.")
+    print(f"The number provided is {args.number}.")
 
 
+if __name__ == "__main__":
+    main()
 
-import jedi
-from docstring_parser import parse
-
-
-def get_line_from_string(input_string, line_number):
-    lines = input_string.split('\n')
-    if 1 <= line_number <= len(lines):
-        return lines[line_number - 1]
-    else:
-        return "Invalid line number"
-
-
-x = f"import torch\ntorch.nn.CrossEntropyLoss("
-print(get_line_from_string(x, 2))
-results = jedi.Script(x).complete(line=2, column=len(get_line_from_string(x, 2))-2)[0]
-parsed = parse(results.docstring(raw=True))
-for p in parsed.params:
-    print(f"{p.arg_name}: {p.description}\n")
 
