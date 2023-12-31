@@ -17,6 +17,7 @@ export function SaveCustomArgumentsModal({ open }) {
   }, [open]);
 
   function onClickSaveCustomArguments({ filename }) {
+    const sectionId = useModal.getState().modalData;
     saveKwargsAsCollection({
       sectionId,
       objInfoId: getSectionInfo(sectionId).selectedItem,

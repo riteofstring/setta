@@ -5,13 +5,12 @@ import { extractArgparseArgs } from "thunks/createSectionOrDeck";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function CreateFromArgparseModal() {
-  const contextMenuLocation = useModal((x) => x.modalData);
   const textValue = useRef("");
 
   function onClick() {
     extractArgparseArgs({
       pathToScript: textValue.current,
-      ...contextMenuLocation,
+      ...useModal.getState().modalData,
     });
   }
 
