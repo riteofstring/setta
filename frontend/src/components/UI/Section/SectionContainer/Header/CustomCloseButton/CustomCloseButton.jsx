@@ -10,7 +10,7 @@ export function CustomCloseButton({ isInfo, ...props }) {
     <IconButton
       {...props}
       icon={<IoClose />}
-      color="text-slate-600 hover:text-white"
+      color="text-runcoder-600 hover:text-white"
       bg="bg-transparent hover:bg-red-500"
       size="w-3 h-3"
       twClasses="ml-auto mr-1"

@@ -37,8 +37,8 @@ export function TextInputPopover({
 function Content({ header, footer, onChange, value, onClick }) {
   return (
     <>
-      <p className="text-xs font-bold uppercase text-slate-600">{header}</p>
-      <div className="mt-1 flex flex-row items-center gap-2 rounded-full border border-solid border-slate-300 bg-white px-3 py-2 text-slate-800 [&:has(input:focus-visible)]:border-blue-500">
+      <p className="text-xs font-bold uppercase text-runcoder-600">{header}</p>
+      <div className="mt-1 flex flex-row items-center gap-2 rounded-full border border-solid border-slate-300 bg-white px-3 py-2 text-runcoder-800 [&:has(input:focus-visible)]:border-blue-500">
         <Body onChange={onChange} value={value} onClick={onClick} />
       </div>
       <p>{footer}</p>
@@ -62,7 +62,7 @@ function Body({ onChange, value, onClick }) {
             twClasses="gap-1 border border-solid border-white py-1 px-3 rounded-full hover:bg-white text-xs transition-all"
             onClick={onClick}
           >
-            Save <BiSave className="text-slate-400" />
+            Save <BiSave className="text-runcoder-400" />
           </Button>
         </Popover.Close>
       </div>

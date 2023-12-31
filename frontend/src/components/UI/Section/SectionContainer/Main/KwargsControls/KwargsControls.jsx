@@ -30,7 +30,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
   return (
     <>
       <section className="card-args-control flex items-center rounded-xl border-b border-solid  border-white bg-gradient-to-t from-slate-50 px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
-        <h3 className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-slate-400">
+        <h3 className="pr-1 font-heading text-xs font-bold uppercase tracking-widest text-runcoder-600/70 dark:text-runcoder-400/70 ">
           arguments
         </h3>
         <IconButton

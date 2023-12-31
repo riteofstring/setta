@@ -86,6 +86,6 @@ function MotionDiv({ sectionId, height, children }) {
 
 function Handle() {
   return (
-    <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-slate-400" />
+    <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-runcoder-400" />
   );
 }

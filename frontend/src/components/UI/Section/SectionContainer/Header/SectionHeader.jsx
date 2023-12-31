@@ -76,7 +76,7 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
         ? isGlobalVariables
           ? "text-green-800 dark:text-green-200"
           : "text-blue-800 dark:text-blue-400"
-        : "text-slate-700 dark:text-runcoder-300"
+        : "text-runcoder-700 dark:text-runcoder-300"
     } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
   };
 

@@ -25,7 +25,7 @@ export function KwargParam(props) {
         onClick={onClick}
         icon={<IoClose />}
         bg="bg-transparent"
-        color="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+        color="text-runcoder-400 hover:text-runcoder-600 dark:hover:text-runcoder-200"
         twClasses="card-close-arg-group place-self-center ml-1"
         padding=""
         size="h-[.66rem] w-[.66rem]"

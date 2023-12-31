@@ -5,5 +5,17 @@
   color: gray;
   opacity: 0.5;
   pointer-events: none;
-  display: block; /* For Firefox */
+  display: table-cell; /* For Firefox */
 }
+
+
+[contenteditable="plaintext-only"]:empty{
+  content: "&zwnj;";
+  /* line-height: 27px; */
+  /* line-height: 1rem;
+  font-size:0.75rem */
+}
+/* 
+[contenteditable="plaintext-only"]::placeholder{
+  
+} */

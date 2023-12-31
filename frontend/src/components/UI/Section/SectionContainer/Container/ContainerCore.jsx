@@ -36,7 +36,7 @@ function _Container({
           <DeckSectionTitle sectionId={sectionId} />
         </div>
         {!hasNested && (
-          <div className="z-10 -mx-4 mt-4 flex items-center justify-center rounded-xl border-4 border-dashed border-slate-300 py-3 px-4 text-slate-300 dark:border-runcoder-800 dark:text-white">
+          <div className="z-10 -mx-4 mt-4 flex items-center justify-center rounded-xl border-4 border-dashed border-slate-300 py-3 px-4 text-runcoder-300 dark:border-runcoder-800 dark:text-white">
             Drop A Card Here.
           </div>
         )}
@@ -66,10 +66,10 @@ export const Container = React.memo(_Container, _.isEqual);
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "absolute nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
+      "absolute nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] px-4 font-heading text-4xl font-bold tracking-tighter text-runcoder-100",
 
     notEditing:
-      "absolute -mx-4 w-full truncate px-4 font-heading text-4xl font-bold tracking-tighter text-slate-100",
+      "absolute -mx-4 w-full truncate px-4 font-heading text-4xl font-bold tracking-tighter text-runcoder-100",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
