@@ -104,7 +104,9 @@ export function loadSectionIntoState({
   updateManyCurrChildren(Object.keys(sections));
   useProjectConfig.getState().addChildren(Object.fromEntries(topLevelMapping));
 
-  callbackBeforeExit();
+  if (callbackBeforeExit) {
+    callbackBeforeExit();
+  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

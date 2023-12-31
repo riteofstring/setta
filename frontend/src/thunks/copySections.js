@@ -20,10 +20,11 @@ export async function copySections() {
   const evCols = getEVCols(sections[activeSectionId]);
   const uiTypeCols = getUITypeCols(sections[activeSectionId]);
   await navigator.clipboard.writeText(
-    JSON.stringify({ sections, uiTypes, codeInfo, evCols, uiTypeCols })
+    JSON.stringify({
+      data: { sections, uiTypes, codeInfo, evCols, uiTypeCols },
+      copyType: "sections",
+    })
   );
-  console.log("copied!")
-
 }
 
 function getUITypes(sectionInfo) {
@@ -42,5 +43,5 @@ function getEVCols(sectionInfo) {
 }
 
 function getUITypeCols(sectionInfo) {
-  return useParamInfos.getState().y[sectionInfo.uiTypeColId];
+  return _.pick(useParamInfos.getState().y, [sectionInfo.uiTypeColId]);
 }

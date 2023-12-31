@@ -5,6 +5,7 @@ import {
 import { copySections } from "./copySections";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";
+import { pasteSections } from "./pasteSections";
 import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 
@@ -35,6 +36,11 @@ function attachKeyEventListener(action) {
   };
 }
 
+function attachBuiltInListener(name, fn) {
+  document.addEventListener(name, fn);
+  return () => document.removeEventListener(name, fn);
+}
+
 export function attachKeyEventListeners() {
   const conditionAndAction = [
     [ctrlPlus("z"), undoProjectState],
@@ -44,20 +50,22 @@ export function attachKeyEventListeners() {
     [ctrlPlus("l"), openLoadModal],
     [ctrlShiftPlus("S"), openSaveAsModal],
     [ctrlPlus("k"), focusOnArgsFilter],
+    ["copy", copySections], // Builtin copy event (ctrl-c)
+    ["paste", pasteSections], // Builtin paste event (ctrl-v)
   ];
 
-  // Special copy event (ctrl-c)
-  document.addEventListener("copy", copySections);
-
-  const cleanup_functions = [
-    () => document.removeEventListener("copy", copySections),
-  ];
+  const cleanup_functions = [];
   for (const [condition, action] of conditionAndAction) {
-    const cleanup = attachKeyEventListener((e) => {
-      if (condition(e)) {
-        action();
-      }
-    });
+    let cleanup;
+    if (typeof condition === "string") {
+      cleanup = attachBuiltInListener(condition, action);
+    } else {
+      cleanup = attachKeyEventListener((e) => {
+        if (condition(e)) {
+          action();
+        }
+      });
+    }
     cleanup_functions.push(cleanup);
   }
 
