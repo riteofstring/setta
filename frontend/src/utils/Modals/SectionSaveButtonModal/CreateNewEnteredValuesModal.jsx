@@ -6,8 +6,9 @@ import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { createNewId } from "z_utils/utils";
 
 export function CreateNewEnteredValuesModal() {
+  const sectionId = useModal((x) => x.modalData);
+
   function onClickCreateNewEnteredValues({ filename }) {
-    const sectionId = useModal.getState().modalData;
     const currId = getSectionInfo(sectionId).evColId;
     const newId = createNewId();
     useParamInfos

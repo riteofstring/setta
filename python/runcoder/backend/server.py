@@ -34,7 +34,6 @@ from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
-from .db.codeInfo.save import save_code_info
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -135,11 +134,6 @@ class SetProjectConfigNameRequest(BaseModel):
 
 class SetDarkModeRequest(BaseModel):
     darkMode: bool
-
-
-class SaveCodeInfoRequest(BaseModel):
-    codeInfo: dict
-
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -282,10 +276,9 @@ def route_get_collections_and_modules():
     pass
 
 
-@app.post("/codeInfo/save")
-def route_save_code_info(x: SaveCodeInfoRequest):
-    with dbq.get() as db:
-        save_code_info(db, x.codeInfo)
+@app.post("/codeInfo/saveCollections")
+def route_save_collections():
+    pass
 
 
 @app.post("/codeInfo/getCollectionDetails")

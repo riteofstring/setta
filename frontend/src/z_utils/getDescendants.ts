@@ -1,13 +1,17 @@
 import { CodeInfoType, RCType } from "./types/codeInfo";
 
+function defaultCondition(currInfo: CodeInfoType, rcType: RCType) {
+  return currInfo.rcType === rcType;
+}
+
 function _findAllDescendants(
   allCodeInfo,
-  codeInfoIds,
-  outputCondition,
-  stackCondition
+  collectionIds,
+  rcType,
+  condition = defaultCondition
 ) {
   const output: CodeInfoType[] = [];
-  const idStack = codeInfoIds.filter((x) => stackCondition(allCodeInfo[x]));
+  const idStack = [...collectionIds];
   const visited = new Set();
   while (idStack.length > 0) {
     const id = idStack.pop();
@@ -16,48 +20,26 @@ function _findAllDescendants(
     }
     visited.add(id);
     const currInfo = allCodeInfo[id];
-    if (outputCondition(currInfo)) {
+    if (condition(currInfo, rcType)) {
       output.push(currInfo);
     }
-    if (stackCondition(currInfo)) {
-      idStack.push(...currInfo.children);
-    }
+    idStack.push(...currInfo.children);
   }
   return output.reverse();
 }
 
-export function findAllCallables(allCodeInfo, codeInfoIds) {
-  return _findAllDescendants(
-    allCodeInfo,
-    codeInfoIds,
-    (c) => c?.rcType === RCType.CALLABLE,
-    () => true
-  );
+export function findAllCallables(allCodeInfo, collectionIds) {
+  return _findAllDescendants(allCodeInfo, collectionIds, RCType.CALLABLE);
 }
 
-export function findAllParametersOfCallables(allCodeInfo, codeInfoIds) {
-  return _findAllDescendants(
-    allCodeInfo,
-    codeInfoIds,
-    (c) => c?.rcType === RCType.PARAMETER,
-    (c) => c?.rcType === RCType.CALLABLE
-  );
+export function findAllParameters(allCodeInfo, collectionIds) {
+  return _findAllDescendants(allCodeInfo, collectionIds, RCType.PARAMETER);
 }
 
-export function findAllParametersOfCollections(allCodeInfo, codeInfoIds) {
+export function findAllParameterCollections(allCodeInfo, collectionIds) {
   return _findAllDescendants(
     allCodeInfo,
-    codeInfoIds,
-    (c) => c?.rcType === RCType.PARAMETER,
-    (c) => c?.rcType === RCType.COLLECTION
-  );
-}
-
-export function findAllParameters(allCodeInfo, codeInfoIds) {
-  return _findAllDescendants(
-    allCodeInfo,
-    codeInfoIds,
-    (c) => c?.rcType === RCType.PARAMETER,
-    () => true
+    collectionIds,
+    RCType.PARAMETER_COLLECTION
   );
 }

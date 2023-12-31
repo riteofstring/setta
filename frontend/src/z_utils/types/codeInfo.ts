@@ -13,6 +13,7 @@ export enum RCType {
   COLLECTION = "collection",
   CALLABLE = "callable",
   PARAMETER = "parameter",
+  PARAMETER_COLLECTION = "parameter_collection",
 }
 
 export type ManyCodeInfoType = ManyOf<CodeInfoType>;

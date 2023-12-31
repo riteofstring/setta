@@ -1,9 +1,7 @@
 def save_settings(db, settings):
     query = """
-        INSERT INTO Settings (profileName, darkMode)
+        INSERT OR REPLACE INTO Settings (profileName, darkMode)
         VALUES (:profileName, :darkMode)
-        ON CONFLICT (profileName)
-        DO UPDATE SET darkMode = :darkMode
     """
     db.executemany(query, settings)
 

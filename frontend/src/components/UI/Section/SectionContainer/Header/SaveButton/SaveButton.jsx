@@ -9,7 +9,6 @@ export function SaveButton({ sectionId }) {
   const setModalData = useModal((x) => x.setModalData);
 
   function openCustomArgumentsModal() {
-    setModalData(sectionId);
     setModalType("Custom Arguments");
   }
 

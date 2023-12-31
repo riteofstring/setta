@@ -13,8 +13,9 @@ import {
 
 export function useLoadProject() {
   const { projectName, configName } = useParams();
-  const { state } = useLocation();
-  const pageLoadType = state?.pageLoadType;
+  const {
+    state: { pageLoadType },
+  } = useLocation();
   const [doneLoading, setDoneLoading] = useState(false);
 
   useEffect(() => {
