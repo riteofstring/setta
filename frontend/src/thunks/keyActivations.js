@@ -2,6 +2,7 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
+import { copySections } from "./copySections";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";
 import { saveProject } from "./save";
@@ -26,11 +27,11 @@ function ctrlShiftPlus(key) {
 }
 
 function attachKeyEventListener(action) {
-  window.addEventListener("keydown", action);
+  document.addEventListener("keydown", action);
 
   // Return a cleanup function
   return () => {
-    window.removeEventListener("keydown", action);
+    document.removeEventListener("keydown", action);
   };
 }
 
@@ -45,7 +46,12 @@ export function attachKeyEventListeners() {
     [ctrlPlus("k"), focusOnArgsFilter],
   ];
 
-  const cleanup_functions = [];
+  // Special copy event (ctrl-c)
+  document.addEventListener("copy", copySections);
+
+  const cleanup_functions = [
+    () => document.removeEventListener("copy", copySections),
+  ];
   for (const [condition, action] of conditionAndAction) {
     const cleanup = attachKeyEventListener((e) => {
       if (condition(e)) {
