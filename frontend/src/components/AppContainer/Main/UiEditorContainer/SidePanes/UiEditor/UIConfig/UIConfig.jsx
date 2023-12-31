@@ -1,6 +1,6 @@
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
-import { useGetParamInfos } from "hooks/useSectionContents";
+import { useGetParamInfosThatHaveNames } from "hooks/useSectionContents";
 import _ from "lodash";
 import { useInfoView } from "models/info/infoView";
 import { useUITypes } from "models/info/uiTypes";
@@ -18,7 +18,7 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
-  const paramInfos = useGetParamInfos(sectionId).filter((x) => x.name);
+  const paramInfos = useGetParamInfosThatHaveNames(sectionId);
 
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
@@ -86,7 +86,7 @@ function _UIElement({ sectionId, paramInfo }) {
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
-        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-runcoder-500">
+        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-slate-500">
           {paramName}
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
@@ -117,7 +117,7 @@ function InfoViewDescription({ paramInfoId }) {
       inputClasses="rounded-lg"
       trigger={
         <IconButton twClasses="" size="w-4 h-4" padding="py-2 px-2">
-          <BiPencil className="text-runcoder-500" />
+          <BiPencil className="text-slate-500" />
         </IconButton>
       }
       header={"Description for Infoview"}

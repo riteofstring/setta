@@ -13,7 +13,7 @@ export function SaveUITypeConfig() {
   return (
     <Dialog.Trigger asChild>
       <IconButton size="w-4 h-4" padding="py-2 px-2" onClick={openUITypesModal}>
-        <BiSave className="text-runcoder-500 dark:text-runcoder-200" />
+        <BiSave className="text-slate-500 dark:text-runcoder-200" />
       </IconButton>
     </Dialog.Trigger>
   );

@@ -13,8 +13,8 @@ export function ComboboxInput({
 }) {
   return (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-runcoder-700 ${
-        small ? "h-7" : "h-9"
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-sm pl-10 focus-visible:border-white dark:text-runcoder-200 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-runcoder-700 ${
+        small ? "h-7" : "h-10"
       }`}
       leftElementStyles="pl-3"
       {...getInputProps({ onMouseDown: onInputMouseDown })}
@@ -22,7 +22,7 @@ export function ComboboxInput({
         <StandardSearchRightBtn
           {...getToggleButtonProps()}
           icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
-          size={small ? "w-7 h-7" : "w-9 h-9"}
+          size={small ? "w-7 h-7" : "w-10 h-10"}
         />
       }
     />

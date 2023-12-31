@@ -49,16 +49,16 @@ export function ProjectName() {
         name={name}
         setName={setName}
         titleProps={{
-          editing: `${editing} text-xl text-runcoder-900 dark:text-runcoder-50 font-bold `,
-          notEditing: `${notEditing} text-xl text-runcoder-900 dark:text-runcoder-50 font-bold `,
+          editing: `${editing} text-xl text-slate-900 dark:text-runcoder-50 font-bold `,
+          notEditing: `${notEditing} text-xl text-slate-900 dark:text-runcoder-50 font-bold `,
         }}
       />
       <ProjectNameCore
         name={configName}
         setName={setConfigName}
         titleProps={{
-          editing: `${editing} text-md text-runcoder-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
-          notEditing: `${notEditing} text-md text-runcoder-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
+          editing: `${editing} text-md text-slate-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
+          notEditing: `${notEditing} text-md text-slate-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
         }}
       />
     </header>

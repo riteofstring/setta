@@ -66,7 +66,7 @@ function File({
       </span>
       <div className="flex flex-grow justify-between">
         <label className="cursor-pointer">{name}</label>
-        <div className="text-xs text-runcoder-400">2023/01/01</div>
+        <div className="text-xs text-slate-400">2023/01/01</div>
       </div>
     </RadioGroup.Item>
   ) : (
@@ -75,10 +75,10 @@ function File({
       className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2"
       onDoubleClick={() => onFolderDoubleClick(id)}
     >
-      <HiOutlineFolder className="text-runcoder-400 group-hover:text-runcoder-800 dark:text-runcoder-200" />
+      <HiOutlineFolder className="text-slate-400 group-hover:text-slate-800 dark:text-runcoder-200" />
       <div className="flex flex-grow justify-between ">
         <div className="flex gap-2">
-          <h4 className="text-xs font-bold tracking-wider text-runcoder-500 hover:text-runcoder-900 dark:text-runcoder-300 dark:hover:text-runcoder-200">
+          <h4 className="text-xs font-bold tracking-wider text-slate-500 hover:text-slate-900 dark:text-runcoder-300 dark:hover:text-runcoder-200">
             {name}
           </h4>
         </div>

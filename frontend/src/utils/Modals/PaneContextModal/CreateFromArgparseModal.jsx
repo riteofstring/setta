@@ -5,19 +5,18 @@ import { extractArgparseArgs } from "thunks/createSectionOrDeck";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function CreateFromArgparseModal() {
-  const contextMenuLocation = useModal((x) => x.modalData);
   const textValue = useRef("");
 
   function onClick() {
     extractArgparseArgs({
       pathToScript: textValue.current,
-      ...contextMenuLocation,
+      ...useModal.getState().modalData,
     });
   }
 
   return (
     <>
-      <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-runcoder-400">
+      <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-slate-400">
         {"Create From Argparse"}
       </Dialog.Title>
       <article className="relative flex flex-grow overflow-hidden rounded-lg border border-runcoder-100 bg-runcoder-50 p-4  dark:border-runcoder-700/50 dark:bg-runcoder-900 dark:text-runcoder-300">

@@ -31,18 +31,19 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   return (
-    <header className="card-title flex flex-row items-center">
+    <header className="flex flex-row items-center px-7">
       {!isInfo && (
-        <>
+        <section className="align-self-stretch flex w-full flex-1 items-center gap-[0.1rem]">
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
+
           <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
           <VersionsButton sectionId={sectionId} />
-        </>
+        </section>
       )}
       {(isSeriesElement || _isRoot) && (
         <Incrementer
@@ -76,7 +77,7 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
         ? isGlobalVariables
           ? "text-green-800 dark:text-green-200"
           : "text-blue-800 dark:text-blue-400"
-        : "text-runcoder-700 dark:text-runcoder-300"
+        : "text-slate-700 dark:text-runcoder-300"
     } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
   };
 
