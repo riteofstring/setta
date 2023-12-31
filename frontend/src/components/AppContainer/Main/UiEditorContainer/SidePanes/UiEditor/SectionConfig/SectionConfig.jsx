@@ -1,5 +1,5 @@
 import { useGetSectionType } from "hooks/useSectionType";
-import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
+import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import React from "react";
 import { OUTPUT, SOCIAL } from "z_utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
@@ -16,10 +16,10 @@ export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
   const infoViewHandlersCard = useSetCurrInfoView(
-    ConstantInfoView.SECTIONCONFIG_CARDTYPES_SEARCH
+    constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH
   );
   const infoViewHandlersContents = useSetCurrInfoView(
-    ConstantInfoView.SECTIONCONFIG_CONTENTS_SEARCH
+    constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH
   );
 
   // pass infoViewHandlersContents down?

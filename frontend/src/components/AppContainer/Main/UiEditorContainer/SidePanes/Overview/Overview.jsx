@@ -1,7 +1,7 @@
 import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
-import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
+import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import { BiFilter } from "react-icons/bi";
 import { updateMapPosition } from "thunks/updateMapPosition";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
@@ -18,9 +18,9 @@ const paneProps = {
 
 export function Overview() {
   const [filteredList, setFilter] = useGetOverviewListing();
-  const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.OVERVIEW);
+  const infoViewHandlers = useSetCurrInfoView(constInfoViews.OVERVIEW);
   const infoViewHandlersSearch = useSetCurrInfoView(
-    ConstantInfoView.OVERVIEW_SEARCH
+    constInfoViews.OVERVIEW_SEARCH
   );
 
   return (

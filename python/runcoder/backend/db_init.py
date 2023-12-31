@@ -18,7 +18,8 @@ def create_tables(db):
             name TEXT,
             editable BOOLEAN,
             rcType TEXT,
-            defaultVal TEXT
+            defaultVal TEXT,
+            description TEXT
         );
         """,
         # CodeInfoCol model

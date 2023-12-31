@@ -140,7 +140,8 @@
           "editable": 1,
           "rcType": "parameter",
           "defaultVal": null,
-          "children": []
+          "children": [],
+          "description": ""
         },
         "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
           "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -148,7 +149,8 @@
           "editable": 0,
           "rcType": "collection",
           "defaultVal": null,
-          "children": ["20512036-3e0f-41f3-9738-6573ee71bdaf"]
+          "children": ["20512036-3e0f-41f3-9738-6573ee71bdaf"],
+          "description": ""
         },
         "9193e5d1-544b-4490-99ee-f7ba34a0ed80": {
           "id": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
@@ -156,7 +158,8 @@
           "editable": 0,
           "rcType": "collection",
           "defaultVal": null,
-          "children": []
+          "children": [],
+          "description": ""
         }
       },
       "userCodeInfoMaps": {},

@@ -7,6 +7,7 @@ export type CodeInfoType = {
   rcType: RCType;
   defaultVal: string | null;
   children: string[];
+  description: string;
 };
 
 export enum RCType {

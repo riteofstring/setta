@@ -5,7 +5,7 @@ import React from "react";
 import { ParamInput } from "./ParamItems/ParamInput";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
-  const infoViewHandlers = useSetCurrInfoView(paramInfo.id);
+  const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const border = maybeErrorMessage ? "border-red-600 border-2" : "";
 

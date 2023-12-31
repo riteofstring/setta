@@ -3,7 +3,7 @@ import {
   dbSetProjectName,
 } from "dbRequests/projectName";
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
-import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
+import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { Editable } from "utils/Editable/Editable";
@@ -16,9 +16,7 @@ import { router } from "utils/Routes/router";
 export function ProjectName() {
   const name = useProject((x) => x.name);
   const configName = useProjectConfig((x) => x.name);
-  const infoViewHandlers = useSetCurrInfoView(
-    ConstantInfoView.OVERVIEW_PROJNAME
-  );
+  const infoViewHandlers = useSetCurrInfoView(constInfoViews.OVERVIEW_PROJNAME);
 
   async function setName(v) {
     await dbSetProjectName(v);

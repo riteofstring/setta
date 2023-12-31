@@ -1,4 +1,4 @@
-import { ConstantInfoView, useSetCurrInfoView } from "models/info/infoView";
+import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import { useSearch } from "models/search";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { Notification } from "./Notification/Notification";
@@ -32,7 +32,7 @@ function FlexContainer({ children }) {
 function Search({ searchPlaceholder }) {
   const value = useSearch((x) => x.value);
   const setValue = useSearch((x) => x.setValue);
-  const infoViewHandlers = useSetCurrInfoView(ConstantInfoView.NAVBAR_SEARCH);
+  const infoViewHandlers = useSetCurrInfoView(constInfoViews.NAVBAR_SEARCH);
 
   return (
     <StandardSearch

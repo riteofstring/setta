@@ -2,10 +2,11 @@ import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetParamInfosThatHaveNames } from "hooks/useSectionContents";
 import _ from "lodash";
-import { useInfoView } from "models/info/infoView";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";
+import { updateParams } from "thunks/sections/sectionContents";
 import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { IconButton } from "utils/atoms/buttons/IconButton";
@@ -90,7 +91,10 @@ function _UIElement({ sectionId, paramInfo }) {
           {paramName}
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
-          <InfoViewDescription paramInfoId={paramInfoId} />
+          <InfoViewDescription
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+          />
           <SaveUITypeConfig />
         </div>
       </div>
@@ -108,9 +112,8 @@ function _UIElement({ sectionId, paramInfo }) {
   );
 }
 
-function InfoViewDescription({ paramInfoId }) {
-  const info = useInfoView((x) => _.defaultTo(x.x[paramInfoId], ""));
-  const setInfo = useInfoView((x) => x.setInfo);
+function InfoViewDescription({ sectionId, paramInfoId }) {
+  const info = useCodeInfo((x) => x.x[paramInfoId].description);
   const [value, setValue] = useState(info);
   return (
     <TextAreaPopover
@@ -121,7 +124,13 @@ function InfoViewDescription({ paramInfoId }) {
         </IconButton>
       }
       header={"Description for Infoview"}
-      onClick={() => setInfo({ id: paramInfoId, value })}
+      onClick={() => {
+        useCodeInfo
+          .getState()
+          .setDescription({ id: paramInfoId, description: value });
+
+        updateParams(sectionId);
+      }}
       value={value}
       onChange={(e) => setValue(e.target.value)}
     />
