@@ -14,7 +14,7 @@ export function CodeGenPopover({
   return (
     <StandardPopover
       trigger={trigger}
-      contentClasses="bg-runcoder-200 dark:bg-runcoder-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm cursor-pointer"
+      contentClasses="bg-slate-200 dark:bg-runcoder-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm cursor-pointer"
       popoverContent={<Content header={header} body={body} footer={footer} />}
       open={open}
       closeButton={closeButton}
@@ -29,7 +29,7 @@ function Content({ header, body, footer }) {
       <p className="mb-2 text-xs font-bold uppercase text-runcoder-600 dark:text-runcoder-200">
         {header}
       </p>
-      <div className="mt-1 flex flex-row items-center gap-2 rounded-lg bg-runcoder-700 px-3 py-2 dark:bg-runcoder-900">
+      <div className="mt-1 flex flex-row items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 dark:bg-runcoder-900">
         <code className="font-code text-white  ">{body}</code>
         <Popover.Close>
           <HiOutlineDuplicate className="h-5 w-5 text-white" />

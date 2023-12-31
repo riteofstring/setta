@@ -13,7 +13,7 @@ export function ComboboxInput({
 }) {
   return (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700 ${
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-slate-900 focus-visible:ring-2 border border-solid border-slate-200 dark:border-runcoder-700 ${
         small ? "h-7" : "h-9"
       }`}
       leftElementStyles="pl-3"
@@ -78,7 +78,7 @@ function _ComboboxItem({
   itemStyle = "",
   itemString,
 }) {
-  const bg = isHighlighted ? "bg-runcoder-300/50 dark:bg-runcoder-800/50l" : "";
+  const bg = isHighlighted ? "bg-slate-300/50 dark:bg-runcoder-800/50l" : "";
   return (
     <dd
       className={`mx-1 cursor-pointer truncate rounded-xl px-2 py-1 text-xs ${bg} ${itemStyle}`}

@@ -55,7 +55,7 @@ export function ResponsiveControls() {
       }}
       animate={{ translateX: overviewCssWidth }}
     >
-      <Controls className="[&>button]:bg-runcoder-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300">
+      <Controls className="[&>button]:bg-slate-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300">
         <ControlButton onClick={onClickLayout}>
           <RiLayoutFill />
         </ControlButton>

@@ -11,7 +11,7 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
 
   const hasDescription = useSectionHasDescription(sectionId);
 
-  // border-b border-solid border-runcoder-100
+  // border-b border-solid border-slate-100
   return (
     <ScrollingArea
       styles={`card-args-list ${noWheel} ${
@@ -20,7 +20,7 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
       ref={ref}
     >
       {isGroup && (
-        <p className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-runcoder-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-runcoder-400 ">
+        <p className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-slate-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-runcoder-400 ">
           Group 1
         </p>
       )}

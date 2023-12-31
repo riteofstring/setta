@@ -11,7 +11,7 @@ const DummySection = React.forwardRef(({ sectionId }, ref) => {
   return (
     <div
       style={{ width: `${width * zoom}px`, height: `${height * zoom}px` }}
-      className="rounded-md bg-runcoder-50/75"
+      className="rounded-md bg-slate-50/75"
       ref={ref}
     />
   );

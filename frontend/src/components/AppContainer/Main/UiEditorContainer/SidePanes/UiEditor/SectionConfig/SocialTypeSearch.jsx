@@ -21,7 +21,7 @@ export function SocialTypeSearch({ sectionId }) {
       <div className="flex w-full items-center gap-3">
         <p className="select-none text-sm font-bold">{"Social Media URL"}</p>
         <input
-          className=" w-full rounded-full bg-white px-4 py-1 text-sm ring-2 ring-runcoder-200 focus:ring-2 focus:ring-blue-500 dark:bg-runcoder-900"
+          className=" w-full rounded-full bg-white px-4 py-1 text-sm ring-2 ring-slate-200 focus:ring-2 focus:ring-blue-500 dark:bg-runcoder-900"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onBlur={onBlur}
