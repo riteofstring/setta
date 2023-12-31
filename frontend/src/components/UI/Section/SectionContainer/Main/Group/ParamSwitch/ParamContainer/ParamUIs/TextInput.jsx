@@ -10,13 +10,8 @@ import { useEffect, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { getSectionType } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
-import {
-  ComboboxItems,
-  ComboboxTextFieldList,
-} from "utils/Combobox/ComboboxParts";
 import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
 import { flattenedItems } from "utils/Combobox/utils";
-import { ContentEditable } from "utils/ContentEditable/ContentEditable";
 import { GLOBAL_VARIABLES } from "z_utils/constants";
 
 export function TextInputConfig() {
@@ -32,9 +27,13 @@ export function TextInput({
   isDisabled,
   className,
 }) {
-  // flex before:truncate truncate before:text-ellipsis text-ellipsis items-center before:flex-1 before:max-w-full flex-1
+  const [inputValue, setInputValue] = useState("");
+
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value);
+  };
   const classes =
-    "nodrag min-w-full max-w-full whitespace-nowrap truncate outline-none border-0 border-b cursor-auto border-runcoder-300 dark:border-runcoder-600 border-solid text-xs dark:text-runcoder-300 font-code focus-visible:border-blue-400";
+    "nodrag flex-1 w-full whitespace-nowrap truncate focus:text-clip  cursor-auto  text-xs outline-none font-code ";
 
   window.onTextInputVariableClick = function (e, variableType, variable) {
     if (e.ctrlKey) {
@@ -104,30 +103,43 @@ export function TextInput({
   } = useSizeOfResizableElement({ delay: 200 });
 
   return (
-    <div
-      className={`row-span-1 flex w-full min-w-0 overflow-x-clip overflow-y-visible font-mono`}
-      ref={sizeRef}
-    >
-      <ContentEditable
-        html={styledText} // innerHTML of the editable div
-        contentEditable="plaintext-only" // use true to disable editing
-        className={classes}
-        {...inputProps}
-        spellCheck="false"
-        placeholder={defaultVal}
+    <>
+      <input
+        value={inputValue}
+        onChange={handleInputChange}
+        className="nodrag card-value z-[1] m-0 h-5 min-w-0 cursor-auto  border-b border-runcoder-300 border-transparent bg-transparent p-0 font-mono text-xs font-normal leading-normal text-transparent outline-none focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600"
       />
-      <ComboboxTextFieldList
-        isOpen={isOpen}
-        getMenuProps={getMenuProps}
-        width={width}
-      >
-        <ComboboxItems
-          filteredItems={allItems}
-          getItemProps={getItemProps}
-          highlightedIndex={highlightedIndex}
-        />
-      </ComboboxTextFieldList>
-    </div>
+      <pre className="card-value card-value-display h-5 min-w-0 overflow-x-clip border-b text-xs font-normal leading-normal dark:text-runcoder-300">
+        <code>
+          {inputValue}
+          {/* <span className="blink-cursor h-5 w-[1px] bg-black align-middle" /> */}
+        </code>
+      </pre>
+    </>
+    // <div
+    //   className={`row-span-1 min-w-0 flex-1 overflow-x-clip overflow-y-visible border-0 border-b border-runcoder-300  font-mono outline-none focus-visible:border-blue-400 dark:border-runcoder-600 dark:text-runcoder-300`}
+    //   ref={sizeRef}
+    // >
+    //   <ContentEditable
+    //     html={styledText} // innerHTML of the editable div
+    //     contentEditable="plaintext-only" // use true to disable editing
+    //     className={classes}
+    //     {...inputProps}
+    //     spellCheck="false"
+    //     placeholder={defaultVal}
+    //   />
+    //   <ComboboxTextFieldList
+    //     isOpen={isOpen}
+    //     getMenuProps={getMenuProps}
+    //     width={width}
+    //   >
+    //     <ComboboxItems
+    //       filteredItems={allItems}
+    //       getItemProps={getItemProps}
+    //       highlightedIndex={highlightedIndex}
+    //     />
+    //   </ComboboxTextFieldList>
+    // </div>
   );
 }
 

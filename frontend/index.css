@@ -67,8 +67,8 @@
   grid-column:1 / span 6 ;
   display: grid;
   grid-template-columns: subgrid;
-  grid-auto-rows: minmax(1.75rem, min-content);
-  row-gap:0.25rem
+  grid-auto-rows: minmax(1.25rem, min-content);
+  row-gap:0.5rem;
 }
 
 .card-arg-group {
@@ -97,12 +97,33 @@
   grid-column: 3 / 5;
 }
 
+.card-value {
+  grid-column:4 / 5;
+
+}
+
+.card-value-display {
+  grid-row-start: -1;
+}
+
 .card-code {
   display:grid;
   grid-template-columns:subgrid;
   grid-row: 3 / 6;
   grid-column: 3 / 7;
 }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.blink-cursor {
+  @apply inline-block ml-[2px] w-[2px] h-4 my-auto bg-black;
+  animation: blink 1s step-start 0s infinite;
+}
+
+
 
 * {
   /* outline: 1px solid green; */

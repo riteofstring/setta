@@ -14,7 +14,7 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
   // border-b border-solid border-runcoder-100
   return (
     <ScrollingArea
-      styles={`card-args-list ${noWheel} ${
+      styles={`card-args-list py-1 ${noWheel} ${
         hasDescription ? "last:[&>div]:mb-12" : ""
       }`}
       ref={ref}
