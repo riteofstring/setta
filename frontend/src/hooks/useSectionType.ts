@@ -2,6 +2,9 @@ import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import {
   DECK,
+  FN,
+  GLOBAL_VARIABLES,
+  INFO,
   isRoot,
   isSeriesElement,
   OUTPUT,
@@ -41,12 +44,7 @@ export function useIsSeriesElement(sectionId: string) {
   );
 }
 
-export function useSectionTypeName(sectionId: string) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId].type);
-}
-
-function useIsType(sectionId, type) {
+function useIsType(sectionId: string, type) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) => x.x[uiTypeId].type === type);
 }
@@ -64,26 +62,18 @@ export function useIsOutput(sectionId: string) {
   return useIsType(sectionId, OUTPUT);
 }
 
-// export function useIsInfo(sectionId: string) {
-//   return useIsType(sectionId, INFO);
-// }
+export function useIsInfo(sectionId: string) {
+  return useIsType(sectionId, INFO);
+}
 
 export function useIsSocial(sectionId: string) {
   return useIsType(sectionId, SOCIAL);
 }
 
-// export function useIsGlobalVariables(sectionId: string) {
-//   return useIsType(sectionId, GLOBAL_VARIABLES);
-// }
+export function useIsFn(sectionId: string) {
+  return useIsType(sectionId, FN);
+}
 
-// export function useIsScript(sectionId: string) {
-//   return useIsType(sectionId, SCRIPT);
-// }
-
-// export function useIsCode(sectionId: string) {
-//   return useIsType(sectionId, CODE);
-// }
-
-// export function useIsVarControl(sectionId: string) {
-//   return useIsType(sectionId, VAR_CONTROL);
-// }
+export function useIsGlobalVariables(sectionId: string) {
+  return useIsType(sectionId, GLOBAL_VARIABLES);
+}

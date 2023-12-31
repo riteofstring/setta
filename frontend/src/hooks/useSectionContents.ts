@@ -14,14 +14,7 @@ export function useGetParamInfos(sectionId: string) {
   return useSectionToParams((x) => x.params[sectionId] ?? [], _.isEqual);
 }
 
-export function useGetParamInfosThatHaveNames(sectionId: string) {
-  return useSectionToParams(
-    (x) => x.params[sectionId]?.filter((x) => x.name) ?? [],
-    _.isEqual
-  );
-}
-
-function useGetSelectedCollections(sectionId: string) {
+export function useGetSelectedCollections(sectionId: string) {
   const codeInfoId = useGetSectionTypeConfig(sectionId, "codeInfoId");
   return useCodeInfo((x) => _.pick(x.x, x.x[codeInfoId].children), _.isEqual);
 }

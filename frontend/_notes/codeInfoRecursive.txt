@@ -1,21 +1,33 @@
-Each section has a codeInfo associated with it.
+What can a section contain?
+- Modules
+- Object collections
+- Parameter collections
+- Collection of collections/modules
 
-This codeInfo has children. The types of children are:
-- callables (things that always appear in the combobox)
-- parameters (things that appear in the arguments area)
-- collections (things that contain callables or parameters)
+A section cannot contain:
+- A single object
+- A single parameter
 
 
-Examples:
+To determine searchable items:
 
-Section CodeInfo has parameters in its list of children:
-- These will appear regardless of what's in the combobox
+function findDescendantsByType(allCodeInfo, rootId, type):
+   output = []
+   idStack = [rootId]
+   while (idStack.length > 0){
+      currInfo = allCodeInfo[idStack.pop()]
+      if(currInfo.type === type){
+         output.push(currInfo)
+      }
+      idStack.push(...currInfo.children)
+   }
+   return output
 
-Section CodeInfo has callables in its list of children:
-- These will appear in the combobox. When one of the callables is selected, its own children will appear in the arguments area. These children include fixed (non editable names) and kwargs (editable names).
 
-Section CodeInfo has collections in its list of children:
-- Each collection is treated recursively:
-   - Callables are added to the combobox
-   - Parameters are added to the arguments area
-   - Repeat recursively for child collections
+
+To determine all the parameters to display:
+- Find the currently selected object (if any)
+- For c in modules + collections:
+   - if c is a parameter collection:
+      add to output
+   

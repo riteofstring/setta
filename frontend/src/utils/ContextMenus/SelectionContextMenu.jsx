@@ -1,4 +1,4 @@
-import { createDeck } from "thunks/createSectionOrDeck";
+import { useCreateDeck } from "hooks/useCreateSectionOrDeck";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
@@ -10,6 +10,7 @@ export function SelectionContextMenu({
   nodeIds,
   ...props
 }) {
+  const onClickCreateDeck = useCreateDeck();
   const onClickProps = {
     nodeIds,
     x,
@@ -25,7 +26,7 @@ export function SelectionContextMenu({
 
   return (
     <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
-      <Item onClick={() => createDeck(onClickProps)}>Create Group</Item>
+      <Item onClick={() => onClickCreateDeck(onClickProps)}>Create Group</Item>
       <Item onClick={onClickDelete}>Delete</Item>
     </ContextMenuCore>
   );

@@ -3,7 +3,7 @@ import { Toggle } from "utils/atoms/toggles/Toggle";
 export function RunTimeOptions({ sectionId, children }) {
   return (
     <>
-      <p className="mt-2 mb-2 text-xs font-semibold uppercase text-runcoder-400">
+      <p className="mt-2 mb-2 text-xs font-semibold uppercase text-slate-400">
         Options:
       </p>
       <Option>Test</Option>

@@ -4,12 +4,13 @@ import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
-import { ControlButton, Controls } from "reactflow";
+import { ControlButton, Controls, useReactFlow } from "reactflow";
 import { setPositionState } from "thunks/sections/sectionPositions";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 
 export function ResponsiveControls() {
   const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
+  const rf = useReactFlow();
   const darkMode = useSettings((x) => x.darkMode);
 
   function onClickLayout() {
@@ -28,7 +29,7 @@ export function ResponsiveControls() {
     const minX = Math.min(...nodeInternals.map((n) => n.position.x));
     const minY = Math.min(...nodeInternals.map((n) => n.position.y));
 
-    REACT_FLOW_STORE.rf.setNodes((nodes) =>
+    rf.setNodes((nodes) =>
       nodes.map((node) => {
         node.position = {
           x: sizes[node.id].x + minX,

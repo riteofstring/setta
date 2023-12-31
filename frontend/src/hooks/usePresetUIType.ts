@@ -4,6 +4,7 @@ import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";
 import { isSectionUIType, uiTypesToPretty } from "z_utils/constants";
 import { ManyUITypeType, PresetType, UITypeType } from "z_utils/types/uiType";
 import { isBasePreset, isPreset, isUserPreset } from "z_utils/uiTypeConstants";
+import { useGetParamChildNonPresetUITypeIds } from "./useEnteredValue";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
 
@@ -75,10 +76,17 @@ export function useAvailableUITypesForParam(
   selectedId: string
 ) {
   const nonPresetUITypeIds = useParamNonPresetUITypeIds(sectionId, paramInfoId);
+  const childNonPresetUITypeIds = useGetParamChildNonPresetUITypeIds(
+    sectionId,
+    paramInfoId
+  );
 
-  const generalFilterFn = (x) => !isSectionUIType(x);
+  const generalFilterFn = () => true;
   const nonPresetFilterFn = (uiType: UITypeType) =>
-    isAmongNonPresets(uiType, nonPresetUITypeIds);
+    isAmongNonPresets(uiType, [
+      ...nonPresetUITypeIds,
+      ...childNonPresetUITypeIds,
+    ]);
 
   return useUITypes(
     (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),

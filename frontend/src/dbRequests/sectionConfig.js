@@ -2,6 +2,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import {
   GET_COLLECTIONS_AND_MODULES,
   GET_COLLECTION_DETAILS,
+  SAVE_COLLECTIONS,
 } from "z_utils/routes";
 import { post } from "./utils";
 
@@ -33,9 +34,9 @@ export async function dbGetCollectionDetails(id) {
   s.update(res.data);
 }
 
-export async function dbSaveCodeInfo({ codeInfo }) {
+export async function dbSaveCollections({ collections }) {
   return await post({
-    address: "/codeInfo/save",
-    body: { codeInfo },
+    address: SAVE_COLLECTIONS,
+    body: { collections },
   });
 }

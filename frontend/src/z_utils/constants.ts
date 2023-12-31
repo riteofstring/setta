@@ -3,6 +3,7 @@ import { SectionUITypeType, UITypeType } from "./types/uiType";
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
+export const REF = "REF";
 export const SECTION = "SECTION";
 export const LIST = "LIST";
 export const DICT = "DICT";
@@ -12,10 +13,8 @@ export const DICT_ROOT = "DICT_ROOT";
 export const OUTPUT = "OUTPUT";
 export const INFO = "INFO";
 export const SOCIAL = "SOCIAL";
+export const FN = "FN";
 export const GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
-export const SCRIPT = "SCRIPT";
-export const CODE = "CODE";
-export const VAR_CONTROL = "VAR_CONTROL";
 export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
@@ -24,22 +23,16 @@ export const SECTION_TYPE_NAMES = [
   OUTPUT,
   INFO,
   SOCIAL,
+  FN,
   GLOBAL_VARIABLES,
-  SCRIPT,
-  CODE,
-  VAR_CONTROL,
 ];
 
 export const DEFAULT_BASE_UI_TYPE_ID = "3fdaeb6a-e989-4888-b844-17a76f0b0192";
 export const DEFAULT_SECTION_UI_TYPE_ID =
   "0191cde4-3d98-4ba0-972a-fead19b8ac73";
 export const DECK_UI_TYPE_ID = "0e050316-06ca-48f4-92c1-9845abdf85f7";
-export const GLOBAL_VARIABLES_UI_TYPE_ID =
-  "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a";
-export const SCRIPT_UI_TYPE_ID = "c24d248d-ce4c-441a-a05f-f4ff302407ff";
-export const CODE_UI_TYPE_ID = "af9f2cfd-8cb6-44fd-9736-eefffae4cd29";
-export const VAR_CONTROL_UI_TYPE_ID = "a2ecb6fe-45c7-4e8b-8424-8d5955256f89";
-export const SWITCH_UI_TYPE_ID = "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5";
+export const REF_UI_TYPE_ID = "0595871f-4506-4bda-b6f1-9a3864e02a68";
+export const FN_UI_TYPE_ID = "51470547-1f60-4933-952c-ac8745b30b22";
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
@@ -76,15 +69,18 @@ export const uiTypesToPretty = Object.freeze(
       [DICT_ROOT]: "Dict of Objects",
       [DECK]: "Deck",
       [OUTPUT]: "Program Output",
+      [REF]: "Reference to Object",
       [INFO]: "Info",
       [SOCIAL]: "Social",
+      [FN]: "Function",
       [GLOBAL_VARIABLES]: "Global Variables",
-      [SCRIPT]: "Script",
-      [CODE]: "Code",
-      [VAR_CONTROL]: "Variable Control",
     })
   )
 );
+
+export function requiresNestedSection(uiTypeType) {
+  return SECTION_TYPE_NAMES.includes(uiTypeType);
+}
 
 export function requiresKeyInput(sectionSubTypeName) {
   return [null, DICT].includes(sectionSubTypeName);

@@ -1,11 +1,10 @@
-import itertools
-
+from ...schema import db
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
-def load_sections(db, ids):
+def load_sections(ids):
     query = """
         WITH RECURSIVE DESCENDANTS AS (
             SELECT parentId, childId, "order"
@@ -27,20 +26,12 @@ def load_sections(db, ids):
 
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
-        SELECT
-            Section.*,
-            GROUP_CONCAT(UIType.id) as nonPresetUITypeIds,
-            GROUP_CONCAT(EVColId.id) as evColIds
-        FROM
-            Section
-        LEFT JOIN
-            UIType ON Section.id = UIType.asNonPresetForSectionId
-        LEFT JOIN
-            EVColId ON Section.id = EVColId.originSectionId
-        WHERE
-            Section.id IN ({placeholders})
-        GROUP BY
-            Section.id
+        SELECT Section.*, GROUP_CONCAT(UIType.id) as nonPresetUITypeIds
+        FROM Section
+        LEFT JOIN UIType
+        ON Section.id = UIType.asNonPresetForSectionId
+        WHERE Section.id IN ({placeholders})
+        GROUP BY Section.id
     """
     db.execute(query, all_ids)
 
@@ -63,16 +54,12 @@ def load_sections(db, ids):
                 "width": convert_size(width),
                 "height": convert_size(height),
             },
-            "evColIds": v["evColIds"].split(",") if v["evColIds"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
         }
-    evCols = load_evcols(
-        db,
-        list(itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])),
-    )
-    uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
+    evCols = load_evcols([s["evColId"] for s in sections.values()])
+    uiTypeCols = load_uitypecols([s["uiTypeColId"] for s in sections.values()])
 
     nonPresetUITypeIds = []
     for s in sections.values():
@@ -81,7 +68,7 @@ def load_sections(db, ids):
         for c in u.values():
             nonPresetUITypeIds.extend(c["nonPresetUITypeIds"])
 
-    nonPresetUITypes = load_uitypes_by_condition(db, ids=nonPresetUITypeIds)
+    nonPresetUITypes = load_uitypes_by_condition(ids=nonPresetUITypeIds)
 
     return {
         "sections": sections,

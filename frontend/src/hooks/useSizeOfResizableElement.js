@@ -11,16 +11,16 @@ function throttle(f, delay) {
 
 // https://blog.sethcorker.com/resize-observer-api/
 export function useSizeOfResizableElement({ delay, callback }) {
-  const sizeRef = useRef();
+  const sizeRef = useRef(null);
   const size = useSizeOfResizableRef({
-    sizeRef,
+    current: sizeRef.current,
     delay,
     callback,
   });
   return { sizeRef, size };
 }
 
-function useSizeOfResizableRef({ sizeRef, delay, callback }) {
+function useSizeOfResizableRef({ current, delay, callback }) {
   const size = useRef({ width: 0, height: 0 });
 
   const observer = useRef(
@@ -38,16 +38,16 @@ function useSizeOfResizableRef({ sizeRef, delay, callback }) {
   );
 
   useLayoutEffect(() => {
-    if (sizeRef.current) {
-      observer.current.observe(sizeRef.current);
+    if (current) {
+      observer.current.observe(current);
     }
 
     return () => {
-      if (sizeRef.current) {
-        observer.current.unobserve(sizeRef.current);
+      if (current) {
+        observer.current.unobserve(current);
       }
     };
-  }, [sizeRef.current, observer]);
+  }, [current, observer]);
 
   return size.current;
 }

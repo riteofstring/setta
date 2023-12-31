@@ -1,17 +1,18 @@
 from runcoder.utils.constants import is_section_ui_type
 
+from ...schema import db
 from ...utils.utils import get_children_recursively
 
 
-def load_code_info_for_sections(db, ui_types):
+def load_code_info_for_sections(ui_types):
     section_ui_types = {
         k: v for k, v in ui_types.items() if is_section_ui_type(v["type"])
     }
     collection_ids = [v["config"]["codeInfoId"] for v in section_ui_types.values()]
-    return load_code_info(db, collection_ids)
+    return load_code_info(collection_ids)
 
 
-def load_code_info(db, ids):
+def load_code_info(ids):
     query = """
         WITH RECURSIVE DESCENDANTS AS (
             SELECT parentId, childId, "order"

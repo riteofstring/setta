@@ -1,7 +1,7 @@
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useSectionSiblingNames } from "hooks/useSectionSiblings";
 import { useTitleIsEditable } from "hooks/useTitleIsEditable";
-import { getSectionSiblingNames } from "thunks/sections/getters";
 import { setSectionName } from "thunks/sections/setters";
 import { Editable } from "utils/Editable/Editable";
 
@@ -23,26 +23,23 @@ export function SectionTitle({ sectionId, titleProps }) {
 
 function FixedTitle({ sectionName }) {
   return (
-    <h2 className="select-none font-thin italic text-runcoder-400">
+    <h2 className="select-none font-thin italic text-slate-400">
       {sectionName}
     </h2>
   );
 }
 
 function EditableTitle({ sectionId, sectionName, titleProps }) {
+  const siblingNames = useSectionSiblingNames(sectionId);
+
   function onTitleInputChange(value) {
     setSectionName(sectionId, value, true);
-  }
-
-  function condition(value) {
-    const sibilingNames = getSectionSiblingNames(sectionId);
-    return !sibilingNames.has(value);
   }
 
   const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
     sectionName,
     onTitleInputChange,
-    condition
+    (v) => !siblingNames.has(v)
   );
 
   return (

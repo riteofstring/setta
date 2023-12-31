@@ -29,13 +29,6 @@ export async function dbLoadProject({ projectName, configName }) {
   });
 }
 
-export async function dbLoadFullProject({ projectName }) {
-  return await post({
-    body: {},
-    address: `/projects/load/${projectName}`,
-  });
-}
-
 export async function dbCreateProject({ name }) {
   return await post({
     address: CREATE_PROJECT,
@@ -61,12 +54,5 @@ export async function dbSaveAsExistingProjectConfig({ project, configName }) {
   return await post({
     address: SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configName },
-  });
-}
-
-export async function dbDeleteProjects({ ids }) {
-  return await post({
-    address: "/projects/deleteProjects",
-    body: { ids },
   });
 }

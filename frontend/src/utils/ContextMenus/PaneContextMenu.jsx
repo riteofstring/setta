@@ -1,17 +1,11 @@
-import _ from "lodash";
-import { useModal } from "models/modal";
-import { useEffect, useState } from "react";
-import { onClickAddSection } from "thunks/createSectionOrDeck";
-import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
-import { Item } from "utils/atoms/dropdown/item";
+import { dbGetSections, dbLoadSection } from "dbRequests/sections";
 import {
-  CODE,
-  DECK,
-  GLOBAL_VARIABLES,
-  SCRIPT,
-  SECTION,
-  VAR_CONTROL,
-} from "z_utils/constants";
+  useLoadSectionIntoState,
+  useOnClickAddSection,
+} from "hooks/useCreateSectionOrDeck";
+import { useEffect, useState } from "react";
+import { Item } from "utils/atoms/dropdown/item";
+import { SaveLoadModal } from "utils/SaveLoadModal/SaveLoadModal";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
@@ -22,6 +16,8 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
     }
   }, [isOpen]);
 
+  const onClickNewSection = useOnClickAddSection();
+  const loadSectionIntoState = useLoadSectionIntoState();
   const commonProps = {
     ...coords,
     callbackBeforeExit: closeContextMenu,
@@ -29,55 +25,55 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
     incrementVersion: true,
   };
 
-  const setModalType = useModal((x) => x.setModalType);
-  const setModalData = useModal((x) => x.setModalData);
-  function openLoadModal(_modalType) {
-    setModalType(_modalType);
-    setModalData(_.omit(commonProps, ["callbackBeforeExit"]));
-    closeContextMenu();
+  const [open, setOpen] = useState(false);
+  const [sections, setSections] = useState([]);
+  async function openLoadModal() {
+    const res = await dbGetSections();
+    if (res.status === 200) {
+      setSections(res.data);
+      setOpen(true);
+    }
+  }
+
+  async function onClickLoadSection({ selected }) {
+    const res = await dbLoadSection({ sectionId: selected });
+    if (res.status === 200) {
+      loadSectionIntoState({
+        ...res.data,
+        ...commonProps,
+        topLevelIds: [selected],
+      });
+    }
   }
 
   return (
-    <ContextMenuCore
-      x={x}
-      y={y}
-      closeContextMenu={closeContextMenu}
-      isOpen={isOpen}
+    <SaveLoadModal
+      modalType={"Load"}
+      files={sections}
+      title={"Load Section"}
+      buttonText={"Load"}
+      onClickActionButton={onClickLoadSection}
+      open={open}
+      setOpen={setOpen}
     >
-      <Item
-        onClick={() => onClickAddSection({ type: SECTION, ...commonProps })}
+      <ContextMenuCore
+        x={x}
+        y={y}
+        closeContextMenu={closeContextMenu}
+        isOpen={isOpen}
       >
-        New Section
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
-        New Group
-      </Item>
-      <Item
-        onClick={() =>
-          onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
-        }
-      >
-        New Global Variables
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: SCRIPT, ...commonProps })}>
-        New Script
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
-        New Code
-      </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: VAR_CONTROL, ...commonProps })}
-      >
-        New Variable Control
-      </Item>
-      <DialogDropdownTriggerItem
-        onClick={() => openLoadModal("Create From Argparse")}
-      >
-        Create From Argparse
-      </DialogDropdownTriggerItem>
-      <DialogDropdownTriggerItem onClick={() => openLoadModal("Load Section")}>
-        Load Section
-      </DialogDropdownTriggerItem>
-    </ContextMenuCore>
+        <Item
+          onClick={() => onClickNewSection({ isDeck: false, ...commonProps })}
+        >
+          New Section
+        </Item>
+        <Item
+          onClick={() => onClickNewSection({ isDeck: true, ...commonProps })}
+        >
+          New Group
+        </Item>
+        <Item onClick={openLoadModal}>Load Section</Item>
+      </ContextMenuCore>
+    </SaveLoadModal>
   );
 }

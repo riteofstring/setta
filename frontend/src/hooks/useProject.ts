@@ -1,8 +1,6 @@
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useInteractive } from "models/interactive";
 import { useEffect, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
 import { loadProject } from "thunks/user/projects";
 import {
   NEW_PROJECT,
@@ -11,10 +9,8 @@ import {
   SAME_PROJECT_NEW_PROJECT_NAME,
 } from "utils/Routes/pageLoadTypes";
 
-export function useLoadProject() {
-  const { projectName, configName } = useParams();
-  const { state } = useLocation();
-  const pageLoadType = state?.pageLoadType;
+// setDoneLoading sets the doneLoading state in MainContainer
+export function useLoadProject({ projectName, configName, pageLoadType }) {
   const [doneLoading, setDoneLoading] = useState(false);
 
   useEffect(() => {
@@ -38,8 +34,6 @@ export function useLoadProject() {
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
       useProjectConfig.getState().setName(configName);
     }
-
-    useInteractive.getState().setCurrProjectIsInteractive(projectName);
   }, [projectName, configName]);
 
   return doneLoading;

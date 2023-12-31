@@ -139,7 +139,7 @@ export function LineChart({
                 <LegendLabel
                   align="left"
                   margin="0 0 0 4px"
-                  className="text-sm text-runcoder-500"
+                  className="text-sm text-slate-500"
                 >
                   {label.text}
                 </LegendLabel>

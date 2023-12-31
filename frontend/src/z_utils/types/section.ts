@@ -7,6 +7,7 @@ export type SectionType = {
   children: string[];
   currChildren: string[];
   parentId: string | null;
+  paramInfoId: string | null;
   size: SizeType;
   chainedFrom: string | null;
   uiTypeId: string;
@@ -18,11 +19,7 @@ export type SectionType = {
   description: string;
   descriptionHeight: number;
   descriptionVisible: boolean;
-  evColIds: string[];
   nonPresetUITypeIds: string[];
-  script: string;
-  code: string;
-  varControl: string;
 };
 
 export type ManySectionType = ManyOf<SectionType>;

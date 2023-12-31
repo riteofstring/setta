@@ -4,43 +4,35 @@ import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { DEFAULT_BASE_UI_TYPE_ID } from "z_utils/constants";
+import {
+  DEFAULT_BASE_UI_TYPE_ID,
+  requiresNestedSection,
+} from "z_utils/constants";
 import { findAllParameters } from "z_utils/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
 import { UITypeType } from "z_utils/types/uiType";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { ManyOf } from "z_utils/types/utils";
+import { getParamChildId } from "./paramInfos";
+import { addChildForParam } from "./sections/addChild";
 import { getSectionInfo } from "./sections/getters";
 
-export function initializeChildParams({
-  sectionIds,
-  codeInfoIds,
-  childFinder = findAllParameters,
-  inputParamIdToUITypeId = {},
-}: {
-  sectionIds: string[];
-  codeInfoIds: string[];
-  childFinder: any;
-  inputParamIdToUITypeId: any;
-}) {
+export function initializeChildParams(
+  sectionIds: string[],
+  codeInfoIds: string[],
+  childFinder = findAllParameters
+) {
   const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
-    initializeParam(s, params, inputParamIdToUITypeId);
+    initializeParam(s, params);
   }
 }
 
-export function initializeParam(
-  sectionId: string,
-  paramInfos: CodeInfoType[],
-  inputParamIdToUITypeId = {}
-) {
+export function initializeParam(sectionId: string, paramInfos: CodeInfoType[]) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");
-  const paramIdToUITypeId = initializeParamUIType(
-    sectionId,
-    paramInfosAsObj,
-    inputParamIdToUITypeId
-  );
+  const paramIdToUITypeId = initializeParamUIType(sectionId, paramInfosAsObj);
   initializeParamEnteredValue(sectionId, paramInfosAsObj, paramIdToUITypeId);
+  initializeChild(sectionId, paramInfosAsObj, paramIdToUITypeId);
 }
 
 function initializeParamEnteredValue(
@@ -50,7 +42,7 @@ function initializeParamEnteredValue(
 ) {
   const { evColId } = getSectionInfo(sectionId);
   const evCol = useParamInfos.getState().x[evColId];
-  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
+  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol[v.id]);
 
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes: ManyOf<UITypeType> = {};
@@ -89,8 +81,7 @@ function getDefaultUIType({ mapState, paramInfo, uiTypesState }) {
 
 function initializeParamUIType(
   sectionId: string,
-  paramInfos: ManyCodeInfoType,
-  inputParamIdToUITypeId = {}
+  paramInfos: ManyCodeInfoType
 ) {
   const { paramIdToUITypeId, uiTypeColId } = getParamUITypeIds(
     sectionId,
@@ -118,9 +109,7 @@ function initializeParamUIType(
       });
 
       let newId: string;
-      if (paramId in inputParamIdToUITypeId) {
-        newId = inputParamIdToUITypeId[paramId];
-      } else if (projectDefaultUIType) {
+      if (projectDefaultUIType) {
         newId = projectDefaultUIType.id;
       } else if (userDefaultUIType) {
         newId = userDefaultUIType.id;
@@ -138,4 +127,39 @@ function initializeParamUIType(
   });
 
   return paramIdToUITypeId;
+}
+
+function getChildIds(sectionId: string, paramInfos: ManyCodeInfoType) {
+  return _.mapValues(paramInfos, (p) => getParamChildId(sectionId, p.id));
+}
+
+export function initializeChild(
+  sectionId: string,
+  paramInfos: ManyCodeInfoType,
+  paramIdToUITypeId: { [id: string]: string }
+) {
+  const uiTypesState = useUITypes.getState();
+  const paramIdToChildId = getChildIds(sectionId, paramInfos);
+  const newUITypeIds: ManyOf<string> = {};
+
+  for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
+    const uiType = uiTypesState.x[uiTypeId];
+    if (requiresNestedSection(uiType.type)) {
+      if (!paramIdToChildId[paramId]) {
+        newUITypeIds[paramId] = uiTypeId;
+      }
+    }
+  }
+
+  // TODO: create a new function 'addChildren' to avoid this loop
+  for (const [paramId, uiTypeId] of Object.entries(newUITypeIds)) {
+    paramIdToChildId[paramId] = addChildForParam({
+      parentId: sectionId,
+      name: paramInfos[paramId].name,
+      uiTypeId,
+      paramInfoId: paramInfos[paramId].id,
+    });
+  }
+
+  return { paramIdToChildId, newUITypeIds };
 }

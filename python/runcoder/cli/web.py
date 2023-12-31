@@ -3,9 +3,8 @@ import json
 
 import websockets
 
-from ..processors.processors import Processors
+from ..processors.processors import getConsumerMessage
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
-from ..utils.cache import Cache
 from ..utils.constants import WEBSOCKET
 from ..utils.tasks import Tasks
 
@@ -37,40 +36,27 @@ async def connect(websocket_id=None):
 async def consumer_handler(websocket):
     startMyPyDaemon()
     task_obj = Tasks()
-    cache = Cache()
-    processors = Processors()
     async for message in websocket:
         message = json.loads(message)
         print(message)
         # create_task so that we don't have to await consumer message
         await task_obj.create_task(
             message.get("id", None),
-            getConsumerMessageAndSend(
-                message, websocket.send, task_obj, cache, processors
-            ),
+            getConsumerMessageAndSend(message, websocket.send, task_obj),
         )
 
 
-async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache, processors):
-    result = await getConsumerMessage(message, tasks_obj, cache, processors)
-    if result["output"] is not None:
+async def getConsumerMessageAndSend(message, send_fn, tasks_obj):
+    return_message, messageType = await getConsumerMessage(message, tasks_obj)
+    if return_message is not None:
         print(f"Done processing message ID {message.get('id', None)}", flush=True)
         await send_fn(
             json.dumps(
                 {
                     "id": message["id"],
-                    "message": result["output"],
+                    "message": return_message,
                     "toWebsocketId": message["websocketId"],
-                    "messageType": result["name"],
+                    "messageType": messageType,
                 }
             )
         )
-
-
-async def getConsumerMessage(message, tasks_obj, cache, processors):
-    try:
-        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
-        return await processors(message, tasks_obj, cache)
-    except asyncio.CancelledError:
-        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
-        return {"output": None, "name": None}

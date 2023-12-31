@@ -1,4 +1,3 @@
-import glob
 import json
 
 from .db.projects.save import save_project_details
@@ -7,30 +6,28 @@ from .db.uiTypes.save import save_ui_types
 from .utils.utils import get_absolute_path
 
 
-def seed_base_ui_types(db):
+def seed_base_ui_types():
     with open(get_absolute_path(__file__, "seedData/BaseUITypes.json"), "r") as f:
         data = json.load(f)
-    save_ui_types(db, data)
+    save_ui_types(data)
 
 
-def seed_projects(db):
-    example_jsons = glob.glob(
-        str(get_absolute_path(__file__, "seedData/exampleProjects/**/*.json"))
-    )
-    for filepath in example_jsons:
-        with open(filepath, "r") as f:
-            data = json.load(f)
-        save_project_details(db, data)
+def seed_projects():
+    with open(
+        get_absolute_path(__file__, "seedData/exampleProjects/diffusionDrops.json"), "r"
+    ) as f:
+        data = json.load(f)
+    save_project_details(data)
 
 
-def seed_settings(db):
+def seed_settings():
     with open(get_absolute_path(__file__, "seedData/Settings.json"), "r") as f:
         data = json.load(f)
-    save_settings(db, data)
+    save_settings(data)
 
 
-def seed(db, include_projects):
-    seed_base_ui_types(db)
+def seed(include_projects):
+    seed_base_ui_types()
     if include_projects:
-        seed_projects(db)
-    seed_settings(db)
+        seed_projects()
+    seed_settings()

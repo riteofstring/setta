@@ -1,5 +1,3 @@
-import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
@@ -50,22 +48,4 @@ export function getSectionIdsWithUITypeIds(uiTypeIds) {
     }
   }
   return output;
-}
-
-export function getSectionSiblingNames(sectionId: string) {
-  const sectionName = getSectionName(sectionId);
-  const parentId = getSectionParentId(sectionId);
-  const siblingIds = parentId
-    ? _.defaultTo(getSectionInfo(parentId).currChildren, [])
-    : Object.keys(useProjectConfig.getState().children);
-
-  const siblingNames = siblingIds.map((x) => getSectionName(x));
-  const output = new Set(siblingNames);
-  // delete self name
-  output.delete(sectionName);
-  return output;
-}
-
-export function getSectionByName(name: string) {
-  return _.find(useSectionInfos.getState().x, (x) => x.name === name);
 }

@@ -1,5 +1,5 @@
 import { useIsDraggingFreely } from "hooks/useDndUtils";
-import { goToSection } from "thunks/goToSection";
+import { useGoToSection } from "hooks/useGetSectionPosition";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
@@ -35,8 +35,10 @@ function NestedSectionsWithMargin({
   isDeck,
   droppableDisabled,
 }) {
+  const goToSection = useGoToSection(sectionId);
+
   const onClick = () => {
-    goToSection(sectionId);
+    goToSection();
   };
 
   const rightMargin = useRightMargin(droppableDisabled);

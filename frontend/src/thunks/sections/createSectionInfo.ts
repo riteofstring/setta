@@ -37,10 +37,6 @@ export function createSectionInfo({
 }) {
   const newInfos = {};
   sectionProps["size"] = { width: "auto", height: "auto" };
-  sectionProps["existingVarNames"] = _.map(
-    useSectionInfos.getState().x,
-    (s) => s.name
-  );
   for (let i = 0; i < numSections; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
@@ -49,7 +45,7 @@ export function createSectionInfo({
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(
+export function addSectionsToState(
   sectionInfos: ManySectionType,
   topLevelPosition: SectionPositionType | null
 ) {
@@ -69,7 +65,7 @@ function addSectionsToState(
   for (const s of sectionIds) {
     initializeNewSectionConfig(s);
     const { codeInfoId } = getSectionTypeConfig(s);
-    initializeChildParams({ sectionIds: [s], codeInfoIds: [codeInfoId] });
+    initializeChildParams([s], [codeInfoId]);
   }
 
   if (topLevelPosition) {
@@ -79,7 +75,7 @@ function addSectionsToState(
   }
 }
 
-function initializeNewSectionConfig(sectionId) {
+export function initializeNewSectionConfig(sectionId) {
   const collection = newCodeInfo({
     name: "Contents",
     rcType: RCType.COLLECTION,
