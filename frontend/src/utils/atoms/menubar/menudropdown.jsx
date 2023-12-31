@@ -17,13 +17,13 @@ export function MenuDropdown({
   return (
     <Menubar.Menu>
       <Menubar.Trigger
-        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-semibold leading-none text-runcoder-700 outline-none transition-colors duration-150 hover:bg-slate-100 focus-visible:ring-2 dark:text-runcoder-200 dark:hover:bg-slate-900 ${triggerStyle}`}
+        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-semibold leading-none text-runcoder-700 outline-none transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-200 dark:hover:bg-runcoder-900 ${triggerStyle}`}
       >
         {trigger}
       </Menubar.Trigger>
       <Menubar.Portal>
         <Menubar.Content
-          className={`z-20 min-w-[200px] rounded-md border border-solid border-slate-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-slate-800  dark:bg-runcoder-900 ${contentStyle}`}
+          className={`z-20 min-w-[200px] rounded-md border border-solid border-runcoder-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-runcoder-800  dark:bg-runcoder-900 ${contentStyle}`}
           align={align}
           sideOffset={sideOffset}
           alignOffset={alignOffset}
