@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 export function useMatchSorterFilter<T, K extends keyof T>(
   completeList: T[],
@@ -8,10 +8,7 @@ export function useMatchSorterFilter<T, K extends keyof T>(
   delay = undefined
 ) {
   const [filter, setFilter] = useState("");
-  const setFilterWithDelay = useCallback(
-    _.debounce((x) => setFilter(x), delay),
-    []
-  );
+  const setFilterWithDelay = _.debounce((x) => setFilter(x), delay);
 
   const filteredList = filter
     ? matchSorter(completeList, filter, { keys: keys as [] })

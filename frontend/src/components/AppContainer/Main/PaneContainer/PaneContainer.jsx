@@ -95,7 +95,7 @@ export function PaneContainer({
     >
       {children}
       <Button
-        twClasses={`text-runcoder-500 hover:bg-slate-200 dark:hover:bg-runcoder-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+        twClasses={`text-slate-500 hover:bg-slate-200 dark:hover:bg-runcoder-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
         tabIndex="-1"
         onClick={uiToggle}
       >

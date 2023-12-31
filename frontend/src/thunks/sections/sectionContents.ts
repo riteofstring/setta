@@ -2,8 +2,8 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {
   findAllCallables,
-  findAllParametersOfCallables,
-  findAllParametersOfCollections,
+  findAllParameterCollections,
+  findAllParameters,
 } from "z_utils/getDescendants";
 import { getSectionInfo, getSectionTypeConfig } from "./getters";
 
@@ -17,12 +17,12 @@ function computeAllCallables(sectionId: string) {
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
-  const objParamInfos = objInfoId
-    ? findAllParametersOfCallables(useCodeInfo.getState().x, [objInfoId])
-    : [];
-
   const { codeInfoId } = getSectionTypeConfig(sectionId);
-  const paramCollections = findAllParametersOfCollections(
+  const parentId = objInfoId ?? codeInfoId;
+
+  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [parentId]);
+
+  const paramCollections = findAllParameterCollections(
     useCodeInfo.getState().x,
     [codeInfoId]
   );

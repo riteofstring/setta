@@ -5,13 +5,8 @@ def save_ui_types(db, uiTypes):
     uiTypes = list(uiTypes.values())
 
     query = """
-        INSERT INTO UIType (id, type, name, presetType)
+        INSERT OR REPLACE INTO UIType (id, type, name, presetType)
         VALUES (:id, :type, :name, :presetType)
-        ON CONFLICT (id)
-        DO UPDATE SET
-            type = :type,
-            name = :name,
-            presetType = :presetType
     """
 
     query_parameters = uiTypes
@@ -67,7 +62,7 @@ def parse_slider_config(uiType):
 
 def save_ui_type_cols(db, uitype_cols):
     query = """
-        INSERT INTO UITypeColId (id)
+        INSERT OR REPLACE INTO UITypeColId (id)
         VALUES (:id)
         ON CONFLICT (id)
         DO NOTHING

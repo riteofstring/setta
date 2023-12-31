@@ -15,7 +15,7 @@ def seed_base_ui_types(db):
 
 def seed_projects(db):
     example_jsons = glob.glob(
-        str(get_absolute_path(__file__, "seedData/exampleProjects/**/*.json"))
+        str(get_absolute_path(__file__, "seedData/exampleProjects/*.json"))
     )
     for filepath in example_jsons:
         with open(filepath, "r") as f:

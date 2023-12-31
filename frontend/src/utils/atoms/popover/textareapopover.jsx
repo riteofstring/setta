@@ -38,7 +38,7 @@ function Content({ header, footer, onChange, onClick, value }) {
   return (
     <>
       {header && (
-        <p className="bg:text-runcoder-100 mb-2 text-xs font-bold uppercase text-runcoder-600">
+        <p className="bg:text-slate-100 mb-2 text-xs font-bold uppercase text-slate-600">
           {header}
         </p>
       )}
@@ -67,7 +67,7 @@ function Body({ onChange, onClick, value }) {
             twClasses="gap-1 border border-solid border-white dark:border-runcoder-900 py-1 px-3 rounded-full hover:bg-white dark:hover:bg-runcoder-800 text-xs transition-all"
             onClick={onClick}
           >
-            Save <BiSave className="text-runcoder-600 dark:text-runcoder-300" />
+            Save <BiSave className="text-slate-600 dark:text-runcoder-300" />
           </Button>
         </Popover.Close>
       </div>

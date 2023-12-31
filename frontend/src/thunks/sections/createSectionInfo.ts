@@ -49,7 +49,7 @@ export function createSectionInfo({
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(
+export function addSectionsToState(
   sectionInfos: ManySectionType,
   topLevelPosition: SectionPositionType | null
 ) {
@@ -79,7 +79,7 @@ function addSectionsToState(
   }
 }
 
-function initializeNewSectionConfig(sectionId) {
+export function initializeNewSectionConfig(sectionId) {
   const collection = newCodeInfo({
     name: "Contents",
     rcType: RCType.COLLECTION,

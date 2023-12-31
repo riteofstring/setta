@@ -1,6 +1,7 @@
 import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { debouncedIncrementVersionFn } from "thunks/undo";
 import { SimpleConfig } from "../SimpleConfig";
 
 export function SliderInputConfig({ onChange, config }) {
@@ -22,6 +23,7 @@ export function SliderInputConfig({ onChange, config }) {
       configMakesSense(configName, asNum, config)
     ) {
       onChange(configName, () => asNum);
+      debouncedIncrementVersionFn();
     }
   }
 

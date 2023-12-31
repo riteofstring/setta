@@ -286,7 +286,7 @@ class ReactContentEditable extends React.Component<Props> {
   };
 }
 
-type ContentEditableEvent = React.SyntheticEvent<any, Event> & {
+export type ContentEditableEvent = React.SyntheticEvent<any, Event> & {
   target: { value: string };
 };
 type Modify<T, R> = Pick<T, Exclude<keyof T, keyof R>> & R;
@@ -295,7 +295,7 @@ type DivProps = Modify<
   { onChange: (event: ContentEditableEvent) => void }
 >;
 
-interface Props extends DivProps {
+export interface Props extends DivProps {
   html: string;
   contentEditable?: any;
   tagName?: string;

@@ -1,8 +1,5 @@
-import _ from "lodash";
-import { useModal } from "models/modal";
+import { onClickAddSection } from "hooks/useCreateSectionOrDeck";
 import { useEffect, useState } from "react";
-import { onClickAddSection } from "thunks/createSectionOrDeck";
-import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
 import {
   CODE,
@@ -13,6 +10,7 @@ import {
   VAR_CONTROL,
 } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
+import { PaneContextMenuModal } from "./PaneContextMenuModal";
 
 export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
   const [coords, setCoords] = useState({ x: 0, y: 0 });
@@ -29,55 +27,61 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
     incrementVersion: true,
   };
 
-  const setModalType = useModal((x) => x.setModalType);
-  const setModalData = useModal((x) => x.setModalData);
-  function openLoadModal(_modalType) {
+  const [open, setOpen] = useState(false);
+  const [modalType, setModalType] = useState("");
+  async function openLoadModal(_modalType) {
     setModalType(_modalType);
-    setModalData(_.omit(commonProps, ["callbackBeforeExit"]));
-    closeContextMenu();
+    setOpen(true);
   }
 
   return (
-    <ContextMenuCore
-      x={x}
-      y={y}
-      closeContextMenu={closeContextMenu}
-      isOpen={isOpen}
+    <PaneContextMenuModal
+      modalType={modalType}
+      open={open}
+      setOpen={setOpen}
+      commonProps={commonProps}
     >
-      <Item
-        onClick={() => onClickAddSection({ type: SECTION, ...commonProps })}
+      <ContextMenuCore
+        x={x}
+        y={y}
+        closeContextMenu={closeContextMenu}
+        isOpen={isOpen}
       >
-        New Section
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
-        New Group
-      </Item>
-      <Item
-        onClick={() =>
-          onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
-        }
-      >
-        New Global Variables
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: SCRIPT, ...commonProps })}>
-        New Script
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
-        New Code
-      </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: VAR_CONTROL, ...commonProps })}
-      >
-        New Variable Control
-      </Item>
-      <DialogDropdownTriggerItem
-        onClick={() => openLoadModal("Create From Argparse")}
-      >
-        Create From Argparse
-      </DialogDropdownTriggerItem>
-      <DialogDropdownTriggerItem onClick={() => openLoadModal("Load Section")}>
-        Load Section
-      </DialogDropdownTriggerItem>
-    </ContextMenuCore>
+        <Item
+          onClick={() => onClickAddSection({ type: SECTION, ...commonProps })}
+        >
+          New Section
+        </Item>
+        <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
+          New Group
+        </Item>
+        <Item
+          onClick={() =>
+            onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
+          }
+        >
+          New Global Variables
+        </Item>
+        <Item
+          onClick={() => onClickAddSection({ type: SCRIPT, ...commonProps })}
+        >
+          New Script
+        </Item>
+        <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
+          New Code
+        </Item>
+        <Item
+          onClick={() =>
+            onClickAddSection({ type: VAR_CONTROL, ...commonProps })
+          }
+        >
+          New Variable Control
+        </Item>
+        <Item onClick={() => openLoadModal("Create From Argparse")}>
+          Create From Argparse
+        </Item>
+        <Item onClick={() => openLoadModal("Load Section")}>Load Section</Item>
+      </ContextMenuCore>
+    </PaneContextMenuModal>
   );
 }

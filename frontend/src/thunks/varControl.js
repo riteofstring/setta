@@ -9,7 +9,7 @@ import { setSelectedItem } from "thunks/sections/setters";
 import { CODE, GLOBAL_VARIABLES, SCRIPT, VAR_CONTROL } from "z_utils/constants";
 
 export function varControlUpdate() {
-  const js_code = getVarControlSection()?.varControl;
+  const js_code = getVarControlSection().varControl;
   if (!js_code) {
     return;
   }

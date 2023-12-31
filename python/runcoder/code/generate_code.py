@@ -108,7 +108,7 @@ def var_declaration(var_name, value, operator="="):
 
 def get_value(x, selected):
     type_value = x["type"]
-    if type_value in [TEXT, SLIDER]:
+    if type_value in [TEXT, SLIDER]:  # , REF]:
         return str(x["value"])
     elif type_value == SWITCH:
         return str(get_boolean(x["value"]))
@@ -237,18 +237,13 @@ def replace_keywords(x, replacements):
 
 def generate_script(p, selected, filepaths):
     script = get_script(p)
-    replacements = {}
     if needs_python_argparse(script):
         argparse_args = generate_argparse(selected)
-        replacements["RUNCODER_PYTHON_ARGPARSE"] = argparse_args
+
+    replacements = {"RUNCODER_PYTHON_ARGPARSE": argparse_args}
     for f in filepaths:
         if f.endswith(".py"):
             replacements["RUNCODER_PYTHON_FILE"] = f
         if f.endswith(".yaml"):
             replacements["RUNCODER_YAML_FILE"] = f
     return replace_keywords(script, replacements)
-
-
-def get_line_from_string(input_string, line_number):
-    lines = input_string.split("\n")
-    return lines[line_number - 1]

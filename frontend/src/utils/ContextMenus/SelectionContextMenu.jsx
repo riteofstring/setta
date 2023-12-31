@@ -1,4 +1,4 @@
-import { createDeck } from "thunks/createSectionOrDeck";
+import { createDeck } from "hooks/useCreateSectionOrDeck";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";

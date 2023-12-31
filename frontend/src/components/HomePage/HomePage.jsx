@@ -19,7 +19,6 @@ import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
-
 export function HomePage() {
   const [doRefresh, setDoRefresh] = useState(true);
   const { projects, getProjects } = useGetProjectsForHomePage();
@@ -138,9 +137,10 @@ const ProjectItem = forwardRef(
             onSelectProject={onSelectProject}
           />
           <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
-            <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-runcoder-600 dark:text-runcoder-300">
+            <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-slate-600 dark:text-slate-300">
               {name}
             </p>
+            <Badges name={name} />
           </div>
         </Link>
       </div>
@@ -170,7 +170,7 @@ function ThumbnailArea({
         <StandardDropdown
           trigger={
             <div
-              className="flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs  hover:bg-slate-50 dark:bg-runcoder-700 dark:text-runcoder-300 dark:hover:bg-slate-500"
+              className="flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs  hover:bg-slate-50 dark:bg-runcoder-700 dark:text-slate-300 dark:hover:bg-slate-500"
               onClick={onClickConfigsButton}
             >
               <BiGitBranch />
@@ -226,4 +226,127 @@ function useConfigAddress({ project, configId }) {
 function useDefaultConfigAddress(project) {
   const configId = project.defaultConfigId;
   return useConfigAddress({ project, configId });
+}
+
+// BADGES
+
+function Badges({ name }) {
+  return (
+    <div className="[background:linear-gradient(to right, rgba(255,255,255,0) 0%,rgba(255,255,255,1) 70%)] badgefade  mt-1 flex flex-row gap-[0.15rem]">
+      <BadgeSwitch name={name} />
+    </div>
+  );
+}
+// appleOrchardFarm: scikit-learn, clustering
+// diffusionDrops: stable-diffusion
+// pytorchLightningMnist: toy-model, torchmetrics
+// pytorchTraining: pytorch, image-classification
+// simpleTrainTest: numpy
+
+function BadgeSwitch({ name }) {
+  switch (name) {
+    case "appleOrchardFarm":
+      return (
+        <>
+          <BadgeSciKit /> <BadgeClustering />
+        </>
+      );
+
+    case "diffusionDrops":
+      return (
+        <>
+          <BadgeSD />
+        </>
+      );
+
+    case "pytorchLightningMnist":
+      return (
+        <>
+          <BadgeTorchMetrics />
+        </>
+      );
+
+    case "pytorchTraining":
+      return (
+        <>
+          <BadgePyTorch /> <BadgeImageClassification />
+        </>
+      );
+
+    case "simpleTrainTest":
+      return (
+        <>
+          <BadgeNumPy />
+        </>
+      );
+
+    default:
+      return <></>;
+  }
+}
+
+function BadgeSciKit() {
+  return (
+    <Badge twClasses="bg-cyan-100 dark:bg-cyan-800 text-cyan-800 dark:text-cyan-100 hover:bg-cyan-200">
+      Scikit-Learn
+    </Badge>
+  );
+}
+
+function BadgePyTorch() {
+  return (
+    <Badge twClasses="bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-100 hover:bg-red-200">
+      PyTorch 2.9
+    </Badge>
+  );
+}
+
+function BadgeNumPy() {
+  return (
+    <Badge twClasses="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100 hover:bg-green-200">
+      NumPy
+    </Badge>
+  );
+}
+function BadgeML() {
+  return (
+    <Badge twClasses="bg-slate-100 dark:bg-runcoder-800 text-slate-800 dark:text-runcoder-100 hover:bg-slate-200">
+      Machine Learning
+    </Badge>
+  );
+}
+function BadgeSD() {
+  return (
+    <Badge twClasses="bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-100 hover:bg-orange-200">
+      Stable Diffusion
+    </Badge>
+  );
+}
+function BadgeClustering() {
+  return (
+    <Badge twClasses="bg-emerald-100 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-100 hover:bg-emerald-200">
+      Clustering
+    </Badge>
+  );
+}
+function BadgeTorchVision() {
+  return (
+    <Badge twClasses="bg-fuchsia-100 dark:bg-fuchsia-800 text-fuchsia-800 dark:text-fuchsia-100 hover:bg-fuchsia-200">
+      Torch Vision
+    </Badge>
+  );
+}
+function BadgeTorchMetrics() {
+  return (
+    <Badge twClasses="bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-100 hover:bg-purple-200">
+      Torch Metrics
+    </Badge>
+  );
+}
+function BadgeImageClassification() {
+  return (
+    <Badge twClasses="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-100 hover:bg-blue-200">
+      Image Classification
+    </Badge>
+  );
 }

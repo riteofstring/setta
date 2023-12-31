@@ -52,7 +52,6 @@ function createChildrenCodeInfo(parent, params) {
       editable: false,
       rcType: RCType.PARAMETER,
       defaultVal: p.defaultVal,
-      description: p.description,
     });
     useCodeInfo.getState().addCodeInfo({ info, parent });
   }

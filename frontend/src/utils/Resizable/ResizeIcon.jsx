@@ -1,8 +1,8 @@
 export function ResizeIcon() {
   return (
-    <div className="absolute bottom-3 right-3 h-5 w-5">
+    <div className="absolute bottom-2 right-2 h-7 w-7 text-slate-400">
       <svg
-        className="fill-runcoder-500/50 dark:fill-runcoder-300/50"
+        className="fill-slate-300"
         viewBox="0 0 36 36"
         version="1.1"
         preserveAspectRatio="xMidYMid meet"

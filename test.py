@@ -16,6 +16,9 @@
 #         return False  # Appending will not create a valid variable name, possibly an operator
 
 
+
+
+
 # from_frontend = [
 #     {"type": "ref", "value": "e580c968-b48e-47d9-ab85-b55b951a9444"},
 #     {"type": "raw", "value": "+s"},
@@ -37,6 +40,7 @@
 # pprint(output)
 
 
+
 # from runcoder.code.export_selected import export_selected
 # from runcoder.code.generate_code import generate_code
 # import json
@@ -48,7 +52,7 @@
 # with open("python/runcoder/backend/seedData/BaseUITypes.json") as f:
 #     u = json.load(f)
 
-# config = p.pop("configs")
+# config = p.pop("configs")[1]
 # config["uiTypes"].update(u)
 # p.update(config)
 
@@ -56,6 +60,7 @@
 # pprint(e)
 
 # print(generate_code(e)[0])
+
 
 
 # import ast
@@ -117,169 +122,11 @@
 #     # f.buffer.write(c)
 
 
-# import subprocess
-# import sys
-# with subprocess.Popen("bash runcoder_temp.sh", shell=True) as process:
-#     pass
-#     # for line in process.stdout:
-#     #     print(line.decode('utf8'))
-
-
-# from runcoder.code.generate_code import infer_imports
-
-# code = """import numpy as np
-
-
-# n_samples=4000
-
-# n_clusters=4
-
-# special_array=numpy.array([1,2,3])
-
-# p0=n_samples
-
-# p3=n_clusters
-
-# p4=0.6
-
-# p7=0
-
-# dataset=sklearn.datasets.make_blobs(n_samples=p0, centers=p3, cluster_std=p4, random_state=p7)
-
-# p10=dataset[0][:,::-1]
-
-# p11=n_clusters
-
-# p15=0
-
-# algorithm=sklearn.cluster.kmeans_plusplus(X=p10, n_clusters=p11, random_state=p15)
-
-# x = torch.tensor() + torchvision.models.resnet101()
-
-
-# print("here")
-# """
-
-
-# code = "from torchvision import models\nimport numpy as np\nx = numpy.array([1,2,3])\nmodel=models.resnet101()\ny=torch.tensor([1,2,3]) + jax.tensor([1,2,3]) + some.library.that.looks.like.this()"
-
-# code = "x=torch.nn.CrossEntropyLoss(".rstrip(".(")
-
-# print(infer_imports(code))
-
-
-# def count_lines(string):
-#     line_count = string.count('\n')
-#     if string.endswith('\n'):
-#         line_count -= 1
-#     return line_count + 1  # Adjusting for the last line
-
-# # Example usage
-# sample_string = "import numpy as np\n\nSPECIAL_THING\n\nmorelines\n\n"
-# print(sample_string, end="")
-# number_of_lines = count_lines(sample_string.split("SPECIAL_THING")[0])
-# print(number_of_lines)  # Output will be 1
-
-
-# from runcoder.code.export_selected import export_selected
-# from runcoder.code.generate_code import generate_code
-# import json
-# from pprint import pprint
-# import yaml
-
-# with open("python/runcoder/backend/seedData/exampleProjects/sklearn_example.json") as f:
-#     p = json.load(f)
-
-# with open("python/runcoder/backend/seedData/BaseUITypes.json") as f:
-#     u = json.load(f)
-
-# config = p.pop("configs")[0]
-# config["uiTypes"].update(u)
-# p.update(config)
-# for s in p["sections"].values():
-#     if "currChildren" not in s:
-#         s["currChildren"] = []
-
-# e = export_selected(p)
-
-# for k,v in e.items():
-#     v.pop("sectionId",None)
-#     v.pop("paramInfoId",None)
-#     v.pop("type",None)
-#     if isinstance(v["value"], dict):
-#         v["value"].pop("unusedParams", None)
-
-
-# pprint(e)
-
-
-# def create_yaml_dict(e):
-#     transformed_dict = {}
-#     for key, value in e.items():
-#         if 'value' in value and isinstance(value['value'], dict):
-#             # Handle nested structure for keys like 'dataset' and 'algorithm'
-#             callable_value = value['value']['callable']
-#             params = value['value'].get('params', [])
-#             param_dict = {}
-#             for param in params:
-#                 param_value = e[param]['value']
-#                 # Resolve references to other keys (like 'n_samples' for 'p0')
-#                 if param_value in e:
-#                     param_value = e[param_value]['value']
-#                 param_dict[e[param]['name']] = param_value
-#             transformed_dict[key] = {callable_value: param_dict}
-#         elif not value["var_name_generated"]:
-#             # Directly use top-level keys and values
-#             transformed_dict[key] = value['value']
-
-#     pprint(transformed_dict)
-#     return yaml.safe_dump(transformed_dict)
-
-# yaml_dict = create_yaml_dict(e)
-
-# print(yaml_dict)
-
-
-# # with open("test.yaml", 'w') as f:
-# #     print(yaml.safe_dump(yaml_dict, f))
-
-
-# def count_lines(string):
-#     if not string:  # Check if the string is empty
-#         return 0
-#     line_count = string.count("\n")
-#     if string.endswith("\n"):
-#         line_count -= 1
-#     return line_count + 1  # Adjusting for the last line
-
-# # Example usage
-# delimiter = "dog"
-# example_string = "cat\ndog"
-# print(count_lines(example_string.split(delimiter)[0]))
-
-
-import argparse
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Example script using argparse.")
-
-    parser.add_argument("--name", type=str, help="Your name", required=True)
-    parser.add_argument("--age", type=int, help="Your age", required=True)
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-    parser.add_argument(
-        "--number", type=int, default=0, help="An example integer flag", required=True
-    )
-
-    args = parser.parse_args()
-
-    if args.verbose:
-        print("Verbose mode is enabled.")
-    print(f"Hello, {args.name}! You are {args.age} years old.")
-    print(f"The number provided is {args.number}.")
-
-
-if __name__ == "__main__":
-    main()
+import subprocess
+import sys
+with subprocess.Popen("bash runcoder_temp.sh", shell=True) as process:
+    pass
+    # for line in process.stdout:
+    #     print(line.decode('utf8'))
 
 
