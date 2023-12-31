@@ -1,5 +1,7 @@
+import { dbSaveCodeInfo } from "dbRequests/sectionConfig";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
+import { useSectionToParams } from "models/info/sectionToParams";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { RCType } from "z_utils/types/codeInfo";
 import { getKwargIds } from "./codeInfo/codeInfo";
@@ -69,29 +71,18 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function saveKwargsAsCollection({ sectionId, objInfoId, name }) {
-  //TODO!
-  // const { kwargColId } = getSectionInfo(sectionId);
-  // const kwargIds = useKwargCols.getState().x[kwargColId][objInfoId];
-  // const collection = newCodeInfo({
-  //   name,
-  //   rcType: RCType.COLLECTION,
-  //   children: kwargIds,
-  //   path: name,
-  // });
-  // const codeInfoState = useCodeInfo.getState();
-  // const paramInfos = _.keyBy(
-  //   kwargIds.map((x) => ({
-  //     ...codeInfoState.x[x],
-  //     inCodeParentId: collection.id,
-  //   })),
-  //   "id"
-  // );
-  // dbSaveCollections({
-  //   collections: { [collection.id]: collection, ...paramInfos },
-  // });
-  // TODO fix this call
-  // codeInfoState.updateInfos({ [collection.id]: collection, ...paramInfos });
+export function saveKwargsAsCollection({ sectionId, name }) {
+  const children = useSectionToParams
+    .getState()
+    .params[sectionId].map((x) => x.id);
+  const collection = newCodeInfo({
+    name,
+    rcType: RCType.COLLECTION,
+    children,
+  });
+  dbSaveCodeInfo({
+    codeInfo: { [collection.id]: collection },
+  });
 }
 
 export function changeKwargName({ sectionId, paramInfoId, name }) {
