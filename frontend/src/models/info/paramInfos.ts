@@ -6,6 +6,7 @@ import {
   ParamInfoStateType,
   ParamInfoZustandType,
 } from "z_utils/types/paramInfo";
+import { createEVColName } from "z_utils/utils";
 import { createProjectState } from "../utils";
 import { initValue } from "./utils";
 
@@ -18,19 +19,26 @@ export const useParamInfos = createProjectState(
       resetAndSetAll: ({ evCols, uiTypeCols }) => {
         set((state) => ({ ...state, x: evCols, y: uiTypeCols }), true);
       },
+      duplicateEvCol: ({ id, newId, newName }) =>
+        set((state) => {
+          state.x[newId] = _.cloneDeep(state.x[id]);
+          state.x[newId].name = newName;
+        }),
       initManyEvColIds: ({ collectionIds }) =>
         set((state) => {
-          _.forEach(collectionIds, (id) => initValue(state.x, id, {}));
+          _.forEach(collectionIds, (id) =>
+            initValue(state.x, id, { name: createEVColName(), values: {} })
+          );
         }),
       initManyEnteredValues: ({ collectionId, paramIdsToUITypes }) =>
         set((state) => {
           _.forEach(paramIdsToUITypes, (uiType, id) => {
-            state.x[collectionId][id] = newEV(uiType);
+            state.x[collectionId].values[id] = newEV(uiType);
           });
         }),
       setEnteredValue: ({ collectionId, paramInfoId, value }) =>
         set((state) => {
-          state.x[collectionId][paramInfoId] = value;
+          state.x[collectionId].values[paramInfoId] = value;
         }),
       initManyUITypeColIds: ({ collectionIds }) =>
         set((state) => {
@@ -55,7 +63,7 @@ export const useParamInfos = createProjectState(
         }),
       deleteParamInfo: ({ evColId, uiTypeColId, ids }) =>
         set((state) => {
-          state.x[evColId] = _.omit(state.x[evColId], ids);
+          state.x[evColId].values = _.omit(state.x[evColId].values, ids);
           state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
         }),
       update: ({ evCols, uiTypeCols }) =>

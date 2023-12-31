@@ -1,30 +1,21 @@
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { addKwarg } from "thunks/kwargs";
-import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import {
-  DECK,
-  isRoot,
-  REF_UI_TYPE_ID,
-  rootTypeToChildSubType,
-} from "z_utils/constants";
+import { DECK, isRoot, rootTypeToChildSubType } from "z_utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
 } from "z_utils/types/uiType";
-import { getParamChildId, setParamEnteredValue } from "../paramInfos";
 import { setAllChildren } from "./children";
-import { getSectionInfo, getSectionName, getSectionType } from "./getters";
-import { getParamWithSameName } from "./sectionContents";
+import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParamInfoId, setSectionParentId } from "./setters";
+import { setSectionParentId } from "./setters";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];
@@ -90,8 +81,6 @@ export function moveSection({
     return;
   }
 
-  unlinkParamFromSection({ parentId: oldParentId, sectionId });
-
   maybeChangeSectionSubtype({
     newParentId,
     sectionId,
@@ -104,8 +93,6 @@ export function moveSection({
     newIndex,
     position,
   });
-
-  maybeChangeNewParamUIType({ newParentId, sectionId, behaviorDropType });
 
   setSectionSize({ newParentId, sectionId });
 
@@ -178,73 +165,4 @@ function setSectionSize({ newParentId, sectionId }) {
     const width = s.x[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
   }
-}
-
-function maybeChangeNewParamUIType({
-  newParentId,
-  sectionId,
-  behaviorDropType,
-}) {
-  if (
-    newParentId === PANEID ||
-    behaviorDropType === BehaviorDropType.DROP_HERE ||
-    behaviorDropType === BehaviorDropType.NEW_LIST_ELEMENT
-  ) {
-    return;
-  }
-
-  let paramIdToLinkTo;
-
-  if (behaviorDropType === BehaviorDropType.NEW_ARG) {
-    const sectionName = getSectionName(sectionId);
-    const { selectedItem } = getSectionInfo(newParentId);
-    paramIdToLinkTo = addKwarg({
-      sectionId: newParentId,
-      objInfoId: selectedItem,
-      name: sectionName,
-    });
-  } else if (behaviorDropType === BehaviorDropType.EXISTING_ARG) {
-    paramIdToLinkTo = getParamWithSameName(sectionId, newParentId);
-    paramIdToLinkTo = paramIdToLinkTo.id;
-  }
-
-  if (paramIdToLinkTo) {
-    linkParamToSection({
-      parentId: newParentId,
-      paramInfoId: paramIdToLinkTo,
-      sectionId,
-    });
-  }
-}
-
-function linkParamToSection({ parentId, paramInfoId, sectionId }) {
-  const { uiTypeId } = getSectionInfo(sectionId);
-  const oldChildId = getParamChildId(parentId, paramInfoId);
-  if (oldChildId) {
-    deleteSections({ sectionIds: [oldChildId] });
-  }
-  setSectionParamInfoId(sectionId, paramInfoId);
-  setParamUITypeId({
-    uiTypeId,
-    sectionId: parentId,
-    paramInfoId,
-  });
-}
-
-function unlinkParamFromSection({ parentId, sectionId }) {
-  const { paramInfoId } = getSectionInfo(sectionId);
-  if (!paramInfoId) {
-    return;
-  }
-  setSectionParamInfoId(sectionId, null);
-  setParamUITypeId({
-    uiTypeId: REF_UI_TYPE_ID,
-    sectionId: parentId,
-    paramInfoId,
-  });
-  setParamEnteredValue({
-    sectionId: parentId,
-    paramInfoId,
-    value: sectionId,
-  });
 }

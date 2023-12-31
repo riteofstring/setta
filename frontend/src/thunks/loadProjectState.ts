@@ -27,7 +27,9 @@ export function loadProjectState({
   outputGroups,
 }: ProjectLoadType) {
   useCodeInfo.getState().resetAndSetAll(codeInfo);
-  useProject.getState().resetAndSetAll(project);
+  if (project) {
+    useProject.getState().resetAndSetAll(project);
+  }
   useProjectConfig.getState().resetAndSetAll(projectConfig);
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });

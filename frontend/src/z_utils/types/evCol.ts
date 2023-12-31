@@ -1,7 +1,8 @@
 import { ManyOf } from "./utils";
 
 export type EVColType = {
-  [codeInfoId: string]: string;
+  name: string;
+  values: { [codeInfoId: string]: string };
 };
 
 export type ManyEVColType = ManyOf<EVColType>;

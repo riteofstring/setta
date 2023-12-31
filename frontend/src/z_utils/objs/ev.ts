@@ -1,5 +1,6 @@
 import _ from "lodash";
-import { UITypeType } from "src/types/uiType";
+import { EVType } from "z_utils/types/evCol";
+import { UITypeType } from "z_utils/types/uiType";
 import { SLIDER, SWITCH, TEXT } from "../constants";
 
 export function getValueForUIType({
@@ -22,7 +23,7 @@ export function getValueForUIType({
 }
 
 // Entered Value
-export function newEV(uiType: UITypeType): string {
+export function newEV(uiType: UITypeType): EVType {
   return getValueForUIType({ uiType });
 }
 

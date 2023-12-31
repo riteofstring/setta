@@ -1,13 +1,11 @@
 from runcoder.utils.constants import is_section_ui_type
 
-from ...schema import db
+
+def load_base_uitypes(db):
+    return load_uitypes_by_condition(db, preset_types=["BASE", "USER"])
 
 
-def load_base_uitypes():
-    return load_uitypes_by_condition(preset_types=["BASE", "USER"])
-
-
-def load_uitypes_by_condition(preset_types=None, ids=None):
+def load_uitypes_by_condition(db, preset_types=None, ids=None):
     if preset_types and ids:
         raise ValueError
     if preset_types:
@@ -66,7 +64,7 @@ def load_slider_config(uitype):
     }
 
 
-def load_uitypecols(ids):
+def load_uitypecols(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
         SELECT UITypeColId.id, UITypeCol.codeInfoId, UITypeCol.uiTypeId, GROUP_CONCAT(UIType.id) as nonPresetUITypeIds

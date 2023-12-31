@@ -1,6 +1,5 @@
 from collections import defaultdict
 
-from ...schema import db
 from ...utils.utils import aggregate_results
 from ..codeInfo.load import load_code_info_for_sections
 from ..sections.load import load_sections
@@ -8,7 +7,7 @@ from ..uiTypes.load import load_base_uitypes
 from .utils import convert_to_file_menu_format
 
 
-def load_all_projects(format, input_project_id):
+def load_all_projects(db, format, input_project_id):
     query = """
         SELECT
             Project.id AS projectId,
@@ -53,7 +52,7 @@ def load_all_projects(format, input_project_id):
     return projects_with_configs
 
 
-def load_project_metadata(project_name):
+def load_project_metadata(db, project_name):
     query = """
         SELECT * FROM Project
         WHERE name = :name
@@ -63,7 +62,7 @@ def load_project_metadata(project_name):
     return dict(db.fetchone())
 
 
-def load_project_config_metadata(project_id, config_name):
+def load_project_config_metadata(db, project_id, config_name):
     query = """
         SELECT
             ProjectConfig.id,
@@ -82,7 +81,7 @@ def load_project_config_metadata(project_id, config_name):
         ON
             ProjectConfig.id = ProjectConfigChildren.parentId
         WHERE
-            projectId = :projectId
+            ProjectConfig.projectId = :projectId
         AND
             name = :name
     """
@@ -112,16 +111,16 @@ def load_project_config_metadata(project_id, config_name):
     }
 
 
-def load_project(project_name, config_name):
-    project = load_project_metadata(project_name)
-    projectConfig = load_project_config_metadata(project["id"], config_name)
-    sections_data = load_sections(list(projectConfig["children"].keys()))
+def load_project(db, project_name, config_name):
+    project = load_project_metadata(db, project_name)
+    projectConfig = load_project_config_metadata(db, project["id"], config_name)
+    sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sections = sections_data["sections"]
     evCols = sections_data["evCols"]
     uiTypeCols = sections_data["uiTypeCols"]
-    baseUITypes = load_base_uitypes()
+    baseUITypes = load_base_uitypes(db)
     uiTypes = {**baseUITypes, **sections_data["nonPresetUITypes"]}
-    codeInfo = load_code_info_for_sections(uiTypes)
+    codeInfo = load_code_info_for_sections(db, uiTypes)
 
     return {
         "project": project,
@@ -136,3 +135,34 @@ def load_project(project_name, config_name):
         "outputGroups": {},
         "outputs": {},
     }
+
+
+def load_full_project(db, project_name):
+    query = """
+        SELECT
+            ProjectConfig.name as configName
+        FROM
+            ProjectConfig
+        JOIN
+            Project
+        ON
+            ProjectConfig.projectId = Project.id
+        WHERE
+            Project.name = :projectName
+    """
+
+    db.execute(query, {"projectName": project_name})
+
+    config_names = [r[0] for r in db.fetchall()]
+    configs = []
+    project = None
+    for c in config_names:
+        p = load_project(db, project_name, c)
+        project = p.pop("project")
+        p["uiTypes"] = {
+            k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
+        }
+        configs.append(p)
+
+    output = {**project, "configs": configs}
+    return output

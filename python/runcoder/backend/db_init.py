@@ -1,14 +1,14 @@
-from .schema import db
+from .schema import dbq
 from .seed import seed
 
 
-def create_tables():
+def create_tables(db):
     commands = [
         # Settings model
         """
         CREATE TABLE IF NOT EXISTS Settings (
             profileName TEXT PRIMARY KEY,
-            darkMode BOOLEAN DEFAULT 0
+            darkMode BOOLEAN DEFAULT 1
         );
         """,
         # CodeInfo model
@@ -18,7 +18,8 @@ def create_tables():
             name TEXT,
             editable BOOLEAN,
             rcType TEXT,
-            defaultVal TEXT
+            defaultVal TEXT,
+            description TEXT
         );
         """,
         # CodeInfoCol model
@@ -37,7 +38,6 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS Section (
             id TEXT PRIMARY KEY,
             name TEXT,
-            paramInfoId TEXT,
             width INTEGER,
             height INTEGER,
             chainedFromId TEXT,
@@ -50,7 +50,9 @@ def create_tables():
             description TEXT,
             descriptionHeight REAL,
             descriptionVisible BOOLEAN,
-            FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id),
+            script TEXT,
+            code TEXT,
+            varControl TEXT,
             FOREIGN KEY (chainedFromId) REFERENCES Section(id),
             FOREIGN KEY (evColId) REFERENCES EVColId(id),
             FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id),
@@ -72,7 +74,10 @@ def create_tables():
         # EVColId model
         """
         CREATE TABLE IF NOT EXISTS EVColId (
-            id TEXT PRIMARY KEY
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            originSectionId TEXT,
+            FOREIGN KEY (originSectionId) REFERENCES Section(id)
         );
         """,
         # EVCol model
@@ -146,7 +151,7 @@ def create_tables():
             y REAL DEFAULT 0,
             zoom REAL DEFAULT 1,
             UNIQUE (name, projectId),
-            FOREIGN KEY (projectId) REFERENCES Project(id)
+            FOREIGN KEY (projectId) REFERENCES Project(id) ON DELETE CASCADE
         );
         """,
         # ProjectConfigChildren model
@@ -158,7 +163,7 @@ def create_tables():
             y REAL DEFAULT 0,
             zIndex REAL DEFAULT 0,
             PRIMARY KEY (parentId, childId),
-            FOREIGN KEY (parentId) REFERENCES ProjectConfig(id),
+            FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
             FOREIGN KEY (childId) REFERENCES Section(id)
         );
         """,
@@ -178,7 +183,7 @@ def create_tables():
             type TEXT,
             uiTypeId TEXT,
             PRIMARY KEY (projectConfigId, type),
-            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
+            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
             FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
         );
         """,
@@ -189,7 +194,7 @@ def create_tables():
             name TEXT,
             projectConfigId TEXT,
             code TEXT,
-            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
+            FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
         );
         """,
         # OutputGroup model
@@ -214,9 +219,8 @@ def create_tables():
         """,
     ]
 
-    with db:
-        for com in commands:
-            db.execute(com)
+    for com in commands:
+        db.execute(com)
 
 
 TABLE_NAMES = {
@@ -241,14 +245,14 @@ TABLE_NAMES = {
 }
 
 
-def tables_exist():
+def tables_exist(db):
     db.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = db.fetchall()
     existing_tables = {table[0] for table in tables}
     return TABLE_NAMES.issubset(existing_tables)
 
 
-def seed_data_exist(with_example_projects):
+def seed_data_exist(db, with_example_projects):
     to_check = ["Settings", "UIType"]
     if with_example_projects:
         to_check.append("Project")
@@ -264,8 +268,10 @@ def seed_data_exist(with_example_projects):
 
 
 def maybe_create_tables_and_seed(with_example_projects):
-    db.connect()
-    if not tables_exist():
-        create_tables()
-    if not seed_data_exist(with_example_projects):
-        seed(with_example_projects)
+    dbq.connect()
+    with dbq.get() as db:
+        if not tables_exist(db):
+            create_tables(db)
+        if not seed_data_exist(db, with_example_projects):
+            seed(db, with_example_projects)
+    dbq.disconnect()

@@ -1,7 +1,4 @@
-from ...schema import db
-
-
-def load_settings():
+def load_settings(db):
     query = """
         SELECT *
         FROM Settings

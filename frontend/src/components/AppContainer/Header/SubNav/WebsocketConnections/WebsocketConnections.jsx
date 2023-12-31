@@ -1,16 +1,13 @@
 import { useWebsocketConnectionList } from "models/websocket";
-import { TbPlugConnected } from "react-icons/tb";
 import { Badge } from "utils/atoms/badges/badge";
-import { IconButton } from "utils/atoms/buttons/IconButton";
-import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
-import { Item } from "utils/atoms/dropdown/item";
+import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function WebsocketConnections() {
   return (
-    <StandardDropdown
-      trigger={<IconButton color="text-slate-400" icon={<TbPlugConnected />} />}
-      content={<ConnectionList />}
-    />
+    <MenuDropdown trigger="CLI">
+      <ConnectionList />
+    </MenuDropdown>
   );
 }
 
@@ -22,7 +19,7 @@ function ConnectionList() {
   return connections.length > 0 ? (
     connections.map((x) => <ConnectionItem info={x} key={x.websocketId} />)
   ) : (
-    <Item>No CLI connections</Item>
+    <MenuItem>No CLI connections</MenuItem>
   );
 }
 
@@ -36,9 +33,9 @@ function ConnectionItem({ info }) {
       : "bg-grey-100 dark:bg-grey-800 text-grey-800 dark:text-grey-100";
 
   return (
-    <Item onClick={() => setConnectedTo(info.websocketId)}>
+    <MenuItem onClick={() => setConnectedTo(info.websocketId)}>
       <Badge twClasses={twClasses}>{"CLI"}</Badge>
       {info.websocketId}
-    </Item>
+    </MenuItem>
   );
 }

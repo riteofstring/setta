@@ -1,12 +1,13 @@
 import asyncio
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 
 class Tasks:
     def __init__(self):
-        self.executor = ProcessPoolExecutor()
-        self.loop = asyncio.get_event_loop()
+        self.pool_executor = ProcessPoolExecutor(max_workers=2)
+        self.thread_executor = ThreadPoolExecutor(max_workers=2)
         self.tasks_dict = {}
+        self.loop = asyncio.get_event_loop()
 
     async def create_task(self, id, *args, **kwargs):
         await self.cancel_existing(id)
@@ -26,3 +27,7 @@ class Tasks:
 
     def remove_task(self, id):
         self.tasks_dict.pop(id, None)
+
+    async def run_non_blocking_subprocess(self, fn, is_interactive, *args):
+        executor = self.thread_executor if is_interactive else self.pool_executor
+        return await self.loop.run_in_executor(executor, fn, *args)

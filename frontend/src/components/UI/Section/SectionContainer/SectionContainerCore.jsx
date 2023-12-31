@@ -2,19 +2,10 @@ import {
   toggleSectionDescription,
   useSectionHasDescription,
 } from "hooks/useSectionDescription";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
-import {
-  useIsGlobalVariables,
-  useIsInfo,
-  useIsOutput,
-  useIsRoot,
-  useIsSeriesElement,
-  useIsSocial,
-} from "hooks/useSectionType";
+import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useTypeErrors } from "models/typeErrors";
 import React from "react";
 import { setZIndices } from "thunks/sections/sectionPositions";
 import { getHighestAncestor } from "thunks/sections/sectionSizes";
@@ -22,20 +13,13 @@ import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
-  const isRoot = useIsRoot(sectionId);
-  const isOutput = useIsOutput(sectionId);
-  const isSocial = useIsSocial(sectionId);
-  const isInfo = useIsInfo(sectionId);
-  const isGlobalVariables = useIsGlobalVariables(sectionId);
+  const sectionTypeName = useSectionTypeName(sectionId);
   const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
-  const setActiveSection = useActiveSection((x) => x.setId);
-  const thisSectionParamInfo = useGetSectionInfo(sectionId, "paramInfoId");
-  const isWrongType = useTypeErrors((x) => x[parentId]?.[thisSectionParamInfo]);
 
   function onClick() {
-    setActiveSection(sectionId);
+    useActiveSection.getState().setId(sectionId);
     const topMostAncestor = getHighestAncestor(sectionId);
     setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
   }
@@ -45,7 +29,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
     : "shadow-md active:shadow-2xl";
 
   return (
-    <div
+    <section
       className={`rounded-xl border border-white bg-white dark:border-slate-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
@@ -55,18 +39,14 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         parentId={parentId}
         nextId={nextId}
         isSeriesElement={isSeriesElement}
-        isRoot={isRoot}
-        isOutput={isOutput}
-        isSocial={isSocial}
-        isInfo={isInfo}
-        isGlobalVariables={isGlobalVariables}
+        sectionTypeName={sectionTypeName}
         hasNested={hasNested}
         hasDescription={hasDescription}
         isActiveSection={isActiveSection}
         toggleDescVis={() => toggleSectionDescription(sectionId)}
-        isWrongType={isWrongType}
+        isWrongType={false} // TODO add the logic for this
       />
-    </div>
+    </section>
   );
 }
 export const SectionContainerCore = React.memo(

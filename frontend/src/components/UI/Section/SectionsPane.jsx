@@ -1,4 +1,3 @@
-import { useSectionRefAndInit } from "hooks/useStateRef";
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import React from "react";
@@ -6,14 +5,8 @@ import ReactFlow, { useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { PANEID } from "utils/constants";
-import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
-import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
-import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
-import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
+import { REACT_FLOW_STORE } from "utils/constants";
 import "./react-flow-css.css";
-import { ResponsiveControls } from "./ResponsiveControls";
-import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
@@ -24,47 +17,43 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-function _SectionsPane({ initialNodes, viewport }) {
-  const reactFlowRef = useSectionRefAndInit(PANEID);
+function onMoveEnd(e, viewport) {
+  useProjectConfig.getState().setViewport(viewport);
+}
+
+function onNodeDragStop(e, node, nodes) {
+  setPositionAndZIndices(nodes);
+}
+
+function onSelectionDragStop(e, nodes) {
+  setPositionAndZIndices(nodes);
+}
+
+function onInit(rf) {
+  REACT_FLOW_STORE.rf = rf;
+}
+
+function _SectionsPane({
+  initialNodes,
+  viewport,
+  closeCtxMenus,
+  openPaneCtxMenu,
+  openSelectionCtxMenu,
+  openNodeCtxMenu,
+}) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
   }, [initialNodes]);
 
-  const [
-    paneCtxMenuDetails,
-    openPaneCtxMenu,
-    closePaneCtxMenu,
-    selectionCtxMenuDetails,
-    openSelectionCtxMenu,
-    closeSelectionCtxMenu,
-    nodeCtxMenuDetails,
-    openNodeCtxMenu,
-    closeNodeCtxMenu,
-    closeCtxMenus,
-  ] = useAllContextMenus();
-
-  function onMoveEnd(e, viewport) {
-    useProjectConfig.getState().setViewport(viewport);
-  }
-
   function onPaneClick() {
     closeCtxMenus();
     useActiveSection.getState().setId(null);
   }
 
-  function onNodeDragStop(e, node, nodes) {
-    setPositionAndZIndices(nodes);
-  }
-
-  function onSelectionDragStop(e, nodes) {
-    setPositionAndZIndices(nodes);
-  }
-
   return (
     <ReactFlow
-      ref={reactFlowRef}
       nodes={nodes}
       minZoom={0.1}
       maxZoom={10}
@@ -82,26 +71,9 @@ function _SectionsPane({ initialNodes, viewport }) {
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
+      onInit={onInit}
       className="rcbg-light dark:rcbg-dark"
-    >
-      <PaneContextMenu
-        {...paneCtxMenuDetails}
-        closeContextMenu={closePaneCtxMenu}
-      />
-      <SelectionContextMenu
-        {...selectionCtxMenuDetails}
-        closeContextMenu={closeSelectionCtxMenu}
-      />
-      {nodeCtxMenuDetails.nodeId && (
-        <NodeContextMenu
-          {...nodeCtxMenuDetails}
-          closeContextMenu={closeNodeCtxMenu}
-        />
-      )}
-      <ResponsiveMiniMap />
-      <ResponsiveControls />
-      {/* <Background color={colors.slate[300]} size={0.75} gap={16} /> */}
-    </ReactFlow>
+    />
   );
 }
 

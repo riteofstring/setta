@@ -31,6 +31,10 @@ export const useCodeInfo = createProjectState(
         set((state) => {
           state.x[id].name = name;
         }),
+      setDescription: ({ id, description }) =>
+        set((state) => {
+          state.x[id].description = description;
+        }),
       deleteInfo: ({ id, parent }) =>
         set((state) => {
           state.x = _.omit(state.x, [id]);

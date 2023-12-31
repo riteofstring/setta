@@ -1,12 +1,18 @@
 import { useGetAllCallables } from "hooks/useSectionContents";
-import { useCodeCompletionWebsocketRoom } from "hooks/useWebsocket";
-import _ from "lodash";
+import {
+  textFieldInitializeCode,
+  useCodeCompletionWebsocketRoom,
+} from "hooks/useWebsocket";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { groupedObjInfo } from "utils/getFullObjPath";
 
-export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
+export function SectionSearch({
+  sectionId,
+  initialSelection,
+  outerDivClasses,
+}) {
   const [completions, sendCompletionRequest] =
     useCodeCompletionWebsocketRoom(sectionId);
   const _searchableItems = useGetAllCallables(sectionId);
@@ -25,11 +31,9 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
     setSelectedItem(sectionId, value, changedByUser);
   }
 
-  const inputCallback = _.debounce((value) => {
-    if (value) {
-      sendCompletionRequest(value);
-    }
-  }, 100);
+  function onInputMouseDown() {
+    textFieldInitializeCode(sectionId, null);
+  }
 
   // searchableItems becomes empty, then set the selected item to null
   useEffect(() => {
@@ -43,8 +47,9 @@ export function SectionSearch({ sectionId, initialSelection, inputClasses }) {
       allItems={groupedItemsAsList}
       onSelectedItemChange={onSelectedItemChange}
       initialSelection={initialSelection}
-      inputClasses={inputClasses}
-      inputCallback={inputCallback}
+      outerDivClasses={outerDivClasses}
+      inputCallback={sendCompletionRequest}
+      onInputMouseDown={onInputMouseDown}
     />
   );
 }

@@ -2,28 +2,13 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {
   findAllCallables,
-  findAllParameterCollections,
-  findAllParameters,
+  findAllParametersOfCallables,
+  findAllParametersOfCollections,
 } from "z_utils/getDescendants";
-import {
-  getSectionInfo,
-  getSectionName,
-  getSectionTypeConfig,
-} from "./getters";
+import { getSectionInfo, getSectionTypeConfig } from "./getters";
 
 export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];
-}
-
-export function getParamWithSameName(sectionId, parentId) {
-  const sectionName = getSectionName(sectionId);
-  const params = getParamInfos(parentId);
-  for (const p of params) {
-    if (sectionName === p.name) {
-      return p;
-    }
-  }
-  return null;
 }
 
 function computeAllCallables(sectionId: string) {
@@ -32,12 +17,12 @@ function computeAllCallables(sectionId: string) {
 }
 
 function computeAllParams(sectionId: string, objInfoId: string) {
+  const objParamInfos = objInfoId
+    ? findAllParametersOfCallables(useCodeInfo.getState().x, [objInfoId])
+    : [];
+
   const { codeInfoId } = getSectionTypeConfig(sectionId);
-  const parentId = objInfoId ?? codeInfoId;
-
-  const objParamInfos = findAllParameters(useCodeInfo.getState().x, [parentId]);
-
-  const paramCollections = findAllParameterCollections(
+  const paramCollections = findAllParametersOfCollections(
     useCodeInfo.getState().x,
     [codeInfoId]
   );

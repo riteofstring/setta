@@ -4,16 +4,19 @@ import { useTypeErrors } from "models/typeErrors";
 import React from "react";
 import { ParamInput } from "./ParamItems/ParamInput";
 
-function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
-  const infoViewHandlers = useSetCurrInfoView(paramInfo.id);
+function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
+  const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const border = maybeErrorMessage ? "border-red-600 border-2" : "";
 
+  // ${isKwarg
+  //     ? "ml-0 flex-grow gap-4"
+  //     : "  ml-6 flex-1 gap-4"
+  // }
+
   return (
-    <div
-      className={`flex ${
-        isKwarg ? "ml-0 mr-6 flex-grow gap-4" : "mx-6 flex-1 gap-4"
-      }  min-h-[36px] items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b] [&>*]:flex-1 ${border}`}
+    <article
+      className={` card-arg-group -mx-2 justify-between rounded-lg px-2  hover:bg-runcoder-200/10 dark:hover:bg-runcoder-700/25  ${border}`}
       {...infoViewHandlers}
     >
       {children}
@@ -21,10 +24,9 @@ function _ParamContainer({ sectionId, paramInfo, uiType, isKwarg, children }) {
         sectionId={sectionId}
         paramInfoId={paramInfo.id}
         defaultVal={paramInfo.defaultVal}
-        uiType={uiType}
         isDisabled={!paramInfo.name}
       />
-    </div>
+    </article>
   );
 }
 

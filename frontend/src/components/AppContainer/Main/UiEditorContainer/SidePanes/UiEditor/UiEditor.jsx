@@ -5,7 +5,6 @@ import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import {
   INFO_CONFIG_TAB,
-  RUNTIME_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   tabNameToPretty,
   UI_CONFIG_TAB,
@@ -14,7 +13,6 @@ import {
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
-import { RunTimeOptions } from "./RuntimeOptions/RuntimeOptions";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { UIConfig } from "./UIConfig/UIConfig";
 
@@ -68,7 +66,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] focus-visible:ring-2 dark:text-slate-400 [&[data-state='active']]:border-slate-500 [&[data-state='active']]:font-bold"
+      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] focus-visible:ring-2 dark:text-runcoder-400 [&[data-state='active']]:border-slate-500 [&[data-state='active']]:font-bold"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
@@ -91,8 +89,8 @@ function Placeholder() {
   return (
     <aside className="grid min-h-[60vh] flex-grow flex-col">
       <div className="flex flex-col items-center gap-4 place-self-center">
-        <FiEdit3 className="h-20 w-20 text-slate-300 dark:text-runcoder-700 " />
-        <h4 className="text-lg font-bold tracking-widest text-slate-300 dark:text-runcoder-600">
+        <FiEdit3 className="h-20 w-20 text-runcoder-300 dark:text-runcoder-700 " />
+        <h4 className="text-lg font-bold tracking-widest text-runcoder-300 dark:text-runcoder-600">
           Select A Card to Edit
         </h4>
       </div>
@@ -124,13 +122,13 @@ function InfoTab({ sectionId }) {
   );
 }
 
-function RuntimeTab({ sectionId }) {
-  return (
-    <TabContent value={RUNTIME_CONFIG_TAB}>
-      <RunTimeOptions sectionId={sectionId} />
-    </TabContent>
-  );
-}
+// function RuntimeTab({ sectionId }) {
+//   return (
+//     <TabContent value={RUNTIME_CONFIG_TAB}>
+//       <RunTimeOptions sectionId={sectionId} />
+//     </TabContent>
+//   );
+// }
 
 function TabContentSelector({ sectionId, tabName }) {
   if (tabName === SECTION_CONFIG_TAB) {
@@ -139,7 +137,8 @@ function TabContentSelector({ sectionId, tabName }) {
     return <UIConfigTab sectionId={sectionId} />;
   } else if (tabName === INFO_CONFIG_TAB) {
     return <InfoTab sectionId={sectionId} />;
-  } else if (tabName === RUNTIME_CONFIG_TAB) {
-    return <RuntimeTab sectionId={sectionId} />;
   }
+  // else if (tabName === RUNTIME_CONFIG_TAB) {
+  //   return <RuntimeTab sectionId={sectionId} />;
+  // }
 }

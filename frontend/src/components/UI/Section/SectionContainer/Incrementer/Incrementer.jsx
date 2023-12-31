@@ -64,11 +64,11 @@ export function Incrementer({
         <Tooltip.Trigger asChild>
           <div className="flex max-w-xs gap-1 rounded-lg bg-slate-200 py-1 px-2 dark:bg-runcoder-900">
             {isRoot ? (
-              <p className="text-xs font-bold text-slate-500">Children</p>
+              <p className="text-xs font-bold text-runcoder-500">Children</p>
             ) : (
-              <p className="text-xs text-slate-500">Siblings</p>
+              <p className="text-xs text-runcoder-500">Siblings</p>
             )}
-            {isRoot && <FiCornerRightDown className="mr-1 text-slate-600" />}
+            {isRoot && <FiCornerRightDown className="mr-1 text-runcoder-600" />}
 
             <input
               className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300"

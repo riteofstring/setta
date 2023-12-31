@@ -1,3 +1,4 @@
+import { useInteractive } from "models/interactive";
 import {
   useWebsocketConnectionList,
   useWebsocketRooms,
@@ -24,7 +25,7 @@ export function openWebSocket(pathname) {
   wss.addEventListener("error", closeWebSocket);
 }
 
-export function closeWebSocket() {
+function closeWebSocket() {
   if (wss) {
     wss.close();
     wss = null;
@@ -37,13 +38,17 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  console.log(m);
+  // console.log(m);
   if (m.type === "LOG") {
     updateOutput(m.data);
   } else if (m.messageType === "connection") {
-    console.log("connected as", m["websocketId"]);
+    // console.log("connected as", m["websocketId"]);
   } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
+  } else if (m.messageType === "interactiveProjects") {
+    useInteractive.getState().setProjects(m["message"]);
+  } else if (m.messageType === "interactive") {
+    useInteractive.getState().setData(m["message"]);
   } else if (m.id) {
     useWebsocketRooms.getState().setMessage(m.id, m.message);
   }

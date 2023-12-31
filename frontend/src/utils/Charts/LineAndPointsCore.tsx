@@ -59,9 +59,9 @@ function _LineAndPointsCore({
           scale={yScale}
           hideAxisLine
           hideTicks
-          labelClassName="text-slate-500 font-body"
+          labelClassName="text-runcoder-500 font-sans"
           left={-8}
-          tickClassName="[&_*]text-slate-500 font-body"
+          tickClassName="[&_*]text-runcoder-500 font-sans"
         />
       </AxisWithZoom>
       <AxisWithZoom childKey="AxisBottom">

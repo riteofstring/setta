@@ -1,3 +1,8 @@
+import {
+  adjectives,
+  colors,
+  uniqueNamesGenerator,
+} from "unique-names-generator";
 import { v4 as uuidv4, validate } from "uuid";
 
 export function createNewId() {
@@ -10,4 +15,29 @@ export function maybeNewId(x?: string) {
 
 export function isUUID(x) {
   return validate(x);
+}
+
+export function createVarName(existingVarNames) {
+  const customConfig = {
+    dictionaries: [adjectives, colors],
+    separator: "_",
+    length: 2,
+  };
+
+  let varName;
+  while (!varName || existingVarNames.includes(varName)) {
+    varName = uniqueNamesGenerator(customConfig);
+  }
+
+  return varName;
+}
+
+export function createEVColName() {
+  const customConfig = {
+    dictionaries: [adjectives, colors],
+    separator: "_",
+    length: 2,
+  };
+
+  return uniqueNamesGenerator(customConfig);
 }

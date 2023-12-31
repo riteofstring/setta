@@ -3,7 +3,7 @@ import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
-export function addSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
+export function addSectionInEmptySpace({ type }: { type: string }) {
   const store = REACT_FLOW_STORE.store;
   const {
     transform: [_x, _y, zoom],
@@ -14,7 +14,7 @@ export function addSectionInEmptySpace({ isDeck }: { isDeck: boolean }) {
   const y = -_y / zoom;
 
   addSectionAtPosition({
-    isDeck,
+    type,
     topLevelPosition: newSectionPosition({ x, y, zIndex: 0 }),
     incrementVersion: true,
   });

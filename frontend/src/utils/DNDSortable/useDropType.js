@@ -1,7 +1,6 @@
 import { useDndMode } from "hooks/useDndUtils";
 import { useDndState } from "models/info/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { getParamIsNested } from "thunks/paramInfos";
 import {
   getSectionCanHaveNested,
   getSectionCanOnlyBeChildOfDeck,
@@ -9,7 +8,6 @@ import {
   getSectionIsRoot,
   getSectionParentId,
 } from "thunks/sections/getters";
-import { getParamWithSameName } from "thunks/sections/sectionContents";
 import { REACT_FLOW_STORE } from "utils/constants";
 import {
   BehaviorDropType,
@@ -139,16 +137,6 @@ function getBehaviorDropType({ newParentId }) {
       return BehaviorDropType.DROP_HERE;
     }
     return BehaviorDropType.NEW_LIST_ELEMENT;
-  }
-
-  const matchingParam = getParamWithSameName(activeId, newParentId);
-
-  if (!matchingParam) {
-    return BehaviorDropType.NEW_ARG;
-  }
-
-  if (!getParamIsNested(newParentId, matchingParam.id)) {
-    return BehaviorDropType.EXISTING_ARG;
   }
 
   return BehaviorDropType.INVALID;

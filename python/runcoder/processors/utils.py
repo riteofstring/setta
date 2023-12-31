@@ -1,4 +1,6 @@
+import os
 import subprocess
+import tempfile
 
 
 def startMyPyDaemon():
@@ -17,3 +19,41 @@ def startMyPyDaemon():
 
 def killMyPyDaemon():
     subprocess.run(["dmypy", "stop"])
+
+
+def withTempFiles(write, in_file_with_suffix, then_do):
+    if len(write) != len(in_file_with_suffix):
+        raise ValueError("Writes and suffixes lists must have the same length.")
+
+    temp_files = []
+    try:
+        # Create temporary files
+        for w, suffix in zip(write, in_file_with_suffix):
+            temp_file = tempfile.NamedTemporaryFile(
+                dir=os.getcwd(),
+                mode="w+",
+                prefix="runcoder_temp_",
+                suffix=suffix,
+                delete=False,
+            )
+            temp_file.write(w)
+            temp_file.flush()
+            temp_files.append(temp_file)
+
+        # Get the relative paths of all temporary files
+        temp_file_paths = [os.path.relpath(temp_file.name) for temp_file in temp_files]
+
+        # Pass the list of file paths to the callback function
+        return then_do(temp_file_paths)
+
+    except subprocess.CalledProcessError as e:
+        print(e, flush=True)
+        print(e.stdout, flush=True)
+        print(e.stderr, flush=True)
+        return e
+
+    finally:
+        # Clean up the temporary files
+        for temp_file in temp_files:
+            temp_file.close()
+            os.remove(temp_file.name)

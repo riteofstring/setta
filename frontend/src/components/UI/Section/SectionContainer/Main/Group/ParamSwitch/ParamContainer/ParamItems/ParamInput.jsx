@@ -1,16 +1,13 @@
+import { sendMessage } from "dbRequests/websocket";
 import { useGetParamEnteredValue } from "hooks/useEnteredValue";
 import _ from "lodash";
+import { useProject } from "models/info/project";
+import { useInteractive } from "models/interactive";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
-export function ParamInput({
-  sectionId,
-  paramInfoId,
-  defaultVal,
-  uiType,
-  isDisabled,
-}) {
+export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
 
@@ -19,6 +16,14 @@ export function ParamInput({
     const vStr = _.toString(v);
     setValue(vStr);
     setEnteredValue(vStr);
+    const interactive_state = useInteractive.getState();
+    if (interactive_state.currProjectIsInteractive) {
+      sendMessage({
+        id: interactive_state.id,
+        message: value,
+        messageType: useProject.getState().name,
+      });
+    }
   }
 
   const setEnteredValue = useCallback(
@@ -43,16 +48,13 @@ export function ParamInput({
 
   return (
     <ParamUI
-      name={uiType.type}
-      childProps={{
-        sectionId,
-        value,
-        defaultVal,
-        onChange,
-        isDisabled,
-        className: "nodrag",
-        ...uiType.config,
-      }}
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      isDisabled={isDisabled}
+      className="nodrag"
     />
   );
 }

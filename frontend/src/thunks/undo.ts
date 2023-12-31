@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useStateVersion } from "models/stateVersion";
 import { stateDict, STATE_TYPES } from "models/utils";
 
@@ -73,7 +72,3 @@ export function maybeIncrementProjectStateVersion(doIncrementVersion) {
     incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE].statePointers);
   }
 }
-
-export const debouncedIncrementVersionFn = _.debounce(() => {
-  maybeIncrementProjectStateVersion(true);
-}, 1000);

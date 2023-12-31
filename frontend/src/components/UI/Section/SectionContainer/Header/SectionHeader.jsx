@@ -1,22 +1,24 @@
-import { useIsInfo } from "hooks/useSectionType";
 import React from "react";
 import { deleteChild } from "thunks/sections/deleteChild";
+import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
+import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
+import { VersionsButton } from "./VersionsButton/VersionsButtons";
 
 function _SectionHeader({
   sectionId,
   parentId,
   nextId,
   isSeriesElement,
-  isRoot,
   hasNested,
   isActiveSection,
+  sectionTypeName,
   isGlobalVariables,
+  isInfo,
 }) {
-  const isInfo = useIsInfo(sectionId);
   const onCustomCloseButtonClick = (e) => {
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
@@ -24,26 +26,30 @@ function _SectionHeader({
     deleteChild({ parentId, startId: sectionId, incrementVersion: true });
   };
 
+  const _isRoot = isRoot(sectionTypeName);
+
   // DOM: maybe get rid of the extra div under header?
 
   return (
-    <header className="flex flex-row items-center px-9">
+    <header className="card-title flex flex-row items-center">
       {!isInfo && (
-        <div className="align-self-stretch flex w-full flex-1 items-center gap-1 justify-self-stretch ">
+        <>
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
           <SaveButton sectionId={sectionId} />
-        </div>
+          <ChainButton sectionId={sectionId} />
+          <VersionsButton sectionId={sectionId} />
+        </>
       )}
-      {(isSeriesElement || isRoot) && (
+      {(isSeriesElement || _isRoot) && (
         <Incrementer
           sectionId={sectionId}
           parentId={parentId}
           nextId={nextId}
-          isRoot={isRoot}
+          isRoot={_isRoot}
           hasNested={hasNested}
         />
       )}
@@ -70,7 +76,7 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
         ? isGlobalVariables
           ? "text-green-800 dark:text-green-200"
           : "text-blue-800 dark:text-blue-400"
-        : "text-slate-700 dark:text-runcoder-300"
+        : "text-runcoder-700 dark:text-runcoder-300"
     } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
   };
 

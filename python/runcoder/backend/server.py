@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,9 +10,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.processors.processors import Processors
+from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
+from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
+from runcoder.utils.utils import import_from_path
 
-from .db.projects.load import load_all_projects, load_project
+from .db.codeInfo.save import save_code_info
+from .db.projects.delete import delete_projects
+from .db.projects.load import load_all_projects, load_full_project, load_project
 from .db.projects.save import (
     create_project,
     save_project_config_name,
@@ -25,8 +31,9 @@ from .db.projects.saveAs import (
 )
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
+from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
-from .schema import db
+from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
@@ -38,6 +45,9 @@ origins = (
 )
 
 app = FastAPI()
+tasks_obj = Tasks()
+cache = Cache()
+processors = Processors()
 
 
 @app.on_event("startup")
@@ -45,7 +55,7 @@ async def startup_event():
     db_alias = os.environ.get("RUNCODER_DB_ALIAS")
     if db_alias:
         use_db(db_alias)
-    db.connect()
+    dbq.connect()
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
         dist_path = Path(__file__).resolve().parent / ".." / "frontend"
@@ -63,6 +73,18 @@ async def startup_event():
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
+
+    startMyPyDaemon()
+    i_path = os.environ.get("RUNCODER_I_PATH")
+    if i_path:
+        i_args = import_from_path(i_path).RUNCODER
+        processors.add_fn(i_args["project"], i_args["fn"])
+
+
+@app.on_event("shutdown")
+def shutdown_event():
+    print("shutdown_event", flush=True)
+    killMyPyDaemon()
 
 
 app.add_middleware(
@@ -96,6 +118,10 @@ class CreateProjectRequest(BaseModel):
     name: Optional[str] = None
 
 
+class DeleteProjectsRequest(BaseModel):
+    ids: List[str]
+
+
 class SetProjectNameRequest(BaseModel):
     currProjectName: str
     newProjectName: str
@@ -111,13 +137,16 @@ class SetDarkModeRequest(BaseModel):
     darkMode: bool
 
 
+class SaveCodeInfoRequest(BaseModel):
+    codeInfo: dict
+
+
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
     def __init__(self):
         self.sockets = {}
         self.use_server_as_cli = True
         self.server_cli_name = "main"
-        self.T = Tasks()
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -128,6 +157,14 @@ class ConnectionManager:
         self.sockets[id] = {"websocket": websocket, "isCLI": isCLI}
         await self.send_message(
             {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
+        )
+        await self.send_message(
+            {
+                "toWebsocketId": id,
+                "messageType": "interactiveProjects",
+                "websocketId": id,
+                "message": list(processors.interactive_projects),
+            }
         )
         await self.broadcast_connections()
         return id
@@ -142,9 +179,11 @@ class ConnectionManager:
             if wid == self.server_cli_name:
                 websocket = self.sockets[fromWebsocketId]["websocket"]
                 message["websocketId"] = wid
-                await self.T.create_task(
+                await tasks_obj.create_task(
                     message.get("id", None),
-                    getConsumerMessageAndSend(message, websocket.send_text, self.T),
+                    getConsumerMessageAndSend(
+                        message, websocket.send_text, tasks_obj, cache, processors
+                    ),
                 )
             else:
                 websocket = self.sockets[wid]["websocket"]
@@ -184,33 +223,57 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
-    return load_all_projects(x.format, x.projectId)
+    with dbq.get() as db:
+        return load_all_projects(db, x.format, x.projectId)
 
 
 @app.post("/projects/load/{projectName}/{configName}")
 def route_load_project(projectName, configName):
-    return load_project(projectName, configName)
+    with dbq.get() as db:
+        return load_project(db, projectName, configName)
+
+
+@app.post("/projects/load/{projectName}")
+def route_load_full_project(projectName):
+    with dbq.get() as db:
+        return load_full_project(db, projectName)
 
 
 @app.post("/projects/save")
 def route_save_project(x: ProjectSaveRequest):
     formatted = convert_to_backend_format(x.project)
-    save_project_details(formatted)
+    with dbq.get() as db:
+        save_project_details(db, formatted)
 
 
 @app.post("/projects/createProject")
 def route_create_project(x: CreateProjectRequest):
-    return create_project(x.name)
+    with dbq.get() as db:
+        return create_project(db, x.name)
 
 
 @app.post("/projects/saveAsNewProjectConfig")
 def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
-    return save_as_new_project_config(x.project, x.newConfigName)
+    with dbq.get() as db:
+        return save_as_new_project_config(db, x.project, x.newConfigName)
 
 
 @app.post("/projects/saveAsExistingProjectConfig")
 def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
-    return save_as_existing_project_config(x.project, x.configName)
+    with dbq.get() as db:
+        return save_as_existing_project_config(db, x.project, x.configName)
+
+
+@app.post("/projects/deleteProjects")
+def route_delete_projects(x: DeleteProjectsRequest):
+    with dbq.get() as db:
+        return delete_projects(db, x.ids)
+
+
+@app.post("/uiTypes/getBaseUITypes")
+def route_get_base_uitypes():
+    with dbq.get() as db:
+        return load_base_uitypes(db)
 
 
 @app.post("/codeInfo/getCollectionsAndModules")
@@ -218,9 +281,10 @@ def route_get_collections_and_modules():
     pass
 
 
-@app.post("/codeInfo/saveCollections")
-def route_save_collections():
-    pass
+@app.post("/codeInfo/save")
+def route_save_code_info(x: SaveCodeInfoRequest):
+    with dbq.get() as db:
+        save_code_info(db, x.codeInfo)
 
 
 @app.post("/codeInfo/getCollectionDetails")
@@ -240,24 +304,28 @@ def route_get_code():
 
 @app.post("/projects/setProjectName")
 def route_set_project_name(x: SetProjectNameRequest):
-    save_project_name(x.currProjectName, x.newProjectName)
+    with dbq.get() as db:
+        save_project_name(db, x.currProjectName, x.newProjectName)
 
 
 @app.post("/projects/setProjectConfigName")
 def route_set_project_config_name(x: SetProjectConfigNameRequest):
-    save_project_config_name(
-        x.projectId, x.currProjectConfigName, x.newProjectConfigName
-    )
+    with dbq.get() as db:
+        save_project_config_name(
+            db, x.projectId, x.currProjectConfigName, x.newProjectConfigName
+        )
 
 
 @app.post("/settings")
 def route_load_settings():
-    return load_settings()
+    with dbq.get() as db:
+        return load_settings(db)
 
 
 @app.post("/settings/setDarkMode")
 def route_set_dark_mode(x: SetDarkModeRequest):
-    save_dark_mode(x.darkMode)
+    with dbq.get() as db:
+        save_dark_mode(db, x.darkMode)
 
 
 @app.post("/logging")
