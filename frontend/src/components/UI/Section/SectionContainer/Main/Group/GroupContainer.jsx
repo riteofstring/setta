@@ -14,13 +14,13 @@ function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
   // border-b border-solid border-slate-100
   return (
     <ScrollingArea
-      styles={`flex flex-col gap-[0.1rem] mb-2 ${noWheel} ${
+      styles={`card-args-list ${noWheel} ${
         hasDescription ? "last:[&>div]:mb-12" : ""
       }`}
       ref={ref}
     >
       {isGroup && (
-        <p className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-slate-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-slate-400 ">
+        <p className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-slate-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-runcoder-400 ">
           Group 1
         </p>
       )}

@@ -27,7 +27,7 @@ function SectionConfigCore({ sectionId }) {
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
       <div className="flex justify-between">
         <p
-          className="mt-2 text-xs font-semibold uppercase text-slate-400"
+          className="mt-2 text-xs font-semibold uppercase text-runcoder-400"
           {...infoViewHandlersCard}
         >
           Card Types
@@ -38,7 +38,7 @@ function SectionConfigCore({ sectionId }) {
       <SectionConfigTypeSelection sectionId={sectionId} />
 
       <p
-        className="mt-4 text-xs font-semibold uppercase text-slate-400"
+        className="mt-4 text-xs font-semibold uppercase text-runcoder-400"
         {...infoViewHandlersContents}
       >
         Contents

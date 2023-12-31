@@ -87,7 +87,7 @@ function _UIElement({ sectionId, paramInfo }) {
       data-testid={`UIElement ${paramName}`}
     >
       <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
-        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-slate-500">
+        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-runcoder-500">
           {paramName}
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
@@ -120,7 +120,7 @@ function InfoViewDescription({ sectionId, paramInfoId }) {
       inputClasses="rounded-lg"
       trigger={
         <IconButton twClasses="" size="w-4 h-4" padding="py-2 px-2">
-          <BiPencil className="text-slate-500" />
+          <BiPencil className="text-runcoder-500" />
         </IconButton>
       }
       header={"Description for Infoview"}
