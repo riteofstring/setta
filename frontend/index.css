@@ -119,11 +119,8 @@
 }
 
 .blink-cursor {
-  @apply inline-block ml-[2px] w-[2px] h-4 my-auto bg-black;
   animation: blink 1s step-start 0s infinite;
 }
-
-
 
 * {
   /* outline: 1px solid green; */
