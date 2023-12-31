@@ -1,21 +1,9 @@
 /* https://stackoverflow.com/questions/20726174/placeholder-for-contenteditable-div */
 
-[contenteditable="plaintext-only"]:empty:before {
+[contenteditable="plaintext-only"].empty-with-placeholder:before {
   content: attr(placeholder);
   color: gray;
   opacity: 0.5;
   pointer-events: none;
   display: table-cell; /* For Firefox */
 }
-
-
-[contenteditable="plaintext-only"]:empty{
-  content: "&zwnj;";
-  /* line-height: 27px; */
-  /* line-height: 1rem;
-  font-size:0.75rem */
-}
-/* 
-[contenteditable="plaintext-only"]::placeholder{
-  
-} */
