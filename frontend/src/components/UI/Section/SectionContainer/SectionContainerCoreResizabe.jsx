@@ -1,3 +1,4 @@
+import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
@@ -6,6 +7,7 @@ import {
   GLOBAL_VARIABLES,
   INFO,
   OUTPUT,
+  PARAM_SWEEP,
   SCRIPT,
   SECTION,
   SOCIAL,
@@ -19,6 +21,7 @@ import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
+import { ParamSweepArea } from "./ParamSweepArea";
 import { ScriptArea } from "./ScriptArea";
 import { SocialArea } from "./SocialArea";
 import { VarControlArea } from "./VarControlArea";
@@ -30,13 +33,13 @@ export function SectionContainerCoreResizable({
   isSeriesElement,
   sectionTypeName,
   hasNested,
-  hasDescription,
   isActiveSection,
   toggleDescVis,
   isWrongType,
 }) {
   const isGlobalVariables = sectionTypeName === GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === INFO;
+  const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
   const getOutlineColor = () => {
     if (isWrongType) {
@@ -53,16 +56,6 @@ export function SectionContainerCoreResizable({
   };
 
   const outlineColor = getOutlineColor();
-
-  // const outlineColor = isWrongType
-  //   ? "outline-red-600 dark:outline-red-400"
-  //   : isActiveSection
-  //   ? `${
-  //       isGlobalVariables
-  //         ? "outline-green-600 dark:outline-turquoise-800"
-  //         : "outline-blue-600 dark:outline-blue-400"
-  //     }`
-  //   : "outline-transparent active:outline-cyan-300";
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-runcoder-700";
@@ -96,29 +89,18 @@ export function SectionContainerCoreResizable({
           sectionTypeName={sectionTypeName}
         />
         <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
-        <Button
-          grid={false}
-          twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-700 dark:text-runcoder-300 dark:bg-runcoder-900/40 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
-          onClick={toggleDescVis}
-        >
-          <TbVersions className="z-[3] h-4 w-4" />
-          Versions
-        </Button>
-
-        {/* {!isInfo && hasDescription && (
+        {hasVersions && (
           <Button
             grid={false}
-            twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-500 dark:text-runcoder-300 dark:bg-runcoder-700/25 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg"
+            twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-500 dark:text-runcoder-300 dark:bg-runcoder-700/25 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
             onClick={toggleDescVis}
           >
-            <BiInfoCircle className="z-[3] h-4 w-4" />
+            <TbVersions className="z-[3] h-4 w-4" />
             Versions
           </Button>
-        )} */}
+        )}
       </CustomResizable>
-      <VersionList sectionId={sectionId} />
-
-      {/* {!isInfo && <SectionDescription sectionId={sectionId} />} */}
+      {hasVersions && <VersionList sectionId={sectionId} />}
     </>
   );
 }
@@ -141,6 +123,8 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <CodeArea sectionId={sectionId} />;
     case VAR_CONTROL:
       return <VarControlArea sectionId={sectionId} />;
+    case PARAM_SWEEP:
+      return <ParamSweepArea sectionId={sectionId} />;
     default:
       return null;
   }

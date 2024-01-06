@@ -1,3 +1,4 @@
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { useSetCurrInfoView } from "models/info/infoView";
 import { useTypeErrors } from "models/typeErrors";
@@ -6,9 +7,11 @@ import { ParamInput } from "./ParamItems/ParamInput";
 import PinButton from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
+  const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const border = maybeErrorMessage ? "border-red-600 border-2" : "";
+  const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
 
   return (
     <article
@@ -22,7 +25,11 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
         defaultVal={paramInfo.defaultVal}
         isDisabled={!paramInfo.name}
       />
-      <PinButton variants="justify-self-end self-center " />
+      <PinButton
+        sectionId={sectionId}
+        paramInfoId={paramInfo.id}
+        variants="justify-self-end self-center"
+      />
     </article>
   );
 }

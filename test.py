@@ -42,10 +42,10 @@
 # import json
 # from pprint import pprint
 
-# with open("python/runcoder/backend/seedData/exampleProjects/diffusionDrops.json") as f:
+# with open("seed/exampleProjects/diffusionDrops.json") as f:
 #     p = json.load(f)
 
-# with open("python/runcoder/backend/seedData/BaseUITypes.json") as f:
+# with open("seed/BaseUITypes.json") as f:
 #     u = json.load(f)
 
 # config = p.pop("configs")
@@ -187,10 +187,10 @@
 # from pprint import pprint
 # import yaml
 
-# with open("python/runcoder/backend/seedData/exampleProjects/sklearn_example.json") as f:
+# with open("seed/exampleProjects/sklearn_example.json") as f:
 #     p = json.load(f)
 
-# with open("python/runcoder/backend/seedData/BaseUITypes.json") as f:
+# with open("seed/BaseUITypes.json") as f:
 #     u = json.load(f)
 
 # config = p.pop("configs")[0]
