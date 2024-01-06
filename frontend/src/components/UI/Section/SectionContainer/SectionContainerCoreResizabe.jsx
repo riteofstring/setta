@@ -1,4 +1,4 @@
-import { BiInfoCircle } from "react-icons/bi";
+import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import {
@@ -101,7 +101,7 @@ export function SectionContainerCoreResizable({
           twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-500 dark:text-runcoder-300 dark:bg-runcoder-700/25 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
           onClick={toggleDescVis}
         >
-          <BiInfoCircle className="z-[3] h-4 w-4" />
+          <TbVersions className="z-[3] h-4 w-4" />
           Versions
         </Button>
 
