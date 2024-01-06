@@ -1,5 +1,5 @@
 cd frontend && \
-npm install --legacy-peer-deps && \
+yarn && \
 cd .. && \
 . ./init_env.sh dev && \
 ./cleanup.sh

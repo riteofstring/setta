@@ -23,7 +23,7 @@ Format and lint python:
 Start frontend and backend in dev mode:
 ```
 cd frontend
-npm run start
+yarn start
 ```
 
 There is reload mode where the backend reloads on file changes, but it's broken.
