@@ -17,6 +17,7 @@ import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
+import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ScriptArea } from "./ScriptArea";
 import { SocialArea } from "./SocialArea";
@@ -95,20 +96,29 @@ export function SectionContainerCoreResizable({
           sectionTypeName={sectionTypeName}
         />
         <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
+        <Button
+          grid={false}
+          twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-500 dark:text-runcoder-300 dark:bg-runcoder-700/25 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
+          onClick={toggleDescVis}
+        >
+          <BiInfoCircle className="z-[3] h-4 w-4" />
+          Versions
+        </Button>
 
-        {!isInfo && hasDescription && (
+        {/* {!isInfo && hasDescription && (
           <Button
             grid={false}
             twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-500 dark:text-runcoder-300 dark:bg-runcoder-700/25 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg"
             onClick={toggleDescVis}
           >
             <BiInfoCircle className="z-[3] h-4 w-4" />
-            Info
+            Versions
           </Button>
-        )}
+        )} */}
       </CustomResizable>
+      <VersionList sectionId={sectionId} />
 
-      {!isInfo && <SectionDescription sectionId={sectionId} />}
+      {/* {!isInfo && <SectionDescription sectionId={sectionId} />} */}
     </>
   );
 }

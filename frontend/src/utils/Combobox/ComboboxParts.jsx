@@ -78,7 +78,7 @@ function _ComboboxItem({
   itemStyle = "",
   itemString,
 }) {
-  const bg = isHighlighted ? "bg-runcoder-300/50 dark:bg-runcoder-800/50l" : "";
+  const bg = isHighlighted ? "bg-runcoder-300/50 dark:bg-runcoder-900/50" : "";
   return (
     <dd
       className={`mx-1 cursor-pointer truncate rounded-xl px-2 py-1 text-xs ${bg} ${itemStyle}`}
