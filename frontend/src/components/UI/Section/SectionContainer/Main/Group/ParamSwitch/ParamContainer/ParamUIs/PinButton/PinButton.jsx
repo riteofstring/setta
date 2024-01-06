@@ -9,7 +9,7 @@ function PinButton({ variants }) {
       size="h-3 w-3"
       icon={<MdOutlinePushPin />}
       color="[&>*]:text-transparent group-hover/arg-group:[&>*]:text-runcoder-400 dark:group-hover/arg-group:[&>*]:text-runcoder-400 hover:[&>*]:!text-runcoder-800 dark:hover:[&>*]:!text-runcoder-100"
-      bg="bg-transparent mb-1 p-1 transition-colors duration-150    focus-visible:ring-2  z-20"
+      bg="bg-transparent p-1 transition-colors duration-150 focus-visible:ring-2"
     />
   );
 }
