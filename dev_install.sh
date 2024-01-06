@@ -1,5 +1,3 @@
-cd frontend && \
-npm install --legacy-peer-deps && \
-cd .. && \
+./npm_install.sh && \
 . ./init_env.sh dev && \
 ./cleanup.sh
