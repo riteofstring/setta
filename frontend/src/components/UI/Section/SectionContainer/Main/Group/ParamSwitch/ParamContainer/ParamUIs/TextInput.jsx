@@ -126,6 +126,7 @@ function ctrlClick(e) {
       clientX,
       clientY,
       ctrlKey: true,
+      relatedTarget: e.target,
     });
 
     e.target.style.pointerEvents = "none";
@@ -162,7 +163,7 @@ function ActualInput({ inputValue, handleInputChange }) {
         className="card-value card-value-display h-5 min-w-0 overflow-hidden pb-1 text-xs font-normal leading-normal dark:text-runcoder-300"
       >
         <code>
-          <StyledText value={inputValue} inputRef={inputRef} />
+          <StyledText value={inputValue} />
         </code>
       </pre>
     </>
@@ -173,7 +174,7 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function StyledText({ value, inputRef }) {
+function StyledText({ value }) {
   const names = [];
   const colorMap = {};
   for (const s of Object.values(useSectionInfos.getState().x)) {
@@ -202,7 +203,7 @@ function StyledText({ value, inputRef }) {
       <span
         key={index}
         style={{ color }}
-        onClick={getOnTextInputVariableClick(color, segment, inputRef)}
+        onClick={getOnTextInputVariableClick(color, segment)}
       >
         {segment}
       </span>
@@ -210,7 +211,7 @@ function StyledText({ value, inputRef }) {
   });
 }
 
-function getOnTextInputVariableClick(color, variable, inputRef) {
+function getOnTextInputVariableClick(color, variable) {
   if (color) {
     return (e) => {
       if (e.ctrlKey) {
@@ -223,7 +224,7 @@ function getOnTextInputVariableClick(color, variable, inputRef) {
         const id = section?.id;
         if (id) {
           e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-          inputRef.current.blur();
+          e.relatedTarget.blur(); //blur the input field we just clicked on
           goToSection(id);
         }
       }
