@@ -1,13 +1,10 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { FiSettings } from "react-icons/fi";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { CreateNewEnteredValuesButton } from "./CreateNewEnteredValuesButton/CreateNewEnteredValuesButton";
-import { DeriveButton } from "./DeriveButton/DeriveButton";
-import { FreezeButton } from "./FreezeButton/FreezeButton";
-import { MultirunButton } from "./MultiRunButton/MultiRunButton";
-import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton/SaveCustomArgumentsButton";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
-function MenuButton({ sectionId }) {
+function MenuButton() {
   // hover:bg-runcoder-100 dark:hover:bg-runcoder-900
   return (
     <Menubar.Root>
@@ -16,14 +13,20 @@ function MenuButton({ sectionId }) {
         rounded="rounded-full"
         triggerStyle="ml-1"
         trigger={
-          <FiSettings className="bg-transparent text-runcoder-300 transition-colors duration-150 hover:text-runcoder-500 focus-visible:ring-2 dark:text-runcoder-400/50 dark:hover:text-runcoder-300" />
+          <IconButton
+            icon={<FiSettings />}
+            twClasses="transition-colors duration-150 focus-visible:ring-2"
+            color="text-runcoder-300 hover:text-runcoder-500 dark:text-runcoder-400/50 dark:hover:text-runcoder-300"
+            bg="bg-transparent"
+          />
         }
       >
-        <SaveCustomArgumentsButton sectionId={sectionId} />
-        <CreateNewEnteredValuesButton sectionId={sectionId} />
-        <DeriveButton sectionId={sectionId} />
-        <MultirunButton sectionId={sectionId} />
-        <FreezeButton sectionId={sectionId} />
+        <MenuItem>Save</MenuItem>
+        <MenuItem>Save As</MenuItem>
+        <MenuItem>Versions</MenuItem>
+        <MenuItem>Derive</MenuItem>
+        <MenuItem>Multi-Run</MenuItem>
+        <MenuItem>Freeze</MenuItem>
       </MenuDropdown>
     </Menubar.Root>
   );

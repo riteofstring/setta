@@ -8,8 +8,6 @@ export type CodeInfoType = {
   defaultVal: string | null;
   children: string[];
   description: string;
-  isPinned: boolean;
-  isFrozen: boolean;
 };
 
 export enum RCType {

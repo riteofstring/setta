@@ -1,5 +1,4 @@
 import { toggleSectionDescription } from "hooks/useSectionDescription";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
@@ -14,7 +13,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
-  const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
 
   function onClick() {
     useActiveSection.getState().setId(sectionId);

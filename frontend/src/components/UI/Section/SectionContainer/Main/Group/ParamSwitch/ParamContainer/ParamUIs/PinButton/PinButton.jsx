@@ -1,27 +1,17 @@
-import { useCodeInfo } from "models/info/codeInfo";
 import { MdOutlinePushPin } from "react-icons/md";
-import { updateParams } from "thunks/sections/sectionContents";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 
-export function PinButton({ variants, sectionId, paramInfoId }) {
-  const isPinned = useCodeInfo((x) => x.x[paramInfoId].isPinned);
-
-  function onClick() {
-    useCodeInfo.getState().togglePinned(paramInfoId);
-    updateParams(sectionId);
-  }
-
+function PinButton({ variants }) {
   //hover:!bg-white dark:hover:!bg-runcoder-900
   return (
     <IconButton
       twClasses={`card-pin-btn ${variants}`}
       size="h-3 w-3"
       icon={<MdOutlinePushPin />}
-      color={` ${
-        isPinned ? "[&>*]:text-runcoder-400" : "[&>*]:text-transparent"
-      } group-hover/arg-group:[&>*]:text-runcoder-400 dark:group-hover/arg-group:[&>*]:text-runcoder-400 hover:[&>*]:!text-runcoder-800 dark:hover:[&>*]:!text-runcoder-100`}
+      color="[&>*]:text-transparent group-hover/arg-group:[&>*]:text-runcoder-400 dark:group-hover/arg-group:[&>*]:text-runcoder-400 hover:[&>*]:!text-runcoder-800 dark:hover:[&>*]:!text-runcoder-100"
       bg="bg-transparent group-hover/arg-group:bg-runcoder-800/75 p-1 transition-colors duration-150 focus-visible:ring-2"
-      onClick={onClick}
     />
   );
 }
+
+export default PinButton;

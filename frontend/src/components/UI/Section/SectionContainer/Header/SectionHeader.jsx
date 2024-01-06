@@ -37,7 +37,10 @@ function _SectionHeader({
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
-          <MenuButton sectionId={sectionId} />
+          {/* <SaveButton sectionId={sectionId} />
+          <ChainButton sectionId={sectionId} />
+          <MultirunButton /> */}
+          <MenuButton />
         </>
       )}
       {(isSeriesElement || _isRoot) && (
