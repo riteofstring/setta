@@ -6,6 +6,7 @@ import {
   GLOBAL_VARIABLES,
   INFO,
   OUTPUT,
+  PARAM_SWEEP,
   SCRIPT,
   SECTION,
   SOCIAL,
@@ -19,6 +20,7 @@ import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
+import { ParamSweepArea } from "./ParamSweepArea";
 import { ScriptArea } from "./ScriptArea";
 import { SocialArea } from "./SocialArea";
 import { VarControlArea } from "./VarControlArea";
@@ -141,6 +143,8 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <CodeArea sectionId={sectionId} />;
     case VAR_CONTROL:
       return <VarControlArea sectionId={sectionId} />;
+    case PARAM_SWEEP:
+      return <ParamSweepArea sectionId={sectionId} />;
     default:
       return null;
   }
