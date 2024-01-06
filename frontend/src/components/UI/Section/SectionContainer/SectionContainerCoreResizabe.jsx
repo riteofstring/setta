@@ -22,9 +22,7 @@ import { SectionDescription } from "./Main/SectionDescription/SectionDescription
 import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
-import { ScriptArea } from "./ScriptArea";
 import { SocialArea } from "./SocialArea";
-import { VarControlArea } from "./VarControlArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -55,18 +53,27 @@ export function SectionContainerCoreResizable({
     return "outline-transparent active:outline-cyan-300";
   };
 
+  const getBgColor = () => {
+    if (isGlobalVariables) {
+      return "bg-white dark:bg-black";
+    }
+    switch (sectionTypeName) {
+      case VAR_CONTROL:
+      case SCRIPT:
+      case CODE:
+        return "bg-white dark:bg-runcoder-900";
+      default:
+        return "bg-runcoder-50 dark:bg-runcoder-800";
+    }
+  };
+
   const outlineColor = getOutlineColor();
+  const bgColor = getBgColor();
 
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-runcoder-700";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${
-    isGlobalVariables
-      ? "bg-white dark:bg-black"
-      : sectionTypeName === VAR_CONTROL
-      ? "bg-white dark:bg-runcoder-900"
-      : "bg-runcoder-50 dark:bg-runcoder-800"
-  } card-grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} card-grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 
@@ -118,11 +125,11 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
     case GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} />;
     case SCRIPT:
-      return <ScriptArea sectionId={sectionId} />;
+      return <CodeArea sectionId={sectionId} codeType="script" />;
     case CODE:
-      return <CodeArea sectionId={sectionId} />;
+      return <CodeArea sectionId={sectionId} codeType="code" />;
     case VAR_CONTROL:
-      return <VarControlArea sectionId={sectionId} />;
+      return <CodeArea sectionId={sectionId} codeType="varControl" />;
     case PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
     default:
