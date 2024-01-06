@@ -7,6 +7,7 @@ import {
   useCurrInfoView,
   useSetCurrInfoView,
 } from "models/info/infoView";
+import React from "react";
 import { BiFilter } from "react-icons/bi";
 import { updateMapPosition } from "thunks/updateMapPosition";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
@@ -82,7 +83,7 @@ function TabContent(props) {
   );
 }
 
-function ProjectOverview() {
+const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
   const infoViewHandlers = useSetCurrInfoView(constInfoViews.OVERVIEW);
   const infoViewHandlersSearch = useSetCurrInfoView(
@@ -112,13 +113,13 @@ function ProjectOverview() {
       <InfoView />
     </>
   );
-}
+});
 
-function InfoViewBig() {
+const InfoViewBig = React.forwardRef(() => {
   const currInfoView = useCurrInfoView();
   return (
     <aside className="self-start overflow-clip text-runcoder-500 dark:text-runcoder-200">
       {currInfoView}
     </aside>
   );
-}
+});
