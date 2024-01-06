@@ -1,7 +1,3 @@
-// import { useSectionInfos } from "models/info/sectionInfos";
-// import ReactMarkdown from "react-markdown";
-// import remarkGfm from "remark-gfm";
-// import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
 export function VersionList({ sectionId }) {

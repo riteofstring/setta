@@ -1,7 +1,4 @@
-import {
-  toggleSectionDescription,
-  useSectionHasDescription,
-} from "hooks/useSectionDescription";
+import { toggleSectionDescription } from "hooks/useSectionDescription";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
@@ -14,7 +11,6 @@ import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionTypeName = useSectionTypeName(sectionId);
-  const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.id === sectionId);
 
@@ -41,7 +37,6 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         isSeriesElement={isSeriesElement}
         sectionTypeName={sectionTypeName}
         hasNested={hasNested}
-        hasDescription={hasDescription}
         isActiveSection={isActiveSection}
         toggleDescVis={() => toggleSectionDescription(sectionId)}
         isWrongType={false} // TODO add the logic for this
