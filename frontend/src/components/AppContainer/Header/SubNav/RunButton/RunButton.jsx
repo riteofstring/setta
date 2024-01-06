@@ -16,13 +16,5 @@ export function RunButton() {
       <RiPlayMiniFill />
       Run
     </MenuBarButton>
-    // <CodeGenPopover
-    //   trigger={
-
-    //   }
-    //   body={"Hmm"}
-    //   header={"Do we still need this?"}
-    //   closeButton={true}
-    // />
   );
 }
