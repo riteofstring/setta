@@ -79,7 +79,8 @@
           "size": {
             "width": 949,
             "height": 781
-          }
+          },
+          "isFrozen": false
         },
         "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e": {
           "id": "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e",
@@ -104,7 +105,8 @@
           "size": {
             "width": 476,
             "height": 237
-          }
+          },
+          "isFrozen": false
         },
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
@@ -129,7 +131,8 @@
           "size": {
             "width": 450,
             "height": "auto"
-          }
+          },
+          "isFrozen": false
         },
         "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
           "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
@@ -154,7 +157,8 @@
           "size": {
             "width": "auto",
             "height": 158
-          }
+          },
+          "isFrozen": false
         },
         "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
           "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
@@ -179,7 +183,8 @@
           "size": {
             "width": 450,
             "height": 141
-          }
+          },
+          "isFrozen": false
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
@@ -204,7 +209,8 @@
           "size": {
             "width": 450,
             "height": "auto"
-          }
+          },
+          "isFrozen": false
         },
         "e209e428-eea6-4e14-b61e-0648ec28dd76": {
           "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -232,7 +238,8 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          }
+          },
+          "isFrozen": false
         },
         "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7": {
           "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
@@ -257,7 +264,8 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          }
+          },
+          "isFrozen": false
         }
       },
       "evCols": {

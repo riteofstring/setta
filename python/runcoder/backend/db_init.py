@@ -20,7 +20,8 @@ def create_tables(db):
             rcType TEXT,
             defaultVal TEXT,
             description TEXT,
-            isPinned BOOLEAN
+            isPinned BOOLEAN,
+            isFrozen BOOLEAN
         );
         """,
         # CodeInfoCol model
@@ -54,6 +55,7 @@ def create_tables(db):
             script TEXT,
             code TEXT,
             varControl TEXT,
+            isFrozen BOOLEAN,
             FOREIGN KEY (chainedFromId) REFERENCES Section(id),
             FOREIGN KEY (evColId) REFERENCES EVColId(id),
             FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id),
