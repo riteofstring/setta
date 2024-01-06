@@ -38,7 +38,7 @@
     "@visx/tooltip": "3.0.0",
     "@vitejs/plugin-react": "4.0.0",
     "autoprefixer": "10.4.12",
-    "axios": "0.21.0",
+    "axios": "1.6.5",
     "d3-scale-chromatic": "3.0.0",
     "downshift": "8.2.3",
     "framer-motion": "4.1.17",
