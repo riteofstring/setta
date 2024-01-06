@@ -1,5 +1,4 @@
 import { javascript } from "@codemirror/lang-javascript";
-import { EditorView } from "@codemirror/view";
 import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
@@ -65,7 +64,7 @@ function Editor({ sectionId, value }) {
       theme={darkMode ? githubDarkTheme : githubLightTheme}
       height={`${height - 50}px`}
       width={`${width - 50}px`}
-      extensions={[javascript(), EditorView.lineWrapping]}
+      extensions={[javascript()]}
       onChange={onChange}
     />
   );
