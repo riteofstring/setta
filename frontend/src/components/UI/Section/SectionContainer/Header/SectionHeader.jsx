@@ -4,6 +4,7 @@ import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
+import FreezeButton from "./FreezeButton/FreezeButton";
 import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
 import { VersionsButton } from "./VersionsButton/VersionsButtons";
@@ -42,6 +43,7 @@ function _SectionHeader({
           <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
           <VersionsButton sectionId={sectionId} />
+          <FreezeButton />
         </>
       )}
       {(isSeriesElement || _isRoot) && (
