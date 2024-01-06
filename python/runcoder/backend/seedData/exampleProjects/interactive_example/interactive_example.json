@@ -49,8 +49,7 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          },
-          "isFrozen": false
+          }
         },
         "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
           "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -75,8 +74,7 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          },
-          "isFrozen": false
+          }
         }
       },
       "evCols": {
@@ -143,9 +141,7 @@
           "rcType": "parameter",
           "defaultVal": null,
           "children": [],
-          "description": "",
-          "isPinned": false,
-          "isFrozen": false
+          "description": ""
         },
         "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
           "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -154,9 +150,7 @@
           "rcType": "collection",
           "defaultVal": null,
           "children": ["20512036-3e0f-41f3-9738-6573ee71bdaf"],
-          "description": "",
-          "isPinned": false,
-          "isFrozen": false
+          "description": ""
         },
         "9193e5d1-544b-4490-99ee-f7ba34a0ed80": {
           "id": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
@@ -165,9 +159,7 @@
           "rcType": "collection",
           "defaultVal": null,
           "children": [],
-          "description": "",
-          "isPinned": false,
-          "isFrozen": false
+          "description": ""
         }
       },
       "userCodeInfoMaps": {},

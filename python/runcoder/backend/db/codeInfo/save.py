@@ -1,16 +1,14 @@
 def save_code_info(db, codeInfo):
     query = """
-        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, isPinned, isFrozen)
-        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :isPinned, :isFrozen)
+        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description)
+        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description)
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
             editable = :editable,
             rcType = :rcType,
             defaultVal = :defaultVal,
-            description = :description,
-            isPinned = :isPinned,
-            isFrozen = :isFrozen
+            description = :description
     """
 
     # insert into codeinfo table

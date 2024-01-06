@@ -17,8 +17,7 @@ def save_sections(db, sections):
             descriptionVisible,
             script,
             code,
-            varControl,
-            isFrozen
+            varControl
         )
         VALUES (
             :id,
@@ -37,8 +36,7 @@ def save_sections(db, sections):
             :descriptionVisible,
             :script,
             :code,
-            :varControl,
-            :isFrozen
+            :varControl
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -57,8 +55,7 @@ def save_sections(db, sections):
             descriptionVisible = :descriptionVisible,
             script = :script,
             code = :code,
-            varControl = :varControl,
-            isFrozen = :isFrozen
+            varControl = :varControl
     """
 
     query_params = [
@@ -80,7 +77,6 @@ def save_sections(db, sections):
             "script": s["script"],
             "code": s["code"],
             "varControl": s["varControl"],
-            "isFrozen": s["isFrozen"],
         }
         for s in sections.values()
     ]
