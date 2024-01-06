@@ -1,5 +1,27 @@
 import { SectionUITypeType, UITypeType } from "./types/uiType";
 
+const BASE_UI_TYPES = {};
+
+// Define an async function to load the JSON data
+function loadJsonData(filename) {
+  const isDevelopment = import.meta.env.DEV;
+  const response = isDevelopment
+    ? import(`./../../../seed/${filename}.json`)
+    : import(`./../seed/${filename}.json`);
+
+  response
+    .then((data) => {
+      for (const [k, v] of Object.entries(data.default)) {
+        BASE_UI_TYPES[k] = v;
+      }
+    })
+    .catch((error) => {
+      console.error("Error loading data:", error);
+    });
+}
+
+loadJsonData("BaseUITypes");
+
 export const TEXT = "TEXT";
 export const SLIDER = "SLIDER";
 export const SWITCH = "SWITCH";
