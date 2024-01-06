@@ -61,12 +61,3 @@ export function findAllParameters(allCodeInfo, codeInfoIds) {
     () => true
   );
 }
-
-export function findAll(allCodeInfo, codeInfoIds){
-  return _findAllDescendants(
-    allCodeInfo,
-    codeInfoIds,
-    () => true,
-    () => true
-  );
-}

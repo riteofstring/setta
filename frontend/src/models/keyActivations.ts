@@ -12,15 +12,15 @@ function attachEventListeners(state) {
   };
 
   for (const [attrName, cond] of Object.entries(conditions)) {
-    document.addEventListener("keydown", (e) =>
+    window.addEventListener("keydown", (e) =>
       state.getState().setActivation(attrName, cond(e))
     );
-    document.addEventListener("keyup", () =>
+    window.addEventListener("keyup", () =>
       state.getState().setActivation(attrName, false)
     );
   }
 
-  document.addEventListener("blur", () => state.getState().reset());
+  window.addEventListener("blur", () => state.getState().reset());
 
   return state;
 }
