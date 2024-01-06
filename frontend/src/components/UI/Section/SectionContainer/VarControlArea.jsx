@@ -1,8 +1,12 @@
 import { javascript } from "@codemirror/lang-javascript";
+import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useSettings } from "models/settings";
 import React from "react";
+
+const darkMode = useSettings((x) => x.darkMode);
 
 function _VarControlArea({ sectionId }) {
   const value = useGetSectionInfo(sectionId, "varControl");
@@ -20,6 +24,20 @@ function _VarControlArea({ sectionId }) {
   //   placeholder="JSON, state 'em..."
   //   spellCheck={false}
   // />
+
+  // theme={
+  //   darkMode
+  //     ? githubDarkInit({
+  //         settings: {
+  //           background: "ffffff0",
+  //         },
+  //       })
+  //     : githubLightInit({
+  //         settings: {
+  //           background: "ffffff0",
+  //         },
+  //       })
+  // }
 
   return (
     <article className="nodrag card-code mb-2">
@@ -40,6 +58,7 @@ function Editor({ sectionId, value }) {
   return (
     <CodeMirror
       value={value}
+      theme={darkMode ? githubDark : githubLight}
       height={`${height - 50}px`}
       width={`${width - 50}px`}
       extensions={[javascript()]}
