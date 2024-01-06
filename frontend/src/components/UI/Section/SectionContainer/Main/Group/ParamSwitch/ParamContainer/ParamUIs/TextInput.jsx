@@ -1,6 +1,8 @@
 import { useCombobox } from "downshift";
+import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
+import { goToSection } from "thunks/goToSection";
 import { getSectionType } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
@@ -27,22 +29,6 @@ export function TextInput({
   };
   // const classes =
   //   "nodrag flex-1 w-full whitespace-nowrap truncate focus:text-clip  cursor-auto  text-xs outline-none font-code ";
-
-  // window.onTextInputVariableClick = function (e, variableType, variable) {
-  //   if (e.ctrlKey) {
-  //     const section = _.find(useSectionInfos.getState().x, (s) =>
-  //       variableType === "global"
-  //         ? getSectionType(s.id).type === GLOBAL_VARIABLES
-  //         : s.name === variable
-  //     );
-  //     const id = section?.id;
-  //     if (id) {
-  //       e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-  //       e.srcElement.parentElement.blur(); //don't leave cursor behind
-  //       goToSection(id);
-  //     }
-  //   }
-  // };
 
   // const styledText = getStyledText(value);
 
@@ -152,7 +138,9 @@ function ActualInput({ inputValue, handleInputChange }) {
         ref={preRef}
         className="card-value card-value-display h-5 min-w-0 overflow-hidden pb-1 text-xs font-normal leading-normal dark:text-runcoder-300"
       >
-        <code>{inputValue}</code>
+        <code>
+          <StyledText value={inputValue} />
+        </code>
       </pre>
     </>
   );
@@ -162,72 +150,138 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function findVariableOccurrences(code, variables) {
-  // Escape special characters and create a regex pattern with word boundaries
-  const escapedVariables = variables.map(escapeRegExp).filter((v) => v);
-
-  // Check if there are no variables to match
-  if (escapedVariables.length === 0) {
-    return [];
-  }
-
-  const pattern = new RegExp(`\\b(${escapedVariables.join("|")})\\b`, "g");
-
-  const occurrences = [];
-  let match;
-
-  // Use matchAll to find all occurrences
-  while ((match = pattern.exec(code)) !== null) {
-    occurrences.push({
-      variable: match[1],
-      start: match.index,
-      end: match.index + match[1].length,
-    });
-  }
-
-  return occurrences;
-}
-
-function colorCodeVariables(code, sectionVarOccurrences, globalVarOccurrences) {
-  // Tagging each occurrence with its type and merging them
-  const taggedOccurrences = [
-    ...sectionVarOccurrences.map((occ) => ({ ...occ, type: "section" })),
-    ...globalVarOccurrences.map((occ) => ({ ...occ, type: "global" })),
-  ];
-
-  // Sorting the merged occurrences by start index
-  taggedOccurrences.sort((a, b) => a.start - b.start);
-
-  let lastIndex = 0;
-  let result = "";
-
-  taggedOccurrences.forEach(({ variable, start, end, type }) => {
-    result += code.substring(lastIndex, start);
-    const color = type === "section" ? "red" : "green";
-    result += `<span style="color: ${color};" onclick="onTextInputVariableClick(event, '${type}', '${variable}')">${variable}</span>`;
-    lastIndex = end;
-  });
-
-  result += code.substring(lastIndex);
-
-  return result;
-}
-
-// TODO make more efficient
-function getStyledText(value) {
-  const sectionNames = [];
-  const globalVarNames = [];
+function StyledText({ value }) {
+  const names = [];
+  const colorMap = {};
   for (const s of Object.values(useSectionInfos.getState().x)) {
     if (getSectionType(s.id).type === GLOBAL_VARIABLES) {
-      globalVarNames.push(...getParamInfos(s.id).map((x) => x.name));
+      names.push(
+        ...getParamInfos(s.id).map((x) => {
+          const curr = escapeRegExp(x.name);
+          colorMap[curr] = "green";
+          return curr;
+        })
+      );
     } else {
-      sectionNames.push(s.name);
+      const curr = escapeRegExp(s.name);
+      colorMap[curr] = "red";
+      names.push(curr);
     }
   }
-  const sectionVarOccurrences = findVariableOccurrences(value, sectionNames);
-  const globalVarOccurrences = findVariableOccurrences(value, globalVarNames);
-  return colorCodeVariables(value, sectionVarOccurrences, globalVarOccurrences);
+
+  const pattern = new RegExp(`\\b(${names.join("|")})\\b`, "g");
+
+  // Split text into segments
+  const segments = value.split(pattern);
+  return (
+    <>
+      {segments.map((segment, index) => {
+        const color = colorMap[segment];
+        return (
+          <span
+            key={index}
+            style={{ color }}
+            onClick={getOnTextInputVariableClick(color, segment)}
+          >
+            {segment}
+          </span>
+        );
+      })}
+    </>
+  );
 }
+
+function getOnTextInputVariableClick(color, variable) {
+  if (color) {
+    console.log("returning clickable");
+    return (e) => {
+      console.log("onClick");
+      if (e.ctrlKey) {
+        console.log("onCLick");
+        const variableType = color === "green" ? "global" : "section";
+        const section = _.find(useSectionInfos.getState().x, (s) =>
+          variableType === "global"
+            ? getSectionType(s.id).type === GLOBAL_VARIABLES
+            : s.name === variable
+        );
+        const id = section?.id;
+        if (id) {
+          // e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+          // e.srcElement.parentElement.blur(); //don't leave cursor behind
+          goToSection(id);
+        }
+      }
+    };
+  }
+  return undefined;
+}
+
+// function findVariableOccurrences(code, variables) {
+//   // Escape special characters and create a regex pattern with word boundaries
+//   const escapedVariables = variables.map(escapeRegExp).filter((v) => v);
+
+//   // Check if there are no variables to match
+//   if (escapedVariables.length === 0) {
+//     return [];
+//   }
+
+//   const pattern = new RegExp(`\\b(${escapedVariables.join("|")})\\b`, "g");
+
+//   const occurrences = [];
+//   let match;
+
+//   // Use matchAll to find all occurrences
+//   while ((match = pattern.exec(code)) !== null) {
+//     occurrences.push({
+//       variable: match[1],
+//       start: match.index,
+//       end: match.index + match[1].length,
+//     });
+//   }
+
+//   return occurrences;
+// }
+
+// function colorCodeVariables(code, sectionVarOccurrences, globalVarOccurrences) {
+//   // Tagging each occurrence with its type and merging them
+//   const taggedOccurrences = [
+//     ...sectionVarOccurrences.map((occ) => ({ ...occ, type: "section" })),
+//     ...globalVarOccurrences.map((occ) => ({ ...occ, type: "global" })),
+//   ];
+
+//   // Sorting the merged occurrences by start index
+//   taggedOccurrences.sort((a, b) => a.start - b.start);
+
+//   let lastIndex = 0;
+//   let result = "";
+
+//   taggedOccurrences.forEach(({ variable, start, end, type }) => {
+//     result += code.substring(lastIndex, start);
+//     const color = type === "section" ? "red" : "green";
+//     result += `<span style="color: ${color};" onclick="onTextInputVariableClick(event, '${type}', '${variable}')">${variable}</span>`;
+//     lastIndex = end;
+//   });
+
+//   result += code.substring(lastIndex);
+
+//   return result;
+// }
+
+// // TODO make more efficient
+// function getStyledText(value) {
+//   const sectionNames = [];
+//   const globalVarNames = [];
+//   for (const s of Object.values(useSectionInfos.getState().x)) {
+//     if (getSectionType(s.id).type === GLOBAL_VARIABLES) {
+//       globalVarNames.push(...getParamInfos(s.id).map((x) => x.name));
+//     } else {
+//       sectionNames.push(s.name);
+//     }
+//   }
+//   const sectionVarOccurrences = findVariableOccurrences(value, sectionNames);
+//   const globalVarOccurrences = findVariableOccurrences(value, globalVarNames);
+//   return colorCodeVariables(value, sectionVarOccurrences, globalVarOccurrences);
+// }
 
 function useTextFieldCombobox({ allItems, updateValue }) {
   const [valSelectedByArrow, setValSelectedByArrow] = useState("");
