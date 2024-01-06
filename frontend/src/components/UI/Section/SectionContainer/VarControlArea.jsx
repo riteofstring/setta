@@ -1,6 +1,7 @@
 import { javascript } from "@codemirror/lang-javascript";
 import CodeMirror from "@uiw/react-codemirror";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
 
 function _VarControlArea({ sectionId }) {
@@ -22,15 +23,16 @@ function _VarControlArea({ sectionId }) {
 
   return (
     <article className="nodrag card-code mb-2">
-      <Editor value={value} />
+      <Editor sectionId={sectionId} value={value} />
     </article>
   );
 }
 
 export const VarControlArea = React.memo(_VarControlArea);
 
-function Editor({ value }) {
+function Editor({ sectionId, value }) {
   // const [value, setValue] = React.useState("console.log('hello world!');");
+  const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
   const onChange = React.useCallback((val, viewUpdate) => {
     console.log("val:", val);
     setValue(val);
@@ -38,7 +40,8 @@ function Editor({ value }) {
   return (
     <CodeMirror
       value={value}
-      // height="200px"
+      height={`${height - 50}px`}
+      width={`${width - 50}px`}
       extensions={[javascript()]}
       onChange={onChange}
     />
