@@ -17,7 +17,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
 
   return (
     <article
-      className={` card-arg-group group/arg-group -mx-2 -my-1 justify-between rounded-lg py-1  px-2  hover:bg-runcoder-200/10 dark:hover:bg-runcoder-700/25  ${border}`}
+      className={` card-arg-group group/arg-group -mx-2 -my-1 justify-between rounded-lg py-1  px-2  hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25  ${border}`}
       {...infoViewHandlers}
     >
       {children}
@@ -27,7 +27,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
         defaultVal={paramInfo.defaultVal}
         isDisabled={!paramInfo.name}
       />
-      <OverrideButton variants="justify-self-end self-center" />
+      <OverrideButton variants="justify-self-end self-center -mr-4" />
     </article>
   );
 }
