@@ -9,6 +9,7 @@ export type CodeInfoType = {
   children: string[];
   description: string;
   isPinned: boolean;
+  isFrozen: boolean;
 };
 
 export enum RCType {

@@ -192,7 +192,8 @@
           "defaultVal": null,
           "children": [],
           "description": "",
-          "isPinned": false
+          "isPinned": false,
+          "isFrozen": false
         },
         "20fe3b32-be65-4b59-9f32-013435901dcc": {
           "id": "20fe3b32-be65-4b59-9f32-013435901dcc",
@@ -202,7 +203,8 @@
           "defaultVal": null,
           "children": [],
           "description": "",
-          "isPinned": false
+          "isPinned": false,
+          "isFrozen": false
         },
         "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": {
           "id": "5f91dbfe-6ae2-4741-a434-f56544cf5bd3",
@@ -212,7 +214,8 @@
           "defaultVal": null,
           "children": [],
           "description": "",
-          "isPinned": false
+          "isPinned": false,
+          "isFrozen": false
         },
         "6b0467c1-584c-436c-8d18-5a86fa6eddfa": {
           "id": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
@@ -222,7 +225,8 @@
           "defaultVal": null,
           "children": [],
           "description": "",
-          "isPinned": false
+          "isPinned": false,
+          "isFrozen": false
         },
         "b1318655-3495-4d2d-8fef-89a138386641": {
           "id": "b1318655-3495-4d2d-8fef-89a138386641",
@@ -232,7 +236,8 @@
           "defaultVal": null,
           "children": [],
           "description": "",
-          "isPinned": false
+          "isPinned": false,
+          "isFrozen": false
         },
         "cbf1bb45-39f1-433f-9107-a790449a47bc": {
           "id": "cbf1bb45-39f1-433f-9107-a790449a47bc",
@@ -242,7 +247,8 @@
           "defaultVal": null,
           "children": [],
           "description": "",
-          "isPinned": false
+          "isPinned": false,
+          "isFrozen": false
         },
         "ceb322b7-b346-4a16-aedc-484c4ecf7b4e": {
           "id": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
@@ -257,7 +263,8 @@
             "b1318655-3495-4d2d-8fef-89a138386641"
           ],
           "description": "",
-          "isPinned": false
+          "isPinned": false,
+          "isFrozen": false
         }
       },
       "userCodeInfoMaps": {},

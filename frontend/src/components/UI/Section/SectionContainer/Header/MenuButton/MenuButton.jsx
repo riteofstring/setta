@@ -4,6 +4,7 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { DeriveButton } from "./DeriveButton/DeriveButton";
+import { FreezeButton } from "./FreezeButton/FreezeButton";
 
 function MenuButton({ sectionId }) {
   // hover:bg-runcoder-100 dark:hover:bg-runcoder-900
@@ -27,7 +28,7 @@ function MenuButton({ sectionId }) {
         <MenuItem>Versions</MenuItem>
         <DeriveButton sectionId={sectionId} />
         <MenuItem>Multi-Run</MenuItem>
-        <MenuItem>Freeze</MenuItem>
+        <FreezeButton sectionId={sectionId} />
       </MenuDropdown>
     </Menubar.Root>
   );
