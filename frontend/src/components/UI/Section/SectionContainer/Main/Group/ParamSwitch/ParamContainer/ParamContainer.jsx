@@ -3,16 +3,20 @@ import { useSetCurrInfoView } from "models/info/infoView";
 import { useTypeErrors } from "models/typeErrors";
 import React from "react";
 import { ParamInput } from "./ParamItems/ParamInput";
-import PinButton from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const border = maybeErrorMessage ? "border-red-600 border-2" : "";
 
+  // ${isKwarg
+  //     ? "ml-0 flex-grow gap-4"
+  //     : "  ml-6 flex-1 gap-4"
+  // }
+
   return (
     <article
-      className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg py-1  px-2  hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25  ${border}`}
+      className={` card-arg-group -mx-2 justify-between rounded-lg px-2  hover:bg-runcoder-200/10 dark:hover:bg-runcoder-700/25  ${border}`}
       {...infoViewHandlers}
     >
       {children}
@@ -22,7 +26,6 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
         defaultVal={paramInfo.defaultVal}
         isDisabled={!paramInfo.name}
       />
-      <PinButton variants="justify-self-end self-center " />
     </article>
   );
 }

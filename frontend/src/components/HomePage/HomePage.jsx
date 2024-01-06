@@ -125,7 +125,7 @@ const ProjectItem = forwardRef(
     // bg-[url('https://via.placeholder.com/400')]
 
     const itemStyles =
-      "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-runcoder-600 gap-0";
+      "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-slate-600 gap-0";
 
     return (
       <div ref={forwardedRef} className={itemStyles}>
@@ -156,7 +156,7 @@ function ThumbnailArea({
   onSelectProject,
 }) {
   return (
-    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-runcoder-300 bg-center p-4 dark:bg-runcoder-600">
+    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-slate-300 bg-center p-4 dark:bg-runcoder-600">
       <aside className="col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <IconButton
           icon={<IoMdCheckmark />}
@@ -170,7 +170,7 @@ function ThumbnailArea({
         <StandardDropdown
           trigger={
             <div
-              className="flex items-center gap-1 rounded-full bg-runcoder-200 py-1 px-2 text-xs  hover:bg-runcoder-50 dark:bg-runcoder-700 dark:text-runcoder-300 dark:hover:bg-runcoder-500"
+              className="flex items-center gap-1 rounded-full bg-slate-200 py-1 px-2 text-xs  hover:bg-slate-50 dark:bg-runcoder-700 dark:text-runcoder-300 dark:hover:bg-slate-500"
               onClick={onClickConfigsButton}
             >
               <BiGitBranch />
@@ -184,7 +184,7 @@ function ThumbnailArea({
 
       <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
-        svgStyles="fill-runcoder-200"
+        svgStyles="fill-slate-200"
       />
     </div>
   );

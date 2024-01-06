@@ -2,9 +2,11 @@ import React from "react";
 import { deleteChild } from "thunks/sections/deleteChild";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
+import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
-import MenuButton from "./MenuButton/MenuButton";
+import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
+import { VersionsButton } from "./VersionsButton/VersionsButtons";
 
 function _SectionHeader({
   sectionId,
@@ -37,10 +39,9 @@ function _SectionHeader({
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
-          {/* <SaveButton sectionId={sectionId} />
+          <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
-          <MultirunButton /> */}
-          <MenuButton />
+          <VersionsButton sectionId={sectionId} />
         </>
       )}
       {(isSeriesElement || _isRoot) && (
@@ -65,7 +66,7 @@ function _SectionHeader({
 
 function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
   const titleProps = {
-    editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full ${
+    editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-slate-200 rounded-full w-full ${
       isGlobalVariables
         ? "uppercase font-black tracking-widest"
         : "font-semibold"
