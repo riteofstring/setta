@@ -1,4 +1,5 @@
 import { javascript } from "@codemirror/lang-javascript";
+// import { EditorView } from "@codemirror/view";
 import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
@@ -40,9 +41,10 @@ function _VarControlArea({ sectionId }) {
   //   placeholder="JSON, state 'em..."
   //   spellCheck={false}
   // />
+  // extensions={[javascript(), EditorView.lineWrapping]}
 
   return (
-    <article className="nodrag card-code mb-2">
+    <article className="nodrag nowheel card-code mb-2 cursor-auto overflow-clip">
       <Editor sectionId={sectionId} value={value} />
     </article>
   );
@@ -62,8 +64,8 @@ function Editor({ sectionId, value }) {
     <CodeMirror
       value={value}
       theme={darkMode ? githubDarkTheme : githubLightTheme}
-      height={`${height - 50}px`}
-      width={`${width - 50}px`}
+      height={`${height - 64}px`}
+      width={`${width - 16}px`}
       extensions={[javascript()]}
       onChange={onChange}
     />

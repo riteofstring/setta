@@ -10,11 +10,6 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const border = maybeErrorMessage ? "border-red-600 border-2" : "";
 
-  // ${isKwarg
-  //     ? "ml-0 flex-grow gap-4"
-  //     : "  ml-6 flex-1 gap-4"
-  // }
-
   return (
     <article
       className={` card-arg-group group/arg-group -mx-2 -my-1 justify-between rounded-lg py-1  px-2  hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25  ${border}`}
