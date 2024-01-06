@@ -21,3 +21,7 @@ export function useGetSectionInfo<K extends keyof SectionType>(
 export function useSectionInfoNames() {
   return useSectionInfos((x) => _.mapValues(x.x, (y) => y.name), _.isEqual);
 }
+
+export function useSectionHasMultipleEVCols(sectionId) {
+  return useSectionInfos((x) => x.x[sectionId].evColIds.length > 1);
+}

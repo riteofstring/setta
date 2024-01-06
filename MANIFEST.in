@@ -1,4 +1,2 @@
-include python/runcoder/frontend/*
-include python/runcoder/frontend/assets/*
-include python/runcoder/backend/seedData/*.json
-include python/runcoder/backend/seedData/exampleProjects/*.json
+recursive-include python/runcoder/frontend *
+recursive-include python/runcoder/seed *

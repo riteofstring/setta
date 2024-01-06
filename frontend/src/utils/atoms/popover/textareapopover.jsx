@@ -17,7 +17,7 @@ export function TextAreaPopover({
   return (
     <StandardPopover
       trigger={trigger}
-      contentClasses="bg-slate-200 dark:bg-runcoder-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm"
+      contentClasses="bg-runcoder-200 dark:bg-runcoder-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm"
       popoverContent={
         <Content
           header={header}
