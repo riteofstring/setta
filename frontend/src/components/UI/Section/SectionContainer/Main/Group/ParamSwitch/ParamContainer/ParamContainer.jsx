@@ -22,7 +22,11 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
         defaultVal={paramInfo.defaultVal}
         isDisabled={!paramInfo.name}
       />
-      <PinButton variants="justify-self-end self-center " />
+      <PinButton
+        sectionId={sectionId}
+        paramInfoId={paramInfo.id}
+        variants="justify-self-end self-center"
+      />
     </article>
   );
 }

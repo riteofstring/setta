@@ -35,6 +35,10 @@ export const useCodeInfo = createProjectState(
         set((state) => {
           state.x[id].description = description;
         }),
+      togglePinned: (id) =>
+        set((state) => {
+          state.x[id].isPinned = !state.x[id].isPinned;
+        }),
       deleteInfo: ({ id, parent }) =>
         set((state) => {
           state.x = _.omit(state.x, [id]);

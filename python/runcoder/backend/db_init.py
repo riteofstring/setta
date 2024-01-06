@@ -19,7 +19,8 @@ def create_tables(db):
             editable BOOLEAN,
             rcType TEXT,
             defaultVal TEXT,
-            description TEXT
+            description TEXT,
+            isPinned BOOLEAN
         );
         """,
         # CodeInfoCol model
