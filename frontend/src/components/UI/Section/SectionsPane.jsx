@@ -47,10 +47,9 @@ function _SectionsPane({
     setNodes(initialNodes);
   }, [initialNodes]);
 
-  function onPaneClick(e) {
+  function onPaneClick() {
     closeCtxMenus();
-    useActiveSection.getState().clear();
-    REACT_FLOW_STORE.lastPaneClickLocation = { x: e.clientX, y: e.clientY };
+    useActiveSection.getState().setId(null);
   }
 
   return (

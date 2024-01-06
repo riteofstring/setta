@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { temporal } from "zundo";
 import { createProjectState } from "./utils";
 
@@ -10,14 +9,9 @@ type ActiveSectionZustandType = ActiveSectionStateType &
 
 export const useActiveSection = createProjectState(
   temporal<ActiveSectionZustandType>((set) => ({
-    ids: [],
+    id: null,
     version: 0,
-    setIds: (payload) => set({ ids: [payload] }),
-    addIds: (payload) =>
-      set((state) => ({ ids: [...new Set([...state.ids, ...payload])] })),
-    removeIds: (payload) =>
-      set((state) => ({ ids: _.difference(state.ids, payload) })),
-    clear: () => set({ ids: [] }),
+    setId: (payload) => set(() => ({ id: payload })),
   }))
 );
 

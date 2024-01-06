@@ -23,15 +23,11 @@ const paneProps = {
 };
 
 export function UiEditor() {
-  const sectionIds = useActiveSection((x) => x.ids);
+  const sectionId = useActiveSection((x) => x.id);
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
-      {sectionIds.length === 1 ? (
-        <TabsVisible sectionId={sectionIds[0]} />
-      ) : (
-        <Placeholder />
-      )}
+      {sectionId ? <TabsVisible sectionId={sectionId} /> : <Placeholder />}
     </PaneContainer>
   );
 }

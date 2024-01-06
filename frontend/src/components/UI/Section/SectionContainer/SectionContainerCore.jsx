@@ -13,11 +13,11 @@ import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
-  const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
+  const isActiveSection = useActiveSection((x) => x.id === sectionId);
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
 
   function onClick() {
-    useActiveSection.getState().addIds([sectionId]);
+    useActiveSection.getState().setId(sectionId);
     const topMostAncestor = getHighestAncestor(sectionId);
     setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
   }
