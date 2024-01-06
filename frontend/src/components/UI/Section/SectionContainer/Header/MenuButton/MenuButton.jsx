@@ -3,8 +3,9 @@ import { FiSettings } from "react-icons/fi";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
+import { DeriveButton } from "./DeriveButton/DeriveButton";
 
-function MenuButton() {
+function MenuButton({ sectionId }) {
   // hover:bg-runcoder-100 dark:hover:bg-runcoder-900
   return (
     <Menubar.Root>
@@ -24,7 +25,7 @@ function MenuButton() {
         <MenuItem>Save</MenuItem>
         <MenuItem>Save As</MenuItem>
         <MenuItem>Versions</MenuItem>
-        <MenuItem>Derive</MenuItem>
+        <DeriveButton sectionId={sectionId} />
         <MenuItem>Multi-Run</MenuItem>
         <MenuItem>Freeze</MenuItem>
       </MenuDropdown>
