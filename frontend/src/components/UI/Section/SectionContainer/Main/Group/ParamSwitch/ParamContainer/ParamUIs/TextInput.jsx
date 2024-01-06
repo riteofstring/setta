@@ -113,6 +113,28 @@ export function TextInput({
   );
 }
 
+function ctrlClick(e) {
+  if (e.ctrlKey) {
+    e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+    const { clientX, clientY } = e;
+
+    // Simulate click on the underlying element
+    const simulatedEvent = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX,
+      clientY,
+      ctrlKey: true,
+    });
+
+    e.target.style.pointerEvents = "none";
+    const elementBelow = document.elementFromPoint(clientX, clientY);
+    e.target.style.pointerEvents = "";
+    elementBelow.dispatchEvent(simulatedEvent);
+  }
+}
+
 function ActualInput({ inputValue, handleInputChange }) {
   const inputRef = useRef(null);
   const preRef = useRef(null);
@@ -130,16 +152,17 @@ function ActualInput({ inputValue, handleInputChange }) {
         ref={inputRef}
         value={inputValue}
         onChange={handleInputChange}
-        className="nodrag card-value font-code min-h-5 z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 border-x-0 border-t-0 border-b border-solid border-runcoder-300 p-0 pb-1 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:focus-visible:border-blue-400"
+        className="nodrag card-value font-code min-h-5 z-[2] row-span-1 h-[calc(1.25rem-2px)] min-w-0 border-x-0 border-t-0 border-b border-solid border-runcoder-300 p-0 pb-1 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:focus-visible:border-blue-400"
         spellCheck={false}
         onScroll={syncScroll}
+        onClick={ctrlClick}
       />
       <pre
         ref={preRef}
         className="card-value card-value-display h-5 min-w-0 overflow-hidden pb-1 text-xs font-normal leading-normal dark:text-runcoder-300"
       >
         <code>
-          <StyledText value={inputValue} />
+          <StyledText value={inputValue} inputRef={inputRef} />
         </code>
       </pre>
     </>
@@ -150,7 +173,7 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function StyledText({ value }) {
+function StyledText({ value, inputRef }) {
   const names = [];
   const colorMap = {};
   for (const s of Object.values(useSectionInfos.getState().x)) {
@@ -173,31 +196,24 @@ function StyledText({ value }) {
 
   // Split text into segments
   const segments = value.split(pattern);
-  return (
-    <>
-      {segments.map((segment, index) => {
-        const color = colorMap[segment];
-        return (
-          <span
-            key={index}
-            style={{ color }}
-            onClick={getOnTextInputVariableClick(color, segment)}
-          >
-            {segment}
-          </span>
-        );
-      })}
-    </>
-  );
+  return segments.map((segment, index) => {
+    const color = colorMap[segment];
+    return (
+      <span
+        key={index}
+        style={{ color }}
+        onClick={getOnTextInputVariableClick(color, segment, inputRef)}
+      >
+        {segment}
+      </span>
+    );
+  });
 }
 
-function getOnTextInputVariableClick(color, variable) {
+function getOnTextInputVariableClick(color, variable, inputRef) {
   if (color) {
-    console.log("returning clickable");
     return (e) => {
-      console.log("onClick");
       if (e.ctrlKey) {
-        console.log("onCLick");
         const variableType = color === "green" ? "global" : "section";
         const section = _.find(useSectionInfos.getState().x, (s) =>
           variableType === "global"
@@ -206,8 +222,8 @@ function getOnTextInputVariableClick(color, variable) {
         );
         const id = section?.id;
         if (id) {
-          // e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-          // e.srcElement.parentElement.blur(); //don't leave cursor behind
+          e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+          inputRef.current.blur();
           goToSection(id);
         }
       }
@@ -215,73 +231,6 @@ function getOnTextInputVariableClick(color, variable) {
   }
   return undefined;
 }
-
-// function findVariableOccurrences(code, variables) {
-//   // Escape special characters and create a regex pattern with word boundaries
-//   const escapedVariables = variables.map(escapeRegExp).filter((v) => v);
-
-//   // Check if there are no variables to match
-//   if (escapedVariables.length === 0) {
-//     return [];
-//   }
-
-//   const pattern = new RegExp(`\\b(${escapedVariables.join("|")})\\b`, "g");
-
-//   const occurrences = [];
-//   let match;
-
-//   // Use matchAll to find all occurrences
-//   while ((match = pattern.exec(code)) !== null) {
-//     occurrences.push({
-//       variable: match[1],
-//       start: match.index,
-//       end: match.index + match[1].length,
-//     });
-//   }
-
-//   return occurrences;
-// }
-
-// function colorCodeVariables(code, sectionVarOccurrences, globalVarOccurrences) {
-//   // Tagging each occurrence with its type and merging them
-//   const taggedOccurrences = [
-//     ...sectionVarOccurrences.map((occ) => ({ ...occ, type: "section" })),
-//     ...globalVarOccurrences.map((occ) => ({ ...occ, type: "global" })),
-//   ];
-
-//   // Sorting the merged occurrences by start index
-//   taggedOccurrences.sort((a, b) => a.start - b.start);
-
-//   let lastIndex = 0;
-//   let result = "";
-
-//   taggedOccurrences.forEach(({ variable, start, end, type }) => {
-//     result += code.substring(lastIndex, start);
-//     const color = type === "section" ? "red" : "green";
-//     result += `<span style="color: ${color};" onclick="onTextInputVariableClick(event, '${type}', '${variable}')">${variable}</span>`;
-//     lastIndex = end;
-//   });
-
-//   result += code.substring(lastIndex);
-
-//   return result;
-// }
-
-// // TODO make more efficient
-// function getStyledText(value) {
-//   const sectionNames = [];
-//   const globalVarNames = [];
-//   for (const s of Object.values(useSectionInfos.getState().x)) {
-//     if (getSectionType(s.id).type === GLOBAL_VARIABLES) {
-//       globalVarNames.push(...getParamInfos(s.id).map((x) => x.name));
-//     } else {
-//       sectionNames.push(s.name);
-//     }
-//   }
-//   const sectionVarOccurrences = findVariableOccurrences(value, sectionNames);
-//   const globalVarOccurrences = findVariableOccurrences(value, globalVarNames);
-//   return colorCodeVariables(value, sectionVarOccurrences, globalVarOccurrences);
-// }
 
 function useTextFieldCombobox({ allItems, updateValue }) {
   const [valSelectedByArrow, setValSelectedByArrow] = useState("");
