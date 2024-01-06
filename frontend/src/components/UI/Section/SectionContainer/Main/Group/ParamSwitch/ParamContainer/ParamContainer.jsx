@@ -16,7 +16,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
 
   return (
     <article
-      className={` card-arg-group -mx-2 -my-1 justify-between rounded-lg py-1  px-2  hover:bg-runcoder-200/10 dark:hover:bg-runcoder-700/25  ${border}`}
+      className={` card-arg-group -mx-2 -my-1 justify-between rounded-lg py-1 px-2  hover:bg-runcoder-200/10 dark:hover:bg-runcoder-700/25  ${border}`}
       {...infoViewHandlers}
     >
       {children}
