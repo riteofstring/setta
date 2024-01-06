@@ -3,7 +3,7 @@ import { useSetCurrInfoView } from "models/info/infoView";
 import { useTypeErrors } from "models/typeErrors";
 import React from "react";
 import { ParamInput } from "./ParamItems/ParamInput";
-import OverrideButton from "./ParamUIs/OverrideButton/OverrideButton";
+import PinButton from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
@@ -22,7 +22,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
         defaultVal={paramInfo.defaultVal}
         isDisabled={!paramInfo.name}
       />
-      <OverrideButton variants="justify-self-end self-center -mr-4" />
+      <PinButton variants="justify-self-end self-center " />
     </article>
   );
 }

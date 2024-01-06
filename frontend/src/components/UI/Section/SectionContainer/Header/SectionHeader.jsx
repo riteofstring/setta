@@ -2,12 +2,9 @@ import React from "react";
 import { deleteChild } from "thunks/sections/deleteChild";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
-import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
-import FreezeButton from "./FreezeButton/FreezeButton";
-import { SaveButton } from "./SaveButton/SaveButton";
+import MenuButton from "./MenuButton/MenuButton";
 import { SectionTitle } from "./Title/SectionTitle";
-import { VersionsButton } from "./VersionsButton/VersionsButtons";
 
 function _SectionHeader({
   sectionId,
@@ -40,10 +37,11 @@ function _SectionHeader({
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
-          <SaveButton sectionId={sectionId} />
+          {/* <SaveButton sectionId={sectionId} />
           <ChainButton sectionId={sectionId} />
           <VersionsButton sectionId={sectionId} />
-          <FreezeButton />
+          <MultirunButton /> */}
+          <MenuButton />
         </>
       )}
       {(isSeriesElement || _isRoot) && (

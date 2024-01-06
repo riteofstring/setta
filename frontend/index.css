@@ -97,8 +97,15 @@
   grid-column: 3 / 5;
 }
 
+.card-key {
+  grid-column:1 / 2;
+  grid-row-start: -1;
+
+}
+
 .card-value {
-  grid-column:4 / 5;
+  grid-column:2 / 3;
+  grid-row-start: -1;
 
 }
 
@@ -118,8 +125,8 @@
   grid-column: 2 / 6;
 }
 
-.card-override-btn {
-  grid-column: 3/7;
+.card-pin-btn {
+  grid-column: 1/2;
   grid-row: -1 / span 1;
 }
 

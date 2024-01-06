@@ -11,6 +11,8 @@ const githubDarkTheme = githubDarkInit({
   settings: {
     background: "#ffffff00",
     gutterBackground: "#FFFFFF00",
+    // fontFamily:
+    //   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;",
     // gutterForeground: "#4D4D4C00",
     gutterBorder: "#dddddd00",
   },
@@ -21,6 +23,8 @@ const githubLightTheme = githubLightInit({
     background: "#ffffff00",
     gutterBackground: "#FFFFFF00",
     // gutterForeground: "#4D4D4C00",
+    // fontFamily:
+    //   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;",
     gutterBorder: "#dddddd00",
   },
 });
