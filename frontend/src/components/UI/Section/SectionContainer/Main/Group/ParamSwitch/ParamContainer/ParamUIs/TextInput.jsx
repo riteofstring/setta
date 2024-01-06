@@ -102,17 +102,20 @@ export function TextInput({
           <StyledText value={value} />
         </code>
       </pre>
-      <ComboboxTextFieldList
-        isOpen={isOpen}
-        getMenuProps={getMenuProps}
-        width={width}
-      >
-        <ComboboxItems
-          filteredItems={allItems}
-          getItemProps={getItemProps}
-          highlightedIndex={highlightedIndex}
-        />
-      </ComboboxTextFieldList>
+      <div className="card-value-combobox relative">
+        <ComboboxTextFieldList
+          isOpen={isOpen}
+          getMenuProps={getMenuProps}
+          width={width}
+          variants=""
+        >
+          <ComboboxItems
+            filteredItems={allItems}
+            getItemProps={getItemProps}
+            highlightedIndex={highlightedIndex}
+          />
+        </ComboboxTextFieldList>
+      </div>
     </>
   );
 }

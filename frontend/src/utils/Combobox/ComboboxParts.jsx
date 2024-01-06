@@ -56,12 +56,13 @@ export function ComboboxTextFieldList({
   getMenuProps,
   width,
   position = "fixed",
+  variants,
 }) {
   const display = isOpen ? "flex" : "hidden";
 
   return (
     <div
-      className={`nowheel nodrag fixed w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-6 max-h-96  rounded-2xl border bg-white shadow-sm dark:border-runcoder-500/20 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-md dark:shadow-runcoder-900/75`}
+      className={`nowheel nodrag ${display} ${position} z-20 mt-6 max-h-96 w-full min-w-[150px] rounded-2xl border bg-white px-1 pt-1 pb-2 shadow-sm dark:border-runcoder-500/20 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-md dark:shadow-runcoder-900/75 ${variants}`}
       {...getMenuProps()}
       style={{ width }}
     >
