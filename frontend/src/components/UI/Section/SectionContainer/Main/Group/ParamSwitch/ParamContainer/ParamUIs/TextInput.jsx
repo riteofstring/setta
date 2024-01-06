@@ -129,17 +129,14 @@ export function TextInput({
 
 function ActualInput({ inputValue, handleInputChange }) {
   const inputRef = useRef(null);
-  const [cursorPosition, setCursorPosition] = useState(0);
+  const preRef = useRef(null);
 
-  const handleInputSelect = () => {
-    if (inputRef.current) {
-      setCursorPosition(inputRef.current.selectionStart);
+  function syncScroll() {
+    if (preRef.current && inputRef.current) {
+      preRef.current.scrollTop = inputRef.current.scrollTop;
+      preRef.current.scrollLeft = inputRef.current.scrollLeft;
     }
-  };
-  console.log("cursorPosition", cursorPosition);
-
-  const beforeCursor = inputValue.slice(0, cursorPosition);
-  const afterCursor = inputValue.slice(cursorPosition);
+  }
 
   return (
     <>
@@ -147,21 +144,15 @@ function ActualInput({ inputValue, handleInputChange }) {
         ref={inputRef}
         value={inputValue}
         onChange={handleInputChange}
-        className="nodrag card-value font-code min-h-5 z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-t-0 border-b border-solid border-runcoder-300 p-0 pb-1 font-mono text-xs font-normal leading-normal text-transparent outline-none focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:focus-visible:border-blue-400"
+        className="nodrag card-value font-code min-h-5 z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 border-x-0 border-t-0 border-b border-solid border-runcoder-300 p-0 pb-1 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:focus-visible:border-blue-400"
         spellCheck={false}
-        onSelect={handleInputSelect}
+        onScroll={syncScroll}
       />
-      <pre className="card-value card-value-display h-5  min-w-0 overflow-x-clip pb-1 text-xs font-normal leading-normal dark:text-runcoder-300">
-        <code>
-          <span className="relative">
-            {beforeCursor}
-            <span
-              className="blink-cursor absolute h-full w-[1px] bg-black dark:bg-white"
-              style={{ left: `${cursorPosition}ch` }}
-            />
-            {afterCursor}
-          </span>
-        </code>
+      <pre
+        ref={preRef}
+        className="card-value card-value-display h-5 min-w-0 overflow-hidden pb-1 text-xs font-normal leading-normal dark:text-runcoder-300"
+      >
+        <code>{inputValue}</code>
       </pre>
     </>
   );
