@@ -1,5 +1,5 @@
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
-export const SECTIONWIDTH = 350;
+export const SECTIONWIDTH = 250;
 export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
