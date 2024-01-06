@@ -70,7 +70,7 @@ export function SectionContainerCoreResizable({
     isGlobalVariables
       ? "bg-white dark:bg-black"
       : sectionTypeName === VAR_CONTROL
-      ? "bg-runcoder-50 dark:bg-runcoder-900"
+      ? "bg-white dark:bg-runcoder-900"
       : "bg-runcoder-50 dark:bg-runcoder-800"
   } card-grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"

@@ -1,12 +1,28 @@
 import { javascript } from "@codemirror/lang-javascript";
-import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
+import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
 import CodeMirror from "@uiw/react-codemirror";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSettings } from "models/settings";
 import React from "react";
 
-const darkMode = useSettings((x) => x.darkMode);
+const githubDarkTheme = githubDarkInit({
+  settings: {
+    background: "#ffffff00",
+    gutterBackground: "#FFFFFF00",
+    // gutterForeground: "#4D4D4C00",
+    gutterBorder: "#dddddd00",
+  },
+});
+
+const githubLightTheme = githubLightInit({
+  settings: {
+    background: "#ffffff00",
+    gutterBackground: "#FFFFFF00",
+    // gutterForeground: "#4D4D4C00",
+    gutterBorder: "#dddddd00",
+  },
+});
 
 function _VarControlArea({ sectionId }) {
   const value = useGetSectionInfo(sectionId, "varControl");
@@ -25,20 +41,6 @@ function _VarControlArea({ sectionId }) {
   //   spellCheck={false}
   // />
 
-  // theme={
-  //   darkMode
-  //     ? githubDarkInit({
-  //         settings: {
-  //           background: "ffffff0",
-  //         },
-  //       })
-  //     : githubLightInit({
-  //         settings: {
-  //           background: "ffffff0",
-  //         },
-  //       })
-  // }
-
   return (
     <article className="nodrag card-code mb-2">
       <Editor sectionId={sectionId} value={value} />
@@ -49,7 +51,8 @@ function _VarControlArea({ sectionId }) {
 export const VarControlArea = React.memo(_VarControlArea);
 
 function Editor({ sectionId, value }) {
-  // const [value, setValue] = React.useState("console.log('hello world!');");
+  const darkMode = useSettings((x) => x.darkMode);
+  // const [value, setValue] = React.useState("console.log('hello world!');git pu");
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
   const onChange = React.useCallback((val, viewUpdate) => {
     console.log("val:", val);
@@ -58,7 +61,7 @@ function Editor({ sectionId, value }) {
   return (
     <CodeMirror
       value={value}
-      theme={darkMode ? githubDark : githubLight}
+      theme={darkMode ? githubDarkTheme : githubLightTheme}
       height={`${height - 50}px`}
       width={`${width - 50}px`}
       extensions={[javascript()]}
