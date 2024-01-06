@@ -17,7 +17,9 @@ export function PinButton({ variants, sectionId, paramInfoId }) {
       twClasses={`card-pin-btn ${variants}`}
       size="h-3 w-3"
       icon={<MdOutlinePushPin />}
-      color="[&>*]:text-transparent group-hover/arg-group:[&>*]:text-runcoder-400 dark:group-hover/arg-group:[&>*]:text-runcoder-400 hover:[&>*]:!text-runcoder-800 dark:hover:[&>*]:!text-runcoder-100"
+      color={` ${
+        isPinned ? "[&>*]:text-runcoder-400" : "[&>*]:text-transparent"
+      } group-hover/arg-group:[&>*]:text-runcoder-400 dark:group-hover/arg-group:[&>*]:text-runcoder-400 hover:[&>*]:!text-runcoder-800 dark:hover:[&>*]:!text-runcoder-100`}
       bg="bg-transparent group-hover/arg-group:bg-runcoder-800/75 p-1 transition-colors duration-150 focus-visible:ring-2"
       onClick={onClick}
     />
