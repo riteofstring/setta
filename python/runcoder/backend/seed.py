@@ -11,6 +11,7 @@ from .utils.utils import get_absolute_path
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 seed_folder = Path("../../../seed") if dev_mode else Path("../seed")
 
+
 def seed_base_ui_types(db):
     with open(get_absolute_path(__file__, seed_folder / "BaseUITypes.json"), "r") as f:
         data = json.load(f)

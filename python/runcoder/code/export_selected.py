@@ -8,6 +8,7 @@ from ..utils.constants import (
     GLOBAL_VARIABLES,
     INFO,
     LIST_ROOT,
+    PARAM_SWEEP,
     SCRIPT,
     SECTION,
     VAR_CONTROL,
@@ -129,7 +130,14 @@ class Exporter:
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
                 self.export_params(id, generate_var_name=False)
-            if section_type in [GLOBAL_VARIABLES, SCRIPT, CODE, VAR_CONTROL, INFO]:
+            if section_type in [
+                GLOBAL_VARIABLES,
+                SCRIPT,
+                CODE,
+                VAR_CONTROL,
+                INFO,
+                PARAM_SWEEP,
+            ]:
                 to_pop.append(id)
         for id in to_pop:
             self.p["sections"].pop(id)
