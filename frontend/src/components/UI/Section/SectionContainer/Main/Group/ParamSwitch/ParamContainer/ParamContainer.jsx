@@ -4,7 +4,7 @@ import { useSetCurrInfoView } from "models/info/infoView";
 import { useTypeErrors } from "models/typeErrors";
 import React from "react";
 import { ParamInput } from "./ParamItems/ParamInput";
-import PinButton from "./ParamUIs/PinButton/PinButton";
+import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");

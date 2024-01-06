@@ -3,7 +3,7 @@ import { MdOutlinePushPin } from "react-icons/md";
 import { updateParams } from "thunks/sections/sectionContents";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 
-function PinButton({ variants, sectionId, paramInfoId }) {
+export function PinButton({ variants, sectionId, paramInfoId }) {
   const isPinned = useCodeInfo((x) => x.x[paramInfoId].isPinned);
 
   function onClick() {
@@ -23,5 +23,3 @@ function PinButton({ variants, sectionId, paramInfoId }) {
     />
   );
 }
-
-export default PinButton;
