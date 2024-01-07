@@ -3,7 +3,12 @@ import { REACT_FLOW_STORE } from "utils/constants";
 import { loadSectionIntoState } from "./createSectionOrDeck";
 
 export async function pasteSections() {
-  const x = JSON.parse(await navigator.clipboard.readText());
+  let x;
+  try {
+    x = JSON.parse(await navigator.clipboard.readText());
+  } catch {
+    return;
+  }
   if (x.copyType === "sections") {
     const res = await dbPasteSections(x.data);
     if (res.status === 200) {
