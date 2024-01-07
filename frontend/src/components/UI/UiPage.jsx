@@ -20,7 +20,7 @@ export function UIPage() {
     (x) => x.children,
     _.isEqual
   );
-  const initialNodes = _.map(topLevelSectionPositions, (v, k) => ({
+  const initialNodes = _.mapValues(topLevelSectionPositions, (v, k) => ({
     id: k,
     position: { x: v.x, y: v.y },
     type: "sectionContainerNode",

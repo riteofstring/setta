@@ -1,7 +1,7 @@
 import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
-import React from "react";
-import ReactFlow, { useNodesState } from "reactflow";
+import React, { useCallback, useState } from "react";
+import ReactFlow from "reactflow";
 import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
@@ -45,6 +45,39 @@ function onInit(rf) {
   REACT_FLOW_STORE.rf = rf;
 }
 
+function applyNodeChanges(changes, nodes) {
+  const newNodes = { ...nodes };
+  for (const c of changes) {
+    switch (c.type) {
+      case "position": {
+        if (typeof c.position !== "undefined") {
+          newNodes[c.id].position = c.position;
+        }
+        break;
+      }
+      case "add": {
+        newNodes[c.item.id] = c.item;
+        break;
+      }
+      case "remove": {
+        delete newNodes[c.id];
+        break;
+      }
+      // case "dimensions": {
+      //   if (typeof c.dimensions !== "undefined") {
+      //     console.log(newNodes[c.id])
+      //     if (!newNodes[c.id].computed) {
+      //       newNodes[c.id].computed = {};
+      //     }
+      //     newNodes[c.id].computed.width = c.dimensions.width;
+      //     newNodes[c.id].computed.height = c.dimensions.height;
+      //   }
+      // }
+    }
+  }
+  return newNodes;
+}
+
 function _SectionsPane({
   initialNodes,
   viewport,
@@ -53,7 +86,12 @@ function _SectionsPane({
   openSelectionCtxMenu,
   openNodeCtxMenu,
 }) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes] = useState(initialNodes);
+
+  const onNodesChange = useCallback(
+    (changes) => setNodes((x) => applyNodeChanges(changes, x)),
+    []
+  );
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
@@ -68,7 +106,7 @@ function _SectionsPane({
 
   return (
     <ReactFlow
-      nodes={nodes}
+      nodes={Object.values(nodes)}
       minZoom={0.1}
       maxZoom={10}
       nodeTypes={nodeTypes}
