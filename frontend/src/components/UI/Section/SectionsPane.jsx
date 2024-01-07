@@ -29,6 +29,10 @@ function onSelectionDragStop(e, nodes) {
   setPositionAndZIndices(nodes);
 }
 
+function onSelectionChange({ nodes }) {
+  useActiveSection.getState().setIds(nodes.map((x) => x.id));
+}
+
 function onInit(rf) {
   REACT_FLOW_STORE.rf = rf;
 }
@@ -50,7 +54,8 @@ function _SectionsPane({
   function onPaneClick(e) {
     closeCtxMenus();
     useActiveSection.getState().clear();
-    REACT_FLOW_STORE.lastPaneClickLocation = { x: e.clientX, y: e.clientY };
+    REACT_FLOW_STORE.lastPaneClickLocation =
+      REACT_FLOW_STORE.rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
   }
 
   return (
@@ -72,6 +77,7 @@ function _SectionsPane({
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
+      onSelectionChange={onSelectionChange}
       onInit={onInit}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"

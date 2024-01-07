@@ -1,4 +1,4 @@
-from ...utils.utils import remap_ids
+from ...utils.utils import remap_ids, rename_keys
 from ..codeInfo.copy import copy_code_info
 from ..enteredValues.copy import copy_ev_cols
 from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
@@ -47,3 +47,7 @@ def copy_sections_and_other_info(x):
         "sections": new_sections,
         "section_id_map": section_id_map,
     }
+
+
+def copy_relative_positions(relative_positions, section_id_map):
+    return rename_keys(relative_positions, section_id_map)

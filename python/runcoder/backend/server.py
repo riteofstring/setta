@@ -29,7 +29,7 @@ from .db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from .db.sections.copy import copy_sections_and_other_info
+from .db.sections.copy import copy_relative_positions, copy_sections_and_other_info
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
@@ -346,5 +346,8 @@ def route_sections():
 @app.post("/sections/makeCopy")
 def route_sections_make_copy(x: SectionsMakeCopyRequest):
     output = copy_sections_and_other_info(x.sectionsAndOtherInfo)
+    relativePositions = copy_relative_positions(
+        x.sectionsAndOtherInfo["relativePositions"], output["section_id_map"]
+    )
     output.pop("section_id_map")
-    return output
+    return {**output, "relativePositions": relativePositions}

@@ -2,6 +2,7 @@ import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { findAll } from "z_utils/getDescendants";
@@ -17,9 +18,17 @@ export async function copySections() {
   const codeInfo = getCodeInfo(sections);
   const evCols = getEVCols(sections);
   const uiTypeCols = getUITypeCols(sections);
+  const relativePositions = getRelativePositions(sections);
   await navigator.clipboard.writeText(
     JSON.stringify({
-      data: { sections, uiTypes, codeInfo, evCols, uiTypeCols },
+      data: {
+        sections,
+        uiTypes,
+        codeInfo,
+        evCols,
+        uiTypeCols,
+        relativePositions,
+      },
       copyType: "sections",
     })
   );
@@ -56,4 +65,28 @@ function getUITypeCols(sections) {
     useParamInfos.getState().y,
     _.map(sections, (x) => x.uiTypeColId)
   );
+}
+
+function getRelativePositions(sections) {
+  const positions = _.pick(
+    useProjectConfig.getState().children,
+    _.map(sections, (x) => x.id)
+  );
+
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const p of Object.values(positions)) {
+    if (p.x < minX) {
+      minX = p.x;
+    }
+    if (p.y < minY) {
+      minY = p.y;
+    }
+  }
+
+  return _.mapValues(positions, (v) => ({
+    x: v.x - minX,
+    y: v.y - minY,
+    zIndex: v.zIndex,
+  }));
 }
