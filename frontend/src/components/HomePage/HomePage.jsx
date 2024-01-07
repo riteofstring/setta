@@ -161,9 +161,9 @@ function ThumbnailArea({
         <IconButton
           icon={<IoMdCheckmark />}
           color="text-white/50 hover:text-white"
-          bg={`bg-runcoder-300/25 hover:bg-blue-500 ${
-            isSelected ? "bg-blue-500" : ""
-          }`}
+          bg={
+            isSelected ? "bg-blue-500" : "bg-runcoder-300/25 hover:bg-blue-500"
+          }
           size="w-4 h-4"
           onClick={(e) => onSelectProject(e, project.id)}
         />
