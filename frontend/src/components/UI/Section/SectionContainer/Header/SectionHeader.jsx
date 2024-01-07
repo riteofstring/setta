@@ -1,4 +1,6 @@
 import React from "react";
+import { IoLogoJavascript } from "react-icons/io";
+import { SiGnubash, SiPython } from "react-icons/si";
 import { deleteChild } from "thunks/sections/deleteChild";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
@@ -25,6 +27,7 @@ function _SectionHeader({
   };
 
   const _isRoot = isRoot(sectionTypeName);
+  const classes = "text-runcoder-400/50 dark:text-runcoder-400/50 ml-2";
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -37,6 +40,12 @@ function _SectionHeader({
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
+          {sectionTypeName === "CODE" && <SiPython className={classes} />}
+          {sectionTypeName === "SCRIPT" && <SiGnubash className={classes} />}
+          {sectionTypeName === "VAR_CONTROL" && (
+            <IoLogoJavascript className={classes} />
+          )}
+
           <MenuButton sectionId={sectionId} />
         </>
       )}
