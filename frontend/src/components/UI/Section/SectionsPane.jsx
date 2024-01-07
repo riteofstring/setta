@@ -73,6 +73,7 @@ function _SectionsPane({
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
       onInit={onInit}
+      nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
     />
   );

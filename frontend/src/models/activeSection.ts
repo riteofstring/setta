@@ -12,7 +12,7 @@ export const useActiveSection = createProjectState(
   temporal<ActiveSectionZustandType>((set) => ({
     ids: [],
     version: 0,
-    setIds: (payload) => set({ ids: [payload] }),
+    setIds: (payload) => set({ ids: payload }),
     addIds: (payload) =>
       set((state) => ({ ids: [...new Set([...state.ids, ...payload])] })),
     removeIds: (payload) =>

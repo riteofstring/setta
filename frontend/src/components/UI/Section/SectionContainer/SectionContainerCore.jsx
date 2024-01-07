@@ -16,8 +16,12 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
 
-  function onClick() {
-    useActiveSection.getState().addIds([sectionId]);
+  function onClick(e) {
+    if (!e.ctrlKey) {
+      useActiveSection.getState().setIds([sectionId]);
+    } else {
+      useActiveSection.getState().addIds([sectionId]);
+    }
     const topMostAncestor = getHighestAncestor(sectionId);
     setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
   }

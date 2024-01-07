@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect } from "react";
 import { useStoreApi } from "reactflow";
@@ -24,6 +25,7 @@ export function UIPage() {
     position: { x: v.x, y: v.y },
     type: "sectionContainerNode",
     zIndex: v.zIndex,
+    selected: useActiveSection.getState().ids.includes(k),
     style: { visibility: "visible" }, // needed to prevent flickering
   }));
 
