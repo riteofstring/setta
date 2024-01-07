@@ -24,7 +24,7 @@
     "@radix-ui/react-switch": "1.0.1",
     "@radix-ui/react-tabs": "1.0.1",
     "@radix-ui/react-tooltip": "1.0.2",
-    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/container-queries": "0.1.1",
     "@tailwindcss/typography": "0.5.9",
     "@uiw/codemirror-theme-github": "4.21.21",
     "@uiw/react-codemirror": "4.21.21",
