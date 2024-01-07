@@ -43,6 +43,14 @@ export const useCodeInfo = createProjectState(
         set((state) => {
           state.x[id].isSelected = !state.x[id].isSelected;
         }),
+      clearSelected: () =>
+        set((state) => {
+          for (const [id, c] of Object.entries(state.x)) {
+            if (c.isSelected) {
+              state.x[id].isSelected = false;
+            }
+          }
+        }),
       setIsFrozen: ({ ids, isFrozen }) =>
         set((state) => {
           for (const id of ids) {

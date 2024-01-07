@@ -1,4 +1,5 @@
 import { useActiveSection } from "models/activeSection";
+import { useCodeInfo } from "models/info/codeInfo";
 import React, { useCallback, useState } from "react";
 import ReactFlow from "reactflow";
 import "reactflow/dist/style.css";
@@ -32,6 +33,13 @@ function onSelectionChange({ nodes }) {
 
 function onInit(rf) {
   REACT_FLOW_STORE.rf = rf;
+}
+
+function onPaneClickHelper(e) {
+  useActiveSection.getState().clear();
+  useCodeInfo.getState().clearSelected();
+  REACT_FLOW_STORE.lastPaneClickLocation =
+    REACT_FLOW_STORE.rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
 }
 
 // This is a bit more efficient than the one returned by react flow's useNodesState.
@@ -83,9 +91,7 @@ function _SectionsPane({
 
   function onPaneClick(e) {
     closeCtxMenus();
-    useActiveSection.getState().clear();
-    REACT_FLOW_STORE.lastPaneClickLocation =
-      REACT_FLOW_STORE.rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    onPaneClickHelper(e);
   }
 
   return (
