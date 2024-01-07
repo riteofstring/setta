@@ -74,6 +74,9 @@ export function attachKeyEventListeners() {
   };
 }
 
+
+// Below functions are used in various onClick functions
+
 export function multiSectionSelect(e) {
   return e.ctrlKey && !e.shiftKey;
 }

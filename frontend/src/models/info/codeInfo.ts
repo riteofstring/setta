@@ -39,6 +39,10 @@ export const useCodeInfo = createProjectState(
         set((state) => {
           state.x[id].isPinned = !state.x[id].isPinned;
         }),
+      toggleSelected: (id) =>
+        set((state) => {
+          state.x[id].isSelected = !state.x[id].isSelected;
+        }),
       setIsFrozen: ({ ids, isFrozen }) =>
         set((state) => {
           for (const id of ids) {

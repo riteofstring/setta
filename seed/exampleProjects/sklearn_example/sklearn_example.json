@@ -80,7 +80,8 @@
             "width": 949,
             "height": 781
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e": {
           "id": "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e",
@@ -106,7 +107,8 @@
             "width": 476,
             "height": 237
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
@@ -132,7 +134,8 @@
             "width": 450,
             "height": "auto"
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
           "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
@@ -158,7 +161,8 @@
             "width": "auto",
             "height": 158
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
           "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
@@ -184,7 +188,8 @@
             "width": 450,
             "height": 141
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
@@ -210,7 +215,8 @@
             "width": 450,
             "height": "auto"
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "e209e428-eea6-4e14-b61e-0648ec28dd76": {
           "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -239,7 +245,8 @@
             "width": "auto",
             "height": "auto"
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7": {
           "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
@@ -265,7 +272,8 @@
             "width": "auto",
             "height": "auto"
           },
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         }
       },
       "evCols": {
@@ -532,7 +540,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "0aa0f46a-e923-4528-a411-500cbda6e77b": {
           "id": "0aa0f46a-e923-4528-a411-500cbda6e77b",
@@ -543,7 +552,8 @@
           "description": "If int, it is the total number of points equally divided among\nclusters.\nIf array-like, each element of the sequence indicates\nthe number of samples per cluster.\n\n.. versionchanged:: v0.20\n    one can now pass an array-like to the ``n_samples`` parameter",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "159e0416-3873-469b-915b-1f186579c380": {
           "id": "159e0416-3873-469b-915b-1f186579c380",
@@ -554,7 +564,8 @@
           "description": "The number of features for each sample.",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
           "id": "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af",
@@ -565,7 +576,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "20619c35-a36c-4833-b329-e090c95b5af9": {
           "id": "20619c35-a36c-4833-b329-e090c95b5af9",
@@ -576,7 +588,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "2fae73d3-5756-42a9-beb0-7465b92ac626": {
           "id": "2fae73d3-5756-42a9-beb0-7465b92ac626",
@@ -587,7 +600,8 @@
           "description": "Shuffle the samples.",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "39ed839d-f632-4373-9d72-6ce95b5bc265": {
           "id": "39ed839d-f632-4373-9d72-6ce95b5bc265",
@@ -598,7 +612,8 @@
           "description": "Determines random number generation for dataset creation. Pass an int\nfor reproducible output across multiple function calls.\nSee :term:`Glossary <random_state>`.",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "3e15081a-9ca5-48bf-9159-9a95331a7894": {
           "id": "3e15081a-9ca5-48bf-9159-9a95331a7894",
@@ -609,7 +624,8 @@
           "description": "The bounding box for each cluster center when centers are\ngenerated at random.",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "3e754333-caea-451a-abba-dd254c49502f": {
           "id": "3e754333-caea-451a-abba-dd254c49502f",
@@ -620,7 +636,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
           "id": "4e70c873-ead7-4c5a-b3a0-fe504e73ad27",
@@ -631,7 +648,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "669986a2-03d6-4de4-af41-f9395cf0ef57": {
           "id": "669986a2-03d6-4de4-af41-f9395cf0ef57",
@@ -642,7 +660,8 @@
           "description": "The standard deviation of the clusters.",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
           "id": "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
@@ -653,7 +672,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
           "id": "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2",
@@ -664,7 +684,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
           "id": "70f4e095-c286-4379-a5f5-4d02df40e1a5",
@@ -675,7 +696,8 @@
           "description": "If True, then return the centers of each cluster.\n\n.. versionadded:: 0.23",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
           "id": "7ae757c9-9327-4931-95a3-bc200f7e10b7",
@@ -686,7 +708,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "7b4b2118-7cbf-4275-8582-90c66a966441": {
           "id": "7b4b2118-7cbf-4275-8582-90c66a966441",
@@ -697,7 +720,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "7c9308a4-e6d4-47dc-84a3-3d524de3fff2": {
           "id": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2",
@@ -708,7 +732,8 @@
           "description": "",
           "children": ["c9a3e19c-6876-468a-a9a1-6f289c9367eb"],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
           "id": "8a10b368-9a0e-4390-b2f7-bd4ff27570d3",
@@ -719,7 +744,8 @@
           "description": "The number of centers to generate, or the fixed center locations.\nIf n_samples is an int and centers is None, 3 centers are generated.\nIf n_samples is array-like, centers must be\neither None or an array of length equal to the length of n_samples.",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
           "id": "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5",
@@ -730,7 +756,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "97527bec-4c63-44c9-9994-3424a5dffb7e": {
           "id": "97527bec-4c63-44c9-9994-3424a5dffb7e",
@@ -741,7 +768,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
           "id": "97e83315-adfc-4d50-a8ab-a8c34082eb93",
@@ -752,7 +780,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "a382ec28-c244-4c90-9a58-a7c83a8512ea": {
           "id": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
@@ -766,7 +795,8 @@
             "4e70c873-ead7-4c5a-b3a0-fe504e73ad27"
           ],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "b30e8ce3-35db-4b39-8ff4-9da3123ce71b": {
           "id": "b30e8ce3-35db-4b39-8ff4-9da3123ce71b",
@@ -777,7 +807,8 @@
           "description": "",
           "children": ["bb52a19f-d69c-4973-94ae-c1d85596cbb7"],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "b7c4ac1c-532c-4196-80ee-51ee87971737": {
           "id": "b7c4ac1c-532c-4196-80ee-51ee87971737",
@@ -788,7 +819,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "bb52a19f-d69c-4973-94ae-c1d85596cbb7": {
           "id": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
@@ -810,7 +842,8 @@
             "03ee6530-d464-461c-a989-b310ee2d9b95"
           ],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "c066af9f-42b4-4359-8b44-cf774c400e81": {
           "id": "c066af9f-42b4-4359-8b44-cf774c400e81",
@@ -821,7 +854,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "c2c05abc-dd95-4071-8f37-cb2019919bce": {
           "id": "c2c05abc-dd95-4071-8f37-cb2019919bce",
@@ -832,7 +866,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "c9a3e19c-6876-468a-a9a1-6f289c9367eb": {
           "id": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
@@ -852,7 +887,8 @@
             "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2"
           ],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
 
         "f049a26a-cdfa-4424-9795-57bfa100a3b5": {
@@ -864,7 +900,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         },
         "f4d65a12-49f4-4da5-9362-70f0df53ee10": {
           "id": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
@@ -875,7 +912,8 @@
           "description": "",
           "children": [],
           "isPinned": false,
-          "isFrozen": false
+          "isFrozen": false,
+          "isSelected": false
         }
       },
       "userCodeInfoMaps": {},
