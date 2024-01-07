@@ -2,10 +2,10 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
-import { copySections } from "./copySections";
+import { copy } from "./copy/copy";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";
-import { pasteSections } from "./pasteSections";
+import { paste } from "./paste/paste";
 import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 
@@ -50,8 +50,8 @@ export function attachKeyEventListeners() {
     [ctrlPlus("l"), openLoadModal],
     [ctrlShiftPlus("S"), openSaveAsModal],
     [ctrlPlus("k"), focusOnArgsFilter],
-    ["copy", copySections], // Builtin copy event (ctrl-c)
-    ["paste", pasteSections], // Builtin paste event (ctrl-v)
+    ["copy", copy], // Builtin copy event (ctrl-c)
+    ["paste", paste], // Builtin paste event (ctrl-v)
   ];
 
   const cleanup_functions = [];
@@ -74,7 +74,6 @@ export function attachKeyEventListeners() {
   };
 }
 
-
 // Below functions are used in various onClick functions
 
 export function multiSectionSelect(e) {
@@ -85,6 +84,6 @@ export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
 }
 
-export function paramSelect(e){
+export function paramSelect(e) {
   return e.ctrlKey && e.shiftKey;
 }
