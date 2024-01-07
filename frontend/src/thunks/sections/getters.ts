@@ -1,7 +1,7 @@
 import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
 import { SectionUITypeConfigType } from "z_utils/types/uiType";
 
@@ -57,7 +57,7 @@ export function getSectionSiblingNames(sectionId: string) {
   const parentId = getSectionParentId(sectionId);
   const siblingIds = parentId
     ? _.defaultTo(getSectionInfo(parentId).currChildren, [])
-    : Object.keys(useProjectConfig.getState().children);
+    : [...REACT_FLOW_STORE.store.getState().nodeInternals.keys()];
 
   const siblingNames = siblingIds.map((x) => getSectionName(x));
   const output = new Set(siblingNames);

@@ -1,7 +1,6 @@
 import { sendMessage } from "dbRequests/websocket";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useWebsocketRooms } from "models/websocket";
@@ -15,7 +14,7 @@ import {
 } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID, REACT_FLOW_STORE } from "utils/constants";
+import { PANEID, REACT_FLOW_STORE, rfAddNodes } from "utils/constants";
 import {
   DECK,
   GLOBAL_VARIABLES,
@@ -90,13 +89,16 @@ export function loadSectionIntoState({
   callbackBeforeExit,
   incrementVersion,
 }) {
-  const topLevelMapping = {};
-  for (const i of topLevelIds) {
-    topLevelMapping[i] = {
-      x: x + relativePositions[i].x,
-      y: y + relativePositions[i].y,
-      zIndex: relativePositions[i].zIndex,
-    };
+  const newNodes = [];
+  for (const id of topLevelIds) {
+    newNodes.push({
+      id,
+      position: {
+        x: x + relativePositions[id].x,
+        y: y + relativePositions[id].y,
+        zIndex: relativePositions[id].zIndex,
+      },
+    });
   }
 
   useUITypes.getState().update(uiTypes);
@@ -105,7 +107,7 @@ export function loadSectionIntoState({
   useSectionInfos.getState().update(sections);
   updateManyParamsAndCallables(Object.keys(sections));
   updateManyCurrChildren(Object.keys(sections));
-  useProjectConfig.getState().addChildren(topLevelMapping);
+  rfAddNodes(newNodes);
 
   if (callbackBeforeExit) {
     callbackBeforeExit();
