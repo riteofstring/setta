@@ -8,17 +8,15 @@ import { findAll } from "z_utils/getDescendants";
 import { getSectionTypeConfig } from "./sections/getters";
 
 export async function copySections() {
-  const activeSectionId = useActiveSection.getState().id;
-  if (!activeSectionId) {
+  const activeSectionIds = useActiveSection.getState().ids;
+  if (activeSectionIds.length < 1) {
     return;
   }
-  const sections = {
-    [activeSectionId]: useSectionInfos.getState().x[activeSectionId],
-  };
-  const uiTypes = getUITypes(sections[activeSectionId]);
-  const codeInfo = getCodeInfo(sections[activeSectionId]);
-  const evCols = getEVCols(sections[activeSectionId]);
-  const uiTypeCols = getUITypeCols(sections[activeSectionId]);
+  const sections = _.pick(useSectionInfos.getState().x, activeSectionIds);
+  const uiTypes = getUITypes(sections);
+  const codeInfo = getCodeInfo(sections);
+  const evCols = getEVCols(sections);
+  const uiTypeCols = getUITypeCols(sections);
   await navigator.clipboard.writeText(
     JSON.stringify({
       data: { sections, uiTypes, codeInfo, evCols, uiTypeCols },
@@ -27,21 +25,35 @@ export async function copySections() {
   );
 }
 
-function getUITypes(sectionInfo) {
-  const uiTypeIds = [sectionInfo.uiTypeId, ...sectionInfo.nonPresetUITypeIds];
+function getUITypes(sections) {
+  const uiTypeIds = [];
+  for (const s of Object.values(sections)) {
+    uiTypeIds.push(s.uiTypeId);
+    uiTypeIds.push(...s.nonPresetUITypeIds);
+  }
   return _.pick(useUITypes.getState().x, uiTypeIds);
 }
 
-function getCodeInfo(sectionInfo) {
-  const codeInfoId = getSectionTypeConfig(sectionInfo.id).codeInfoId;
-  return _.keyBy(findAll(useCodeInfo.getState().x, [codeInfoId]), (x) => x.id);
+function getCodeInfo(sections) {
+  const codeInfoIds = _.map(
+    sections,
+    (x) => getSectionTypeConfig(x.id).codeInfoId
+  );
+  return _.keyBy(findAll(useCodeInfo.getState().x, codeInfoIds), (x) => x.id);
 }
 
-function getEVCols(sectionInfo) {
-  const evColIds = [sectionInfo.evColId, ...sectionInfo.evColIds];
+function getEVCols(sections) {
+  const evColIds = [];
+  for (const s of Object.values(sections)) {
+    evColIds.push(s.evColId);
+    evColIds.push(...s.evColIds);
+  }
   return _.pick(useParamInfos.getState().x, evColIds);
 }
 
-function getUITypeCols(sectionInfo) {
-  return _.pick(useParamInfos.getState().y, [sectionInfo.uiTypeColId]);
+function getUITypeCols(sections) {
+  return _.pick(
+    useParamInfos.getState().y,
+    _.map(sections, (x) => x.uiTypeColId)
+  );
 }
