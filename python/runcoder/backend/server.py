@@ -216,6 +216,7 @@ manager = ConnectionManager()
 
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
+    print("regular websocket", websocket)
     id = await manager.connect(websocket)
     try:
         while True:
@@ -224,6 +225,19 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.send_message(json.loads(data), id)
     except WebSocketDisconnect:
         await manager.disconnect(id)
+
+
+@app.websocket("/terminal")
+async def terminal_websocket_endpoint(websocket: WebSocket):
+    print("terminal websocket", websocket)
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            print(data, flush=True)
+            await websocket.send_text(data)
+    except WebSocketDisconnect:
+        print("disconnected terminal")
 
 
 @app.post("/projects")
