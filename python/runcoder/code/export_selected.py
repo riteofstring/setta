@@ -12,6 +12,7 @@ from ..utils.constants import (
     SCRIPT,
     SECTION,
     VAR_CONTROL,
+    TERMINAL,
 )
 from .find_placeholders import double_braces
 
@@ -137,6 +138,7 @@ class Exporter:
                 VAR_CONTROL,
                 INFO,
                 PARAM_SWEEP,
+                TERMINAL,
             ]:
                 to_pop.append(id)
         for id in to_pop:

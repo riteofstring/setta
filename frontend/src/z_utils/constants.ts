@@ -17,6 +17,7 @@ export const SCRIPT = "SCRIPT";
 export const CODE = "CODE";
 export const VAR_CONTROL = "VAR_CONTROL";
 export const PARAM_SWEEP = "PARAM_SWEEP";
+export const TERMINAL = "TERMINAL"
 export const SECTION_TYPE_NAMES = [
   SECTION,
   LIST_ROOT,
@@ -30,6 +31,7 @@ export const SECTION_TYPE_NAMES = [
   CODE,
   VAR_CONTROL,
   PARAM_SWEEP,
+  TERMINAL
 ];
 
 export const DEFAULT_BASE_UI_TYPE_ID = "3fdaeb6a-e989-4888-b844-17a76f0b0192";
@@ -86,6 +88,7 @@ export const uiTypesToPretty = Object.freeze(
       [CODE]: "Code",
       [VAR_CONTROL]: "Variable Control",
       [PARAM_SWEEP]: "Parameter Sweep",
+      [TERMINAL]: "Terminal"
     })
   )
 );

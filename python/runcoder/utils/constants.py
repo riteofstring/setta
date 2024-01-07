@@ -20,6 +20,7 @@ CODE = "CODE"
 VAR_CONTROL = "VAR_CONTROL"
 INFO = "INFO"
 PARAM_SWEEP = "PARAM_SWEEP"
+TERMINAL = "TERMINAL"
 
 
 def is_section_ui_type(x):

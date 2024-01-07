@@ -11,6 +11,7 @@ import {
   SCRIPT,
   SECTION,
   SOCIAL,
+  TERMINAL,
   VAR_CONTROL,
 } from "z_utils/constants";
 import { CodeArea } from "./CodeArea";
@@ -23,6 +24,7 @@ import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
 import { SocialArea } from "./SocialArea";
+import { TerminalArea } from "./TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -133,6 +135,8 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <CodeArea sectionId={sectionId} codeType="varControl" />;
     case PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
+    case TERMINAL:
+      return <TerminalArea sectionId={sectionId} />;
     default:
       return null;
   }
