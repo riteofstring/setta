@@ -64,7 +64,7 @@ export function SectionContainerCoreResizable({
       case PARAM_SWEEP:
         return "bg-white dark:bg-runcoder-900";
       default:
-        return "bg-runcoder-50 dark:bg-runcoder-850";
+        return "bg-runcoder-50 dark:bg-runcoder-800";
     }
   };
 
