@@ -11,4 +11,5 @@ export const REACT_FLOW_STORE = {
   store: null,
   rf: null,
   lastPaneClickLocation: {},
+  initialViewport: {},
 };

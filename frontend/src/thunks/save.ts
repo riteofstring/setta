@@ -12,6 +12,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { xnor } from "utils/utils";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
@@ -21,6 +22,7 @@ import { isPreset } from "z_utils/uiTypeConstants";
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
+  projectConfig.viewport = REACT_FLOW_STORE.rf.getViewport();
 
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);

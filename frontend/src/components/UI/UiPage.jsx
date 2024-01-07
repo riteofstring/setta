@@ -15,7 +15,6 @@ import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
 import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
-  const viewport = useProjectConfig((x) => x.viewport, _.isEqual);
   const topLevelSectionPositions = useProjectConfig(
     (x) => x.children,
     _.isEqual
@@ -49,7 +48,6 @@ export function UIPage() {
     <GlobalDndContext>
       <SectionsPane
         initialNodes={initialNodes}
-        viewport={viewport}
         closeCtxMenus={closeCtxMenus}
         openPaneCtxMenu={openPaneCtxMenu}
         openSelectionCtxMenu={openSelectionCtxMenu}

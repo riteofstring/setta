@@ -1,5 +1,4 @@
 import { useActiveSection } from "models/activeSection";
-import { useProjectConfig } from "models/info/projectConfig";
 import React, { useCallback, useState } from "react";
 import ReactFlow from "reactflow";
 import "reactflow/dist/style.css";
@@ -17,10 +16,6 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-function onMoveEnd(e, viewport) {
-  useProjectConfig.getState().setViewport(viewport);
-}
-
 function onNodeDragStop(e, node, nodes) {
   setPositionAndZIndices(nodes);
 }
@@ -31,7 +26,7 @@ function onSelectionDragStop(e, nodes) {
 
 //TODO figure out how to make this work better
 function onSelectionChange({ nodes }) {
-  // useActiveSection.getState().setIds(nodes.map((x) => x.id));
+  useActiveSection.getState().setIds(nodes.map((x) => x.id));
 }
 
 function onSelectionEnd() {
@@ -80,7 +75,6 @@ function applyNodeChanges(changes, nodes) {
 
 function _SectionsPane({
   initialNodes,
-  viewport,
   closeCtxMenus,
   openPaneCtxMenu,
   openSelectionCtxMenu,
@@ -112,10 +106,9 @@ function _SectionsPane({
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       style={reactFlowStyle}
-      defaultViewport={viewport}
+      defaultViewport={REACT_FLOW_STORE.initialViewport}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
-      onMoveEnd={onMoveEnd}
       onPaneContextMenu={openPaneCtxMenu}
       onSelectionContextMenu={openSelectionCtxMenu}
       onNodeContextMenu={openNodeCtxMenu}
