@@ -5,7 +5,7 @@ import React, { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
-import { theme } from "./Terminal/TerminalTheme";
+import { fontFamily, theme } from "./Terminal/TerminalTheme";
 
 const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal`;
 const fitAddon = new FitAddon();
@@ -17,7 +17,13 @@ function _TerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
 
   useEffect(() => {
-    const terminal = new Terminal({ cursorBlink: true, theme: theme }); // Instantiate the terminal
+    const terminal = new Terminal({
+      cursorBlink: true,
+      theme: theme,
+      fontFamily: fontFamily,
+      letterSpacing: "0",
+      fontSize: "14",
+    }); // Instantiate the terminal
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(attachAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
