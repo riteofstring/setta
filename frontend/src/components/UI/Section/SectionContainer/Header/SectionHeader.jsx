@@ -28,7 +28,7 @@ function _SectionHeader({
   };
 
   const _isRoot = isRoot(sectionTypeName);
-  const classes = "text-runcoder-400/50 dark:text-runcoder-400/50 mr-2 -ml-2";
+  const classes = "text-runcoder-400/50 dark:text-runcoder-400/50 mr-2";
 
   // DOM: maybe get rid of the extra div under header?
 
