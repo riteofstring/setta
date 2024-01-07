@@ -1,10 +1,8 @@
 import { useActiveSection } from "models/activeSection";
-import { useProjectConfig } from "models/info/projectConfig";
-import React from "react";
-import ReactFlow, { useNodesState } from "reactflow";
+import React, { useCallback, useState } from "react";
+import ReactFlow from "reactflow";
 import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import { REACT_FLOW_STORE } from "utils/constants";
 import "./react-flow-css.css";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
@@ -17,10 +15,6 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-function onMoveEnd(e, viewport) {
-  useProjectConfig.getState().setViewport(viewport);
-}
-
 function onNodeDragStop(e, node, nodes) {
   setPositionAndZIndices(nodes);
 }
@@ -31,7 +25,7 @@ function onSelectionDragStop(e, nodes) {
 
 //TODO figure out how to make this work better
 function onSelectionChange({ nodes }) {
-  // useActiveSection.getState().setIds(nodes.map((x) => x.id));
+  useActiveSection.getState().setIds(nodes.map((x) => x.id));
 }
 
 function onSelectionEnd() {
@@ -47,17 +41,26 @@ function onInit(rf) {
 
 function _SectionsPane({
   initialNodes,
-  viewport,
   closeCtxMenus,
   openPaneCtxMenu,
   openSelectionCtxMenu,
   openNodeCtxMenu,
 }) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes] = useState(initialNodes);
 
-  useDeepCompareEffect(() => {
-    setNodes(initialNodes);
-  }, [initialNodes]);
+  const onNodesChange = useCallback((changes) => {
+    const newNodes = { ...nodes };
+    for (const c of changes) {
+      if (typeof c.position !== "undefined") {
+        newNodes[c.id].position = c.position;
+      }
+    }
+    setNodes(newNodes);
+  }, []);
+
+  // useDeepCompareEffect(() => {
+  //   setNodes(initialNodes);
+  // }, [initialNodes]);
 
   function onPaneClick(e) {
     closeCtxMenus();
@@ -68,16 +71,15 @@ function _SectionsPane({
 
   return (
     <ReactFlow
-      nodes={nodes}
+      nodes={Object.values(nodes)}
       minZoom={0.1}
       maxZoom={10}
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       style={reactFlowStyle}
-      defaultViewport={viewport}
+      defaultViewport={REACT_FLOW_STORE.initialViewport}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
-      onMoveEnd={onMoveEnd}
       onPaneContextMenu={openPaneCtxMenu}
       onSelectionContextMenu={openSelectionCtxMenu}
       onNodeContextMenu={openNodeCtxMenu}
