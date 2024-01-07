@@ -8,7 +8,8 @@ import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 
 const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal`;
 const fitAddon = new FitAddon();
-const attachAddon = new AttachAddon(new WebSocket(wsTerminalAddress));
+const terminalWebsocket = new WebSocket(wsTerminalAddress);
+const attachAddon = new AttachAddon(terminalWebsocket);
 
 function _TerminalArea({ sectionId }) {
   const terminalRef = useRef(null); // Ref for the terminal container
@@ -20,9 +21,14 @@ function _TerminalArea({ sectionId }) {
     terminal.loadAddon(attachAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
-    // Handler for input data
-    terminal.onData((data) => {
-      console.log(data);
+    terminal.onResize((size) => {
+      // Send the new size to the backend
+      const message = JSON.stringify({
+        type: "resize",
+        cols: size.cols,
+        rows: size.rows,
+      });
+      terminalWebsocket.send(message);
     });
 
     return () => {

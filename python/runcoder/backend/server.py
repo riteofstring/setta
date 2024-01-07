@@ -36,6 +36,7 @@ from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
+from runcoder.utils.terminals import start_terminal
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -232,10 +233,7 @@ async def terminal_websocket_endpoint(websocket: WebSocket):
     print("terminal websocket", websocket)
     await websocket.accept()
     try:
-        while True:
-            data = await websocket.receive_text()
-            print(data, flush=True)
-            await websocket.send_text(data)
+        await start_terminal(websocket)
     except WebSocketDisconnect:
         print("disconnected terminal")
 
