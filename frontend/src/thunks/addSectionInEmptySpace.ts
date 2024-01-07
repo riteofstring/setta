@@ -15,7 +15,7 @@ export function addSectionInEmptySpace({ type }: { type: string }) {
 
   addSectionAtPosition({
     type,
-    topLevelPosition: newSectionPosition({ x, y }),
+    topLevelPosition: newSectionPosition({ x, y, zIndex: 0 }),
     incrementVersion: true,
   });
 }

@@ -1,5 +1,3 @@
-import _ from "lodash";
-import { rfSetInitial } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
@@ -32,10 +30,7 @@ export function loadProjectState({
   if (project) {
     useProject.getState().resetAndSetAll(project);
   }
-  useProjectConfig
-    .getState()
-    .resetAndSetAll(_.omit(projectConfig, ["viewport"]));
-  rfSetInitial(projectConfig);
+  useProjectConfig.getState().resetAndSetAll(projectConfig);
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);

@@ -1,11 +1,11 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
-import { rfAddNodes } from "utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { RCType } from "z_utils/types/codeInfo";
@@ -73,12 +73,9 @@ function addSectionsToState(
   }
 
   if (topLevelPosition) {
-    rfAddNodes(
-      Object.values(sectionInfos).map((x) => ({
-        id: x.id,
-        position: topLevelPosition,
-      }))
-    );
+    useProjectConfig
+      .getState()
+      .addChildren(_.mapValues(sectionInfos, () => topLevelPosition));
   }
 }
 

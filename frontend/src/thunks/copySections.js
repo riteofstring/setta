@@ -2,9 +2,9 @@ import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { REACT_FLOW_STORE } from "utils/constants";
 import { findAll } from "z_utils/getDescendants";
 import { getSectionTypeConfig } from "./sections/getters";
 
@@ -68,11 +68,10 @@ function getUITypeCols(sections) {
 }
 
 function getRelativePositions(sections) {
-  const positions = {};
-  const nodeInternals = REACT_FLOW_STORE.store.getState().nodeInternals;
-  for (const s of Object.values(sections)) {
-    positions[s.id] = nodeInternals.get(s.id).position;
-  }
+  const positions = _.pick(
+    useProjectConfig.getState().children,
+    _.map(sections, (x) => x.id)
+  );
 
   let minX = Infinity;
   let minY = Infinity;

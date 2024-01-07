@@ -53,17 +53,3 @@ export function radioChangeFn(checked, id) {
 export function xnor(a, b) {
   return a == b;
 }
-
-export function areMapKeysEqual(map1, map2) {
-  if (map1.size !== map2.size) {
-    return false; // Different number of keys means they are not equal
-  }
-
-  for (const key of map1.keys()) {
-    if (!map2.has(key)) {
-      return false; // Key in map1 is not in map2
-    }
-  }
-
-  return true; // All keys in map1 are in map2 and sizes are the same
-}
