@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { rfSetInitial } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
@@ -35,7 +35,7 @@ export function loadProjectState({
   useProjectConfig
     .getState()
     .resetAndSetAll(_.omit(projectConfig, ["viewport"]));
-  REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
+  rfSetInitial(projectConfig);
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);

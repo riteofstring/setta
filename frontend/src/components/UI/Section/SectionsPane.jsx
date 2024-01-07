@@ -73,22 +73,17 @@ function applyNodeChanges(changes, nodes) {
 }
 
 function _SectionsPane({
-  initialNodes,
   closeCtxMenus,
   openPaneCtxMenu,
   openSelectionCtxMenu,
   openNodeCtxMenu,
 }) {
-  const [nodes, setNodes] = useState(initialNodes);
+  const [nodes, setNodes] = useState(REACT_FLOW_STORE.initialNodes);
 
   const onNodesChange = useCallback(
     (changes) => setNodes((x) => applyNodeChanges(changes, x)),
     []
   );
-
-  // useDeepCompareEffect(() => {
-  //   console.log("initialNodes changed")
-  // }, [initialNodes]);
 
   function onPaneClick(e) {
     closeCtxMenus();

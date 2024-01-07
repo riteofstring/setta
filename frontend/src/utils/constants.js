@@ -1,3 +1,5 @@
+import _ from "lodash";
+
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 export const SECTIONWIDTH = 250;
 export const PANEID = "-1";
@@ -13,7 +15,22 @@ export const REACT_FLOW_STORE = {
   rf: null,
   lastPaneClickLocation: {},
   initialViewport: {},
+  initialNodes: {},
 };
+
+export function rfSetInitial(projectConfig) {
+  REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
+  REACT_FLOW_STORE.initialNodes = _.mapValues(
+    projectConfig.children,
+    (v, k) => ({
+      id: k,
+      position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
+      type: REACT_FLOW_NODE_TYPE,
+      style: { visibility: "visible" }, // needed to prevent flickering
+    })
+  );
+}
 
 export function rfAddNodes(nodes) {
   REACT_FLOW_STORE.rf.addNodes(
