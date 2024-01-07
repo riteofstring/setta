@@ -22,5 +22,5 @@ export function goToSection(sectionId: string) {
     zoom: 1,
     duration: 100,
   });
-  useActiveSection.getState().setId(sectionId);
+  useActiveSection.getState().setIds([sectionId]);
 }

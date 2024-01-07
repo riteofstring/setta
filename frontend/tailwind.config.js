@@ -15,7 +15,6 @@ module.exports = {
           600: "#425270",
           700: "#2D384D",
           800: "#1A202C",
-          850: "#161b25",
           900: "#0D1016",
           950: "#06070A",
         },
@@ -48,8 +47,5 @@ module.exports = {
       },
     },
   },
-  plugins: [
-    require("@tailwindcss/typography"),
-    require("@tailwindcss/container-queries"),
-  ],
+  plugins: [require("@tailwindcss/typography")],
 };

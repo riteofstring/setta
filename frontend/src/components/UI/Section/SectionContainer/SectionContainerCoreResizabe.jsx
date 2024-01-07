@@ -61,7 +61,6 @@ export function SectionContainerCoreResizable({
       case VAR_CONTROL:
       case SCRIPT:
       case CODE:
-      case PARAM_SWEEP:
         return "bg-white dark:bg-runcoder-900";
       default:
         return "bg-runcoder-50 dark:bg-runcoder-800";

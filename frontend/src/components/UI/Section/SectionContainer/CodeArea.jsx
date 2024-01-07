@@ -71,8 +71,8 @@ function Editor({ sectionId, value, onChange, languageExtension }) {
     <CodeMirror
       value={value}
       theme={darkMode ? githubDarkTheme : githubLightTheme}
-      height={`${height}px`}
-      width={`${width}px`}
+      height={`${height - 64}px`}
+      width={`${width - 16}px`}
       extensions={
         languageExtension
           ? [languageExtension, EditorView.lineWrapping]
