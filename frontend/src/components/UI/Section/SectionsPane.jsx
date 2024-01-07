@@ -24,26 +24,26 @@ function onSelectionDragStop(e, nodes) {
   setPositionAndZIndices(nodes);
 }
 
-//TODO figure out how to make this work better
 function onSelectionChange({ nodes }) {
-  useActiveSection.getState().setIds(nodes.map((x) => x.id));
-}
-
-function onSelectionEnd() {
-  const selectedAccordingToRf = [
-    ...REACT_FLOW_STORE.store.getState().nodeInternals,
-  ].filter((x) => x[1].selected);
-  useActiveSection.getState().setIds(selectedAccordingToRf.map((x) => x[0]));
+  if (REACT_FLOW_STORE.store?.getState().userSelectionActive) {
+    useActiveSection.getState().setIds(nodes.map((x) => x.id));
+  }
 }
 
 function onInit(rf) {
   REACT_FLOW_STORE.rf = rf;
 }
 
+// This is a bit more efficient than the one returned by react flow's useNodesState.
+// Not sure if worth it though.
 function applyNodeChanges(changes, nodes) {
   const newNodes = { ...nodes };
   for (const c of changes) {
     switch (c.type) {
+      case "select": {
+        newNodes[c.id].selected = c.selected;
+        break;
+      }
       case "position": {
         if (typeof c.position !== "undefined") {
           newNodes[c.id].position = c.position;
@@ -58,16 +58,6 @@ function applyNodeChanges(changes, nodes) {
         delete newNodes[c.id];
         break;
       }
-      // case "dimensions": {
-      //   if (typeof c.dimensions !== "undefined") {
-      //     console.log(newNodes[c.id])
-      //     if (!newNodes[c.id].computed) {
-      //       newNodes[c.id].computed = {};
-      //     }
-      //     newNodes[c.id].computed.width = c.dimensions.width;
-      //     newNodes[c.id].computed.height = c.dimensions.height;
-      //   }
-      // }
     }
   }
   return newNodes;
@@ -116,8 +106,7 @@ function _SectionsPane({
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
-      // onSelectionChange={onSelectionChange}
-      onSelectionEnd={onSelectionEnd}
+      onSelectionChange={onSelectionChange}
       onInit={onInit}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
