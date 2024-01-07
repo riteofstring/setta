@@ -40,13 +40,13 @@ class Processors:
         self.fns[key] = fn
         self.interactive_projects.add(key)
 
-    async def __call__(self, message, tasks_obj, cache):
+    async def __call__(self, message, tasks_obj, cache, send_fn):
         key = message["messageType"]
         fn = self.fns[key]
         is_interactive = key in self.interactive_projects
         self.maybe_read_cache(message, cache)
         result = await tasks_obj.run_non_blocking_subprocess(
-            fn, is_interactive, message
+            fn, is_interactive, message, send_fn
         )
         self.maybe_cache_result(message, result, cache)
         return result
@@ -73,15 +73,15 @@ class Processors:
             )
 
 
-def codeCompletion(message):
+def codeCompletion(message, send_fn):
     return completionHelper(
         message,
         "codeCompletion",
-        textFieldCompletionFn(["module", "class", "function"]),
+        textFieldCompletionFn(["module", "class", "function"], send_fn),
     )
 
 
-def textFieldInitializeCode(message):
+def textFieldInitializeCode(message, send_fn):
     message = message["message"]
     project = message["project"]
     codeJson = export_selected(project)
@@ -103,11 +103,11 @@ def textFieldInitializeCode(message):
     }
 
 
-def textFieldCompletion(message):
+def textFieldCompletion(message, send_fn):
     return completionHelper(message, "textFieldCompletion", textFieldCompletionFn(None))
 
 
-def textFieldCompletionFn(return_types):
+def textFieldCompletionFn(return_types, send_fn):
     def fn(message, code, var_name_to_line_num, var_name):
         output = []
         for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1):
@@ -166,11 +166,11 @@ def parametersRequestFn(message, code, var_name_to_line_num, var_name):
     return output
 
 
-def parametersRequest(message):
+def parametersRequest(message, send_fn):
     return completionHelper(message, "parameters", parametersRequestFn)
 
 
-def typeCheckRequest(message):
+def typeCheckRequest(message, send_fn):
     p = message["message"]
     code_json = export_selected(p)
     print("typeCheckRequest", flush=True)
@@ -198,18 +198,18 @@ def typeCheckRequest(message):
     return {"output": output, "name": "typeCheck", "cache": None}
 
 
-def connectionEstablished(message):
+def connectionEstablished(message, send_fn):
     print(f"Connected as {message['websocketId']}")
     return {"output": None, "name": None, "cache": None}
 
 
-def allConnections(message):
+def allConnections(message, send_fn):
     print("All connections:")
     pprint(message["connections"])
     return {"output": None, "name": None, "cache": None}
 
 
-def runCode(message):
+def runCode(message, send_fn):
     p = message["message"]
     selected = export_selected(p)
 
