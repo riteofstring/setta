@@ -1,4 +1,5 @@
 import React from "react";
+import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { deleteChild } from "thunks/sections/deleteChild";
@@ -45,6 +46,7 @@ function _SectionHeader({
           {sectionTypeName === "VAR_CONTROL" && (
             <IoLogoJavascript className={classes} />
           )}
+          {sectionTypeName === "TERMINAL" && <FaTerminal className={classes} />}
 
           <MenuButton sectionId={sectionId} />
         </>
