@@ -73,3 +73,15 @@ export function attachKeyEventListeners() {
     cleanup_functions.forEach((x) => x());
   };
 }
+
+export function multiSectionSelect(e) {
+  return e.ctrlKey && !e.shiftKey;
+}
+
+export function variableClick(e) {
+  return e.ctrlKey && !e.shiftKey;
+}
+
+export function paramSelect(e){
+  return e.ctrlKey && e.shiftKey;
+}

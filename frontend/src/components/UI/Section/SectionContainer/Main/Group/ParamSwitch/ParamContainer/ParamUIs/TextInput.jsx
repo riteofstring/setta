@@ -8,6 +8,7 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
 import { goToSection } from "thunks/goToSection";
+import { variableClick } from "thunks/keyActivations";
 import { getSectionType } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import {
@@ -58,7 +59,7 @@ export function TextInput({
   } = useTextFieldCombobox({ allItems, value, updateValue });
 
   function onClick(e) {
-    if (e.ctrlKey) {
+    if (variableClick(e)) {
       ctrlClick(e);
     } else {
       textFieldInitializeCode(sectionId, paramInfoId);
@@ -185,19 +186,17 @@ function StyledText({ value }) {
 function getOnTextInputVariableClick(color, variable) {
   if (color) {
     return (e) => {
-      if (e.ctrlKey) {
-        const variableType = color === "green" ? "global" : "section";
-        const section = _.find(useSectionInfos.getState().x, (s) =>
-          variableType === "global"
-            ? getSectionType(s.id).type === GLOBAL_VARIABLES
-            : s.name === variable
-        );
-        const id = section?.id;
-        if (id) {
-          e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-          e.relatedTarget.blur(); //blur the input field we just clicked on
-          goToSection(id);
-        }
+      const variableType = color === "green" ? "global" : "section";
+      const section = _.find(useSectionInfos.getState().x, (s) =>
+        variableType === "global"
+          ? getSectionType(s.id).type === GLOBAL_VARIABLES
+          : s.name === variable
+      );
+      const id = section?.id;
+      if (id) {
+        e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+        e.relatedTarget.blur(); //blur the input field we just clicked on
+        goToSection(id);
       }
     };
   }

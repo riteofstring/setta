@@ -5,6 +5,7 @@ import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
+import { multiSectionSelect } from "thunks/keyActivations";
 import { setZIndices } from "thunks/sections/sectionPositions";
 import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
@@ -17,10 +18,10 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
 
   function onClick(e) {
-    if (!e.ctrlKey) {
-      useActiveSection.getState().setIds([sectionId]);
-    } else {
+    if (multiSectionSelect(e)) {
       useActiveSection.getState().addIds([sectionId]);
+    } else {
+      useActiveSection.getState().setIds([sectionId]);
     }
     const topMostAncestor = getHighestAncestor(sectionId);
     setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
