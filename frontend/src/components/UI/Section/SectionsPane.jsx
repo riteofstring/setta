@@ -29,8 +29,16 @@ function onSelectionDragStop(e, nodes) {
   setPositionAndZIndices(nodes);
 }
 
+//TODO figure out how to make this work better
 function onSelectionChange({ nodes }) {
-  useActiveSection.getState().setIds(nodes.map((x) => x.id));
+  // useActiveSection.getState().setIds(nodes.map((x) => x.id));
+}
+
+function onSelectionEnd() {
+  const selectedAccordingToRf = [
+    ...REACT_FLOW_STORE.store.getState().nodeInternals,
+  ].filter((x) => x[1].selected);
+  useActiveSection.getState().setIds(selectedAccordingToRf.map((x) => x[0]));
 }
 
 function onInit(rf) {
@@ -77,7 +85,8 @@ function _SectionsPane({
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
-      onSelectionChange={onSelectionChange}
+      // onSelectionChange={onSelectionChange}
+      onSelectionEnd={onSelectionEnd}
       onInit={onInit}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
