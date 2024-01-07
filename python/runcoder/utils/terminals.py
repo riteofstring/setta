@@ -30,14 +30,16 @@ async def start_terminal(terminal_websocket):
         input_data = await terminal_websocket.receive_text()
         print(input_data, flush=True)
         try:
-            input_data = json.loads(input_data)
-            if (input_data["type"] == "resize"):
-                pty_process.setwinsize(input_data['rows'], input_data['cols'])
+            json_val = json.loads(input_data)
+            if isinstance(json_val, dict) and json_val["type"] == "resize":
+                pty_process.setwinsize(json_val['rows'], json_val['cols'])
+                continue
         except json.decoder.JSONDecodeError:
-            if input_data is None:
-                break
-            # Write received data to the terminal
-            await write_to_terminal(input_data)
+            pass
+        if input_data is None:
+            break
+        # Write received data to the terminal
+        await write_to_terminal(input_data)
 
     # Cleanup
     read_task.cancel()
