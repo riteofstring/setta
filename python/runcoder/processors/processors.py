@@ -40,13 +40,16 @@ class Processors:
         self.fns[key] = fn
         self.interactive_projects.add(key)
 
-    async def __call__(self, message, tasks_obj, cache):
+    async def __call__(self, message, tasks_obj, cache, send_fn):
         key = message["messageType"]
         fn = self.fns[key]
-        is_interactive = key in self.interactive_projects
+        use_thread = key == "runCode" or (key in self.interactive_projects)
         self.maybe_read_cache(message, cache)
+        args = [message]
+        if (key == "runCode"):
+            args.extend([send_fn, tasks_obj.loop])
         result = await tasks_obj.run_non_blocking_subprocess(
-            fn, is_interactive, message
+            fn, use_thread, *args
         )
         self.maybe_cache_result(message, result, cache)
         return result
@@ -209,7 +212,10 @@ def allConnections(message):
     return {"output": None, "name": None, "cache": None}
 
 
-def runCode(message):
+import json
+import asyncio
+
+def runCode(message, send_fn, loop):
     p = message["message"]
     selected = export_selected(p)
 
@@ -222,7 +228,17 @@ def runCode(message):
                 stderr=subprocess.STDOUT,
             ) as process:
                 for line in process.stdout:
-                    print(line.decode("utf8"), flush=True)
+                    # print(line.decode("utf8"), flush=True)
+                    asyncio.run_coroutine_threadsafe(send_fn(
+                        json.dumps(
+                            {
+                                "id": message["id"],
+                                "message": line.decode("utf8"),
+                                "toWebsocketId": message["websocketId"],
+                                "messageType": "runCode",
+                            }
+                        )
+                    ), loop)
 
         script = generate_script(p, selected, filepaths_for_bash)
         withTempFiles(
