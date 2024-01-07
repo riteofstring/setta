@@ -22,6 +22,11 @@ function attachEventListeners(state) {
 
   document.addEventListener("blur", () => state.getState().reset());
 
+  //has to be window, not document
+  window.addEventListener("focus", () => {
+    state.getState().reset();
+  });
+
   return state;
 }
 
