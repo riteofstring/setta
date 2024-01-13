@@ -37,6 +37,18 @@ export function TextInput({
     paramInfoId
   );
 
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleFocus = () => {
+    console.log("Focus")
+    setIsFocused(true);
+  };
+
+  const handleBlur = () => {
+    console.log("Blur")
+    setIsFocused(false);
+  };
+
   const allItems = [{ group: "search results", items: results }];
 
   function updateValue(newVal, requestCompletions = false) {
@@ -93,11 +105,13 @@ export function TextInput({
         spellCheck={false}
         onScroll={syncScroll}
         placeholder={defaultVal}
+        onFocus={handleFocus} 
+        onBlur={handleBlur} 
         {...inputProps}
       />
       <pre
         ref={preRef}
-        className="card-value card-value-display h-5 min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300"
+        className={`${isFocused ? '' : 'truncate'} card-value card-value-display h-5 mt-[1px] min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300`}
       >
         <code>
           <StyledText value={value} />
