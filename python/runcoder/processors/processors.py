@@ -4,15 +4,18 @@ from pprint import pprint
 import docstring_parser
 import jedi
 
-from ..code.export_selected import export_selected, get_code
+from ..code.export_selected import export_selected, get_code, get_script
 from ..code.extract_args_from_help import extract_args_from_help
+from ..code.find_placeholders import needs_python_code, needs_yaml
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
+    generate_script,
     get_line_from_string,
     prepend_with_imports,
     set_line,
 )
+from ..code.generate_yaml import generate_yaml
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
 from .utils import withTempFiles
@@ -28,6 +31,7 @@ class Processors:
             "typeCheckRequest": typeCheckRequest,
             "connection": connectionEstablished,
             "allConnections": allConnections,
+            "runCode": runCode,
             "extractArgparseArgs": extractArgparseArgs,
         }
         self.interactive_projects = set()
@@ -39,9 +43,11 @@ class Processors:
     async def __call__(self, message, tasks_obj, cache):
         key = message["messageType"]
         fn = self.fns[key]
-        use_thread = key in self.interactive_projects
+        is_interactive = key in self.interactive_projects
         self.maybe_read_cache(message, cache)
-        result = await tasks_obj.run_non_blocking_subprocess(fn, use_thread, message)
+        result = await tasks_obj.run_non_blocking_subprocess(
+            fn, is_interactive, message
+        )
         self.maybe_cache_result(message, result, cache)
         return result
 
@@ -200,6 +206,49 @@ def connectionEstablished(message):
 def allConnections(message):
     print("All connections:")
     pprint(message["connections"])
+    return {"output": None, "name": None, "cache": None}
+
+
+def runCode(message):
+    p = message["message"]
+    selected = export_selected(p)
+
+    def write_bash(filepaths_for_bash):
+        def execute_bash(temp_filepaths):
+            with subprocess.Popen(
+                f"bash {temp_filepaths[0]}",
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            ) as process:
+                for line in process.stdout:
+                    print(line.decode("utf8"), flush=True)
+
+        script = generate_script(p, selected, filepaths_for_bash)
+        withTempFiles(
+            write=[script],
+            in_file_with_suffix=[".sh"],
+            then_do=execute_bash,
+        )
+
+    unprocessed_script = get_script(p)
+    write = []
+    in_file_with_suffix = []
+    if needs_python_code(unprocessed_script):
+        code, _ = generate_code(selected, p)
+        write.append(code)
+        in_file_with_suffix.append(".py")
+    if needs_yaml(unprocessed_script):
+        yaml_dict = generate_yaml(selected)
+        write.append(yaml_dict)
+        in_file_with_suffix.append(".yaml")
+
+    withTempFiles(
+        write=write,
+        in_file_with_suffix=in_file_with_suffix,
+        then_do=write_bash,
+    )
+
     return {"output": None, "name": None, "cache": None}
 
 

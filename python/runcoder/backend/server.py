@@ -14,7 +14,6 @@ from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
-from runcoder.utils.terminals import get_free_terminal, start_terminal
 from runcoder.utils.utils import import_from_path
 
 from .db.codeInfo.save import save_code_info
@@ -30,7 +29,6 @@ from .db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from .db.sections.copy import copy_relative_positions, copy_sections_and_other_info
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
@@ -143,10 +141,6 @@ class SaveCodeInfoRequest(BaseModel):
     codeInfo: dict
 
 
-class SectionsMakeCopyRequest(BaseModel):
-    sectionsAndOtherInfo: dict
-
-
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
     def __init__(self):
@@ -217,7 +211,6 @@ manager = ConnectionManager()
 
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
-    print("regular websocket", websocket)
     id = await manager.connect(websocket)
     try:
         while True:
@@ -226,16 +219,6 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.send_message(json.loads(data), id)
     except WebSocketDisconnect:
         await manager.disconnect(id)
-
-
-@app.websocket("/terminal/{id}")
-async def terminal_websocket_endpoint(websocket: WebSocket, id: str):
-    print("terminal websocket", id, flush=True)
-    await websocket.accept()
-    try:
-        await start_terminal(websocket, id)
-    except WebSocketDisconnect:
-        print("disconnected terminal")
 
 
 @app.post("/projects")
@@ -353,18 +336,3 @@ def route_logging():
 @app.post("/sections")
 def route_sections():
     pass
-
-
-@app.post("/sections/makeCopy")
-def route_sections_make_copy(x: SectionsMakeCopyRequest):
-    output = copy_sections_and_other_info(x.sectionsAndOtherInfo)
-    relativePositions = copy_relative_positions(
-        x.sectionsAndOtherInfo["relativePositions"], output["section_id_map"]
-    )
-    output.pop("section_id_map")
-    return {**output, "relativePositions": relativePositions}
-
-
-@app.post("/terminal/getFreeTerminal")
-def route_terminal_get_free_terminal():
-    return get_free_terminal()

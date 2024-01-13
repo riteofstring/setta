@@ -3,13 +3,7 @@ import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
-export function addSectionInEmptySpace({
-  type,
-  inputSectionProps = {},
-}: {
-  type: string;
-  inputSectionProps: any;
-}) {
+export function addSectionInEmptySpace({ type }: { type: string }) {
   const store = REACT_FLOW_STORE.store;
   const {
     transform: [_x, _y, zoom],
@@ -19,10 +13,9 @@ export function addSectionInEmptySpace({
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
 
-  return addSectionAtPosition({
+  addSectionAtPosition({
     type,
     topLevelPosition: newSectionPosition({ x, y, zIndex: 0 }),
-    inputSectionProps,
     incrementVersion: true,
   });
 }

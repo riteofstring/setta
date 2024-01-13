@@ -28,15 +28,15 @@ function _Container({
   if (isDeck) {
     return (
       <div
-        className={`flex min-w-[298px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        className={`flex min-w-[518px] flex-col items-stretch px-8 pt-3 pb-6  ${className}`}
         {...commonProps}
       >
-        <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-runcoder-700 dark:bg-[#06070a8e]" />
-        <div className="relative z-10 h-7">
+        <div className="absolute top-0 left-0 right-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-runcoder-700 dark:bg-[#00020daf]" />
+        <div className="relative z-10 h-10">
           <DeckSectionTitle sectionId={sectionId} />
         </div>
         {!hasNested && (
-          <div className="z-10 -mx-4 mt-4 flex items-center justify-center rounded-xl border-4 border-dashed border-slate-300 px-4 py-3 text-runcoder-300 dark:border-runcoder-800 dark:text-white">
+          <div className="z-10 -mx-4 mt-4 flex items-center justify-center rounded-xl border-4 border-dashed border-slate-300 py-3 px-4 text-runcoder-300 dark:border-runcoder-800 dark:text-white">
             Drop A Card Here.
           </div>
         )}
@@ -66,10 +66,10 @@ export const Container = React.memo(_Container, _.isEqual);
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
     editing:
-      "absolute nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] dark:bg-runcoder-850 px-4 font-heading text-2xl font-bold tracking-tighter text-runcoder-100 dark:text-runcoder-500",
+      "absolute nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] px-4 font-heading text-4xl font-bold tracking-tighter text-runcoder-100",
 
     notEditing:
-      "absolute -mx-4 w-full truncate px-4 font-heading text-2xl font-bold tracking-tighter text-runcoder-100 dark:text-runcoder-700",
+      "absolute -mx-4 w-full truncate px-4 font-heading text-4xl font-bold tracking-tighter text-runcoder-100",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

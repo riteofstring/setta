@@ -137,7 +137,7 @@ const ProjectItem = forwardRef(
             isSelected={isSelected}
             onSelectProject={onSelectProject}
           />
-          <div className="absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
+          <div className="absolute bottom-0 top-0 left-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
             <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-runcoder-600 dark:text-runcoder-300">
               {name}
             </p>
@@ -156,21 +156,21 @@ function ThumbnailArea({
   onSelectProject,
 }) {
   return (
-    <div className="absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-runcoder-300 bg-center p-4 dark:bg-runcoder-600">
+    <div className="absolute top-0 left-0 bottom-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-runcoder-300 bg-center p-4 dark:bg-runcoder-600">
       <aside className="col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <IconButton
           icon={<IoMdCheckmark />}
           color="text-white/50 hover:text-white"
-          bg={
-            isSelected ? "bg-blue-500" : "bg-runcoder-300/25 hover:bg-blue-500"
-          }
+          bg={`bg-runcoder-300/25 hover:bg-blue-500 ${
+            isSelected ? "bg-blue-500" : ""
+          }`}
           size="w-4 h-4"
           onClick={(e) => onSelectProject(e, project.id)}
         />
         <StandardDropdown
           trigger={
             <div
-              className="flex items-center gap-1 rounded-full bg-runcoder-200 px-2 py-1 text-xs  hover:bg-runcoder-50 dark:bg-runcoder-700 dark:text-runcoder-300 dark:hover:bg-runcoder-500"
+              className="flex items-center gap-1 rounded-full bg-runcoder-200 py-1 px-2 text-xs  hover:bg-runcoder-50 dark:bg-runcoder-700 dark:text-runcoder-300 dark:hover:bg-runcoder-500"
               onClick={onClickConfigsButton}
             >
               <BiGitBranch />

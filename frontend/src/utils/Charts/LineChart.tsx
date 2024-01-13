@@ -58,12 +58,12 @@ export function LineChart({
   const legendGlyphSize = 15;
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-2xl ">
+      <div className="overflow-hidden rounded-3xl shadow-sm ">
         <svg width={width} height={svgHeight}>
           <rect
             width={width}
             height={rectHeight}
-            className="fill-transparent"
+            className="fill-white"
             rx={10}
             ry={10}
           />
@@ -139,7 +139,7 @@ export function LineChart({
                 <LegendLabel
                   align="left"
                   margin="0 0 0 4px"
-                  className="text-xs text-runcoder-500 dark:text-runcoder-400"
+                  className="text-sm text-runcoder-500"
                 >
                   {label.text}
                 </LegendLabel>

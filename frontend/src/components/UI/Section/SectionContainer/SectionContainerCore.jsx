@@ -1,12 +1,12 @@
-import { toggleSectionDescription } from "hooks/useSectionDescription";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
+import {
+  toggleSectionDescription,
+  useSectionHasDescription,
+} from "hooks/useSectionDescription";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
-import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
-import { getParamInfos } from "thunks/sections/sectionContents";
 import { setZIndices } from "thunks/sections/sectionPositions";
 import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
@@ -14,30 +14,12 @@ import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionTypeName = useSectionTypeName(sectionId);
+  const hasDescription = useSectionHasDescription(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
-  const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
-  const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
+  const isActiveSection = useActiveSection((x) => x.id === sectionId);
 
-  function onClick(e) {
-    if (paramSelect(e)) {
-      // depends on bubbling behavior (child div onclicks get executed first)
-      const atLeastOneParamSelected = getParamInfos(sectionId).some(
-        (x) => x.isSelected
-      );
-      if (!isActiveSection && atLeastOneParamSelected) {
-        useActiveSection.getState().addIds([sectionId]);
-      } else if (isActiveSection && !atLeastOneParamSelected) {
-        useActiveSection.getState().removeIds([sectionId]);
-      }
-    } else if (multiSectionSelect(e)) {
-      if (isActiveSection) {
-        useActiveSection.getState().removeIds([sectionId]);
-      } else {
-        useActiveSection.getState().addIds([sectionId]);
-      }
-    } else {
-      useActiveSection.getState().setIds([sectionId]);
-    }
+  function onClick() {
+    useActiveSection.getState().setId(sectionId);
     const topMostAncestor = getHighestAncestor(sectionId);
     setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
   }
@@ -59,6 +41,7 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
         isSeriesElement={isSeriesElement}
         sectionTypeName={sectionTypeName}
         hasNested={hasNested}
+        hasDescription={hasDescription}
         isActiveSection={isActiveSection}
         toggleDescVis={() => toggleSectionDescription(sectionId)}
         isWrongType={false} // TODO add the logic for this

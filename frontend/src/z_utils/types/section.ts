@@ -23,7 +23,6 @@ export type SectionType = {
   script: string;
   code: string;
   varControl: string;
-  isFrozen: boolean;
 };
 
 export type ManySectionType = ManyOf<SectionType>;

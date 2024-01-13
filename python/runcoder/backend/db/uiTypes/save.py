@@ -76,19 +76,6 @@ def save_ui_type_cols(db, uitype_cols):
     query_params = [{"id": k} for k in uitype_cols.keys()]
     db.executemany(query, query_params)
 
-    query_params = []
-    for idid in uitype_cols.keys():
-        for code_info_id in uitype_cols[idid].keys():
-            query_params.extend([idid, code_info_id])
-    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
-    query = f"""
-        UPDATE UIType
-        SET asNonPresetForUITypeColId = null,
-            asNonPresetForCodeInfoId = null
-        WHERE (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) IN ({placeholders})
-    """
-    db.execute(query, query_params)
-
     placeholders = ", ".join(["?"] * len(uitype_cols))
     query = f"""
         DELETE FROM UITypeCol
@@ -113,6 +100,19 @@ def save_ui_type_cols(db, uitype_cols):
             )
 
     db.executemany(query, query_params)
+
+    query_params = []
+    for idid in uitype_cols.keys():
+        for code_info_id in uitype_cols[idid].keys():
+            query_params.extend([idid, code_info_id])
+    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
+    query = f"""
+        UPDATE UIType
+        SET asNonPresetForUITypeColId = null,
+            asNonPresetForCodeInfoId = null
+        WHERE (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) IN ({placeholders})
+    """
+    db.execute(query, query_params)
 
     query = """
         UPDATE UIType

@@ -156,7 +156,7 @@ export function Footer({ onClose, onClick, buttonText }) {
 }
 
 function getFolderContents({ files, folder }) {
-  const idx = files.findIndex((f) => f.id === folder);
+  const idx = files.findIndex((f) => f.id == folder);
   const depthAtIdx = files[idx].depth;
   const contents = [];
   for (const f of files.slice(idx + 1)) {

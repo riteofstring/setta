@@ -1,13 +1,12 @@
 import React from "react";
-import { FaTerminal } from "react-icons/fa";
-import { IoLogoJavascript } from "react-icons/io";
-import { SiGnubash, SiPython } from "react-icons/si";
 import { deleteChild } from "thunks/sections/deleteChild";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
+import { ChainButton } from "./ChainButton/ChainButton";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
-import MenuButton from "./MenuButton/MenuButton";
+import { SaveButton } from "./SaveButton/SaveButton";
 import { SectionTitle } from "./Title/SectionTitle";
+import { VersionsButton } from "./VersionsButton/VersionsButtons";
 
 function _SectionHeader({
   sectionId,
@@ -28,7 +27,6 @@ function _SectionHeader({
   };
 
   const _isRoot = isRoot(sectionTypeName);
-  const classes = "text-runcoder-400/50 dark:text-runcoder-400/50 mr-2";
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -36,20 +34,14 @@ function _SectionHeader({
     <header className="card-title flex flex-row items-center">
       {!isInfo && (
         <>
-          {sectionTypeName === "CODE" && <SiPython className={classes} />}
-          {sectionTypeName === "SCRIPT" && <SiGnubash className={classes} />}
-          {sectionTypeName === "VAR_CONTROL" && (
-            <IoLogoJavascript className={classes} />
-          )}
-          {sectionTypeName === "TERMINAL" && <FaTerminal className={classes} />}
-
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
-
-          <MenuButton sectionId={sectionId} />
+          <SaveButton sectionId={sectionId} />
+          <ChainButton sectionId={sectionId} />
+          <VersionsButton sectionId={sectionId} />
         </>
       )}
       {(isSeriesElement || _isRoot) && (

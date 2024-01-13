@@ -1,24 +1,29 @@
 import { useGetParamInfos } from "hooks/useSectionContents";
-import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
+import { useSectionHasDescription } from "hooks/useSectionDescription";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef, useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
-function _ParamGroupContainer({ sectionId, objInfoId }) {
+function _ParamGroupContainer({ sectionId, objInfoId, isGroup = false }) {
   const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
 
-  const hasVersions = useSectionHasMultipleEVCols(sectionId);
+  const hasDescription = useSectionHasDescription(sectionId);
 
   // border-b border-solid border-runcoder-100
   return (
     <ScrollingArea
-      styles={`card-args-list py-1 ${noWheel} ${
-        hasVersions ? "last:[&>div]:mb-12" : ""
+      styles={`card-args-list ${noWheel} ${
+        hasDescription ? "last:[&>div]:mb-12" : ""
       }`}
       ref={ref}
     >
+      {isGroup && (
+        <p className="ml-7 mr-2 flex justify-center border-b-2 border-solid border-runcoder-200 px-2 pt-4 font-heading text-xs font-medium uppercase tracking-widest text-runcoder-400 ">
+          Group 1
+        </p>
+      )}
       <GetParams
         sectionId={sectionId}
         objInfoId={objInfoId}

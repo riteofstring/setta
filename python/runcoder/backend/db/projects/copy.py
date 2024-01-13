@@ -1,21 +1,37 @@
 import copy
 
 from ...utils.utils import create_new_id
-from ..sections.copy import copy_sections_and_other_info
+from ..codeInfo.copy import copy_code_info
+from ..enteredValues.copy import copy_ev_cols
+from ..sections.copy import copy_sections
+from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
 
 
 def copy_project_details(project, new_config_name=None, do_create_new_id=False):
-    new_info = copy_sections_and_other_info(project)
+    new_code_info, code_info_id_map = copy_code_info(project["codeInfo"])
+    new_ev_cols, ev_col_id_map = copy_ev_cols(project["evCols"], code_info_id_map)
+    new_ui_types, ui_type_id_map = copy_ui_types(project["uiTypes"], code_info_id_map)
+    new_ui_type_cols, ui_type_col_id_map = copy_ui_type_cols(
+        project["uiTypeCols"], ui_type_id_map, code_info_id_map
+    )
+    new_sections, section_id_map = copy_sections(
+        project["sections"],
+        code_info_id_map,
+        ev_col_id_map,
+        ui_type_id_map,
+        ui_type_col_id_map,
+    )
     new_project_config = copy_project_config(
-        project["projectConfig"],
-        new_config_name,
-        do_create_new_id,
-        new_info["section_id_map"],
+        project["projectConfig"], new_config_name, do_create_new_id, section_id_map
     )
 
     return {
         **project,
-        **new_info,
+        "codeInfo": new_code_info,
+        "evCols": new_ev_cols,
+        "uiTypes": new_ui_types,
+        "uiTypeCols": new_ui_type_cols,
+        "sections": new_sections,
         "projectConfig": new_project_config,
     }
 

@@ -67,19 +67,13 @@
   grid-column:1 / span 6 ;
   display: grid;
   grid-template-columns: subgrid;
-  grid-auto-rows: 1.5rem;
-  row-gap:0.5rem;
+  grid-auto-rows: minmax(1.75rem, min-content);
+  row-gap:0.25rem
 }
 
 .card-arg-group {
   display: grid;
   grid-template-columns: subgrid;
-  grid-column:3 / span 2 ;
-  grid-row: span 1;
-}
-
-.card-paramsweep-item {
-  display: flex;
   grid-column:3 / span 2 ;
   grid-row: span 1;
 }
@@ -103,79 +97,11 @@
   grid-column: 3 / 5;
 }
 
-.card-key {
-  grid-column:1 / 2;
-  grid-row-start: -1;
-
-}
-
-.card-value {
-  grid-column:2 / 3;
-  grid-row-start: -1;
-
-}
-
-.card-value-display {
-  grid-row-start: -1;
-}
-
-.card-value-combobox {
-  grid-row-start: -1;
-  grid-column: 2 / 3;
-
-}
-
 .card-code {
-  /* display:grid;
-  grid-template-columns:subgrid; */
-  grid-row: 3 / 6;
-  grid-column: 1 / 7;
-}
-
-.card-terminal {
-  grid-row: 3 / 6;
-  grid-column: 3 / 5;
-}
-
-.card-figure {
-  grid-row: 3 / 6;
-  grid-column: 2 / 6;
-}
-
-.card-pin-btn {
-  grid-column: 1/2;
-  grid-row: -1 / span 1;
-}
-
-.version-section {
-  display: grid;
-  grid-template-columns: 0 0.5rem 1fr min-content 0.5rem 0;
-  gap: 0.5rem;
-}
-
-.version-list {
-  grid-column:1 / 7;
-  display: grid;
+  display:grid;
   grid-template-columns:subgrid;
-  gap: .5rem .5rem;
-  grid-auto-rows: 1rem;
-}
-
-.version-list-item {
-  display: grid;
-  grid-template-columns:subgrid;
-  grid-template-rows:subgrid;
-  grid-column:3 / 5;
-  gap: .5rem 1.5rem;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.blink-cursor {
-  animation: blink 1s step-start 0s infinite;
+  grid-row: 3 / 6;
+  grid-column: 3 / 7;
 }
 
 * {

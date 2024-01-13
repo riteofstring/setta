@@ -1,84 +1,24 @@
-import { javascript } from "@codemirror/lang-javascript";
-import { python } from "@codemirror/lang-python";
-import { EditorView } from "@codemirror/view";
-import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
-import CodeMirror from "@uiw/react-codemirror";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { useSettings } from "models/settings";
 import React from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 
-const githubDarkTheme = githubDarkInit({
-  settings: {
-    background: "#ffffff00",
-    gutterBackground: "#FFFFFF00",
-    // fontFamily:
-    //   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;",
-    // gutterForeground: "#4D4D4C00",
-    gutterBorder: "#dddddd00",
-  },
-});
-
-const githubLightTheme = githubLightInit({
-  settings: {
-    background: "#ffffff00",
-    gutterBackground: "#FFFFFF00",
-    // gutterForeground: "#4D4D4C00",
-    // fontFamily:
-    //   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;",
-    gutterBorder: "#dddddd00",
-  },
-});
-
-const javascriptExtension = javascript();
-const pythonExtension = python();
-const codeTypeToExtension = {
-  varControl: javascriptExtension,
-  code: pythonExtension,
-  script: null,
-};
-
-function _CodeArea({ sectionId, codeType }) {
-  const value = useGetSectionInfo(sectionId, codeType);
-  function onChange(v) {
-    setSectionInfoAttr({
-      sectionId,
-      attr: codeType,
-      value: v,
-    });
+function _CodeArea({ sectionId }) {
+  const value = useGetSectionInfo(sectionId, "code");
+  function onChange(e) {
+    setSectionInfoAttr({ sectionId, attr: "code", value: e.target.value });
   }
 
   return (
-    <article className="nodrag nowheel card-code mb-2 cursor-auto overflow-clip">
-      <Editor
-        sectionId={sectionId}
+    <article className="nodrag card-fullsize relative flex overflow-clip rounded-lg border border-runcoder-100 bg-runcoder-50 p-4  dark:border-runcoder-700/50 dark:bg-runcoder-900 dark:text-runcoder-300">
+      <textarea
+        className="overflow-y flex-grow resize-none bg-transparent font-mono text-xs outline-none"
         value={value}
         onChange={onChange}
-        languageExtension={codeTypeToExtension[codeType]}
+        placeholder="JSON, state 'em..."
+        spellCheck={false}
       />
     </article>
   );
 }
 
 export const CodeArea = React.memo(_CodeArea);
-
-function Editor({ sectionId, value, onChange, languageExtension }) {
-  const darkMode = useSettings((x) => x.darkMode);
-  const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
-
-  return (
-    <CodeMirror
-      value={value}
-      theme={darkMode ? githubDarkTheme : githubLightTheme}
-      height={`${height}px`}
-      width={`${width}px`}
-      extensions={
-        languageExtension
-          ? [languageExtension, EditorView.lineWrapping]
-          : [EditorView.lineWrapping]
-      }
-      onChange={onChange}
-    />
-  );
-}

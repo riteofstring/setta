@@ -23,7 +23,11 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
     idsToDelete.push(...getIdsToDelete(sid));
   }
 
-  useActiveSection.getState().removeIds(idsToDelete);
+  const activeSectionState = useActiveSection.getState();
+  const activeSection = activeSectionState.id;
+  if (activeSection && idsToDelete.includes(activeSection)) {
+    activeSectionState.setId(null);
+  }
   useSectionInfos.getState().removeSectionInfos(idsToDelete);
   useProjectConfig.getState().deleteChildren(idsToDelete);
 

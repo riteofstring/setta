@@ -26,7 +26,6 @@ export function newSectionInfo({
   code = "",
   varControl = "",
   existingVarNames,
-  isFrozen = false,
 }: Partial<SectionType> & {
   size: SizeType;
   existingVarNames: string[];
@@ -56,6 +55,5 @@ export function newSectionInfo({
     varControl,
     evColIds: _evColIds,
     nonPresetUITypeIds,
-    isFrozen,
   };
 }
