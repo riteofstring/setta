@@ -6,6 +6,10 @@ def windows_has_child_processes(input_winpid):
     if len(psutil.Process(input_winpid).children()) > 0:
         return True
 
+    # when running in bash.exe, sometimes the bash process children
+    # are not visible when querying using the windows pid
+    # so this finds the corresponding bash pid for the input winpid
+    # and finds its children
     output = subprocess.check_output("ps", shell=True).decode()
     processes = []
     bash_pid = None
