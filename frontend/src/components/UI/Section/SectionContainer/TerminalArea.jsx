@@ -8,6 +8,8 @@ import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { createNewId } from "z_utils/utils";
 import { theme } from "./Terminal/TerminalTheme";
 
+export const TERMINAL_WEBSOCKETS = {};
+
 function _TerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
   const terminalRef = useTerminal({ width, height });
@@ -56,12 +58,16 @@ function useTerminal({ width, height }) {
     const attachAddon = new AttachAddon(terminalWebsocket);
     terminalWebsocket.addEventListener("open", () => {
       setWebsocketOpen(true);
+      TERMINAL_WEBSOCKETS[id] = terminalWebsocket;
       terminal.loadAddon(attachAddon);
       if (pendingMsg) {
         terminalWebsocket.send(message);
       }
     });
-    terminalWebsocket.addEventListener("close", () => setWebsocketOpen(false));
+    terminalWebsocket.addEventListener("close", () => {
+      setWebsocketOpen(false);
+      delete TERMINAL_WEBSOCKETS[id];
+    });
 
     terminal.onResize((size) => {
       // Send the new size to the backend

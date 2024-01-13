@@ -10,6 +10,7 @@ from runcoder.code.find_placeholders import needs_python_code, needs_yaml
 from runcoder.code.generate_code import generate_code, generate_script
 from runcoder.code.generate_yaml import generate_yaml
 from runcoder.processors.utils import withTempFiles
+import psutil
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
@@ -21,12 +22,34 @@ else:
     TERMINAL_NAME = ["zsh"]
 
 
-async def start_terminal(terminal_websocket):
+PTY_PIDS = {}
+
+def is_command_running_in_pty(terminal_id):
+    try:
+        shell_pid = PTY_PIDS.get(terminal_id,None)
+        if not shell_pid:
+            return False
+        parent = psutil.Process(shell_pid)
+        children = parent.children()
+        return len(children) > 0
+    except psutil.NoSuchProcess:
+        return False
+    
+
+def get_free_terminal():
+    for k in PTY_PIDS.keys():
+        if not is_command_running_in_pty(k):
+            return k
+    return None
+
+
+async def start_terminal(terminal_websocket, id):
     # Main event loop
     loop = asyncio.get_event_loop()
 
     # Start the WinPTY terminal
     pty_process = PtyProcess.spawn(TERMINAL_NAME)
+    PTY_PIDS[id] = pty_process.pid
 
     # Function to read from the terminal
     async def read_from_terminal():
@@ -79,6 +102,7 @@ async def start_terminal(terminal_websocket):
     finally:
         # Cleanup
         pty_process.terminate()
+        del PTY_PIDS[id]
 
 
 def runCode(message, terminal_write_fn):

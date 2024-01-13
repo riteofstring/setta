@@ -1,4 +1,5 @@
-import { terminalWebsocket } from "components/UI/Section/SectionContainer/TerminalArea";
+import { TERMINAL_WEBSOCKETS } from "components/UI/Section/SectionContainer/TerminalArea";
+import { dbGetFreeTerminal } from "dbRequests/terminals";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
 import { assembleUITypes, getProjectData } from "./save";
@@ -12,9 +13,15 @@ export function getProjectDataToGenerateCode() {
   return project;
 }
 
-export function runCode({ codeId }) {
+export async function runCode({ codeId }) {
   const project = getProjectDataToGenerateCode();
-  terminalWebsocket.send(
-    JSON.stringify({ id: codeId, type: "runCode", message: project })
-  );
+  const res = await dbGetFreeTerminal();
+  if (res.status === 200) {
+    const freeTerminalId = res.data;
+    if (freeTerminalId) {
+      TERMINAL_WEBSOCKETS[freeTerminalId].send(
+        JSON.stringify({ id: codeId, type: "runCode", message: project })
+      );
+    }
+  }
 }
