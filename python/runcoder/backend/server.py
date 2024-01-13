@@ -14,6 +14,7 @@ from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
+from runcoder.utils.terminals import start_terminal
 from runcoder.utils.utils import import_from_path
 
 from .db.codeInfo.save import save_code_info
@@ -36,7 +37,6 @@ from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
-from runcoder.utils.terminals import start_terminal
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 

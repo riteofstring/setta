@@ -1,7 +1,6 @@
 import os
 import subprocess
 import tempfile
-import inspect
 
 
 def startMyPyDaemon():
@@ -22,7 +21,7 @@ def killMyPyDaemon():
     subprocess.run(["dmypy", "stop"])
 
 
-async def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
+def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
     if len(write) != len(in_file_with_suffix):
         raise ValueError("Writes and suffixes lists must have the same length.")
 
@@ -44,10 +43,7 @@ async def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
         # Get the relative paths of all temporary files
         temp_file_paths = [os.path.relpath(temp_file.name) for temp_file in temp_files]
 
-        if inspect.iscoroutinefunction(then_do):
-            return await then_do(temp_file_paths)
-        else:
-            return then_do(temp_file_paths)
+        return then_do(temp_file_paths)
 
     except subprocess.CalledProcessError as e:
         print(e, flush=True)

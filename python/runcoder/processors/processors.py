@@ -4,18 +4,15 @@ from pprint import pprint
 import docstring_parser
 import jedi
 
-from ..code.export_selected import export_selected, get_code, get_script
+from ..code.export_selected import export_selected, get_code
 from ..code.extract_args_from_help import extract_args_from_help
-from ..code.find_placeholders import needs_python_code, needs_yaml
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
-    generate_script,
     get_line_from_string,
     prepend_with_imports,
     set_line,
 )
-from ..code.generate_yaml import generate_yaml
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
 from .utils import withTempFiles
@@ -165,6 +162,7 @@ def parametersRequestFn(message, code, var_name_to_line_num, var_name):
 
 def parametersRequest(message):
     return completionHelper(message, "parameters", parametersRequestFn)
+
 
 def typeCheckRequest(message):
     p = message["message"]

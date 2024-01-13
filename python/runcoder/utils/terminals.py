@@ -1,13 +1,11 @@
 import asyncio
-from winpty import PtyProcess
 import json
+
+from winpty import PtyProcess
 
 from runcoder.code.export_selected import export_selected, get_script
 from runcoder.code.find_placeholders import needs_python_code, needs_yaml
-from runcoder.code.generate_code import (
-    generate_code,
-    generate_script,
-)
+from runcoder.code.generate_code import generate_code, generate_script
 from runcoder.code.generate_yaml import generate_yaml
 from runcoder.processors.utils import withTempFiles
 
@@ -17,7 +15,7 @@ async def start_terminal(terminal_websocket):
     loop = asyncio.get_event_loop()
 
     # Start the WinPTY terminal
-    pty_process = PtyProcess.spawn('cmd.exe')
+    pty_process = PtyProcess.spawn("cmd.exe")
 
     # Function to read from the terminal
     async def read_from_terminal():
@@ -29,46 +27,57 @@ async def start_terminal(terminal_websocket):
             await terminal_websocket.send_text(output)
 
     # Function to write to the terminal
-    async def write_to_terminal(input_data):
-        await loop.run_in_executor(None, pty_process.write, input_data)
+    async def write_to_terminal():
+        while True:
+            input_data = await terminal_websocket.receive_text()
+            try:
+                json_val = json.loads(input_data)
+                if isinstance(json_val, dict):
+                    if json_val["type"] == "resize":
+                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                    elif json_val["type"] == "runCode":
+                        await runCode(json_val, pty_process.write)
+                    continue
+            except json.decoder.JSONDecodeError:
+                pass
+            if input_data is None:
+                break
+            elif input_data == "\x03":
+                print("sendintr", flush=True)
+                pty_process.sendintr()
+            else:
+                # Write received data to the terminal
+                pty_process.write(input_data)
 
-    # Start reading from the terminal
-    read_task = loop.create_task(read_from_terminal())
+    try:
+        # Start reading from and writing to the terminal
+        read_task = loop.create_task(read_from_terminal())
+        write_task = loop.create_task(write_to_terminal())
 
-    # Assume websocket_receive() is an async function that receives data from WebSocket
-    while True:
-        input_data = await terminal_websocket.receive_text()
-        try:
-            json_val = json.loads(input_data)
-            if isinstance(json_val, dict): 
-                if json_val["type"] == "resize":
-                    pty_process.setwinsize(json_val['rows'], json_val['cols'])
-                elif json_val["type"] == "runCode":
-                    await runCode(json_val, write_to_terminal)
-                continue
-        except json.decoder.JSONDecodeError:
-            pass
-        if input_data is None:
-            break
-        # Write received data to the terminal
-        await write_to_terminal(input_data)
+        # Wait for either task to complete
+        _, pending = await asyncio.wait(
+            [read_task, write_task], return_when=asyncio.FIRST_COMPLETED
+        )
 
-    # Cleanup
-    read_task.cancel()
-    pty_process.terminate()
+        # Cancel the remaining tasks
+        for task in pending:
+            task.cancel()
+            await task  # Ensure task is properly cancelled
+    finally:
+        # Cleanup
+        pty_process.terminate()
 
 
-
-async def runCode(message, write_to_terminal):
+def runCode(message, write_to_terminal):
     p = message["message"]
     selected = export_selected(p)
 
-    async def write_bash(filepaths_for_bash):
-        async def execute_bash(temp_filepaths):
-            await write_to_terminal(f"bash {temp_filepaths[0]}\r\n")
+    def write_bash(filepaths_for_bash):
+        def execute_bash(temp_filepaths):
+            write_to_terminal(f"\x03bash {temp_filepaths[0]}\r\n")
 
         script = generate_script(p, selected, filepaths_for_bash)
-        await withTempFiles(
+        withTempFiles(
             write=[script],
             in_file_with_suffix=[".sh"],
             then_do=execute_bash,
@@ -87,7 +96,7 @@ async def runCode(message, write_to_terminal):
         write.append(yaml_dict)
         in_file_with_suffix.append(".yaml")
 
-    await withTempFiles(
+    withTempFiles(
         write=write,
         in_file_with_suffix=in_file_with_suffix,
         then_do=write_bash,

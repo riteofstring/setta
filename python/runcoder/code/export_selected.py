@@ -11,8 +11,8 @@ from ..utils.constants import (
     PARAM_SWEEP,
     SCRIPT,
     SECTION,
-    VAR_CONTROL,
     TERMINAL,
+    VAR_CONTROL,
 )
 from .find_placeholders import double_braces
 
