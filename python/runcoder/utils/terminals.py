@@ -12,7 +12,7 @@ from runcoder.code.generate_yaml import generate_yaml
 from runcoder.processors.utils import withTempFiles
 
 if platform.system() == "Windows":
-    from win_pty import PtyProcess
+    from winpty import PtyProcess
 
     TERMINAL_NAME = "bash.exe"
 else:
