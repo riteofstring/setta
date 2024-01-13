@@ -1,6 +1,8 @@
 import asyncio
 import json
+from asyncio import CancelledError
 
+from fastapi import WebSocketDisconnect
 from winpty import PtyProcess
 
 from runcoder.code.export_selected import export_selected, get_script
@@ -19,31 +21,37 @@ async def start_terminal(terminal_websocket):
 
     # Function to read from the terminal
     async def read_from_terminal():
-        while True:
-            output = await loop.run_in_executor(None, pty_process.read, 1024)
-            if not output:
-                break
-            # Send output to WebSocket
-            await terminal_websocket.send_text(output)
+        try:
+            while True:
+                output = await loop.run_in_executor(None, pty_process.read, 1024)
+                if not output:
+                    break
+                # Send output to WebSocket
+                await terminal_websocket.send_text(output)
+        except (WebSocketDisconnect, CancelledError):
+            pass
 
     # Function to write to the terminal
     async def write_to_terminal():
-        while True:
-            input_data = await terminal_websocket.receive_text()
-            try:
-                json_val = json.loads(input_data)
-                if isinstance(json_val, dict):
-                    if json_val["type"] == "resize":
-                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                    elif json_val["type"] == "runCode":
-                        runCode(json_val, pty_process.write)
-                    continue
-            except json.decoder.JSONDecodeError:
-                pass
-            if input_data is None:
-                break
-            # Write received data to the terminal
-            pty_process.write(input_data)
+        try:
+            while True:
+                input_data = await terminal_websocket.receive_text()
+                try:
+                    json_val = json.loads(input_data)
+                    if isinstance(json_val, dict):
+                        if json_val["type"] == "resize":
+                            pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                        elif json_val["type"] == "runCode":
+                            runCode(json_val, pty_process.write)
+                        continue
+                except json.decoder.JSONDecodeError:
+                    pass
+                if input_data is None:
+                    break
+                # Write received data to the terminal
+                pty_process.write(input_data)
+        except (WebSocketDisconnect, CancelledError):
+            pass
 
     try:
         # Start reading from and writing to the terminal
