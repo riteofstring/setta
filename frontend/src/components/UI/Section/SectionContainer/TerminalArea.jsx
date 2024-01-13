@@ -28,6 +28,9 @@ function _TerminalArea({ sectionId }) {
     terminal.loadAddon(attachAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
+
+    terminal.onSelectionChange((x)=>console.log(terminal.getSelectionPosition()))
+
     terminal.onResize((size) => {
       // Send the new size to the backend
       const message = JSON.stringify({
