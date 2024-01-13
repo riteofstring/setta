@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect } from "react";
 import { useStoreApi } from "reactflow";
@@ -14,16 +15,16 @@ import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
 import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
-  const viewport = useProjectConfig((x) => x.viewport, _.isEqual);
   const topLevelSectionPositions = useProjectConfig(
     (x) => x.children,
     _.isEqual
   );
-  const initialNodes = _.map(topLevelSectionPositions, (v, k) => ({
+  const initialNodes = _.mapValues(topLevelSectionPositions, (v, k) => ({
     id: k,
     position: { x: v.x, y: v.y },
     type: "sectionContainerNode",
     zIndex: v.zIndex,
+    selected: useActiveSection.getState().ids.includes(k),
     style: { visibility: "visible" }, // needed to prevent flickering
   }));
 
@@ -47,7 +48,6 @@ export function UIPage() {
     <GlobalDndContext>
       <SectionsPane
         initialNodes={initialNodes}
-        viewport={viewport}
         closeCtxMenus={closeCtxMenus}
         openPaneCtxMenu={openPaneCtxMenu}
         openSelectionCtxMenu={openSelectionCtxMenu}

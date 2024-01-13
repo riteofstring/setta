@@ -83,18 +83,21 @@ export function loadSectionIntoState({
   evCols,
   uiTypeCols,
   codeInfo,
+  relativePositions,
   topLevelIds,
   x,
   y,
   callbackBeforeExit,
   incrementVersion,
 }) {
-  // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-  const topLevelPosition = REACT_FLOW_STORE.rf.screenToFlowPosition({ x, y });
-  const topLevelMapping = topLevelIds.map((i) => [
-    i,
-    { ...topLevelPosition, zIndex: 0 },
-  ]);
+  const topLevelMapping = {};
+  for (const i of topLevelIds) {
+    topLevelMapping[i] = {
+      x: x + relativePositions[i].x,
+      y: y + relativePositions[i].y,
+      zIndex: relativePositions[i].zIndex,
+    };
+  }
 
   useUITypes.getState().update(uiTypes);
   useParamInfos.getState().update({ evCols, uiTypeCols });
@@ -102,9 +105,11 @@ export function loadSectionIntoState({
   useSectionInfos.getState().update(sections);
   updateManyParamsAndCallables(Object.keys(sections));
   updateManyCurrChildren(Object.keys(sections));
-  useProjectConfig.getState().addChildren(Object.fromEntries(topLevelMapping));
+  useProjectConfig.getState().addChildren(topLevelMapping);
 
-  callbackBeforeExit();
+  if (callbackBeforeExit) {
+    callbackBeforeExit();
+  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

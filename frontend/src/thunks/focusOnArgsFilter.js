@@ -1,11 +1,11 @@
 import { useActiveSection } from "models/activeSection";
 
 export function focusOnArgsFilter() {
-  const sectionId = useActiveSection.getState().id;
-  if (!sectionId) {
+  const sectionIds = useActiveSection.getState().ids;
+  if (sectionIds.length !== 1) {
     return;
   }
-  const element = document.getElementById(`${sectionId}-args-filter`);
+  const element = document.getElementById(`${sectionIds[0]}-args-filter`);
   if (element) {
     element.focus();
   }

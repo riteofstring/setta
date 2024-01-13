@@ -54,7 +54,7 @@ function Body({ onChange, onClick, value }) {
   return (
     <>
       <textarea
-        className="cursor-auto overflow-y-auto overflow-x-hidden rounded-md py-2 px-3 focus-visible:outline focus-visible:outline-blue-500"
+        className="cursor-auto overflow-y-auto overflow-x-hidden rounded-md px-3 py-2 focus-visible:outline focus-visible:outline-blue-500"
         placeholder="Description"
         rows="4"
         cols="50"

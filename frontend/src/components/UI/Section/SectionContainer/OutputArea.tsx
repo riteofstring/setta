@@ -19,7 +19,7 @@ function OneChart({ series, title }) {
   // }));
   const seriesWithX = [{ values: series.map((y, i) => ({ x: i, y })) }];
   return (
-    <figure className="h-full">
+    <figure className="card-figure">
       <ParentSize
         className="-my-5 flex flex-1 flex-col px-8 pt-6"
         debounceTime={0}

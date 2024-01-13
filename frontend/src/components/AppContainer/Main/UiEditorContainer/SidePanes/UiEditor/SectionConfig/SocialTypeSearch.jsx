@@ -17,7 +17,7 @@ export function SocialTypeSearch({ sectionId }) {
   }
 
   return (
-    <div className="mt-2 mb-2 w-full select-text">
+    <div className="mb-2 mt-2 w-full select-text">
       <div className="flex w-full items-center gap-3">
         <p className="select-none text-sm font-bold">{"Social Media URL"}</p>
         <input

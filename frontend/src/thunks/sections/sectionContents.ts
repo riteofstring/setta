@@ -27,7 +27,7 @@ function computeAllParams(sectionId: string, objInfoId: string) {
     [codeInfoId]
   );
 
-  return [...objParamInfos, ...paramCollections];
+  return movePinnedToFront([...objParamInfos, ...paramCollections]);
 }
 
 export function updateManyParamsAndCallables(sectionIds: string[]) {
@@ -48,4 +48,21 @@ export function updateParams(sectionId: string) {
   const { selectedItem } = getSectionInfo(sectionId);
   const params = computeAllParams(sectionId, selectedItem);
   useSectionToParams.getState().setParams({ sectionId, params });
+}
+
+function movePinnedToFront(params) {
+  const pinnedObjects = [];
+  const unpinnedObjects = [];
+
+  // Separate objects into pinned and unpinned arrays
+  params.forEach((p) => {
+    if (p.isPinned) {
+      pinnedObjects.push(p);
+    } else {
+      unpinnedObjects.push(p);
+    }
+  });
+
+  // Concatenating the pinned and unpinned objects
+  return pinnedObjects.concat(unpinnedObjects);
 }

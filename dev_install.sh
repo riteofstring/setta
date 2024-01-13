@@ -1,5 +1,5 @@
 cd frontend && \
-yarn && \
+npm install && \
 cd .. && \
 . ./init_env.sh dev && \
 ./cleanup.sh

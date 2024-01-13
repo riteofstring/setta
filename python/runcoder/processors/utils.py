@@ -21,7 +21,7 @@ def killMyPyDaemon():
     subprocess.run(["dmypy", "stop"])
 
 
-def withTempFiles(write, in_file_with_suffix, then_do):
+def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
     if len(write) != len(in_file_with_suffix):
         raise ValueError("Writes and suffixes lists must have the same length.")
 
@@ -43,7 +43,6 @@ def withTempFiles(write, in_file_with_suffix, then_do):
         # Get the relative paths of all temporary files
         temp_file_paths = [os.path.relpath(temp_file.name) for temp_file in temp_files]
 
-        # Pass the list of file paths to the callback function
         return then_do(temp_file_paths)
 
     except subprocess.CalledProcessError as e:
@@ -53,7 +52,8 @@ def withTempFiles(write, in_file_with_suffix, then_do):
         return e
 
     finally:
-        # Clean up the temporary files
-        for temp_file in temp_files:
-            temp_file.close()
-            os.remove(temp_file.name)
+        if auto_delete:
+            # Clean up the temporary files
+            for temp_file in temp_files:
+                temp_file.close()
+                os.remove(temp_file.name)

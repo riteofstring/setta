@@ -7,6 +7,8 @@ export function MenuDropdown({
   alignOffset = -3,
   contentStyle = "",
   triggerStyle = "",
+  padding = "py-1 px-2",
+  rounded = "rounded-md",
   children,
 }) {
   // `text-violet11 data-[highlighted]:bg-violet4 data-[state=open]:bg-violet4 flex select-none items-center justify-between gap-[2px] rounded text-[13px] font-medium leading-none outline-none
@@ -17,7 +19,7 @@ export function MenuDropdown({
   return (
     <Menubar.Menu>
       <Menubar.Trigger
-        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 rounded-md py-1 px-2 text-xs font-semibold leading-none text-runcoder-700 outline-none transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-200 dark:hover:bg-runcoder-900 ${triggerStyle}`}
+        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 ${rounded} ${padding} text-xs font-semibold leading-none text-runcoder-700 outline-none transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-200 dark:hover:bg-runcoder-900 ${triggerStyle}`}
       >
         {trigger}
       </Menubar.Trigger>
