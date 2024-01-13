@@ -57,7 +57,7 @@ function File({
       ref={itemRef}
       onClick={_onClick}
       style={{ marginLeft: `${1.5 * depth}rem` }}
-      className={`flex flex-grow cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-runcoder-100 focus-visible:ring-1 dark:text-runcoder-100 dark:hover:bg-runcoder-900 dark:hover:text-white`}
+      className={`flex flex-grow cursor-pointer items-center gap-2 rounded-lg py-1 px-2 text-sm hover:bg-runcoder-100 focus-visible:ring-1 dark:text-runcoder-100 dark:hover:bg-runcoder-900 dark:hover:text-white`}
     >
       <span className="w-4">
         <RadioGroup.Indicator>
@@ -72,7 +72,7 @@ function File({
   ) : (
     <div
       style={{ marginLeft: `${1.5 * depth}rem` }}
-      className="flex flex-grow select-none items-center gap-2 rounded-md px-2 py-1"
+      className="flex flex-grow select-none items-center gap-2 rounded-md py-1 px-2"
       onDoubleClick={() => onFolderDoubleClick(id)}
     >
       <HiOutlineFolder className="text-runcoder-400 group-hover:text-runcoder-800 dark:text-runcoder-200" />

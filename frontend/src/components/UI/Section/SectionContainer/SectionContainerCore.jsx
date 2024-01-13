@@ -5,8 +5,7 @@ import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
-import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
-import { getParamInfos } from "thunks/sections/sectionContents";
+import { multiSectionSelect } from "thunks/keyActivations";
 import { setZIndices } from "thunks/sections/sectionPositions";
 import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
@@ -19,22 +18,8 @@ function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
 
   function onClick(e) {
-    if (paramSelect(e)) {
-      // depends on bubbling behavior (child div onclicks get executed first)
-      const atLeastOneParamSelected = getParamInfos(sectionId).some(
-        (x) => x.isSelected
-      );
-      if (!isActiveSection && atLeastOneParamSelected) {
-        useActiveSection.getState().addIds([sectionId]);
-      } else if (isActiveSection && !atLeastOneParamSelected) {
-        useActiveSection.getState().removeIds([sectionId]);
-      }
-    } else if (multiSectionSelect(e)) {
-      if (isActiveSection) {
-        useActiveSection.getState().removeIds([sectionId]);
-      } else {
-        useActiveSection.getState().addIds([sectionId]);
-      }
+    if (multiSectionSelect(e)) {
+      useActiveSection.getState().addIds([sectionId]);
     } else {
       useActiveSection.getState().setIds([sectionId]);
     }

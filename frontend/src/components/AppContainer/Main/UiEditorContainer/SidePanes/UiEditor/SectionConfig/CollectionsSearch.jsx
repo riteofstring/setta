@@ -51,7 +51,7 @@ function ObjCollectionDetails({ children, details, name }) {
 
   return (
     <Expandable heading={children} value={name} defaultValue={0}>
-      <div className="select-text rounded-md px-1 py-1">
+      <div className="select-text rounded-md py-1 px-1">
         {Object.entries(groupedDetails).map(([k, v]) => (
           <div key={`ObjCollectionDetails-${k}`}>
             <p className="text-sm font-bold dark:text-runcoder-200">{k}</p>

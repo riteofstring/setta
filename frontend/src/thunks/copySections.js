@@ -1,28 +1,37 @@
 import _ from "lodash";
+import { useActiveSection } from "models/activeSection";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { findAll } from "z_utils/getDescendants";
-import { RCType } from "z_utils/types/codeInfo";
-import { getSectionTypeConfig } from "../sections/getters";
+import { getSectionTypeConfig } from "./sections/getters";
 
-export function copySections(sectionIds) {
-  const sections = _.pick(useSectionInfos.getState().x, sectionIds);
+export async function copySections() {
+  const activeSectionIds = useActiveSection.getState().ids;
+  if (activeSectionIds.length < 1) {
+    return;
+  }
+  const sections = _.pick(useSectionInfos.getState().x, activeSectionIds);
   const uiTypes = getUITypes(sections);
   const codeInfo = getCodeInfo(sections);
   const evCols = getEVCols(sections);
   const uiTypeCols = getUITypeCols(sections);
   const relativePositions = getRelativePositions(sections);
-  return {
-    sections,
-    uiTypes,
-    codeInfo,
-    evCols,
-    uiTypeCols,
-    relativePositions,
-  };
+  await navigator.clipboard.writeText(
+    JSON.stringify({
+      data: {
+        sections,
+        uiTypes,
+        codeInfo,
+        evCols,
+        uiTypeCols,
+        relativePositions,
+      },
+      copyType: "sections",
+    })
+  );
 }
 
 function getUITypes(sections) {
@@ -35,34 +44,11 @@ function getUITypes(sections) {
 }
 
 function getCodeInfo(sections) {
-  const sectionCodeInfoIds = _.map(
+  const codeInfoIds = _.map(
     sections,
     (x) => getSectionTypeConfig(x.id).codeInfoId
   );
-  let output = [];
-  for (const cid of sectionCodeInfoIds) {
-    const codeInfos = findAll(useCodeInfo.getState().x, [cid]);
-    if (codeInfos.some((x) => x.isSelected)) {
-      output.push(
-        ...codeInfos.filter(
-          (x) =>
-            x.isSelected ||
-            x.rcType === RCType.CALLABLE ||
-            x.rcType === RCType.COLLECTION ||
-            sectionCodeInfoIds.includes(x.id)
-        )
-      );
-    } else {
-      output.push(...codeInfos);
-    }
-  }
-  output = _.keyBy(_.cloneDeep(output), (x) => x.id);
-
-  for (const c of Object.values(output)) {
-    c.children = c.children.filter((x) => x in output);
-  }
-
-  return output;
+  return _.keyBy(findAll(useCodeInfo.getState().x, codeInfoIds), (x) => x.id);
 }
 
 function getEVCols(sections) {

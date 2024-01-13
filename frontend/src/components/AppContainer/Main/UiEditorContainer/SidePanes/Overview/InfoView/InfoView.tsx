@@ -66,13 +66,13 @@ const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
       className={classNames(
-        "h-36 overflow-hidden rounded-b-md bg-runcoder-100 text-sm  data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-900",
+        "h-36 overflow-hidden rounded-b-md bg-runcoder-100 text-sm  data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp dark:bg-runcoder-900",
         className
       )}
       {...props}
       ref={forwardedRef}
     >
-      <aside className="max-h-full overflow-ellipsis px-5 py-4 dark:text-runcoder-300">
+      <aside className="max-h-full overflow-ellipsis py-4 px-5 dark:text-runcoder-300">
         {children}
       </aside>
     </Accordion.Content>

@@ -1,6 +1,7 @@
 import { useActiveSection } from "models/activeSection";
-import React, { useCallback, useState } from "react";
-import ReactFlow from "reactflow";
+import { useProjectConfig } from "models/info/projectConfig";
+import React from "react";
+import ReactFlow, { useNodesState } from "reactflow";
 import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
@@ -16,6 +17,10 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
+function onMoveEnd(e, viewport) {
+  useProjectConfig.getState().setViewport(viewport);
+}
+
 function onNodeDragStop(e, node, nodes) {
   setPositionAndZIndices(nodes);
 }
@@ -25,57 +30,22 @@ function onSelectionDragStop(e, nodes) {
 }
 
 function onSelectionChange({ nodes }) {
-  if (REACT_FLOW_STORE.store?.getState().userSelectionActive) {
-    useActiveSection.getState().setIds(nodes.map((x) => x.id));
-  }
+  useActiveSection.getState().setIds(nodes.map((x) => x.id));
 }
 
 function onInit(rf) {
   REACT_FLOW_STORE.rf = rf;
 }
 
-// This is a bit more efficient than the one returned by react flow's useNodesState.
-// Not sure if worth it though.
-function applyNodeChanges(changes, nodes) {
-  const newNodes = { ...nodes };
-  for (const c of changes) {
-    switch (c.type) {
-      case "select": {
-        newNodes[c.id].selected = c.selected;
-        break;
-      }
-      case "position": {
-        if (typeof c.position !== "undefined") {
-          newNodes[c.id].position = c.position;
-        }
-        break;
-      }
-      case "add": {
-        newNodes[c.item.id] = c.item;
-        break;
-      }
-      case "remove": {
-        delete newNodes[c.id];
-        break;
-      }
-    }
-  }
-  return newNodes;
-}
-
 function _SectionsPane({
   initialNodes,
+  viewport,
   closeCtxMenus,
   openPaneCtxMenu,
   openSelectionCtxMenu,
   openNodeCtxMenu,
 }) {
-  const [nodes, setNodes] = useState(initialNodes);
-
-  const onNodesChange = useCallback(
-    (changes) => setNodes((x) => applyNodeChanges(changes, x)),
-    []
-  );
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
 
   useDeepCompareEffect(() => {
     setNodes(initialNodes);
@@ -90,15 +60,16 @@ function _SectionsPane({
 
   return (
     <ReactFlow
-      nodes={Object.values(nodes)}
+      nodes={nodes}
       minZoom={0.1}
       maxZoom={10}
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       style={reactFlowStyle}
-      defaultViewport={REACT_FLOW_STORE.initialViewport}
+      defaultViewport={viewport}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
+      onMoveEnd={onMoveEnd}
       onPaneContextMenu={openPaneCtxMenu}
       onSelectionContextMenu={openSelectionCtxMenu}
       onNodeContextMenu={openNodeCtxMenu}

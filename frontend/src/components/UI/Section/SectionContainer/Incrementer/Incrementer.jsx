@@ -62,7 +62,7 @@ export function Incrementer({
     <Tooltip.Provider>
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div className="flex max-w-xs gap-1 rounded-lg bg-runcoder-200 px-2 py-1 dark:bg-runcoder-900">
+          <div className="flex max-w-xs gap-1 rounded-lg bg-runcoder-200 py-1 px-2 dark:bg-runcoder-900">
             {isRoot ? (
               <p className="text-xs font-bold text-runcoder-500">Children</p>
             ) : (

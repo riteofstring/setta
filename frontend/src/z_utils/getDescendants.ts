@@ -62,7 +62,7 @@ export function findAllParameters(allCodeInfo, codeInfoIds) {
   );
 }
 
-export function findAll(allCodeInfo, codeInfoIds) {
+export function findAll(allCodeInfo, codeInfoIds){
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,

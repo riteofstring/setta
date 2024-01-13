@@ -155,16 +155,5 @@
       "subType": null,
       "childUITypeId": null
     }
-  },
-  "d6d40533-ee47-42a5-8b55-5455716c71ac": {
-    "id": "d6d40533-ee47-42a5-8b55-5455716c71ac",
-    "type": "TERMINAL",
-    "name": "",
-    "presetType": "BASE",
-    "config": {
-      "collections": [],
-      "subType": null,
-      "childUITypeId": null
-    }
   }
 }

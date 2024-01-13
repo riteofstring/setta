@@ -6,7 +6,7 @@ import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 export function VersionList({ sectionId }) {
   return (
     <ResizableDescription sectionId={sectionId}>
-      <section className="version-section -my-4 flex-1 self-stretch pb-8 pt-9">
+      <section className="version-section -my-4 flex-1 self-stretch pt-9 pb-8">
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
           <Items sectionId={sectionId} />
         </ul>
@@ -37,7 +37,7 @@ function OneItem({ id, name, isCurr, onMouseOver }) {
   return (
     <li
       onMouseOver={() => onMouseOver(id)}
-      className="version-list-item -mx-2 -my-1 cursor-pointer auto-rows-auto justify-between rounded-xl px-2 py-1 text-xs hover:bg-runcoder-50/50 dark:hover:bg-runcoder-800/50"
+      className="version-list-item -my-1 -mx-2 cursor-pointer auto-rows-auto justify-between rounded-xl px-2 py-1 text-xs hover:bg-runcoder-50/50 dark:hover:bg-runcoder-800/50"
     >
       <p
         className={`col-start-1 truncate ${

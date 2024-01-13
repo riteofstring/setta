@@ -55,8 +55,7 @@
             "width": 642,
             "height": 479
           },
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "8d73c344-5501-4790-98ed-c00cb9d87393": {
           "id": "8d73c344-5501-4790-98ed-c00cb9d87393",
@@ -82,8 +81,7 @@
             "width": 483,
             "height": 170
           },
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
           "id": "c27f4f05-7a54-44e6-b222-c77581c4ea37",
@@ -109,8 +107,7 @@
             "width": "auto",
             "height": "auto"
           },
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         }
       },
       "evCols": {
@@ -199,8 +196,7 @@
           "children": [],
           "description": "",
           "isPinned": false,
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "20fe3b32-be65-4b59-9f32-013435901dcc": {
           "id": "20fe3b32-be65-4b59-9f32-013435901dcc",
@@ -211,8 +207,7 @@
           "children": [],
           "description": "",
           "isPinned": false,
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": {
           "id": "5f91dbfe-6ae2-4741-a434-f56544cf5bd3",
@@ -223,8 +218,7 @@
           "children": [],
           "description": "",
           "isPinned": false,
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "6b0467c1-584c-436c-8d18-5a86fa6eddfa": {
           "id": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
@@ -235,8 +229,7 @@
           "children": [],
           "description": "",
           "isPinned": false,
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "b1318655-3495-4d2d-8fef-89a138386641": {
           "id": "b1318655-3495-4d2d-8fef-89a138386641",
@@ -247,8 +240,7 @@
           "children": [],
           "description": "",
           "isPinned": false,
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "cbf1bb45-39f1-433f-9107-a790449a47bc": {
           "id": "cbf1bb45-39f1-433f-9107-a790449a47bc",
@@ -259,8 +251,7 @@
           "children": [],
           "description": "",
           "isPinned": false,
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         },
         "ceb322b7-b346-4a16-aedc-484c4ecf7b4e": {
           "id": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
@@ -276,8 +267,7 @@
           ],
           "description": "",
           "isPinned": false,
-          "isFrozen": false,
-          "isSelected": false
+          "isFrozen": false
         }
       },
       "userCodeInfoMaps": {},

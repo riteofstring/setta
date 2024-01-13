@@ -37,16 +37,6 @@ export function TextInput({
     paramInfoId
   );
 
-  const [isFocused, setIsFocused] = useState(false);
-
-  const handleFocus = () => {
-    setIsFocused(true);
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
-  };
-
   const allItems = [{ group: "search results", items: results }];
 
   function updateValue(newVal, requestCompletions = false) {
@@ -55,6 +45,7 @@ export function TextInput({
     }
     onChange(newVal);
     if (requestCompletions) {
+      console.log("sending request");
       send(newVal);
     }
   }
@@ -84,8 +75,6 @@ export function TextInput({
   // Exclude downshift's value because we don't need it.
   const inputProps = getInputProps({
     onChange: (e) => updateValue(e.target.value, true),
-    onFocus: handleFocus,
-    onBlur: handleBlur,
     onClick,
     ref: inputRef,
   });
@@ -100,7 +89,7 @@ export function TextInput({
   return (
     <>
       <input
-        className="nodrag card-value font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400"
+        className="nodrag card-value font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-t-0 border-b border-solid border-runcoder-300 p-0 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400"
         spellCheck={false}
         onScroll={syncScroll}
         placeholder={defaultVal}
@@ -108,9 +97,7 @@ export function TextInput({
       />
       <pre
         ref={preRef}
-        className={`${
-          isFocused ? "" : "truncate"
-        } card-value card-value-display mt-[1px] h-5 min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300`}
+        className="card-value card-value-display h-5 min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300"
       >
         <code>
           <StyledText value={value} />

@@ -21,8 +21,7 @@ def create_tables(db):
             defaultVal TEXT,
             description TEXT,
             isPinned BOOLEAN,
-            isFrozen BOOLEAN,
-            isSelected BOOLEAN
+            isFrozen BOOLEAN
         );
         """,
         # CodeInfoCol model

@@ -11,7 +11,6 @@ import {
   SCRIPT,
   SECTION,
   SOCIAL,
-  TERMINAL,
   VAR_CONTROL,
 } from "z_utils/constants";
 import { CodeArea } from "./CodeArea";
@@ -24,7 +23,6 @@ import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
 import { SocialArea } from "./SocialArea";
-import { TerminalArea } from "./TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -63,11 +61,8 @@ export function SectionContainerCoreResizable({
       case VAR_CONTROL:
       case SCRIPT:
       case CODE:
+      case PARAM_SWEEP:
         return "bg-white dark:bg-runcoder-900";
-      case TERMINAL:
-        return "bg-runcoder-950 overflow-clip";
-      // case PARAM_SWEEP:
-      //   return "bg-runcoder-50 dark:bg-runcoder-850";
       default:
         return "bg-runcoder-50 dark:bg-runcoder-800";
     }
@@ -138,8 +133,6 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <CodeArea sectionId={sectionId} codeType="varControl" />;
     case PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
-    case TERMINAL:
-      return <TerminalArea sectionId={sectionId} />;
     default:
       return null;
   }

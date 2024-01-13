@@ -10,7 +10,6 @@ export type CodeInfoType = {
   description: string;
   isPinned: boolean;
   isFrozen: boolean;
-  isSelected: boolean;
 };
 
 export enum RCType {
