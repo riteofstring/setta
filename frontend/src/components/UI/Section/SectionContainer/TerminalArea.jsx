@@ -9,7 +9,7 @@ import { theme } from "./Terminal/TerminalTheme";
 
 const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal`;
 const fitAddon = new FitAddon();
-const terminalWebsocket = new WebSocket(wsTerminalAddress);
+export const terminalWebsocket = new WebSocket(wsTerminalAddress);
 const attachAddon = new AttachAddon(terminalWebsocket);
 
 function _TerminalArea({ sectionId }) {

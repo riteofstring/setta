@@ -31,7 +31,6 @@ class Processors:
             "typeCheckRequest": typeCheckRequest,
             "connection": connectionEstablished,
             "allConnections": allConnections,
-            "runCode": runCode,
             "extractArgparseArgs": extractArgparseArgs,
         }
         self.interactive_projects = set()
@@ -40,17 +39,12 @@ class Processors:
         self.fns[key] = fn
         self.interactive_projects.add(key)
 
-    async def __call__(self, message, tasks_obj, cache, send_fn):
+    async def __call__(self, message, tasks_obj, cache):
         key = message["messageType"]
         fn = self.fns[key]
-        use_thread = key == "runCode" or (key in self.interactive_projects)
+        use_thread = key in self.interactive_projects
         self.maybe_read_cache(message, cache)
-        args = [message]
-        if (key == "runCode"):
-            args.extend([send_fn, tasks_obj.loop])
-        result = await tasks_obj.run_non_blocking_subprocess(
-            fn, use_thread, *args
-        )
+        result = await tasks_obj.run_non_blocking_subprocess(fn, use_thread, message)
         self.maybe_cache_result(message, result, cache)
         return result
 
@@ -172,7 +166,6 @@ def parametersRequestFn(message, code, var_name_to_line_num, var_name):
 def parametersRequest(message):
     return completionHelper(message, "parameters", parametersRequestFn)
 
-
 def typeCheckRequest(message):
     p = message["message"]
     code_json = export_selected(p)
@@ -209,62 +202,6 @@ def connectionEstablished(message):
 def allConnections(message):
     print("All connections:")
     pprint(message["connections"])
-    return {"output": None, "name": None, "cache": None}
-
-
-import json
-import asyncio
-
-def runCode(message, send_fn, loop):
-    p = message["message"]
-    selected = export_selected(p)
-
-    def write_bash(filepaths_for_bash):
-        def execute_bash(temp_filepaths):
-            with subprocess.Popen(
-                f"bash {temp_filepaths[0]}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            ) as process:
-                for line in process.stdout:
-                    # print(line.decode("utf8"), flush=True)
-                    asyncio.run_coroutine_threadsafe(send_fn(
-                        json.dumps(
-                            {
-                                "id": message["id"],
-                                "message": line.decode("utf8"),
-                                "toWebsocketId": message["websocketId"],
-                                "messageType": "runCode",
-                            }
-                        )
-                    ), loop)
-
-        script = generate_script(p, selected, filepaths_for_bash)
-        withTempFiles(
-            write=[script],
-            in_file_with_suffix=[".sh"],
-            then_do=execute_bash,
-        )
-
-    unprocessed_script = get_script(p)
-    write = []
-    in_file_with_suffix = []
-    if needs_python_code(unprocessed_script):
-        code, _ = generate_code(selected, p)
-        write.append(code)
-        in_file_with_suffix.append(".py")
-    if needs_yaml(unprocessed_script):
-        yaml_dict = generate_yaml(selected)
-        write.append(yaml_dict)
-        in_file_with_suffix.append(".yaml")
-
-    withTempFiles(
-        write=write,
-        in_file_with_suffix=in_file_with_suffix,
-        then_do=write_bash,
-    )
-
     return {"output": None, "name": None, "cache": None}
 
 

@@ -49,8 +49,6 @@ function receiveMessage(message) {
     useInteractive.getState().setProjects(m["message"]);
   } else if (m.messageType === "interactive") {
     useInteractive.getState().setData(m["message"]);
-  } else if (m.messageType === "runCode") {
-    console.log(m);
   } else if (m.id) {
     useWebsocketRooms.getState().setMessage(m.id, m.message);
   }

@@ -1,7 +1,7 @@
-import { sendMessage } from "dbRequests/websocket";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
 import { assembleUITypes, getProjectData } from "./save";
+import { terminalWebsocket } from "components/UI/Section/SectionContainer/TerminalArea";
 
 export function getProjectDataToGenerateCode() {
   const project = getProjectData();
@@ -14,5 +14,5 @@ export function getProjectDataToGenerateCode() {
 
 export function runCode({ codeId }) {
   const project = getProjectDataToGenerateCode();
-  sendMessage({ id: codeId, messageType: "runCode", message: project });
+  terminalWebsocket.send(JSON.stringify({ id: codeId, type: "runCode", message: project }));
 }
