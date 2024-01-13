@@ -50,7 +50,7 @@ export function addSectionAtPosition({
   } else if (type === VAR_CONTROL) {
     sectionProps.name = "Var Control";
     sectionProps.uiTypeId = VAR_CONTROL_UI_TYPE_ID;
-  } else if (type === TERMINAL){
+  } else if (type === TERMINAL) {
     sectionProps.uiTypeId = TERMINAL_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({

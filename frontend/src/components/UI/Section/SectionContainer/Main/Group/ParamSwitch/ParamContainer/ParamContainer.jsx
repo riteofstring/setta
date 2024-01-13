@@ -23,7 +23,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
 
   return (
     <article
-      className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg py-1 px-2 ${bg} ${border}`}
+      className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1 ${bg} ${border}`}
       {...infoViewHandlers}
       onClick={(e) => onClick(e, sectionId, paramInfo.id)}
     >
