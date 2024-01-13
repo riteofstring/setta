@@ -258,28 +258,127 @@
 # print(count_lines(example_string.split(delimiter)[0]))
 
 
-import argparse
+# import argparse
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Example script using argparse.")
+# def main():
+#     parser = argparse.ArgumentParser(description="Example script using argparse.")
 
-    parser.add_argument("--name", type=str, help="Your name", required=True)
-    parser.add_argument("--age", type=int, help="Your age", required=True)
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
-    parser.add_argument(
-        "--number", type=int, default=0, help="An example integer flag", required=True
-    )
+#     parser.add_argument("--name", type=str, help="Your name", required=True)
+#     parser.add_argument("--age", type=int, help="Your age", required=True)
+#     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+#     parser.add_argument(
+#         "--number", type=int, default=0, help="An example integer flag", required=True
+#     )
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    if args.verbose:
-        print("Verbose mode is enabled.")
-    print(f"Hello, {args.name}! You are {args.age} years old.")
-    print(f"The number provided is {args.number}.")
-
-
-if __name__ == "__main__":
-    main()
+#     if args.verbose:
+#         print("Verbose mode is enabled.")
+#     print(f"Hello, {args.name}! You are {args.age} years old.")
+#     print(f"The number provided is {args.number}.")
 
 
+# if __name__ == "__main__":
+#     main()
+
+
+
+
+# import os
+# import pty
+# import subprocess
+
+# def read_from_fd(fd):
+#     """ Read data from file descriptor. """
+#     while True:
+#         try:
+#             data = os.read(fd, 1024)
+#             if not data:
+#                 break
+#             yield data
+#         except OSError:
+#             break
+
+# def run_subprocess_with_pty(command):
+#     """ Run a subprocess with a pseudo-terminal. """
+#     # Create a pseudo-terminal pair
+#     master_fd, slave_fd = pty.openpty()
+
+#     # Start the subprocess with the slave end of the pty as its controlling terminal
+#     process = subprocess.Popen(command, stdin=slave_fd, stdout=slave_fd, stderr=subprocess.STDOUT, close_fds=True)
+
+#     # Close the slave end in the parent process
+#     os.close(slave_fd)
+
+#     # Read output from the master end of the pty
+#     for output in read_from_fd(master_fd):
+#         os.write(1, output)  # Write to standard output
+
+#     # Wait for the subprocess to finish
+#     process.wait()
+
+#     # Close the master end
+#     os.close(master_fd)
+
+
+# run_subprocess_with_pty("python test2.py")
+
+
+
+import os
+import threading
+from winpty import PtyProcess
+
+def read_from_process(process):
+    """ Read data from the subprocess and write it to the script's stdout. """
+    while True:
+        try:
+            output = process.read(1024)
+            if not output:
+                break
+            os.write(1, output.encode('utf-8'))
+        except EOFError:
+            break
+
+def write_to_process(process):
+    """ Read data from the script's stdin and write it to the subprocess. """
+    try:
+        while True:
+            inp = input()
+            if inp == "\x03":
+                process.sendintr()
+            else:
+                process.write(inp + '\n')
+    except EOFError:
+        pass
+
+def run_interactive_subprocess(command):
+    """ Run a subprocess interactively with a pseudo-terminal. """
+    process = PtyProcess.spawn(command)
+
+    # Create threads for reading from and writing to the subprocess
+    read_thread = threading.Thread(target=read_from_process, args=(process,))
+    write_thread = threading.Thread(target=write_to_process, args=(process,))
+
+    # Start the threads
+    read_thread.start()
+    write_thread.start()
+
+    # Wait for the subprocess to complete
+    # process.sendintr()
+    # assert process.wait() != 0
+
+    # Close threads
+    read_thread.join()
+    write_thread.join()
+
+# Example command
+command = ['python', 'test2.py']
+
+run_interactive_subprocess(command)
+
+
+# process = PtyProcess.spawn("python test2.py")
+# process.sendintr()
+# assert process.wait() != 0
