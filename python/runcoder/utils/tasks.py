@@ -28,6 +28,6 @@ class Tasks:
     def remove_task(self, id):
         self.tasks_dict.pop(id, None)
 
-    async def run_non_blocking_subprocess(self, fn, is_interactive, *args):
-        executor = self.thread_executor if is_interactive else self.pool_executor
+    async def run_non_blocking_subprocess(self, fn, use_thread, *args):
+        executor = self.thread_executor if use_thread else self.pool_executor
         return await self.loop.run_in_executor(executor, fn, *args)

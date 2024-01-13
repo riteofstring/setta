@@ -14,6 +14,7 @@ from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
+from runcoder.utils.terminals import get_free_terminal, start_terminal
 from runcoder.utils.utils import import_from_path
 
 from .db.codeInfo.save import save_code_info
@@ -216,6 +217,7 @@ manager = ConnectionManager()
 
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
+    print("regular websocket", websocket)
     id = await manager.connect(websocket)
     try:
         while True:
@@ -224,6 +226,16 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.send_message(json.loads(data), id)
     except WebSocketDisconnect:
         await manager.disconnect(id)
+
+
+@app.websocket("/terminal/{id}")
+async def terminal_websocket_endpoint(websocket: WebSocket, id: str):
+    print("terminal websocket", id, flush=True)
+    await websocket.accept()
+    try:
+        await start_terminal(websocket, id)
+    except WebSocketDisconnect:
+        print("disconnected terminal")
 
 
 @app.post("/projects")
@@ -351,3 +363,8 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
     )
     output.pop("section_id_map")
     return {**output, "relativePositions": relativePositions}
+
+
+@app.post("/terminal/getFreeTerminal")
+def route_terminal_get_free_terminal():
+    return get_free_terminal()

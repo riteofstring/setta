@@ -1,5 +1,5 @@
 cd frontend && \
-./npm_install.sh && \
+npm install && \
 cd .. && \
 . ./init_env.sh dev && \
 ./cleanup.sh

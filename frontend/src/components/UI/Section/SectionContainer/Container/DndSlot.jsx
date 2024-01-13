@@ -73,7 +73,7 @@ function DndSlotInner({ text, behaviorDropType, isDeck }) {
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
   return (
     <div
-      className={`min-w-60 grid h-8 select-none place-items-center rounded-full font-heading text-sm font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity ${
+      className={`grid h-8 min-w-60 select-none place-items-center rounded-full font-heading text-sm font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity ${
         invalid
           ? "[background-color:rgba(220,_38,_38,_0.8)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"

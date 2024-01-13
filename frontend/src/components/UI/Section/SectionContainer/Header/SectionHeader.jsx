@@ -1,4 +1,5 @@
 import React from "react";
+import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { deleteChild } from "thunks/sections/deleteChild";
@@ -27,7 +28,7 @@ function _SectionHeader({
   };
 
   const _isRoot = isRoot(sectionTypeName);
-  const classes = "text-runcoder-400/50 dark:text-runcoder-400/50 ml-2";
+  const classes = "text-runcoder-400/50 dark:text-runcoder-400/50 mr-2";
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -35,16 +36,18 @@ function _SectionHeader({
     <header className="card-title flex flex-row items-center">
       {!isInfo && (
         <>
-          <CardTitle
-            sectionId={sectionId}
-            isActiveSection={isActiveSection}
-            isGlobalVariables={isGlobalVariables}
-          />
           {sectionTypeName === "CODE" && <SiPython className={classes} />}
           {sectionTypeName === "SCRIPT" && <SiGnubash className={classes} />}
           {sectionTypeName === "VAR_CONTROL" && (
             <IoLogoJavascript className={classes} />
           )}
+          {sectionTypeName === "TERMINAL" && <FaTerminal className={classes} />}
+
+          <CardTitle
+            sectionId={sectionId}
+            isActiveSection={isActiveSection}
+            isGlobalVariables={isGlobalVariables}
+          />
 
           <MenuButton sectionId={sectionId} />
         </>

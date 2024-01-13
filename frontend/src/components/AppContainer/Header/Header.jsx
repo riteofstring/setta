@@ -22,7 +22,7 @@ export function HeaderContainer() {
 function FlexContainer({ children }) {
   return (
     <header
-      className={`min-h-12 z-20 flex h-12 w-[100vw] flex-row items-center bg-white px-11 shadow-md dark:bg-runcoder-800`}
+      className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center bg-white px-11 shadow-md dark:bg-runcoder-800`}
     >
       {children}
     </header>

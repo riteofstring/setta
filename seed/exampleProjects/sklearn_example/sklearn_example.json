@@ -8,11 +8,16 @@
         "id": "41f411f7-b14d-4375-bfcd-204446866745",
         "name": "config1",
         "viewport": {
-          "x": 597.3412021711504,
-          "y": 448.06290963053175,
+          "x": 660.2117527344465,
+          "y": 538.4285949848326,
           "zoom": 0.5743491774985174
         },
         "children": {
+          "28e7950f-2ce3-4252-92d8-93d1158c806a": {
+            "x": 1085.8530355089772,
+            "y": -499.8055553605676,
+            "zIndex": 8
+          },
           "29ca4fd3-de9b-4986-831a-e632a95b6081": {
             "x": -415.5291892529853,
             "y": -356.80727359274863,
@@ -56,6 +61,32 @@
         }
       },
       "sections": {
+        "28e7950f-2ce3-4252-92d8-93d1158c806a": {
+          "id": "28e7950f-2ce3-4252-92d8-93d1158c806a",
+          "name": "corporate_sapphire",
+          "evColId": "e007e751-1687-43ff-91e5-faeb1f7d15dc",
+          "uiTypeId": "1ca993ea-0d8b-40ed-b0ba-16ef08f387dc",
+          "uiTypeColId": "81079605-b1c8-4736-917f-73504bed100d",
+          "social": null,
+          "description": "",
+          "descriptionHeight": 100,
+          "descriptionVisible": 0,
+          "script": "",
+          "code": "",
+          "varControl": "",
+          "isFrozen": 0,
+          "nonPresetUITypeIds": ["1ca993ea-0d8b-40ed-b0ba-16ef08f387dc"],
+          "evColIds": ["e007e751-1687-43ff-91e5-faeb1f7d15dc"],
+          "parentId": null,
+          "chainedFrom": null,
+          "selectedItem": null,
+          "outputGroup": null,
+          "children": [],
+          "size": {
+            "width": 587,
+            "height": 230
+          }
+        },
         "29ca4fd3-de9b-4986-831a-e632a95b6081": {
           "id": "29ca4fd3-de9b-4986-831a-e632a95b6081",
           "name": "prickly_beige",
@@ -69,6 +100,7 @@
           "script": "",
           "code": "",
           "varControl": "",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["6237ca80-cb4e-42f7-a3f3-708401ae48ea"],
           "evColIds": ["9a6859c2-a79d-4da2-b460-b57fc982d495"],
           "parentId": null,
@@ -79,8 +111,7 @@
           "size": {
             "width": 949,
             "height": 781
-          },
-          "isFrozen": false
+          }
         },
         "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e": {
           "id": "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e",
@@ -95,6 +126,7 @@
           "script": "",
           "code": "",
           "varControl": "const newState = {}\n if (state.dataset === \"torch.nn.CrossEntropyLoss\"){\n     newState.algorithm = \"torch.optim.Adam\"\n}\nif (_.isNumber(_.toNumber(state.n_samples))){\n    newState.n_clusters = _.toString(_.toNumber(state.n_samples)*3)\n}\nnewState[\"dataset.n_samples\"] = state.n_samples\nreturn newState",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["aa87ed03-7b2b-4404-a246-7cd76f247697"],
           "evColIds": ["8a94f3ef-63e3-477b-a5ed-98f78358b427"],
           "parentId": null,
@@ -105,8 +137,7 @@
           "size": {
             "width": 476,
             "height": 237
-          },
-          "isFrozen": false
+          }
         },
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
@@ -121,6 +152,7 @@
           "script": "",
           "code": "",
           "varControl": "",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["74d80124-deb9-4577-8470-813cb9be4e56"],
           "evColIds": ["54571c59-7a51-42d5-bb8e-b6c06b41b023"],
           "parentId": null,
@@ -131,8 +163,7 @@
           "size": {
             "width": 450,
             "height": "auto"
-          },
-          "isFrozen": false
+          }
         },
         "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
           "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
@@ -147,6 +178,7 @@
           "script": "",
           "code": "import numpy as np\n\n{{ RUNCODER_GENERATED_CODE }}\n\nprint(\"here\")",
           "varControl": "",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["90ad65be-05c6-4f5b-81c4-ca7b4344db49"],
           "evColIds": ["69220358-73c1-49c3-9b78-d7cf733b2aa8"],
           "parentId": null,
@@ -157,8 +189,7 @@
           "size": {
             "width": "auto",
             "height": 158
-          },
-          "isFrozen": false
+          }
         },
         "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
           "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
@@ -173,6 +204,7 @@
           "script": "source activate abcde_env\ncat {{ RUNCODER_PYTHON_FILE }}\npython {{ RUNCODER_PYTHON_FILE }}\necho \"Done\"",
           "code": "",
           "varControl": "",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["25add466-bd0e-48f7-b497-cbcab96b7b1d"],
           "evColIds": ["fca181fc-c326-4d50-b028-37b368372f49"],
           "parentId": null,
@@ -183,8 +215,7 @@
           "size": {
             "width": 450,
             "height": 141
-          },
-          "isFrozen": false
+          }
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
@@ -199,6 +230,7 @@
           "script": "",
           "code": "",
           "varControl": "",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["fd8de817-8fc1-4502-b3a5-58e3b99dc418"],
           "evColIds": ["66e4192c-c1fc-4935-b862-e722726c1217"],
           "parentId": null,
@@ -209,8 +241,7 @@
           "size": {
             "width": 450,
             "height": "auto"
-          },
-          "isFrozen": false
+          }
         },
         "e209e428-eea6-4e14-b61e-0648ec28dd76": {
           "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -225,6 +256,7 @@
           "script": "",
           "code": "",
           "varControl": "",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["1a83a3ce-e415-4c2d-bed0-959ce18e7995"],
           "evColIds": [
             "1fc1e842-82fe-4a48-8794-23178822e22e",
@@ -238,8 +270,7 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          },
-          "isFrozen": false
+          }
         },
         "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7": {
           "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
@@ -254,6 +285,7 @@
           "script": "",
           "code": "",
           "varControl": "",
+          "isFrozen": 0,
           "nonPresetUITypeIds": ["80a4bb93-548a-46e3-bfb9-8737b367f1aa"],
           "evColIds": ["fb460dcd-d460-44fc-aeae-b0b8aca93c5b"],
           "parentId": null,
@@ -264,8 +296,7 @@
           "size": {
             "width": "auto",
             "height": "auto"
-          },
-          "isFrozen": false
+          }
         }
       },
       "evCols": {
@@ -329,6 +360,10 @@
           "name": "inland_apricot",
           "values": {}
         },
+        "e007e751-1687-43ff-91e5-faeb1f7d15dc": {
+          "name": "yodelling_copper",
+          "values": {}
+        },
         "fb460dcd-d460-44fc-aeae-b0b8aca93c5b": {
           "name": "worthwhile_crimson",
           "values": {}
@@ -347,6 +382,17 @@
           "config": {
             "subType": null,
             "codeInfoId": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2",
+            "childUITypeId": null
+          }
+        },
+        "1ca993ea-0d8b-40ed-b0ba-16ef08f387dc": {
+          "id": "1ca993ea-0d8b-40ed-b0ba-16ef08f387dc",
+          "name": "corporate_sapphire",
+          "type": "TERMINAL",
+          "presetType": null,
+          "config": {
+            "subType": null,
+            "codeInfoId": "b0cf185a-c31c-4c4e-9fcc-c6f6a45fd850",
             "childUITypeId": null
           }
         },
@@ -405,7 +451,6 @@
             "childUITypeId": null
           }
         },
-
         "aa87ed03-7b2b-4404-a246-7cd76f247697": {
           "id": "aa87ed03-7b2b-4404-a246-7cd76f247697",
           "name": "Var Control",
@@ -509,6 +554,7 @@
           }
         },
         "50c9cc9e-2a00-4eed-8302-a20fecf59f46": {},
+        "81079605-b1c8-4736-917f-73504bed100d": {},
         "8d49f34e-ab85-46c2-b13d-66af60b363cf": {
           "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
             "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
@@ -530,9 +576,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "0aa0f46a-e923-4528-a411-500cbda6e77b": {
           "id": "0aa0f46a-e923-4528-a411-500cbda6e77b",
@@ -541,9 +588,10 @@
           "rcType": "parameter",
           "defaultVal": "100",
           "description": "If int, it is the total number of points equally divided among\nclusters.\nIf array-like, each element of the sequence indicates\nthe number of samples per cluster.\n\n.. versionchanged:: v0.20\n    one can now pass an array-like to the ``n_samples`` parameter",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "159e0416-3873-469b-915b-1f186579c380": {
           "id": "159e0416-3873-469b-915b-1f186579c380",
@@ -552,9 +600,10 @@
           "rcType": "parameter",
           "defaultVal": "2",
           "description": "The number of features for each sample.",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
           "id": "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af",
@@ -563,9 +612,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "20619c35-a36c-4833-b329-e090c95b5af9": {
           "id": "20619c35-a36c-4833-b329-e090c95b5af9",
@@ -574,9 +624,10 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "2fae73d3-5756-42a9-beb0-7465b92ac626": {
           "id": "2fae73d3-5756-42a9-beb0-7465b92ac626",
@@ -585,9 +636,10 @@
           "rcType": "parameter",
           "defaultVal": "True",
           "description": "Shuffle the samples.",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "39ed839d-f632-4373-9d72-6ce95b5bc265": {
           "id": "39ed839d-f632-4373-9d72-6ce95b5bc265",
@@ -596,9 +648,10 @@
           "rcType": "parameter",
           "defaultVal": "None",
           "description": "Determines random number generation for dataset creation. Pass an int\nfor reproducible output across multiple function calls.\nSee :term:`Glossary <random_state>`.",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "3e15081a-9ca5-48bf-9159-9a95331a7894": {
           "id": "3e15081a-9ca5-48bf-9159-9a95331a7894",
@@ -607,9 +660,10 @@
           "rcType": "parameter",
           "defaultVal": "(-10.0, 10.0)",
           "description": "The bounding box for each cluster center when centers are\ngenerated at random.",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "3e754333-caea-451a-abba-dd254c49502f": {
           "id": "3e754333-caea-451a-abba-dd254c49502f",
@@ -618,9 +672,10 @@
           "rcType": "parameter",
           "defaultVal": "None",
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
           "id": "4e70c873-ead7-4c5a-b3a0-fe504e73ad27",
@@ -629,9 +684,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "669986a2-03d6-4de4-af41-f9395cf0ef57": {
           "id": "669986a2-03d6-4de4-af41-f9395cf0ef57",
@@ -640,9 +696,10 @@
           "rcType": "parameter",
           "defaultVal": "1.0",
           "description": "The standard deviation of the clusters.",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
           "id": "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
@@ -651,9 +708,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
           "id": "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2",
@@ -662,9 +720,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
           "id": "70f4e095-c286-4379-a5f5-4d02df40e1a5",
@@ -673,9 +732,10 @@
           "rcType": "parameter",
           "defaultVal": "False",
           "description": "If True, then return the centers of each cluster.\n\n.. versionadded:: 0.23",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
           "id": "7ae757c9-9327-4931-95a3-bc200f7e10b7",
@@ -684,9 +744,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "7b4b2118-7cbf-4275-8582-90c66a966441": {
           "id": "7b4b2118-7cbf-4275-8582-90c66a966441",
@@ -695,9 +756,10 @@
           "rcType": "parameter",
           "defaultVal": "None",
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "7c9308a4-e6d4-47dc-84a3-3d524de3fff2": {
           "id": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2",
@@ -706,9 +768,10 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
-          "children": ["c9a3e19c-6876-468a-a9a1-6f289c9367eb"],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": ["c9a3e19c-6876-468a-a9a1-6f289c9367eb"]
         },
         "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
           "id": "8a10b368-9a0e-4390-b2f7-bd4ff27570d3",
@@ -717,9 +780,10 @@
           "rcType": "parameter",
           "defaultVal": "None",
           "description": "The number of centers to generate, or the fixed center locations.\nIf n_samples is an int and centers is None, 3 centers are generated.\nIf n_samples is array-like, centers must be\neither None or an array of length equal to the length of n_samples.",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
           "id": "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5",
@@ -728,9 +792,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "97527bec-4c63-44c9-9994-3424a5dffb7e": {
           "id": "97527bec-4c63-44c9-9994-3424a5dffb7e",
@@ -739,9 +804,10 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
           "id": "97e83315-adfc-4d50-a8ab-a8c34082eb93",
@@ -750,9 +816,10 @@
           "rcType": "parameter",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "a382ec28-c244-4c90-9a58-a7c83a8512ea": {
           "id": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
@@ -761,12 +828,25 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
           "children": [
             "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4",
             "4e70c873-ead7-4c5a-b3a0-fe504e73ad27"
-          ],
-          "isPinned": false,
-          "isFrozen": false
+          ]
+        },
+        "b0cf185a-c31c-4c4e-9fcc-c6f6a45fd850": {
+          "id": "b0cf185a-c31c-4c4e-9fcc-c6f6a45fd850",
+          "name": "Contents",
+          "editable": 0,
+          "rcType": "collection",
+          "defaultVal": null,
+          "description": "",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "b30e8ce3-35db-4b39-8ff4-9da3123ce71b": {
           "id": "b30e8ce3-35db-4b39-8ff4-9da3123ce71b",
@@ -775,9 +855,10 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
-          "children": ["bb52a19f-d69c-4973-94ae-c1d85596cbb7"],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": ["bb52a19f-d69c-4973-94ae-c1d85596cbb7"]
         },
         "b7c4ac1c-532c-4196-80ee-51ee87971737": {
           "id": "b7c4ac1c-532c-4196-80ee-51ee87971737",
@@ -786,9 +867,10 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "bb52a19f-d69c-4973-94ae-c1d85596cbb7": {
           "id": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
@@ -797,6 +879,9 @@
           "rcType": "callable",
           "defaultVal": null,
           "description": "",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
           "children": [
             "0aa0f46a-e923-4528-a411-500cbda6e77b",
             "159e0416-3873-469b-915b-1f186579c380",
@@ -808,9 +893,7 @@
             "39ed839d-f632-4373-9d72-6ce95b5bc265",
             "70f4e095-c286-4379-a5f5-4d02df40e1a5",
             "03ee6530-d464-461c-a989-b310ee2d9b95"
-          ],
-          "isPinned": false,
-          "isFrozen": false
+          ]
         },
         "c066af9f-42b4-4359-8b44-cf774c400e81": {
           "id": "c066af9f-42b4-4359-8b44-cf774c400e81",
@@ -819,9 +902,10 @@
           "rcType": "parameter",
           "defaultVal": "None",
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "c2c05abc-dd95-4071-8f37-cb2019919bce": {
           "id": "c2c05abc-dd95-4071-8f37-cb2019919bce",
@@ -830,9 +914,10 @@
           "rcType": "parameter",
           "defaultVal": "None",
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "c9a3e19c-6876-468a-a9a1-6f289c9367eb": {
           "id": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
@@ -841,6 +926,9 @@
           "rcType": "callable",
           "defaultVal": null,
           "description": "",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
           "children": [
             "7ae757c9-9327-4931-95a3-bc200f7e10b7",
             "97e83315-adfc-4d50-a8ab-a8c34082eb93",
@@ -850,11 +938,8 @@
             "c2c05abc-dd95-4071-8f37-cb2019919bce",
             "3e754333-caea-451a-abba-dd254c49502f",
             "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2"
-          ],
-          "isPinned": false,
-          "isFrozen": false
+          ]
         },
-
         "f049a26a-cdfa-4424-9795-57bfa100a3b5": {
           "id": "f049a26a-cdfa-4424-9795-57bfa100a3b5",
           "name": "Section Contents",
@@ -862,9 +947,10 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         },
         "f4d65a12-49f4-4da5-9362-70f0df53ee10": {
           "id": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
@@ -873,9 +959,10 @@
           "rcType": "collection",
           "defaultVal": null,
           "description": "",
-          "children": [],
-          "isPinned": false,
-          "isFrozen": false
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
         }
       },
       "userCodeInfoMaps": {},

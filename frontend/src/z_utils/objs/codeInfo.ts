@@ -11,6 +11,7 @@ export function newCodeInfo({
   description = "",
   isPinned = false,
   isFrozen = false,
+  isSelected = false,
 }: Partial<CodeInfoType> & { rcType: RCType }): CodeInfoType {
   return {
     id: maybeNewId(id),
@@ -22,5 +23,6 @@ export function newCodeInfo({
     description,
     isPinned,
     isFrozen,
+    isSelected,
   };
 }

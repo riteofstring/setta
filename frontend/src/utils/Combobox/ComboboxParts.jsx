@@ -14,7 +14,7 @@ export function ComboboxInput({
   return (
     <StandardSearch
       inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700 ${
-        small ? "h-7" : "h-9"
+        small ? "h-7" : "h-8"
       }`}
       leftElementStyles="pl-3"
       {...getInputProps({ onMouseDown: onInputMouseDown })}
@@ -22,7 +22,7 @@ export function ComboboxInput({
         <StandardSearchRightBtn
           {...getToggleButtonProps()}
           icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
-          size={small ? "w-7 h-7" : "w-9 h-9"}
+          size={small ? "w-7 h-7" : "w-8 h-8"}
         />
       }
     />
@@ -41,7 +41,7 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[150px] px-1 pt-1 pb-2 ${display} ${position} z-20 mt-1 max-h-96  rounded-2xl border bg-white shadow-xl dark:border-runcoder-700 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
+      className={`nowheel nodrag relative w-full min-w-[150px] px-1 pb-2 pt-1 ${display} ${position} z-20 mt-1 max-h-96  rounded-2xl border bg-white shadow-xl dark:border-runcoder-700 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
       {...getMenuProps()}
       style={{ width }}
     >
@@ -62,7 +62,7 @@ export function ComboboxTextFieldList({
 
   return (
     <div
-      className={`nowheel nodrag ${display} ${position} z-20 mt-6 max-h-96 w-full min-w-[150px] rounded-2xl border bg-white px-1 pt-1 pb-2 shadow-sm dark:border-runcoder-500/20 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-md dark:shadow-runcoder-900/75 ${variants}`}
+      className={`nowheel nodrag ${display} ${position} z-20 mt-6 max-h-96 w-full min-w-[150px] rounded-2xl border bg-white px-1 pb-2 pt-1 shadow-sm dark:border-runcoder-500/20 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-md dark:shadow-runcoder-900/75 ${variants}`}
       {...getMenuProps()}
       style={{ width }}
     >
@@ -103,7 +103,7 @@ export function ComboboxItems({
     (result, group, groupIndex) => {
       result.groups.push(
         <dl key={groupIndex}>
-          <dt className="mx-3 mb-1 truncate border-b border-solid border-runcoder-300/50 pt-3 pb-1 text-[0.6rem] font-bold uppercase text-runcoder-400">
+          <dt className="mx-3 mb-1 truncate border-b border-solid border-runcoder-300/50 pb-1 pt-3 text-[0.6rem] font-bold uppercase text-runcoder-400">
             {group.group}
           </dt>
           {group.items.map((item, itemIndex) => {

@@ -8,6 +8,8 @@ import {
   GLOBAL_VARIABLES_UI_TYPE_ID,
   SCRIPT,
   SCRIPT_UI_TYPE_ID,
+  TERMINAL,
+  TERMINAL_UI_TYPE_ID,
   VAR_CONTROL,
   VAR_CONTROL_UI_TYPE_ID,
 } from "z_utils/constants";
@@ -48,6 +50,8 @@ export function addSectionAtPosition({
   } else if (type === VAR_CONTROL) {
     sectionProps.name = "Var Control";
     sectionProps.uiTypeId = VAR_CONTROL_UI_TYPE_ID;
+  } else if (type === TERMINAL) {
+    sectionProps.uiTypeId = TERMINAL_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({
     sectionProps,

@@ -10,6 +10,7 @@ import {
   GLOBAL_VARIABLES,
   SCRIPT,
   SECTION,
+  TERMINAL,
   VAR_CONTROL,
 } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
@@ -69,6 +70,11 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         onClick={() => onClickAddSection({ type: VAR_CONTROL, ...commonProps })}
       >
         New Variable Control
+      </Item>
+      <Item
+        onClick={() => onClickAddSection({ type: TERMINAL, ...commonProps })}
+      >
+        New Terminal
       </Item>
       <DialogDropdownTriggerItem
         onClick={() => openLoadModal("Create From Argparse")}
