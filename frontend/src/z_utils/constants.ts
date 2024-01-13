@@ -45,6 +45,7 @@ export const CODE_UI_TYPE_ID = "af9f2cfd-8cb6-44fd-9736-eefffae4cd29";
 export const VAR_CONTROL_UI_TYPE_ID = "a2ecb6fe-45c7-4e8b-8424-8d5955256f89";
 export const PARAM_SWEEP_UI_TYPE_ID = "af0538a7-9667-400e-987e-ae3c844e0fcd";
 export const SWITCH_UI_TYPE_ID = "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5";
+export const TERMINAL_UI_TYPE_ID = "d6d40533-ee47-42a5-8b55-5455716c71ac"
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
