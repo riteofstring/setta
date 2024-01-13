@@ -1,6 +1,11 @@
+// import { useSettings } from "models/settings";
+// const darkMode = useSettings((x) => x.darkMode);
+// const background = darkMode ? "#06070A" : "#0D1016";
+
 export const theme = {
   foreground: "#B8C2D5",
-  background: "#0D1016",
+  // background: "#0D1016",
+  background: "#06070A",
   cursor: "#B8C2D5",
   selection: "#49483e",
   black: "#272822",

@@ -20,10 +20,10 @@ export const ParamSweepArea = React.memo(_ParamSweepArea);
 function FilterSection() {
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1";
-
+// bg-gradient-to-t from-runcoder-50
   return (
     <>
-      <section className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white bg-gradient-to-t from-runcoder-50 px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
+      <section className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
         <StandardSearch
           leftElement={<BiFilter className="text-runcoder-400" />}
           placeholder="Filter"
