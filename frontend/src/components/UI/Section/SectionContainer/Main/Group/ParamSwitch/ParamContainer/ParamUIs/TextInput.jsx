@@ -40,12 +40,10 @@ export function TextInput({
   const [isFocused, setIsFocused] = useState(false);
 
   const handleFocus = () => {
-    console.log("Focus")
     setIsFocused(true);
   };
 
   const handleBlur = () => {
-    console.log("Blur")
     setIsFocused(false);
   };
 
@@ -57,7 +55,6 @@ export function TextInput({
     }
     onChange(newVal);
     if (requestCompletions) {
-      console.log("sending request");
       send(newVal);
     }
   }
@@ -87,6 +84,8 @@ export function TextInput({
   // Exclude downshift's value because we don't need it.
   const inputProps = getInputProps({
     onChange: (e) => updateValue(e.target.value, true),
+    onFocus: handleFocus,
+    onBlur: handleBlur,
     onClick,
     ref: inputRef,
   });
@@ -105,8 +104,6 @@ export function TextInput({
         spellCheck={false}
         onScroll={syncScroll}
         placeholder={defaultVal}
-        onFocus={handleFocus} 
-        onBlur={handleBlur} 
         {...inputProps}
       />
       <pre
