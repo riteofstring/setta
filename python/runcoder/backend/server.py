@@ -14,7 +14,7 @@ from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
-from runcoder.utils.terminals import start_terminal, get_free_terminal
+from runcoder.utils.terminals import get_free_terminal, start_terminal
 from runcoder.utils.utils import import_from_path
 
 from .db.codeInfo.save import save_code_info

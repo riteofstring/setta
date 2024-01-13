@@ -1,6 +1,8 @@
-import subprocess
-import psutil
 import re
+import subprocess
+
+import psutil
+
 
 def windows_has_child_processes(input_winpid):
     if len(psutil.Process(input_winpid).children()) > 0:
@@ -14,13 +16,13 @@ def windows_has_child_processes(input_winpid):
     processes = []
     bash_pid = None
     pid_idx, ppid_idx, winpid_idx = None, None, None
-    for i,line in enumerate(output.split('\n')):  # Skip the header line
-        columns = re.split(r'\s+', line)
-        if i==0:
+    for i, line in enumerate(output.split("\n")):  # Skip the header line
+        columns = re.split(r"\s+", line)
+        if i == 0:
             pid_idx = columns.index("PID")
             ppid_idx = columns.index("PPID")
             winpid_idx = columns.index("WINPID")
-        elif columns != ['']:
+        elif columns != [""]:
             pid = int(columns[pid_idx])
             ppid = int(columns[ppid_idx])
             winpid = int(columns[winpid_idx])
@@ -28,8 +30,7 @@ def windows_has_child_processes(input_winpid):
             if winpid == input_winpid:
                 bash_pid = pid
 
-    return len([p for p in processes if p['ppid'] == bash_pid]) > 0
-
+    return len([p for p in processes if p["ppid"] == bash_pid]) > 0
 
 
 def linux_has_child_processes(pid):

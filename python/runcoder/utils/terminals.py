@@ -3,6 +3,7 @@ import json
 import platform
 from asyncio import CancelledError
 
+import psutil
 from fastapi import WebSocketDisconnect
 
 from runcoder.code.export_selected import export_selected, get_script
@@ -10,15 +11,16 @@ from runcoder.code.find_placeholders import needs_python_code, needs_yaml
 from runcoder.code.generate_code import generate_code, generate_script
 from runcoder.code.generate_yaml import generate_yaml
 from runcoder.processors.utils import withTempFiles
-import psutil
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
+
     from .terminal_utils import windows_has_child_processes as has_child_processes
 
     TERMINAL_NAME = "bash.exe"
 else:
     from ptyprocess import PtyProcessUnicode as PtyProcess
+
     from .terminal_utils import linux_has_child_processes as has_child_processes
 
     TERMINAL_NAME = ["zsh"]
@@ -26,15 +28,16 @@ else:
 
 PTY_PIDS = {}
 
+
 def is_command_running_in_pty(terminal_id):
     try:
-        shell_pid = PTY_PIDS.get(terminal_id,None)
+        shell_pid = PTY_PIDS.get(terminal_id, None)
         if not shell_pid:
             return False
         return has_child_processes(shell_pid)
     except psutil.NoSuchProcess:
         return False
-    
+
 
 def get_free_terminal():
     for k in PTY_PIDS.keys():
