@@ -14,10 +14,12 @@ import psutil
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
+    from .terminal_utils import windows_has_child_processes as has_child_processes
 
     TERMINAL_NAME = "bash.exe"
 else:
     from ptyprocess import PtyProcessUnicode as PtyProcess
+    from .terminal_utils import linux_has_child_processes as has_child_processes
 
     TERMINAL_NAME = ["zsh"]
 
@@ -29,9 +31,7 @@ def is_command_running_in_pty(terminal_id):
         shell_pid = PTY_PIDS.get(terminal_id,None)
         if not shell_pid:
             return False
-        parent = psutil.Process(shell_pid)
-        children = parent.children()
-        return len(children) > 0
+        return has_child_processes(shell_pid)
     except psutil.NoSuchProcess:
         return False
     

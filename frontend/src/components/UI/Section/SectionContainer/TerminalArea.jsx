@@ -8,7 +8,7 @@ import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { createNewId } from "z_utils/utils";
 import { theme } from "./Terminal/TerminalTheme";
 
-const TERMINAL_WEBSOCKETS = {};
+export const TERMINAL_WEBSOCKETS = {};
 let pendingMsg = null;
 
 function newTerminalWebsocket() {

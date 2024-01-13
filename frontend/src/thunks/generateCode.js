@@ -19,6 +19,7 @@ export async function runCode({ codeId }) {
   if (res.status === 200) {
     const freeTerminalId = res.data;
     if (freeTerminalId) {
+      console.log("freeTerminalId", freeTerminalId)
       TERMINAL_WEBSOCKETS[freeTerminalId].send(
         JSON.stringify({ id: codeId, type: "runCode", message: project })
       );
