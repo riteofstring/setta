@@ -228,9 +228,9 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.disconnect(id)
 
 
-@app.websocket("/terminal")
-async def terminal_websocket_endpoint(websocket: WebSocket):
-    print("terminal websocket", websocket)
+@app.websocket("/terminal/{id}")
+async def terminal_websocket_endpoint(websocket: WebSocket, id: str):
+    print("terminal websocket", id, flush=True)
     await websocket.accept()
     try:
         await start_terminal(websocket)
