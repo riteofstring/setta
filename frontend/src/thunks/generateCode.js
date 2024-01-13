@@ -6,6 +6,7 @@ import { dbGetFreeTerminal } from "dbRequests/terminals";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
 import { TERMINAL } from "z_utils/constants";
+import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
 
@@ -31,8 +32,12 @@ export async function runCode({ codeId }) {
     if (freeTerminalId) {
       TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
     } else {
-      const id = addSectionInEmptySpace({ type: TERMINAL });
+      const id = createNewId();
       INITIAL_MESSAGE[id] = message;
+      addSectionInEmptySpace({
+        type: TERMINAL,
+        inputSectionProps: { id },
+      });
     }
   }
 }
