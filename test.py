@@ -326,59 +326,126 @@
 
 
 
-import os
-import threading
-from winpty import PtyProcess
+# import os
+# import threading
+# from winpty import PtyProcess
 
-def read_from_process(process):
-    """ Read data from the subprocess and write it to the script's stdout. """
-    while True:
-        try:
-            output = process.read(1024)
-            if not output:
-                break
-            os.write(1, output.encode('utf-8'))
-        except EOFError:
-            break
+# def read_from_process(process):
+#     """ Read data from the subprocess and write it to the script's stdout. """
+#     while True:
+#         try:
+#             output = process.read(1024)
+#             if not output:
+#                 break
+#             os.write(1, output.encode('utf-8'))
+#         except EOFError:
+#             break
 
-def write_to_process(process):
-    """ Read data from the script's stdin and write it to the subprocess. """
-    try:
-        while True:
-            inp = input()
-            if inp == "\x03":
-                process.sendintr()
-            else:
-                process.write(inp + '\n')
-    except EOFError:
-        pass
+# def write_to_process(process):
+#     """ Read data from the script's stdin and write it to the subprocess. """
+#     try:
+#         while True:
+#             inp = input()
+#             if inp == "\x03":
+#                 process.sendintr()
+#             else:
+#                 process.write(inp + '\n')
+#     except EOFError:
+#         pass
 
-def run_interactive_subprocess(command):
-    """ Run a subprocess interactively with a pseudo-terminal. """
-    process = PtyProcess.spawn(command)
+# def run_interactive_subprocess(command):
+#     """ Run a subprocess interactively with a pseudo-terminal. """
+#     process = PtyProcess.spawn(command)
 
-    # Create threads for reading from and writing to the subprocess
-    read_thread = threading.Thread(target=read_from_process, args=(process,))
-    write_thread = threading.Thread(target=write_to_process, args=(process,))
+#     # Create threads for reading from and writing to the subprocess
+#     read_thread = threading.Thread(target=read_from_process, args=(process,))
+#     write_thread = threading.Thread(target=write_to_process, args=(process,))
 
-    # Start the threads
-    read_thread.start()
-    write_thread.start()
+#     # Start the threads
+#     read_thread.start()
+#     write_thread.start()
 
-    # Wait for the subprocess to complete
-    # process.sendintr()
-    # assert process.wait() != 0
+#     # Wait for the subprocess to complete
+#     # process.sendintr()
+#     # assert process.wait() != 0
 
-    # Close threads
-    read_thread.join()
-    write_thread.join()
+#     # Close threads
+#     read_thread.join()
+#     write_thread.join()
 
-# Example command
-command = ['python', 'test2.py']
+# # Example command
+# command = ['python', 'test2.py']
 
-run_interactive_subprocess(command)
+# run_interactive_subprocess(command)
 
 
 # process = PtyProcess.spawn("python test2.py")
 # process.sendintr()
 # assert process.wait() != 0
+
+
+
+
+# def get_wsl_processes():
+#     # Run 'ps -ef' in WSL to get process details
+#     output = subprocess.check_output("ps -ef", shell=True).decode()
+
+#     # Parse the output
+#     processes = []
+#     for line in output.split('\n')[1:]:  # Skip the header line
+#         columns = re.split(r'\s+', line)
+#         if len(columns) >= 8:
+#             pid, ppid, _, _, _, _, _, cmd = columns[:8]
+#             processes.append({'pid': pid, 'ppid': ppid, 'cmd': cmd})
+#     return processes
+
+# def find_child_processes(parent_pid, processes):
+#     return [p for p in processes if p['ppid'] == parent_pid]
+
+# # Example usage
+# processes = get_wsl_processes()
+# children = find_child_processes('2092', processes)  # Replace with your parent PID
+# print(children)
+
+
+import subprocess
+import re
+import psutil
+
+
+def has_child_processes(input_winpid):
+    if len(psutil.Process(input_winpid).children()) > 0:
+        return True
+
+    output = subprocess.check_output("ps", shell=True).decode()
+    processes = []
+    bash_pid = None
+    pid_idx, ppid_idx, winpid_idx = None, None, None
+    for i,line in enumerate(output.split('\n')):  # Skip the header line
+        columns = re.split(r'\s+', line)
+        if i==0:
+            pid_idx = columns.index("PID")
+            ppid_idx = columns.index("PPID")
+            winpid_idx = columns.index("WINPID")
+        elif columns != ['']:
+            pid = int(columns[pid_idx])
+            ppid = int(columns[ppid_idx])
+            winpid = int(columns[winpid_idx])
+            processes.append({"pid": pid, "ppid": ppid, "winpid": winpid})
+            if winpid == input_winpid:
+                bash_pid = pid
+
+    return len([p for p in processes if p['ppid'] == bash_pid]) > 0
+
+    
+
+
+def main():
+    bash_pid, processes = get_bash_pid(7520)
+    print(bash_pid)
+    print(find_child_processes(bash_pid, processes))
+    print(psutil.Process(7520).children())
+
+
+
+main()

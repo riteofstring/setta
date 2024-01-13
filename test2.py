@@ -12,7 +12,7 @@
 import tqdm
 import time
 
-for i in tqdm.tqdm(range(100)):
+for i in tqdm.tqdm(range(10000)):
     time.sleep(0.1)
 
 
