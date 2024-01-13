@@ -1,9 +1,9 @@
 import asyncio
 import json
+import platform
 from asyncio import CancelledError
 
 from fastapi import WebSocketDisconnect
-from winpty import PtyProcess
 
 from runcoder.code.export_selected import export_selected, get_script
 from runcoder.code.find_placeholders import needs_python_code, needs_yaml
@@ -11,13 +11,22 @@ from runcoder.code.generate_code import generate_code, generate_script
 from runcoder.code.generate_yaml import generate_yaml
 from runcoder.processors.utils import withTempFiles
 
+if platform.system() == "Windows":
+    from win_pty import PtyProcess
+
+    TERMINAL_NAME = "bash.exe"
+else:
+    from ptyprocess import PtyProcessUnicode as PtyProcess
+
+    TERMINAL_NAME = ["zsh"]
+
 
 async def start_terminal(terminal_websocket):
     # Main event loop
     loop = asyncio.get_event_loop()
 
     # Start the WinPTY terminal
-    pty_process = PtyProcess.spawn("bash.exe")
+    pty_process = PtyProcess.spawn(TERMINAL_NAME)
 
     # Function to read from the terminal
     async def read_from_terminal():
