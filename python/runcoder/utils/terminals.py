@@ -15,7 +15,7 @@ async def start_terminal(terminal_websocket):
     loop = asyncio.get_event_loop()
 
     # Start the WinPTY terminal
-    pty_process = PtyProcess.spawn("cmd.exe")
+    pty_process = PtyProcess.spawn("bash.exe")
 
     # Function to read from the terminal
     async def read_from_terminal():
@@ -36,18 +36,14 @@ async def start_terminal(terminal_websocket):
                     if json_val["type"] == "resize":
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
                     elif json_val["type"] == "runCode":
-                        await runCode(json_val, pty_process.write)
+                        runCode(json_val, pty_process.write)
                     continue
             except json.decoder.JSONDecodeError:
                 pass
             if input_data is None:
                 break
-            elif input_data == "\x03":
-                print("sendintr", flush=True)
-                pty_process.sendintr()
-            else:
-                # Write received data to the terminal
-                pty_process.write(input_data)
+            # Write received data to the terminal
+            pty_process.write(input_data)
 
     try:
         # Start reading from and writing to the terminal
@@ -68,13 +64,13 @@ async def start_terminal(terminal_websocket):
         pty_process.terminate()
 
 
-def runCode(message, write_to_terminal):
+def runCode(message, terminal_write_fn):
     p = message["message"]
     selected = export_selected(p)
 
     def write_bash(filepaths_for_bash):
         def execute_bash(temp_filepaths):
-            write_to_terminal(f"\x03bash {temp_filepaths[0]}\r\n")
+            terminal_write_fn(f"\x15bash {temp_filepaths[0]}\n")
 
         script = generate_script(p, selected, filepaths_for_bash)
         withTempFiles(
