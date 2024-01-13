@@ -9,9 +9,10 @@ import { createNewId } from "z_utils/utils";
 import { theme } from "./Terminal/TerminalTheme";
 
 export const TERMINAL_WEBSOCKETS = {};
+export const INITIAL_MESSAGE = {};
 let pendingMsg = null;
 
-function newTerminalWebsocket() {
+function newTerminalWebsocket(sectionId) {
   const id = createNewId();
   const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${id}`;
   const ws = new WebSocket(wsTerminalAddress);
@@ -19,6 +20,10 @@ function newTerminalWebsocket() {
     if (pendingMsg) {
       ws.send(pendingMsg);
       pendingMsg = null;
+    }
+    if (INITIAL_MESSAGE[sectionId]) {
+      ws.send(INITIAL_MESSAGE[sectionId]);
+      delete INITIAL_MESSAGE[sectionId];
     }
   });
   ws.addEventListener("close", () => {
@@ -40,7 +45,7 @@ function newTerminalWebsocket() {
 
 function _TerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
-  const terminalRef = useTerminal({ width, height });
+  const terminalRef = useTerminal({ sectionId, width, height });
 
   return (
     <div
@@ -63,7 +68,7 @@ function useFitAddon() {
   return fitAddon.current;
 }
 
-function useTerminal({ width, height }) {
+function useTerminal({ sectionId, width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
   const fitAddon = useFitAddon();
 
@@ -78,7 +83,7 @@ function useTerminal({ width, height }) {
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
-    const { disposeWs, ws } = newTerminalWebsocket();
+    const { disposeWs, ws } = newTerminalWebsocket(sectionId);
     const attachAddon = new AttachAddon(ws);
     terminal.loadAddon(attachAddon);
 

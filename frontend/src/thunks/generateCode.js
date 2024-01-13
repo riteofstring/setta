@@ -1,7 +1,12 @@
-import { TERMINAL_WEBSOCKETS } from "components/UI/Section/SectionContainer/TerminalArea";
+import {
+  INITIAL_MESSAGE,
+  TERMINAL_WEBSOCKETS,
+} from "components/UI/Section/SectionContainer/TerminalArea";
 import { dbGetFreeTerminal } from "dbRequests/terminals";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
+import { TERMINAL } from "z_utils/constants";
+import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode() {
@@ -18,11 +23,16 @@ export async function runCode({ codeId }) {
   const res = await dbGetFreeTerminal();
   if (res.status === 200) {
     const freeTerminalId = res.data;
+    const message = JSON.stringify({
+      id: codeId,
+      type: "runCode",
+      message: project,
+    });
     if (freeTerminalId) {
-      console.log("freeTerminalId", freeTerminalId)
-      TERMINAL_WEBSOCKETS[freeTerminalId].send(
-        JSON.stringify({ id: codeId, type: "runCode", message: project })
-      );
+      TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
+    } else {
+      const id = addSectionInEmptySpace({ type: TERMINAL });
+      INITIAL_MESSAGE[id] = message;
     }
   }
 }

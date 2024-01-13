@@ -13,7 +13,7 @@ export function addSectionInEmptySpace({ type }: { type: string }) {
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
 
-  addSectionAtPosition({
+  return addSectionAtPosition({
     type,
     topLevelPosition: newSectionPosition({ x, y, zIndex: 0 }),
     incrementVersion: true,
