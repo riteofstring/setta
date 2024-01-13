@@ -1,14 +1,42 @@
 import { AttachAddon } from "@xterm/addon-attach";
 import { FitAddon } from "@xterm/addon-fit";
 import { useSectionInfos } from "models/info/sectionInfos";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { createNewId } from "z_utils/utils";
 import { theme } from "./Terminal/TerminalTheme";
 
-export const TERMINAL_WEBSOCKETS = {};
+const TERMINAL_WEBSOCKETS = {};
+let pendingMsg = null;
+
+function newTerminalWebsocket() {
+  const id = createNewId();
+  const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${id}`;
+  const ws = new WebSocket(wsTerminalAddress);
+  ws.addEventListener("open", () => {
+    if (pendingMsg) {
+      ws.send(pendingMsg);
+      pendingMsg = null;
+    }
+  });
+  ws.addEventListener("close", () => {
+    delete TERMINAL_WEBSOCKETS[id];
+  });
+  ws.addEventListener("error", () => {
+    delete TERMINAL_WEBSOCKETS[id];
+  });
+
+  TERMINAL_WEBSOCKETS[id] = ws;
+
+  return {
+    disposeWs: () => {
+      ws.close();
+    },
+    ws,
+  };
+}
 
 function _TerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
@@ -38,8 +66,6 @@ function useFitAddon() {
 function useTerminal({ width, height }) {
   const terminalRef = useRef(null); // Ref for the terminal container
   const fitAddon = useFitAddon();
-  const [websocketOpen, setWebsocketOpen] = useState(false);
-  const [pendingMsg, setPendingMsg] = useState(null);
 
   useEffect(() => {
     const terminal = new Terminal({
@@ -52,22 +78,9 @@ function useTerminal({ width, height }) {
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current); // Attach the terminal to the div
 
-    const id = createNewId();
-    const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${id}`;
-    const terminalWebsocket = new WebSocket(wsTerminalAddress);
-    const attachAddon = new AttachAddon(terminalWebsocket);
-    terminalWebsocket.addEventListener("open", () => {
-      setWebsocketOpen(true);
-      TERMINAL_WEBSOCKETS[id] = terminalWebsocket;
-      terminal.loadAddon(attachAddon);
-      if (pendingMsg) {
-        terminalWebsocket.send(message);
-      }
-    });
-    terminalWebsocket.addEventListener("close", () => {
-      setWebsocketOpen(false);
-      delete TERMINAL_WEBSOCKETS[id];
-    });
+    const { disposeWs, ws } = newTerminalWebsocket();
+    const attachAddon = new AttachAddon(ws);
+    terminal.loadAddon(attachAddon);
 
     terminal.onResize((size) => {
       // Send the new size to the backend
@@ -76,18 +89,18 @@ function useTerminal({ width, height }) {
         cols: size.cols,
         rows: size.rows,
       });
-      if (websocketOpen) {
-        terminalWebsocket.send(message);
+      if (ws.readyState === 1) {
+        ws.send(message);
       } else {
-        setPendingMsg(message);
+        pendingMsg = message;
       }
     });
 
     return () => {
       // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
       // https://github.com/xtermjs/xterm.js/issues/4775
+      disposeWs();
       terminal.dispose();
-      terminalWebsocket.close();
     };
   }, []);
 
