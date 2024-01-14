@@ -98,7 +98,7 @@ const ProjectOverview = React.forwardRef(() => {
     <>
       <ProjectName />
       <StandardSearch
-        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800  focus-visible:border-blue-300 pl-7 py-1"
+        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800  focus-visible:!border-blue-300 pl-7 py-1"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
         placeholder="Filter"
