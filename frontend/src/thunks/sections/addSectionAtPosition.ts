@@ -4,12 +4,8 @@ import {
   CODE_UI_TYPE_ID,
   DECK,
   DECK_UI_TYPE_ID,
-  GLOBAL_PARAM_SWEEP,
-  GLOBAL_PARAM_SWEEP_UI_TYPE_ID,
   GLOBAL_VARIABLES,
   GLOBAL_VARIABLES_UI_TYPE_ID,
-  RUN_GROUP,
-  RUN_GROUP_UI_TYPE_ID,
   SCRIPT,
   SCRIPT_UI_TYPE_ID,
   TERMINAL,
@@ -56,10 +52,6 @@ export function addSectionAtPosition({
     sectionProps.uiTypeId = VAR_CONTROL_UI_TYPE_ID;
   } else if (type === TERMINAL) {
     sectionProps.uiTypeId = TERMINAL_UI_TYPE_ID;
-  } else if (type === RUN_GROUP) {
-    sectionProps.uiTypeId = RUN_GROUP_UI_TYPE_ID;
-  } else if (type === GLOBAL_PARAM_SWEEP) {
-    sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({
     sectionProps,

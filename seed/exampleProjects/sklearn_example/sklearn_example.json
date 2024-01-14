@@ -8,8 +8,8 @@
         "id": "41f411f7-b14d-4375-bfcd-204446866745",
         "name": "config1",
         "viewport": {
-          "x": 750.2117527344465,
-          "y": 838.4285949848326,
+          "x": 660.2117527344465,
+          "y": 538.4285949848326,
           "zoom": 0.5743491774985174
         },
         "children": {
@@ -28,11 +28,6 @@
             "y": -19.016806492525546,
             "zIndex": 5
           },
-          "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
-            "x": 652.5442395475894,
-            "y": -977.5039592291952,
-            "zIndex": 9
-          },
           "46dc6cab-03ac-4e73-919d-63b30da0688d": {
             "x": 760.9908608487029,
             "y": -9.780251117115284,
@@ -47,11 +42,6 @@
             "x": 1466.9275931122022,
             "y": -223.54053266232413,
             "zIndex": 3
-          },
-          "c6ca6dab-a408-4832-823c-1d5f9de219ae": {
-            "x": 109.32068805080795,
-            "y": -980.9861614823795,
-            "zIndex": 10
           },
           "d96cb110-6f72-435a-b745-2d55e277f983": {
             "x": 766,
@@ -149,32 +139,6 @@
             "height": 237
           }
         },
-        "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
-          "id": "40c921b7-10e8-4c69-a9fa-f39db37ea98f",
-          "name": "moderate_aqua",
-          "evColId": "3383d9b9-5cee-445f-a242-fde820c76c73",
-          "uiTypeId": "b40f6814-76bf-47b9-8efc-79be38d16343",
-          "uiTypeColId": "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1",
-          "social": null,
-          "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "",
-          "code": "",
-          "varControl": "",
-          "isFrozen": 0,
-          "nonPresetUITypeIds": ["b40f6814-76bf-47b9-8efc-79be38d16343"],
-          "evColIds": ["3383d9b9-5cee-445f-a242-fde820c76c73"],
-          "parentId": null,
-          "chainedFrom": null,
-          "selectedItem": null,
-          "outputGroup": null,
-          "children": [],
-          "size": {
-            "width": "auto",
-            "height": "auto"
-          }
-        },
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
           "name": "Global Variables",
@@ -251,32 +215,6 @@
           "size": {
             "width": 450,
             "height": 141
-          }
-        },
-        "c6ca6dab-a408-4832-823c-1d5f9de219ae": {
-          "id": "c6ca6dab-a408-4832-823c-1d5f9de219ae",
-          "name": "fiscal_copper",
-          "evColId": "d43c8221-813b-4d00-9185-fa98215cf215",
-          "uiTypeId": "18bd45bd-7d2f-4b86-abab-82c582c36282",
-          "uiTypeColId": "c68bea7e-634d-4a29-adb3-59de886455e4",
-          "social": null,
-          "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "",
-          "code": "",
-          "varControl": "",
-          "isFrozen": 0,
-          "nonPresetUITypeIds": ["18bd45bd-7d2f-4b86-abab-82c582c36282"],
-          "evColIds": ["d43c8221-813b-4d00-9185-fa98215cf215"],
-          "parentId": null,
-          "chainedFrom": null,
-          "selectedItem": null,
-          "outputGroup": null,
-          "children": [],
-          "size": {
-            "width": "auto",
-            "height": "auto"
           }
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
@@ -388,10 +326,6 @@
             "c2c05abc-dd95-4071-8f37-cb2019919bce": "0"
           }
         },
-        "3383d9b9-5cee-445f-a242-fde820c76c73": {
-          "name": "superb_jade",
-          "values": {}
-        },
         "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
           "name": "purple_onion",
           "values": {
@@ -426,10 +360,6 @@
           "name": "inland_apricot",
           "values": {}
         },
-        "d43c8221-813b-4d00-9185-fa98215cf215": {
-          "name": "exotic_blue",
-          "values": {}
-        },
         "e007e751-1687-43ff-91e5-faeb1f7d15dc": {
           "name": "yodelling_copper",
           "values": {}
@@ -444,17 +374,6 @@
         }
       },
       "uiTypes": {
-        "18bd45bd-7d2f-4b86-abab-82c582c36282": {
-          "id": "18bd45bd-7d2f-4b86-abab-82c582c36282",
-          "name": "fiscal_copper",
-          "type": "RUN_GROUP",
-          "presetType": null,
-          "config": {
-            "subType": null,
-            "codeInfoId": "f8928895-d3ce-4a3d-a6f5-8ad1e39c5bdb",
-            "childUITypeId": null
-          }
-        },
         "1a83a3ce-e415-4c2d-bed0-959ce18e7995": {
           "id": "1a83a3ce-e415-4c2d-bed0-959ce18e7995",
           "name": "New Section",
@@ -540,17 +459,6 @@
           "config": {
             "subType": null,
             "codeInfoId": "b7c4ac1c-532c-4196-80ee-51ee87971737",
-            "childUITypeId": null
-          }
-        },
-        "b40f6814-76bf-47b9-8efc-79be38d16343": {
-          "id": "b40f6814-76bf-47b9-8efc-79be38d16343",
-          "name": "moderate_aqua",
-          "type": "GLOBAL_PARAM_SWEEP",
-          "presetType": null,
-          "config": {
-            "subType": null,
-            "codeInfoId": "36e405f7-e3c9-45ac-bfa8-07a95239078e",
             "childUITypeId": null
           }
         },
@@ -658,8 +566,6 @@
           }
         },
         "8e312942-b6ac-472b-bb4d-b23642d0d1de": {},
-        "c68bea7e-634d-4a29-adb3-59de886455e4": {},
-        "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1": {},
         "f35d7b7b-d268-45c9-94de-748f8f1cd98d": {}
       },
       "codeInfo": {
@@ -730,18 +636,6 @@
           "rcType": "parameter",
           "defaultVal": "True",
           "description": "Shuffle the samples.",
-          "isPinned": 0,
-          "isFrozen": 0,
-          "isSelected": 0,
-          "children": []
-        },
-        "36e405f7-e3c9-45ac-bfa8-07a95239078e": {
-          "id": "36e405f7-e3c9-45ac-bfa8-07a95239078e",
-          "name": "Contents",
-          "editable": 0,
-          "rcType": "collection",
-          "defaultVal": null,
-          "description": "",
           "isPinned": 0,
           "isFrozen": 0,
           "isSelected": 0,
@@ -1060,18 +954,6 @@
         },
         "f4d65a12-49f4-4da5-9362-70f0df53ee10": {
           "id": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
-          "name": "Contents",
-          "editable": 0,
-          "rcType": "collection",
-          "defaultVal": null,
-          "description": "",
-          "isPinned": 0,
-          "isFrozen": 0,
-          "isSelected": 0,
-          "children": []
-        },
-        "f8928895-d3ce-4a3d-a6f5-8ad1e39c5bdb": {
-          "id": "f8928895-d3ce-4a3d-a6f5-8ad1e39c5bdb",
           "name": "Contents",
           "editable": 0,
           "rcType": "collection",
