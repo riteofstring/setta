@@ -27,10 +27,12 @@ def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
 
     temp_files = []
     try:
+        dir_name = ".runcoder_code"
+        os.makedirs(dir_name, exist_ok=True)
         # Create temporary files
         for w, suffix in zip(write, in_file_with_suffix):
             temp_file = tempfile.NamedTemporaryFile(
-                dir=os.getcwd(),
+                dir=dir_name,
                 mode="w+",
                 prefix="runcoder_temp_",
                 suffix=suffix,
@@ -41,7 +43,10 @@ def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
             temp_files.append(temp_file)
 
         # Get the relative paths of all temporary files
-        temp_file_paths = [os.path.relpath(temp_file.name) for temp_file in temp_files]
+        temp_file_paths = [
+            os.path.relpath(temp_file.name).replace(os.sep, "/")
+            for temp_file in temp_files
+        ]
 
         return then_do(temp_file_paths)
 

@@ -39,3 +39,4 @@ abcde_env
 .mypy_cache/
 .dmypy.json
 python/runcoder/frontend
+.runcoder_code
