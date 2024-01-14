@@ -3,14 +3,20 @@
  * @license MIT
  */
 
-export function getCoordsRelativeToElement(window: Pick<Window, 'getComputedStyle'>, event: {clientX: number, clientY: number}, element: HTMLElement): [number, number] {
+// window.reactFlowZoom = 0.5;
+
+export function getCoordsRelativeToElement(
+  window: Pick<Window, "getComputedStyle" | "reactFlowZoom">,
+  event: { clientX: number; clientY: number },
+  element: HTMLElement
+): [number, number] {
   const rect = element.getBoundingClientRect();
   const elementStyle = window.getComputedStyle(element);
-  const leftPadding = parseInt(elementStyle.getPropertyValue('padding-left'));
-  const topPadding = parseInt(elementStyle.getPropertyValue('padding-top'));
+  const leftPadding = parseInt(elementStyle.getPropertyValue("padding-left"));
+  const topPadding = parseInt(elementStyle.getPropertyValue("padding-top"));
   return [
-    (event.clientX - rect.left - leftPadding)/0.5,
-    (event.clientY - rect.top - topPadding)/0.5
+    (event.clientX - rect.left - leftPadding) / window.reactFlowZoom,
+    (event.clientY - rect.top - topPadding) / window.reactFlowZoom,
   ];
 }
 
@@ -30,7 +36,17 @@ export function getCoordsRelativeToElement(window: Pick<Window, 'getComputedStyl
  * apply an offset to the x value such that the left half of the cell will
  * select that cell and the right half will select the next cell.
  */
-export function getCoords(window: Pick<Window, 'getComputedStyle'>, event: Pick<MouseEvent, 'clientX' | 'clientY'>, element: HTMLElement, colCount: number, rowCount: number, hasValidCharSize: boolean, cssCellWidth: number, cssCellHeight: number, isSelection?: boolean): [number, number] | undefined {
+export function getCoords(
+  window: Pick<Window, "getComputedStyle" | "reactFlowZoom">,
+  event: Pick<MouseEvent, "clientX" | "clientY">,
+  element: HTMLElement,
+  colCount: number,
+  rowCount: number,
+  hasValidCharSize: boolean,
+  cssCellWidth: number,
+  cssCellHeight: number,
+  isSelection?: boolean
+): [number, number] | undefined {
   // Coordinates cannot be measured if there are no valid
   if (!hasValidCharSize) {
     return undefined;

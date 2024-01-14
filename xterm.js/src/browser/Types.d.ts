@@ -3,15 +3,18 @@
  * @license MIT
  */
 
-import { IEvent } from 'common/EventEmitter';
-import { CharData, IColor, ICoreTerminal, ITerminalOptions } from 'common/Types';
-import { IBuffer } from 'common/buffer/Types';
-import { IDisposable, Terminal as ITerminalApi } from '@xterm/xterm';
+import { IEvent } from "common/EventEmitter";
+import { CharData, IColor, ICoreTerminal, ITerminalOptions } from "common/Types";
+import { IBuffer } from "common/buffer/Types";
+import { IDisposable, Terminal as ITerminalApi } from "@xterm/xterm";
 
 /**
  * A portion of the public API that are implemented identially internally and simply passed through.
  */
-type InternalPassthroughApis = Omit<ITerminalApi, 'buffer' | 'parser' | 'unicode' | 'modes' | 'writeln' | 'loadAddon'>;
+type InternalPassthroughApis = Omit<
+  ITerminalApi,
+  "buffer" | "parser" | "unicode" | "modes" | "writeln" | "loadAddon"
+>;
 
 export interface ITerminal extends InternalPassthroughApis, ICoreTerminal {
   screenElement: HTMLElement | undefined;
@@ -73,7 +76,9 @@ export interface IColorSet {
   halfContrastCache: IColorContrastCache;
 }
 
-export type ReadonlyColorSet = Readonly<Omit<IColorSet, 'ansi'>> & { ansi: Readonly<Pick<IColorSet, 'ansi'>['ansi']> };
+export type ReadonlyColorSet = Readonly<Omit<IColorSet, "ansi">> & {
+  ansi: Readonly<Pick<IColorSet, "ansi">["ansi"]>;
+};
 
 export interface IColorContrastCache {
   clear(): void;
@@ -94,14 +99,17 @@ export interface IPartialColorSet {
 
 export interface IViewport extends IDisposable {
   scrollBarWidth: number;
-  readonly onRequestScrollLines: IEvent<{ amount: number, suppressScrollEvent: boolean }>;
+  readonly onRequestScrollLines: IEvent<{ amount: number; suppressScrollEvent: boolean }>;
   syncScrollArea(immediate?: boolean, force?: boolean): void;
   getLinesScrolled(ev: WheelEvent): number;
-  getBufferElements(startLine: number, endLine?: number): { bufferElements: HTMLElement[], cursorElement?: HTMLElement };
+  getBufferElements(
+    startLine: number,
+    endLine?: number
+  ): { bufferElements: HTMLElement[]; cursorElement?: HTMLElement };
   handleWheel(ev: WheelEvent): boolean;
   handleTouchStart(ev: TouchEvent): void;
   handleTouchMove(ev: TouchEvent): boolean;
-  scrollLines(disp: number): void;  // todo api name?
+  scrollLines(disp: number): void; // todo api name?
   reset(): void;
 }
 
@@ -152,6 +160,12 @@ interface IBufferRange {
 interface IBufferCellPosition {
   x: number;
   y: number;
+}
+
+declare global {
+  interface Window {
+    reactFlowZoom: number;
+  }
 }
 
 export type CharacterJoinerHandler = (text: string) => [number, number][];

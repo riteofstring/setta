@@ -11,7 +11,7 @@ const CHAR_WIDTH = 10;
 const CHAR_HEIGHT = 20;
 
 describe('Mouse getCoords', () => {
-  let windowOverride: Pick<Window, 'getComputedStyle'>;
+  let windowOverride: Pick<Window, 'getComputedStyle' | 'reactFlowZoom'>;
   let document: Document;
 
   beforeEach(() => {
@@ -20,7 +20,8 @@ describe('Mouse getCoords', () => {
         return {
           getPropertyValue: () => '0px'
         } as Pick<CSSStyleDeclaration, 'getPropertyValue'>;
-      }
+      },
+      reactFlowZoom: 1,
     };
     document = new jsdom.JSDOM('').window.document;
   });
