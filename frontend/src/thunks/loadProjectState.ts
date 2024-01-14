@@ -48,4 +48,5 @@ export function loadProjectState({
   updateManyParamsAndCallables(Object.keys(sections));
   updateManyCurrChildren(Object.keys(sections));
   maybeIncrementProjectStateVersion(true);
+  return true;
 }

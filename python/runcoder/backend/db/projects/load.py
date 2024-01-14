@@ -137,7 +137,7 @@ def load_project(db, project_name, config_name):
     }
 
 
-def load_full_project(db, project_name):
+def load_full_project(db, project_name, with_base_uitypes=False):
     query = """
         SELECT
             ProjectConfig.name as configName
@@ -159,9 +159,10 @@ def load_full_project(db, project_name):
     for c in config_names:
         p = load_project(db, project_name, c)
         project = p.pop("project")
-        p["uiTypes"] = {
-            k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
-        }
+        if not with_base_uitypes:
+            p["uiTypes"] = {
+                k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
+            }
         configs.append(p)
 
     output = {**project, "configs": configs}

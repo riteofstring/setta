@@ -14,6 +14,7 @@ import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";
 import { InfoView } from "./InfoView/InfoView";
+import { ProjectConfigs } from "./ProjectConfigs/ProjectConfigs";
 import { SectionListItems } from "./SectionList/SectionListItems";
 
 const paneProps = {
@@ -48,6 +49,7 @@ function TabsVisible({ sectionId }) {
         <nav className="flex gap-4">
           <TabItem name="Overview" value="tab1" />
           <TabItem name="Info" value="tab2" />
+          <TabItem name="Configs" value="tab3" />
         </nav>
       </Tabs.List>
       <TabContent value="tab1">
@@ -55,6 +57,9 @@ function TabsVisible({ sectionId }) {
       </TabContent>
       <TabContent value="tab2">
         <InfoViewBig />
+      </TabContent>
+      <TabContent value="tab3">
+        <ProjectConfigs />
       </TabContent>
     </Tabs.Root>
   );
