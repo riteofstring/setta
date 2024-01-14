@@ -7,6 +7,7 @@ import { loadSettings } from "thunks/user/settings";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
   SAME_PROJECT_NEW_PROJECT_NAME,
+  SWITCHING_CONFIG,
 } from "./pageLoadTypes";
 
 export function GlobalWrapper({ children }) {
@@ -28,6 +29,7 @@ function useResetProjectState() {
       [
         SAME_PROJECT_NEW_PROJECT_NAME,
         SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
+        SWITCHING_CONFIG,
       ].includes(state?.pageLoadType)
     ) {
       return;
