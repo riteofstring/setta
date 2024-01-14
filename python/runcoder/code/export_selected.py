@@ -13,6 +13,8 @@ from ..utils.constants import (
     SECTION,
     TERMINAL,
     VAR_CONTROL,
+    GLOBAL_PARAM_SWEEP,
+    RUN_GROUP
 )
 from .find_placeholders import double_braces
 
@@ -139,6 +141,8 @@ class Exporter:
                 INFO,
                 PARAM_SWEEP,
                 TERMINAL,
+                GLOBAL_PARAM_SWEEP,
+                RUN_GROUP
             ]:
                 to_pop.append(id)
         for id in to_pop:
