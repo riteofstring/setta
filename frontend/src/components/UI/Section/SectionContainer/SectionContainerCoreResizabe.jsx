@@ -70,6 +70,8 @@ export function SectionContainerCoreResizable({
         return "bg-white dark:bg-runcoder-900";
       case TERMINAL:
         return "bg-runcoder-950 overflow-clip";
+      case GLOBAL_PARAM_SWEEP:
+        return "@container/multipane";
       // case PARAM_SWEEP:
       //   return "bg-runcoder-50 dark:bg-runcoder-850";
       default:

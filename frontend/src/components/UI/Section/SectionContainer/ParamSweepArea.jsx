@@ -1,16 +1,27 @@
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
+import { HiChevronDown } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
+import { TbVersions } from "react-icons/tb";
+import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
 
 function _ParamSweepArea({ sectionId }) {
   return (
     <>
       <FilterSection />
       <Args />
-      {/* <section className="card-fullsize">Param Sweep Area</section> */}
+
+      <Button
+        grid={false}
+        twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-700 dark:text-runcoder-300 dark:bg-runcoder-900/40 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
+      >
+        <TbVersions className="z-[3] h-4 w-4" />
+        Versions
+      </Button>
     </>
   );
 }
@@ -23,14 +34,14 @@ function FilterSection() {
   // bg-gradient-to-t from-runcoder-50
   return (
     <>
-      <section className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
+      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
         <StandardSearch
           leftElement={<BiFilter className="text-runcoder-400" />}
           placeholder="Filter"
           inputStyles={inputStyles}
           outerClasses="flex-1"
         />
-      </section>
+      </search>
     </>
   );
 }
@@ -40,22 +51,34 @@ function Args() {
     <article className="nodrag nowheel card-args-list overflow-y-scroll py-1">
       <Item name="n_samples" />
       <Item name="shuffle" />
+      <Item name="Search" unused={true} />
     </article>
   );
 }
 
-function Item({ name }) {
+function Item({ name, unused = false }) {
   return (
     <>
-      <header className="col-start-3 col-end-5 mt-4 flex items-center">
-        <h2 className="font-heading text-xs font-bold uppercase text-runcoder-600/70 dark:text-runcoder-400/70">
-          {name}
-        </h2>
-        <div className="ml-auto flex">
+      <search className="col-start-2 col-end-6 flex items-center">
+        <StandardSearch
+          placeholder={name}
+          inputStyles={`flex-grow outline-0 cursor-auto  ${
+            unused
+              ? "bg-runcoder-50 dark:bg-runcoder-900/10"
+              : "bg-white dark:bg-runcoder-900"
+          }  rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700 h-7 my-4`}
+          leftElementStyles="pl-3"
+          outerClasses="flex-1"
+          rightElement={
+            <StandardSearchRightBtn icon={<HiChevronDown />} size="w-7 h-7" />
+          }
+        />
+        <div className="ml-auto flex pl-2">
           <IconButton icon={<AiOutlineMinus />} type="minus" />
           <IconButton icon={<AiOutlinePlus />} type="add" />
         </div>
-      </header>
+      </search>
+
       <Input />
       <Input />
       <Input />
