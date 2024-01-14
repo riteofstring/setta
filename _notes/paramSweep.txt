@@ -53,6 +53,9 @@ The user writes javascript code that returns a list of objects.
 Each object specifies combinations of values that override the existing config.
 The purpose of this is to allow the user to specify very specific combinations.
 
+We could render the generated list underneath the code section, and make it so that
+you can hover/click on each object to see what that configuration looks like.
+
 
 =======================================
 
@@ -64,3 +67,4 @@ If in a Run Group, "dataset" is de-selected, what should happen to the reference
 
 Should there just be 1 Run Group section, with different versions?
 
+The version of Run Group can be specified in the Param Sweep section.
