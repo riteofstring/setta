@@ -2,6 +2,7 @@ import { AttachAddon } from "@xterm/addon-attach";
 import { FitAddon } from "@xterm/addon-fit";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
+import { useStore } from "reactflow";
 import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
@@ -46,6 +47,8 @@ function newTerminalWebsocket(sectionId) {
 function _TerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
   const terminalRef = useTerminal({ sectionId, width, height });
+
+  window.reactFlowZoom = useStore((x) => x.transform[2]);
 
   return (
     <div
