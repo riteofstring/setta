@@ -2,12 +2,13 @@ import { getSectionInfo, getSectionParentId } from "./getters";
 import { deleteSections } from "./sectionOps";
 
 export function deleteChildrenFromSeries({
+  isRoot,
   calledBy,
   numChildren = 1,
   incrementVersion = false,
 }: DeleteChildFnType) {
-  const { children } = getSectionInfo(calledBy);
-  if (children.length > 0) {
+  if (isRoot) {
+    const { children } = getSectionInfo(calledBy);
     deleteSections({
       sectionIds: children.slice(0, numChildren),
       incrementVersion,
@@ -25,6 +26,7 @@ export function deleteChildrenFromSeries({
 
 // if sectionId is null, then startId must be specified
 type DeleteChildFnType = {
+  isRoot: boolean;
   calledBy: string;
   numChildren?: number;
   incrementVersion?: boolean;

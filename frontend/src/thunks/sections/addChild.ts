@@ -1,36 +1,36 @@
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { insertIntoArrayOrXpend } from "utils/utils";
+import { insertIntoArray } from "utils/utils";
 import { setAllChildren } from "./children";
 import { createChildForSeries } from "./createSectionInfo";
+import { getSectionInfo, getSectionParentId } from "./getters";
 import { updateManyParamsAndCallables } from "./sectionContents";
 
-function getNewStateFn(startId: string | null, newIds: string[]) {
-  return (x) => {
-    let insertIdx = null;
-    if (startId !== null) {
-      insertIdx = x.indexOf(startId) + 1;
-    }
-    return insertIntoArrayOrXpend(x, insertIdx, true, ...newIds);
-  };
-}
-
-export function addChildForSeries({
-  parentId,
+export function addChildrenToSeries({
+  isRoot,
+  calledBy,
   numChildren,
-  startId = null,
   incrementVersion = false,
 }: {
-  parentId: string;
+  isRoot: boolean;
+  calledBy: string;
   numChildren: number;
-  startId: string | null;
   incrementVersion?: boolean;
 }) {
+  let parentId, startIdx;
+  if (isRoot) {
+    parentId = calledBy;
+    startIdx = 0;
+  } else {
+    parentId = getSectionParentId(calledBy);
+    startIdx = getSectionInfo(parentId).children.indexOf(calledBy) + 1;
+  }
+
   const newIds = createChildForSeries({
     parentId,
     numChildren,
   });
 
-  setAllChildren(parentId, getNewStateFn(startId, newIds));
+  setAllChildren(parentId, (x) => insertIntoArray(x, startIdx, ...newIds));
   updateManyParamsAndCallables(newIds);
   maybeIncrementProjectStateVersion(incrementVersion);
 
