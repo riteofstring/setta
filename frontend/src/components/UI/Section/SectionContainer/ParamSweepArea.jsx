@@ -1,3 +1,4 @@
+import { useCodeInfo } from "models/info/codeInfo";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
@@ -10,10 +11,27 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
 
 function _ParamSweepArea({ sectionId }) {
+  // const paramSweep = useSectionParamSweep(sectionId);
+
+  // const paramSweep = [
+  //   { objInfoId: "bb52a19f-d69c-4973-94ae-c1d85596cbb7", paramValues: [] },
+  // ];
+
+  const paramSweep = [
+    {
+      paramInfoId: "159e0416-3873-469b-915b-1f186579c380",
+      values: ["100", "200", "300"],
+    },
+    {
+      paramInfoId: "2fae73d3-5756-42a9-beb0-7465b92ac626",
+      values: ["True", "False"],
+    },
+  ];
+
   return (
     <>
       <FilterSection />
-      <Args />
+      <Args paramSweep={paramSweep} />
 
       <Button
         grid={false}
@@ -46,22 +64,25 @@ function FilterSection() {
   );
 }
 
-function Args() {
+function Args({ paramSweep }) {
   return (
     <article className="nodrag nowheel card-args-list overflow-y-scroll py-1">
-      <Item name="n_samples" />
-      <Item name="shuffle" />
-      <Item name="Search" unused={true} />
+      {paramSweep.map((x, idx) => (
+        <Item key={idx} singleParamSweep={x} />
+      ))}
     </article>
   );
 }
 
-function Item({ name, unused = false }) {
+function Item({ singleParamSweep, unused = false }) {
+  const { paramInfoId, values } = singleParamSweep;
+  const paramName = useCodeInfo((x) => x.x[paramInfoId].name);
+
   return (
     <>
       <search className="col-start-2 col-end-6 flex items-center">
         <StandardSearch
-          placeholder={name}
+          placeholder={paramName}
           inputStyles={`flex-grow outline-0 cursor-auto  ${
             unused
               ? "bg-runcoder-50 dark:bg-runcoder-900/10"
@@ -79,15 +100,14 @@ function Item({ name, unused = false }) {
         </div>
       </search>
 
-      <Input />
-      <Input />
-      <Input />
-      <Input />
+      {values.map((x, idx) => (
+        <Input key={idx} value={x} />
+      ))}
     </>
   );
 }
 
-function Input() {
+function Input({ value }) {
   return (
     <>
       <IconButton
@@ -99,7 +119,10 @@ function Input() {
         size="h-[.66rem] w-[.66rem]"
       />
       <article className="card-paramsweep-item -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1 hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25">
-        <input className="nodrag font-code h-[calc(1.25rem-2px)] flex-1 cursor-auto border-0 border-b border-solid border-runcoder-300 font-mono text-xs focus-visible:border-blue-400 dark:border-runcoder-600 dark:text-runcoder-300 dark:focus-visible:border-blue-400" />
+        <input
+          className="nodrag font-code h-[calc(1.25rem-2px)] flex-1 cursor-auto border-0 border-b border-solid border-runcoder-300 font-mono text-xs focus-visible:border-blue-400 dark:border-runcoder-600 dark:text-runcoder-300 dark:focus-visible:border-blue-400"
+          value={value}
+        />
       </article>
     </>
   );
