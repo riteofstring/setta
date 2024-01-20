@@ -42,6 +42,11 @@ export const useParamSweep = createProjectState(
             idx
           ].values.slice(0, -1);
         }),
+      changeParamInfoId: ({ paramSweepId, idx, paramInfoId }) =>
+        set((state) => {
+          state.x[paramSweepId][idx].paramInfoId = paramInfoId;
+          state.x[paramSweepId][idx].values = [];
+        }),
     }))
   )
 );

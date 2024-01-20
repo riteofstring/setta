@@ -1,15 +1,15 @@
+import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamSweep } from "models/paramSweep";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
-import { HiChevronDown } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
 import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
+import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function _ParamSweepArea({ sectionId }) {
   // const paramSweep = useSectionParamSweep(sectionId);
@@ -20,11 +20,17 @@ function _ParamSweepArea({ sectionId }) {
 
   const paramSweepId = "39e067ec-8392-4e83-86b7-010f60f5abce";
   const paramSweep = useParamSweep((x) => x.x[paramSweepId]);
+  // const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
+  const selectedItem = "bb52a19f-d69c-4973-94ae-c1d85596cbb7";
 
   return (
     <>
       <FilterSection />
-      <Args paramSweepId={paramSweepId} paramSweep={paramSweep} />
+      <Args
+        paramSweepId={paramSweepId}
+        objInfoId={selectedItem}
+        paramSweep={paramSweep}
+      />
 
       <Button
         grid={false}
@@ -57,22 +63,33 @@ function FilterSection() {
   );
 }
 
-function Args({ paramSweepId, paramSweep }) {
+function Args({ paramSweepId, objInfoId, paramSweep }) {
+  const alreadySelectedParams = paramSweep.map((x) => x.paramInfoId);
+
   return (
     <article className="nodrag nowheel card-args-list overflow-y-scroll py-1">
       {paramSweep.map((x, idx) => (
         <Item
           key={idx}
+          objInfoId={objInfoId}
           paramSweepId={paramSweepId}
           idx={idx}
           singleParamSweep={x}
+          alreadySelectedParams={alreadySelectedParams}
         />
       ))}
     </article>
   );
 }
 
-function Item({ paramSweepId, idx, singleParamSweep, unused = false }) {
+function Item({
+  objInfoId,
+  paramSweepId,
+  idx,
+  singleParamSweep,
+  alreadySelectedParams,
+  unused = false,
+}) {
   const { paramInfoId, values } = singleParamSweep;
   const paramName = useCodeInfo((x) => x.x[paramInfoId].name);
 
@@ -96,22 +113,22 @@ function Item({ paramSweepId, idx, singleParamSweep, unused = false }) {
     useParamSweep.getState().deleteLastValue({ paramSweepId, idx });
   }
 
+  function onSelectedItemChange(v) {
+    useParamSweep
+      .getState()
+      .changeParamInfoId({ paramSweepId, idx, paramInfoId: v });
+  }
+
   return (
     <>
       <search className="col-start-2 col-end-6 flex items-center">
-        <StandardSearch
-          placeholder={paramName}
-          inputStyles={`flex-grow outline-0 cursor-auto  ${
-            unused
-              ? "bg-runcoder-50 dark:bg-runcoder-900/10"
-              : "bg-white dark:bg-runcoder-900"
-          }  rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700 h-7 my-4`}
-          leftElementStyles="pl-3"
-          outerClasses="flex-1"
-          rightElement={
-            <StandardSearchRightBtn icon={<HiChevronDown />} size="w-7 h-7" />
-          }
+        <ParamCombobox
+          objInfoId={objInfoId}
+          paramInfoId={paramInfoId}
+          onSelectedItemChange={onSelectedItemChange}
+          alreadySelectedParams={alreadySelectedParams}
         />
+
         <div className="ml-auto flex pl-2">
           <IconButton
             icon={<AiOutlineMinus />}
@@ -131,6 +148,31 @@ function Item({ paramSweepId, idx, singleParamSweep, unused = false }) {
         />
       ))}
     </>
+  );
+}
+
+function ParamCombobox({
+  objInfoId,
+  paramInfoId,
+  alreadySelectedParams = [],
+  onSelectedItemChange,
+}) {
+  const objParams = useCodeInfo((x) => {
+    const output = [];
+    for (const c of x.x[objInfoId].children) {
+      if (c === paramInfoId || !alreadySelectedParams.includes(c)) {
+        output.push(x.x[c]);
+      }
+    }
+    return output;
+  }, _.isEqual);
+
+  return (
+    <IdNameCombobox
+      allItems={[{ group: "Args", items: objParams }]}
+      initialSelection={paramInfoId}
+      onSelectedItemChange={onSelectedItemChange}
+    />
   );
 }
 
