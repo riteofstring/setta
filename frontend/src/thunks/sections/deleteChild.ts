@@ -14,10 +14,10 @@ export function deleteChildrenFromSeries({
     });
   } else {
     const parentId = getSectionParentId(calledBy);
-    const startIdx = getSectionInfo(calledBy).children.indexOf(calledBy) + 1;
     const { children: siblings } = getSectionInfo(parentId);
+    const startIdx = siblings.indexOf(calledBy) + 1;
     deleteSections({
-      sectionIds: siblings.slice(startIdx, numChildren),
+      sectionIds: siblings.slice(startIdx, startIdx + numChildren),
       incrementVersion,
     });
   }
