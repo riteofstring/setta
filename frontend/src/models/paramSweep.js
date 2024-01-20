@@ -26,6 +26,22 @@ export const useParamSweep = createProjectState(
         set((state) => {
           state.x[paramSweepId][idx].values[valueIdx] = value;
         }),
+      addValue: ({ paramSweepId, idx }) =>
+        set((state) => {
+          state.x[paramSweepId][idx].values.push("");
+        }),
+      deleteValue: ({ paramSweepId, idx, valueIdx }) =>
+        set((state) => {
+          state.x[paramSweepId][idx].values = state.x[paramSweepId][
+            idx
+          ].values.filter((x, idx) => idx !== valueIdx);
+        }),
+      deleteLastValue: ({ paramSweepId, idx }) =>
+        set((state) => {
+          state.x[paramSweepId][idx].values = state.x[paramSweepId][
+            idx
+          ].values.slice(0, -1);
+        }),
     }))
   )
 );

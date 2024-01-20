@@ -83,6 +83,19 @@ function Item({ paramSweepId, idx, singleParamSweep, unused = false }) {
         .setValue({ paramSweepId, idx, valueIdx, value: v });
   }
 
+  function getOnDelete(valueIdx) {
+    return () =>
+      useParamSweep.getState().deleteValue({ paramSweepId, idx, valueIdx });
+  }
+
+  function onPlus() {
+    useParamSweep.getState().addValue({ paramSweepId, idx });
+  }
+
+  function onMinus() {
+    useParamSweep.getState().deleteLastValue({ paramSweepId, idx });
+  }
+
   return (
     <>
       <search className="col-start-2 col-end-6 flex items-center">
@@ -100,19 +113,28 @@ function Item({ paramSweepId, idx, singleParamSweep, unused = false }) {
           }
         />
         <div className="ml-auto flex pl-2">
-          <IconButton icon={<AiOutlineMinus />} type="minus" />
-          <IconButton icon={<AiOutlinePlus />} type="add" />
+          <IconButton
+            icon={<AiOutlineMinus />}
+            type="minus"
+            onClick={onMinus}
+          />
+          <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
         </div>
       </search>
 
       {values.map((x, valueIdx) => (
-        <Input key={valueIdx} onChange={getOnChange(valueIdx)} value={x} />
+        <Input
+          key={valueIdx}
+          onChange={getOnChange(valueIdx)}
+          onDelete={getOnDelete(valueIdx)}
+          value={x}
+        />
       ))}
     </>
   );
 }
 
-function Input({ onChange, value }) {
+function Input({ onChange, onDelete, value }) {
   return (
     <>
       <IconButton
@@ -122,6 +144,7 @@ function Input({ onChange, value }) {
         twClasses="card-close-arg-group place-self-center ml-1"
         padding=""
         size="h-[.66rem] w-[.66rem]"
+        onClick={onDelete}
       />
       <article className="card-paramsweep-item -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1 hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25">
         <input
