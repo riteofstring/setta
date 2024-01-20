@@ -5,7 +5,7 @@ import React from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { SectionContainer } from "./SectionContainer";
 
-function _SortableSectionContainer({ sectionId, ancestorSet }) {
+function _SortableSectionContainer({ sectionId }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -20,7 +20,6 @@ function _SortableSectionContainer({ sectionId, ancestorSet }) {
   return (
     <SortableCore
       sectionId={sectionId}
-      ancestorSet={ancestorSet}
       attributes={restAttributes}
       listeners={listeners}
       setNodeRef={setNodeRef}
@@ -34,7 +33,6 @@ export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
 function _SortableCore({
   sectionId,
-  ancestorSet,
   attributes,
   listeners,
   setNodeRef,
@@ -54,11 +52,7 @@ function _SortableCore({
 
   return (
     <div className="relative first:mt-2" {...stackProps}>
-      <SectionContainer
-        sectionId={sectionId}
-        ancestorSet={ancestorSet}
-        dragListeners={listeners}
-      />
+      <SectionContainer sectionId={sectionId} dragListeners={listeners} />
     </div>
   );
 }
@@ -67,7 +61,6 @@ const SortableCore = React.memo(
   _SortableCore,
   (p, n) =>
     p.sectionId === n.sectionId &&
-    p.ancestorSet === n.ancestorSet &&
     p.transform === n.transform &&
     p.transition === n.transition
 );

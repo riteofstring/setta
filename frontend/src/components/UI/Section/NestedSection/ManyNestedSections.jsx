@@ -3,24 +3,12 @@ import { goToSection } from "thunks/goToSection";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
-export function ManyNestedSections({
-  childIds,
-  sectionId,
-  ancestorSet,
-  isDeck,
-}) {
-  const newAncestorSet = { ...ancestorSet, [sectionId]: true };
-
+export function ManyNestedSections({ childIds, sectionId, isDeck }) {
   return (
-    <DNDSortable
-      sectionId={sectionId}
-      items={childIds}
-      ancestorSet={newAncestorSet}
-    >
+    <DNDSortable sectionId={sectionId} items={childIds}>
       <NestedSectionsWithMargin
         childIds={childIds}
         sectionId={sectionId}
-        ancestorSet={newAncestorSet}
         isDeck={isDeck}
       />
     </DNDSortable>
@@ -31,7 +19,6 @@ export function ManyNestedSections({
 function NestedSectionsWithMargin({
   childIds,
   sectionId,
-  ancestorSet,
   isDeck,
   droppableDisabled,
 }) {
@@ -51,11 +38,7 @@ function NestedSectionsWithMargin({
       )}
       <div className="flex flex-col items-start gap-2 ">
         {childIds.map((e) => (
-          <SortableSectionContainer
-            sectionId={e}
-            key={`Nested-Sec-${e}`}
-            ancestorSet={ancestorSet}
-          />
+          <SortableSectionContainer sectionId={e} key={`Nested-Sec-${e}`} />
         ))}
       </div>
     </div>
