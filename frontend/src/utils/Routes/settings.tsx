@@ -4,12 +4,10 @@ import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
 
-const PATH = "settings";
-
 function SettingsWrapper() {
   return (
     <>
-      <HeaderContainer path={PATH} />
+      <HeaderContainer />
       <GridContainer>
         <Settings />
       </GridContainer>
@@ -17,7 +15,7 @@ function SettingsWrapper() {
   );
 }
 export const settingsRoute: RouteObject = {
-  path: PATH,
+  path: "settings",
   element: (
     <GlobalWrapper>
       <SettingsWrapper />
