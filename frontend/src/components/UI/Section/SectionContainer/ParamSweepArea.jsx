@@ -168,7 +168,16 @@ function ArgItem({
           />
         ))
       ) : (
-        <ShowEVCol objInfoId={objInfoId} evColId={evColId} />
+        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col rounded-lg bg-runcoder-850 px-4 py-3">
+          <p className="col-start-1 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
+            Name
+          </p>
+          <p className="col-start-2 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
+            Value
+          </p>
+
+          <ShowEVCol objInfoId={objInfoId} evColId={evColId} />
+        </div>
       )}
     </>
   );
@@ -194,7 +203,12 @@ function ShowEVCol({ objInfoId, evColId }) {
 function EVColItem({ name, value }) {
   // TODO: show value next to name, like
   // name value
-  return null;
+  return (
+    <dl className="col-span-2 grid grid-cols-subgrid font-mono text-xs text-runcoder-500 dark:text-runcoder-200">
+      <dt className="col-start-1 truncate">{name}</dt>
+      <dd className="col-start-2 truncate">{value}</dd>
+    </dl>
+  );
 }
 
 function PlaceholderArgItem({

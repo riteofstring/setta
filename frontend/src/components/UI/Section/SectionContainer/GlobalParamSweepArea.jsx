@@ -78,7 +78,7 @@ function ParamSweepVersionsList({ multiruns }) {
 
 function CheckboxGroup({ children }) {
   return (
-    <label className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700">
+    <label className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700">
       <input
         type="checkbox"
         className="h-4 w-4 rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
