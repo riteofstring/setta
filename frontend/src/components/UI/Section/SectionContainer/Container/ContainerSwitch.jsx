@@ -9,7 +9,8 @@ export function ContainerSwitch({
   ancestorSet,
   children,
 }) {
-  return _.size(ancestorSet) === 0 ? (
+  const isTopLevel = _.size(ancestorSet) === 0;
+  return isTopLevel ? (
     <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>
       {children}
     </TopLevelContainer>
@@ -17,6 +18,7 @@ export function ContainerSwitch({
     <DndSlotAndDndWatcher
       isDeck={isDeck}
       sectionId={sectionId}
+      isTopLevel={isTopLevel}
       dragListeners={dragListeners}
     >
       {children}

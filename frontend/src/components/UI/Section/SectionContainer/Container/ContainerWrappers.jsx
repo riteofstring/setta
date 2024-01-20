@@ -8,6 +8,7 @@ import { DndSlot } from "./DndSlot";
 function _DndSlotAndDndWatcher({
   isDeck,
   sectionId,
+  isTopLevel,
   droppableRef,
   draggableRef,
   dragListeners,
@@ -24,6 +25,7 @@ function _DndSlotAndDndWatcher({
       <DndWatcherAndContainer
         isDeck={isDeck}
         sectionId={sectionId}
+        isTopLevel={isTopLevel}
         droppableRef={droppableRef}
         draggableRef={draggableRef}
         dragListeners={dragListeners}
@@ -43,6 +45,7 @@ export const DndSlotAndDndWatcher = React.memo(
 function _DndWatcherAndContainer({
   isDeck,
   sectionId,
+  isTopLevel,
   droppableRef,
   draggableRef,
   dragListeners,
@@ -51,8 +54,8 @@ function _DndWatcherAndContainer({
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const { isSorting, isMovingFree } = useDndMode();
-  const isDraggingSortable = parentId && (isSorting || isMovingFree);
-  const isDraggingTopLevel = !parentId && isMovingFree;
+  const isDraggingSortable = !isTopLevel && (isSorting || isMovingFree);
+  const isDraggingTopLevel = isTopLevel && isMovingFree;
   const trueDragListeners =
     isDraggingSortable || isDraggingTopLevel ? dragListeners : {};
 

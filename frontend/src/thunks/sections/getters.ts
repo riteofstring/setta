@@ -10,7 +10,14 @@ export function getSectionInfo(sectionId) {
 }
 
 export function getSectionParentId(sectionId) {
-  return getSectionInfo(sectionId).parentId;
+  if (sectionId in useProjectConfig.getState().children) {
+    return null;
+  }
+  for (const s of Object.values(useSectionInfos.getState().x)) {
+    if (s.children.includes(sectionId)) {
+      return s.id;
+    }
+  }
 }
 
 export function getSectionName(sectionId) {

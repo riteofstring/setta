@@ -21,7 +21,6 @@ export function createChildForSeries({ parentId, numChildren }) {
 
   return createSectionInfo({
     sectionProps: {
-      parentId,
       parentName,
       uiTypeId: uiType.id,
       nonPresetUITypeIds,

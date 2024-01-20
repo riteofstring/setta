@@ -15,7 +15,6 @@ import {
 import { setAllChildren } from "./children";
 import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];
@@ -117,8 +116,6 @@ function setChildrenAndParent({
     // Add child to new parent's list
     setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
   }
-
-  setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
 }
 
 function maybeChangeSectionSubtype({ newParentId, sectionId }) {

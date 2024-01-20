@@ -12,6 +12,7 @@ export function TopLevelContainer({ isDeck, sectionId, children }) {
     <DndSlotAndDndWatcher
       isDeck={isDeck}
       sectionId={sectionId}
+      isTopLevel={true}
       droppableRef={droppableRef}
       draggableRef={draggableRef}
       dragListeners={dragListeners}
