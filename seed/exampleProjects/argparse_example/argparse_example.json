@@ -7,6 +7,7 @@
       "projectConfig": {
         "id": "06053c7e-2445-4fe5-9143-f6b75f12d332",
         "name": "config1",
+        "runGroups": [],
         "viewport": {
           "x": 332.1865398316104,
           "y": 245.57825237404984,

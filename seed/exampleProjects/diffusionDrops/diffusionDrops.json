@@ -16,6 +16,7 @@
       "projectConfig": {
         "id": "f8153d07-ae08-44a8-88a9-a107a7333218",
         "name": "diffusionConfig1",
+        "runGroups": [],
         "children": {},
         "viewport": {
           "x": 100,
@@ -28,6 +29,7 @@
       "projectConfig": {
         "id": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
         "name": "diffusionConfig2",
+        "runGroups": [],
         "children": {
           "f4e68c55-0f5d-4110-a8fe-bec49d5bc3b4": {
             "x": 479,
