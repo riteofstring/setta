@@ -1,10 +1,8 @@
 import { useHasNested } from "hooks/useSectionChildren";
-import _ from "lodash";
 import { useSectionRefs } from "models/sectionRefs";
-import React from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 
-function _Container({
+export function Container({
   isDeck,
   sectionId,
   droppableRef,
@@ -14,8 +12,13 @@ function _Container({
   trueDragListeners,
   children,
 }) {
+  // if (sectionId === "66fa8ba1-0a8e-4baa-a491-2ccfab01916b") {
+  //   console.log(sectionId, droppableRef, draggableRef, trueDragListeners);
+  // }
+
   const hasNested = useHasNested(sectionId);
   function totalRef(e) {
+    // console.log(sectionId, e)
     useSectionRefs.getState().setRef({ sectionId, ref: e });
     droppableRef && droppableRef(e);
     draggableRef && draggableRef(e);
@@ -60,7 +63,7 @@ function _Container({
   // return React.cloneElement(children, commonProps);
 }
 
-export const Container = React.memo(_Container, _.isEqual);
+// export const Container = React.memo(_Container, _.isEqual);
 
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {

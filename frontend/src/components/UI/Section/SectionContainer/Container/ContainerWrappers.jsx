@@ -1,11 +1,9 @@
 import { useDndMode, useHighlightDroppable } from "hooks/useDndUtils";
-import _ from "lodash";
 import { useDndState } from "models/info/dndState";
-import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
-function _DndSlotAndDndWatcher({
+export function DndSlotAndDndWatcher({
   isDeck,
   sectionId,
   isTopLevel,
@@ -37,12 +35,12 @@ function _DndSlotAndDndWatcher({
   );
 }
 
-export const DndSlotAndDndWatcher = React.memo(
-  _DndSlotAndDndWatcher,
-  (p, n) => p.isDeck === n.isDeck && p.children === n.children
-);
+// export const DndSlotAndDndWatcher = React.memo(
+//   _DndSlotAndDndWatcher,
+//   (p, n) => p.isDeck === n.isDeck && p.children === n.children
+// );
 
-function _DndWatcherAndContainer({
+export function DndWatcherAndContainer({
   isDeck,
   sectionId,
   isTopLevel,
@@ -79,4 +77,4 @@ function _DndWatcherAndContainer({
   );
 }
 
-const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, _.isEqual);
+// const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, _.isEqual);

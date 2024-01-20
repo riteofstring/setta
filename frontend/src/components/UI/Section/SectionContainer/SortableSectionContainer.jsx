@@ -5,7 +5,7 @@ import React from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { SectionContainer } from "./SectionContainer";
 
-function _SortableSectionContainer({ sectionId, ancestorSet }) {
+export function SortableSectionContainer({ sectionId, ancestorSet }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -30,9 +30,9 @@ function _SortableSectionContainer({ sectionId, ancestorSet }) {
   );
 }
 
-export const SortableSectionContainer = React.memo(_SortableSectionContainer);
+// export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
-function _SortableCore({
+export function SortableCore({
   sectionId,
   ancestorSet,
   attributes,
@@ -63,14 +63,14 @@ function _SortableCore({
   );
 }
 
-const SortableCore = React.memo(
-  _SortableCore,
-  (p, n) =>
-    p.sectionId === n.sectionId &&
-    p.ancestorSet === n.ancestorSet &&
-    p.transform === n.transform &&
-    p.transition === n.transition
-);
+// const SortableCore = React.memo(
+//   _SortableCore,
+//   (p, n) =>
+//     p.sectionId === n.sectionId &&
+//     p.ancestorSet === n.ancestorSet &&
+//     p.transform === n.transform &&
+//     p.transition === n.transition
+// );
 
 function transformWithZoom(transform, store) {
   if (transform) {
