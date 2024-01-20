@@ -1,5 +1,5 @@
+import { useHasNested } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
-import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
 import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./Container/ContainerSwitch";
@@ -7,8 +7,7 @@ import { SectionContainerCore } from "./SectionContainerCore";
 
 function _SectionContainer({ sectionId, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
-  const sectionChildren = useSectionInfos((x) => x.x[sectionId].children);
-  const hasNested = sectionChildren.length > 0;
+  const hasNested = useHasNested(sectionId);
 
   return (
     <ContainerSwitch
@@ -20,11 +19,7 @@ function _SectionContainer({ sectionId, dragListeners }) {
 
       {hasNested && (
         <div className="flex flex-col">
-          <ManyNestedSections
-            childIds={sectionChildren}
-            sectionId={sectionId}
-            isDeck={isDeck}
-          />
+          <ManyNestedSections sectionId={sectionId} isDeck={isDeck} />
         </div>
       )}
     </ContainerSwitch>

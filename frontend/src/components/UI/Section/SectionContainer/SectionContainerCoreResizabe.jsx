@@ -111,7 +111,7 @@ export function SectionContainerCoreResizable({
           </Button>
         )}
       </CustomResizable>
-      {/* {hasVersions && <VersionList sectionId={sectionId} />} */}
+      {hasVersions && <VersionList sectionId={sectionId} />}
     </>
   );
 }

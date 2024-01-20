@@ -1,9 +1,11 @@
 import { useIsDraggingFreely } from "hooks/useDndUtils";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { goToSection } from "thunks/goToSection";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
-export function ManyNestedSections({ childIds, sectionId, isDeck }) {
+export function ManyNestedSections({ sectionId, isDeck }) {
+  const childIds = useSectionInfos((x) => x.x[sectionId].children);
   return (
     <DNDSortable sectionId={sectionId} items={childIds}>
       <NestedSectionsWithMargin
