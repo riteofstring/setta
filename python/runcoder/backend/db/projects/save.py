@@ -83,25 +83,6 @@ def save_project_configs(db, projectId, configs):
         )
     db.executemany(query, query_params)
 
-    query = """
-        INSERT INTO ProjectConfigRunGroups (projectConfigId, runGroupId, "order")
-        VALUES (:projectConfigId, :runGroupId, :order)
-    """
-    query_params = []
-    for c in configs:
-        c = c["projectConfig"]
-        query_params.extend(
-            [
-                {
-                    "projectConfigId": c["id"],
-                    "runGroupId": details["id"],
-                    "order": idx,
-                }
-                for idx, details in enumerate(c["runGroups"])
-            ]
-        )
-    db.executemany(query, query_params)
-
 
 def update_default_project_config(db, p):
     query = """
