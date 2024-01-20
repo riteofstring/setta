@@ -3,16 +3,13 @@ import {
   textFieldInitializeCode,
   useCodeCompletionWebsocketRoom,
 } from "hooks/useWebsocket";
+import { useProjectSearch } from "models/useProjectSearch";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { groupedObjInfo } from "utils/getFullObjPath";
 
-export function SectionSearch({
-  sectionId,
-  initialSelection,
-  outerDivClasses,
-}) {
+export function SectionSearch({ sectionId, initialSelection }) {
   const [completions, sendCompletionRequest] =
     useCodeCompletionWebsocketRoom(sectionId);
   const _searchableItems = useGetAllCallables(sectionId);
@@ -42,12 +39,16 @@ export function SectionSearch({
     }
   }, [hasSearchableItems]);
 
+  const isSearchResult = useProjectSearch((x) =>
+    x.codeInfo.includes(initialSelection)
+  );
+
   return (
     <IdNameCombobox
       allItems={groupedItemsAsList}
       onSelectedItemChange={onSelectedItemChange}
       initialSelection={initialSelection}
-      outerDivClasses={outerDivClasses}
+      outerDivClasses={`${isSearchResult ? "outline outline-green-400" : ""}`}
       inputCallback={sendCompletionRequest}
       onInputMouseDown={onInputMouseDown}
     />

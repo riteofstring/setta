@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSetCurrInfoView } from "models/info/infoView";
 import { useTypeErrors } from "models/typeErrors";
+import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { paramSelect } from "thunks/keyActivations";
 import { updateParams } from "thunks/sections/sectionContents";
@@ -13,7 +14,14 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
-  const border = maybeErrorMessage ? "border-red-600 border-2" : "";
+  const isSearchResult = useProjectSearch((x) =>
+    x.codeInfo.includes(paramInfo.id)
+  );
+  const border = maybeErrorMessage
+    ? "border-red-600 border-2"
+    : isSearchResult
+    ? "outline outline-green-400"
+    : "";
   const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
   const paramIsSelected = paramInfo.isSelected;
 
