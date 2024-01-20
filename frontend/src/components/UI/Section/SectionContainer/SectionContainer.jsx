@@ -5,13 +5,7 @@ import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./Container/ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
 
-function _SectionContainer({
-  sectionId,
-  parentId,
-  nextId,
-  ancestorSet,
-  dragListeners,
-}) {
+function _SectionContainer({ sectionId, nextId, ancestorSet, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
   const currChildren = useSectionInfos((x) => x.x[sectionId].currChildren);
   const hasNested = currChildren.length > 0;
@@ -20,14 +14,12 @@ function _SectionContainer({
     <ContainerSwitch
       isDeck={isDeck}
       sectionId={sectionId}
-      parentId={parentId}
       dragListeners={dragListeners}
       ancestorSet={ancestorSet}
     >
       {!isDeck && (
         <SectionContainerCore
           sectionId={sectionId}
-          parentId={parentId}
           nextId={nextId}
           hasNested={hasNested}
         />

@@ -11,7 +11,6 @@ import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
   sectionId,
-  parentId,
   nextId,
   isSeriesElement,
   hasNested,
@@ -55,7 +54,6 @@ function _SectionHeader({
       {(isSeriesElement || _isRoot) && (
         <Incrementer
           sectionId={sectionId}
-          parentId={parentId}
           nextId={nextId}
           isRoot={_isRoot}
           hasNested={hasNested}

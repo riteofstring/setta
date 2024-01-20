@@ -6,7 +6,6 @@ export type SectionType = {
   name: string;
   children: string[];
   currChildren: string[];
-  parentId: string | null;
   size: SizeType;
   chainedFrom: string | null;
   uiTypeId: string;
@@ -30,7 +29,7 @@ export type SectionType = {
 export type ManySectionType = ManyOf<SectionType>;
 export type ManySectionChildrenType = ManyOf<string[]>;
 
-export type SectionTypeSaveProjectToBackend = Omit<SectionType, "parentId">;
+export type SectionTypeSaveProjectToBackend = SectionType;
 export type ManySectionTypeSaveProjectToBackend =
   ManyOf<SectionTypeSaveProjectToBackend>;
 

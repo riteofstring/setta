@@ -6,7 +6,6 @@ import { addChildForSeries } from "thunks/sections/addChild";
 import { deleteChild } from "thunks/sections/deleteChild";
 
 export function Incrementer({
-  parentId,
   sectionId,
   nextId,
   isRoot,

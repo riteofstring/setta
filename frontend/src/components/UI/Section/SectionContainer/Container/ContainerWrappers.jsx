@@ -8,7 +8,6 @@ import { DndSlot } from "./DndSlot";
 function _DndSlotAndDndWatcher({
   isDeck,
   sectionId,
-  parentId,
   droppableRef,
   draggableRef,
   dragListeners,
@@ -25,7 +24,6 @@ function _DndSlotAndDndWatcher({
       <DndWatcherAndContainer
         isDeck={isDeck}
         sectionId={sectionId}
-        parentId={parentId}
         droppableRef={droppableRef}
         draggableRef={draggableRef}
         dragListeners={dragListeners}
@@ -39,16 +37,12 @@ function _DndSlotAndDndWatcher({
 
 export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
-  (p, n) =>
-    p.isDeck === n.isDeck &&
-    p.parentId === n.parentId &&
-    p.children === n.children
+  (p, n) => p.isDeck === n.isDeck && p.children === n.children
 );
 
 function _DndWatcherAndContainer({
   isDeck,
   sectionId,
-  parentId,
   droppableRef,
   draggableRef,
   dragListeners,
@@ -71,7 +65,6 @@ function _DndWatcherAndContainer({
     <Container
       isDeck={isDeck}
       sectionId={sectionId}
-      parentId={parentId}
       droppableRef={droppableRef}
       draggableRef={draggableRef}
       trueDragListeners={trueDragListeners}
