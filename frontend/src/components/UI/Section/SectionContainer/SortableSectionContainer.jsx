@@ -5,7 +5,7 @@ import React from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { SectionContainer } from "./SectionContainer";
 
-export function SortableSectionContainer({ sectionId }) {
+function _SortableSectionContainer({ sectionId, ancestorSet }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -30,10 +30,11 @@ export function SortableSectionContainer({ sectionId }) {
   );
 }
 
-// export const SortableSectionContainer = React.memo(_SortableSectionContainer);
+export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
-export function SortableCore({
+function _SortableCore({
   sectionId,
+  ancestorSet,
   attributes,
   listeners,
   setNodeRef,
@@ -53,18 +54,23 @@ export function SortableCore({
 
   return (
     <div className="relative first:mt-2" {...stackProps}>
-      <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+      <SectionContainer
+        sectionId={sectionId}
+        ancestorSet={ancestorSet}
+        dragListeners={listeners}
+      />
     </div>
   );
 }
 
-// const SortableCore = React.memo(
-//   _SortableCore,
-//   (p, n) =>
-//     p.sectionId === n.sectionId &&
-//     p.transform === n.transform &&
-//     p.transition === n.transition
-// );
+const SortableCore = React.memo(
+  _SortableCore,
+  (p, n) =>
+    p.sectionId === n.sectionId &&
+    p.ancestorSet === n.ancestorSet &&
+    p.transform === n.transform &&
+    p.transition === n.transition
+);
 
 function transformWithZoom(transform, store) {
   if (transform) {

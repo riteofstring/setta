@@ -5,7 +5,7 @@ import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
-export function DndSlotAndDndWatcher({
+function _DndSlotAndDndWatcher({
   isDeck,
   sectionId,
   isTopLevel,
@@ -37,15 +37,12 @@ export function DndSlotAndDndWatcher({
   );
 }
 
-// export const DndSlotAndDndWatcher = React.memo(
-//   _DndSlotAndDndWatcher,
-//   (p, n) =>
-//     p.isDeck === n.isDeck &&
-//     p.children === n.children &&
-//     p.isTopLevel === n.isTopLevel
-// );
+export const DndSlotAndDndWatcher = React.memo(
+  _DndSlotAndDndWatcher,
+  (p, n) => p.isDeck === n.isDeck && p.children === n.children
+);
 
-export function DndWatcherAndContainer({
+function _DndWatcherAndContainer({
   isDeck,
   sectionId,
   isTopLevel,
@@ -82,4 +79,4 @@ export function DndWatcherAndContainer({
   );
 }
 
-// const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, _.isEqual);
+const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, _.isEqual);

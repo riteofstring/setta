@@ -4,7 +4,7 @@ import { useSectionRefs } from "models/sectionRefs";
 import React, { useEffect, useRef } from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 
-export function Container({
+function _Container({
   isDeck,
   sectionId,
   droppableRef,
@@ -61,7 +61,7 @@ export function Container({
   // return React.cloneElement(children, commonProps);
 }
 
-// export const Container = React.memo(_Container, _.isEqual);
+export const Container = React.memo(_Container, _.isEqual);
 
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {
