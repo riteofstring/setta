@@ -29,10 +29,7 @@ export function getProjectData(): ProjectSaveType {
   const uiTypeCols = useParamInfos.getState().y;
 
   const sectionInfosState = useSectionInfos.getState();
-  const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
-    sectionInfosState.x,
-    (x) => _.omit(x, ["parentId"])
-  );
+  const sections: ManySectionTypeSaveProjectToBackend = sectionInfosState.x;
 
   const codeInfo = useCodeInfo.getState().x;
 

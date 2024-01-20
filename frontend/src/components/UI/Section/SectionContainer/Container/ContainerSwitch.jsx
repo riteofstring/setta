@@ -1,4 +1,4 @@
-import { useProjectConfig } from "models/info/projectConfig";
+import _ from "lodash";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
@@ -6,10 +6,10 @@ export function ContainerSwitch({
   isDeck,
   sectionId,
   dragListeners,
+  ancestorSet,
   children,
 }) {
-  const isTopLevel = useProjectConfig((x) => sectionId in x.children);
-
+  const isTopLevel = _.size(ancestorSet) === 0;
   return isTopLevel ? (
     <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>
       {children}

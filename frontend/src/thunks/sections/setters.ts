@@ -78,7 +78,3 @@ export function setSectionName(sectionId, name, incrementVersion) {
 export function setSectionSize(sectionId, size) {
   setSectionInfoAttr({ sectionId, attr: "size", value: size });
 }
-
-export function setSectionParentId(sectionId, parentId) {
-  setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
-}
