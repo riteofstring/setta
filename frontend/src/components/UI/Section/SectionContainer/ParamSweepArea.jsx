@@ -1,5 +1,7 @@
+import { useGetEVColNames } from "hooks/useEnteredValue";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useParamInfos } from "models/info/paramInfos";
 import { useParamSweep } from "models/paramSweep";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
@@ -18,6 +20,7 @@ function _ParamSweepArea({ sectionId }) {
   //   { objInfoId: "bb52a19f-d69c-4973-94ae-c1d85596cbb7", paramValues: [] },
   // ];
 
+  const forSectionId = "d96cb110-6f72-435a-b745-2d55e277f983";
   const paramSweepId = "39e067ec-8392-4e83-86b7-010f60f5abce";
   const paramSweep = useParamSweep((x) => x.x[paramSweepId]);
   // const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
@@ -30,6 +33,7 @@ function _ParamSweepArea({ sectionId }) {
         paramSweepId={paramSweepId}
         objInfoId={selectedItem}
         paramSweep={paramSweep}
+        forSectionId={forSectionId}
       />
 
       <Button
@@ -63,40 +67,42 @@ function FilterSection() {
   );
 }
 
-function Args({ paramSweepId, objInfoId, paramSweep }) {
-  const alreadySelectedParams = paramSweep.map((x) => x.paramInfoId);
+function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
+  const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.evColId);
 
   return (
     <article className="nodrag nowheel card-args-list overflow-y-scroll py-1">
       {paramSweep.map((x, idx) => (
-        <Item
+        <ArgItem
           key={idx}
           objInfoId={objInfoId}
           paramSweepId={paramSweepId}
           idx={idx}
           singleParamSweep={x}
-          alreadySelectedParams={alreadySelectedParams}
+          alreadySelected={alreadySelected}
+          forSectionId={forSectionId}
         />
       ))}
-      <PlaceholderItem
+      <PlaceholderArgItem
         paramSweepId={paramSweepId}
         objInfoId={objInfoId}
-        alreadySelectedParams={alreadySelectedParams}
+        alreadySelected={alreadySelected}
+        forSectionId={forSectionId}
       />
     </article>
   );
 }
 
-function Item({
+function ArgItem({
   objInfoId,
   paramSweepId,
   idx,
   singleParamSweep,
-  alreadySelectedParams,
+  alreadySelected,
+  forSectionId,
   unused = false,
 }) {
-  const { paramInfoId, values } = singleParamSweep;
-  const paramName = useCodeInfo((x) => x.x[paramInfoId].name);
+  const { paramInfoId, values, evColId } = singleParamSweep;
 
   function getOnChange(valueIdx) {
     return (v) =>
@@ -119,9 +125,15 @@ function Item({
   }
 
   function onSelectedItemChange(v) {
-    useParamSweep
-      .getState()
-      .changeParamInfoId({ paramSweepId, idx, paramInfoId: v });
+    if (v in useCodeInfo.getState().x) {
+      useParamSweep
+        .getState()
+        .changeParamInfoId({ paramSweepId, idx, paramInfoId: v });
+    } else {
+      useParamSweep
+        .getState()
+        .changeParamInfoId({ paramSweepId, idx, evColId: v });
+    }
   }
 
   return (
@@ -130,8 +142,10 @@ function Item({
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
+          evColId={evColId}
           onSelectedItemChange={onSelectedItemChange}
-          alreadySelectedParams={alreadySelectedParams}
+          alreadySelected={alreadySelected}
+          forSectionId={forSectionId}
         />
 
         <div className="ml-auto flex pl-2">
@@ -144,21 +158,58 @@ function Item({
         </div>
       </div>
 
-      {values.map((x, valueIdx) => (
-        <Input
-          key={valueIdx}
-          onChange={getOnChange(valueIdx)}
-          onDelete={getOnDelete(valueIdx)}
-          value={x}
-        />
-      ))}
+      {paramInfoId ? (
+        values.map((x, valueIdx) => (
+          <Input
+            key={valueIdx}
+            onChange={getOnChange(valueIdx)}
+            onDelete={getOnDelete(valueIdx)}
+            value={x}
+          />
+        ))
+      ) : (
+        <ShowEVCol objInfoId={objInfoId} evColId={evColId} />
+      )}
     </>
   );
 }
 
-function PlaceholderItem({ paramSweepId, objInfoId, alreadySelectedParams }) {
+function ShowEVCol({ objInfoId, evColId }) {
+  const evCol = useParamInfos((x) => x.x[evColId]);
+  const paramsWithValues = useCodeInfo((x) => {
+    const output = [];
+    for (const c of x.x[objInfoId].children) {
+      if (evCol.values[c]) {
+        output.push({ name: x.x[c].name, value: evCol.values[c] });
+      }
+    }
+    return output;
+  }, _.isEqual);
+
+  return paramsWithValues.map((x, idx) => (
+    <EVColItem key={idx} name={x.name} value={x.value} />
+  ));
+}
+
+function EVColItem({ name, value }) {
+  // TODO: show value next to name, like
+  // name value
+  return null;
+}
+
+function PlaceholderArgItem({
+  paramSweepId,
+  objInfoId,
+  alreadySelected,
+  forSectionId,
+}) {
   function onSelectedItemChange(v, changeByUser, setSelection) {
-    useParamSweep.getState().addParamInfoId({ paramSweepId, paramInfoId: v });
+    if (v in useCodeInfo.getState().x) {
+      useParamSweep.getState().addParamInfoId({ paramSweepId, paramInfoId: v });
+    } else {
+      useParamSweep.getState().addParamInfoId({ paramSweepId, evColId: v });
+    }
+
     setSelection(null);
   }
 
@@ -168,7 +219,8 @@ function PlaceholderItem({ paramSweepId, objInfoId, alreadySelectedParams }) {
         objInfoId={objInfoId}
         paramInfoId={null}
         onSelectedItemChange={onSelectedItemChange}
-        alreadySelectedParams={alreadySelectedParams}
+        alreadySelected={alreadySelected}
+        forSectionId={forSectionId}
       />
     </div>
   );
@@ -177,23 +229,34 @@ function PlaceholderItem({ paramSweepId, objInfoId, alreadySelectedParams }) {
 function ParamCombobox({
   objInfoId,
   paramInfoId,
-  alreadySelectedParams = [],
+  evColId,
+  alreadySelected = [],
   onSelectedItemChange,
+  forSectionId,
 }) {
+  const initialSelection = paramInfoId ?? evColId;
+
   const objParams = useCodeInfo((x) => {
     const output = [];
     for (const c of x.x[objInfoId].children) {
-      if (c === paramInfoId || !alreadySelectedParams.includes(c)) {
+      if (c === paramInfoId || !alreadySelected.includes(c)) {
         output.push(x.x[c]);
       }
     }
     return output;
   }, _.isEqual);
 
+  const evCols = useGetEVColNames(forSectionId).filter(
+    (x) => evColId === x.id || !alreadySelected.includes(x.id)
+  );
+
   return (
     <IdNameCombobox
-      allItems={[{ group: "Args", items: objParams }]}
-      initialSelection={paramInfoId}
+      allItems={[
+        { group: "Args", items: objParams },
+        { group: "Versions", items: evCols },
+      ]}
+      initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
     />
   );

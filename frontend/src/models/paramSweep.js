@@ -9,6 +9,7 @@ const initialState = {
         paramInfoId: "159e0416-3873-469b-915b-1f186579c380",
         values: ["100", "200", "300"],
       },
+      // { evColId: "66e4192c-c1fc-4935-b862-e722726c1217" },
       {
         paramInfoId: "2fae73d3-5756-42a9-beb0-7465b92ac626",
         values: ["True", "False"],
@@ -42,14 +43,21 @@ export const useParamSweep = createProjectState(
             idx
           ].values.slice(0, -1);
         }),
-      changeParamInfoId: ({ paramSweepId, idx, paramInfoId }) =>
+      changeParamInfoId: ({ paramSweepId, idx, paramInfoId, evColId }) =>
         set((state) => {
-          state.x[paramSweepId][idx].paramInfoId = paramInfoId;
-          state.x[paramSweepId][idx].values = [];
+          if (paramInfoId) {
+            state.x[paramSweepId][idx] = { paramInfoId, values: [""] };
+          } else if (evColId) {
+            state.x[paramSweepId][idx] = { evColId };
+          }
         }),
-      addParamInfoId: ({ paramSweepId, paramInfoId }) =>
+      addParamInfoId: ({ paramSweepId, paramInfoId, evColId }) =>
         set((state) => {
-          state.x[paramSweepId].push({ paramInfoId, values: [""] });
+          if (paramInfoId) {
+            state.x[paramSweepId].push({ paramInfoId, values: [""] });
+          } else if (evColId) {
+            state.x[paramSweepId].push({ evColId });
+          }
         }),
     }))
   )
