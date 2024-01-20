@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
@@ -6,10 +7,9 @@ export function ContainerSwitch({
   isDeck,
   sectionId,
   dragListeners,
-  ancestorSet,
   children,
 }) {
-  const isTopLevel = _.size(ancestorSet) === 0;
+  const isTopLevel = useSectionInfos((x) => _.isNil(x.x[sectionId].parentId));
   return isTopLevel ? (
     <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>
       {children}
@@ -18,7 +18,7 @@ export function ContainerSwitch({
     <DndSlotAndDndWatcher
       isDeck={isDeck}
       sectionId={sectionId}
-      isTopLevel={isTopLevel}
+      isTopLevel={false}
       dragListeners={dragListeners}
     >
       {children}
