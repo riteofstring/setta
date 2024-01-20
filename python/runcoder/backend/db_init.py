@@ -231,26 +231,17 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS RunGroupSections (
         runGroupId TEXT,
         sectionId TEXT,
-        PRIMARY KEY (runGroupId, sectionId),
+        paramSweepId TEXT,
+        PRIMARY KEY (runGroupId, sectionId, paramSweepId),
         FOREIGN KEY (runGroupId) REFERENCES RunGroup(id),
         FOREIGN KEY (sectionId) REFERENCES Section(id)
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id)
     );
     """,
     """
     CREATE TABLE IF NOT EXISTS ParamSweep (
         id TEXT PRIMARY KEY,
         name TEXT
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS ParamSweepObjs (
-        paramSweepId TEXT,
-        objInfoId TEXT,
-        "order" INTEGER,
-        value TEXT,
-        PRIMARY KEY (paramSweepId, objInfoId, "order"),
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
-        FOREIGN KEY (objInfoId) REFERENCES CodeInfo(id)
     );
     """,
     """
