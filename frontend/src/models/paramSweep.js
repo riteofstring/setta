@@ -47,6 +47,10 @@ export const useParamSweep = createProjectState(
           state.x[paramSweepId][idx].paramInfoId = paramInfoId;
           state.x[paramSweepId][idx].values = [];
         }),
+      addParamInfoId: ({ paramSweepId, paramInfoId }) =>
+        set((state) => {
+          state.x[paramSweepId].push({ paramInfoId, values: [""] });
+        }),
     }))
   )
 );

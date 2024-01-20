@@ -78,6 +78,11 @@ function Args({ paramSweepId, objInfoId, paramSweep }) {
           alreadySelectedParams={alreadySelectedParams}
         />
       ))}
+      <PlaceholderItem
+        paramSweepId={paramSweepId}
+        objInfoId={objInfoId}
+        alreadySelectedParams={alreadySelectedParams}
+      />
     </article>
   );
 }
@@ -121,7 +126,7 @@ function Item({
 
   return (
     <>
-      <search className="col-start-2 col-end-6 flex items-center">
+      <div className="col-start-2 col-end-6 flex items-center">
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
@@ -137,7 +142,7 @@ function Item({
           />
           <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
         </div>
-      </search>
+      </div>
 
       {values.map((x, valueIdx) => (
         <Input
@@ -148,6 +153,24 @@ function Item({
         />
       ))}
     </>
+  );
+}
+
+function PlaceholderItem({ paramSweepId, objInfoId, alreadySelectedParams }) {
+  function onSelectedItemChange(v, changeByUser, setSelection) {
+    useParamSweep.getState().addParamInfoId({ paramSweepId, paramInfoId: v });
+    setSelection(null);
+  }
+
+  return (
+    <div className="col-start-2 col-end-6 flex items-center">
+      <ParamCombobox
+        objInfoId={objInfoId}
+        paramInfoId={null}
+        onSelectedItemChange={onSelectedItemChange}
+        alreadySelectedParams={alreadySelectedParams}
+      />
+    </div>
   );
 }
 
