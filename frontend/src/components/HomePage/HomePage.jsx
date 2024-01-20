@@ -4,7 +4,7 @@ import {
   useGetProjectsForHomePage,
 } from "hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
-import { useSearch } from "models/search";
+import { useHomePageSearch } from "models/useHomePageSearch";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
@@ -89,7 +89,7 @@ function RightColumn({ projects, setDoRefresh }) {
 }
 
 function ProjectItems({ projects, selectedProjects, onSelectProject }) {
-  const searchValue = useSearch((x) => x.value);
+  const searchValue = useHomePageSearch((x) => x.value);
   const filteredProjects = matchSorter(projects, searchValue, {
     keys: ["name"],
   });
