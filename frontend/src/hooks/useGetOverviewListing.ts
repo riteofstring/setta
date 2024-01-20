@@ -10,15 +10,15 @@ export function useGetOverviewListing() {
     (x) => Object.keys(x.children),
     _.isEqual
   );
-  const currChildren = useSectionInfos(
-    (x) => _.mapValues(x.x, (v) => v.currChildren),
+  const sectionChildren = useSectionInfos(
+    (x) => _.mapValues(x.x, (v) => v.children),
     _.isEqual
   );
   const idNames = useSectionInfoNames();
 
   const sectionList = getDepthListing(
     topLevelSectionIds,
-    currChildren,
+    sectionChildren,
     idNames
   );
 

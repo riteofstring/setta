@@ -63,7 +63,7 @@ export function getSectionSiblingNames(sectionId: string) {
   const sectionName = getSectionName(sectionId);
   const parentId = getSectionParentId(sectionId);
   const siblingIds = parentId
-    ? _.defaultTo(getSectionInfo(parentId).currChildren, [])
+    ? _.defaultTo(getSectionInfo(parentId).children, [])
     : Object.keys(useProjectConfig.getState().children);
 
   const siblingNames = siblingIds.map((x) => getSectionName(x));

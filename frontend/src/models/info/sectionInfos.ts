@@ -71,18 +71,14 @@ export const useSectionInfos = createProjectState(
           state.x[sectionId].children = newStateFn(state.x[sectionId].children);
         }),
 
-      setCurrChildrenNames: ({ currChildren, sectionType }) =>
+      setChildrenNames: ({ sectionId, sectionType }) =>
         set((state) => {
           if (isListRoot(sectionType.type)) {
-            for (let idx = 0; idx < currChildren.length; idx++) {
-              state.x[currChildren[idx]].name = `[${idx}]`;
+            const children = state.x[sectionId].children;
+            for (let idx = 0; idx < children.length; idx++) {
+              state.x[children[idx]].name = `[${idx}]`;
             }
           }
-        }),
-
-      setCurrChildren: ({ sectionId, currChildren }) =>
-        set((state) => {
-          state.x[sectionId].currChildren = currChildren;
         }),
 
       removeSectionInfos: (payload) =>
@@ -92,9 +88,6 @@ export const useSectionInfos = createProjectState(
           });
           for (const [k, v] of Object.entries(state.x)) {
             state.x[k].children = v.children.filter(
-              (x) => !payload.includes(x)
-            );
-            state.x[k].currChildren = v.currChildren.filter(
               (x) => !payload.includes(x)
             );
           }

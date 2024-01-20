@@ -1,5 +1,4 @@
 import { useParamInfos } from "models/info/paramInfos";
-import { updateCurrChildren } from "thunks/sections/children";
 import { getSectionInfo } from "thunks/sections/getters";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { convertValue } from "./convertValue";
@@ -24,6 +23,5 @@ export function setParamUITypeId({
   });
 
   convertValue({ sectionId, paramInfoId, uiTypeId });
-  updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(incrementVersion);
 }

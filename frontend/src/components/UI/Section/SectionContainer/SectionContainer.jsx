@@ -7,8 +7,8 @@ import { SectionContainerCore } from "./SectionContainerCore";
 
 function _SectionContainer({ sectionId, nextId, ancestorSet, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
-  const currChildren = useSectionInfos((x) => x.x[sectionId].currChildren);
-  const hasNested = currChildren.length > 0;
+  const sectionChildren = useSectionInfos((x) => x.x[sectionId].children);
+  const hasNested = sectionChildren.length > 0;
 
   return (
     <ContainerSwitch
@@ -28,7 +28,7 @@ function _SectionContainer({ sectionId, nextId, ancestorSet, dragListeners }) {
       {hasNested && (
         <div className="flex flex-col">
           <ManyNestedSections
-            childIds={currChildren}
+            childIds={sectionChildren}
             sectionId={sectionId}
             ancestorSet={ancestorSet}
             isDeck={isDeck}
