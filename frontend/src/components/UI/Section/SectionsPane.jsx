@@ -17,7 +17,7 @@ const reactFlowStyle = {
 };
 
 function onNodeDragStop(e, node, nodes) {
-  setPositionAndZIndices(nodes);
+  // setPositionAndZIndices(nodes);
 }
 
 function onSelectionDragStop(e, nodes) {
