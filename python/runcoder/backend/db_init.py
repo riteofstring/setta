@@ -222,6 +222,16 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     """
+    CREATE TABLE IF NOT EXISTS ProjectConfigRunGroups (
+        projectConfigId TEXT,
+        runGroupId TEXT,
+        "order" INTEGER,
+        PRIMARY KEY (projectConfigId, runGroupId),
+        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
+        FOREIGN KEY (runGroupId) REFERENCES RunGroup(id)
+    );
+    """,
+    """
     CREATE TABLE IF NOT EXISTS RunGroup (
         id TEXT PRIMARY KEY,
         name TEXT
