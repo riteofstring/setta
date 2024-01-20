@@ -5,11 +5,7 @@ import { FiCornerRightDown } from "react-icons/fi";
 import { addChildrenToSeries } from "thunks/sections/addChild";
 import { deleteChildrenFromSeries } from "thunks/sections/deleteChild";
 
-export function Incrementer({ sectionId, nextId, isRoot, hasNested }) {
-  const decrementButtonCondition = () => {
-    return (isRoot && hasNested) || (!isRoot && nextId);
-  };
-
+export function Incrementer({ sectionId, isRoot }) {
   const addSections = (numSections) => {
     addChildrenToSeries({
       isRoot,
@@ -59,7 +55,6 @@ export function Incrementer({ sectionId, nextId, isRoot, hasNested }) {
             <button
               className="nodrag rounded-full focus-visible:ring-2 dark:text-runcoder-300"
               onClick={() => deleteChildren(numSections)}
-              disabled={!decrementButtonCondition()}
               aria-label="Delete child section"
               role="button"
             >

@@ -11,9 +11,7 @@ import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
   sectionId,
-  nextId,
   isSeriesElement,
-  hasNested,
   isActiveSection,
   sectionTypeName,
   isGlobalVariables,
@@ -52,12 +50,7 @@ function _SectionHeader({
         </>
       )}
       {(isSeriesElement || _isRoot) && (
-        <Incrementer
-          sectionId={sectionId}
-          nextId={nextId}
-          isRoot={_isRoot}
-          hasNested={hasNested}
-        />
+        <Incrementer sectionId={sectionId} isRoot={_isRoot} />
       )}
 
       <CustomCloseButton

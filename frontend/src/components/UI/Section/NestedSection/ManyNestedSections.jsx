@@ -50,10 +50,9 @@ function NestedSectionsWithMargin({
         />
       )}
       <div className="flex flex-col items-start gap-2 ">
-        {childIds.map((e, idx) => (
+        {childIds.map((e) => (
           <SortableSectionContainer
             sectionId={e}
-            nextId={childIds[idx + 1]}
             key={`Nested-Sec-${e}`}
             ancestorSet={ancestorSet}
           />

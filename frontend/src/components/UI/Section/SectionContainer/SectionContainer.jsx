@@ -5,7 +5,7 @@ import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./Container/ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
 
-function _SectionContainer({ sectionId, nextId, ancestorSet, dragListeners }) {
+function _SectionContainer({ sectionId, ancestorSet, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
   const sectionChildren = useSectionInfos((x) => x.x[sectionId].children);
   const hasNested = sectionChildren.length > 0;
@@ -17,13 +17,7 @@ function _SectionContainer({ sectionId, nextId, ancestorSet, dragListeners }) {
       dragListeners={dragListeners}
       ancestorSet={ancestorSet}
     >
-      {!isDeck && (
-        <SectionContainerCore
-          sectionId={sectionId}
-          nextId={nextId}
-          hasNested={hasNested}
-        />
-      )}
+      {!isDeck && <SectionContainerCore sectionId={sectionId} />}
 
       {hasNested && (
         <div className="flex flex-col">
@@ -38,6 +32,4 @@ function _SectionContainer({ sectionId, nextId, ancestorSet, dragListeners }) {
     </ContainerSwitch>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) => {
-  return p.nextId === n.nextId;
-});
+export const SectionContainer = React.memo(_SectionContainer, () => true);
