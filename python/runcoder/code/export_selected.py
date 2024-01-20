@@ -5,16 +5,16 @@ from ..utils.constants import (
     CODE,
     DECK,
     DICT_ROOT,
+    GLOBAL_PARAM_SWEEP,
     GLOBAL_VARIABLES,
     INFO,
     LIST_ROOT,
     PARAM_SWEEP,
+    RUN_GROUP,
     SCRIPT,
     SECTION,
     TERMINAL,
     VAR_CONTROL,
-    GLOBAL_PARAM_SWEEP,
-    RUN_GROUP
 )
 from .find_placeholders import double_braces
 
@@ -142,7 +142,7 @@ class Exporter:
                 PARAM_SWEEP,
                 TERMINAL,
                 GLOBAL_PARAM_SWEEP,
-                RUN_GROUP
+                RUN_GROUP,
             ]:
                 to_pop.append(id)
         for id in to_pop:

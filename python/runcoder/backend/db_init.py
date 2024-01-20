@@ -1,18 +1,18 @@
+import re
+
 from .schema import dbq
 from .seed import seed
 
-
-def create_tables(db):
-    commands = [
-        # Settings model
-        """
+CREATE_TABLES_COMMANDS = [
+    # Settings model
+    """
         CREATE TABLE IF NOT EXISTS Settings (
             profileName TEXT PRIMARY KEY,
             darkMode BOOLEAN DEFAULT 1
         );
         """,
-        # CodeInfo model
-        """
+    # CodeInfo model
+    """
         CREATE TABLE IF NOT EXISTS CodeInfo (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -25,8 +25,8 @@ def create_tables(db):
             isSelected BOOLEAN
         );
         """,
-        # CodeInfoCol model
-        """
+    # CodeInfoCol model
+    """
         CREATE TABLE IF NOT EXISTS CodeInfoCol (
             parentId TEXT,
             childId TEXT,
@@ -36,8 +36,8 @@ def create_tables(db):
             FOREIGN KEY (childId) REFERENCES CodeInfo(id)
         );
         """,
-        # Section model
-        """
+    # Section model
+    """
         CREATE TABLE IF NOT EXISTS Section (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -65,8 +65,8 @@ def create_tables(db):
             FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id)
         );
         """,
-        # SectionChildren model
-        """
+    # SectionChildren model
+    """
         CREATE TABLE IF NOT EXISTS SectionChildren (
             childId TEXT PRIMARY KEY,
             parentId TEXT,
@@ -75,8 +75,8 @@ def create_tables(db):
             FOREIGN KEY (parentId) REFERENCES Section(id)
         );
         """,
-        # EVColId model
-        """
+    # EVColId model
+    """
         CREATE TABLE IF NOT EXISTS EVColId (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -84,8 +84,8 @@ def create_tables(db):
             FOREIGN KEY (originSectionId) REFERENCES Section(id)
         );
         """,
-        # EVCol model
-        """
+    # EVCol model
+    """
         CREATE TABLE IF NOT EXISTS EVCol (
             idid TEXT,
             codeInfoId TEXT,
@@ -95,8 +95,8 @@ def create_tables(db):
             FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id)
         );
         """,
-        # UIType model
-        """
+    # UIType model
+    """
         CREATE TABLE IF NOT EXISTS UIType (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -117,14 +117,14 @@ def create_tables(db):
             FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId)
         );
         """,
-        # UITypeColId model
-        """
+    # UITypeColId model
+    """
         CREATE TABLE IF NOT EXISTS UITypeColId (
             id TEXT PRIMARY KEY
         );
         """,
-        # UITypeCol model
-        """
+    # UITypeCol model
+    """
         CREATE TABLE IF NOT EXISTS UITypeCol (
             idid TEXT,
             codeInfoId TEXT,
@@ -135,8 +135,8 @@ def create_tables(db):
             FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
         );
         """,
-        # Project model
-        """
+    # Project model
+    """
         CREATE TABLE IF NOT EXISTS Project (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -145,8 +145,8 @@ def create_tables(db):
             FOREIGN KEY (defaultConfigId) REFERENCES ProjectConfig(id)
         );
         """,
-        # ProjectConfig model
-        """
+    # ProjectConfig model
+    """
         CREATE TABLE IF NOT EXISTS ProjectConfig (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -158,8 +158,8 @@ def create_tables(db):
             FOREIGN KEY (projectId) REFERENCES Project(id) ON DELETE CASCADE
         );
         """,
-        # ProjectConfigChildren model
-        """
+    # ProjectConfigChildren model
+    """
         CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
             parentId TEXT,
             childId TEXT,
@@ -171,8 +171,8 @@ def create_tables(db):
             FOREIGN KEY (childId) REFERENCES Section(id)
         );
         """,
-        # UserCodeInfoTypeMap model
-        """
+    # UserCodeInfoTypeMap model
+    """
         CREATE TABLE IF NOT EXISTS UserCodeInfoTypeMap (
             type TEXT,
             uiTypeId TEXT,
@@ -180,8 +180,8 @@ def create_tables(db):
             FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
         );
         """,
-        # ProjectConfigCodeInfoTypeMap model
-        """
+    # ProjectConfigCodeInfoTypeMap model
+    """
         CREATE TABLE IF NOT EXISTS ProjectConfigCodeInfoTypeMap (
             projectConfigId TEXT,
             type TEXT,
@@ -191,8 +191,8 @@ def create_tables(db):
             FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
         );
         """,
-        # Run model
-        """
+    # Run model
+    """
         CREATE TABLE IF NOT EXISTS Run (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -201,8 +201,8 @@ def create_tables(db):
             FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
         );
         """,
-        # OutputGroup model
-        """
+    # OutputGroup model
+    """
         CREATE TABLE IF NOT EXISTS OutputGroup (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -211,8 +211,8 @@ def create_tables(db):
             FOREIGN KEY (runId) REFERENCES Run(id)
         );
         """,
-        # Output model
-        """
+    # Output model
+    """
         CREATE TABLE IF NOT EXISTS Output (
             id TEXT PRIMARY KEY,
             name TEXT,
@@ -221,32 +221,73 @@ def create_tables(db):
             FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id)
         );
         """,
-    ]
+    """
+        CREATE TABLE IF NOT EXISTS RunGroup (
+            id TEXT PRIMARY KEY,
+            name TEXT
+        );
+        """,
+    """
+        CREATE TABLE IF NOT EXISTS RunGroupSections (
+            runGroupId TEXT,
+            sectionId TEXT,
+            PRIMARY KEY (runGroupId, sectionId),
+            FOREIGN KEY (runGroupId) REFERENCES RunGroup(id),
+            FOREIGN KEY (sectionId) REFERENCES Section(id)
+        );
+        """,
+    """
+        CREATE TABLE IF NOT EXISTS ParamSweep (
+            id TEXT PRIMARY KEY,
+            name TEXT
+        );
+        """,
+    """
+        CREATE TABLE IF NOT EXISTS ParamSweepObjs (
+            paramSweepId TEXT,
+            objInfoId TEXT,
+            "order" INTEGER,
+            value TEXT,
+            PRIMARY KEY (paramSweepId, objInfoId, "order"),
+            FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
+            FOREIGN KEY (objInfoId) REFERENCES CodeInfo(id)
+        );
+        """,
+    """
+        CREATE TABLE IF NOT EXISTS ParamSweepParams (
+            paramSweepId TEXT,
+            objInfoId TEXT,
+            paramInfoId TEXT,
+            "order" INTEGER,
+            value TEXT,
+            PRIMARY KEY (paramSweepId, objInfoId, paramInfoId, "order"),
+            FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
+            FOREIGN KEY (objInfoId) REFERENCES CodeInfo(id),
+            FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id)
+        );
+        """,
+    """
+        CREATE TABLE IF NOT EXISTS ParamSweepEVCols (
+            paramSweepId TEXT,
+            evColId TEXT,
+            "order" INTEGER,
+            PRIMARY KEY (paramSweepId, evColId, "order"),
+            FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
+            FOREIGN KEY (evColId) REFERENCES EVColId(id)
+        );
+        """,
+]
 
-    for com in commands:
+
+def create_tables(db):
+    for com in CREATE_TABLES_COMMANDS:
         db.execute(com)
 
 
-TABLE_NAMES = {
-    "Settings",
-    "CodeInfo",
-    "CodeInfoCol",
-    "Section",
-    "SectionChildren",
-    "EVColId",
-    "EVCol",
-    "UIType",
-    "UITypeColId",
-    "UITypeCol",
-    "Project",
-    "ProjectConfig",
-    "ProjectConfigChildren",
-    "UserCodeInfoTypeMap",
-    "ProjectConfigCodeInfoTypeMap",
-    "Run",
-    "OutputGroup",
-    "Output",
-}
+TABLE_NAMES = set([
+    re.search(r"CREATE TABLE IF NOT EXISTS (\S+) \(", x).group(1)
+    for x in CREATE_TABLES_COMMANDS
+])
 
 
 def tables_exist(db):
