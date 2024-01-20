@@ -1,4 +1,5 @@
 import { useCodeInfo } from "models/info/codeInfo";
+import { useParamSweep } from "models/paramSweep";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
@@ -17,21 +18,13 @@ function _ParamSweepArea({ sectionId }) {
   //   { objInfoId: "bb52a19f-d69c-4973-94ae-c1d85596cbb7", paramValues: [] },
   // ];
 
-  const paramSweep = [
-    {
-      paramInfoId: "159e0416-3873-469b-915b-1f186579c380",
-      values: ["100", "200", "300"],
-    },
-    {
-      paramInfoId: "2fae73d3-5756-42a9-beb0-7465b92ac626",
-      values: ["True", "False"],
-    },
-  ];
+  const paramSweepId = "39e067ec-8392-4e83-86b7-010f60f5abce";
+  const paramSweep = useParamSweep((x) => x.x[paramSweepId]);
 
   return (
     <>
       <FilterSection />
-      <Args paramSweep={paramSweep} />
+      <Args paramSweepId={paramSweepId} paramSweep={paramSweep} />
 
       <Button
         grid={false}
@@ -64,19 +57,31 @@ function FilterSection() {
   );
 }
 
-function Args({ paramSweep }) {
+function Args({ paramSweepId, paramSweep }) {
   return (
     <article className="nodrag nowheel card-args-list overflow-y-scroll py-1">
       {paramSweep.map((x, idx) => (
-        <Item key={idx} singleParamSweep={x} />
+        <Item
+          key={idx}
+          paramSweepId={paramSweepId}
+          idx={idx}
+          singleParamSweep={x}
+        />
       ))}
     </article>
   );
 }
 
-function Item({ singleParamSweep, unused = false }) {
+function Item({ paramSweepId, idx, singleParamSweep, unused = false }) {
   const { paramInfoId, values } = singleParamSweep;
   const paramName = useCodeInfo((x) => x.x[paramInfoId].name);
+
+  function getOnChange(valueIdx) {
+    return (v) =>
+      useParamSweep
+        .getState()
+        .setValue({ paramSweepId, idx, valueIdx, value: v });
+  }
 
   return (
     <>
@@ -100,14 +105,14 @@ function Item({ singleParamSweep, unused = false }) {
         </div>
       </search>
 
-      {values.map((x, idx) => (
-        <Input key={idx} value={x} />
+      {values.map((x, valueIdx) => (
+        <Input key={valueIdx} onChange={getOnChange(valueIdx)} value={x} />
       ))}
     </>
   );
 }
 
-function Input({ value }) {
+function Input({ onChange, value }) {
   return (
     <>
       <IconButton
@@ -122,6 +127,7 @@ function Input({ value }) {
         <input
           className="nodrag font-code h-[calc(1.25rem-2px)] flex-1 cursor-auto border-0 border-b border-solid border-runcoder-300 font-mono text-xs focus-visible:border-blue-400 dark:border-runcoder-600 dark:text-runcoder-300 dark:focus-visible:border-blue-400"
           value={value}
+          onChange={(e) => onChange(e.target.value)}
         />
       </article>
     </>
