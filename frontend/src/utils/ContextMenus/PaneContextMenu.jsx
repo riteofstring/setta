@@ -9,7 +9,6 @@ import {
   DECK,
   GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
-  RUN_GROUP,
   SCRIPT,
   SECTION,
   TERMINAL,
@@ -77,11 +76,6 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         onClick={() => onClickAddSection({ type: TERMINAL, ...commonProps })}
       >
         New Terminal
-      </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: RUN_GROUP, ...commonProps })}
-      >
-        New Run Group
       </Item>
       <Item
         onClick={() =>

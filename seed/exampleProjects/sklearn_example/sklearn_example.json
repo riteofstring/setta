@@ -48,11 +48,6 @@
             "y": -223.54053266232413,
             "zIndex": 3
           },
-          "c6ca6dab-a408-4832-823c-1d5f9de219ae": {
-            "x": 109.32068805080795,
-            "y": -980.9861614823795,
-            "zIndex": 10
-          },
           "d96cb110-6f72-435a-b745-2d55e277f983": {
             "x": 766,
             "y": 239.70833206176758,
@@ -253,32 +248,6 @@
             "height": 141
           }
         },
-        "c6ca6dab-a408-4832-823c-1d5f9de219ae": {
-          "id": "c6ca6dab-a408-4832-823c-1d5f9de219ae",
-          "name": "fiscal_copper",
-          "evColId": "d43c8221-813b-4d00-9185-fa98215cf215",
-          "uiTypeId": "18bd45bd-7d2f-4b86-abab-82c582c36282",
-          "uiTypeColId": "c68bea7e-634d-4a29-adb3-59de886455e4",
-          "social": null,
-          "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "",
-          "code": "",
-          "varControl": "",
-          "isFrozen": 0,
-          "nonPresetUITypeIds": ["18bd45bd-7d2f-4b86-abab-82c582c36282"],
-          "evColIds": ["d43c8221-813b-4d00-9185-fa98215cf215"],
-          "parentId": null,
-          "chainedFrom": null,
-          "selectedItem": null,
-          "outputGroup": null,
-          "children": [],
-          "size": {
-            "width": "auto",
-            "height": "auto"
-          }
-        },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
           "name": "dataset",
@@ -426,10 +395,6 @@
           "name": "inland_apricot",
           "values": {}
         },
-        "d43c8221-813b-4d00-9185-fa98215cf215": {
-          "name": "exotic_blue",
-          "values": {}
-        },
         "e007e751-1687-43ff-91e5-faeb1f7d15dc": {
           "name": "yodelling_copper",
           "values": {}
@@ -444,17 +409,6 @@
         }
       },
       "uiTypes": {
-        "18bd45bd-7d2f-4b86-abab-82c582c36282": {
-          "id": "18bd45bd-7d2f-4b86-abab-82c582c36282",
-          "name": "fiscal_copper",
-          "type": "RUN_GROUP",
-          "presetType": null,
-          "config": {
-            "subType": null,
-            "codeInfoId": "f8928895-d3ce-4a3d-a6f5-8ad1e39c5bdb",
-            "childUITypeId": null
-          }
-        },
         "1a83a3ce-e415-4c2d-bed0-959ce18e7995": {
           "id": "1a83a3ce-e415-4c2d-bed0-959ce18e7995",
           "name": "New Section",
@@ -658,7 +612,6 @@
           }
         },
         "8e312942-b6ac-472b-bb4d-b23642d0d1de": {},
-        "c68bea7e-634d-4a29-adb3-59de886455e4": {},
         "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1": {},
         "f35d7b7b-d268-45c9-94de-748f8f1cd98d": {}
       },

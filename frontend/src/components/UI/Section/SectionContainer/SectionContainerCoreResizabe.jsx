@@ -9,7 +9,6 @@ import {
   INFO,
   OUTPUT,
   PARAM_SWEEP,
-  RUN_GROUP,
   SCRIPT,
   SECTION,
   SOCIAL,
@@ -26,7 +25,6 @@ import { SectionDescription } from "./Main/SectionDescription/SectionDescription
 import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
-import { RunGroupArea } from "./RunGroupArea";
 import { SocialArea } from "./SocialArea";
 import { TerminalArea } from "./TerminalArea";
 
@@ -146,8 +144,6 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <ParamSweepArea sectionId={sectionId} />;
     case TERMINAL:
       return <TerminalArea sectionId={sectionId} />;
-    case RUN_GROUP:
-      return <RunGroupArea sectionId={sectionId} />;
     case GLOBAL_PARAM_SWEEP:
       return <GlobalParamSweepArea sectionId={sectionId} />;
     default:

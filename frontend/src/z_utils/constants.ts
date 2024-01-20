@@ -18,7 +18,6 @@ export const CODE = "CODE";
 export const VAR_CONTROL = "VAR_CONTROL";
 export const PARAM_SWEEP = "PARAM_SWEEP";
 export const TERMINAL = "TERMINAL";
-export const RUN_GROUP = "RUN_GROUP";
 export const GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP";
 export const SECTION_TYPE_NAMES = [
   SECTION,
@@ -34,7 +33,6 @@ export const SECTION_TYPE_NAMES = [
   VAR_CONTROL,
   PARAM_SWEEP,
   TERMINAL,
-  RUN_GROUP,
   GLOBAL_PARAM_SWEEP,
 ];
 
@@ -50,7 +48,6 @@ export const VAR_CONTROL_UI_TYPE_ID = "a2ecb6fe-45c7-4e8b-8424-8d5955256f89";
 export const PARAM_SWEEP_UI_TYPE_ID = "af0538a7-9667-400e-987e-ae3c844e0fcd";
 export const SWITCH_UI_TYPE_ID = "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5";
 export const TERMINAL_UI_TYPE_ID = "d6d40533-ee47-42a5-8b55-5455716c71ac";
-export const RUN_GROUP_UI_TYPE_ID = "22ee80f6-2c73-4293-a9dc-7f4527be349d";
 export const GLOBAL_PARAM_SWEEP_UI_TYPE_ID =
   "02f5da7b-71ae-4e42-b5b3-286fae1823ee";
 
@@ -97,7 +94,6 @@ export const uiTypesToPretty = Object.freeze(
       [VAR_CONTROL]: "Variable Control",
       [PARAM_SWEEP]: "Parameter Sweep",
       [TERMINAL]: "Terminal",
-      [RUN_GROUP]: "Run Group",
       [GLOBAL_PARAM_SWEEP]: "Global Param Sweep",
     })
   )

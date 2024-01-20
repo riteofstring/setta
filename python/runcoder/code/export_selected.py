@@ -10,7 +10,6 @@ from ..utils.constants import (
     INFO,
     LIST_ROOT,
     PARAM_SWEEP,
-    RUN_GROUP,
     SCRIPT,
     SECTION,
     TERMINAL,
@@ -142,7 +141,6 @@ class Exporter:
                 PARAM_SWEEP,
                 TERMINAL,
                 GLOBAL_PARAM_SWEEP,
-                RUN_GROUP,
             ]:
                 to_pop.append(id)
         for id in to_pop:
