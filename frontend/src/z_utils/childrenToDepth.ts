@@ -8,14 +8,14 @@ type DepthType = {
 
 export const getDepthListing = (
   topLevelIds: string[],
-  currChildren: { [id: string]: string[] },
+  children: { [id: string]: string[] },
   idNames: ManyOf<string>,
   startingDepth = 0
 ) => {
   const outputList: DepthType[] = [];
   for (const sectionId of topLevelIds) {
     outputList.push(
-      ...getDepthListingHelper(sectionId, currChildren, idNames, startingDepth)
+      ...getDepthListingHelper(sectionId, children, idNames, startingDepth)
     );
   }
   return outputList;
@@ -23,7 +23,7 @@ export const getDepthListing = (
 
 const getDepthListingHelper = (
   sectionId: string,
-  currChildren: { [id: string]: string[] },
+  children: { [id: string]: string[] },
   idNames: ManyOf<string>,
   depth: number
 ) => {
@@ -34,10 +34,10 @@ const getDepthListingHelper = (
       depth: depth,
     },
   ];
-  if (currChildren[sectionId]) {
-    for (const childId of currChildren[sectionId]) {
+  if (children[sectionId]) {
+    for (const childId of children[sectionId]) {
       outputList.push(
-        ...getDepthListingHelper(childId, currChildren, idNames, depth + 1)
+        ...getDepthListingHelper(childId, children, idNames, depth + 1)
       );
     }
   }

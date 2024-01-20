@@ -5,24 +5,20 @@ import { TopLevelContainer } from "./TopLevelContainer";
 export function ContainerSwitch({
   isDeck,
   sectionId,
-  parentId,
   dragListeners,
   ancestorSet,
   children,
 }) {
-  return _.size(ancestorSet) === 0 ? (
-    <TopLevelContainer
-      isDeck={isDeck}
-      sectionId={sectionId}
-      parentId={parentId}
-    >
+  const isTopLevel = _.size(ancestorSet) === 0;
+  return isTopLevel ? (
+    <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>
       {children}
     </TopLevelContainer>
   ) : (
     <DndSlotAndDndWatcher
       isDeck={isDeck}
       sectionId={sectionId}
-      parentId={parentId}
+      isTopLevel={isTopLevel}
       dragListeners={dragListeners}
     >
       {children}

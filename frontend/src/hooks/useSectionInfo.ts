@@ -8,7 +8,6 @@ export function useGetSectionInfo<K extends keyof SectionType>(
 ) {
   const equalityFn = [
     "children",
-    "currChildren",
     "size",
     "evColIds",
     "nonPresetUITypeIds",

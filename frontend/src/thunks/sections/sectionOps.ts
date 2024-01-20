@@ -15,7 +15,6 @@ import {
 import { setAllChildren } from "./children";
 import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];
@@ -117,8 +116,6 @@ function setChildrenAndParent({
     // Add child to new parent's list
     setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
   }
-
-  setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
 }
 
 function maybeChangeSectionSubtype({ newParentId, sectionId }) {
@@ -152,7 +149,7 @@ function setSectionSize({ newParentId, sectionId }) {
 
   // if new parent is a deck and the deck has children
   if (isDeck) {
-    const deckChildren = s.x[newParentId].currChildren;
+    const deckChildren = s.x[newParentId].children;
     if (deckChildren.length > 0) {
       const width = s.x[deckChildren[0]].size.width;
       setAllChildrenWidths({ sectionId, width });

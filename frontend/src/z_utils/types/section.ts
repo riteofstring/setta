@@ -1,12 +1,11 @@
 import { SizeType } from "./size";
+import { UITypeType } from "./uiType";
 import { ManyOf } from "./utils";
 
 export type SectionType = {
   id: string;
   name: string;
   children: string[];
-  currChildren: string[];
-  parentId: string | null;
   size: SizeType;
   chainedFrom: string | null;
   uiTypeId: string;
@@ -30,7 +29,7 @@ export type SectionType = {
 export type ManySectionType = ManyOf<SectionType>;
 export type ManySectionChildrenType = ManyOf<string[]>;
 
-export type SectionTypeSaveProjectToBackend = Omit<SectionType, "parentId">;
+export type SectionTypeSaveProjectToBackend = SectionType;
 export type ManySectionTypeSaveProjectToBackend =
   ManyOf<SectionTypeSaveProjectToBackend>;
 
@@ -63,14 +62,9 @@ export type SectionInfoActionType = {
     newStateFn: (currState: string[]) => string[];
   }) => void;
 
-  setCurrChildrenNames: (payload: {
-    currChildren: string[];
-    sectionType: any;
-  }) => void;
-
-  setCurrChildren: (payload: {
+  setChildrenNames: (payload: {
+    sectionType: UITypeType;
     sectionId: string;
-    currChildren: string[];
   }) => void;
 
   removeSectionInfos: (payload: string[]) => void;

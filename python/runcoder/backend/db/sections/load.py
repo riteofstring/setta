@@ -54,7 +54,6 @@ def load_sections(db, ids):
         outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
-            "parentId": child_to_parent.get(v["id"], None),
             "chainedFrom": chainedFrom,
             "selectedItem": selectedItem,
             "outputGroup": outputGroup,

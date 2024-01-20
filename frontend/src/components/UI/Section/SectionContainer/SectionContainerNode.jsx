@@ -7,9 +7,5 @@ export function SectionContainerNode({ id }) {
   // So we have to double check here if id actually exists in the state.
   // For example, id might have been deleted, but topLevelSectionPositions hasn't yet updated.
   const sectionInfo = useSectionInfos((x) => !_.isUndefined(x.x[id]));
-  return (
-    sectionInfo && (
-      <SectionContainer sectionId={id} parentId={null} ancestorSet={{}} />
-    )
-  );
+  return sectionInfo && <SectionContainer sectionId={id} ancestorSet={{}} />;
 }

@@ -30,7 +30,6 @@ import { TerminalArea } from "./TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
-  parentId,
   nextId,
   isSeriesElement,
   sectionTypeName,
@@ -96,7 +95,6 @@ export function SectionContainerCoreResizable({
       >
         <SectionHeader
           sectionId={sectionId}
-          parentId={parentId}
           nextId={nextId}
           isSeriesElement={isSeriesElement}
           hasNested={hasNested}
