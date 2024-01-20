@@ -64,7 +64,6 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     codeInfoIds: [selectedItem],
   });
   updateParams(sectionId);
-  updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

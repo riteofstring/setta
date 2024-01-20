@@ -3,14 +3,9 @@ import { useState } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { FiCornerRightDown } from "react-icons/fi";
 import { addChildForSeries } from "thunks/sections/addChild";
-import { deleteChild } from "thunks/sections/deleteChild";
+import { deleteChildrenFromSeries } from "thunks/sections/deleteChild";
 
-export function Incrementer({
-  sectionId,
-  nextId,
-  isRoot,
-  hasNested,
-}) {
+export function Incrementer({ sectionId, nextId, isRoot, hasNested }) {
   const decrementButtonCondition = () => {
     return (isRoot && hasNested) || (!isRoot && nextId);
   };
@@ -33,21 +28,13 @@ export function Incrementer({
   };
 
   const deleteChildren = (numSections) => {
-    if (isRoot) {
-      deleteChild({
-        parentId: sectionId,
-        numChildren: numSections,
-        incrementVersion: true,
-      });
-    } else {
-      deleteChild({
-        parentId,
-        numChildren: numSections,
-        startId: nextId,
-        incrementVersion: true,
-      });
-    }
+    deleteChildrenFromSeries({
+      calledBy: sectionId,
+      numChildren: numSections,
+      incrementVersion: true,
+    });
   };
+
   const numSectionsOnChange = (value) => {
     if (value && !isNaN(value)) {
       setNumSections(parseInt(value));

@@ -94,6 +94,9 @@ export const useSectionInfos = createProjectState(
             state.x[k].children = v.children.filter(
               (x) => !payload.includes(x)
             );
+            state.x[k].currChildren = v.currChildren.filter(
+              (x) => !payload.includes(x)
+            );
           }
         }),
 
