@@ -71,7 +71,7 @@ function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
   const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.evColId);
 
   return (
-    <article className="nodrag nowheel card-args-list overflow-y-scroll py-1">
+    <section className="card-sweep-list overflow-y-auto overflow-x-clip">
       {paramSweep.map((x, idx) => (
         <ArgItem
           key={idx}
@@ -89,7 +89,7 @@ function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
         alreadySelected={alreadySelected}
         forSectionId={forSectionId}
       />
-    </article>
+    </section>
   );
 }
 
@@ -137,7 +137,7 @@ function ArgItem({
   }
 
   return (
-    <>
+    <article className="nodrag nowheel card-sweep-group  py-1">
       <div className="col-start-2 col-end-6 flex items-center">
         <ParamCombobox
           objInfoId={objInfoId}
@@ -179,7 +179,7 @@ function ArgItem({
           <ShowEVCol objInfoId={objInfoId} evColId={evColId} />
         </div>
       )}
-    </>
+    </article>
   );
 }
 
