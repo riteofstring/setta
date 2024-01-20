@@ -12,7 +12,6 @@ export type SectionType = {
   uiTypeId: string;
   evColId: string;
   uiTypeColId: string;
-  paramSweepId: string | null;
   selectedItem: string | null;
   social: string | null;
   outputGroup: string | null;
