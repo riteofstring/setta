@@ -12,7 +12,7 @@ import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
-function _SectionContainerCore({ sectionId, nextId, hasNested }) {
+function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
@@ -54,6 +54,7 @@ function _SectionContainerCore({ sectionId, nextId, hasNested }) {
     >
       <SectionContainerCoreResizable
         sectionId={sectionId}
+        parentId={parentId}
         nextId={nextId}
         isSeriesElement={isSeriesElement}
         sectionTypeName={sectionTypeName}

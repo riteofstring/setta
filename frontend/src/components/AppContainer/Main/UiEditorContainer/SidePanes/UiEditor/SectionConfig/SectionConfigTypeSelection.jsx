@@ -1,5 +1,6 @@
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useCodeInfo } from "models/info/codeInfo";
+import { updateCurrChildren } from "thunks/sections/children";
 import { getSectionTypeConfig } from "thunks/sections/getters";
 import { updateParamsAndCallables } from "thunks/sections/sectionContents";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
@@ -30,6 +31,7 @@ export function SectionConfigTypeSelection({ sectionId }) {
           },
         });
         updateParamsAndCallables(sectionId);
+        updateCurrChildren(sectionId);
 
         maybeIncrementProjectStateVersion(true);
       }

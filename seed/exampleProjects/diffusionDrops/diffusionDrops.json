@@ -188,6 +188,7 @@
           "id": "f4e68c55-0f5d-4110-a8fe-bec49d5bc3b4",
           "name": "Optimizer",
           "children": [],
+          "currChildren": [],
           "size": {
             "width": "auto",
             "height": "auto"
@@ -214,6 +215,7 @@
           "id": "5147e582-4968-419f-8c90-593a2b709ccf",
           "name": "Model",
           "children": [],
+          "currChildren": [],
           "size": {
             "width": "auto",
             "height": "auto"

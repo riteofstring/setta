@@ -10,14 +10,7 @@ export function getSectionInfo(sectionId) {
 }
 
 export function getSectionParentId(sectionId) {
-  if (sectionId in useProjectConfig.getState().children) {
-    return null;
-  }
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (s.children.includes(sectionId)) {
-      return s.id;
-    }
-  }
+  return getSectionInfo(sectionId).parentId;
 }
 
 export function getSectionName(sectionId) {
@@ -63,7 +56,7 @@ export function getSectionSiblingNames(sectionId: string) {
   const sectionName = getSectionName(sectionId);
   const parentId = getSectionParentId(sectionId);
   const siblingIds = parentId
-    ? _.defaultTo(getSectionInfo(parentId).children, [])
+    ? _.defaultTo(getSectionInfo(parentId).currChildren, [])
     : Object.keys(useProjectConfig.getState().children);
 
   const siblingNames = siblingIds.map((x) => getSectionName(x));

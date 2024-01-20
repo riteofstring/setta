@@ -7,6 +7,7 @@ import { requestParameters } from "thunks/websocket";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { RCType } from "z_utils/types/codeInfo";
 import { isUUID } from "z_utils/utils";
+import { updateCurrChildren } from "./children";
 import { getSectionTypeConfig } from "./getters";
 import { updateCallables, updateParams } from "./sectionContents";
 
@@ -63,6 +64,7 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     codeInfoIds: [selectedItem],
   });
   updateParams(sectionId);
+  updateCurrChildren(sectionId);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -77,4 +79,8 @@ export function setSectionName(sectionId, name, incrementVersion) {
 
 export function setSectionSize(sectionId, size) {
   setSectionInfoAttr({ sectionId, attr: "size", value: size });
+}
+
+export function setSectionParentId(sectionId, parentId) {
+  setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
 }

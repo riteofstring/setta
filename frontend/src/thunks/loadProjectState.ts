@@ -11,6 +11,7 @@ import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
 import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
+import { updateManyCurrChildren } from "./sections/children";
 import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -45,6 +46,7 @@ export function loadProjectState({
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));
+  updateManyCurrChildren(Object.keys(sections));
   maybeIncrementProjectStateVersion(true);
   return true;
 }

@@ -2,32 +2,53 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { useState } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { FiCornerRightDown } from "react-icons/fi";
-import { addChildrenToSeries } from "thunks/sections/addChild";
-import { deleteChildrenFromSeries } from "thunks/sections/deleteChild";
+import { addChildForSeries } from "thunks/sections/addChild";
+import { deleteChild } from "thunks/sections/deleteChild";
 
-export function Incrementer({ sectionId, nextId, isRoot, hasNested }) {
+export function Incrementer({
+  parentId,
+  sectionId,
+  nextId,
+  isRoot,
+  hasNested,
+}) {
   const decrementButtonCondition = () => {
     return (isRoot && hasNested) || (!isRoot && nextId);
   };
 
   const addSections = (numSections) => {
-    addChildrenToSeries({
-      isRoot,
-      calledBy: sectionId,
-      numChildren: numSections,
-      incrementVersion: true,
-    });
+    if (isRoot) {
+      addChildForSeries({
+        parentId: sectionId,
+        numChildren: numSections,
+        incrementVersion: true,
+      });
+    } else {
+      addChildForSeries({
+        parentId,
+        numChildren: numSections,
+        startId: sectionId,
+        incrementVersion: true,
+      });
+    }
   };
 
   const deleteChildren = (numSections) => {
-    deleteChildrenFromSeries({
-      isRoot,
-      calledBy: sectionId,
-      numChildren: numSections,
-      incrementVersion: true,
-    });
+    if (isRoot) {
+      deleteChild({
+        parentId: sectionId,
+        numChildren: numSections,
+        incrementVersion: true,
+      });
+    } else {
+      deleteChild({
+        parentId,
+        numChildren: numSections,
+        startId: nextId,
+        incrementVersion: true,
+      });
+    }
   };
-
   const numSectionsOnChange = (value) => {
     if (value && !isNaN(value)) {
       setNumSections(parseInt(value));
