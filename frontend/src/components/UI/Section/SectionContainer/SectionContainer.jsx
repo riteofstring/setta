@@ -5,7 +5,7 @@ import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./Container/ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
 
-export function SectionContainer({ sectionId, ancestorSet, dragListeners }) {
+function _SectionContainer({ sectionId, ancestorSet, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
   const sectionChildren = useSectionInfos((x) => x.x[sectionId].children);
   const hasNested = sectionChildren.length > 0;
@@ -32,4 +32,4 @@ export function SectionContainer({ sectionId, ancestorSet, dragListeners }) {
     </ContainerSwitch>
   );
 }
-// export const SectionContainer = React.memo(_SectionContainer, () => true);
+export const SectionContainer = React.memo(_SectionContainer, () => true);

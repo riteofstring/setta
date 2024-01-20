@@ -8,7 +8,6 @@ import { useStore } from "reactflow";
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
   const { width, height } = useTrueSectionSize(sectionId);
   const zoom = useStore((x) => x.transform[2]);
-  // console.log("DummySection", sectionId, width, height)
   return (
     <div
       style={{ width: `${width * zoom}px`, height: `${height * zoom}px` }}
@@ -21,8 +20,6 @@ const DummySection = React.forwardRef(({ sectionId }, ref) => {
 export const DummyDragOverlay = React.forwardRef((props, ref) => {
   const activeId = useDndState((x) => x.activeId);
   const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-
-  // console.log("activeIsTopLevel", activeId, activeIsTopLevel)
 
   return (
     activeId &&
