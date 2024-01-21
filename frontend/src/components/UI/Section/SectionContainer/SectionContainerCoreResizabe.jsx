@@ -145,7 +145,7 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
     case TERMINAL:
       return <TerminalArea sectionId={sectionId} />;
     case GLOBAL_PARAM_SWEEP:
-      return <GlobalParamSweepArea sectionId={sectionId} />;
+      return <GlobalParamSweepArea />;
     default:
       return null;
   }
