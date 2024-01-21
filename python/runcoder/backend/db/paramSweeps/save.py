@@ -1,6 +1,6 @@
 def save_param_sweeps(db, param_sweeps):
     query = """
-        INSERT INTO ParamSweep (id, name)
+        INSERT INTO ParamSweepId (id, name)
         VALUES (:id, :name)
         ON CONFLICT (id)
         DO UPDATE SET
@@ -12,15 +12,15 @@ def save_param_sweeps(db, param_sweeps):
 
     placeholders = ", ".join(["?"] * len(param_sweeps))
     query = f"""
-        DELETE FROM ParamSweepDetails
-        WHERE paramSweepId IN ({placeholders})
+        DELETE FROM ParamSweep
+        WHERE idid IN ({placeholders})
     """
     query_params = list(param_sweeps.keys())
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ParamSweepDetails (paramSweepId, paramInfoId, evColId, "order", value)
-        VALUES (:paramSweepId, :paramInfoId, :evColId, :order, :value)
+        INSERT INTO ParamSweep (idid, paramInfoId, evColId, "order", value)
+        VALUES (:idid, :paramInfoId, :evColId, :order, :value)
     """
 
     query_params = []
@@ -31,7 +31,7 @@ def save_param_sweeps(db, param_sweeps):
                 for v in s["values"]:
                     query_params.append(
                         {
-                            "paramSweepId": id,
+                            "idid": id,
                             "paramInfoId": s["paramInfoId"],
                             "evColId": None,
                             "order": order,
@@ -42,7 +42,7 @@ def save_param_sweeps(db, param_sweeps):
             else:
                 query_params.append(
                     {
-                        "paramSweepId": id,
+                        "idid": id,
                         "paramInfoId": None,
                         "evColId": s["evColId"],
                         "order": order,

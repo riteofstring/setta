@@ -118,6 +118,7 @@ def load_project(db, project_name, config_name):
     sections = sections_data["sections"]
     evCols = sections_data["evCols"]
     uiTypeCols = sections_data["uiTypeCols"]
+    paramSweeps = sections_data["paramSweeps"]
     baseUITypes = load_base_uitypes(db)
     uiTypes = {**baseUITypes, **sections_data["nonPresetUITypes"]}
     codeInfo = load_code_info_for_sections(db, uiTypes)
@@ -129,6 +130,7 @@ def load_project(db, project_name, config_name):
         "evCols": evCols,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
+        "paramSweeps": paramSweeps,
         "codeInfo": codeInfo,
         "userCodeInfoMaps": {},
         "projectConfigCodeInfoMaps": {},

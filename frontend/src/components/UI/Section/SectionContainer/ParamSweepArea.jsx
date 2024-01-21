@@ -2,6 +2,7 @@ import { useGetEVColNames } from "hooks/useEnteredValue";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useParamSweep } from "models/paramSweep";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
@@ -14,17 +15,9 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function _ParamSweepArea({ sectionId }) {
-  // const paramSweepId = useSectionInfos(x=>x.x[sectionId].paramSweepId)
-
-  // const paramSweep = useSectionParamSweep(sectionId);
-
-  // const paramSweep = [
-  //   { objInfoId: "bb52a19f-d69c-4973-94ae-c1d85596cbb7", paramValues: [] },
-  // ];
-
-  const forSectionId = "d96cb110-6f72-435a-b745-2d55e277f983";
-  const paramSweepId = "39e067ec-8392-4e83-86b7-010f60f5abce";
+  const paramSweepId = useSectionInfos((x) => x.x[sectionId].paramSweepId);
   const paramSweep = useParamSweep((x) => x.x[paramSweepId].sweep);
+  const forSectionId = "d96cb110-6f72-435a-b745-2d55e277f983";
   // const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
   const selectedItem = "bb52a19f-d69c-4973-94ae-c1d85596cbb7";
 

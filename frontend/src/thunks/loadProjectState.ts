@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useParamSweep } from "models/paramSweep";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
@@ -24,6 +25,7 @@ export function loadProjectState({
   evCols,
   uiTypes,
   uiTypeCols,
+  paramSweeps,
   outputs,
   outputGroups,
 }: ProjectLoadType) {
@@ -37,6 +39,7 @@ export function loadProjectState({
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
+  useParamSweep.getState().resetAndSetAll(paramSweeps);
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
   useProjectConfigCodeInfoMaps
     .getState()

@@ -61,7 +61,7 @@ CREATE_TABLES_COMMANDS = [
         isFrozen BOOLEAN,
         FOREIGN KEY (chainedFromId) REFERENCES Section(id),
         FOREIGN KEY (evColId) REFERENCES EVColId(id),
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id),
         FOREIGN KEY (paramSweepFor) REFERENCES Section(id),
         FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id),
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id),
@@ -249,11 +249,11 @@ CREATE_TABLES_COMMANDS = [
         PRIMARY KEY (runGroupId, sectionId, paramSweepId),
         FOREIGN KEY (runGroupId) REFERENCES RunGroup(id),
         FOREIGN KEY (sectionId) REFERENCES Section(id)
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id)
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id)
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS ParamSweep (
+    CREATE TABLE IF NOT EXISTS ParamSweepId (
         id TEXT PRIMARY KEY,
         name TEXT,
         originSectionId TEXT,
@@ -261,14 +261,14 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS ParamSweepDetails (
-        paramSweepId TEXT,
+    CREATE TABLE IF NOT EXISTS ParamSweep (
+        idid TEXT,
         paramInfoId TEXT,
         evColId TEXT,
         "order" INTEGER,
         value TEXT,
-        PRIMARY KEY (paramSweepId, paramInfoId, evColId),
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
+        PRIMARY KEY (idid, paramInfoId, evColId),
+        FOREIGN KEY (idid) REFERENCES ParamSweepId(id),
         FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id)
         FOREIGN KEY (evColId) REFERENCES EVColId(id)
         CHECK (paramInfoId IS NOT NULL OR evColId IS NOT NULL)

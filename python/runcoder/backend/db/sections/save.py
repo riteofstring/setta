@@ -130,14 +130,14 @@ def save_sections(db, sections):
     db.executemany(query, query_params)
 
     query = f"""
-        UPDATE ParamSweep
+        UPDATE ParamSweepId
         SET originSectionId = null
         WHERE originSectionId IN ({placeholders})
     """
     db.execute(query, ids)
 
     query = """
-        UPDATE ParamSweep
+        UPDATE ParamSweepId
         SET originSectionId = :sectionId
         WHERE id = :paramSweepId
     """

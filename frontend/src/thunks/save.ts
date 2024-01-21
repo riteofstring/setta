@@ -12,6 +12,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
+import { useParamSweep } from "models/paramSweep";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { xnor } from "utils/utils";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
@@ -27,6 +28,7 @@ export function getProjectData(): ProjectSaveType {
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;
+  const paramSweeps = useParamSweep.getState().x;
 
   const sectionInfosState = useSectionInfos.getState();
   const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
@@ -46,6 +48,7 @@ export function getProjectData(): ProjectSaveType {
     evCols,
     uiTypes,
     uiTypeCols,
+    paramSweeps,
     sections,
     codeInfo,
     projectConfigCodeInfoMaps,
