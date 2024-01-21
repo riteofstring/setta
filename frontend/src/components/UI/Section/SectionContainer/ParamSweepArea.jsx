@@ -1,22 +1,19 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
+import { useParamSweepInfo } from "hooks/useParamSweepInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useParamSweep } from "models/paramSweep";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
-import { TbVersions } from "react-icons/tb";
-import { Button } from "utils/atoms/buttons/Button";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function _ParamSweepArea({ sectionId }) {
-  const paramSweepId = useSectionInfos((x) => x.x[sectionId].paramSweepId);
-  const paramSweep = useParamSweep((x) => x.x[paramSweepId].sweep);
+  const { paramSweepId, paramSweep } = useParamSweepInfo(sectionId);
   const forSectionId = "d96cb110-6f72-435a-b745-2d55e277f983";
   // const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
   const selectedItem = "bb52a19f-d69c-4973-94ae-c1d85596cbb7";
@@ -30,14 +27,6 @@ function _ParamSweepArea({ sectionId }) {
         paramSweep={paramSweep}
         forSectionId={forSectionId}
       />
-
-      <Button
-        grid={false}
-        twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-700 dark:text-runcoder-300 dark:bg-runcoder-900/40 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
-      >
-        <TbVersions className="z-[3] h-4 w-4" />
-        Versions
-      </Button>
     </>
   );
 }

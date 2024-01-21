@@ -12,6 +12,10 @@ export const useParamSweep = createProjectState(
     immer((set) => ({
       ...initialState,
       resetAndSetAll: (payload) => set({ x: payload }),
+      initParamSweep: ({ id, name }) =>
+        set((state) => {
+          state.x[id] = { name: name, sweep: [] };
+        }),
       setValue: ({ paramSweepId, idx, valueIdx, value }) =>
         set((state) => {
           state.x[paramSweepId].sweep[idx].values[valueIdx] = value;

@@ -1,3 +1,4 @@
+import { useSectionHasMultipleParamSweeps } from "hooks/useParamSweepInfo";
 import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
@@ -38,7 +39,10 @@ export function SectionContainerCoreResizable({
 }) {
   const isGlobalVariables = sectionTypeName === GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === INFO;
-  const hasVersions = useSectionHasMultipleEVCols(sectionId);
+  const hasEVVersions = useSectionHasMultipleEVCols(sectionId);
+  const hasParamSweepVersions = useSectionHasMultipleParamSweeps(sectionId);
+  const hasVersions =
+    (sectionTypeName === PARAM_SWEEP && hasParamSweepVersions) || hasEVVersions;
 
   const getOutlineColor = () => {
     if (isWrongType) {
@@ -111,7 +115,9 @@ export function SectionContainerCoreResizable({
           </Button>
         )}
       </CustomResizable>
-      {hasVersions && <VersionList sectionId={sectionId} />}
+      {hasVersions && (
+        <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
+      )}
     </>
   );
 }
