@@ -1,9 +1,10 @@
 from ...utils.utils import create_new_id, generate_memorable_string
 from ..codeInfo.save import save_code_info
 from ..enteredValues.save import save_ev_cols
+from ..paramSweeps.save import save_param_sweeps
 from ..sections.save import save_sections
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
-from ..paramSweeps.save import save_param_sweeps
+
 
 def save_project_details(db, p):
     save_code_info(db, merge_configs(p, "codeInfo"))

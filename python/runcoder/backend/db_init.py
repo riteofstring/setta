@@ -261,24 +261,17 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS ParamSweepParams (
+    CREATE TABLE IF NOT EXISTS ParamSweepDetails (
         paramSweepId TEXT,
         paramInfoId TEXT,
-        "order" INTEGER,
-        value TEXT,
-        PRIMARY KEY (paramSweepId, paramInfoId, "order"),
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
-        FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id)
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS ParamSweepEVCols (
-        paramSweepId TEXT,
         evColId TEXT,
         "order" INTEGER,
-        PRIMARY KEY (paramSweepId, evColId),
+        value TEXT,
+        PRIMARY KEY (paramSweepId, paramInfoId, evColId),
         FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
+        FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id)
         FOREIGN KEY (evColId) REFERENCES EVColId(id)
+        CHECK (paramInfoId IS NOT NULL OR evColId IS NOT NULL)
     );
     """,
 ]
