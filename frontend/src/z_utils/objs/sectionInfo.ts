@@ -21,6 +21,8 @@ export function newSectionInfo({
   descriptionHeight = 100,
   descriptionVisible = false,
   evColIds = [],
+  paramSweepIds = [],
+  paramSweepFor = null,
   nonPresetUITypeIds = [],
   script = "",
   code = "",
@@ -55,6 +57,8 @@ export function newSectionInfo({
     code,
     varControl,
     evColIds: _evColIds,
+    paramSweepIds,
+    paramSweepFor,
     nonPresetUITypeIds,
     isFrozen,
   };

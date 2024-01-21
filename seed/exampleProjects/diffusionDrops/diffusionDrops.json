@@ -22,7 +22,8 @@
           "y": -100,
           "zoom": 1
         }
-      }
+      },
+      "paramSweeps": {}
     },
     {
       "projectConfig": {
@@ -536,7 +537,8 @@
           "isSelected": false
         }
       },
-      "projectConfigCodeInfoMaps": {}
+      "projectConfigCodeInfoMaps": {},
+      "paramSweeps": {}
     }
   ]
 }

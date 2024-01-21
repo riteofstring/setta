@@ -280,7 +280,8 @@
       "userCodeInfoMaps": {},
       "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
-      "outputs": {}
+      "outputs": {},
+      "paramSweeps": {}
     }
   ]
 }

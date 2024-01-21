@@ -4,17 +4,20 @@ import { createProjectState } from "./utils";
 
 const initialState = {
   x: {
-    "39e067ec-8392-4e83-86b7-010f60f5abce": [
-      {
-        paramInfoId: "159e0416-3873-469b-915b-1f186579c380",
-        values: ["100", "200", "300"],
-      },
-      // { evColId: "66e4192c-c1fc-4935-b862-e722726c1217" },
-      {
-        paramInfoId: "2fae73d3-5756-42a9-beb0-7465b92ac626",
-        values: ["True", "False"],
-      },
-    ],
+    "39e067ec-8392-4e83-86b7-010f60f5abce": {
+      name: "big_elephant",
+      sweep: [
+        {
+          paramInfoId: "159e0416-3873-469b-915b-1f186579c380",
+          values: ["100", "200", "300"],
+        },
+        { evColId: "66e4192c-c1fc-4935-b862-e722726c1217" },
+        {
+          paramInfoId: "2fae73d3-5756-42a9-beb0-7465b92ac626",
+          values: ["True", "False"],
+        },
+      ],
+    },
   },
   version: 0,
 };
@@ -25,38 +28,38 @@ export const useParamSweep = createProjectState(
       ...initialState,
       setValue: ({ paramSweepId, idx, valueIdx, value }) =>
         set((state) => {
-          state.x[paramSweepId][idx].values[valueIdx] = value;
+          state.x[paramSweepId].sweep[idx].values[valueIdx] = value;
         }),
       addValue: ({ paramSweepId, idx }) =>
         set((state) => {
-          state.x[paramSweepId][idx].values.push("");
+          state.x[paramSweepId].sweep[idx].values.push("");
         }),
       deleteValue: ({ paramSweepId, idx, valueIdx }) =>
         set((state) => {
-          state.x[paramSweepId][idx].values = state.x[paramSweepId][
+          state.x[paramSweepId].sweep[idx].values = state.x[paramSweepId].sweep[
             idx
           ].values.filter((x, idx) => idx !== valueIdx);
         }),
       deleteLastValue: ({ paramSweepId, idx }) =>
         set((state) => {
-          state.x[paramSweepId][idx].values = state.x[paramSweepId][
+          state.x[paramSweepId].sweep[idx].values = state.x[paramSweepId].sweep[
             idx
           ].values.slice(0, -1);
         }),
       changeParamInfoId: ({ paramSweepId, idx, paramInfoId, evColId }) =>
         set((state) => {
           if (paramInfoId) {
-            state.x[paramSweepId][idx] = { paramInfoId, values: [""] };
+            state.x[paramSweepId].sweep[idx] = { paramInfoId, values: [""] };
           } else if (evColId) {
-            state.x[paramSweepId][idx] = { evColId };
+            state.x[paramSweepId].sweep[idx] = { evColId };
           }
         }),
       addParamInfoId: ({ paramSweepId, paramInfoId, evColId }) =>
         set((state) => {
           if (paramInfoId) {
-            state.x[paramSweepId].push({ paramInfoId, values: [""] });
+            state.x[paramSweepId].sweep.push({ paramInfoId, values: [""] });
           } else if (evColId) {
-            state.x[paramSweepId].push({ evColId });
+            state.x[paramSweepId].sweep.push({ evColId });
           }
         }),
     }))

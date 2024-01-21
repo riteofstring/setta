@@ -3,13 +3,14 @@ from ..codeInfo.save import save_code_info
 from ..enteredValues.save import save_ev_cols
 from ..sections.save import save_sections
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
-
+from ..paramSweeps.save import save_param_sweeps
 
 def save_project_details(db, p):
     save_code_info(db, merge_configs(p, "codeInfo"))
     save_ev_cols(db, merge_configs(p, "evCols"))
     save_ui_types(db, merge_configs(p, "uiTypes"))
     save_ui_type_cols(db, merge_configs(p, "uiTypeCols"))
+    save_param_sweeps(db, merge_configs(p, "paramSweeps"))
     save_sections(db, merge_configs(p, "sections"))
     save_project(db, p)
     save_project_configs(db, p["id"], p["configs"])
