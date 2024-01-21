@@ -18,7 +18,8 @@ def save_sections(db, sections):
             script,
             code,
             varControl,
-            isFrozen
+            isFrozen,
+            paramSweepId
         )
         VALUES (
             :id,
@@ -38,7 +39,8 @@ def save_sections(db, sections):
             :script,
             :code,
             :varControl,
-            :isFrozen
+            :isFrozen,
+            :paramSweepId
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -58,7 +60,8 @@ def save_sections(db, sections):
             script = :script,
             code = :code,
             varControl = :varControl,
-            isFrozen = :isFrozen
+            isFrozen = :isFrozen,
+            paramSweepId = :paramSweepId
     """
 
     query_params = [
@@ -81,6 +84,7 @@ def save_sections(db, sections):
             "code": s["code"],
             "varControl": s["varControl"],
             "isFrozen": s["isFrozen"],
+            "paramSweepId": s["paramSweepId"],
         }
         for s in sections.values()
     ]
@@ -123,6 +127,24 @@ def save_sections(db, sections):
     for s in sections.values():
         for evColId in s["evColIds"]:
             query_params.append({"evColId": evColId, "sectionId": s["id"]})
+    db.executemany(query, query_params)
+
+    query = f"""
+        UPDATE ParamSweep
+        SET originSectionId = null
+        WHERE originSectionId IN ({placeholders})
+    """
+    db.execute(query, ids)
+
+    query = """
+        UPDATE ParamSweep
+        SET originSectionId = :sectionId
+        WHERE id = :paramSweepId
+    """
+    query_params = []
+    for s in sections.values():
+        for paramSweepId in s["paramSweepIds"]:
+            query_params.append({"paramSweepId": paramSweepId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
     # delete children

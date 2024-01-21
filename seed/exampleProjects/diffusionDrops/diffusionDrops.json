@@ -209,7 +209,10 @@
           "code": "",
           "varControl": "",
           "isFrozen": false,
-          "isSelected": false
+          "isSelected": false,
+          "paramSweepId": null,
+          "paramSweepIds": [],
+          "paramSweepFor": null
         },
         "5147e582-4968-419f-8c90-593a2b709ccf": {
           "id": "5147e582-4968-419f-8c90-593a2b709ccf",
@@ -235,7 +238,10 @@
           "code": "",
           "varControl": "",
           "isFrozen": false,
-          "isSelected": false
+          "isSelected": false,
+          "paramSweepId": null,
+          "paramSweepIds": [],
+          "paramSweepFor": null
         }
       },
       "codeInfo": {

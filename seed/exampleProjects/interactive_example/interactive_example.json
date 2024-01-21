@@ -50,7 +50,10 @@
             "height": "auto"
           },
           "isFrozen": false,
-          "isSelected": false
+          "isSelected": false,
+          "paramSweepId": null,
+          "paramSweepIds": [],
+          "paramSweepFor": null
         },
         "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
           "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -76,7 +79,10 @@
             "height": "auto"
           },
           "isFrozen": false,
-          "isSelected": false
+          "isSelected": false,
+          "paramSweepId": null,
+          "paramSweepIds": [],
+          "paramSweepFor": null
         }
       },
       "evCols": {
