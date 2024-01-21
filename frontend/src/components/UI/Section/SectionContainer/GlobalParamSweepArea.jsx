@@ -1,7 +1,8 @@
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useGetParamSweepNames } from "hooks/useParamSweepInfo";
+import _ from "lodash";
 import { useRunGroups } from "models/runGroups";
-import { useState } from "react";
+import React, { useState } from "react";
 import { BiFilter } from "react-icons/bi";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 
@@ -62,14 +63,14 @@ function SectionList({ runGroupId, runGroup }) {
           key={idx}
           sectionInfo={x}
           runGroupId={runGroupId}
-          runGroup={runGroup}
+          runGroupSection={runGroup.sections[x.id]}
         />
       ))}
     </div>
   );
 }
 
-function SectionItem({ sectionInfo, runGroupId, runGroup }) {
+function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
   const variants =
     "-m-0 flex flex-col gap-2 rounded-lg p-2 hover:bg-runcoder-500/10";
   return (
@@ -77,13 +78,13 @@ function SectionItem({ sectionInfo, runGroupId, runGroup }) {
       <ParamSweepVersionsList
         sectionInfo={sectionInfo}
         runGroupId={runGroupId}
-        runGroup={runGroup}
+        runGroupSection={runGroupSection}
       />
     </div>
   );
 }
 
-function ParamSweepVersionsList({ sectionInfo, runGroupId, runGroup }) {
+function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   const variants = "text-xs text-runcoder-500 dark:text-runcoder-300";
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
 
@@ -106,7 +107,7 @@ function ParamSweepVersionsList({ sectionInfo, runGroupId, runGroup }) {
     <ul className="">
       <li>
         <CheckboxGroup
-          checked={sectionInfo.id in runGroup.sections}
+          checked={!_.isNil(runGroupSection)}
           onChange={onSectionCheckboxChange}
         >
           {sectionInfo.name}
@@ -115,7 +116,7 @@ function ParamSweepVersionsList({ sectionInfo, runGroupId, runGroup }) {
           {allParamSweeps.map((e, idx) => (
             <li key={idx} className={variants}>
               <CheckboxGroup
-                checked={!!runGroup.sections[sectionInfo.id]?.[e.id]}
+                checked={!!runGroupSection?.[e.id]}
                 onChange={getOnParamSweepCheckboxChange(e.id)}
               >
                 {e.name}
@@ -127,6 +128,8 @@ function ParamSweepVersionsList({ sectionInfo, runGroupId, runGroup }) {
     </ul>
   );
 }
+
+const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
 function CheckboxGroup({ children, checked, onChange, onMouseOver }) {
   return (
