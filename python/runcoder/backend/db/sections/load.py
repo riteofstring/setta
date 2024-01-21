@@ -28,19 +28,35 @@ def load_sections(db, ids):
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
         SELECT
-            Section.*,
-            GROUP_CONCAT(UIType.id) as nonPresetUITypeIds,
-            GROUP_CONCAT(EVColId.id) as evColIds
+            S.*,
+            U.nonPresetUITypeIds,
+            E.evColIds
         FROM
-            Section
+            Section S
         LEFT JOIN
-            UIType ON Section.id = UIType.asNonPresetForSectionId
+            (
+                SELECT
+                    asNonPresetForSectionId,
+                    GROUP_CONCAT(id) AS nonPresetUITypeIds
+                FROM
+                    UIType
+                GROUP BY
+                    asNonPresetForSectionId
+            ) AS U ON S.id = U.asNonPresetForSectionId
         LEFT JOIN
-            EVColId ON Section.id = EVColId.originSectionId
+            (
+                SELECT
+                    originSectionId,
+                    GROUP_CONCAT(id) AS evColIds
+                FROM
+                    EVColId
+                GROUP BY
+                    originSectionId
+            ) AS E ON S.id = E.originSectionId
         WHERE
-            Section.id IN ({placeholders})
+            S.id IN ({placeholders})
         GROUP BY
-            Section.id
+            S.id;
     """
     db.execute(query, all_ids)
 
