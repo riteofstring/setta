@@ -226,28 +226,22 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS ProjectConfigRunGroups (
+    CREATE TABLE IF NOT EXISTS RunGroupId (
+        id TEXT PRIMARY KEY,
+        name TEXT,
         projectConfigId TEXT,
-        runGroupId TEXT,
         "order" INTEGER,
-        PRIMARY KEY (projectConfigId, runGroupId),
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
-        FOREIGN KEY (runGroupId) REFERENCES RunGroup(id)
+        selected BOOLEAN,
+        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
     );
     """,
     """
     CREATE TABLE IF NOT EXISTS RunGroup (
-        id TEXT PRIMARY KEY,
-        name TEXT
-    );
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS RunGroupSections (
-        runGroupId TEXT,
+        idid TEXT,
         sectionId TEXT,
         paramSweepId TEXT,
-        PRIMARY KEY (runGroupId, sectionId, paramSweepId),
-        FOREIGN KEY (runGroupId) REFERENCES RunGroup(id),
+        PRIMARY KEY (idid, sectionId, paramSweepId),
+        FOREIGN KEY (idid) REFERENCES RunGroupId(id),
         FOREIGN KEY (sectionId) REFERENCES Section(id)
         FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id)
     );
