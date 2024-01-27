@@ -171,6 +171,19 @@ def save_sections(db, sections):
         )
     db.executemany(query, query_params)
 
+    query = """
+        UPDATE Section
+        SET paramSweepSectionId = :paramSweepSectionId
+        WHERE id = :id
+    """
+    db.executemany(
+        query,
+        [
+            {"id": s["id"], "paramSweepSectionId": s["paramSweepSectionId"]}
+            for s in sections.values()
+        ],
+    )
+
 
 def convert_size(x):
     return -1 if x == "auto" else x

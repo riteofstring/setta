@@ -4,9 +4,17 @@ import { useParamSweep } from "models/paramSweep";
 import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useParamSweepInfo(sectionId) {
-  const paramSweepId = useSectionInfos((x) => x.x[sectionId].paramSweepId);
-  const paramSweep = useParamSweep((x) => x.x[paramSweepId].sweep);
-  return { paramSweepId, paramSweep };
+  const forSectionId = useSectionInfos(
+    (x) =>
+      Object.values(x.x).find((s) => s.paramSweepSectionId === sectionId)?.id
+  );
+  const paramSweepId = useSectionInfos((x) =>
+    forSectionId ? x.x[forSectionId].paramSweepId : null
+  );
+  const paramSweep = useParamSweep((x) =>
+    paramSweepId ? x.x[paramSweepId].sweep : null
+  );
+  return { paramSweepId, paramSweep, forSectionId };
 }
 
 export function useSectionHasMultipleParamSweeps(sectionId) {

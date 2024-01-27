@@ -13,8 +13,8 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function _ParamSweepArea({ sectionId }) {
-  const { paramSweepId, paramSweep } = useParamSweepInfo(sectionId);
-  const forSectionId = "d96cb110-6f72-435a-b745-2d55e277f983";
+  const { paramSweepId, paramSweep, forSectionId } =
+    useParamSweepInfo(sectionId);
   // const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
   const selectedItem = "bb52a19f-d69c-4973-94ae-c1d85596cbb7";
 

@@ -53,7 +53,7 @@
           "isSelected": false,
           "paramSweepId": null,
           "paramSweepIds": [],
-          "paramSweepFor": null
+          "paramSweepSectionId": null
         },
         "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
           "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -82,7 +82,7 @@
           "isSelected": false,
           "paramSweepId": null,
           "paramSweepIds": [],
-          "paramSweepFor": null
+          "paramSweepSectionId": null
         }
       },
       "evCols": {

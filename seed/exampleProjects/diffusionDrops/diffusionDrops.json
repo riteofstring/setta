@@ -212,7 +212,7 @@
           "isSelected": false,
           "paramSweepId": null,
           "paramSweepIds": [],
-          "paramSweepFor": null
+          "paramSweepSectionId": null
         },
         "5147e582-4968-419f-8c90-593a2b709ccf": {
           "id": "5147e582-4968-419f-8c90-593a2b709ccf",
@@ -241,7 +241,7 @@
           "isSelected": false,
           "paramSweepId": null,
           "paramSweepIds": [],
-          "paramSweepFor": null
+          "paramSweepSectionId": null
         }
       },
       "codeInfo": {

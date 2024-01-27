@@ -21,7 +21,7 @@ export type SectionType = {
   descriptionVisible: boolean;
   evColIds: string[];
   paramSweepIds: string[];
-  paramSweepFor: string | null;
+  paramSweepSectionId: string | null;
   nonPresetUITypeIds: string[];
   script: string;
   code: string;
