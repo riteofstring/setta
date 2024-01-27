@@ -2,53 +2,28 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { useState } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { FiCornerRightDown } from "react-icons/fi";
-import { addChildForSeries } from "thunks/sections/addChild";
-import { deleteChild } from "thunks/sections/deleteChild";
+import { addChildrenToSeries } from "thunks/sections/addChild";
+import { deleteChildrenFromSeries } from "thunks/sections/deleteChild";
 
-export function Incrementer({
-  parentId,
-  sectionId,
-  nextId,
-  isRoot,
-  hasNested,
-}) {
-  const decrementButtonCondition = () => {
-    return (isRoot && hasNested) || (!isRoot && nextId);
-  };
-
+export function Incrementer({ sectionId, isRoot }) {
   const addSections = (numSections) => {
-    if (isRoot) {
-      addChildForSeries({
-        parentId: sectionId,
-        numChildren: numSections,
-        incrementVersion: true,
-      });
-    } else {
-      addChildForSeries({
-        parentId,
-        numChildren: numSections,
-        startId: sectionId,
-        incrementVersion: true,
-      });
-    }
+    addChildrenToSeries({
+      isRoot,
+      calledBy: sectionId,
+      numChildren: numSections,
+      incrementVersion: true,
+    });
   };
 
   const deleteChildren = (numSections) => {
-    if (isRoot) {
-      deleteChild({
-        parentId: sectionId,
-        numChildren: numSections,
-        incrementVersion: true,
-      });
-    } else {
-      deleteChild({
-        parentId,
-        numChildren: numSections,
-        startId: nextId,
-        incrementVersion: true,
-      });
-    }
+    deleteChildrenFromSeries({
+      isRoot,
+      calledBy: sectionId,
+      numChildren: numSections,
+      incrementVersion: true,
+    });
   };
+
   const numSectionsOnChange = (value) => {
     if (value && !isNaN(value)) {
       setNumSections(parseInt(value));
@@ -80,7 +55,6 @@ export function Incrementer({
             <button
               className="nodrag rounded-full focus-visible:ring-2 dark:text-runcoder-300"
               onClick={() => deleteChildren(numSections)}
-              disabled={!decrementButtonCondition()}
               aria-label="Delete child section"
               role="button"
             >

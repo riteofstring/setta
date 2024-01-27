@@ -1,21 +1,27 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
+import { useGetParamSweepNames } from "hooks/useParamSweepInfo";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
+import { PARAM_SWEEP } from "z_utils/constants";
 
-export function VersionList({ sectionId }) {
+export function VersionList({ sectionId, sectionTypeName }) {
   return (
     <ResizableDescription sectionId={sectionId}>
       <section className="version-section -my-4 flex-1 self-stretch pb-8 pt-9">
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
-          <Items sectionId={sectionId} />
+          {sectionTypeName === PARAM_SWEEP ? (
+            <ParamSweepItems sectionId={sectionId} />
+          ) : (
+            <EVItems sectionId={sectionId} />
+          )}
         </ul>
       </section>
     </ResizableDescription>
   );
 }
 
-function Items({ sectionId }) {
+function EVItems({ sectionId }) {
   const currEVColId = useGetSectionInfo(sectionId, "evColId");
   const evColNames = useGetEVColNames(sectionId);
   function onMouseOver(id) {
@@ -28,6 +34,24 @@ function Items({ sectionId }) {
       id={e.id}
       name={e.name}
       isCurr={currEVColId === e.id}
+      onMouseOver={onMouseOver}
+    />
+  ));
+}
+
+function ParamSweepItems({ sectionId }) {
+  const currParamSweepId = useGetSectionInfo(sectionId, "paramSweepId");
+  const paramSweepNames = useGetParamSweepNames(sectionId);
+  function onMouseOver(id) {
+    setSectionInfoAttr({ sectionId, attr: "paramSweepId", value: id });
+  }
+
+  return paramSweepNames.map((e) => (
+    <OneItem
+      key={e.id}
+      id={e.id}
+      name={e.name}
+      isCurr={currParamSweepId === e.id}
       onMouseOver={onMouseOver}
     />
   ));

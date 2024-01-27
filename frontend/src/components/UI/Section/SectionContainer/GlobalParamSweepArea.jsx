@@ -1,87 +1,167 @@
+import { useGetOverviewListing } from "hooks/useGetOverviewListing";
+import { useGetParamSweepNames } from "hooks/useParamSweepInfo";
+import _ from "lodash";
+import { useRunGroups } from "models/runGroups";
+import React, { useState } from "react";
 import { BiFilter } from "react-icons/bi";
-import { TbVersions } from "react-icons/tb";
-import { Button } from "utils/atoms/buttons/Button";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import {
+  CODE,
+  DECK,
+  DICT_ROOT,
+  GLOBAL_VARIABLES,
+  LIST_ROOT,
+  SCRIPT,
+  SECTION,
+} from "z_utils/constants";
 
 export function GlobalParamSweepArea() {
-  const mr1 = [{ dataset: ["dataset sweep 1", "dataset sweep 2"] }];
+  const runGroups = useRunGroups((x) => x.x);
+  const [shownRunGroup, setShownRunGroup] = useState(Object.keys(runGroups)[0]);
 
-  const mr2 = [{ algorithm: ["param sweep version 1"] }];
   return (
     <>
       <section className="card-global-param-sweep flex min-w-0 flex-col overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
         <article className="flex flex-col gap-2 ">
           <FilterSection />
-          <div className="noscroll nowheel flex flex-col gap-2 overflow-y-scroll pt-2">
-            <CheckboxGroup>Run Group 1</CheckboxGroup>
-            <CheckboxGroup>Run Group 2</CheckboxGroup>
-            <CheckboxGroup>Run Group 3</CheckboxGroup>
-            <CheckboxGroup>Run Group 4</CheckboxGroup>
-          </div>
+          <RunGroupList
+            runGroups={runGroups}
+            setShownRunGroup={setShownRunGroup}
+          />
         </article>
-        <article className="flex flex-1 flex-col gap-2">
-          <FilterSection />
-          <div className="noscroll nowheel flex flex-col gap-2 overflow-y-scroll">
-            <ParamListGroup multiruns={mr1} />
-            <ParamListGroup multiruns={mr2} />
-          </div>
-        </article>
+        {runGroups[shownRunGroup] && (
+          <article className="flex flex-1 flex-col gap-2">
+            <FilterSection />
+            <SectionList
+              runGroupId={shownRunGroup}
+              runGroup={runGroups[shownRunGroup]}
+            />
+          </article>
+        )}
       </section>
-
-      <Button
-        grid={false}
-        twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-700 dark:text-runcoder-300 dark:bg-runcoder-900/40 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
-      >
-        <TbVersions className="z-[3] h-4 w-4" />
-        Versions
-      </Button>
     </>
   );
 }
 
-function ParamListGroup({ multiruns, searchOnly = false }) {
-  const variants =
-    "-m-0 flex flex-col gap-2 rounded-lg p-2 hover:bg-runcoder-500/10";
+function RunGroupList({ runGroups, setShownRunGroup }) {
   return (
-    <div className={variants}>
-      <ParamSweepVersionsList multiruns={multiruns} />
+    <div className="noscroll nowheel flex flex-col gap-2 overflow-y-scroll pt-2">
+      {Object.entries(runGroups).map(([id, x], idx) => (
+        <CheckboxGroup
+          key={idx}
+          checked={x.selected}
+          onChange={() => {
+            useRunGroups.getState().toggleSelected(id);
+          }}
+          onMouseOver={() => setShownRunGroup(id)}
+        >
+          {x.name}
+        </CheckboxGroup>
+      ))}
     </div>
   );
 }
 
-function ParamSweepVersionsList({ multiruns }) {
-  const variants = "text-xs text-runcoder-500 dark:text-runcoder-300";
-  if (multiruns) {
-    return (
-      <ul className="">
-        {multiruns.map((x) => {
-          const key = Object.keys(x)[0];
-          const values = x[key];
-          return (
-            <li key={key}>
-              <CheckboxGroup>{key}</CheckboxGroup>
-              <ul className="pl-4">
-                {values.map((e) => (
-                  <li key={e} className={variants}>
-                    <CheckboxGroup>{e}</CheckboxGroup>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }
-  return null;
+function SectionList({ runGroupId, runGroup }) {
+  const shownSectionTypes = [
+    SECTION,
+    LIST_ROOT,
+    DICT_ROOT,
+    DECK,
+    GLOBAL_VARIABLES,
+    SCRIPT,
+    CODE,
+  ];
+  const allSections = useGetOverviewListing((sectionTypeName) =>
+    shownSectionTypes.includes(sectionTypeName)
+  )[0];
+
+  return (
+    <div className="noscroll nowheel flex flex-col gap-2 overflow-y-scroll">
+      {allSections.map((x, idx) => (
+        <SectionItem
+          key={idx}
+          sectionInfo={x}
+          runGroupId={runGroupId}
+          runGroupSection={runGroup.sections[x.id]}
+        />
+      ))}
+    </div>
+  );
 }
 
-function CheckboxGroup({ children }) {
+function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
+  const variants =
+    "-m-0 flex flex-col gap-2 rounded-lg p-2 hover:bg-runcoder-500/10";
   return (
-    <label className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700">
+    <div className={variants}>
+      <ParamSweepVersionsList
+        sectionInfo={sectionInfo}
+        runGroupId={runGroupId}
+        runGroupSection={runGroupSection}
+      />
+    </div>
+  );
+}
+
+function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
+  const variants = "text-xs text-runcoder-500 dark:text-runcoder-300";
+  const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
+
+  function onSectionCheckboxChange() {
+    useRunGroups
+      .getState()
+      .toggleSection({ id: runGroupId, sectionId: sectionInfo.id });
+  }
+
+  function getOnParamSweepCheckboxChange(paramSweepId) {
+    return () =>
+      useRunGroups.getState().toggleParamSweep({
+        id: runGroupId,
+        sectionId: sectionInfo.id,
+        paramSweepId,
+      });
+  }
+
+  return (
+    <ul className="">
+      <li>
+        <CheckboxGroup
+          checked={!_.isNil(runGroupSection)}
+          onChange={onSectionCheckboxChange}
+        >
+          {sectionInfo.name}
+        </CheckboxGroup>
+        <ul className="pl-4">
+          {allParamSweeps.map((e, idx) => (
+            <li key={idx} className={variants}>
+              <CheckboxGroup
+                checked={!!runGroupSection?.[e.id]}
+                onChange={getOnParamSweepCheckboxChange(e.id)}
+              >
+                {e.name}
+              </CheckboxGroup>
+            </li>
+          ))}
+        </ul>
+      </li>
+    </ul>
+  );
+}
+
+const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
+
+function CheckboxGroup({ children, checked, onChange, onMouseOver }) {
+  return (
+    <label
+      className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700"
+      onMouseOver={onMouseOver}
+    >
       <input
         type="checkbox"
         className="h-4 w-4 rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
+        checked={checked}
+        onChange={onChange}
       />
       {children}
     </label>

@@ -8,6 +8,9 @@ export function setPositionState(inputNodes, incrementVersion) {
   const newValues = {};
   const pc = useProjectConfig.getState();
   for (const n of nodes) {
+    if (!(n.id in pc.children)) {
+      continue;
+    }
     const position = pc.children[n.id];
     if (position.x !== n.position.x || position.y !== n.position.y) {
       newValues[n.id] = n.position;
@@ -24,8 +27,9 @@ export function setPositionState(inputNodes, incrementVersion) {
 
 export function setZIndices(inputNodes: SectionType[], incrementVersion) {
   const nodes = inputNodes.filter((x) => x.id);
+  const pc = useProjectConfig.getState();
   const topLevelPositions = _.omit(
-    useProjectConfig.getState().children,
+    pc.children,
     nodes.map((x) => x.id)
   );
   const posWithIds = _.map(topLevelPositions, (v, k) => ({
@@ -39,10 +43,13 @@ export function setZIndices(inputNodes: SectionType[], incrementVersion) {
     newValues[posWithIds[i].id] = { zIndex: i };
   }
   for (let i = 0; i < nodes.length; i++) {
+    if (!(nodes[i].id in pc.children)) {
+      continue;
+    }
     newValues[nodes[i].id] = { zIndex: i + posWithIds.length };
   }
 
-  useProjectConfig.getState().updatePositions(newValues);
+  pc.updatePositions(newValues);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
