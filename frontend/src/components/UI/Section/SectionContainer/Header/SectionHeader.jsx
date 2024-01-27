@@ -1,3 +1,4 @@
+import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
@@ -64,6 +65,10 @@ function _SectionHeader({
 }
 
 function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
+  const isSearchResult = useProjectSearch((x) =>
+    x.sections.includes(sectionId)
+  );
+
   const titleProps = {
     editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full ${
       isGlobalVariables
@@ -79,7 +84,11 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
     } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
   };
 
-  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
+  return (
+    <div className={`${isSearchResult ? "outline outline-green-400" : ""}`}>
+      <SectionTitle sectionId={sectionId} titleProps={titleProps} />
+    </div>
+  );
 }
 
 export const SectionHeader = React.memo(_SectionHeader);

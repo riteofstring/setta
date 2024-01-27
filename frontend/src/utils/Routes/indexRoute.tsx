@@ -4,10 +4,12 @@ import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
 
+const PATH = "/";
+
 function IndexWrapper() {
   return (
     <>
-      <HeaderContainer />
+      <HeaderContainer path={PATH} />
       <GridContainer>
         <HomePage />
       </GridContainer>
@@ -16,7 +18,7 @@ function IndexWrapper() {
 }
 
 export const indexRoute: RouteObject = {
-  path: "/",
+  path: PATH,
   element: (
     <GlobalWrapper>
       <IndexWrapper />

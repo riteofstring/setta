@@ -6,11 +6,13 @@ import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { ModalContainer } from "utils/Modals/ModalContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
 
+const PATH = ":projectName/:configName";
+
 function ProjectWrapper() {
   return (
     <ModalContainer>
       <ReactFlowProvider>
-        <HeaderContainer />
+        <HeaderContainer path={PATH} />
         <GridContainer>
           <MainContainer />
         </GridContainer>
@@ -20,7 +22,7 @@ function ProjectWrapper() {
 }
 
 export const projectRoute: RouteObject = {
-  path: ":projectName/:configName",
+  path: PATH,
   element: (
     <GlobalWrapper>
       <ProjectWrapper />
