@@ -23,7 +23,8 @@
           "zoom": 1
         }
       },
-      "paramSweeps": {}
+      "paramSweeps": {},
+      "runGroups": {}
     },
     {
       "projectConfig": {
@@ -544,7 +545,8 @@
         }
       },
       "projectConfigCodeInfoMaps": {},
-      "paramSweeps": {}
+      "paramSweeps": {},
+      "runGroups": {}
     }
   ]
 }

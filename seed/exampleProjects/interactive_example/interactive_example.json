@@ -183,7 +183,8 @@
       "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
       "outputs": {},
-      "paramSweeps": {}
+      "paramSweeps": {},
+      "runGroups": {}
     }
   ]
 }

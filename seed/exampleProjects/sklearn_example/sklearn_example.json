@@ -1075,6 +1075,20 @@
             }
           ]
         }
+      },
+      "runGroups": {
+        "6a2056d0-214e-4d82-9c91-ee915069c7d4": {
+          "name": "Big Run",
+          "sections": { "d96cb110-6f72-435a-b745-2d55e277f983": {} },
+          "projectConfigId": "41f411f7-b14d-4375-bfcd-204446866745",
+          "selected": false
+        },
+        "2226fedc-e7fd-4a8f-beee-9b9e91b6dec1": {
+          "name": "Regular Run",
+          "sections": {},
+          "projectConfigId": "41f411f7-b14d-4375-bfcd-204446866745",
+          "selected": true
+        }
       }
     }
   ]

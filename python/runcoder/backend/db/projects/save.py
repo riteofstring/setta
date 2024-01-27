@@ -2,6 +2,7 @@ from ...utils.utils import create_new_id, generate_memorable_string
 from ..codeInfo.save import save_code_info
 from ..enteredValues.save import save_ev_cols
 from ..paramSweeps.save import save_param_sweeps
+from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
@@ -15,6 +16,7 @@ def save_project_details(db, p):
     save_sections(db, merge_configs(p, "sections"))
     save_project(db, p)
     save_project_configs(db, p["id"], p["configs"])
+    save_run_groups(db, merge_configs(p, "runGroups"))
     update_default_project_config(db, p)
 
 
