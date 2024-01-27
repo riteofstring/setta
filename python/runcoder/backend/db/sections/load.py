@@ -2,7 +2,6 @@ import itertools
 
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols
-from ..paramSweeps.load import load_param_sweeps
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
@@ -29,46 +28,19 @@ def load_sections(db, ids):
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
         SELECT
-            S.*,
-            U.nonPresetUITypeIds,
-            E.evColIds,
-            P.paramSweepIds
+            Section.*,
+            GROUP_CONCAT(UIType.id) as nonPresetUITypeIds,
+            GROUP_CONCAT(EVColId.id) as evColIds
         FROM
-            Section S
+            Section
         LEFT JOIN
-            (
-                SELECT
-                    asNonPresetForSectionId,
-                    GROUP_CONCAT(id) AS nonPresetUITypeIds
-                FROM
-                    UIType
-                GROUP BY
-                    asNonPresetForSectionId
-            ) AS U ON S.id = U.asNonPresetForSectionId
+            UIType ON Section.id = UIType.asNonPresetForSectionId
         LEFT JOIN
-            (
-                SELECT
-                    originSectionId,
-                    GROUP_CONCAT(id) AS evColIds
-                FROM
-                    EVColId
-                GROUP BY
-                    originSectionId
-            ) AS E ON S.id = E.originSectionId
-        LEFT JOIN
-            (
-                SELECT
-                    originSectionId,
-                    GROUP_CONCAT(id) AS paramSweepIds
-                FROM
-                    ParamSweepId
-                GROUP BY
-                    originSectionId
-            ) AS P ON S.id = P.originSectionId
+            EVColId ON Section.id = EVColId.originSectionId
         WHERE
-            S.id IN ({placeholders})
+            Section.id IN ({placeholders})
         GROUP BY
-            S.id;
+            Section.id
     """
     db.execute(query, all_ids)
 
@@ -95,23 +67,12 @@ def load_sections(db, ids):
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
-            "paramSweepIds": v["paramSweepIds"].split(",")
-            if v["paramSweepIds"]
-            else [],
         }
     evCols = load_evcols(
         db,
         list(itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])),
     )
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
-    paramSweeps = load_param_sweeps(
-        db,
-        list(
-            itertools.chain.from_iterable(
-                [s["paramSweepIds"] for s in sections.values()]
-            )
-        ),
-    )
 
     nonPresetUITypeIds = []
     for s in sections.values():
@@ -126,7 +87,6 @@ def load_sections(db, ids):
         "sections": sections,
         "evCols": evCols,
         "uiTypeCols": uiTypeCols,
-        "paramSweeps": paramSweeps,
         "nonPresetUITypes": nonPresetUITypes,
     }
 

@@ -3,7 +3,6 @@ import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
-import { getSectionParentId } from "thunks/sections/getters";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { getDropType } from "utils/DNDSortable/useDropType";
 import { useHasNested } from "./useSectionChildren";
@@ -37,32 +36,18 @@ export function useHighlightDroppable(sectionId: string) {
   };
 }
 
-export function useDisableSortable(sectionId: string) {
+export function useDisableSortable(sectionId: string, ancestorSet) {
   const { isSorting, isMovingFree } = useDndMode();
   const [disabled, setDisabled] = useState({
     draggable: false,
     droppable: false,
   });
 
-  function activeIdInAncestorSet(activeId) {
-    let parentId = getSectionParentId(sectionId);
-    while (parentId) {
-      if (activeId === parentId) {
-        return true;
-      }
-      parentId = getSectionParentId(parentId);
-    }
-    return false;
-  }
-
   function disableSort({ active }) {
     const containerId = active.data.current.sortable?.containerId;
 
     // Freely moving this section or ancestor of this section
-    if (
-      isMovingFree &&
-      (active.id === sectionId || activeIdInAncestorSet(active.id))
-    ) {
+    if (isMovingFree && (active.id === sectionId || active.id in ancestorSet)) {
       setDisabled({ draggable: true, droppable: true });
     }
     // Freely moving a child of this section

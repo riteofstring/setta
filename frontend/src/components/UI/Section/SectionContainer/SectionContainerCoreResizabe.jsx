@@ -1,4 +1,3 @@
-import { useSectionHasMultipleParamSweeps } from "hooks/useParamSweepInfo";
 import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
@@ -31,18 +30,18 @@ import { TerminalArea } from "./TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
+  parentId,
+  nextId,
   isSeriesElement,
   sectionTypeName,
+  hasNested,
   isActiveSection,
   toggleDescVis,
   isWrongType,
 }) {
   const isGlobalVariables = sectionTypeName === GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === INFO;
-  const hasEVVersions = useSectionHasMultipleEVCols(sectionId);
-  const hasParamSweepVersions = useSectionHasMultipleParamSweeps(sectionId);
-  const hasVersions =
-    (sectionTypeName === PARAM_SWEEP && hasParamSweepVersions) || hasEVVersions;
+  const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
   const getOutlineColor = () => {
     if (isWrongType) {
@@ -97,7 +96,10 @@ export function SectionContainerCoreResizable({
       >
         <SectionHeader
           sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
           isSeriesElement={isSeriesElement}
+          hasNested={hasNested}
           isActiveSection={isActiveSection}
           isGlobalVariables={isGlobalVariables}
           isInfo={isInfo}
@@ -115,9 +117,7 @@ export function SectionContainerCoreResizable({
           </Button>
         )}
       </CustomResizable>
-      {hasVersions && (
-        <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
-      )}
+      {hasVersions && <VersionList sectionId={sectionId} />}
     </>
   );
 }
@@ -145,7 +145,7 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
     case TERMINAL:
       return <TerminalArea sectionId={sectionId} />;
     case GLOBAL_PARAM_SWEEP:
-      return <GlobalParamSweepArea />;
+      return <GlobalParamSweepArea sectionId={sectionId} />;
     default:
       return null;
   }

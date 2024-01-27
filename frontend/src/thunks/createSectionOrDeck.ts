@@ -7,6 +7,7 @@ import { useUITypes } from "models/info/uiTypes";
 import { useWebsocketRooms } from "models/websocket";
 import { initializeChildParams } from "thunks/initializeParam";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
+import { updateManyCurrChildren } from "thunks/sections/children";
 import { getSectionTypeConfig } from "thunks/sections/getters";
 import {
   updateManyParamsAndCallables,
@@ -103,6 +104,7 @@ export function loadSectionIntoState({
   useCodeInfo.getState().update(codeInfo);
   useSectionInfos.getState().update(sections);
   updateManyParamsAndCallables(Object.keys(sections));
+  updateManyCurrChildren(Object.keys(sections));
   useProjectConfig.getState().addChildren(topLevelMapping);
 
   if (callbackBeforeExit) {

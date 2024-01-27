@@ -45,8 +45,6 @@ CREATE_TABLES_COMMANDS = [
         height INTEGER,
         chainedFromId TEXT,
         evColId TEXT,
-        paramSweepId TEXT,
-        paramSweepSectionId TEXT,
         selectedItemId TEXT,
         uiTypeId TEXT,
         uiTypeColId TEXT,
@@ -61,8 +59,6 @@ CREATE_TABLES_COMMANDS = [
         isFrozen BOOLEAN,
         FOREIGN KEY (chainedFromId) REFERENCES Section(id),
         FOREIGN KEY (evColId) REFERENCES EVColId(id),
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id),
-        FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id),
         FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id),
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id),
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id),
@@ -226,46 +222,59 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS RunGroupId (
-        id TEXT PRIMARY KEY,
-        name TEXT,
+    CREATE TABLE IF NOT EXISTS ProjectConfigRunGroups (
         projectConfigId TEXT,
+        runGroupId TEXT,
         "order" INTEGER,
-        selected BOOLEAN,
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
+        PRIMARY KEY (projectConfigId, runGroupId),
+        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
+        FOREIGN KEY (runGroupId) REFERENCES RunGroup(id)
     );
     """,
     """
     CREATE TABLE IF NOT EXISTS RunGroup (
-        idid TEXT,
-        sectionId TEXT,
-        paramSweepId TEXT,
-        PRIMARY KEY (idid, sectionId, paramSweepId),
-        FOREIGN KEY (idid) REFERENCES RunGroupId(id),
-        FOREIGN KEY (sectionId) REFERENCES Section(id)
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id)
+        id TEXT PRIMARY KEY,
+        name TEXT
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS ParamSweepId (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        originSectionId TEXT,
-        FOREIGN KEY (originSectionId) REFERENCES Section(id)
+    CREATE TABLE IF NOT EXISTS RunGroupSections (
+        runGroupId TEXT,
+        sectionId TEXT,
+        paramSweepId TEXT,
+        PRIMARY KEY (runGroupId, sectionId, paramSweepId),
+        FOREIGN KEY (runGroupId) REFERENCES RunGroup(id),
+        FOREIGN KEY (sectionId) REFERENCES Section(id)
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id)
     );
     """,
     """
     CREATE TABLE IF NOT EXISTS ParamSweep (
-        idid TEXT,
+        id TEXT PRIMARY KEY,
+        name TEXT
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS ParamSweepParams (
+        paramSweepId TEXT,
+        objInfoId TEXT,
         paramInfoId TEXT,
-        evColId TEXT,
         "order" INTEGER,
         value TEXT,
-        PRIMARY KEY (idid, paramInfoId, evColId),
-        FOREIGN KEY (idid) REFERENCES ParamSweepId(id),
+        PRIMARY KEY (paramSweepId, objInfoId, paramInfoId, "order"),
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
+        FOREIGN KEY (objInfoId) REFERENCES CodeInfo(id),
         FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS ParamSweepEVCols (
+        paramSweepId TEXT,
+        evColId TEXT,
+        "order" INTEGER,
+        PRIMARY KEY (paramSweepId, evColId, "order"),
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweep(id),
         FOREIGN KEY (evColId) REFERENCES EVColId(id)
-        CHECK (paramInfoId IS NOT NULL OR evColId IS NOT NULL)
     );
     """,
 ]

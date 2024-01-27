@@ -2,7 +2,7 @@ import React from "react";
 import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { SiGnubash, SiPython } from "react-icons/si";
-import { deleteSections } from "thunks/sections/sectionOps";
+import { deleteChild } from "thunks/sections/deleteChild";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
@@ -11,7 +11,10 @@ import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
   sectionId,
+  parentId,
+  nextId,
   isSeriesElement,
+  hasNested,
   isActiveSection,
   sectionTypeName,
   isGlobalVariables,
@@ -21,7 +24,7 @@ function _SectionHeader({
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
     e.stopPropagation();
-    deleteSections({ sectionIds: [sectionId], incrementVersion: true });
+    deleteChild({ parentId, startId: sectionId, incrementVersion: true });
   };
 
   const _isRoot = isRoot(sectionTypeName);
@@ -50,7 +53,13 @@ function _SectionHeader({
         </>
       )}
       {(isSeriesElement || _isRoot) && (
-        <Incrementer sectionId={sectionId} isRoot={_isRoot} />
+        <Incrementer
+          sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
+          isRoot={_isRoot}
+          hasNested={hasNested}
+        />
       )}
 
       <CustomCloseButton

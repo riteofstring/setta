@@ -183,7 +183,7 @@ class Exporter:
         #         "unusedParams": unused_params,
         #     }
         elif type in [LIST_ROOT, DICT_ROOT, DECK]:
-            return self.export_sections(self.p["sections"][id]["children"])
+            return self.export_sections(self.p["sections"][id]["currChildren"])
 
     def export_params(self, section_id, generate_var_name=True):
         ids = get_param_ids(self.p, section_id)

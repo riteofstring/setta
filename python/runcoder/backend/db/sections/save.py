@@ -18,8 +18,7 @@ def save_sections(db, sections):
             script,
             code,
             varControl,
-            isFrozen,
-            paramSweepId
+            isFrozen
         )
         VALUES (
             :id,
@@ -39,8 +38,7 @@ def save_sections(db, sections):
             :script,
             :code,
             :varControl,
-            :isFrozen,
-            :paramSweepId
+            :isFrozen
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -60,8 +58,7 @@ def save_sections(db, sections):
             script = :script,
             code = :code,
             varControl = :varControl,
-            isFrozen = :isFrozen,
-            paramSweepId = :paramSweepId
+            isFrozen = :isFrozen
     """
 
     query_params = [
@@ -84,7 +81,6 @@ def save_sections(db, sections):
             "code": s["code"],
             "varControl": s["varControl"],
             "isFrozen": s["isFrozen"],
-            "paramSweepId": s["paramSweepId"],
         }
         for s in sections.values()
     ]
@@ -129,24 +125,6 @@ def save_sections(db, sections):
             query_params.append({"evColId": evColId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
-    query = f"""
-        UPDATE ParamSweepId
-        SET originSectionId = null
-        WHERE originSectionId IN ({placeholders})
-    """
-    db.execute(query, ids)
-
-    query = """
-        UPDATE ParamSweepId
-        SET originSectionId = :sectionId
-        WHERE id = :paramSweepId
-    """
-    query_params = []
-    for s in sections.values():
-        for paramSweepId in s["paramSweepIds"]:
-            query_params.append({"paramSweepId": paramSweepId, "sectionId": s["id"]})
-    db.executemany(query, query_params)
-
     # delete children
     placeholders = ", ".join(["?"] * len(sections))
     query = f"""
@@ -170,19 +148,6 @@ def save_sections(db, sections):
             ]
         )
     db.executemany(query, query_params)
-
-    query = """
-        UPDATE Section
-        SET paramSweepSectionId = :paramSweepSectionId
-        WHERE id = :id
-    """
-    db.executemany(
-        query,
-        [
-            {"id": s["id"], "paramSweepSectionId": s["paramSweepSectionId"]}
-            for s in sections.values()
-        ],
-    )
 
 
 def convert_size(x):
