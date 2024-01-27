@@ -8,9 +8,7 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 
 export function GlobalParamSweepArea() {
   const runGroups = useRunGroups((x) => x.x);
-  const [shownRunGroup, setShownRunGroup] = useState(
-    "6a2056d0-214e-4d82-9c91-ee915069c7d4"
-  );
+  const [shownRunGroup, setShownRunGroup] = useState(Object.keys(runGroups)[0]);
 
   return (
     <>
@@ -22,13 +20,15 @@ export function GlobalParamSweepArea() {
             setShownRunGroup={setShownRunGroup}
           />
         </article>
-        <article className="flex flex-1 flex-col gap-2">
-          <FilterSection />
-          <SectionList
-            runGroupId={shownRunGroup}
-            runGroup={runGroups[shownRunGroup]}
-          />
-        </article>
+        {runGroups[shownRunGroup] && (
+          <article className="flex flex-1 flex-col gap-2">
+            <FilterSection />
+            <SectionList
+              runGroupId={shownRunGroup}
+              runGroup={runGroups[shownRunGroup]}
+            />
+          </article>
+        )}
       </section>
     </>
   );
