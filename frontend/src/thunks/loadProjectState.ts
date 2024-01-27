@@ -14,6 +14,7 @@ import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
 import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
+import { useRunGroups } from "models/runGroups";
 
 export function loadProjectState({
   project,
@@ -26,6 +27,7 @@ export function loadProjectState({
   uiTypes,
   uiTypeCols,
   paramSweeps,
+  runGroups,
   outputs,
   outputGroups,
 }: ProjectLoadType) {
@@ -40,6 +42,7 @@ export function loadProjectState({
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);
+  useRunGroups.getState().resetAndSetAll(runGroups)
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
   useProjectConfigCodeInfoMaps
     .getState()

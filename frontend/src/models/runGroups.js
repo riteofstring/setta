@@ -11,6 +11,7 @@ export const useRunGroups = createProjectState(
   temporal(
     immer((set) => ({
       ...initialState,
+      resetAndSetAll: (payload) => set({ x: payload }),
       toggleSelected: (id) =>
         set((state) => {
           state.x[id].selected = !state.x[id].selected;

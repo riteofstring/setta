@@ -2,6 +2,7 @@ from collections import defaultdict
 
 from ...utils.utils import aggregate_results
 from ..codeInfo.load import load_code_info_for_sections
+from ..runGroups.load import load_run_groups
 from ..sections.load import load_sections
 from ..uiTypes.load import load_base_uitypes
 from .utils import convert_to_file_menu_format
@@ -114,6 +115,7 @@ def load_project_config_metadata(db, project_id, config_name):
 def load_project(db, project_name, config_name):
     project = load_project_metadata(db, project_name)
     projectConfig = load_project_config_metadata(db, project["id"], config_name)
+    runGroups = load_run_groups(db, projectConfig["id"])
     sections_data = load_sections(db, list(projectConfig["children"].keys()))
     sections = sections_data["sections"]
     evCols = sections_data["evCols"]
@@ -131,6 +133,7 @@ def load_project(db, project_name, config_name):
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
         "paramSweeps": paramSweeps,
+        "runGroups": runGroups,
         "codeInfo": codeInfo,
         "userCodeInfoMaps": {},
         "projectConfigCodeInfoMaps": {},
