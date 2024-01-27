@@ -13,17 +13,15 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 
 function _ParamSweepArea({ sectionId }) {
-  const { paramSweepId, paramSweep, forSectionId } =
+  const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
     useParamSweepInfo(sectionId);
-  // const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
-  const selectedItem = "bb52a19f-d69c-4973-94ae-c1d85596cbb7";
 
   return (
     <>
       <FilterSection />
       <Args
         paramSweepId={paramSweepId}
-        objInfoId={selectedItem}
+        objInfoId={codeInfoId}
         paramSweep={paramSweep}
         forSectionId={forSectionId}
       />

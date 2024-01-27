@@ -2,6 +2,7 @@ import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useParamSweep } from "models/paramSweep";
 import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useParamSweepInfo(sectionId) {
   const forSectionId = useSectionInfos(
@@ -14,7 +15,14 @@ export function useParamSweepInfo(sectionId) {
   const paramSweep = useParamSweep((x) =>
     paramSweepId ? x.x[paramSweepId].sweep : null
   );
-  return { paramSweepId, paramSweep, forSectionId };
+  const codeInfoId = useGetSectionTypeConfig(forSectionId, "codeInfoId");
+  const selectedItem = useGetSectionInfo(forSectionId, "selectedItem");
+  return {
+    paramSweepId,
+    paramSweep,
+    forSectionId,
+    codeInfoId: selectedItem ?? codeInfoId,
+  };
 }
 
 export function useSectionHasMultipleParamSweeps(sectionId) {
