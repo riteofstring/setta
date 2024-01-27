@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import {
   DECK,
@@ -44,6 +45,16 @@ export function useIsSeriesElement(sectionId: string) {
 export function useSectionTypeName(sectionId: string) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) => x.x[uiTypeId].type);
+}
+
+export function useSectionTypeNames() {
+  const sectionIdToUITypeId = useSectionInfos(
+    (x) => _.mapValues(x.x, (s) => s.uiTypeId),
+    _.isEqual
+  );
+  return useUITypes((x) =>
+    _.mapValues(sectionIdToUITypeId, (s) => x.x[s].type)
+  );
 }
 
 function useIsType(sectionId, type) {

@@ -5,6 +5,15 @@ import { useRunGroups } from "models/runGroups";
 import React, { useState } from "react";
 import { BiFilter } from "react-icons/bi";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import {
+  CODE,
+  DECK,
+  DICT_ROOT,
+  GLOBAL_VARIABLES,
+  LIST_ROOT,
+  SCRIPT,
+  SECTION,
+} from "z_utils/constants";
 
 export function GlobalParamSweepArea() {
   const runGroups = useRunGroups((x) => x.x);
@@ -54,7 +63,18 @@ function RunGroupList({ runGroups, setShownRunGroup }) {
 }
 
 function SectionList({ runGroupId, runGroup }) {
-  const allSections = useGetOverviewListing()[0];
+  const shownSectionTypes = [
+    SECTION,
+    LIST_ROOT,
+    DICT_ROOT,
+    DECK,
+    GLOBAL_VARIABLES,
+    SCRIPT,
+    CODE,
+  ];
+  const allSections = useGetOverviewListing((sectionTypeName) =>
+    shownSectionTypes.includes(sectionTypeName)
+  )[0];
 
   return (
     <div className="noscroll nowheel flex flex-col gap-2 overflow-y-scroll">
