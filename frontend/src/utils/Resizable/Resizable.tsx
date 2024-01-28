@@ -78,6 +78,7 @@ export type ResizeStartCallback = (
 ) => void | boolean;
 
 export interface ResizableProps {
+  id: string;
   as?: string | React.ComponentType<any>;
   style?: React.CSSProperties;
   className?: string;
@@ -346,39 +347,38 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
   }
 
   get sizeStyle(): { width: string; height: string } {
-    // const { size } = this.props;
-    // const getSize = (key: "width" | "height"): string => {
-    //   if (
-    //     typeof this.state[key] === "undefined" ||
-    //     this.state[key] === "auto"
-    //   ) {
-    //     return "auto";
-    //   }
-    //   if (
-    //     this.propsSize &&
-    //     this.propsSize[key] &&
-    //     this.propsSize[key].toString().endsWith("%")
-    //   ) {
-    //     if (this.state[key].toString().endsWith("%")) {
-    //       return this.state[key].toString();
-    //     }
-    //     const parentSize = this.getParentSize();
-    //     const value = Number(this.state[key].toString().replace("px", ""));
-    //     const percent = (value / parentSize[key]) * 100;
-    //     return `${percent}%`;
-    //   }
-    //   return getStringSize(this.state[key]);
-    // };
-    // const width =
-    //   size && typeof size.width !== "undefined" && !this.state.isResizing
-    //     ? getStringSize(size.width)
-    //     : getSize("width");
-    // const height =
-    //   size && typeof size.height !== "undefined" && !this.state.isResizing
-    //     ? getStringSize(size.height)
-    //     : getSize("height");
-    // return { width, height };
-    return this.props.size;
+    const { size } = this.props;
+    const getSize = (key: "width" | "height"): string => {
+      if (
+        typeof this.state[key] === "undefined" ||
+        this.state[key] === "auto"
+      ) {
+        return "auto";
+      }
+      if (
+        this.propsSize &&
+        this.propsSize[key] &&
+        this.propsSize[key].toString().endsWith("%")
+      ) {
+        if (this.state[key].toString().endsWith("%")) {
+          return this.state[key].toString();
+        }
+        const parentSize = this.getParentSize();
+        const value = Number(this.state[key].toString().replace("px", ""));
+        const percent = (value / parentSize[key]) * 100;
+        return `${percent}%`;
+      }
+      return getStringSize(this.state[key]);
+    };
+    const width =
+      size && typeof size.width !== "undefined" && !this.state.isResizing
+        ? getStringSize(size.width)
+        : getSize("width");
+    const height =
+      size && typeof size.height !== "undefined" && !this.state.isResizing
+        ? getStringSize(size.height)
+        : getSize("height");
+    return { width, height };
   }
 
   public static defaultProps = {
@@ -520,6 +520,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
       return;
     }
     const computedStyle = this.window.getComputedStyle(this.resizable);
+
     this.setState({
       width: this.state.width || this.size.width,
       height: this.state.height || this.size.height,
@@ -528,6 +529,30 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
           ? computedStyle.flexBasis
           : undefined,
     });
+
+    const style: React.CSSProperties = {
+      // position: "relative",
+      // userSelect: this.state.isResizing ? "none" : "auto",
+      // ...this.props.style,
+      ...this.sizeStyle,
+      // maxWidth: this.props.maxWidth,
+      // maxHeight: this.props.maxHeight,
+      // minWidth: this.props.minWidth,
+      // minHeight: this.props.minHeight,
+      // boxSizing: "border-box",
+      // flexShrink: 0,
+    };
+    // console.log("style", style)
+    // const el = document.getElementById(`${this.props.id} resizable`).style;
+    // for (const [k,v] of Object.entries(style)){
+    //   el[k] = v
+    // }
+
+    const el = document.getElementById(`${this.props.id} resizable`)
+    // el.style.height = ""
+    el.style.width = "500px"
+
+    // console.log("componentDidMount")
   }
 
   appendBase = () => {
@@ -1068,16 +1093,17 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
     const Wrapper = this.props.as || "div";
 
     return (
-      <section
+      <Wrapper
+        id={`${this.props.id} resizable`}
         ref={this.ref}
-        style={{ height: 117, width: 384 }}
+        // style={{ height: 117, width: 384 }}
         // className={this.props.className}
         // {...extendsProps}
       >
         {/* {this.state.isResizing && <div style={this.state.backgroundStyle} />} */}
         {this.props.children}
         {/* {this.renderResizer()} */}
-      </section>
+      </Wrapper>
     );
   }
 }
