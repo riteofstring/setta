@@ -24,7 +24,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonTypes>(
       ? "grid place-items-center"
       : "inline-flex items-center";
 
-    const classes = `transition-colors duration-150 focus-visible:ring-2 ${gridStatus} nodrag cursor-pointer ${twClasses} `;
+    const classes = `focus-visible:ring-2 ${gridStatus} nodrag cursor-pointer ${twClasses} `;
 
     return (
       <button
