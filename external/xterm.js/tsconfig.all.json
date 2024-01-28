@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "include": [],
+  "references": [
+    { "path": "./src/browser" },
+    { "path": "./src/headless" },
+  ]
+}
