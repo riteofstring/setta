@@ -1,4 +1,4 @@
-import { Resizable } from "re-resizable";
+import { Resizable } from "./Resizable";
 import { useSetScaleOnResizeStart } from "./useSetScaleOnResizeStart";
 
 export function ResizableWithScale({ children, onResizeStart, as, ...props }) {

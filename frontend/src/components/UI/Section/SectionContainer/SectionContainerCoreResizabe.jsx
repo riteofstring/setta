@@ -1,7 +1,5 @@
 import { useSectionHasMultipleParamSweeps } from "hooks/useParamSweepInfo";
 import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
-import { TbVersions } from "react-icons/tb";
-import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import {
   CODE,
@@ -23,7 +21,6 @@ import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
 import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
-import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
 import { SocialArea } from "./SocialArea";
@@ -90,21 +87,23 @@ export function SectionContainerCoreResizable({
 
   return (
     <>
-      <CustomResizable
+      {/* <section style={{ height: 100, width: 400 }}> */}
+      {/* <CustomResizable
         sectionId={sectionId}
         inputClasses={inputClasses}
         as="section"
-      >
-        <SectionHeader
-          sectionId={sectionId}
-          isSeriesElement={isSeriesElement}
-          isActiveSection={isActiveSection}
-          isGlobalVariables={isGlobalVariables}
-          isInfo={isInfo}
-          sectionTypeName={sectionTypeName}
-        />
-        <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
-        {hasVersions && (
+      > */}
+        <>
+          <SectionHeader
+            sectionId={sectionId}
+            isSeriesElement={isSeriesElement}
+            isActiveSection={isActiveSection}
+            isGlobalVariables={isGlobalVariables}
+            isInfo={isInfo}
+            sectionTypeName={sectionTypeName}
+          />
+          <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
+          {/* {hasVersions && (
           <Button
             grid={false}
             twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-700 dark:text-runcoder-300 dark:bg-runcoder-900/40 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
@@ -113,11 +112,13 @@ export function SectionContainerCoreResizable({
             <TbVersions className="z-[3] h-4 w-4" />
             Versions
           </Button>
-        )}
-      </CustomResizable>
-      {hasVersions && (
+        )} */}
+        </>
+      {/* </CustomResizable> */}
+      {/* </section> */}
+      {/* {hasVersions && (
         <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
-      )}
+      )} */}
     </>
   );
 }
