@@ -1,6 +1,6 @@
 import requests
 
-from .request_utils import post
+from runcoder.cli.request_utils import post
 
 
 class RuncoderLoginError(Exception):

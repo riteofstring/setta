@@ -1,7 +1,7 @@
 import copy
 
-from ...utils.utils import create_new_id
-from ..sections.copy import copy_sections_and_other_info
+from runcoder.backend.db.sections.copy import copy_sections_and_other_info
+from runcoder.backend.utils.utils import create_new_id
 
 
 def copy_project_details(project, new_config_name=None, do_create_new_id=False):

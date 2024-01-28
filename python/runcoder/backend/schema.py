@@ -3,7 +3,7 @@ import queue
 import sqlite3
 from contextlib import contextmanager
 
-from .db_path import get_db_path
+from runcoder.backend.db_path import get_db_path
 
 
 class DB:
