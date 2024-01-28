@@ -1,6 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useGetSectionType } from "hooks/useSectionType";
-import { FiSettings } from "react-icons/fi";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { PARAM_SWEEP } from "z_utils/constants";
 import { CreateNewEnteredValuesButton } from "./CreateNewEnteredValuesButton/CreateNewEnteredValuesButton";
@@ -20,9 +19,7 @@ function MenuButton({ sectionId }) {
         padding="p-1"
         rounded="rounded-full"
         triggerStyle="ml-1"
-        trigger={
-          <FiSettings className="bg-transparent text-runcoder-300 transition-colors duration-150 hover:text-runcoder-500 focus-visible:ring-2 dark:text-runcoder-400/50 dark:hover:text-runcoder-300" />
-        }
+        trigger={<i className="gg-shape-circle" />}
       >
         <SaveCustomArgumentsButton sectionId={sectionId} />
         {sectionType === PARAM_SWEEP ? (
