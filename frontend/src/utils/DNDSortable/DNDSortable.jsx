@@ -5,8 +5,8 @@ import {
 import { useDisableSortable } from "hooks/useDndUtils";
 import React from "react";
 
-export function DNDSortable({ sectionId, items, children }) {
-  const disabled = useDisableSortable(sectionId);
+export function DNDSortable({ sectionId, items, ancestorSet, children }) {
+  const disabled = useDisableSortable(sectionId, ancestorSet);
   return (
     <SortableContext
       id={sectionId}

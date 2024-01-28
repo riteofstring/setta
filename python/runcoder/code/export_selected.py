@@ -5,7 +5,6 @@ from ..utils.constants import (
     CODE,
     DECK,
     DICT_ROOT,
-    GLOBAL_PARAM_SWEEP,
     GLOBAL_VARIABLES,
     INFO,
     LIST_ROOT,
@@ -140,7 +139,6 @@ class Exporter:
                 INFO,
                 PARAM_SWEEP,
                 TERMINAL,
-                GLOBAL_PARAM_SWEEP,
             ]:
                 to_pop.append(id)
         for id in to_pop:
@@ -183,7 +181,7 @@ class Exporter:
         #         "unusedParams": unused_params,
         #     }
         elif type in [LIST_ROOT, DICT_ROOT, DECK]:
-            return self.export_sections(self.p["sections"][id]["children"])
+            return self.export_sections(self.p["sections"][id]["currChildren"])
 
     def export_params(self, section_id, generate_var_name=True):
         ids = get_param_ids(self.p, section_id)

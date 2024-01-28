@@ -29,12 +29,9 @@ export async function dbLoadProject({ projectName, configName }) {
   });
 }
 
-export async function dbLoadFullProject({
-  projectName,
-  withBaseUITypes = false,
-}) {
+export async function dbLoadFullProject({ projectName }) {
   return await post({
-    body: { withBaseUITypes },
+    body: {},
     address: `/projects/load/${projectName}`,
   });
 }

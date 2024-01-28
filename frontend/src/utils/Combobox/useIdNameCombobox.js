@@ -84,7 +84,7 @@ export function idNameHelper({
       setSelection(newSelectedItem);
     }
     if (sid !== initialSelection) {
-      onSelectedItemChange(sid, changedByUser, setSelection);
+      onSelectedItemChange(sid, changedByUser);
     }
   };
 

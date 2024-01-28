@@ -22,7 +22,7 @@ module.exports = {
     "react/react-in-jsx-scope": "off",
     "react/display-name": "off",
     "unused-imports/no-unused-imports": "warn",
-    // "import/no-unused-modules": [1, { unusedExports: true }],
+    "import/no-unused-modules": [1, { unusedExports: true }],
     "no-unused-vars": "warn",
     "no-undef": "off",
     "react/jsx-uses-react": "warn",

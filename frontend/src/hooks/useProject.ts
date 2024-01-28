@@ -9,7 +9,6 @@ import {
   SAME_PROJECT_NEW_PROJECT_CONFIG,
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
   SAME_PROJECT_NEW_PROJECT_NAME,
-  SWITCHING_CONFIG,
 } from "utils/Routes/pageLoadTypes";
 
 export function useLoadProject() {
@@ -26,10 +25,6 @@ export function useLoadProject() {
         configName,
       });
       setDoneLoading(res);
-    }
-
-    if (pageLoadType === SWITCHING_CONFIG) {
-      return;
     }
 
     // The first if-statement triggers for a page refresh or navigating to a different project

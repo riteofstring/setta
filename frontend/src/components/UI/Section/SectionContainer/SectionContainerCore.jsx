@@ -1,6 +1,7 @@
 import { toggleSectionDescription } from "hooks/useSectionDescription";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
+import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
@@ -11,7 +12,7 @@ import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
-function _SectionContainerCore({ sectionId }) {
+function _SectionContainerCore({ sectionId, parentId, nextId, hasNested }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
@@ -53,8 +54,11 @@ function _SectionContainerCore({ sectionId }) {
     >
       <SectionContainerCoreResizable
         sectionId={sectionId}
+        parentId={parentId}
+        nextId={nextId}
         isSeriesElement={isSeriesElement}
         sectionTypeName={sectionTypeName}
+        hasNested={hasNested}
         isActiveSection={isActiveSection}
         toggleDescVis={() => toggleSectionDescription(sectionId)}
         isWrongType={false} // TODO add the logic for this
@@ -64,5 +68,13 @@ function _SectionContainerCore({ sectionId }) {
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  () => true
+  (prev, next) => {
+    const attrs = ["nextId", "hasNested"];
+    for (let k of attrs) {
+      if (!_.isEqual(prev[k], next[k])) {
+        return false;
+      }
+    }
+    return true;
+  }
 );

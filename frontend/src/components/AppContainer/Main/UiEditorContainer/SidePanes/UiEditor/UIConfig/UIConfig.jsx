@@ -28,7 +28,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800 focus-visible:!border-blue-300 pl-7 py-1";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800 focus-visible:border-blue-300 pl-7 py-1";
 
   return (
     <>

@@ -166,16 +166,5 @@
       "subType": null,
       "childUITypeId": null
     }
-  },
-  "02f5da7b-71ae-4e42-b5b3-286fae1823ee": {
-    "id": "02f5da7b-71ae-4e42-b5b3-286fae1823ee",
-    "type": "GLOBAL_PARAM_SWEEP",
-    "name": "",
-    "presetType": "BASE",
-    "config": {
-      "collections": [],
-      "subType": null,
-      "childUITypeId": null
-    }
   }
 }

@@ -1,11 +1,9 @@
-import { useSectionHasMultipleParamSweeps } from "hooks/useParamSweepInfo";
 import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import {
   CODE,
-  GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
   INFO,
   OUTPUT,
@@ -18,7 +16,6 @@ import {
 } from "z_utils/constants";
 import { CodeArea } from "./CodeArea";
 import "./dndline.css";
-import { GlobalParamSweepArea } from "./GlobalParamSweepArea";
 import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
 import { InputArea } from "./InputArea";
@@ -31,18 +28,18 @@ import { TerminalArea } from "./TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
+  parentId,
+  nextId,
   isSeriesElement,
   sectionTypeName,
+  hasNested,
   isActiveSection,
   toggleDescVis,
   isWrongType,
 }) {
   const isGlobalVariables = sectionTypeName === GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === INFO;
-  const hasEVVersions = useSectionHasMultipleEVCols(sectionId);
-  const hasParamSweepVersions = useSectionHasMultipleParamSweeps(sectionId);
-  const hasVersions =
-    (sectionTypeName === PARAM_SWEEP && hasParamSweepVersions) || hasEVVersions;
+  const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
   const getOutlineColor = () => {
     if (isWrongType) {
@@ -69,8 +66,6 @@ export function SectionContainerCoreResizable({
         return "bg-white dark:bg-runcoder-900";
       case TERMINAL:
         return "bg-runcoder-950 overflow-clip";
-      case GLOBAL_PARAM_SWEEP:
-        return "@container/multipane";
       // case PARAM_SWEEP:
       //   return "bg-runcoder-50 dark:bg-runcoder-850";
       default:
@@ -97,7 +92,10 @@ export function SectionContainerCoreResizable({
       >
         <SectionHeader
           sectionId={sectionId}
+          parentId={parentId}
+          nextId={nextId}
           isSeriesElement={isSeriesElement}
+          hasNested={hasNested}
           isActiveSection={isActiveSection}
           isGlobalVariables={isGlobalVariables}
           isInfo={isInfo}
@@ -115,9 +113,7 @@ export function SectionContainerCoreResizable({
           </Button>
         )}
       </CustomResizable>
-      {hasVersions && (
-        <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
-      )}
+      {hasVersions && <VersionList sectionId={sectionId} />}
     </>
   );
 }
@@ -144,8 +140,6 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <ParamSweepArea sectionId={sectionId} />;
     case TERMINAL:
       return <TerminalArea sectionId={sectionId} />;
-    case GLOBAL_PARAM_SWEEP:
-      return <GlobalParamSweepArea />;
     default:
       return null;
   }

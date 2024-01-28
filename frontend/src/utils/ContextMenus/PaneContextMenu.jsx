@@ -7,7 +7,6 @@ import { Item } from "utils/atoms/dropdown/item";
 import {
   CODE,
   DECK,
-  GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
   SCRIPT,
   SECTION,
@@ -76,13 +75,6 @@ export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
         onClick={() => onClickAddSection({ type: TERMINAL, ...commonProps })}
       >
         New Terminal
-      </Item>
-      <Item
-        onClick={() =>
-          onClickAddSection({ type: GLOBAL_PARAM_SWEEP, ...commonProps })
-        }
-      >
-        New Global Param Sweep
       </Item>
       <DialogDropdownTriggerItem
         onClick={() => openLoadModal("Create From Argparse")}

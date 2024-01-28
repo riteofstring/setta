@@ -8,9 +8,9 @@
         "id": "41f411f7-b14d-4375-bfcd-204446866745",
         "name": "config1",
         "viewport": {
-          "x": 126.32643507420926,
-          "y": 1103.0968775565061,
-          "zoom": 1.0000000000000002
+          "x": 660.2117527344465,
+          "y": 538.4285949848326,
+          "zoom": 0.5743491774985174
         },
         "children": {
           "28e7950f-2ce3-4252-92d8-93d1158c806a": {
@@ -27,11 +27,6 @@
             "x": 1262.4038669424035,
             "y": -19.016806492525546,
             "zIndex": 5
-          },
-          "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
-            "x": 436.54423954758954,
-            "y": -862.5039592291952,
-            "zIndex": 9
           },
           "46dc6cab-03ac-4e73-919d-63b30da0688d": {
             "x": 760.9908608487029,
@@ -70,8 +65,6 @@
           "id": "28e7950f-2ce3-4252-92d8-93d1158c806a",
           "name": "corporate_sapphire",
           "evColId": "e007e751-1687-43ff-91e5-faeb1f7d15dc",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "1ca993ea-0d8b-40ed-b0ba-16ef08f387dc",
           "uiTypeColId": "81079605-b1c8-4736-917f-73504bed100d",
           "social": null,
@@ -84,7 +77,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["1ca993ea-0d8b-40ed-b0ba-16ef08f387dc"],
           "evColIds": ["e007e751-1687-43ff-91e5-faeb1f7d15dc"],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -99,8 +91,6 @@
           "id": "29ca4fd3-de9b-4986-831a-e632a95b6081",
           "name": "prickly_beige",
           "evColId": "9a6859c2-a79d-4da2-b460-b57fc982d495",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "6237ca80-cb4e-42f7-a3f3-708401ae48ea",
           "uiTypeColId": "50c9cc9e-2a00-4eed-8302-a20fecf59f46",
           "social": null,
@@ -113,7 +103,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["6237ca80-cb4e-42f7-a3f3-708401ae48ea"],
           "evColIds": ["9a6859c2-a79d-4da2-b460-b57fc982d495"],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -128,8 +117,6 @@
           "id": "2ceeadfa-3f67-411e-a70e-1d9b7ca96b6e",
           "name": "Var Control",
           "evColId": "8a94f3ef-63e3-477b-a5ed-98f78358b427",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "aa87ed03-7b2b-4404-a246-7cd76f247697",
           "uiTypeColId": "118af045-82ed-44fd-a116-8e1aa091bcf3",
           "social": null,
@@ -142,7 +129,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["aa87ed03-7b2b-4404-a246-7cd76f247697"],
           "evColIds": ["8a94f3ef-63e3-477b-a5ed-98f78358b427"],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -153,41 +139,10 @@
             "height": 237
           }
         },
-        "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
-          "id": "40c921b7-10e8-4c69-a9fa-f39db37ea98f",
-          "name": "moderate_aqua",
-          "evColId": "3383d9b9-5cee-445f-a242-fde820c76c73",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
-          "uiTypeId": "b40f6814-76bf-47b9-8efc-79be38d16343",
-          "uiTypeColId": "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1",
-          "social": null,
-          "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "",
-          "code": "",
-          "varControl": "",
-          "isFrozen": 0,
-          "nonPresetUITypeIds": ["b40f6814-76bf-47b9-8efc-79be38d16343"],
-          "evColIds": ["3383d9b9-5cee-445f-a242-fde820c76c73"],
-          "paramSweepIds": [],
-          "parentId": null,
-          "chainedFrom": null,
-          "selectedItem": null,
-          "outputGroup": null,
-          "children": [],
-          "size": {
-            "width": 587,
-            "height": 417
-          }
-        },
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
           "name": "Global Variables",
           "evColId": "54571c59-7a51-42d5-bb8e-b6c06b41b023",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "74d80124-deb9-4577-8470-813cb9be4e56",
           "uiTypeColId": "8d49f34e-ab85-46c2-b13d-66af60b363cf",
           "social": null,
@@ -200,7 +155,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["74d80124-deb9-4577-8470-813cb9be4e56"],
           "evColIds": ["54571c59-7a51-42d5-bb8e-b6c06b41b023"],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -215,8 +169,6 @@
           "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
           "name": "Code",
           "evColId": "69220358-73c1-49c3-9b78-d7cf733b2aa8",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "90ad65be-05c6-4f5b-81c4-ca7b4344db49",
           "uiTypeColId": "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a",
           "social": null,
@@ -229,7 +181,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["90ad65be-05c6-4f5b-81c4-ca7b4344db49"],
           "evColIds": ["69220358-73c1-49c3-9b78-d7cf733b2aa8"],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -244,8 +195,6 @@
           "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
           "name": "Script",
           "evColId": "fca181fc-c326-4d50-b028-37b368372f49",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "25add466-bd0e-48f7-b497-cbcab96b7b1d",
           "uiTypeColId": "f35d7b7b-d268-45c9-94de-748f8f1cd98d",
           "social": null,
@@ -258,7 +207,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["25add466-bd0e-48f7-b497-cbcab96b7b1d"],
           "evColIds": ["fca181fc-c326-4d50-b028-37b368372f49"],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -273,8 +221,6 @@
           "id": "d96cb110-6f72-435a-b745-2d55e277f983",
           "name": "dataset",
           "evColId": "66e4192c-c1fc-4935-b862-e722726c1217",
-          "paramSweepId": "39e067ec-8392-4e83-86b7-010f60f5abce",
-          "paramSweepSectionId": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
           "uiTypeId": "fd8de817-8fc1-4502-b3a5-58e3b99dc418",
           "uiTypeColId": "3fe82a18-fa95-41ef-8474-c14df7e37620",
           "social": null,
@@ -287,7 +233,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["fd8de817-8fc1-4502-b3a5-58e3b99dc418"],
           "evColIds": ["66e4192c-c1fc-4935-b862-e722726c1217"],
-          "paramSweepIds": ["39e067ec-8392-4e83-86b7-010f60f5abce"],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
@@ -302,8 +247,6 @@
           "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
           "name": "algorithm",
           "evColId": "22f7a029-5660-4f3d-ba54-e79637f2ba61",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "1a83a3ce-e415-4c2d-bed0-959ce18e7995",
           "uiTypeColId": "2e7c7457-4ce1-4be5-8b35-3c86aff732d7",
           "social": null,
@@ -319,7 +262,6 @@
             "1fc1e842-82fe-4a48-8794-23178822e22e",
             "22f7a029-5660-4f3d-ba54-e79637f2ba61"
           ],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
@@ -334,8 +276,6 @@
           "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
           "name": "dreadful_brown",
           "evColId": "fb460dcd-d460-44fc-aeae-b0b8aca93c5b",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
           "uiTypeId": "80a4bb93-548a-46e3-bfb9-8737b367f1aa",
           "uiTypeColId": "8e312942-b6ac-472b-bb4d-b23642d0d1de",
           "social": null,
@@ -348,7 +288,6 @@
           "isFrozen": 0,
           "nonPresetUITypeIds": ["80a4bb93-548a-46e3-bfb9-8737b367f1aa"],
           "evColIds": ["fb460dcd-d460-44fc-aeae-b0b8aca93c5b"],
-          "paramSweepIds": [],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -386,10 +325,6 @@
             "c066af9f-42b4-4359-8b44-cf774c400e81": "",
             "c2c05abc-dd95-4071-8f37-cb2019919bce": "0"
           }
-        },
-        "3383d9b9-5cee-445f-a242-fde820c76c73": {
-          "name": "superb_jade",
-          "values": {}
         },
         "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
           "name": "purple_onion",
@@ -527,17 +462,6 @@
             "childUITypeId": null
           }
         },
-        "b40f6814-76bf-47b9-8efc-79be38d16343": {
-          "id": "b40f6814-76bf-47b9-8efc-79be38d16343",
-          "name": "moderate_aqua",
-          "type": "GLOBAL_PARAM_SWEEP",
-          "presetType": null,
-          "config": {
-            "subType": null,
-            "codeInfoId": "36e405f7-e3c9-45ac-bfa8-07a95239078e",
-            "childUITypeId": null
-          }
-        },
         "fd8de817-8fc1-4502-b3a5-58e3b99dc418": {
           "id": "fd8de817-8fc1-4502-b3a5-58e3b99dc418",
           "name": "New Section",
@@ -642,49 +566,7 @@
           }
         },
         "8e312942-b6ac-472b-bb4d-b23642d0d1de": {},
-        "ef2ae12c-d8f5-4d00-bf37-eb799dd0e4a1": {},
         "f35d7b7b-d268-45c9-94de-748f8f1cd98d": {}
-      },
-      "paramSweeps": {
-        "39e067ec-8392-4e83-86b7-010f60f5abce": {
-          "name": "big_elephant",
-          "sweep": [
-            {
-              "paramInfoId": "159e0416-3873-469b-915b-1f186579c380",
-              "values": ["100", "200", "300"]
-            },
-            {
-              "evColId": "66e4192c-c1fc-4935-b862-e722726c1217"
-            },
-            {
-              "paramInfoId": "2fae73d3-5756-42a9-beb0-7465b92ac626",
-              "values": ["True", "False"]
-            }
-          ]
-        }
-      },
-      "runGroups": {
-        "6a2056d0-214e-4d82-9c91-ee915069c7d4": {
-          "name": "Big Run",
-          "selected": 0,
-          "sections": {
-            "46dc6cab-03ac-4e73-919d-63b30da0688d": {},
-            "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {},
-            "bea52bce-2689-41d8-a870-fa8fedcfd78a": {},
-            "d96cb110-6f72-435a-b745-2d55e277f983": {}
-          }
-        },
-        "2226fedc-e7fd-4a8f-beee-9b9e91b6dec1": {
-          "name": "Regular Run",
-          "selected": 1,
-          "sections": {
-            "46dc6cab-03ac-4e73-919d-63b30da0688d": {},
-            "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {},
-            "bea52bce-2689-41d8-a870-fa8fedcfd78a": {},
-            "d96cb110-6f72-435a-b745-2d55e277f983": {},
-            "e209e428-eea6-4e14-b61e-0648ec28dd76": {}
-          }
-        }
       },
       "codeInfo": {
         "03ee6530-d464-461c-a989-b310ee2d9b95": {
@@ -754,18 +636,6 @@
           "rcType": "parameter",
           "defaultVal": "True",
           "description": "Shuffle the samples.",
-          "isPinned": 0,
-          "isFrozen": 0,
-          "isSelected": 0,
-          "children": []
-        },
-        "36e405f7-e3c9-45ac-bfa8-07a95239078e": {
-          "id": "36e405f7-e3c9-45ac-bfa8-07a95239078e",
-          "name": "Contents",
-          "editable": 0,
-          "rcType": "collection",
-          "defaultVal": null,
-          "description": "",
           "isPinned": 0,
           "isFrozen": 0,
           "isSelected": 0,
