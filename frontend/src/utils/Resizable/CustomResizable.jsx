@@ -66,7 +66,6 @@ function CustomResizableCore({
 
   return (
     <ResizableWithScale
-      id={sectionId}
       as={as}
       size={size}
       minHeight={minHeight}

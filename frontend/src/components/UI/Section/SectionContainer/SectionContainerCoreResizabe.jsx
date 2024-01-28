@@ -81,18 +81,18 @@ export function SectionContainerCoreResizable({
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-runcoder-700";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} card-grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} card-grid rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 
   return (
     <>
-      <section className="resize">
-      {/* <CustomResizable
+      {/* <section className="resize overflow-auto" > */}
+      <CustomResizable
         sectionId={sectionId}
         inputClasses={inputClasses}
         as="section"
-      > */}
+      >
         <>
           <SectionHeader
             sectionId={sectionId}
@@ -114,8 +114,8 @@ export function SectionContainerCoreResizable({
           </Button>
         )} */}
         </>
-      {/* </CustomResizable> */}
-      </section>
+      </CustomResizable>
+      {/* </section> */}
       {/* {hasVersions && (
         <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
       )} */}

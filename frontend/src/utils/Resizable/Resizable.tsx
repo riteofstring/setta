@@ -3,11 +3,6 @@ import { flushSync } from "react-dom";
 
 import { Direction, Resizer } from "./resizer";
 
-const DEFAULT_SIZE = {
-  width: "auto",
-  height: "auto",
-};
-
 export type ResizeDirection = Direction;
 
 export interface Enable {
@@ -78,7 +73,6 @@ export type ResizeStartCallback = (
 ) => void | boolean;
 
 export interface ResizableProps {
-  id: string;
   as?: string | React.ComponentType<any>;
   style?: React.CSSProperties;
   className?: string;
@@ -90,7 +84,7 @@ export interface ResizableProps {
   snapGap?: number;
   bounds?: "parent" | "window" | HTMLElement;
   boundsByDirection?: boolean;
-  size?: Size;
+  size: Size;
   minWidth?: string | number;
   minHeight?: string | number;
   maxWidth?: string | number;
@@ -124,7 +118,6 @@ interface State {
   };
   width: number | string;
   height: number | string;
-
   backgroundStyle: React.CSSProperties;
   flexBasis?: string | number;
 }
@@ -154,7 +147,7 @@ const isMouseEvent = (event: MouseEvent | TouchEvent): event is MouseEvent => {
 const findClosestSnap = (
   n: number,
   snapArray: number[],
-  snapGap: number = 0
+  snapGap = 0
 ): number => {
   const closestGapIndex = snapArray.reduce(
     (prev, curr, index) =>
@@ -174,73 +167,28 @@ const getStringSize = (n: number | string): string => {
   if (n.endsWith("px")) {
     return n;
   }
-  if (n.endsWith("%")) {
-    return n;
-  }
-  if (n.endsWith("vh")) {
-    return n;
-  }
-  if (n.endsWith("vw")) {
-    return n;
-  }
-  if (n.endsWith("vmax")) {
-    return n;
-  }
-  if (n.endsWith("vmin")) {
-    return n;
-  }
   return `${n}px`;
 };
 
-const getPixelSize = (
-  size: undefined | string | number,
-  parentSize: number,
-  innerWidth: number,
-  innerHeight: number
-) => {
+const getPixelSize = (size: undefined | string | number) => {
   if (size && typeof size === "string") {
     if (size.endsWith("px")) {
       return Number(size.replace("px", ""));
-    }
-    if (size.endsWith("%")) {
-      const ratio = Number(size.replace("%", "")) / 100;
-      return parentSize * ratio;
-    }
-    if (size.endsWith("vw")) {
-      const ratio = Number(size.replace("vw", "")) / 100;
-      return innerWidth * ratio;
-    }
-    if (size.endsWith("vh")) {
-      const ratio = Number(size.replace("vh", "")) / 100;
-      return innerHeight * ratio;
     }
   }
   return size;
 };
 
 const calculateNewMax = (
-  parentSize: { width: number; height: number },
-  innerWidth: number,
-  innerHeight: number,
   maxWidth?: string | number,
   maxHeight?: string | number,
   minWidth?: string | number,
   minHeight?: string | number
 ) => {
-  maxWidth = getPixelSize(maxWidth, parentSize.width, innerWidth, innerHeight);
-  maxHeight = getPixelSize(
-    maxHeight,
-    parentSize.height,
-    innerWidth,
-    innerHeight
-  );
-  minWidth = getPixelSize(minWidth, parentSize.width, innerWidth, innerHeight);
-  minHeight = getPixelSize(
-    minHeight,
-    parentSize.height,
-    innerWidth,
-    innerHeight
-  );
+  maxWidth = getPixelSize(maxWidth);
+  maxHeight = getPixelSize(maxHeight);
+  minWidth = getPixelSize(minWidth);
+  minHeight = getPixelSize(minHeight);
   return {
     maxWidth: typeof maxWidth === "undefined" ? undefined : Number(maxWidth),
     maxHeight: typeof maxHeight === "undefined" ? undefined : Number(maxHeight),
@@ -306,44 +254,19 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
   }
 
   get window(): Window | null {
-    if (!this.resizable) {
-      return null;
-    }
-    if (!this.resizable.ownerDocument) {
+    if (!this.resizable || !this.resizable.ownerDocument) {
       return null;
     }
     return this.resizable.ownerDocument.defaultView as Window;
   }
 
-  get propsSize(): Size {
-    return this.props.size || this.props.defaultSize || DEFAULT_SIZE;
-  }
-
   get size(): NumberSize {
-    let width = 0;
-    let height = 0;
-    if (this.resizable && this.window) {
-      const orgWidth = this.resizable.offsetWidth;
-      const orgHeight = this.resizable.offsetHeight;
-      // HACK: Set position `relative` to get parent size.
-      //       This is because when re-resizable set `absolute`, I can not get base width correctly.
-      const orgPosition = this.resizable.style.position;
-      if (orgPosition !== "relative") {
-        this.resizable.style.position = "relative";
-      }
-      // INFO: Use original width or height if set auto.
-      width =
-        this.resizable.style.width !== "auto"
-          ? this.resizable.offsetWidth
-          : orgWidth;
-      height =
-        this.resizable.style.height !== "auto"
-          ? this.resizable.offsetHeight
-          : orgHeight;
-      // Restore original position
-      this.resizable.style.position = orgPosition;
-    }
-    return { width, height };
+    return this.resizable && this.window
+      ? {
+          width: this.resizable.offsetWidth,
+          height: this.resizable.offsetHeight,
+        }
+      : { width: 0, height: 0 };
   }
 
   get sizeStyle(): { width: string; height: string } {
@@ -356,9 +279,9 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
         return "auto";
       }
       if (
-        this.propsSize &&
-        this.propsSize[key] &&
-        this.propsSize[key].toString().endsWith("%")
+        this.props.size &&
+        this.props.size[key] &&
+        this.props.size[key].toString().endsWith("%")
       ) {
         if (this.state[key].toString().endsWith("%")) {
           return this.state[key].toString();
@@ -424,13 +347,13 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
     this.state = {
       isResizing: false,
       width:
-        typeof (this.propsSize && this.propsSize.width) === "undefined"
+        typeof (this.props.size && this.props.size.width) === "undefined"
           ? "auto"
-          : this.propsSize && this.propsSize.width,
+          : this.props.size && this.props.size.width,
       height:
-        typeof (this.propsSize && this.propsSize.height) === "undefined"
+        typeof (this.props.size && this.props.size.height) === "undefined"
           ? "auto"
-          : this.propsSize && this.propsSize.height,
+          : this.props.size && this.props.size.height,
       direction: "right",
       original: {
         x: 0,
@@ -520,7 +443,6 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
       return;
     }
     const computedStyle = this.window.getComputedStyle(this.resizable);
-
     this.setState({
       width: this.state.width || this.size.width,
       height: this.state.height || this.size.height,
@@ -529,30 +451,6 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
           ? computedStyle.flexBasis
           : undefined,
     });
-
-    const style: React.CSSProperties = {
-      // position: "relative",
-      // userSelect: this.state.isResizing ? "none" : "auto",
-      // ...this.props.style,
-      ...this.sizeStyle,
-      // maxWidth: this.props.maxWidth,
-      // maxHeight: this.props.maxHeight,
-      // minWidth: this.props.minWidth,
-      // minHeight: this.props.minHeight,
-      // boxSizing: "border-box",
-      // flexShrink: 0,
-    };
-    // console.log("style", style)
-    // const el = document.getElementById(`${this.props.id} resizable`).style;
-    // for (const [k,v] of Object.entries(style)){
-    //   el[k] = v
-    // }
-
-    const el = document.getElementById(`${this.props.id} resizable`)
-    // el.style.height = ""
-    el.style.width = "500px"
-
-    // console.log("componentDidMount")
   }
 
   appendBase = () => {
@@ -597,7 +495,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
     newSize: number | string,
     kind: "width" | "height"
   ): number | string {
-    const propsSize = this.propsSize && this.propsSize[kind];
+    const propsSize = this.props.size && this.props.size[kind];
     return this.state[kind] === "auto" &&
       this.state.original[kind] === newSize &&
       (typeof propsSize === "undefined" || propsSize === "auto")
@@ -875,15 +773,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
       : event.clientY;
     const { direction, original, width, height } = this.state;
     const parentSize = this.getParentSize();
-    const max = calculateNewMax(
-      parentSize,
-      this.window.innerWidth,
-      this.window.innerHeight,
-      maxWidth,
-      maxHeight,
-      minWidth,
-      minHeight
-    );
+    const max = calculateNewMax(maxWidth, maxHeight, minWidth, minHeight);
 
     maxWidth = max.maxWidth;
     maxHeight = max.maxHeight;
@@ -1074,16 +964,16 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
     }, {} as { [key: string]: any });
 
     const style: React.CSSProperties = {
-      // position: "relative",
-      // userSelect: this.state.isResizing ? "none" : "auto",
-      // ...this.props.style,
-      // ...this.sizeStyle,
-      // maxWidth: this.props.maxWidth,
-      // maxHeight: this.props.maxHeight,
-      // minWidth: this.props.minWidth,
-      // minHeight: this.props.minHeight,
-      // boxSizing: "border-box",
-      // flexShrink: 0,
+      position: "relative",
+      userSelect: this.state.isResizing ? "none" : "auto",
+      ...this.props.style,
+      ...this.sizeStyle,
+      maxWidth: this.props.maxWidth,
+      maxHeight: this.props.maxHeight,
+      minWidth: this.props.minWidth,
+      minHeight: this.props.minHeight,
+      boxSizing: "border-box",
+      flexShrink: 0,
     };
 
     if (this.state.flexBasis) {
@@ -1092,17 +982,26 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
 
     const Wrapper = this.props.as || "div";
 
+    const heightClass =
+      this.state.height === "auto"
+        ? "h-auto"
+        : `resizable-height-${this.state.height}`;
+    const widthClass =
+      this.state.width === "auto"
+        ? "w-auto"
+        : `resizable-width-${this.state.width}`;
+
     return (
       <Wrapper
-        id={`${this.props.id} resizable`}
         ref={this.ref}
-        // style={{ height: 117, width: 384 }}
+        // style={style}
+        className={`${this.props.className} ${heightClass} ${widthClass} relative box-border shrink-0`}
         // className={this.props.className}
-        // {...extendsProps}
+        {...extendsProps}
       >
-        {/* {this.state.isResizing && <div style={this.state.backgroundStyle} />} */}
+        {this.state.isResizing && <div style={this.state.backgroundStyle} />}
         {this.props.children}
-        {/* {this.renderResizer()} */}
+        {this.renderResizer()}
       </Wrapper>
     );
   }
