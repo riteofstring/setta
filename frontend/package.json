@@ -86,9 +86,9 @@
     "knip": "knip",
     "ts-prune": "ts-prune",
     "install-reactflow": "cd ../external/xyflow && pnpm install && pnpm build && cd packages/reactflow && npm link",
-    "install-xterm": "cd ../external/xterm.js && npm install && npm run package",
+    "install-xterm": "cd ../external/xterm.js && npm install && npm run package && npm link",
     "fullinstall": "npm run install-reactflow && npm run install-xterm && npm install",
-    "postinstall": "npm link reactflow && rm -rf node_modules/xterm && cd node_modules && mkdir xterm && cd xterm && cp -r ../../../external/xterm.js/lib . && cp -r ../../../external/xterm.js/css . && cp -r ../../../external/xterm.js/typings . && cp ../../../external/xterm.js/package.json ."
+    "postinstall": "rm -rf node_modules/xterm && npm link reactflow xterm"
   },
   "eslintConfig": {
     "extends": [
