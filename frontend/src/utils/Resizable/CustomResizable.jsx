@@ -55,7 +55,6 @@ function CustomResizableCore({
   function onResizeStop(...props) {
     const { width, height } = getNewSize({
       props,
-      size,
       minWidth,
       sizeMode,
     });
@@ -91,16 +90,20 @@ function CustomResizableCore({
   );
 }
 
+function parseCurrPx(x) {
+  return x === "auto" ? x : parseInt(x);
+}
+
 function maybeAutoPx(autoDim, pxDim, sizeMode) {
   return sizeMode !== SIZE_MODE.manual_only ? autoDim : pxDim;
 }
 
-function getDoubleClickSize({ direction, newSize, minWidth, sizeMode }) {
+function getDoubleClickSize({ direction, ref, minWidth, sizeMode }) {
   // width returns minWidth instead of auto because
   // it seems like once width is resized, auto does nothing
 
-  const pxWidth = newSize.width;
-  const pxHeight = newSize.height;
+  const pxWidth = parseCurrPx(ref.style.width);
+  const pxHeight = parseCurrPx(ref.style.height);
 
   if (direction === "bottomRight") {
     return [
@@ -118,20 +121,20 @@ function getDoubleClickSize({ direction, newSize, minWidth, sizeMode }) {
 }
 
 function getNewSize({ props, minWidth, sizeMode }) {
-  const [e, direction, ref, d, newSize] = props;
+  const [e, direction, ref, d] = props;
   let width;
   let height;
   // detect double click (but only for non-output sections)
   if (d.width === 0 && d.height === 0 && e.detail === 2) {
     [width, height] = getDoubleClickSize({
       direction,
-      newSize,
+      ref,
       minWidth,
       sizeMode,
     });
   } else {
-    width = newSize.width;
-    height = newSize.height;
+    width = parseCurrPx(ref.style.width);
+    height = parseCurrPx(ref.style.height);
   }
   return { width, height };
 }
