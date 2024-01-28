@@ -1,7 +1,7 @@
 import re
 
-from runcoder.backend.schema import dbq
-from runcoder.backend.seed import seed
+from .schema import dbq
+from .seed import seed
 
 CREATE_TABLES_COMMANDS = [
     # Settings model

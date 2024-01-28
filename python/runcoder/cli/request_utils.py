@@ -1,7 +1,7 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-from runcoder.utils.constants import BACKEND
+from ..utils.constants import BACKEND
 
 
 def post(post_obj, address, **kwargs):

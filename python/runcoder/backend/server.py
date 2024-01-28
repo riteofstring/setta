@@ -9,36 +9,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from runcoder.backend.db.codeInfo.save import save_code_info
-from runcoder.backend.db.projects.delete import delete_projects
-from runcoder.backend.db.projects.load import (
-    load_all_projects,
-    load_full_project,
-    load_project,
-)
-from runcoder.backend.db.projects.save import (
-    create_project,
-    save_project_config_name,
-    save_project_details,
-    save_project_name,
-)
-from runcoder.backend.db.projects.saveAs import (
-    save_as_existing_project_config,
-    save_as_new_project_config,
-)
-from runcoder.backend.db.sections.copy import (
-    copy_relative_positions,
-    copy_sections_and_other_info,
-)
-from runcoder.backend.db.settings.load import load_settings
-from runcoder.backend.db.settings.save import save_dark_mode
-from runcoder.backend.db.uiTypes.load import load_base_uitypes
-from runcoder.backend.db_path import use_db
-from runcoder.backend.schema import dbq
-from runcoder.backend.utils.utils import (
-    convert_to_backend_format,
-    generate_memorable_string,
-)
 from runcoder.cli.web import getConsumerMessageAndSend
 from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
@@ -46,6 +16,27 @@ from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
 from runcoder.utils.terminals import get_free_terminal, start_terminal
 from runcoder.utils.utils import import_from_path
+
+from .db.codeInfo.save import save_code_info
+from .db.projects.delete import delete_projects
+from .db.projects.load import load_all_projects, load_full_project, load_project
+from .db.projects.save import (
+    create_project,
+    save_project_config_name,
+    save_project_details,
+    save_project_name,
+)
+from .db.projects.saveAs import (
+    save_as_existing_project_config,
+    save_as_new_project_config,
+)
+from .db.sections.copy import copy_relative_positions, copy_sections_and_other_info
+from .db.settings.load import load_settings
+from .db.settings.save import save_dark_mode
+from .db.uiTypes.load import load_base_uitypes
+from .db_path import use_db
+from .schema import dbq
+from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 

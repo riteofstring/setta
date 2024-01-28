@@ -1,4 +1,4 @@
-from runcoder.utils.constants import SWITCH
+from ..utils.constants import SWITCH
 
 
 def generate_argparse(selected):

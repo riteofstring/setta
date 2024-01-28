@@ -1,9 +1,9 @@
 import itertools
 
-from runcoder.backend.db.enteredValues.load import load_evcols
-from runcoder.backend.db.paramSweeps.load import load_param_sweeps
-from runcoder.backend.db.uiTypes.load import load_uitypecols, load_uitypes_by_condition
-from runcoder.backend.utils.utils import get_children_recursively
+from ...utils.utils import get_children_recursively
+from ..enteredValues.load import load_evcols
+from ..paramSweeps.load import load_param_sweeps
+from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
 def load_sections(db, ids):

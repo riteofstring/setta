@@ -6,9 +6,9 @@ from pathlib import Path
 import click
 from requests.exceptions import RetryError
 
-from runcoder.cli.logger import Runcoder
-from runcoder.cli.request_utils import get_retry_session, post
-from runcoder.utils.constants import CODE_FOLDER
+from ..utils.constants import CODE_FOLDER
+from .logger import Runcoder
+from .request_utils import get_retry_session, post
 
 
 def try_getting_code(code_id):

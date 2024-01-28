@@ -1,7 +1,7 @@
-from runcoder.backend.db.codeInfo.copy import copy_code_info
-from runcoder.backend.db.enteredValues.copy import copy_ev_cols
-from runcoder.backend.db.uiTypes.copy import copy_ui_type_cols, copy_ui_types
-from runcoder.backend.utils.utils import remap_ids, rename_keys
+from ...utils.utils import remap_ids, rename_keys
+from ..codeInfo.copy import copy_code_info
+from ..enteredValues.copy import copy_ev_cols
+from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
 
 
 def copy_sections(

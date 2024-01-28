@@ -1,10 +1,10 @@
-from runcoder.backend.db.codeInfo.save import save_code_info
-from runcoder.backend.db.enteredValues.save import save_ev_cols
-from runcoder.backend.db.paramSweeps.save import save_param_sweeps
-from runcoder.backend.db.runGroups.save import save_run_groups
-from runcoder.backend.db.sections.save import save_sections
-from runcoder.backend.db.uiTypes.save import save_ui_type_cols, save_ui_types
-from runcoder.backend.utils.utils import create_new_id, generate_memorable_string
+from ...utils.utils import create_new_id, generate_memorable_string
+from ..codeInfo.save import save_code_info
+from ..enteredValues.save import save_ev_cols
+from ..paramSweeps.save import save_param_sweeps
+from ..runGroups.save import save_run_groups
+from ..sections.save import save_sections
+from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(db, p):

@@ -1,4 +1,4 @@
-from runcoder.code.mypy_parsing import parse_all_errors
+from .mypy_parsing import parse_all_errors
 
 
 def parse_and_type_check(message, code, code_json):

@@ -3,11 +3,11 @@ import builtins
 import copy
 from collections import defaultdict
 
-from runcoder.code.export_selected import get_code, get_script
-from runcoder.code.find_placeholders import double_braces, needs_python_argparse
-from runcoder.code.generate_argparse import generate_argparse
-from runcoder.code.utils import push_var_deep
-from runcoder.utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
+from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
+from .export_selected import get_code, get_script
+from .find_placeholders import double_braces, needs_python_argparse
+from .generate_argparse import generate_argparse
+from .utils import push_var_deep
 
 
 def get_location_str(node):

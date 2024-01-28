@@ -1,8 +1,7 @@
 import ast
 import copy
 
-from runcoder.code.find_placeholders import double_braces
-from runcoder.utils.constants import (
+from ..utils.constants import (
     CODE,
     DECK,
     DICT_ROOT,
@@ -16,6 +15,7 @@ from runcoder.utils.constants import (
     TERMINAL,
     VAR_CONTROL,
 )
+from .find_placeholders import double_braces
 
 
 def get_section_config(p, id):

@@ -6,18 +6,18 @@ from pprint import pprint
 import click
 import uvicorn
 
-from runcoder import __version__
-from runcoder.backend.db_init import maybe_create_tables_and_seed
-from runcoder.backend.db_path import DEFAULT_DB_ALIAS, create_alias
-from runcoder.backend.db_path import delete_alias as _delete_alias
-from runcoder.backend.db_path import (
+from . import __version__
+from .backend.db_init import maybe_create_tables_and_seed
+from .backend.db_path import DEFAULT_DB_ALIAS, create_alias
+from .backend.db_path import delete_alias as _delete_alias
+from .backend.db_path import (
     get_db_path_from_config,
     get_default_db_path,
     load_config,
     use_db,
 )
-from runcoder.cli.run import run as _run
-from runcoder.cli.web import web as _web
+from .cli.run import run as _run
+from .cli.web import web as _web
 
 
 @click.command()

@@ -1,1 +1,1 @@
-from runcoder.cli.logger import Runcoder
+from .logger import Runcoder

@@ -1,11 +1,11 @@
 from collections import defaultdict
 
-from runcoder.backend.db.codeInfo.load import load_code_info_for_sections
-from runcoder.backend.db.projects.utils import convert_to_file_menu_format
-from runcoder.backend.db.runGroups.load import load_run_groups
-from runcoder.backend.db.sections.load import load_sections
-from runcoder.backend.db.uiTypes.load import load_base_uitypes
-from runcoder.backend.utils.utils import aggregate_results
+from ...utils.utils import aggregate_results
+from ..codeInfo.load import load_code_info_for_sections
+from ..runGroups.load import load_run_groups
+from ..sections.load import load_sections
+from ..uiTypes.load import load_base_uitypes
+from .utils import convert_to_file_menu_format
 
 
 def load_all_projects(db, format, input_project_id):

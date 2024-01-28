@@ -4,18 +4,18 @@ from pprint import pprint
 import docstring_parser
 import jedi
 
-from runcoder.code.export_selected import export_selected, get_code
-from runcoder.code.extract_args_from_help import extract_args_from_help
-from runcoder.code.generate_code import (
+from ..code.export_selected import export_selected, get_code
+from ..code.extract_args_from_help import extract_args_from_help
+from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
     get_line_from_string,
     prepend_with_imports,
     set_line,
 )
-from runcoder.code.type_checker import parse_and_type_check
-from runcoder.code.utils import get_var_name
-from runcoder.processors.utils import withTempFiles
+from ..code.type_checker import parse_and_type_check
+from ..code.utils import get_var_name
+from .utils import withTempFiles
 
 
 class Processors:

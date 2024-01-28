@@ -3,11 +3,11 @@ import json
 
 import websockets
 
-from runcoder.processors.processors import Processors
-from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
-from runcoder.utils.cache import Cache
-from runcoder.utils.constants import WEBSOCKET
-from runcoder.utils.tasks import Tasks
+from ..processors.processors import Processors
+from ..processors.utils import killMyPyDaemon, startMyPyDaemon
+from ..utils.cache import Cache
+from ..utils.constants import WEBSOCKET
+from ..utils.tasks import Tasks
 
 
 def web(websocket_id):

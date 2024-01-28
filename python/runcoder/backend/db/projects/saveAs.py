@@ -1,6 +1,6 @@
-from runcoder.backend.db.projects.copy import copy_project_details
-from runcoder.backend.db.projects.save import save_project_details
-from runcoder.backend.utils.utils import convert_to_backend_format
+from ...utils.utils import convert_to_backend_format
+from .copy import copy_project_details
+from .save import save_project_details
 
 
 def save_as_new_project_config(db, project, new_config_name):
