@@ -84,7 +84,8 @@
     "f": "prettier src --write",
     "lf": "npm run l && npm run f",
     "knip": "knip",
-    "ts-prune": "ts-prune"
+    "ts-prune": "ts-prune",
+    "postinstall": "npm uninstall xterm && npm link reactflow xterm"
   },
   "eslintConfig": {
     "extends": [
