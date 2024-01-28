@@ -1,17 +1,18 @@
 import { SizeType } from "./size";
+import { UITypeType } from "./uiType";
 import { ManyOf } from "./utils";
 
 export type SectionType = {
   id: string;
   name: string;
   children: string[];
-  currChildren: string[];
-  parentId: string | null;
   size: SizeType;
+  parentId: string | null;
   chainedFrom: string | null;
   uiTypeId: string;
   evColId: string;
   uiTypeColId: string;
+  paramSweepId: string | null;
   selectedItem: string | null;
   social: string | null;
   outputGroup: string | null;
@@ -19,6 +20,8 @@ export type SectionType = {
   descriptionHeight: number;
   descriptionVisible: boolean;
   evColIds: string[];
+  paramSweepIds: string[];
+  paramSweepSectionId: string | null;
   nonPresetUITypeIds: string[];
   script: string;
   code: string;
@@ -62,14 +65,9 @@ export type SectionInfoActionType = {
     newStateFn: (currState: string[]) => string[];
   }) => void;
 
-  setCurrChildrenNames: (payload: {
-    currChildren: string[];
-    sectionType: any;
-  }) => void;
-
-  setCurrChildren: (payload: {
+  setChildrenNames: (payload: {
+    sectionType: UITypeType;
     sectionId: string;
-    currChildren: string[];
   }) => void;
 
   removeSectionInfos: (payload: string[]) => void;

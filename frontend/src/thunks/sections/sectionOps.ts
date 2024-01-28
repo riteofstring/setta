@@ -152,7 +152,7 @@ function setSectionSize({ newParentId, sectionId }) {
 
   // if new parent is a deck and the deck has children
   if (isDeck) {
-    const deckChildren = s.x[newParentId].currChildren;
+    const deckChildren = s.x[newParentId].children;
     if (deckChildren.length > 0) {
       const width = s.x[deckChildren[0]].size.width;
       setAllChildrenWidths({ sectionId, width });

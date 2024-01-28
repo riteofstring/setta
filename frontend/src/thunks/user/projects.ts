@@ -1,27 +1,44 @@
-import { dbLoadProject } from "dbRequests/projects";
+import { dbLoadFullProject } from "dbRequests/projects";
+import _ from "lodash";
+import { useOtherProjectConfigs } from "models/info/otherProjectConfigs";
 import { loadProjectState } from "thunks/loadProjectState";
-import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-
-function loadProjectIntoState({
-  projectInfo,
-}: {
-  projectInfo: ProjectLoadType;
-}) {
-  console.log("projectInfo", projectInfo);
-  loadProjectState({
-    ...projectInfo,
-  });
-  return true;
-}
 
 export async function loadProject({ projectName, configName }) {
-  const res = await dbLoadProject({
+  const res = await dbLoadFullProject({
     projectName,
-    configName,
+    withBaseUITypes: true,
   });
   if (res.status === 200) {
-    return loadProjectIntoState({ projectInfo: res.data });
+    const projectConfig = res.data.configs.find(
+      (x) => x.projectConfig.name === configName
+    ).projectConfig;
+    const configsMerged = _.merge(
+      {},
+      ...res.data.configs.map((x) => _.omit(x, ["projectConfig"]))
+    );
+    const projectState = {
+      project: _.omit(res.data, ["configs"]),
+      projectConfig,
+      ...configsMerged,
+    };
+    useOtherProjectConfigs
+      .getState()
+      .setOtherConfigs(res.data.configs.map((x) => x.projectConfig));
+    return loadProjectState(projectState);
   } else {
     return false;
   }
 }
+
+// //old
+// export async function loadProject({ projectName, configName }) {
+//   const res = await dbLoadProject({
+//     projectName,
+//     configName,
+//   });
+//   if (res.status === 200) {
+//     return loadProjectState({ ...res.data });
+//   } else {
+//     return false;
+//   }
+// }

@@ -106,6 +106,10 @@ class ProjectSaveRequest(BaseModel):
     project: dict
 
 
+class LoadFullProjectRequest(BaseModel):
+    withBaseUITypes: bool
+
+
 class SaveAsNewProjectConfigRequest(BaseModel):
     project: dict
     newConfigName: str
@@ -251,9 +255,9 @@ def route_load_project(projectName, configName):
 
 
 @app.post("/projects/load/{projectName}")
-def route_load_full_project(projectName):
+def route_load_full_project(projectName, body: LoadFullProjectRequest):
     with dbq.get() as db:
-        return load_full_project(db, projectName)
+        return load_full_project(db, projectName, body.withBaseUITypes)
 
 
 @app.post("/projects/save")

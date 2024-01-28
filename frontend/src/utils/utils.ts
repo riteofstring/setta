@@ -17,18 +17,6 @@ export function insertIntoArray(arr, index, ...newItems) {
   ];
 }
 
-export function insertIntoArrayOrXpend(arr, index, prepend, ...newItems) {
-  if (index === null) {
-    if (prepend) {
-      return [...newItems, ...arr];
-    } else {
-      return [...arr, ...newItems];
-    }
-  } else {
-    return insertIntoArray(arr, index, ...newItems);
-  }
-}
-
 export function updateWithArrayMove(active, over) {
   return (x) => {
     const activeIndex = x.indexOf(active.id);

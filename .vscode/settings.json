@@ -11,7 +11,8 @@
     "**/CVS": true,
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
-    "**/node_modules": false
+    "**/node_modules": false,
+    "**/forked": true,
   },
   "task.allowAutomaticTasks": "on",
   "terminal.integrated.automationProfile.windows": {

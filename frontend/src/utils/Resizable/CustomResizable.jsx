@@ -81,7 +81,7 @@ function CustomResizableCore({
         right: widthResizable,
         bottomRight: heightResizable && widthResizable,
       }}
-      className={`flex flex-col items-stretch ${inputClasses}`}
+      className={inputClasses}
       handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}

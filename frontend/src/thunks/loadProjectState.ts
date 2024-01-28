@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useParamSweep } from "models/paramSweep";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
@@ -11,9 +12,9 @@ import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
 import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
-import { updateManyCurrChildren } from "./sections/children";
 import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
+import { useRunGroups } from "models/runGroups";
 
 export function loadProjectState({
   project,
@@ -25,6 +26,8 @@ export function loadProjectState({
   evCols,
   uiTypes,
   uiTypeCols,
+  paramSweeps,
+  runGroups,
   outputs,
   outputGroups,
 }: ProjectLoadType) {
@@ -38,6 +41,8 @@ export function loadProjectState({
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
+  useParamSweep.getState().resetAndSetAll(paramSweeps);
+  useRunGroups.getState().resetAndSetAll(runGroups)
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
   useProjectConfigCodeInfoMaps
     .getState()
@@ -46,6 +51,6 @@ export function loadProjectState({
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));
-  updateManyCurrChildren(Object.keys(sections));
   maybeIncrementProjectStateVersion(true);
+  return true;
 }

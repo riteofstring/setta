@@ -1,8 +1,9 @@
+import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { SiGnubash, SiPython } from "react-icons/si";
-import { deleteChild } from "thunks/sections/deleteChild";
+import { deleteSections } from "thunks/sections/sectionOps";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
@@ -11,10 +12,7 @@ import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
   sectionId,
-  parentId,
-  nextId,
   isSeriesElement,
-  hasNested,
   isActiveSection,
   sectionTypeName,
   isGlobalVariables,
@@ -24,7 +22,7 @@ function _SectionHeader({
     // ignore onClick events in parent components
     // https://stackoverflow.com/questions/60811792/react-how-to-ignore-onclick-for-child-element
     e.stopPropagation();
-    deleteChild({ parentId, startId: sectionId, incrementVersion: true });
+    deleteSections({ sectionIds: [sectionId], incrementVersion: true });
   };
 
   const _isRoot = isRoot(sectionTypeName);
@@ -53,13 +51,7 @@ function _SectionHeader({
         </>
       )}
       {(isSeriesElement || _isRoot) && (
-        <Incrementer
-          sectionId={sectionId}
-          parentId={parentId}
-          nextId={nextId}
-          isRoot={_isRoot}
-          hasNested={hasNested}
-        />
+        <Incrementer sectionId={sectionId} isRoot={_isRoot} />
       )}
 
       <CustomCloseButton
@@ -73,6 +65,10 @@ function _SectionHeader({
 }
 
 function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
+  const isSearchResult = useProjectSearch((x) =>
+    x.sections.includes(sectionId)
+  );
+
   const titleProps = {
     editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full ${
       isGlobalVariables
@@ -88,7 +84,11 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
     } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
   };
 
-  return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
+  return (
+    <div className={`${isSearchResult ? "outline outline-green-400" : ""}`}>
+      <SectionTitle sectionId={sectionId} titleProps={titleProps} />
+    </div>
+  );
 }
 
 export const SectionHeader = React.memo(_SectionHeader);
