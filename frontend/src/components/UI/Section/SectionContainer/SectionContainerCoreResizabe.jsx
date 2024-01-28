@@ -87,12 +87,12 @@ export function SectionContainerCoreResizable({
 
   return (
     <>
-      {/* <section style={{ height: 100, width: 400 }}> */}
-      <CustomResizable
+      <section className="resize">
+      {/* <CustomResizable
         sectionId={sectionId}
         inputClasses={inputClasses}
         as="section"
-      >
+      > */}
         <>
           <SectionHeader
             sectionId={sectionId}
@@ -114,8 +114,8 @@ export function SectionContainerCoreResizable({
           </Button>
         )} */}
         </>
-      </CustomResizable>
-      {/* </section> */}
+      {/* </CustomResizable> */}
+      </section>
       {/* {hasVersions && (
         <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
       )} */}
