@@ -31,10 +31,10 @@ export function KwargsControls({ sectionId, objInfoId }) {
       <section className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid border-white  px-6 pb-1 shadow-sm @container dark:border-runcoder-700 dark:from-transparent">
         <h3 className="pr-1  font-heading text-xs font-bold uppercase text-runcoder-600/70 before:content-['args'] @[16rem]:tracking-widest @[16rem]:before:content-['arguments'] dark:text-runcoder-400/70 "></h3>
         <button className={buttonClass} onClick={onClickDeleteKwarg}>
-          -
+          <i className="gg-math-minus"></i>
         </button>
         <button className={buttonClass} onClick={onClickAddKwarg}>
-          +
+          <i className="gg-math-plus"></i>
         </button>
         {/* <IconButton
           icon={<AiOutlineMinus />}
