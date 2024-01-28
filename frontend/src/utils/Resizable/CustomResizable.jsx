@@ -55,6 +55,7 @@ function CustomResizableCore({
   function onResizeStop(...props) {
     const { width, height } = getNewSize({
       props,
+      size,
       minWidth,
       sizeMode,
     });
@@ -66,6 +67,7 @@ function CustomResizableCore({
 
   return (
     <ResizableWithScale
+      id={sectionId}
       as={as}
       size={size}
       minHeight={minHeight}
@@ -120,7 +122,7 @@ function getDoubleClickSize({ direction, ref, minWidth, sizeMode }) {
 }
 
 function getNewSize({ props, minWidth, sizeMode }) {
-  const [e, direction, ref, d] = props;
+  const [e, direction, ref, d, newSize] = props;
   let width;
   let height;
   // detect double click (but only for non-output sections)
@@ -132,8 +134,8 @@ function getNewSize({ props, minWidth, sizeMode }) {
       sizeMode,
     });
   } else {
-    width = parseCurrPx(ref.style.width);
-    height = parseCurrPx(ref.style.height);
+    width = newSize.width
+    height = newSize.height
   }
   return { width, height };
 }
