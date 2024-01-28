@@ -47,8 +47,7 @@
     "@reactflow/background": "workspace:*",
     "@reactflow/controls": "workspace:*",
     "@reactflow/core": "workspace:*",
-    "@reactflow/minimap": "workspace:*",
-    "@reactflow/node-toolbar": "workspace:*"
+    "@reactflow/minimap": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=17",
@@ -68,8 +67,7 @@
       "@reactflow/background": "ReactFlowBackground",
       "@reactflow/controls": "ReactFlowControls",
       "@reactflow/core": "ReactFlowCore",
-      "@reactflow/minimap": "ReactFlowMinimap",
-      "@reactflow/node-toolbar": "ReactFlowNodeToolbar"
+      "@reactflow/minimap": "ReactFlowMinimap"
     },
     "name": "ReactFlow"
   }
