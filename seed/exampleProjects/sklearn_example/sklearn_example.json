@@ -672,7 +672,8 @@
             "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {},
             "bea52bce-2689-41d8-a870-fa8fedcfd78a": {},
             "d96cb110-6f72-435a-b745-2d55e277f983": {}
-          }
+          },
+          "projectConfigId": "41f411f7-b14d-4375-bfcd-204446866745"
         },
         "2226fedc-e7fd-4a8f-beee-9b9e91b6dec1": {
           "name": "Regular Run",
@@ -683,7 +684,8 @@
             "bea52bce-2689-41d8-a870-fa8fedcfd78a": {},
             "d96cb110-6f72-435a-b745-2d55e277f983": {},
             "e209e428-eea6-4e14-b61e-0648ec28dd76": {}
-          }
+          },
+          "projectConfigId": "41f411f7-b14d-4375-bfcd-204446866745"
         }
       },
       "codeInfo": {
