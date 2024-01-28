@@ -91,20 +91,16 @@ function CustomResizableCore({
   );
 }
 
-function parseCurrPx(x) {
-  return x === "auto" ? x : parseInt(x);
-}
-
 function maybeAutoPx(autoDim, pxDim, sizeMode) {
   return sizeMode !== SIZE_MODE.manual_only ? autoDim : pxDim;
 }
 
-function getDoubleClickSize({ direction, ref, minWidth, sizeMode }) {
+function getDoubleClickSize({ direction, newSize, minWidth, sizeMode }) {
   // width returns minWidth instead of auto because
   // it seems like once width is resized, auto does nothing
 
-  const pxWidth = parseCurrPx(ref.style.width);
-  const pxHeight = parseCurrPx(ref.style.height);
+  const pxWidth = newSize.width;
+  const pxHeight = newSize.height;
 
   if (direction === "bottomRight") {
     return [
@@ -129,13 +125,13 @@ function getNewSize({ props, minWidth, sizeMode }) {
   if (d.width === 0 && d.height === 0 && e.detail === 2) {
     [width, height] = getDoubleClickSize({
       direction,
-      ref,
+      newSize,
       minWidth,
       sizeMode,
     });
   } else {
-    width = newSize.width
-    height = newSize.height
+    width = newSize.width;
+    height = newSize.height;
   }
   return { width, height };
 }
