@@ -1,5 +1,4 @@
 import React from "react";
-import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
@@ -21,7 +20,13 @@ export function ComboboxInput({
       rightElement={
         <StandardSearchRightBtn
           {...getToggleButtonProps()}
-          icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
+          icon={
+            isOpen ? (
+              <i className="gg-chevron-up" />
+            ) : (
+              <i className="gg-chevron-down" />
+            )
+          }
           size={small ? "w-7 h-7" : "w-8 h-8"}
         />
       }
