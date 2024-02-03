@@ -74,8 +74,6 @@ const Pane = memo(
     const containerBounds = useRef<DOMRect>();
     const { userSelectionActive, elementsSelectable, dragging } = useStore(selector, shallow);
 
-    console.log("dragging", dragging)
-
     const resetUserSelection = () => {
       store.setState({ userSelectionActive: false, userSelectionRect: null });
 
@@ -84,7 +82,6 @@ const Pane = memo(
     };
 
     const onClick = (event: ReactMouseEvent) => {
-      console.log("onClick")
       onPaneClick?.(event);
       store.getState().resetSelectedElements();
       store.setState({ nodesSelectionActive: false });
@@ -102,7 +99,6 @@ const Pane = memo(
     const onWheel = onPaneScroll ? (event: React.WheelEvent) => onPaneScroll(event) : undefined;
 
     const onMouseDown = (event: ReactMouseEvent): void => {
-      console.log("onMouseDown")
       const { resetSelectedElements, domNode } = store.getState();
       containerBounds.current = domNode?.getBoundingClientRect();
 
@@ -135,7 +131,6 @@ const Pane = memo(
     };
 
     const onMouseMove = (event: ReactMouseEvent): void => {
-      console.log("onMouseMove")
       const { userSelectionRect, nodeInternals, edges, transform, onNodesChange, onEdgesChange, nodeOrigin, getNodes } =
         store.getState();
       if (!isSelecting || !containerBounds.current || !userSelectionRect) {
@@ -190,7 +185,6 @@ const Pane = memo(
     };
 
     const onMouseUp = (event: ReactMouseEvent) => {
-      console.log("onMouseUp")
       if (event.button !== 0) {
         return;
       }
@@ -218,11 +212,9 @@ const Pane = memo(
 
     const hasActiveSelection = elementsSelectable && (isSelecting || userSelectionActive);
 
-    console.log("new version!")
-
     return (
       <div
-        className={cc(['react-flow__pane', { selection: isSelecting }])}
+        className="react-flow__pane"
         onClick={hasActiveSelection ? undefined : wrapHandler(onClick, container)}
         onContextMenu={wrapHandler(onContextMenu, container)}
         onWheel={wrapHandler(onWheel, container)}
