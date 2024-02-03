@@ -1,25 +1,22 @@
 import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { SectionType } from "z_utils/types/section";
 
 export function setPositionState(inputNodes, incrementVersion) {
   const nodes = inputNodes.filter((x) => x.id);
-  const newValues = {};
-  const pc = useProjectConfig.getState();
+  const newValues = [];
+  const s = useSectionInfos.getState();
   for (const n of nodes) {
-    if (!(n.id in pc.children)) {
-      continue;
-    }
-    const position = pc.children[n.id];
-    if (position.x !== n.position.x || position.y !== n.position.y) {
-      newValues[n.id] = n.position;
+    if (!_.isEqual(s.x[n.id].position, n.position)) {
+      newValues.push({ id: n.id, position: n.position });
     }
   }
 
-  const positionsChanged = _.size(newValues) > 0;
+  const positionsChanged = newValues.length > 0;
   if (positionsChanged) {
-    pc.updatePositions(newValues);
+    s.updatePositions(newValues);
     maybeIncrementProjectStateVersion(incrementVersion);
   }
   return positionsChanged;
@@ -30,7 +27,7 @@ export function setZIndices(inputNodes: SectionType[], incrementVersion) {
   const pc = useProjectConfig.getState();
   const topLevelPositions = _.omit(
     pc.children,
-    nodes.map((x) => x.id)
+    nodes.map((x) => x.id),
   );
   const posWithIds = _.map(topLevelPositions, (v, k) => ({
     id: k,
@@ -55,5 +52,5 @@ export function setZIndices(inputNodes: SectionType[], incrementVersion) {
 
 export function setPositionAndZIndices(nodes) {
   const positionsChanged = setPositionState(nodes, false);
-  setZIndices(nodes, positionsChanged);
+  // setZIndices(nodes, positionsChanged);
 }

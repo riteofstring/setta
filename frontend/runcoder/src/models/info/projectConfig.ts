@@ -28,13 +28,6 @@ export const useProjectConfig = createProjectState(
         set((state) => {
           state.children = _.omit(state.children, payload);
         }),
-      updatePositions: (payload) =>
-        set((state) => {
-          _.forEach(
-            payload,
-            (v, k) => (state.children[k] = { ...state.children[k], ...v })
-          );
-        }),
       setName: (name) => set({ name }),
       getAll: () => _.pick(get(), ["id", "name", "children"]),
     }))

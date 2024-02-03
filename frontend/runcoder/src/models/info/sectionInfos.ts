@@ -23,7 +23,7 @@ export const useSectionInfos = createProjectState(
             ...state,
             x: sections,
           }),
-          true
+          true,
         );
       },
 
@@ -61,7 +61,7 @@ export const useSectionInfos = createProjectState(
           for (const sectionId of Object.keys(newValues)) {
             state.x[sectionId] = Object.assign(
               state.x[sectionId],
-              newValues[sectionId]
+              newValues[sectionId],
             );
           }
         }),
@@ -88,7 +88,7 @@ export const useSectionInfos = createProjectState(
           });
           for (const [k, v] of Object.entries(state.x)) {
             state.x[k].children = v.children.filter(
-              (x) => !payload.includes(x)
+              (x) => !payload.includes(x),
             );
           }
         }),
@@ -97,8 +97,15 @@ export const useSectionInfos = createProjectState(
         set((state) => {
           state.x = { ...state.x, ...payload };
         }),
-    }))
-  )
+
+      updatePositions: (payload) =>
+        set((state) => {
+          for (const p of payload) {
+            state.x[p.id].position = p.position;
+          }
+        }),
+    })),
+  ),
 );
 
 function valueOrNewValueFn({ obj, attr, value, newValueFn }) {

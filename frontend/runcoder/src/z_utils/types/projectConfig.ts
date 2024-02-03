@@ -21,8 +21,6 @@ export type ProjectConfigActionType = {
 
   deleteChildren: (payload: string[]) => void;
 
-  updatePositions: (payload: ManyOf<Partial<SectionPositionType>>) => void;
-
   setName: (payload: string) => void;
 
   getAll: () => ProjectConfigType;
