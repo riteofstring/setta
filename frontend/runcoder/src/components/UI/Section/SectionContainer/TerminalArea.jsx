@@ -3,7 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
 import { useStore } from "reactflow";
-import { Terminal } from "xterm";
+import "xterm";
 import "xterm/css/xterm.css";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { createNewId } from "z_utils/utils";
@@ -76,7 +76,7 @@ function useTerminal({ sectionId, width, height }) {
   const fitAddon = useFitAddon();
 
   useEffect(() => {
-    const terminal = new Terminal({
+    const terminal = new window.Terminal({
       cursorBlink: true,
       theme: theme,
       // fontFamily: fontFamily,
