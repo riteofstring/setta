@@ -4,7 +4,7 @@ import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
-import { ControlButton, Controls } from "xyflow/controls";
+import { ControlButton, Controls } from "reactflow";
 import { setPositionState } from "thunks/sections/sectionPositions";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 
