@@ -15,7 +15,8 @@
     "f": "prettier src --write",
     "lf": "pnpm l && pnpm f",
     "knip": "knip",
-    "ts-prune": "ts-prune"
+    "ts-prune": "ts-prune",
+    "cleaninstall": "rm -rf node_modules **/node_modules && pnpm install"
   },
   "devDependencies": {
     "concurrently": "8.2.0"

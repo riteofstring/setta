@@ -1,6 +1,6 @@
 {
   "name": "@reactflow/minimap",
-  "version": "11.7.8-runcoder",
+  "version": "11.7.8",
   "private": true,
   "description": "Minimap component for React Flow.",
   "files": [

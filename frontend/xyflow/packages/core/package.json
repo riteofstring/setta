@@ -1,6 +1,6 @@
 {
   "name": "@reactflow/core",
-  "version": "11.10.3-runcoder",
+  "version": "11.10.3",
   "private": true,
   "description": "Core components and util functions of React Flow.",
   "files": [

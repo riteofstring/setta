@@ -1,6 +1,6 @@
 {
   "name": "@reactflow/background",
-  "version": "11.3.8-runcoder",
+  "version": "11.3.8",
   "private": true,
   "description": "Background component with different variants for React Flow",
   "files": [
