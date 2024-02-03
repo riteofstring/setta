@@ -1,5 +1,5 @@
 cd frontend && \
-npm run fullinstall && \
+pnpm install && \
 cd .. && \
 . ./init_env.sh dev && \
 ./cleanup.sh
