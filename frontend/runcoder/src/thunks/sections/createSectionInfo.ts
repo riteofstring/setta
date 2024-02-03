@@ -29,21 +29,17 @@ export function createChildForSeries({ parentId, numChildren }) {
   });
 }
 
-export function createSectionInfo({
-  sectionProps = {},
-  numSections = 1,
-  isTopLevel = false,
-}) {
+export function createSectionInfo({ sectionProps = {}, numSections = 1 }) {
   const newInfos = {};
   for (let i = 0; i < numSections; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos, isTopLevel);
+  addSectionsToState(newInfos);
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(sectionInfos: ManySectionType, isTopLevel) {
+function addSectionsToState(sectionInfos: ManySectionType) {
   const siState = useSectionInfos.getState();
   siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
@@ -57,15 +53,18 @@ function addSectionsToState(sectionInfos: ManySectionType, isTopLevel) {
     collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
   });
 
+  const topLevelSectionIds = [];
+
   for (const s of sectionIds) {
     initializeNewSectionConfig(s);
     const { codeInfoId } = getSectionTypeConfig(s);
     initializeChildParams({ sectionIds: [s], codeInfoIds: [codeInfoId] });
+    if (!sectionInfos[s].parentId) {
+      topLevelSectionIds.push(s);
+    }
   }
 
-  if (isTopLevel) {
-    useProjectConfig.getState().addChildren(Object.keys(sectionInfos));
-  }
+  useProjectConfig.getState().addChildren(topLevelSectionIds);
 }
 
 function initializeNewSectionConfig(sectionId) {

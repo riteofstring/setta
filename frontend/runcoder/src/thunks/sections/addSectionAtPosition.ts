@@ -54,7 +54,7 @@ export function addSectionAtPosition({
   } else if (type === GLOBAL_PARAM_SWEEP) {
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
   }
-  const [newId] = createSectionInfo({ sectionProps, isTopLevel: true });
+  const [newId] = createSectionInfo({ sectionProps });
   callbackBeforeExit(newId);
   maybeIncrementProjectStateVersion(incrementVersion);
   return newId;

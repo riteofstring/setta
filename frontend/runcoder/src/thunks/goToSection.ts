@@ -3,6 +3,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
+import { getHighestAncestor } from "./sections/sectionSizes";
 
 export function relativePos(sectionId) {
   const s = useSectionRefs.getState();
@@ -14,7 +15,7 @@ export function goToSection(sectionId: string) {
   const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
   const margin = 20;
   const { width, height } = REACT_FLOW_STORE.store.getState();
-  const { x, y } = useSectionInfos.getState().x[sectionId].position;
+  const { x, y } = trueSectionPosition(sectionId);
   const newX = x + width / 2 - overviewWidth - margin;
   const newY = y + height / 2 - margin;
   REACT_FLOW_STORE.rf.setCenter(newX, newY, {
@@ -22,4 +23,15 @@ export function goToSection(sectionId: string) {
     duration: 100,
   });
   useActiveSection.getState().setIds([sectionId]);
+}
+
+export function trueSectionPosition(sectionId) {
+  const sectionState = useSectionInfos.getState().x;
+  const { x, y } = sectionState[sectionId].position;
+  if (sectionState[sectionId].parentId) {
+    const highestAncestor = getHighestAncestor(sectionId);
+    const ancestorPos = sectionState[highestAncestor].position;
+    return { x: ancestorPos.x + x, y: ancestorPos.y + y };
+  }
+  return { x, y };
 }

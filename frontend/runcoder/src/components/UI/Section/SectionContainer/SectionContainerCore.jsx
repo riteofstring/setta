@@ -3,8 +3,8 @@ import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useSectionRefAndInit } from "models/sectionRefs";
-import React from "react";
+import { useSectionRefAndInit, useSectionRefs } from "models/sectionRefs";
+import React, { useEffect } from "react";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { setZIndices } from "thunks/sections/sectionPositions";
@@ -39,9 +39,24 @@ function _SectionContainerCore({ sectionId }) {
     } else {
       useActiveSection.getState().setIds([sectionId]);
     }
-    const topMostAncestor = getHighestAncestor(sectionId);
-    setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
+    const highestAncestor = getHighestAncestor(sectionId);
+    setZIndices([useSectionInfos.getState().x[highestAncestor]], false);
   }
+
+  useEffect(() => {
+    if (useSectionInfos.getState().x[sectionId].parentId) {
+      const { x, y } = refForPosition.current.getBoundingClientRect();
+      const highestAncestor = getHighestAncestor(sectionId);
+      const { x: ancestorX, y: ancestorY } = useSectionRefs
+        .getState()
+        .selfOnly[highestAncestor].getBoundingClientRect();
+      const xDiff = x - ancestorX;
+      const yDiff = y - ancestorY;
+      useSectionInfos
+        .getState()
+        .updatePositions([{ id: sectionId, position: { x: xDiff, y: yDiff } }]);
+    }
+  }, []);
 
   const boxShadow = isActiveSection
     ? "shadow-2xl"

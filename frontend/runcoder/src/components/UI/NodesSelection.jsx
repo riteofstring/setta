@@ -5,21 +5,19 @@
 
 import cc from "classcat";
 import { useActiveSection } from "models/activeSection";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefs } from "models/sectionRefs";
 import React from "react";
 import { getNodesBounds, useStore } from "reactflow";
+import { trueSectionPosition } from "thunks/goToSection";
 
 const selector = (s) => {
   const activeSectionIds = useActiveSection.getState().ids;
-  const sectionState = useSectionInfos.getState().x;
   const sections = activeSectionIds.map((sectionId) => {
     const ref = useSectionRefs.getState().selfOnly[sectionId];
     const { clientWidth: width, clientHeight: height } = ref;
-    const { x, y } = sectionState[sectionId].position;
+    const { x, y } = trueSectionPosition(sectionId);
     return { position: { x, y }, width, height };
   });
-  console.log(sections);
   return {
     ...getNodesBounds(sections),
     transformString: `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,

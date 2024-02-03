@@ -1,6 +1,7 @@
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefs } from "models/sectionRefs";
+import { trueSectionPosition } from "thunks/goToSection";
 
 export function getNodesInside(
   rect,
@@ -22,7 +23,7 @@ export function getNodesInside(
   for (const section of Object.values(useSectionInfos.getState().x)) {
     const ref = useSectionRefs.getState().selfOnly[section.id];
     const { clientWidth: width, clientHeight: height } = ref;
-    const { x, y } = section.position;
+    const { x, y } = trueSectionPosition(section.id);
 
     const position = getNodePositionWithOrigin(
       { width, height, x, y },
