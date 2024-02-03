@@ -23,6 +23,8 @@ def seed_projects(db):
         str(get_absolute_path(__file__, seed_folder / "exampleProjects/**/*.json"))
     )
     for filepath in example_jsons:
+        if "sklearn_example" not in filepath:
+            continue
         with open(filepath, "r") as f:
             data = json.load(f)
         save_project_details(db, data)

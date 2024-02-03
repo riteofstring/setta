@@ -77,6 +77,8 @@ def load_sections(db, ids):
         v = dict(v)
         width = v.pop("width")
         height = v.pop("height")
+        x = v.pop("x")
+        y = v.pop("y")
         chainedFrom = v.pop("chainedFromId")
         selectedItem = v.pop("selectedItemId")
         outputGroup = v.pop("outputGroupId")
@@ -91,6 +93,7 @@ def load_sections(db, ids):
                 "width": convert_size(width),
                 "height": convert_size(height),
             },
+            "position": {"x": x, "y": y},
             "evColIds": v["evColIds"].split(",") if v["evColIds"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []

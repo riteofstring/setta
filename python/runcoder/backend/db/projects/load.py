@@ -71,10 +71,7 @@ def load_project_config_metadata(db, project_id, config_name):
             ProjectConfig.x,
             ProjectConfig.y,
             ProjectConfig.zoom,
-            ProjectConfigChildren.childId as childId,
-            ProjectConfigChildren.x as childX,
-            ProjectConfigChildren.y as childY,
-            ProjectConfigChildren.zIndex as childZIndex
+            ProjectConfigChildren.childId as childId
         FROM
             ProjectConfig
         LEFT JOIN
@@ -85,30 +82,22 @@ def load_project_config_metadata(db, project_id, config_name):
             ProjectConfig.projectId = :projectId
         AND
             name = :name
+        ORDER BY ProjectConfigChildren."order"
     """
 
     query_params = {"projectId": project_id, "name": config_name}
     db.execute(query, query_params)
     out = aggregate_results(
-        db.fetchall(), "id", ["childId", "childX", "childY", "childZIndex"]
+        db.fetchall(), "id", ["childId"]
     )
     if len(out) > 1:
         raise ValueError(f"output should be of length 1 but has length {len(out)}")
     out = list(out.values())[0]
-    children = {}
-    for i, c in enumerate(out["childId"]):
-        if c:
-            children[c] = {
-                "x": out["childX"][i],
-                "y": out["childY"][i],
-                "zIndex": out["childZIndex"][i],
-            }
-
     return {
         "id": out["id"],
         "name": out["name"],
         "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
-        "children": children,
+        "children": out["childId"],
     }
 
 
@@ -116,7 +105,7 @@ def load_project(db, project_name, config_name):
     project = load_project_metadata(db, project_name)
     projectConfig = load_project_config_metadata(db, project["id"], config_name)
     runGroups = load_run_groups(db, projectConfig["id"])
-    sections_data = load_sections(db, list(projectConfig["children"].keys()))
+    sections_data = load_sections(db, list(projectConfig["children"]))
     sections = sections_data["sections"]
     evCols = sections_data["evCols"]
     uiTypeCols = sections_data["uiTypeCols"]
