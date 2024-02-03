@@ -152,7 +152,7 @@ const Pane = memo(
       };
 
       const nodes = getNodes();
-      const selectedNodes = getNodesInsideSelection(
+      const selectedNodeIds = getNodesInsideSelection(
         nextUserSelectRect,
         transform,
         selectionMode === SelectionMode.Partial,
@@ -162,13 +162,13 @@ const Pane = memo(
       // const selectedEdgeIds = getConnectedEdges(selectedNodes, edges).map((e) => e.id);
       // const selectedNodeIds = selectedNodes.map((n) => n.id);
 
-      // if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
-      //   prevSelectedNodesCount.current = selectedNodeIds.length;
-      //   const changes = getSelectionChanges(nodes, selectedNodeIds) as NodeChange[];
-      //   if (changes.length) {
-      //     onNodesChange?.(changes);
-      //   }
-      // }
+      if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
+        prevSelectedNodesCount.current = selectedNodeIds.length;
+        const changes = getSelectionChanges(nodes, selectedNodeIds) as NodeChange[];
+        if (changes.length) {
+          onNodesChange?.(changes);
+        }
+      }
 
       // if (prevSelectedEdgesCount.current !== selectedEdgeIds.length) {
       //   prevSelectedEdgesCount.current = selectedEdgeIds.length;

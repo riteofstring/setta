@@ -25,19 +25,6 @@ function onSelectionDragStop(e, nodes) {
   setPositionAndZIndices(nodes);
 }
 
-function onSelectionChange({ nodes }) {
-  if (REACT_FLOW_STORE.store?.getState().userSelectionActive) {
-    useActiveSection.getState().setIds(nodes.map((x) => x.id));
-  }
-}
-
-function onSelectionDragStart(e) {
-  console.log("onSelectionDragStart", e);
-}
-function onSelectionDrag(e) {
-  console.log("onSelectionDrag", e);
-}
-
 function getNodesInsideSelection(...props) {
   return getNodesInside(...props);
 }
@@ -118,9 +105,6 @@ function _SectionsPane({
       onMoveStart={closeCtxMenus}
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
-      onSelectionChange={onSelectionChange}
-      onSelectionDragStart={onSelectionDragStart}
-      onSelectionDrag={onSelectionDrag}
       onInit={onInit}
       getNodesInsideSelection={getNodesInsideSelection}
       nodeDragThreshold={1}

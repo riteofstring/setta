@@ -55,6 +55,7 @@ export function getNodesInside(
   }
 
   useActiveSection.getState().setIds(visibleNodes);
+  return visibleNodes
 }
 
 function getOverlappingArea(rectA, rectB) {
