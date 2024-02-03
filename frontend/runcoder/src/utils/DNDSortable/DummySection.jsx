@@ -3,7 +3,7 @@ import { useDndState } from "models/info/dndState";
 import { useTrueSectionSize } from "models/sectionRefs";
 import React from "react";
 import { createPortal } from "react-dom";
-import { useStore } from "reactflow";
+import { useStore } from "xyflow/core";
 
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
   const { width, height } = useTrueSectionSize(sectionId);

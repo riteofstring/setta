@@ -3,7 +3,7 @@ import { useActiveSection } from "models/activeSection";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect } from "react";
-import { useStoreApi } from "reactflow";
+import { useStoreApi } from "xyflow/core";
 import { attachKeyEventListeners } from "thunks/keyActivations";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";

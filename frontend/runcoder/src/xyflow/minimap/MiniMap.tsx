@@ -7,8 +7,8 @@ import { shallow } from 'zustand/shallow';
 import { zoom, zoomIdentity } from 'd3-zoom';
 import type { D3ZoomEvent } from 'd3-zoom';
 import { select, pointer } from 'd3-selection';
-import { useStore, getNodesBounds, Panel, getBoundsOfRects, useStoreApi, CoordinateExtent } from 'reactflow'
-import type { ReactFlowState, Rect } from 'reactflow';
+import { useStore, getNodesBounds, Panel, getBoundsOfRects, useStoreApi, CoordinateExtent } from 'xyflow/core'
+import type { ReactFlowState, Rect } from 'xyflow/core';
 
 import type { MiniMapProps } from './types';
 import MiniMapNodes from './MiniMapNodes';

@@ -1,10 +1,10 @@
 import { useActiveSection } from "models/activeSection";
 import React, { useCallback, useState } from "react";
-import ReactFlow from "reactflow";
-import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { REACT_FLOW_STORE } from "utils/constants";
+import { ReactFlow } from "xyflow/core";
+import "xyflow/core/styles/style.css";
 import { NodesSelectionWrapper } from "../NodesSelection";
 import { getNodesInside } from "./getSelectedNodes";
 import "./react-flow-css.css";

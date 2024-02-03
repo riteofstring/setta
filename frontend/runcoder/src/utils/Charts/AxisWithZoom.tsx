@@ -1,5 +1,5 @@
 import React from "react";
-import { useStore } from "reactflow";
+import { useStore } from "xyflow/core";
 
 // This is a hack to fix the bug where tick labels change size unexpectedly when zoomed in or out.
 // It works by rerendering the child (the axis) every time the zoom level changes.

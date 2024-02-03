@@ -1,6 +1,6 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
-import { useStore } from "reactflow";
+import { useStore } from "xyflow/core";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";

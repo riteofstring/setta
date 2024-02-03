@@ -1,6 +1,2 @@
 packages:
   - "runcoder"
-  - "xterm.js"
-  - "xyflow"
-  - "xyflow/packages/*"
-  - "xyflow/tooling/*"
