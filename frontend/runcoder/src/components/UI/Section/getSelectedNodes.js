@@ -21,7 +21,7 @@ export function getNodesInside(
   const visibleNodes = [];
 
   for (const section of Object.values(useSectionInfos.getState().x)) {
-    const ref = useSectionRefs.getState().x[section.id];
+    const ref = useSectionRefs.getState().selfOnly[section.id];
     const { clientWidth: width, clientHeight: height } = ref;
     const { y: _y, x: _x } = ref.getBoundingClientRect();
     const { x, y } = REACT_FLOW_STORE.rf.screenToFlowPosition({ x: _x, y: _y });

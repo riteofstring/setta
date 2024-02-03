@@ -3,6 +3,7 @@ import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
 import { getParamInfos } from "thunks/sections/sectionContents";
@@ -16,12 +17,13 @@ function _SectionContainerCore({ sectionId }) {
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
+  const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
 
   function onClick(e) {
     if (paramSelect(e)) {
       // depends on bubbling behavior (child div onclicks get executed first)
       const atLeastOneParamSelected = getParamInfos(sectionId).some(
-        (x) => x.isSelected
+        (x) => x.isSelected,
       );
       if (!isActiveSection && atLeastOneParamSelected) {
         useActiveSection.getState().addIds([sectionId]);
@@ -50,6 +52,7 @@ function _SectionContainerCore({ sectionId }) {
       className={`rounded-xl border border-white bg-white dark:border-runcoder-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
+      ref={refForPosition}
     >
       <SectionContainerCoreResizable
         sectionId={sectionId}
@@ -64,5 +67,5 @@ function _SectionContainerCore({ sectionId }) {
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  () => true
+  () => true,
 );

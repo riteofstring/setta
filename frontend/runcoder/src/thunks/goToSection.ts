@@ -5,7 +5,7 @@ import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 
 export function relativePos(sectionId) {
   const s = useSectionRefs.getState();
-  const ref = s.x[sectionId].getBoundingClientRect();
+  const ref = s.withNested[sectionId].getBoundingClientRect();
   return { y: ref.y, x: ref.x };
 }
 
