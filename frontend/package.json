@@ -8,7 +8,7 @@
     "ncm": "concurrently --kill-others \"cd runcoder && pnpm ncm\" \"bash runcoder/backendStart.sh\"",
     "ncmr": "concurrently --kill-others \"cd runcoder && pnpm ncm\" \"bash runcoder/backendStart.sh --reload\"",
     "reset": "cd .. && rm -f runcoder.db && cd frontend && pnpm start",
-    "build": "vite build --base=/static/",
+    "build": "cd runcoder && pnpm build",
     "test": "vitest",
     "serve": "vite preview",
     "l": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
