@@ -139,7 +139,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, 'onError'> & {
   connectOnClick?: boolean;
   attributionPosition?: PanelPosition;
   proOptions?: ProOptions;
-  elevateNodesOnSelect?: boolean;
   elevateEdgesOnSelect?: boolean;
   disableKeyboardA11y?: boolean;
   autoPanOnNodeDrag?: boolean;

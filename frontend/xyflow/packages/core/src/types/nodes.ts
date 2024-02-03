@@ -25,7 +25,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   width?: number | null;
   height?: number | null;
   parentNode?: string;
-  zIndex?: number;
   extent?: 'parent' | CoordinateExtent;
   expandParent?: boolean;
   positionAbsolute?: XYPosition;
@@ -49,7 +48,7 @@ export type WrapNodeProps<T = any> = Pick<
   Node<T>,
   'id' | 'data' | 'style' | 'className' | 'dragHandle' | 'sourcePosition' | 'targetPosition' | 'hidden' | 'ariaLabel'
 > &
-  Required<Pick<Node<T>, 'selected' | 'type' | 'zIndex'>> & {
+  Required<Pick<Node<T>, 'selected' | 'type'>> & {
     isConnectable: boolean;
     xPos: number;
     yPos: number;
@@ -77,7 +76,7 @@ export type WrapNodeProps<T = any> = Pick<
 // props that get passed to a custom node
 export type NodeProps<T = any> = Pick<
   WrapNodeProps<T>,
-  'id' | 'data' | 'dragHandle' | 'type' | 'selected' | 'isConnectable' | 'xPos' | 'yPos' | 'zIndex'
+  'id' | 'data' | 'dragHandle' | 'type' | 'selected' | 'isConnectable' | 'xPos' | 'yPos'
 > & {
   dragging: boolean;
   targetPosition?: Position;

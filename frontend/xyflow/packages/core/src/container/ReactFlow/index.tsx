@@ -41,7 +41,6 @@ const wrapperStyle: CSSProperties = {
   height: '100%',
   overflow: 'hidden',
   position: 'relative',
-  zIndex: 0,
 };
 
 const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
@@ -146,7 +145,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       attributionPosition,
       proOptions,
       defaultEdgeOptions,
-      elevateNodesOnSelect = true,
       elevateEdgesOnSelect = false,
       disableKeyboardA11y = false,
       autoPanOnConnect = true,
@@ -258,7 +256,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             edgesFocusable={edgesFocusable}
             edgesUpdatable={edgesUpdatable}
             elementsSelectable={elementsSelectable}
-            elevateNodesOnSelect={elevateNodesOnSelect}
             minZoom={minZoom}
             maxZoom={maxZoom}
             nodeExtent={nodeExtent}

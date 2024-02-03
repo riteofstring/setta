@@ -187,7 +187,6 @@ export type ReactFlowStore = {
   edgesFocusable: boolean;
   edgesUpdatable: boolean;
   elementsSelectable: boolean;
-  elevateNodesOnSelect: boolean;
 
   multiSelectionActive: boolean;
 

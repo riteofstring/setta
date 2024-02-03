@@ -80,14 +80,11 @@ export function createNodeInternals(
   nodes: Node[],
   nodeInternals: NodeInternals,
   nodeOrigin: NodeOrigin,
-  elevateNodesOnSelect: boolean
 ): NodeInternals {
   const nextNodeInternals = new Map<string, Node>();
   const parentNodes: ParentNodes = {};
-  const selectedNodeZ: number = elevateNodesOnSelect ? 1000 : 0;
 
   nodes.forEach((node) => {
-    const z = (isNumeric(node.zIndex) ? node.zIndex : 0) + (node.selected ? selectedNodeZ : 0);
     const currInternals = nodeInternals.get(node.id);
 
     const internals: Node = {
@@ -109,7 +106,6 @@ export function createNodeInternals(
       enumerable: false,
       value: {
         handleBounds: currInternals?.[internalsSymbol]?.handleBounds,
-        z,
       },
     });
 

@@ -45,7 +45,6 @@ type StoreUpdaterProps = Pick<
   | 'onSelectionDragStop'
   | 'noPanClassName'
   | 'nodeOrigin'
-  | 'elevateNodesOnSelect'
   | 'autoPanOnConnect'
   | 'autoPanOnNodeDrag'
   | 'connectionRadius'
@@ -101,7 +100,6 @@ const StoreUpdater = ({
   nodesFocusable,
   edgesFocusable,
   edgesUpdatable,
-  elevateNodesOnSelect,
   minZoom,
   maxZoom,
   nodeExtent,
@@ -168,7 +166,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater('edgesFocusable', edgesFocusable, store.setState);
   useDirectStoreUpdater('edgesUpdatable', edgesUpdatable, store.setState);
   useDirectStoreUpdater('elementsSelectable', elementsSelectable, store.setState);
-  useDirectStoreUpdater('elevateNodesOnSelect', elevateNodesOnSelect, store.setState);
   useDirectStoreUpdater('snapToGrid', snapToGrid, store.setState);
   useDirectStoreUpdater('snapGrid', snapGrid, store.setState);
   useDirectStoreUpdater('onNodesChange', onNodesChange, store.setState);

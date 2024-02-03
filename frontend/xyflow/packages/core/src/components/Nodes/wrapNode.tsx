@@ -46,7 +46,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     hidden,
     resizeObserver,
     dragHandle,
-    zIndex,
     isParent,
     noDragClassName,
     noPanClassName,
@@ -183,7 +182,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         ])}
         ref={nodeRef}
         style={{
-          zIndex,
           transform: `translate(${xPosOrigin}px,${yPosOrigin}px)`,
           pointerEvents: hasPointerEvents ? 'all' : 'none',
           visibility: initialized ? 'visible' : 'hidden',
@@ -216,7 +214,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
             targetPosition={targetPosition}
             dragging={dragging}
             dragHandle={dragHandle}
-            zIndex={zIndex}
           />
         </Provider>
       </div>

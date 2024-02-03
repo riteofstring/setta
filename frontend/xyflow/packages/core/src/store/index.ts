@@ -27,8 +27,8 @@ const createRFStore = () =>
     (set, get) => ({
       ...initialState,
       setNodes: (nodes: Node[]) => {
-        const { nodeInternals, nodeOrigin, elevateNodesOnSelect } = get();
-        set({ nodeInternals: createNodeInternals(nodes, nodeInternals, nodeOrigin, elevateNodesOnSelect) });
+        const { nodeInternals, nodeOrigin } = get();
+        set({ nodeInternals: createNodeInternals(nodes, nodeInternals, nodeOrigin) });
       },
       getNodes: () => {
         return Array.from(get().nodeInternals.values());
@@ -42,7 +42,7 @@ const createRFStore = () =>
         const hasDefaultEdges = typeof edges !== 'undefined';
 
         const nodeInternals = hasDefaultNodes
-          ? createNodeInternals(nodes, new Map(), get().nodeOrigin, get().elevateNodesOnSelect)
+          ? createNodeInternals(nodes, new Map(), get().nodeOrigin)
           : new Map();
         const nextEdges = hasDefaultEdges ? edges : [];
 
@@ -135,12 +135,12 @@ const createRFStore = () =>
       },
 
       triggerNodeChanges: (changes: NodeChange[]) => {
-        const { onNodesChange, nodeInternals, hasDefaultNodes, nodeOrigin, getNodes, elevateNodesOnSelect } = get();
+        const { onNodesChange, nodeInternals, hasDefaultNodes, nodeOrigin, getNodes } = get();
 
         if (changes?.length) {
           if (hasDefaultNodes) {
             const nodes = applyNodeChanges(changes, getNodes());
-            const nextNodeInternals = createNodeInternals(nodes, nodeInternals, nodeOrigin, elevateNodesOnSelect);
+            const nextNodeInternals = createNodeInternals(nodes, nodeInternals, nodeOrigin);
             set({ nodeInternals: nextNodeInternals });
           }
 

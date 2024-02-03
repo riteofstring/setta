@@ -133,7 +133,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
             dragHandle={node.dragHandle}
-            zIndex={node[internalsSymbol]?.z ?? 0}
             isParent={!!node[internalsSymbol]?.isParent}
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}
