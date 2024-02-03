@@ -32,8 +32,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@reactflow/core": "workspace:*",
-    "@reactflow/minimap": "workspace:*"
+    "@reactflow/core": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=17",
@@ -50,8 +49,7 @@
   },
   "rollup": {
     "globals": {
-      "@reactflow/core": "ReactFlowCore",
-      "@reactflow/minimap": "ReactFlowMinimap"
+      "@reactflow/core": "ReactFlowCore"
     },
     "name": "ReactFlow"
   }

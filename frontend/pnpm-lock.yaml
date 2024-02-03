@@ -137,6 +137,12 @@ importers:
       d3-scale-chromatic:
         specifier: 3.0.0
         version: 3.0.0
+      d3-selection:
+        specifier: 3.0.0
+        version: 3.0.0
+      d3-zoom:
+        specifier: 3.0.0
+        version: 3.0.0
       downshift:
         specifier: 8.2.3
         version: 8.2.3(react@18.2.0)
@@ -422,63 +428,11 @@ importers:
         specifier: ^4.9.4
         version: 4.9.5
 
-  xyflow/packages/minimap:
-    dependencies:
-      '@reactflow/core':
-        specifier: workspace:*
-        version: link:../core
-      '@types/d3-selection':
-        specifier: ^3.0.3
-        version: 3.0.10
-      '@types/d3-zoom':
-        specifier: ^3.0.1
-        version: 3.0.8
-      classcat:
-        specifier: ^5.0.3
-        version: 5.0.4
-      d3-selection:
-        specifier: ^3.0.0
-        version: 3.0.0
-      d3-zoom:
-        specifier: ^3.0.0
-        version: 3.0.0
-      react-dom:
-        specifier: '>=17'
-        version: 18.2.0(react@18.2.0)
-      zustand:
-        specifier: ^4.4.1
-        version: 4.4.7(@types/react@18.2.52)(immer@10.0.2)(react@18.2.0)
-    devDependencies:
-      '@reactflow/eslint-config':
-        specifier: workspace:*
-        version: link:../../tooling/eslint-config
-      '@reactflow/rollup-config':
-        specifier: workspace:*
-        version: link:../../tooling/rollup-config
-      '@reactflow/tsconfig':
-        specifier: workspace:*
-        version: link:../../tooling/tsconfig
-      '@types/node':
-        specifier: ^18.7.16
-        version: 18.19.14
-      '@types/react':
-        specifier: '>=17'
-        version: 18.2.52
-      react:
-        specifier: ^18.2.0
-        version: 18.2.0
-      typescript:
-        specifier: ^4.9.4
-        version: 4.9.5
-
   xyflow/packages/reactflow:
     dependencies:
       '@reactflow/core':
         specifier: workspace:*
         version: link:../core
-      '@reactflow/minimap':
-        specifier: workspace:*
-        version: link:../minimap
       react-dom:
         specifier: '>=17'
         version: 18.2.0(react@18.2.0)
