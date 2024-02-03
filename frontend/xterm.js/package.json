@@ -25,7 +25,6 @@
   "scripts": {
     "prepackage": "pnpm build",
     "package": "webpack",
-    "package-headless": "webpack --config ./webpack.config.headless.js",
     "lint": "eslint -c .eslintrc.json --max-warnings 0 --ext .ts src/ addons/",
     "lint-api": "eslint --no-eslintrc -c .eslintrc.json.typings --max-warnings 0 --no-ignore --ext .d.ts typings/",
     "test": "pnpm test-unit",
