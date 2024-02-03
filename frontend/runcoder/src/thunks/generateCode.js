@@ -1,7 +1,7 @@
-import {
-  INITIAL_MESSAGE,
-  TERMINAL_WEBSOCKETS,
-} from "components/UI/Section/SectionContainer/TerminalArea";
+// import {
+//   INITIAL_MESSAGE,
+//   TERMINAL_WEBSOCKETS,
+// } from "components/UI/Section/SectionContainer/TerminalArea";
 import { dbGetFreeTerminal } from "dbRequests/terminals";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
