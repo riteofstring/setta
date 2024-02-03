@@ -20,7 +20,6 @@ package-lock.json
 
 # Keep bundled code out of Git
 dist/
-demo/dist/
 
 # dont commit benchmark folders
 .benchmark/
