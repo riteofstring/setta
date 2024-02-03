@@ -24,6 +24,7 @@ import { SectionDescription } from "./Main/SectionDescription/SectionDescription
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
 import { SocialArea } from "./SocialArea";
+import { TerminalArea } from "./TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
@@ -142,8 +143,8 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <CodeArea sectionId={sectionId} codeType="varControl" />;
     case PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
-    // case TERMINAL:
-    // return <TerminalArea sectionId={sectionId} />;
+    case TERMINAL:
+      return <TerminalArea sectionId={sectionId} />;
     case GLOBAL_PARAM_SWEEP:
       return <GlobalParamSweepArea />;
     default:

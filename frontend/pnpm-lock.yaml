@@ -124,13 +124,10 @@ importers:
         version: 4.0.0(vite@4.3.5)
       '@xterm/addon-attach':
         specifier: 0.10.0-beta.1
-        version: 0.10.0-beta.1(xterm@5.3.0)
+        version: 0.10.0-beta.1(xterm@xterm.js)
       '@xterm/addon-fit':
         specifier: 0.9.0-beta.1
-        version: 0.9.0-beta.1(xterm@5.3.0)
-      '@xterm/xterm':
-        specifier: workspace:*
-        version: link:../xterm.js
+        version: 0.9.0-beta.1(xterm@xterm.js)
       autoprefixer:
         specifier: 10.4.12
         version: 10.4.12(postcss@8.4.18)
@@ -224,6 +221,9 @@ importers:
       web-vitals:
         specifier: 2.1.0
         version: 2.1.0
+      xterm:
+        specifier: workspace:*
+        version: link:../xterm.js
       zundo:
         specifier: 2.0.0-beta.15
         version: 2.0.0-beta.15(zustand@4.4.7)
@@ -4476,20 +4476,20 @@ packages:
       webpack-cli: 4.10.0(webpack@5.90.0)
     dev: true
 
-  /@xterm/addon-attach@0.10.0-beta.1(xterm@5.3.0):
+  /@xterm/addon-attach@0.10.0-beta.1(xterm@xterm.js):
     resolution: {integrity: sha512-u1LBLVgVR1TZJT/8lFkvl7AZaYx1Z9uzPqh7bGUvsIWPllpnj36Hzv5+jY1FBGVBQv2eZfyUvHCKIiujyCJF2w==}
     peerDependencies:
       xterm: ^5.0.0
     dependencies:
-      xterm: 5.3.0
+      xterm: link:xterm.js
     dev: false
 
-  /@xterm/addon-fit@0.9.0-beta.1(xterm@5.3.0):
+  /@xterm/addon-fit@0.9.0-beta.1(xterm@xterm.js):
     resolution: {integrity: sha512-HmGRUMMamUpQYuQBF2VP1LJ0xzqF85LMFfpaNu84t1Tsrl1lPKJWtqX9FDZ22Rf5q6bnKdbj44TRVAUHgDRbLA==}
     peerDependencies:
       xterm: ^5.0.0
     dependencies:
-      xterm: 5.3.0
+      xterm: link:xterm.js
     dev: false
 
   /@xtuc/ieee754@1.2.0:
@@ -11722,10 +11722,6 @@ packages:
       mathjs: 9.5.2
       typescript: 4.9.5
     dev: true
-
-  /xterm@5.3.0:
-    resolution: {integrity: sha512-8QqjlekLUFTrU6x7xck1MsPzPA571K5zNqWm0M0oroYEWVOptZ0+ubQSkQ3uxIEhcIHRujJy6emDWX4A7qyFzg==}
-    dev: false
 
   /y18n@4.0.3:
     resolution: {integrity: sha512-JKhqTOwSrqNA1NY5lSztJ1GrBiUodLMmIZuLiDaMRJ+itFd+ABVE8XBjOvIWL+rSqNDC74LCSFmlb/U4UZ4hJQ==}

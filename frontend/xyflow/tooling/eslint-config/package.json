@@ -1,6 +1,6 @@
 {
   "name": "@reactflow/eslint-config",
-  "version": "0.0.0",
+  "version": "0.0.0-runcoder",
   "private": true,
   "license": "MIT",
   "main": "src/index.js",
