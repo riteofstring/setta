@@ -440,6 +440,9 @@ importers:
       '@types/d3-drag':
         specifier: ^3.0.1
         version: 3.0.7
+      '@types/d3-interpolate':
+        specifier: 3.0.4
+        version: 3.0.4
       '@types/d3-selection':
         specifier: ^3.0.3
         version: 3.0.10
@@ -452,6 +455,9 @@ importers:
       d3-drag:
         specifier: ^3.0.0
         version: 3.0.0
+      d3-interpolate:
+        specifier: 3.0.1
+        version: 3.0.1
       d3-selection:
         specifier: ^3.0.0
         version: 3.0.0

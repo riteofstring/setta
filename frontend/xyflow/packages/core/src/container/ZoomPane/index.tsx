@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { zoom, zoomIdentity, type D3ZoomEvent, type ZoomTransform } from 'd3-zoom';
 import { select, pointer } from 'd3-selection';
 import { shallow } from 'zustand/shallow';
+import { interpolate } from 'd3-interpolate';
 
 import useKeyPress from '../../hooks/useKeyPress';
 import useResizeHandler from '../../hooks/useResizeHandler';
@@ -90,7 +91,8 @@ const ZoomPane = ({
   useEffect(() => {
     if (zoomPane.current) {
       const bbox = zoomPane.current.getBoundingClientRect();
-      const d3ZoomInstance = zoom().scaleExtent([minZoom, maxZoom]).translateExtent(translateExtent);
+      // .interpolate(interpolate) makes the interpolations linear instead of curved
+      const d3ZoomInstance = zoom().interpolate(interpolate).scaleExtent([minZoom, maxZoom]).translateExtent(translateExtent);
       const selection = select(zoomPane.current as Element).call(d3ZoomInstance);
       const updatedTransform = zoomIdentity
         .translate(defaultViewport.x, defaultViewport.y)
