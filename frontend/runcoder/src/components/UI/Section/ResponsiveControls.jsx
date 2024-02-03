@@ -4,9 +4,10 @@ import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
-import { ControlButton, Controls } from "reactflow";
 import { setPositionState } from "thunks/sections/sectionPositions";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
+import { ControlButton, Controls } from "xyflow/controls";
+import "xyflow/controls/style.css";
 
 export function ResponsiveControls() {
   const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
@@ -35,7 +36,7 @@ export function ResponsiveControls() {
           y: sizes[node.id].y + minY,
         };
         return node;
-      })
+      }),
     );
 
     setPositionState(Array.from(store.getState().nodeInternals.values()), true);

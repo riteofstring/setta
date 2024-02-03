@@ -32,7 +32,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@reactflow/controls": "workspace:*",
     "@reactflow/core": "workspace:*",
     "@reactflow/minimap": "workspace:*"
   },
@@ -51,7 +50,6 @@
   },
   "rollup": {
     "globals": {
-      "@reactflow/controls": "ReactFlowControls",
       "@reactflow/core": "ReactFlowCore",
       "@reactflow/minimap": "ReactFlowMinimap"
     },
