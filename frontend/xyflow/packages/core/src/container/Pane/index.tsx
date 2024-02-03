@@ -153,31 +153,30 @@ const Pane = memo(
 
       const nodes = getNodes();
       const selectedNodes = getNodesInsideSelection(
-        nodeInternals,
         nextUserSelectRect,
         transform,
         selectionMode === SelectionMode.Partial,
         true,
         nodeOrigin
       );
-      const selectedEdgeIds = getConnectedEdges(selectedNodes, edges).map((e) => e.id);
-      const selectedNodeIds = selectedNodes.map((n) => n.id);
+      // const selectedEdgeIds = getConnectedEdges(selectedNodes, edges).map((e) => e.id);
+      // const selectedNodeIds = selectedNodes.map((n) => n.id);
 
-      if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
-        prevSelectedNodesCount.current = selectedNodeIds.length;
-        const changes = getSelectionChanges(nodes, selectedNodeIds) as NodeChange[];
-        if (changes.length) {
-          onNodesChange?.(changes);
-        }
-      }
+      // if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
+      //   prevSelectedNodesCount.current = selectedNodeIds.length;
+      //   const changes = getSelectionChanges(nodes, selectedNodeIds) as NodeChange[];
+      //   if (changes.length) {
+      //     onNodesChange?.(changes);
+      //   }
+      // }
 
-      if (prevSelectedEdgesCount.current !== selectedEdgeIds.length) {
-        prevSelectedEdgesCount.current = selectedEdgeIds.length;
-        const changes = getSelectionChanges(edges, selectedEdgeIds) as EdgeChange[];
-        if (changes.length) {
-          onEdgesChange?.(changes);
-        }
-      }
+      // if (prevSelectedEdgesCount.current !== selectedEdgeIds.length) {
+      //   prevSelectedEdgesCount.current = selectedEdgeIds.length;
+      //   const changes = getSelectionChanges(edges, selectedEdgeIds) as EdgeChange[];
+      //   if (changes.length) {
+      //     onEdgesChange?.(changes);
+      //   }
+      // }
 
       store.setState({
         userSelectionRect: nextUserSelectRect,

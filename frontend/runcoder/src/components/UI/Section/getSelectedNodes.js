@@ -1,8 +1,9 @@
+import { useActiveSection } from "models/activeSection";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefs } from "models/sectionRefs";
 import { REACT_FLOW_STORE } from "utils/constants";
 
 export function getNodesInside(
-  nodeInternals,
   rect,
   [tx, ty, tScale] = [0, 0, 1],
   partially = false,
@@ -19,16 +20,11 @@ export function getNodesInside(
 
   const visibleNodes = [];
 
-  nodeInternals.forEach((node) => {
-    const ref = useSectionRefs.getState().x[node.id];
-    const { selectable = true, hidden = false } = node;
+  for (const section of Object.values(useSectionInfos.getState().x)) {
+    const ref = useSectionRefs.getState().x[section.id];
     const { clientWidth: width, clientHeight: height } = ref;
     const { y: _y, x: _x } = ref.getBoundingClientRect();
     const { x, y } = REACT_FLOW_STORE.rf.screenToFlowPosition({ x: _x, y: _y });
-
-    if ((excludeNonSelectableNodes && !selectable) || hidden) {
-      return false;
-    }
 
     const position = getNodePositionWithOrigin(
       { width, height, x, y },
@@ -53,12 +49,12 @@ export function getNodesInside(
     const isVisible =
       notInitialized || partiallyVisible || overlappingArea >= area;
 
-    if (isVisible || node.dragging) {
-      visibleNodes.push(node);
+    if (isVisible) {
+      visibleNodes.push(section.id);
     }
-  });
+  }
 
-  return visibleNodes;
+  useActiveSection.getState().setIds(visibleNodes);
 }
 
 function getOverlappingArea(rectA, rectB) {

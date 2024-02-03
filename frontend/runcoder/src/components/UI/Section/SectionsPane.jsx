@@ -5,9 +5,9 @@ import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { REACT_FLOW_STORE } from "utils/constants";
+import { getNodesInside } from "./getSelectedNodes";
 import "./react-flow-css.css";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
-import { getNodesInside } from "./getSelectedNodes";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
@@ -31,15 +31,15 @@ function onSelectionChange({ nodes }) {
   }
 }
 
-function onSelectionDragStart(e){
-  console.log("onSelectionDragStart", e)
+function onSelectionDragStart(e) {
+  console.log("onSelectionDragStart", e);
 }
-function onSelectionDrag(e){
-  console.log("onSelectionDrag", e)
+function onSelectionDrag(e) {
+  console.log("onSelectionDrag", e);
 }
 
-function getNodesInsideSelection(...props){
-return getNodesInside(...props)
+function getNodesInsideSelection(...props) {
+  return getNodesInside(...props);
 }
 
 function onInit(rf) {
@@ -86,7 +86,7 @@ function _SectionsPane({
 
   const onNodesChange = useCallback(
     (changes) => setNodes((x) => applyNodeChanges(changes, x)),
-    []
+    [],
   );
 
   useDeepCompareEffect(() => {
