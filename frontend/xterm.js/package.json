@@ -5,23 +5,7 @@
   "main": "lib/xterm.js",
   "style": "css/xterm.css",
   "types": "typings/xterm.d.ts",
-  "repository": "https://github.com/xtermjs/xterm.js",
   "license": "MIT",
-  "keywords": [
-    "cli",
-    "command-line",
-    "console",
-    "pty",
-    "shell",
-    "ssh",
-    "styles",
-    "terminal-emulator",
-    "terminal",
-    "tty",
-    "vt100",
-    "webgl",
-    "xterm"
-  ],
   "scripts": {
     "prepackage": "pnpm build",
     "package": "webpack",
