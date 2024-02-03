@@ -5,18 +5,18 @@
 
 import cc from "classcat";
 import { useActiveSection } from "models/activeSection";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefs } from "models/sectionRefs";
 import React from "react";
 import { getNodesBounds, useStore } from "reactflow";
-import { REACT_FLOW_STORE } from "utils/constants";
 
 const selector = (s) => {
   const activeSectionIds = useActiveSection.getState().ids;
+  const sectionState = useSectionInfos.getState().x;
   const sections = activeSectionIds.map((sectionId) => {
     const ref = useSectionRefs.getState().selfOnly[sectionId];
     const { clientWidth: width, clientHeight: height } = ref;
-    const { y: _y, x: _x } = ref.getBoundingClientRect();
-    const { x, y } = REACT_FLOW_STORE.rf.screenToFlowPosition({ x: _x, y: _y });
+    const { x, y } = sectionState[sectionId].position;
     return { position: { x, y }, width, height };
   });
   console.log(sections);

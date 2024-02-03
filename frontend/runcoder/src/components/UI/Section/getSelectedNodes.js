@@ -1,7 +1,6 @@
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefs } from "models/sectionRefs";
-import { REACT_FLOW_STORE } from "utils/constants";
 
 export function getNodesInside(
   rect,
@@ -23,8 +22,7 @@ export function getNodesInside(
   for (const section of Object.values(useSectionInfos.getState().x)) {
     const ref = useSectionRefs.getState().selfOnly[section.id];
     const { clientWidth: width, clientHeight: height } = ref;
-    const { y: _y, x: _x } = ref.getBoundingClientRect();
-    const { x, y } = REACT_FLOW_STORE.rf.screenToFlowPosition({ x: _x, y: _y });
+    const { x, y } = section.position;
 
     const position = getNodePositionWithOrigin(
       { width, height, x, y },
@@ -55,7 +53,7 @@ export function getNodesInside(
   }
 
   useActiveSection.getState().setIds(visibleNodes);
-  return visibleNodes
+  return visibleNodes;
 }
 
 function getOverlappingArea(rectA, rectB) {
