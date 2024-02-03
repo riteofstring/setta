@@ -1,2 +1,2 @@
-web: npm start
-webpack: npm run watch
+web: pnpm start
+webpack: npm watch
