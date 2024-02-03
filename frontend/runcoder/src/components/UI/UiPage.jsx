@@ -17,7 +17,7 @@ import { SectionsPane } from "./Section/SectionsPane";
 export function UIPage() {
   const topLevelSectionPositions = useProjectConfig(
     (x) => x.children,
-    _.isEqual
+    _.isEqual,
   );
   const initialNodes = _.mapValues(topLevelSectionPositions, (v, k) => ({
     id: k,

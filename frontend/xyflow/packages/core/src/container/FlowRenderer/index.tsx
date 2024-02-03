@@ -117,13 +117,6 @@ const FlowRenderer = ({
         selectionMode={selectionMode}
       >
         {children}
-        {nodesSelectionActive && (
-          <NodesSelection
-            onSelectionContextMenu={onSelectionContextMenu}
-            noPanClassName={noPanClassName}
-            disableKeyboardA11y={disableKeyboardA11y}
-          />
-        )}
       </Pane>
     </ZoomPane>
   );

@@ -5,6 +5,7 @@ import "reactflow/dist/style.css";
 import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { REACT_FLOW_STORE } from "utils/constants";
+import { NodesSelectionWrapper } from "../NodesSelection";
 import { getNodesInside } from "./getSelectedNodes";
 import "./react-flow-css.css";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
@@ -109,7 +110,13 @@ function _SectionsPane({
       getNodesInsideSelection={getNodesInsideSelection}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
-    />
+    >
+      <NodesSelectionWrapper
+      // onSelectionContextMenu={onSelectionContextMenu}
+      // noPanClassName={noPanClassName}
+      // disableKeyboardA11y={disableKeyboardA11y}
+      />
+    </ReactFlow>
   );
 }
 
