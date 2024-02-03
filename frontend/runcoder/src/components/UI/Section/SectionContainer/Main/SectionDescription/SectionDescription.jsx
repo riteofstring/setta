@@ -1,10 +1,11 @@
 import { useSectionInfos } from "models/info/sectionInfos";
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
-export function SectionDescription({ sectionId, card = false }) {
+function _SectionDescription({ sectionId, card = false }) {
   if (!card) {
     return (
       <ResizableDescription sectionId={sectionId}>
@@ -21,7 +22,7 @@ export function SectionDescription({ sectionId, card = false }) {
   );
 }
 
-function Markdown({ sectionId }) {
+function _Markdown({ sectionId }) {
   const markdownSource = useSectionInfos((x) => x.x[sectionId].description);
 
   return (
@@ -33,3 +34,6 @@ function Markdown({ sectionId }) {
     </ReactMarkdown>
   );
 }
+
+export const SectionDescription = React.memo(_SectionDescription);
+const Markdown = React.memo(_Markdown);
