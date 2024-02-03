@@ -28,6 +28,7 @@
     "lint": "eslint -c .eslintrc.json --max-warnings 0 --ext .ts src/ addons/",
     "lint-api": "eslint --no-eslintrc -c .eslintrc.json.typings --max-warnings 0 --no-ignore --ext .d.ts typings/",
     "test": "pnpm test-unit",
+    "test-unit": "node ./bin/test.js",
     "posttest": "pnpm lint",
     "test-api": "pnpm test-api-chromium",
     "test-unit-dev": "cross-env NODE_PATH='./out' mocha",
