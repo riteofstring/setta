@@ -1,15 +1,8 @@
 {
   "name": "@reactflow/core",
   "version": "11.10.3-runcoder",
+  "private": true,
   "description": "Core components and util functions of React Flow.",
-  "keywords": [
-    "react",
-    "node-based UI",
-    "graph",
-    "diagram",
-    "workflow",
-    "react-flow"
-  ],
   "files": [
     "dist"
   ],
@@ -30,17 +23,9 @@
     "*.css"
   ],
   "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/xyflow/xyflow.git",
-    "directory": "packages/core"
-  },
   "scripts": {
     "dev": "concurrently \"rollup --config node:@reactflow/rollup-config --watch\" pnpm:css-watch",
-    "build": "rollup --config node:@reactflow/rollup-config --environment NODE_ENV:production && npm run css",
+    "build": "rollup --config node:@reactflow/rollup-config --environment NODE_ENV:production && pnpm css",
     "css": "postcss src/styles/{base,style}.css --config ./../../tooling/postcss-config/postcss.config.js --dir dist",
     "css-watch": "pnpm css --watch",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx src",

@@ -1,15 +1,8 @@
 {
   "name": "@reactflow/minimap",
   "version": "11.7.8-runcoder",
+  "private": true,
   "description": "Minimap component for React Flow.",
-  "keywords": [
-    "react",
-    "node-based UI",
-    "graph",
-    "diagram",
-    "workflow",
-    "react-flow"
-  ],
   "files": [
     "dist"
   ],
@@ -28,18 +21,10 @@
   "sideEffects": [
     "*.css"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/xyflow/xyflow.git",
-    "directory": "packages/minimap"
-  },
   "scripts": {
     "dev": "concurrently \"rollup --config node:@reactflow/rollup-config --watch\" pnpm:css-watch",
-    "build": "rollup --config node:@reactflow/rollup-config --environment NODE_ENV:production && npm run css",
+    "build": "rollup --config node:@reactflow/rollup-config --environment NODE_ENV:production && pnpm css",
     "css": "postcss src/*.css --config ../../tooling/postcss-config/postcss.config.js --dir dist",
     "css-watch": "pnpm css --watch",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx src",

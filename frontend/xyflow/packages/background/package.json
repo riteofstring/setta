@@ -1,15 +1,8 @@
 {
   "name": "@reactflow/background",
   "version": "11.3.8-runcoder",
+  "private": true,
   "description": "Background component with different variants for React Flow",
-  "keywords": [
-    "react",
-    "node-based UI",
-    "graph",
-    "diagram",
-    "workflow",
-    "react-flow"
-  ],
   "files": [
     "dist"
   ],
@@ -34,15 +27,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist .turbo"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/xyflow/xyflow.git",
-    "directory": "packages/background"
-  },
   "dependencies": {
     "@reactflow/core": "workspace:*",
     "classcat": "^5.0.3",
