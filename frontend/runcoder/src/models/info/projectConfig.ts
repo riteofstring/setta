@@ -10,7 +10,7 @@ import { createProjectState } from "../utils";
 const initialState: ProjectConfigFrontendType = {
   id: "",
   name: "",
-  children: {},
+  children: [],
   version: 0,
 };
 

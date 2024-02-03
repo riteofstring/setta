@@ -8,7 +8,7 @@ export function ContainerSwitch({
   dragListeners,
   children,
 }) {
-  const isTopLevel = useProjectConfig((x) => sectionId in x.children);
+  const isTopLevel = useProjectConfig((x) => x.children.includes(sectionId));
 
   return isTopLevel ? (
     <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>

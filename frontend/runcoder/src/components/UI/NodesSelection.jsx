@@ -95,9 +95,8 @@ function _NodesSelection({ onSelectionContextMenu, disableKeyboardA11y }) {
 }
 
 function _NodesSelectionWrapper() {
-    const nodesSelectionActive = useStore(s=>s.nodesSelectionActive)
-    return nodesSelectionActive && <NodesSelection/>
-
+  const nodesSelectionActive = useStore((s) => s.nodesSelectionActive);
+  return nodesSelectionActive && <NodesSelection />;
 }
 
 export const NodesSelection = React.memo(_NodesSelection);
