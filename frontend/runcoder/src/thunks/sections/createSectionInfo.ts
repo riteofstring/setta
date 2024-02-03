@@ -10,7 +10,6 @@ import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { RCType } from "z_utils/types/codeInfo";
 import { ManySectionType } from "z_utils/types/section";
-import { SectionPositionType } from "z_utils/types/sectionPosition";
 import { getSectionType, getSectionTypeConfig } from "./getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
@@ -33,26 +32,18 @@ export function createChildForSeries({ parentId, numChildren }) {
 export function createSectionInfo({
   sectionProps = {},
   numSections = 1,
-  topLevelPosition = null,
+  isTopLevel = false,
 }) {
   const newInfos = {};
-  sectionProps["size"] = { width: "auto", height: "auto" };
-  sectionProps["existingVarNames"] = _.map(
-    useSectionInfos.getState().x,
-    (s) => s.name
-  );
   for (let i = 0; i < numSections; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos, topLevelPosition);
+  addSectionsToState(newInfos, isTopLevel);
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(
-  sectionInfos: ManySectionType,
-  topLevelPosition: SectionPositionType | null
-) {
+function addSectionsToState(sectionInfos: ManySectionType, isTopLevel) {
   const siState = useSectionInfos.getState();
   siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
@@ -72,10 +63,8 @@ function addSectionsToState(
     initializeChildParams({ sectionIds: [s], codeInfoIds: [codeInfoId] });
   }
 
-  if (topLevelPosition) {
-    useProjectConfig
-      .getState()
-      .addChildren(_.mapValues(sectionInfos, () => topLevelPosition));
+  if (isTopLevel) {
+    useProjectConfig.getState().addChildren(Object.keys(sectionInfos));
   }
 }
 

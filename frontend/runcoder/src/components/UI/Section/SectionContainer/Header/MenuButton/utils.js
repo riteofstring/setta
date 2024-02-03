@@ -1,6 +1,5 @@
 import { createSectionInfo } from "thunks/sections/createSectionInfo";
 import { REACT_FLOW_STORE } from "utils/constants";
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function creatAdjacentSection(sectionId, sectionProps) {
   const reactFlowStore = REACT_FLOW_STORE.store;
@@ -8,11 +7,13 @@ export function creatAdjacentSection(sectionId, sectionProps) {
     .getState()
     .nodeInternals.get(sectionId);
 
+  const position = {
+    x: sectionPosition.x + sectionWidth,
+    y: sectionPosition.y,
+  };
+
   createSectionInfo({
-    sectionProps,
-    topLevelPosition: newSectionPosition({
-      x: sectionPosition.x + sectionWidth,
-      y: sectionPosition.y,
-    }),
+    sectionProps: { ...sectionProps, position },
+    isTopLevel: true,
   });
 }

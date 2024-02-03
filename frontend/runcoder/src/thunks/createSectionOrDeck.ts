@@ -60,19 +60,15 @@ export function onClickAddSection({
   incrementVersion,
   inputSectionProps = {},
 }) {
-  // see https://reactflow.dev/docs/examples/interaction/drag-and-drop/
-  const topLevelPosition = projectXY
+  const position = projectXY
     ? REACT_FLOW_STORE.rf.screenToFlowPosition({ x, y })
     : newSectionPosition({ x, y });
 
-  topLevelPosition.zIndex = 0;
-
   return addSectionAtPosition({
     type,
-    topLevelPosition,
     callbackBeforeExit,
     incrementVersion,
-    inputSectionProps,
+    inputSectionProps: { ...inputSectionProps, position },
   });
 }
 
@@ -119,7 +115,7 @@ export function extractArgparseArgs({ pathToScript, ...props }) {
       createSectionsFromArgparse({ pathToScript, args: x, ...props });
       unsub();
       useWebsocketRooms.getState().deleteRoom(id);
-    }
+    },
   );
   sendMessage({
     id,

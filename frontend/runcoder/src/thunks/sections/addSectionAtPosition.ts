@@ -16,20 +16,17 @@ import {
   VAR_CONTROL_UI_TYPE_ID,
 } from "z_utils/constants";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
-import { SectionPositionType } from "z_utils/types/sectionPosition";
 import { createSectionInfo } from "./createSectionInfo";
 
 type callbackBeforeExitType = (newId: string) => void;
 
 export function addSectionAtPosition({
   type,
-  topLevelPosition,
   callbackBeforeExit = () => undefined,
   incrementVersion = false,
   inputSectionProps = {},
 }: {
   type: string;
-  topLevelPosition: SectionPositionType;
   callbackBeforeExit?: callbackBeforeExitType;
   incrementVersion?: boolean;
   inputSectionProps: any;
@@ -57,11 +54,7 @@ export function addSectionAtPosition({
   } else if (type === GLOBAL_PARAM_SWEEP) {
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
   }
-  const [newId] = createSectionInfo({
-    sectionProps,
-    isTopLevel: true,
-    topLevelPosition,
-  });
+  const [newId] = createSectionInfo({ sectionProps, isTopLevel: true });
   callbackBeforeExit(newId);
   maybeIncrementProjectStateVersion(incrementVersion);
   return newId;

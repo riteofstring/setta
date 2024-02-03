@@ -22,16 +22,16 @@ export const useProjectConfig = createProjectState(
         set((state) => ({ ...state, ...payload }), true),
       addChildren: (payload) =>
         set((state) => {
-          state.children = { ...state.children, ...payload };
+          state.children = [...state.children, ...payload];
         }),
       deleteChildren: (payload) =>
         set((state) => {
-          state.children = _.omit(state.children, payload);
+          state.children = state.children.filter((x) => !payload.includes(x));
         }),
       setName: (name) => set({ name }),
       getAll: () => _.pick(get(), ["id", "name", "children"]),
-    }))
-  )
+    })),
+  ),
 );
 
 useProjectConfig.temporal.getState().pause();

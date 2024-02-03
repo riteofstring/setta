@@ -1,7 +1,6 @@
 import { usePanes } from "models/panes";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function addSectionInEmptySpace({
   type,
@@ -19,10 +18,11 @@ export function addSectionInEmptySpace({
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
 
+  const position = { x, y };
+
   return addSectionAtPosition({
     type,
-    topLevelPosition: newSectionPosition({ x, y, zIndex: 0 }),
-    inputSectionProps,
+    inputSectionProps: { ...inputSectionProps, position },
     incrementVersion: true,
   });
 }

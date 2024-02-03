@@ -17,17 +17,20 @@ import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
   const topLevelSectionIds = useProjectConfig((x) => x.children, _.isEqual);
-  const sectionState = useSectionInfos.getState().x;
-  const initialNodes = _.keyBy(
-    topLevelSectionIds.map((k) => ({
-      id: k,
-      position: sectionState[k].position,
-      type: "sectionContainerNode",
-      zIndex: sectionState[k].zIndex,
-      selected: useActiveSection.getState().ids.includes(k),
-      style: { visibility: "visible" }, // needed to prevent flickering
-    })),
-    "id",
+  const initialNodes = useSectionInfos(
+    (x) =>
+      _.keyBy(
+        topLevelSectionIds.map((k) => ({
+          id: k,
+          position: x.x[k].position,
+          type: "sectionContainerNode",
+          zIndex: x.x[k].zIndex,
+          selected: useActiveSection.getState().ids.includes(k),
+          style: { visibility: "visible" }, // needed to prevent flickering
+        })),
+        "id",
+      ),
+    _.isEqual,
   );
 
   useInitGlobalReactFlowStore();
