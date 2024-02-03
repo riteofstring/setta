@@ -8,6 +8,7 @@ import { REACT_FLOW_STORE } from "utils/constants";
 import { NodesSelectionWrapper } from "../NodesSelection";
 import { getNodesInside } from "./getSelectedNodes";
 import "./react-flow-css.css";
+import "xyflow/controls/style.css"
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
