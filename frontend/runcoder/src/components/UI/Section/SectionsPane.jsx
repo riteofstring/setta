@@ -7,6 +7,7 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { REACT_FLOW_STORE } from "utils/constants";
 import "./react-flow-css.css";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
+import { getNodesInside } from "./getSelectedNodes";
 
 const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
@@ -28,6 +29,17 @@ function onSelectionChange({ nodes }) {
   if (REACT_FLOW_STORE.store?.getState().userSelectionActive) {
     useActiveSection.getState().setIds(nodes.map((x) => x.id));
   }
+}
+
+function onSelectionDragStart(e){
+  console.log("onSelectionDragStart", e)
+}
+function onSelectionDrag(e){
+  console.log("onSelectionDrag", e)
+}
+
+function getNodesInsideSelection(...props){
+return getNodesInside(...props)
 }
 
 function onInit(rf) {
@@ -107,7 +119,10 @@ function _SectionsPane({
       onNodeDragStop={onNodeDragStop}
       onSelectionDragStop={onSelectionDragStop}
       onSelectionChange={onSelectionChange}
+      onSelectionDragStart={onSelectionDragStart}
+      onSelectionDrag={onSelectionDrag}
       onInit={onInit}
+      getNodesInsideSelection={getNodesInsideSelection}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
     />

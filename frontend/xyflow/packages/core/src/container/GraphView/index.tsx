@@ -106,6 +106,7 @@ const GraphView = ({
   nodeOrigin,
   nodeExtent,
   rfId,
+  getNodesInsideSelection,
 }: GraphViewProps) => {
   const nodeTypesWrapped = useNodeOrEdgeTypes(nodeTypes, createNodeTypes);
   const edgeTypesWrapped = useNodeOrEdgeTypes(edgeTypes, createEdgeTypes);
@@ -150,6 +151,7 @@ const GraphView = ({
       noWheelClassName={noWheelClassName}
       noPanClassName={noPanClassName}
       disableKeyboardA11y={disableKeyboardA11y}
+      getNodesInsideSelection={getNodesInsideSelection}
     >
       <ViewportWrapper>
         <EdgeRenderer

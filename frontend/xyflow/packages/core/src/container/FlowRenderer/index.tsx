@@ -67,6 +67,7 @@ const FlowRenderer = ({
   noWheelClassName,
   noPanClassName,
   disableKeyboardA11y,
+  getNodesInsideSelection,
 }: FlowRendererProps) => {
   const nodesSelectionActive = useStore(selector);
   const selectionKeyPressed = useKeyPress(selectionKeyCode);
@@ -110,6 +111,7 @@ const FlowRenderer = ({
         onPaneMouseLeave={onPaneMouseLeave}
         onPaneContextMenu={onPaneContextMenu}
         onPaneScroll={onPaneScroll}
+        getNodesInsideSelection={getNodesInsideSelection}
         panOnDrag={panOnDrag}
         isSelecting={!!isSelecting}
         selectionMode={selectionMode}

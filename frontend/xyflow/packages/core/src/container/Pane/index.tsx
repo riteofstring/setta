@@ -4,7 +4,6 @@
 
 import React, { memo, useRef, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { shallow } from 'zustand/shallow';
-import cc from 'classcat';
 
 import UserSelection from '../../components/UserSelection';
 import { containerStyle } from '../../styles';
@@ -65,6 +64,7 @@ const Pane = memo(
     onPaneMouseEnter,
     onPaneMouseMove,
     onPaneMouseLeave,
+    getNodesInsideSelection,
     children,
   }: PaneProps) => {
     const container = useRef<HTMLDivElement | null>(null);
@@ -152,7 +152,7 @@ const Pane = memo(
       };
 
       const nodes = getNodes();
-      const selectedNodes = getNodesInside(
+      const selectedNodes = getNodesInsideSelection(
         nodeInternals,
         nextUserSelectRect,
         transform,

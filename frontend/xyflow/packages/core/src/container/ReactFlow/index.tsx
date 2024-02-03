@@ -157,6 +157,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       style,
       id,
       nodeDragThreshold,
+      getNodesInsideSelection,
       ...rest
     },
     ref
@@ -239,6 +240,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             disableKeyboardA11y={disableKeyboardA11y}
             nodeOrigin={nodeOrigin}
             nodeExtent={nodeExtent}
+            getNodesInsideSelection={getNodesInsideSelection}
           />
           <StoreUpdater
             nodes={nodes}
