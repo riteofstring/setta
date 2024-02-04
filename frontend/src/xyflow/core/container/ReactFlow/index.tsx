@@ -1,7 +1,6 @@
 import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
 
-import SelectionListener from "../../components/SelectionListener";
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
 import type {
@@ -194,7 +193,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onError={onError}
             nodeDragThreshold={nodeDragThreshold}
           />
-          <SelectionListener onSelectionChange={onSelectionChange} />
           {children}
         </Wrapper>
       </div>

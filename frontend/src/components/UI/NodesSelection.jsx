@@ -6,9 +6,10 @@
 import cc from "classcat";
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefs } from "models/sectionRefs";
-import React from "react";
+import React, { useRef } from "react";
 import { trueSectionPosition } from "thunks/goToSection";
 import { getNodesBounds, useStore } from "xyflow/core";
+import useDrag from "xyflow/core/hooks/useDrag";
 
 const selector = (s) => {
   const activeSectionIds = useActiveSection.getState().ids;
@@ -35,17 +36,7 @@ function _NodesSelection({ onSelectionContextMenu, disableKeyboardA11y }) {
     userSelectionActive,
   } = useStore(selector);
 
-  //   const {
-  //     width,
-  //     height,
-  //     x: left,
-  //     y: top,
-  //     transformString,
-  //     userSelectionActive,
-  //   } = useStore(selector, shallow);
-  //   const updatePositions = useUpdateNodePositions();
-
-  //   const nodeRef = useRef < HTMLDivElement > null;
+  const nodeRef = useRef(null);
 
   //   useEffect(() => {
   //     if (!disableKeyboardA11y) {
@@ -55,9 +46,9 @@ function _NodesSelection({ onSelectionContextMenu, disableKeyboardA11y }) {
   //     }
   //   }, [disableKeyboardA11y]);
 
-  //   useDrag({
-  //     nodeRef,
-  //   });
+  useDrag({
+    nodeRef,
+  });
 
   //   if (userSelectionActive || !width || !height) {
   //     return null;
@@ -76,7 +67,7 @@ function _NodesSelection({ onSelectionContextMenu, disableKeyboardA11y }) {
       }}
     >
       <div
-        // ref={nodeRef}
+        ref={nodeRef}
         className="react-flow__nodesselection-rect"
         // onContextMenu={onContextMenu}
         // tabIndex={disableKeyboardA11y ? undefined : -1}
