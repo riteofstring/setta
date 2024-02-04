@@ -138,13 +138,8 @@ const Pane = memo(
     };
 
     const onMouseMove = (event: ReactMouseEvent): void => {
-      const {
-        userSelectionRect,
-        transform,
-        onNodesChange,
-        nodeOrigin,
-        getNodes,
-      } = store.getState();
+      const { userSelectionRect, transform, onNodesChange, getNodes } =
+        store.getState();
       if (!isSelecting || !containerBounds.current || !userSelectionRect) {
         return;
       }
@@ -172,7 +167,6 @@ const Pane = memo(
         transform,
         selectionMode === SelectionMode.Partial,
         true,
-        nodeOrigin,
       );
       // const selectedNodeIds = selectedNodes.map((n) => n.id);
 

@@ -11,7 +11,6 @@ import type {
   Node,
   NodeDragHandler,
   NodeMouseHandler,
-  NodeOrigin,
   NodeTypes,
   OnError,
   OnInit,
@@ -40,7 +39,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onNodeDragStop?: NodeDragHandler;
   onNodesChange?: OnNodesChange;
   onNodesDelete?: OnNodesDelete;
-  onSelectionDragStart?: SelectionDragHandler;
   onSelectionDragStop?: SelectionDragHandler;
   onSelectionStart?: (event: ReactMouseEvent) => void;
   onSelectionEnd?: (event: ReactMouseEvent) => void;
@@ -69,8 +67,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onlyRenderVisibleElements?: boolean;
   nodesDraggable?: boolean;
   nodesFocusable?: boolean;
-  nodeOrigin?: NodeOrigin;
-  initNodeOrigin?: NodeOrigin;
   elementsSelectable?: boolean;
   selectNodesOnDrag?: boolean;
   panOnDrag?: boolean | number[];

@@ -32,9 +32,9 @@ const createRFStore = () =>
     (set, get) => ({
       ...initialState,
       setNodes: (nodes: Node[]) => {
-        const { nodeInternals, nodeOrigin } = get();
+        const { nodeInternals } = get();
         set({
-          nodeInternals: createNodeInternals(nodes, nodeInternals, nodeOrigin),
+          nodeInternals: createNodeInternals(nodes, nodeInternals),
         });
       },
       getNodes: () => {
@@ -44,7 +44,7 @@ const createRFStore = () =>
         const hasDefaultNodes = typeof nodes !== "undefined";
 
         const nodeInternals = hasDefaultNodes
-          ? createNodeInternals(nodes, new Map(), get().nodeOrigin)
+          ? createNodeInternals(nodes, new Map())
           : new Map();
 
         set({
@@ -60,7 +60,6 @@ const createRFStore = () =>
           fitViewOnInitDone,
           fitViewOnInitOptions,
           domNode,
-          nodeOrigin,
         } = get();
         const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
@@ -143,22 +142,13 @@ const createRFStore = () =>
       },
 
       triggerNodeChanges: (changes: NodeChange[]) => {
-        const {
-          onNodesChange,
-          nodeInternals,
-          hasDefaultNodes,
-          nodeOrigin,
-          getNodes,
-        } = get();
+        const { onNodesChange, nodeInternals, hasDefaultNodes, getNodes } =
+          get();
 
         if (changes?.length) {
           if (hasDefaultNodes) {
             const nodes = applyNodeChanges(changes, getNodes());
-            const nextNodeInternals = createNodeInternals(
-              nodes,
-              nodeInternals,
-              nodeOrigin,
-            );
+            const nextNodeInternals = createNodeInternals(nodes, nodeInternals);
             set({ nodeInternals: nextNodeInternals });
           }
 

@@ -4,7 +4,6 @@ import type { Selection as D3Selection } from "d3";
 import {
   Node,
   NodeInternals,
-  NodeOrigin,
   Rect,
   Transform,
   Viewport,
@@ -54,7 +53,6 @@ export const rendererPointToPoint = (
 
 export const getNodePositionWithOrigin = (
   node: Node | undefined,
-  nodeOrigin: NodeOrigin = [0, 0],
 ): XYPosition & { positionAbsolute: XYPosition } => {
   if (!node) {
     return {
@@ -67,39 +65,30 @@ export const getNodePositionWithOrigin = (
     };
   }
 
-  const offsetX = (node.width ?? 0) * nodeOrigin[0];
-  const offsetY = (node.height ?? 0) * nodeOrigin[1];
-
   const position: XYPosition = {
-    x: node.position.x - offsetX,
-    y: node.position.y - offsetY,
+    x: node.position.x,
+    y: node.position.y,
   };
 
   return {
     ...position,
     positionAbsolute: node.positionAbsolute
       ? {
-          x: node.positionAbsolute.x - offsetX,
-          y: node.positionAbsolute.y - offsetY,
+          x: node.positionAbsolute.x,
+          y: node.positionAbsolute.y,
         }
       : position,
   };
 };
 
-export const getNodesBounds = (
-  nodes: Node[],
-  nodeOrigin: NodeOrigin = [0, 0],
-): Rect => {
+export const getNodesBounds = (nodes: Node[]): Rect => {
   if (nodes.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
 
   const box = nodes.reduce(
     (currBox, node) => {
-      const { x, y } = getNodePositionWithOrigin(
-        node,
-        nodeOrigin,
-      ).positionAbsolute;
+      const { x, y } = getNodePositionWithOrigin(node).positionAbsolute;
       return getBoundsOfBoxes(
         currBox,
         rectToBox({
@@ -117,15 +106,12 @@ export const getNodesBounds = (
 };
 
 // @deprecated Use `getNodesBounds`.
-export const getRectOfNodes = (
-  nodes: Node[],
-  nodeOrigin: NodeOrigin = [0, 0],
-): Rect => {
+export const getRectOfNodes = (nodes: Node[]): Rect => {
   console.warn(
     "[DEPRECATED] `getRectOfNodes` is deprecated. Instead use `getNodesBounds` https://reactflow.dev/api-reference/utils/get-nodes-bounds.",
   );
 
-  return getNodesBounds(nodes, nodeOrigin);
+  return getNodesBounds(nodes);
 };
 
 export const getNodesInside = (
@@ -135,7 +121,6 @@ export const getNodesInside = (
   partially = false,
   // set excludeNonSelectableNodes if you want to pay attention to the nodes "selectable" attribute
   excludeNonSelectableNodes = false,
-  nodeOrigin: NodeOrigin = [0, 0],
 ): Node[] => {
   const paneRect = {
     x: (rect.x - tx) / tScale,
@@ -153,7 +138,7 @@ export const getNodesInside = (
       return false;
     }
 
-    const { positionAbsolute } = getNodePositionWithOrigin(node, nodeOrigin);
+    const { positionAbsolute } = getNodePositionWithOrigin(node);
 
     const nodeRect = {
       x: positionAbsolute.x,

@@ -57,8 +57,6 @@ export type WrapNodeProps<T = any> = Pick<
   Required<Pick<Node<T>, "selected" | "type">> & {
     xPos: number;
     yPos: number;
-    xPosOrigin: number;
-    yPosOrigin: number;
     initialized: boolean;
     isSelectable: boolean;
     isDraggable: boolean;
@@ -108,5 +106,3 @@ export type NodeDragItem = {
   height?: number | null;
   dragging?: boolean;
 };
-
-export type NodeOrigin = [number, number];

@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import { handleNodeClick } from "../../components/Nodes/utils";
 import { useStoreApi } from "../../hooks/useStore";
 import type {
-  Box,
   Node,
   NodeDragItem,
   SelectionDragHandler,
@@ -72,14 +71,12 @@ function useDrag({
           updateNodePositions,
           snapGrid,
           snapToGrid,
-          nodeOrigin,
           onError,
         } = store.getState();
 
         lastPos.current = { x, y };
 
         let hasChange = false;
-        let nodesBox: Box = { x: 0, y: 0, x2: 0, y2: 0 };
 
         dragItems.current = dragItems.current.map((n) => {
           const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
@@ -95,7 +92,6 @@ function useDrag({
             n,
             nextPosition,
             nodeInternals,
-            nodeOrigin,
             onError,
           );
 
@@ -151,12 +147,9 @@ function useDrag({
           nodesDraggable,
           unselectNodesAndEdges,
           onNodeDragStart,
-          onSelectionDragStart,
         } = store.getState();
         dragStarted.current = true;
-        const onStart = nodeId
-          ? onNodeDragStart
-          : wrapSelectionDragFunc(onSelectionDragStart);
+        const onStart = nodeId ? onNodeDragStart : null;
 
         if (
           (!selectNodesOnDrag || !isSelectable) &&

@@ -9,7 +9,6 @@ export function getNodesInside(
   partially = false,
   // set excludeNonSelectableNodes if you want to pay attention to the nodes "selectable" attribute
   excludeNonSelectableNodes = false,
-  nodeOrigin = [0, 0],
 ) {
   const paneRect = {
     x: (rect.x - tx) / tScale,
@@ -25,14 +24,9 @@ export function getNodesInside(
     const { clientWidth: width, clientHeight: height } = ref;
     const { x, y } = trueSectionPosition(section.id);
 
-    const position = getNodePositionWithOrigin(
-      { width, height, x, y },
-      nodeOrigin,
-    );
-
     const nodeRect = {
-      x: position.x,
-      y: position.y,
+      x,
+      y,
       width: width || 0,
       height: height || 0,
     };
@@ -70,17 +64,4 @@ function getOverlappingArea(rectA, rectB) {
   );
 
   return Math.ceil(xOverlap * yOverlap);
-}
-
-function getNodePositionWithOrigin(
-  { width, height, x, y },
-  nodeOrigin = [0, 0],
-) {
-  const offsetX = (width ?? 0) * nodeOrigin[0];
-  const offsetY = (height ?? 0) * nodeOrigin[1];
-
-  return {
-    x: x - offsetX,
-    y: y - offsetY,
-  };
 }

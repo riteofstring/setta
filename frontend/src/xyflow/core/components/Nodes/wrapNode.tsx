@@ -25,8 +25,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     data,
     xPos,
     yPos,
-    xPosOrigin,
-    yPosOrigin,
     selected,
     onClick,
     onMouseEnter,
@@ -201,7 +199,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         ])}
         ref={nodeRef}
         style={{
-          transform: `translate(${xPosOrigin}px,${yPosOrigin}px)`,
+          transform: `translate(${xPos}px,${yPos}px)`,
           pointerEvents: hasPointerEvents ? "all" : "none",
           visibility: initialized ? "visible" : "hidden",
           zIndex,

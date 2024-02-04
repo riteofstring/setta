@@ -3,18 +3,12 @@ import { forwardRef, type CSSProperties } from "react";
 
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
-import type {
-  NodeOrigin,
-  ReactFlowProps,
-  ReactFlowRefType,
-  Viewport,
-} from "../../types";
+import type { ReactFlowProps, ReactFlowRefType, Viewport } from "../../types";
 import { PanOnScrollMode, SelectionMode } from "../../types";
 import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
 import Wrapper from "./Wrapper";
 
-const initNodeOrigin: NodeOrigin = [0, 0];
 const initSnapGrid: [number, number] = [15, 15];
 const initDefaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
 
@@ -46,7 +40,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onNodeDragStop,
       onNodesDelete,
       onSelectionChange,
-      onSelectionDragStart,
       onSelectionDragStop,
       onSelectionContextMenu,
       onSelectionStart,
@@ -64,7 +57,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       selectNodesOnDrag = true,
       nodesDraggable,
       nodesFocusable,
-      nodeOrigin = initNodeOrigin,
       elementsSelectable,
       defaultViewport = initDefaultViewport,
       minZoom = 0.5,
@@ -156,7 +148,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             noDragClassName={noDragClassName}
             noWheelClassName={noWheelClassName}
             noPanClassName={noPanClassName}
-            nodeOrigin={nodeOrigin}
             getNodesInsideSelection={getNodesInsideSelection}
           />
           <StoreUpdater
@@ -176,10 +167,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onNodesDelete={onNodesDelete}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
-            onSelectionDragStart={onSelectionDragStart}
             onSelectionDragStop={onSelectionDragStop}
             noPanClassName={noPanClassName}
-            nodeOrigin={nodeOrigin}
             autoPanOnNodeDrag={autoPanOnNodeDrag}
             onError={onError}
             nodeDragThreshold={nodeDragThreshold}

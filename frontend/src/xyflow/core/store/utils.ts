@@ -5,7 +5,6 @@ import type {
   FitViewOptions,
   Node,
   NodeInternals,
-  NodeOrigin,
   NodeSelectionChange,
   ReactFlowState,
 } from "../types";
@@ -19,7 +18,6 @@ import {
 export function createNodeInternals(
   nodes: Node[],
   nodeInternals: NodeInternals,
-  nodeOrigin: NodeOrigin,
 ): NodeInternals {
   const nextNodeInternals = new Map<string, Node>();
 
@@ -67,7 +65,6 @@ export function fitView(
     d3Selection,
     fitViewOnInitDone,
     fitViewOnInit,
-    nodeOrigin,
   } = get();
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
@@ -92,7 +89,7 @@ export function fitView(
     const nodesInitialized = nodes.every((n) => n.width && n.height);
 
     if (nodes.length > 0 && nodesInitialized) {
-      const bounds = getNodesBounds(nodes, nodeOrigin);
+      const bounds = getNodesBounds(nodes);
 
       const { x, y, zoom } = getViewportForBounds(
         bounds,

@@ -36,7 +36,7 @@ const selector = (s: ReactFlowState) => {
     viewBB,
     boundingRect:
       nodes.length > 0
-        ? getBoundsOfRects(getNodesBounds(nodes, s.nodeOrigin), viewBB)
+        ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
         : viewBB,
   };
 };

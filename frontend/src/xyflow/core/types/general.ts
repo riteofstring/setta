@@ -15,7 +15,6 @@ import type {
   NodeDragHandler,
   NodeDragItem,
   NodeInternals,
-  NodeOrigin,
   NodeProps,
   SelectionDragHandler,
   WrapNodeProps,
@@ -139,7 +138,6 @@ export type ReactFlowStore = {
   minZoom: number;
   maxZoom: number;
   translateExtent: CoordinateExtent;
-  nodeOrigin: NodeOrigin;
   nodeDragThreshold: number;
 
   nodesSelectionActive: boolean;
@@ -158,7 +156,6 @@ export type ReactFlowStore = {
   onNodeDragStart?: NodeDragHandler;
   onNodeDragStop?: NodeDragHandler;
 
-  onSelectionDragStart?: SelectionDragHandler;
   onSelectionDragStop?: SelectionDragHandler;
 
   fitViewOnInit: boolean;

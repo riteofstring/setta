@@ -1,13 +1,7 @@
 import type { ComponentType } from "react";
 
 import wrapNode from "../../components/Nodes/wrapNode";
-import type {
-  NodeOrigin,
-  NodeProps,
-  NodeTypes,
-  NodeTypesWrapped,
-  XYPosition,
-} from "../../types";
+import type { NodeProps, NodeTypes, NodeTypesWrapped } from "../../types";
 
 export type CreateNodeTypes = (nodeTypes: NodeTypes) => NodeTypesWrapped;
 
@@ -32,30 +26,3 @@ export function createNodeTypes(nodeTypes: NodeTypes): NodeTypesWrapped {
     ...specialTypes,
   };
 }
-
-export const getPositionWithOrigin = ({
-  x,
-  y,
-  width,
-  height,
-  origin,
-}: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  origin: NodeOrigin;
-}): XYPosition => {
-  if (!width || !height) {
-    return { x, y };
-  }
-
-  if (origin[0] < 0 || origin[1] < 0 || origin[0] > 1 || origin[1] > 1) {
-    return { x, y };
-  }
-
-  return {
-    x: x - width * origin[0],
-    y: y - height * origin[1],
-  };
-};

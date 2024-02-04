@@ -17,7 +17,6 @@ export type FlowRendererProps = Omit<
   | "arrowHeadColor"
   | "onlyRenderVisibleElements"
   | "selectNodesOnDrag"
-  | "nodeOrigin"
 > & {
   children: ReactNode;
 };

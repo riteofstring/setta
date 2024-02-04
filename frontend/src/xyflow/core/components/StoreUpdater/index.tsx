@@ -29,10 +29,8 @@ type StoreUpdaterProps = Pick<
   | "onNodesDelete"
   | "onNodeDragStart"
   | "onNodeDragStop"
-  | "onSelectionDragStart"
   | "onSelectionDragStop"
   | "noPanClassName"
-  | "nodeOrigin"
   | "autoPanOnNodeDrag"
   | "onError"
   | "nodeDragThreshold"
@@ -88,10 +86,8 @@ const StoreUpdater = ({
   onNodesDelete,
   onNodeDragStart,
   onNodeDragStop,
-  onSelectionDragStart,
   onSelectionDragStop,
   noPanClassName,
-  nodeOrigin,
   autoPanOnNodeDrag,
   onError,
   nodeDragThreshold,
@@ -130,17 +126,11 @@ const StoreUpdater = ({
   useDirectStoreUpdater("onNodeDragStart", onNodeDragStart, store.setState);
   useDirectStoreUpdater("onNodeDragStop", onNodeDragStop, store.setState);
   useDirectStoreUpdater(
-    "onSelectionDragStart",
-    onSelectionDragStart,
-    store.setState,
-  );
-  useDirectStoreUpdater(
     "onSelectionDragStop",
     onSelectionDragStop,
     store.setState,
   );
   useDirectStoreUpdater("noPanClassName", noPanClassName, store.setState);
-  useDirectStoreUpdater("nodeOrigin", nodeOrigin, store.setState);
   useDirectStoreUpdater("autoPanOnNodeDrag", autoPanOnNodeDrag, store.setState);
   useDirectStoreUpdater("onError", onError, store.setState);
   useDirectStoreUpdater("nodeDragThreshold", nodeDragThreshold, store.setState);

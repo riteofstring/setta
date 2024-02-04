@@ -4,7 +4,6 @@ import type {
   Node,
   NodeDragItem,
   NodeInternals,
-  NodeOrigin,
   OnError,
   XYPosition,
 } from "../../types";
@@ -59,7 +58,6 @@ export function calcNextPosition(
   node: NodeDragItem | Node,
   nextPosition: XYPosition,
   nodeInternals: NodeInternals,
-  nodeOrigin: NodeOrigin = [0, 0],
   onError?: OnError,
 ): { position: XYPosition; positionAbsolute: XYPosition } {
   const positionAbsolute = nextPosition;

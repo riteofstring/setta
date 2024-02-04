@@ -13,7 +13,6 @@ import type {
 } from "../../types";
 import { Position } from "../../types";
 import { GraphViewProps } from "../GraphView";
-import { getPositionWithOrigin } from "./utils";
 
 type NodeRendererProps = Pick<
   GraphViewProps,
@@ -27,7 +26,6 @@ type NodeRendererProps = Pick<
   | "onlyRenderVisibleElements"
   | "noPanClassName"
   | "noDragClassName"
-  | "nodeOrigin"
 > & {
   nodeTypes: NodeTypesWrapped;
 };
@@ -107,13 +105,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
 
         const posX = clampedPosition?.x ?? 0;
         const posY = clampedPosition?.y ?? 0;
-        const posOrigin = getPositionWithOrigin({
-          x: posX,
-          y: posY,
-          width: node.width ?? 0,
-          height: node.height ?? 0,
-          origin: props.nodeOrigin,
-        });
 
         return (
           <NodeComponent
@@ -128,8 +119,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             hidden={node.hidden}
             xPos={posX}
             yPos={posY}
-            xPosOrigin={posOrigin.x}
-            yPosOrigin={posOrigin.y}
             selectNodesOnDrag={props.selectNodesOnDrag}
             onClick={props.onNodeClick}
             onMouseEnter={props.onNodeMouseEnter}

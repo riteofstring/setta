@@ -29,7 +29,6 @@ export type GraphViewProps = Omit<
       | "noWheelClassName"
       | "noPanClassName"
       | "defaultViewport"
-      | "nodeOrigin"
     >
   >;
 
@@ -79,7 +78,6 @@ const GraphView = ({
   noDragClassName,
   noWheelClassName,
   noPanClassName,
-  nodeOrigin,
   getNodesInsideSelection,
 }: GraphViewProps) => {
   const nodeTypesWrapped = useNodeOrEdgeTypes(nodeTypes, createNodeTypes);
@@ -138,7 +136,6 @@ const GraphView = ({
           onlyRenderVisibleElements={onlyRenderVisibleElements}
           noPanClassName={noPanClassName}
           noDragClassName={noDragClassName}
-          nodeOrigin={nodeOrigin}
         />
       </ViewportWrapper>
     </FlowRenderer>
