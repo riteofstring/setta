@@ -146,7 +146,7 @@ const Pane = memo(
           selectedNodeIds,
         ) as NodeChange[];
         if (changes.length) {
-          onNodesChange?.(changes);
+          onNodesChange(changes);
         }
       }
 

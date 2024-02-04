@@ -22,7 +22,6 @@ const wrapperStyle: CSSProperties = {
 const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
   (
     {
-      nodes,
       className,
       selectionKeyCode = "Shift",
       selectionOnDrag = false,
@@ -49,7 +48,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       zoomOnDoubleClick = true,
       panOnDrag = true,
       children,
-      onNodesChange,
       noDragClassName = "nodrag",
       noWheelClassName = "nowheel",
       noPanClassName = "nopan",
@@ -98,13 +96,11 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             noPanClassName={noPanClassName}
           />
           <StoreUpdater
-            nodes={nodes}
             nodesDraggable={nodesDraggable}
             nodesFocusable={nodesFocusable}
             elementsSelectable={elementsSelectable}
             minZoom={minZoom}
             maxZoom={maxZoom}
-            onNodesChange={onNodesChange}
             snapToGrid={snapToGrid}
             snapGrid={snapGrid}
             translateExtent={translateExtent}

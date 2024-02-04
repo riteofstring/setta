@@ -36,30 +36,26 @@ export default function useReactFlow<
     const nodes = getNodes();
     const nextNodes = typeof payload === "function" ? payload(nodes) : payload;
 
-    if (onNodesChange) {
-      const changes =
-        nextNodes.length === 0
-          ? nodes.map(
-              (node) => ({ type: "remove", id: node.id }) as NodeRemoveChange,
-            )
-          : nextNodes.map(
-              (node) =>
-                ({ item: node, type: "reset" }) as NodeResetChange<NodeData>,
-            );
-      onNodesChange(changes);
-    }
+    const changes =
+      nextNodes.length === 0
+        ? nodes.map(
+            (node) => ({ type: "remove", id: node.id }) as NodeRemoveChange,
+          )
+        : nextNodes.map(
+            (node) =>
+              ({ item: node, type: "reset" }) as NodeResetChange<NodeData>,
+          );
+    onNodesChange(changes);
   }, []);
 
   const addNodes = useCallback<Instance.AddNodes<NodeData>>((payload) => {
     const nodes = Array.isArray(payload) ? payload : [payload];
     const { onNodesChange } = store.getState();
 
-    if (onNodesChange) {
-      const changes = nodes.map(
-        (node) => ({ item: node, type: "add" }) as NodeAddChange<NodeData>,
-      );
-      onNodesChange(changes);
-    }
+    const changes = nodes.map(
+      (node) => ({ item: node, type: "add" }) as NodeAddChange<NodeData>,
+    );
+    onNodesChange(changes);
   }, []);
 
   const toObject = useCallback<Instance.ToObject<NodeData>>(() => {

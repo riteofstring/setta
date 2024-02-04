@@ -94,7 +94,7 @@ const createRFStore = () =>
         });
 
         if (changes?.length > 0) {
-          onNodesChange?.(changes);
+          onNodesChange(changes);
         }
       },
       updateNodePositions: (
@@ -125,8 +125,35 @@ const createRFStore = () =>
         const { onNodesChange } = get();
 
         if (changes?.length) {
-          onNodesChange?.(changes);
+          onNodesChange(changes);
         }
+      },
+      onNodesChange: (changes: NodeChange[]) => {
+        const { nodeInternals } = get();
+        const newNodes = new Map(nodeInternals);
+        for (const c of changes) {
+          switch (c.type) {
+            case "select": {
+              newNodes.get(c.id).selected = c.selected;
+              break;
+            }
+            case "position": {
+              if (typeof c.position !== "undefined") {
+                newNodes.get(c.id).position = c.position;
+              }
+              break;
+            }
+            case "add": {
+              newNodes.set(c.item.id, c.item);
+              break;
+            }
+            case "remove": {
+              newNodes.delete(c.id);
+              break;
+            }
+          }
+        }
+        set({ nodeInternals: newNodes });
       },
 
       addSelectedNodes: (selectedNodeIds: string[]) => {

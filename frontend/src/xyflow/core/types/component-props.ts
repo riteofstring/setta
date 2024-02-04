@@ -3,7 +3,6 @@ import type {
   FitViewOptions,
   KeyCode,
   Node,
-  OnNodesChange,
   PanOnScrollMode,
   SelectionMode,
   Viewport,
@@ -11,7 +10,6 @@ import type {
 
 export type ReactFlowProps = {
   nodes?: Node[];
-  onNodesChange?: OnNodesChange;
   selectionKeyCode?: KeyCode | null;
   selectionOnDrag?: boolean;
   selectionMode?: SelectionMode;

@@ -18,7 +18,6 @@ type StoreUpdaterProps = Pick<
   | "nodesFocusable"
   | "minZoom"
   | "maxZoom"
-  | "onNodesChange"
   | "elementsSelectable"
   | "snapToGrid"
   | "snapGrid"
@@ -63,12 +62,10 @@ function useDirectStoreUpdater(
 }
 
 const StoreUpdater = ({
-  nodes,
   nodesDraggable,
   nodesFocusable,
   minZoom,
   maxZoom,
-  onNodesChange,
   elementsSelectable,
   snapGrid,
   snapToGrid,
@@ -79,7 +76,7 @@ const StoreUpdater = ({
   autoPanOnNodeDrag,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
-  const { setNodes, setMinZoom, setMaxZoom, setTranslateExtent, reset } =
+  const { setMinZoom, setMaxZoom, setTranslateExtent, reset } =
     useStore(selector, shallow);
   const store = useStoreApi();
 
@@ -98,14 +95,12 @@ const StoreUpdater = ({
   );
   useDirectStoreUpdater("snapToGrid", snapToGrid, store.setState);
   useDirectStoreUpdater("snapGrid", snapGrid, store.setState);
-  useDirectStoreUpdater("onNodesChange", onNodesChange, store.setState);
   useDirectStoreUpdater("fitViewOnInit", fitView, store.setState);
   useDirectStoreUpdater("fitViewOnInitOptions", fitViewOptions, store.setState);
   useDirectStoreUpdater("noPanClassName", noPanClassName, store.setState);
   useDirectStoreUpdater("autoPanOnNodeDrag", autoPanOnNodeDrag, store.setState);
   useDirectStoreUpdater("nodeDragThreshold", nodeDragThreshold, store.setState);
 
-  useStoreUpdater<Node[]>(nodes, setNodes);
   useStoreUpdater<number>(minZoom, setMinZoom);
   useStoreUpdater<number>(maxZoom, setMaxZoom);
   useStoreUpdater<CoordinateExtent>(translateExtent, setTranslateExtent);

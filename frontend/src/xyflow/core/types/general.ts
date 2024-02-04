@@ -116,7 +116,6 @@ export type ReactFlowStore = {
   height: number;
   transform: Transform;
   nodeInternals: NodeInternals;
-  onNodesChange: OnNodesChange | null;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
   noPanClassName: string;

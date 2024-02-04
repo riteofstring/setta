@@ -129,6 +129,6 @@ export function updateNodesAndEdgesSelections({
   const { onNodesChange } = get();
 
   if (changedNodes?.length) {
-    onNodesChange?.(changedNodes);
+    onNodesChange(changedNodes);
   }
 }

@@ -1,6 +1,5 @@
 import { useActiveSection } from "models/activeSection";
-import React, { useCallback, useState } from "react";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import React from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ReactFlow } from "xyflow/core";
 import "xyflow/core/styles/style.css";
@@ -20,53 +19,12 @@ const reactFlowStyle = {
 //   setPositionAndZIndices(nodes);
 // }
 
-// This is a bit more efficient than the one returned by react flow's useNodesState.
-// Not sure if worth it though.
-function applyNodeChanges(changes, nodes) {
-  const newNodes = { ...nodes };
-  for (const c of changes) {
-    switch (c.type) {
-      case "select": {
-        newNodes[c.id].selected = c.selected;
-        break;
-      }
-      case "position": {
-        if (typeof c.position !== "undefined") {
-          newNodes[c.id].position = c.position;
-        }
-        break;
-      }
-      case "add": {
-        newNodes[c.item.id] = c.item;
-        break;
-      }
-      case "remove": {
-        delete newNodes[c.id];
-        break;
-      }
-    }
-  }
-  return newNodes;
-}
-
 function _SectionsPane({
-  initialNodes,
   closeCtxMenus,
   openPaneCtxMenu,
   openSelectionCtxMenu,
   openNodeCtxMenu,
 }) {
-  const [nodes, setNodes] = useState(initialNodes);
-
-  const onNodesChange = useCallback(
-    (changes) => setNodes((x) => applyNodeChanges(changes, x)),
-    [],
-  );
-
-  useDeepCompareEffect(() => {
-    setNodes(initialNodes);
-  }, [initialNodes]);
-
   function onPaneClick(e) {
     closeCtxMenus();
     useActiveSection.getState().clear();
@@ -76,10 +34,8 @@ function _SectionsPane({
 
   return (
     <ReactFlow
-      nodes={Object.values(nodes)}
       minZoom={0.1}
       maxZoom={10}
-      onNodesChange={onNodesChange}
       style={reactFlowStyle}
       defaultViewport={REACT_FLOW_STORE.initialViewport}
       // snapGrid={[32, 32]}
