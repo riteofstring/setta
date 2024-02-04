@@ -105,10 +105,6 @@ function applyChanges(changes: any[], elements: any[]): any[] {
               };
             }
 
-            if (typeof currentChange.resizing === "boolean") {
-              updateItem.resizing = currentChange.resizing;
-            }
-
             if (updateItem.expandParent) {
               handleParentExpand(res, updateItem);
             }

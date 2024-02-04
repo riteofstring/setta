@@ -53,33 +53,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
     onError,
   } = useStore(selector, shallow);
   const nodes = useVisibleNodes(props.onlyRenderVisibleElements);
-  const resizeObserverRef = useRef<ResizeObserver>();
-
-  const resizeObserver = useMemo(() => {
-    if (typeof ResizeObserver === "undefined") {
-      return null;
-    }
-
-    const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
-      const updates = entries.map((entry: ResizeObserverEntry) => ({
-        id: entry.target.getAttribute("data-id") as string,
-        nodeElement: entry.target as HTMLDivElement,
-        forceUpdate: true,
-      }));
-
-      updateNodeDimensions(updates);
-    });
-
-    resizeObserverRef.current = observer;
-
-    return observer;
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      resizeObserverRef?.current?.disconnect();
-    };
-  }, []);
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
@@ -147,7 +120,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             isDraggable={isDraggable}
             isSelectable={isSelectable}
             isFocusable={isFocusable}
-            resizeObserver={resizeObserver}
             isParent={!!node[internalsSymbol]?.isParent}
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}

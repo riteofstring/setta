@@ -76,7 +76,6 @@ export type WrapNodeProps<T = any> = Pick<
     onMouseMove?: NodeMouseHandler;
     onMouseLeave?: NodeMouseHandler;
     onContextMenu?: NodeMouseHandler;
-    resizeObserver: ResizeObserver | null;
     isParent: boolean;
     noDragClassName: string;
     noPanClassName: string;

@@ -43,7 +43,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     sourcePosition,
     targetPosition,
     hidden,
-    resizeObserver,
     isParent,
     noDragClassName,
     noPanClassName,
@@ -145,15 +144,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         });
       }
     };
-
-    useEffect(() => {
-      if (nodeRef.current && !hidden) {
-        const currNode = nodeRef.current;
-        resizeObserver?.observe(currNode);
-
-        return () => resizeObserver?.unobserve(currNode);
-      }
-    }, [hidden]);
 
     useEffect(() => {
       // when the user programmatically changes the source or handle position, we re-initialize the node
