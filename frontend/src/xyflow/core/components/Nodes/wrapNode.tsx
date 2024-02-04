@@ -17,7 +17,6 @@ export const arrowKeyDiffs: Record<string, XYPosition> = {
 
 const _NodeWrapper = ({
   id,
-  type,
   xPos,
   yPos,
   selected,
@@ -76,7 +75,6 @@ const _NodeWrapper = ({
     <div
       className={cc([
         "react-flow__node",
-        `react-flow__node-${type}`,
         {
           // this is overwritable by passing `nopan` as a class name
           [noPanClassName]: isDraggable,
