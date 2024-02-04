@@ -4,13 +4,11 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "thunks/keyActivations";
-import { REACT_FLOW_STORE } from "utils/constants";
 import { NodeContextMenu } from "utils/ContextMenus/NodeContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { useAllContextMenus } from "utils/ContextMenus/useContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
-import { useStoreApi } from "xyflow/core";
 import { ResponsiveControls } from "./Section/ResponsiveControls";
 import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
 import { SectionsPane } from "./Section/SectionsPane";
@@ -31,7 +29,6 @@ export function UIPage() {
     _.isEqual,
   );
 
-  useInitGlobalReactFlowStore();
   useInitGlobalKeyEventListeners();
 
   const [
@@ -74,13 +71,6 @@ export function UIPage() {
       <ResponsiveControls />
     </GlobalDndContext>
   );
-}
-
-function useInitGlobalReactFlowStore() {
-  const store = useStoreApi();
-  useEffect(() => {
-    REACT_FLOW_STORE.store = store;
-  }, []);
 }
 
 function useInitGlobalKeyEventListeners() {

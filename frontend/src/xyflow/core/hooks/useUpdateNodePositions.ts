@@ -8,7 +8,6 @@ function useUpdateNodePositions() {
   const updatePositions = useCallback(
     (params: { x: number; y: number; isShiftPressed: boolean }) => {
       const {
-        nodeInternals,
         updateNodePositions,
         getNodes,
         snapToGrid,
