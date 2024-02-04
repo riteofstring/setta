@@ -27,10 +27,6 @@ export function createNodeInternals(
       width: currInternals?.width,
       height: currInternals?.height,
       ...node,
-      positionAbsolute: {
-        x: node.position.x,
-        y: node.position.y,
-      },
     };
 
     nextNodeInternals.set(node.id, internals);

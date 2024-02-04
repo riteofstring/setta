@@ -7,7 +7,7 @@ import { useStoreApi } from "../../hooks/useStore";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";
-import { calcNextPosition, getDragItems, hasSelector } from "./utils";
+import { getDragItems, hasSelector } from "./utils";
 
 export type UseDragData = { dx: number; dy: number };
 
@@ -49,8 +49,7 @@ function useDrag({
       const selection = select(nodeRef.current);
 
       const updateNodes = ({ x, y }: XYPosition) => {
-        const { nodeInternals, updateNodePositions, snapGrid, snapToGrid } =
-          store.getState();
+        const { updateNodePositions, snapGrid, snapToGrid } = store.getState();
 
         lastPos.current = { x, y };
 
@@ -66,16 +65,13 @@ function useDrag({
               snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
           }
 
-          const updatedPos = calcNextPosition(n, nextPosition, nodeInternals);
-
           // we want to make sure that we only fire a change event when there is a change
           hasChange =
             hasChange ||
-            n.position.x !== updatedPos.position.x ||
-            n.position.y !== updatedPos.position.y;
+            n.position.x !== nextPosition.x ||
+            n.position.y !== nextPosition.y;
 
-          n.position = updatedPos.position;
-          n.positionAbsolute = updatedPos.positionAbsolute;
+          n.position = nextPosition;
 
           return n;
         });

@@ -7,8 +7,4 @@ export { default as useReactFlow } from "./hooks/useReactFlow";
 export { useStore, useStoreApi } from "./hooks/useStore";
 export * from "./types";
 export { boxToRect, clamp, getBoundsOfRects, rectToBox } from "./utils";
-export {
-  getNodePositionWithOrigin,
-  getNodesBounds,
-  getViewportForBounds,
-} from "./utils/graph";
+export { getNodesBounds, getViewportForBounds } from "./utils/graph";

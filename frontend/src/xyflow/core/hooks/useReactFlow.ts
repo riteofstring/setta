@@ -135,7 +135,7 @@ export default function useReactFlow<
     }
 
     return (nodes || store.getState().getNodes()).filter((n) => {
-      if (!isRect && (n.id === node!.id || !n.positionAbsolute)) {
+      if (!isRect && (n.id === node!.id || !n.position)) {
         return false;
       }
 

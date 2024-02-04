@@ -91,7 +91,7 @@ const NodeRenderer = (props: NodeRendererProps) => {
           (nodesFocusable && typeof node.focusable === "undefined")
         );
 
-        const clampedPosition = node.positionAbsolute;
+        const clampedPosition = node.position;
 
         const posX = clampedPosition?.x ?? 0;
         const posY = clampedPosition?.y ?? 0;

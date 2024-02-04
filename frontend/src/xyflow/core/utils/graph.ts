@@ -44,36 +44,6 @@ export const rendererPointToPoint = (
   };
 };
 
-export const getNodePositionWithOrigin = (
-  node: Node | undefined,
-): XYPosition & { positionAbsolute: XYPosition } => {
-  if (!node) {
-    return {
-      x: 0,
-      y: 0,
-      positionAbsolute: {
-        x: 0,
-        y: 0,
-      },
-    };
-  }
-
-  const position: XYPosition = {
-    x: node.position.x,
-    y: node.position.y,
-  };
-
-  return {
-    ...position,
-    positionAbsolute: node.positionAbsolute
-      ? {
-          x: node.positionAbsolute.x,
-          y: node.positionAbsolute.y,
-        }
-      : position,
-  };
-};
-
 export const getNodesBounds = (nodes: Node[]): Rect => {
   if (nodes.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
@@ -81,7 +51,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 
   const box = nodes.reduce(
     (currBox, node) => {
-      const { x, y } = getNodePositionWithOrigin(node).positionAbsolute;
+      const { x, y } = node.position;
       return getBoundsOfBoxes(
         currBox,
         rectToBox({

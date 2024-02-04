@@ -112,7 +112,6 @@ const createRFStore = () =>
           };
 
           if (positionChanged) {
-            change.positionAbsolute = node.positionAbsolute;
             change.position = node.position;
           }
 

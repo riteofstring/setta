@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 
 import { useStoreApi } from "../hooks/useStore";
-import { calcNextPosition } from "./useDrag/utils";
 
 function useUpdateNodePositions() {
   const store = useStoreApi();
@@ -32,10 +31,10 @@ function useUpdateNodePositions() {
       const positionDiffY = params.y * yVelo * factor;
 
       const nodeUpdates = selectedNodes.map((n) => {
-        if (n.positionAbsolute) {
+        if (n.position) {
           const nextPosition = {
-            x: n.positionAbsolute.x + positionDiffX,
-            y: n.positionAbsolute.y + positionDiffY,
+            x: n.position.x + positionDiffX,
+            y: n.position.y + positionDiffY,
           };
 
           if (snapToGrid) {
@@ -45,14 +44,7 @@ function useUpdateNodePositions() {
               snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
           }
 
-          const { positionAbsolute, position } = calcNextPosition(
-            n,
-            nextPosition,
-            nodeInternals,
-          );
-
-          n.position = position;
-          n.positionAbsolute = positionAbsolute;
+          n.position = nextPosition;
         }
 
         return n;

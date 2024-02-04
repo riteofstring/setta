@@ -3,7 +3,6 @@ import { shallow } from "zustand/shallow";
 
 import { devWarn } from "xyflow/core/utils";
 import { errorMessages } from "../../contants";
-import { useStoreApi } from "../../hooks/useStore";
 import type { NodeTypes, NodeTypesWrapped } from "../../types";
 import { CreateNodeTypes } from "../NodeRenderer/utils";
 

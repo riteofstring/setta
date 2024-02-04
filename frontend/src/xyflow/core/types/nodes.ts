@@ -21,7 +21,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   deletable?: boolean;
   width?: number | null;
   height?: number | null;
-  positionAbsolute?: XYPosition;
   ariaLabel?: string;
   focusable?: boolean;
 };
@@ -93,7 +92,6 @@ export type NodeBounds = XYPosition & {
 export type NodeDragItem = {
   id: string;
   position: XYPosition;
-  positionAbsolute: XYPosition;
   // distance from the mouse cursor to the node when start dragging
   distance: XYPosition;
   width?: number | null;

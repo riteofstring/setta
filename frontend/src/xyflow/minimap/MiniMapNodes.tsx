@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { memo } from "react";
-import {
-  getNodePositionWithOrigin,
-  useStore,
-  type ReactFlowState,
-} from "xyflow/core";
+import { useStore, type ReactFlowState } from "xyflow/core";
 import { shallow } from "zustand/shallow";
 
 import MiniMapNode from "./MiniMapNode";
@@ -13,7 +9,6 @@ import type { GetMiniMapNodeAttribute, MiniMapNodes } from "./types";
 
 declare const window: any;
 
-const selector = (s: ReactFlowState) => s.nodeOrigin;
 const selectorNodes = (s: ReactFlowState) =>
   s.getNodes().filter((node) => !node.hidden && node.width && node.height);
 const getAttrFunction = (func: any): GetMiniMapNodeAttribute =>
@@ -31,7 +26,6 @@ function MiniMapNodes({
   onClick,
 }: MiniMapNodes) {
   const nodes = useStore(selectorNodes, shallow);
-  const nodeOrigin = useStore(selector);
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
@@ -44,10 +38,7 @@ function MiniMapNodes({
   return (
     <>
       {nodes.map((node) => {
-        const { x, y } = getNodePositionWithOrigin(
-          node,
-          nodeOrigin,
-        ).positionAbsolute;
+        const { x, y } = node.position;
 
         return (
           <NodeComponent

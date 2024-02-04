@@ -14,7 +14,6 @@ export type NodePositionChange = {
   id: string;
   type: "position";
   position?: XYPosition;
-  positionAbsolute?: XYPosition;
   dragging?: boolean;
 };
 
