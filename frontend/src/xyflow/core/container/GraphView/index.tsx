@@ -32,7 +32,6 @@ const GraphView = ({
   nodeTypes,
   onMoveStart,
   onMoveEnd,
-  onInit,
   onSelectionStart,
   onSelectionEnd,
   selectionKeyCode,
@@ -65,7 +64,7 @@ const GraphView = ({
 }: GraphViewProps) => {
   const nodeTypesWrapped = useNodeOrEdgeTypes(nodeTypes, createNodeTypes);
 
-  useOnInitHandler(onInit);
+  useOnInitHandler();
 
   return (
     <FlowRenderer

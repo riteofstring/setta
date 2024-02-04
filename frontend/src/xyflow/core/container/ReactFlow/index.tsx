@@ -25,7 +25,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       nodes,
       className,
       nodeTypes,
-      onInit,
       onMoveStart,
       onMoveEnd,
       onSelectionStart,
@@ -85,7 +84,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       >
         <Wrapper>
           <GraphView
-            onInit={onInit}
             onMoveStart={onMoveStart}
             onMoveEnd={onMoveEnd}
             nodeTypes={nodeTypes}

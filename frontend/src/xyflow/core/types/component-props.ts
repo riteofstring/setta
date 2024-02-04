@@ -22,7 +22,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onNodesChange?: OnNodesChange;
   onSelectionStart?: (event: ReactMouseEvent) => void;
   onSelectionEnd?: (event: ReactMouseEvent) => void;
-  onInit?: OnInit;
   onMoveStart?: OnMoveStart;
   onMoveEnd?: OnMoveEnd;
   onPaneClick?: (event: ReactMouseEvent) => void;

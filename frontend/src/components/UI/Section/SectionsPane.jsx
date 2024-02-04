@@ -29,10 +29,6 @@ function getNodesInsideSelection(...props) {
   return getNodesInside(...props);
 }
 
-function onInit(rf) {
-  REACT_FLOW_STORE.rf = rf;
-}
-
 // This is a bit more efficient than the one returned by react flow's useNodesState.
 // Not sure if worth it though.
 function applyNodeChanges(changes, nodes) {
@@ -101,7 +97,6 @@ function _SectionsPane({
       onPaneContextMenu={openPaneCtxMenu}
       onPaneClick={onPaneClick}
       onMoveStart={closeCtxMenus}
-      onInit={onInit}
       getNodesInsideSelection={getNodesInsideSelection}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
