@@ -21,7 +21,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   selectable?: boolean;
   connectable?: boolean;
   deletable?: boolean;
-  dragHandle?: string;
   width?: number | null;
   height?: number | null;
   parentNode?: string;
@@ -57,7 +56,6 @@ export type WrapNodeProps<T = any> = Pick<
   | "data"
   | "style"
   | "className"
-  | "dragHandle"
   | "sourcePosition"
   | "targetPosition"
   | "hidden"
@@ -93,7 +91,6 @@ export type NodeProps<T = any> = Pick<
   WrapNodeProps<T>,
   | "id"
   | "data"
-  | "dragHandle"
   | "type"
   | "selected"
   | "isConnectable"

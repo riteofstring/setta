@@ -45,7 +45,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     targetPosition,
     hidden,
     resizeObserver,
-    dragHandle,
     isParent,
     noDragClassName,
     noPanClassName,
@@ -188,7 +187,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       nodeRef,
       disabled: hidden || !isDraggable,
       noDragClassName,
-      handleSelector: dragHandle,
       nodeId: id,
       isSelectable,
       selectNodesOnDrag,
@@ -246,7 +244,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
             sourcePosition={sourcePosition}
             targetPosition={targetPosition}
             dragging={dragging}
-            dragHandle={dragHandle}
           />
         </Provider>
       </div>

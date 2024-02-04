@@ -30,7 +30,6 @@ type UseDragParams = {
   nodeRef: RefObject<Element>;
   disabled?: boolean;
   noDragClassName?: string;
-  handleSelector?: string;
   nodeId?: string;
   isSelectable?: boolean;
   selectNodesOnDrag?: boolean;
@@ -45,7 +44,6 @@ function useDrag({
   nodeRef,
   disabled = false,
   noDragClassName,
-  handleSelector,
   nodeId,
   isSelectable,
   selectNodesOnDrag,
@@ -344,8 +342,7 @@ function useDrag({
             const isDraggable =
               !event.button &&
               (!noDragClassName ||
-                !hasSelector(target, `.${noDragClassName}`, nodeRef)) &&
-              (!handleSelector || hasSelector(target, handleSelector, nodeRef));
+                !hasSelector(target, `.${noDragClassName}`, nodeRef));
 
             return isDraggable;
           });
@@ -361,7 +358,6 @@ function useDrag({
     nodeRef,
     disabled,
     noDragClassName,
-    handleSelector,
     isSelectable,
     store,
     nodeId,

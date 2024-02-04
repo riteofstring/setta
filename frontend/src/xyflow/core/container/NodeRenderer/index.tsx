@@ -155,7 +155,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             isConnectable={isConnectable}
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
-            dragHandle={node.dragHandle}
             isParent={!!node[internalsSymbol]?.isParent}
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}

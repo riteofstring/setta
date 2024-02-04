@@ -11,8 +11,6 @@ export const errorMessages = {
   error006: () => "Can't create edge. An edge needs a source and a target.",
   error007: (id: string) => `The old edge with id=${id} does not exist.`,
   error009: (type: string) => `Marker type "${type}" doesn't exist.`,
-  error010: () =>
-    "Handle: No node id found. Make sure to only use a Handle inside a custom Node.",
   error011: (edgeType: string) =>
     `Edge type "${edgeType}" not found. Using fallback type "default".`,
   error012: (id: string) =>
