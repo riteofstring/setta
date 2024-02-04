@@ -1,35 +1,27 @@
-import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { SectionType } from "z_utils/types/section";
 
 export function setZIndices(inputNodes: SectionType[], incrementVersion) {
   const nodes = inputNodes.filter((x) => x.id);
-  const s = useSectionInfos.getState();
-  const pc = useProjectConfig.getState();
-  const topLevelSectionIdsExcludingInputIds = pc.children.filter(
+  const nodeInternals = REACT_FLOW_STORE.store.getState().nodeInternals;
+  const excludingInputIds = Array.from(nodeInternals.values()).filter(
     (x) => !nodes.map((x) => x.id).includes(x),
   );
 
-  const posWithIds = _.map(topLevelSectionIdsExcludingInputIds, (id) => ({
-    id,
-    zIndex: s.x[id].zIndex,
-  }));
-  posWithIds.sort((a, b) => a.zIndex - b.zIndex); //sort in increasing order of zindex
+  excludingInputIds.sort((a, b) => a.zIndex - b.zIndex); //sort in increasing order of zindex
 
-  const newValues = {};
-  for (let i = 0; i < posWithIds.length; i++) {
-    newValues[posWithIds[i].id] = { zIndex: i };
+  const newValues = new Map(nodeInternals);
+  for (let i = 0; i < excludingInputIds.length; i++) {
+    newValues.get(excludingInputIds[i].id).zIndex = i;
   }
   for (let i = 0; i < nodes.length; i++) {
-    if (!pc.children.includes(nodes[i].id)) {
+    if (!nodeInternals.has(nodes[i].id)) {
       continue;
     }
-    newValues[nodes[i].id] = { zIndex: i + posWithIds.length };
+    newValues.get(nodes[i].id).zIndex = i + excludingInputIds.length;
   }
 
-  s.setSectionInfoAttrObjInput({ newValues });
-  maybeIncrementProjectStateVersion(incrementVersion);
-}
+  REACT_FLOW_STORE.store.setState({ nodeInternals: newValues });
 
+  // maybeIncrementProjectStateVersion(incrementVersion);
+}

@@ -3,6 +3,7 @@ import { select } from "d3-selection";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { setZIndices } from "thunks/sections/sectionPositions";
 import { useStoreApi } from "../../hooks/useStore";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
@@ -211,9 +212,7 @@ function useDrag({
             cancelAnimationFrame(autoPanId.current);
 
             if (dragItems.current) {
-              const { updateNodePositions } = store.getState();
-
-              updateNodePositions(dragItems.current, false, false);
+              setZIndices(dragItems.current);
             }
           })
           .filter((event: MouseEvent) => {
