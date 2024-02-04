@@ -102,7 +102,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             className={node.className}
             style={node.style}
             type={nodeType}
-            hidden={node.hidden}
             xPos={posX}
             yPos={posY}
             selectNodesOnDrag={props.selectNodesOnDrag}

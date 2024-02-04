@@ -62,7 +62,6 @@ export type OnInit<NodeData = any> = (
 
 export type FitViewOptions = {
   padding?: number;
-  includeHiddenNodes?: boolean;
   minZoom?: number;
   maxZoom?: number;
   duration?: number;

@@ -10,7 +10,6 @@ export type Node<U extends string | undefined = string | undefined> = {
   type?: U;
   style?: CSSProperties;
   className?: string;
-  hidden?: boolean;
   selected?: boolean;
   dragging?: boolean;
   draggable?: boolean;
@@ -35,7 +34,7 @@ export type SelectionDragHandler = (
 
 export type WrapNodeProps<T = any> = Pick<
   Node<T>,
-  "id" | "style" | "className" | "hidden" | "ariaLabel"
+  "id" | "style" | "className" | "ariaLabel"
 > &
   Required<Pick<Node<T>, "selected" | "type">> & {
     xPos: number;

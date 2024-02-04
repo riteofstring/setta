@@ -32,7 +32,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     isSelectable,
     isFocusable,
     selectNodesOnDrag,
-    hidden,
     resizeObserver,
     noDragClassName,
     noPanClassName,
@@ -80,13 +79,13 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     };
 
     useEffect(() => {
-      if (nodeRef.current && !hidden) {
+      if (nodeRef.current) {
         const currNode = nodeRef.current;
         resizeObserver?.observe(currNode);
 
         return () => resizeObserver?.unobserve(currNode);
       }
-    }, [hidden]);
+    }, []);
 
     useEffect(() => {
       // when the user programmatically changes the source or handle position, we re-initialize the node
@@ -106,16 +105,12 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
 
     const dragging = useDrag({
       nodeRef,
-      disabled: hidden || !isDraggable,
+      disabled: !isDraggable,
       noDragClassName,
       nodeId: id,
       isSelectable,
       selectNodesOnDrag,
     });
-
-    if (hidden) {
-      return null;
-    }
 
     return (
       <div

@@ -60,18 +60,11 @@ export function fitView(
 
   if (d3initialized && (isInitialFitView || !options.initial)) {
     const nodes = getNodes().filter((n) => {
-      const isVisible = options.includeHiddenNodes
-        ? n.width && n.height
-        : !n.hidden;
-
       if (options.nodes?.length) {
-        return (
-          isVisible &&
-          options.nodes.some((optionNode) => optionNode.id === n.id)
-        );
+        return options.nodes.some((optionNode) => optionNode.id === n.id);
       }
 
-      return isVisible;
+      return true;
     });
 
     const nodesInitialized = nodes.every((n) => n.width && n.height);
