@@ -22,17 +22,7 @@ import { getSelectionChanges } from "../../utils/changes";
 type PaneProps = {
   isSelecting: boolean;
   children: ReactNode;
-} & Partial<
-  Pick<
-    ReactFlowProps,
-    | "selectionMode"
-    | "panOnDrag"
-    | "onSelectionStart"
-    | "onSelectionEnd"
-    | "onPaneClick"
-    | "onPaneContextMenu"
-  >
->;
+} & Partial<Pick<ReactFlowProps, "selectionMode" | "panOnDrag">>;
 
 const wrapHandler = (
   handler: React.MouseEventHandler | undefined,
@@ -57,10 +47,6 @@ const Pane = memo(
     isSelecting,
     selectionMode = SelectionMode.Full,
     panOnDrag,
-    onSelectionStart,
-    onSelectionEnd,
-    onPaneClick,
-    onPaneContextMenu,
     children,
   }: PaneProps) => {
     const container = useRef<HTMLDivElement | null>(null);
@@ -79,7 +65,6 @@ const Pane = memo(
     };
 
     const onClick = (event: ReactMouseEvent) => {
-      onPaneClick?.(event);
       store.getState().resetSelectedElements();
       store.setState({ nodesSelectionActive: false });
     };
@@ -89,8 +74,6 @@ const Pane = memo(
         event.preventDefault();
         return;
       }
-
-      onPaneContextMenu?.(event);
     };
 
     const onMouseDown = (event: ReactMouseEvent): void => {
@@ -121,8 +104,6 @@ const Pane = memo(
           y,
         },
       });
-
-      onSelectionStart?.(event);
     };
 
     const onMouseMove = (event: ReactMouseEvent): void => {
@@ -194,7 +175,6 @@ const Pane = memo(
       });
 
       resetUserSelection();
-      onSelectionEnd?.(event);
     };
 
     const onMouseLeave = (event: ReactMouseEvent) => {
@@ -202,7 +182,6 @@ const Pane = memo(
         store.setState({
           nodesSelectionActive: prevSelectedNodesCount.current > 0,
         });
-        onSelectionEnd?.(event);
       }
 
       resetUserSelection();

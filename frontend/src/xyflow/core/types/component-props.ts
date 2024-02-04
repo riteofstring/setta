@@ -1,4 +1,4 @@
-import type { HTMLAttributes, MouseEvent as ReactMouseEvent } from "react";
+import type { HTMLAttributes } from "react";
 
 import type {
   CoordinateExtent,
@@ -7,8 +7,6 @@ import type {
   Node,
   NodeTypes,
   OnError,
-  OnMoveEnd,
-  OnMoveStart,
   OnNodesChange,
   PanOnScrollMode,
   SelectionMode,
@@ -18,12 +16,6 @@ import type {
 export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   nodes?: Node[];
   onNodesChange?: OnNodesChange;
-  onSelectionStart?: (event: ReactMouseEvent) => void;
-  onSelectionEnd?: (event: ReactMouseEvent) => void;
-  onMoveStart?: OnMoveStart;
-  onMoveEnd?: OnMoveEnd;
-  onPaneClick?: (event: ReactMouseEvent) => void;
-  onPaneContextMenu?: (event: ReactMouseEvent) => void;
   nodeTypes?: NodeTypes;
   deleteKeyCode?: KeyCode | null;
   selectionKeyCode?: KeyCode | null;

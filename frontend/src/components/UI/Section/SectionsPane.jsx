@@ -88,9 +88,6 @@ function _SectionsPane({
       defaultViewport={REACT_FLOW_STORE.initialViewport}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
-      onPaneContextMenu={openPaneCtxMenu}
-      onPaneClick={onPaneClick}
-      onMoveStart={closeCtxMenus}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
     />

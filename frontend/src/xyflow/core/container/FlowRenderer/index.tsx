@@ -21,16 +21,10 @@ export type FlowRendererProps = Omit<
 
 const FlowRenderer = ({
   children,
-  onPaneClick,
-  onPaneContextMenu,
   deleteKeyCode,
-  onMoveStart,
-  onMoveEnd,
   selectionKeyCode,
   selectionOnDrag,
   selectionMode,
-  onSelectionStart,
-  onSelectionEnd,
   multiSelectionKeyCode,
   panActivationKeyCode,
   zoomActivationKeyCode,
@@ -62,9 +56,6 @@ const FlowRenderer = ({
 
   return (
     <ZoomPane
-      onMoveStart={onMoveStart}
-      onMoveEnd={onMoveEnd}
-      onPaneContextMenu={onPaneContextMenu}
       elementsSelectable={elementsSelectable}
       zoomOnScroll={zoomOnScroll}
       zoomOnPinch={zoomOnPinch}
@@ -83,10 +74,6 @@ const FlowRenderer = ({
       noPanClassName={noPanClassName}
     >
       <Pane
-        onSelectionStart={onSelectionStart}
-        onSelectionEnd={onSelectionEnd}
-        onPaneClick={onPaneClick}
-        onPaneContextMenu={onPaneContextMenu}
         panOnDrag={panOnDrag}
         isSelecting={!!isSelecting}
         selectionMode={selectionMode}

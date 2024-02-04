@@ -25,10 +25,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       nodes,
       className,
       nodeTypes,
-      onMoveStart,
-      onMoveEnd,
-      onSelectionStart,
-      onSelectionEnd,
       deleteKeyCode = "Backspace",
       selectionKeyCode = "Shift",
       selectionOnDrag = false,
@@ -54,8 +50,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       panOnScrollMode = PanOnScrollMode.Free,
       zoomOnDoubleClick = true,
       panOnDrag = true,
-      onPaneClick,
-      onPaneContextMenu,
       children,
       onNodesChange,
       noDragClassName = "nodrag",
@@ -83,8 +77,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       >
         <Wrapper>
           <GraphView
-            onMoveStart={onMoveStart}
-            onMoveEnd={onMoveEnd}
             nodeTypes={nodeTypes}
             selectionKeyCode={selectionKeyCode}
             selectionOnDrag={selectionOnDrag}
@@ -106,10 +98,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             panOnScrollSpeed={panOnScrollSpeed}
             panOnScrollMode={panOnScrollMode}
             panOnDrag={panOnDrag}
-            onPaneClick={onPaneClick}
-            onPaneContextMenu={onPaneContextMenu}
-            onSelectionStart={onSelectionStart}
-            onSelectionEnd={onSelectionEnd}
             noDragClassName={noDragClassName}
             noWheelClassName={noWheelClassName}
             noPanClassName={noPanClassName}

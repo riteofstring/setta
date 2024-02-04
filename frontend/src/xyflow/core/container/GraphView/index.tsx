@@ -30,10 +30,6 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes" | "nodeTypes"> &
 
 const GraphView = ({
   nodeTypes,
-  onMoveStart,
-  onMoveEnd,
-  onSelectionStart,
-  onSelectionEnd,
   selectionKeyCode,
   selectionOnDrag,
   selectionMode,
@@ -55,8 +51,6 @@ const GraphView = ({
   panOnScrollMode,
   zoomOnDoubleClick,
   panOnDrag,
-  onPaneClick,
-  onPaneContextMenu,
   noDragClassName,
   noWheelClassName,
   noPanClassName,
@@ -67,20 +61,14 @@ const GraphView = ({
 
   return (
     <FlowRenderer
-      onPaneClick={onPaneClick}
-      onPaneContextMenu={onPaneContextMenu}
       deleteKeyCode={deleteKeyCode}
       selectionKeyCode={selectionKeyCode}
       selectionOnDrag={selectionOnDrag}
       selectionMode={selectionMode}
-      onSelectionStart={onSelectionStart}
-      onSelectionEnd={onSelectionEnd}
       multiSelectionKeyCode={multiSelectionKeyCode}
       panActivationKeyCode={panActivationKeyCode}
       zoomActivationKeyCode={zoomActivationKeyCode}
       elementsSelectable={elementsSelectable}
-      onMoveStart={onMoveStart}
-      onMoveEnd={onMoveEnd}
       zoomOnScroll={zoomOnScroll}
       zoomOnPinch={zoomOnPinch}
       zoomOnDoubleClick={zoomOnDoubleClick}

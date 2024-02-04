@@ -75,7 +75,6 @@ const selector = (s: ReactFlowState) => ({
 const ZoomPane = ({
   onMoveStart,
   onMoveEnd,
-  onPaneContextMenu,
   zoomOnScroll = true,
   zoomOnPinch = true,
   panOnScroll = false,
@@ -305,14 +304,14 @@ const ZoomPane = ({
             ],
           });
 
-          zoomedWithRightMouseButton.current = !!(
-            onPaneContextMenu &&
-            isRightClickPan(panOnDrag, mouseButton.current ?? 0)
+          zoomedWithRightMouseButton.current = !!isRightClickPan(
+            panOnDrag,
+            mouseButton.current ?? 0,
           );
         });
       }
     }
-  }, [userSelectionActive, d3Zoom, panOnDrag, onPaneContextMenu]);
+  }, [userSelectionActive, d3Zoom, panOnDrag]);
 
   useEffect(() => {
     if (d3Zoom) {
@@ -323,14 +322,6 @@ const ZoomPane = ({
 
         isZoomingOrPanning.current = false;
         store.setState({ paneDragging: false });
-
-        if (
-          onPaneContextMenu &&
-          isRightClickPan(panOnDrag, mouseButton.current ?? 0) &&
-          !zoomedWithRightMouseButton.current
-        ) {
-          onPaneContextMenu(event.sourceEvent);
-        }
         zoomedWithRightMouseButton.current = false;
 
         if (onMoveEnd && viewChanged(prevTransform.current, event.transform)) {
@@ -350,7 +341,7 @@ const ZoomPane = ({
         }
       });
     }
-  }, [d3Zoom, panOnScroll, panOnDrag, onMoveEnd, onPaneContextMenu]);
+  }, [d3Zoom, panOnScroll, panOnDrag, onMoveEnd]);
 
   useEffect(() => {
     if (d3Zoom) {
