@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { memo } from "react";
 
+import { NodesSelectionWrapper } from "xyflow/core/components/NodesSelection/NodesSelection";
 import useGlobalKeyHandler from "../../hooks/useGlobalKeyHandler";
 import useKeyPress from "../../hooks/useKeyPress";
 import { GraphViewProps } from "../GraphView";
@@ -48,7 +49,6 @@ const FlowRenderer = ({
   preventScrolling,
   noWheelClassName,
   noPanClassName,
-  getNodesInsideSelection,
 }: FlowRendererProps) => {
   const selectionKeyPressed = useKeyPress(selectionKeyCode);
   const panActivationKeyPressed = useKeyPress(panActivationKeyCode);
@@ -87,12 +87,12 @@ const FlowRenderer = ({
         onSelectionEnd={onSelectionEnd}
         onPaneClick={onPaneClick}
         onPaneContextMenu={onPaneContextMenu}
-        getNodesInsideSelection={getNodesInsideSelection}
         panOnDrag={panOnDrag}
         isSelecting={!!isSelecting}
         selectionMode={selectionMode}
       >
         {children}
+        <NodesSelectionWrapper />
       </Pane>
     </ZoomPane>
   );

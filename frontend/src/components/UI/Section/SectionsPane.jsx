@@ -4,8 +4,6 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ReactFlow } from "xyflow/core";
 import "xyflow/core/styles/style.css";
-import { NodesSelectionWrapper } from "../NodesSelection";
-import { getNodesInside } from "./getSelectedNodes";
 import "./react-flow-css.css";
 import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
 
@@ -24,10 +22,6 @@ const reactFlowStyle = {
 // function onSelectionDragStop(e, nodes) {
 //   setPositionAndZIndices(nodes);
 // }
-
-function getNodesInsideSelection(...props) {
-  return getNodesInside(...props);
-}
 
 // This is a bit more efficient than the one returned by react flow's useNodesState.
 // Not sure if worth it though.
@@ -97,16 +91,9 @@ function _SectionsPane({
       onPaneContextMenu={openPaneCtxMenu}
       onPaneClick={onPaneClick}
       onMoveStart={closeCtxMenus}
-      getNodesInsideSelection={getNodesInsideSelection}
       nodeDragThreshold={1}
       className="rcbg-light dark:rcbg-dark"
-    >
-      <NodesSelectionWrapper
-      // onSelectionContextMenu={onSelectionContextMenu}
-      // noPanClassName={noPanClassName}
-      // disableKeyboardA11y={disableKeyboardA11y}
-      />
-    </ReactFlow>
+    />
   );
 }
 

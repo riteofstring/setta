@@ -1,14 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
-
-import {
-  Node,
-  NodeInternals,
-  Rect,
-  Transform,
-  Viewport,
-  XYPosition,
-} from "../types";
+import { useActiveSection } from "models/activeSection";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionRefs } from "models/sectionRefs";
+import { trueSectionPosition } from "thunks/goToSection";
+import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
 import {
   boxToRect,
   clamp,
@@ -102,14 +98,13 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
   return boxToRect(box);
 };
 
-export const getNodesInside = (
-  nodeInternals: NodeInternals,
-  rect: Rect,
-  [tx, ty, tScale]: Transform = [0, 0, 1],
+export function getNodesInside(
+  rect,
+  [tx, ty, tScale] = [0, 0, 1],
   partially = false,
   // set excludeNonSelectableNodes if you want to pay attention to the nodes "selectable" attribute
   excludeNonSelectableNodes = false,
-): Node[] => {
+) {
   const paneRect = {
     x: (rect.x - tx) / tScale,
     y: (rect.y - ty) / tScale,
@@ -117,20 +112,16 @@ export const getNodesInside = (
     height: rect.height / tScale,
   };
 
-  const visibleNodes: Node[] = [];
+  const visibleNodes = [];
 
-  nodeInternals.forEach((node) => {
-    const { width, height, selectable = true, hidden = false } = node;
-
-    if ((excludeNonSelectableNodes && !selectable) || hidden) {
-      return false;
-    }
-
-    const { positionAbsolute } = getNodePositionWithOrigin(node);
+  for (const section of Object.values(useSectionInfos.getState().x)) {
+    const ref = useSectionRefs.getState().selfOnly[section.id];
+    const { clientWidth: width, clientHeight: height } = ref;
+    const { x, y } = trueSectionPosition(section.id);
 
     const nodeRect = {
-      x: positionAbsolute.x,
-      y: positionAbsolute.y,
+      x,
+      y,
       width: width || 0,
       height: height || 0,
     };
@@ -146,13 +137,14 @@ export const getNodesInside = (
     const isVisible =
       notInitialized || partiallyVisible || overlappingArea >= area;
 
-    if (isVisible || node.dragging) {
-      visibleNodes.push(node);
+    if (isVisible) {
+      visibleNodes.push(section.id);
     }
-  });
+  }
 
+  useActiveSection.getState().setIds(visibleNodes);
   return visibleNodes;
-};
+}
 
 export const getViewportForBounds = (
   bounds: Rect,

@@ -68,7 +68,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       style,
       id,
       nodeDragThreshold,
-      getNodesInsideSelection,
       ...rest
     },
     ref,
@@ -114,7 +113,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             noDragClassName={noDragClassName}
             noWheelClassName={noWheelClassName}
             noPanClassName={noPanClassName}
-            getNodesInsideSelection={getNodesInsideSelection}
           />
           <StoreUpdater
             nodes={nodes}

@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { shallow } from "zustand/shallow";
 
+import { getNodesInside } from "xyflow/core/utils/graph";
 import UserSelection from "../../components/UserSelection";
 import { useStore, useStoreApi } from "../../hooks/useStore";
 import { containerStyle } from "../../styles";
@@ -60,14 +61,13 @@ const Pane = memo(
     onSelectionEnd,
     onPaneClick,
     onPaneContextMenu,
-    getNodesInsideSelection,
     children,
   }: PaneProps) => {
     const container = useRef<HTMLDivElement | null>(null);
     const store = useStoreApi();
     const prevSelectedNodesCount = useRef<number>(0);
     const containerBounds = useRef<DOMRect>();
-    const { userSelectionActive, elementsSelectable, dragging } = useStore(
+    const { userSelectionActive, elementsSelectable } = useStore(
       selector,
       shallow,
     );
@@ -150,7 +150,7 @@ const Pane = memo(
       };
 
       const nodes = getNodes();
-      const selectedNodeIds = getNodesInsideSelection(
+      const selectedNodeIds = getNodesInside(
         nextUserSelectRect,
         transform,
         selectionMode === SelectionMode.Partial,

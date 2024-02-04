@@ -60,7 +60,6 @@ const GraphView = ({
   noDragClassName,
   noWheelClassName,
   noPanClassName,
-  getNodesInsideSelection,
 }: GraphViewProps) => {
   const nodeTypesWrapped = useNodeOrEdgeTypes(nodeTypes, createNodeTypes);
 
@@ -97,7 +96,6 @@ const GraphView = ({
       noDragClassName={noDragClassName}
       noWheelClassName={noWheelClassName}
       noPanClassName={noPanClassName}
-      getNodesInsideSelection={getNodesInsideSelection}
     >
       <ViewportWrapper>
         <NodeRenderer

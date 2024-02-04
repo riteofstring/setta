@@ -88,5 +88,5 @@ function _NodesSelectionWrapper() {
   return nodesSelectionActive && <NodesSelection />;
 }
 
-export const NodesSelection = React.memo(_NodesSelection);
+const NodesSelection = React.memo(_NodesSelection);
 export const NodesSelectionWrapper = React.memo(_NodesSelectionWrapper);
