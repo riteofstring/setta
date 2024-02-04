@@ -26,16 +26,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       className,
       nodeTypes,
       onInit,
-      onMove,
       onMoveStart,
       onMoveEnd,
-      onNodeContextMenu,
-      onNodeDragStart,
-      onNodeDragStop,
-      onNodesDelete,
-      onSelectionChange,
-      onSelectionDragStop,
-      onSelectionContextMenu,
       onSelectionStart,
       onSelectionEnd,
       deleteKeyCode = "Backspace",
@@ -94,10 +86,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
         <Wrapper>
           <GraphView
             onInit={onInit}
-            onMove={onMove}
             onMoveStart={onMoveStart}
             onMoveEnd={onMoveEnd}
-            onNodeContextMenu={onNodeContextMenu}
             nodeTypes={nodeTypes}
             selectionKeyCode={selectionKeyCode}
             selectionOnDrag={selectionOnDrag}
@@ -121,7 +111,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             panOnDrag={panOnDrag}
             onPaneClick={onPaneClick}
             onPaneContextMenu={onPaneContextMenu}
-            onSelectionContextMenu={onSelectionContextMenu}
             onSelectionStart={onSelectionStart}
             onSelectionEnd={onSelectionEnd}
             noDragClassName={noDragClassName}
@@ -142,10 +131,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             translateExtent={translateExtent}
             fitView={fitView}
             fitViewOptions={fitViewOptions}
-            onNodesDelete={onNodesDelete}
-            onNodeDragStart={onNodeDragStart}
-            onNodeDragStop={onNodeDragStop}
-            onSelectionDragStop={onSelectionDragStop}
             noPanClassName={noPanClassName}
             autoPanOnNodeDrag={autoPanOnNodeDrag}
             onError={onError}

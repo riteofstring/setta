@@ -35,7 +35,6 @@ const initialState: ReactFlowStore = {
   fitViewOnInit: false,
   fitViewOnInitDone: false,
   fitViewOnInitOptions: undefined,
-  onSelectionChange: [],
 
   multiSelectionActive: false,
 

@@ -12,11 +12,9 @@ import type { ReactFlowInstance } from "./instance";
 import type {
   Node,
   NodeDimensionUpdate,
-  NodeDragHandler,
   NodeDragItem,
   NodeInternals,
   NodeProps,
-  SelectionDragHandler,
   WrapNodeProps,
 } from "./nodes";
 import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
@@ -152,24 +150,11 @@ export type ReactFlowStore = {
 
   multiSelectionActive: boolean;
 
-  onNodeDragStart?: NodeDragHandler;
-  onNodeDragStop?: NodeDragHandler;
-
-  onSelectionDragStop?: SelectionDragHandler;
-
   fitViewOnInit: boolean;
   fitViewOnInitDone: boolean;
   fitViewOnInitOptions: FitViewOptions | undefined;
 
-  onNodesDelete?: OnNodesDelete;
   onError?: OnError;
-
-  // event handlers
-  onViewportChangeStart?: OnViewportChange;
-  onViewportChange?: OnViewportChange;
-  onViewportChangeEnd?: OnViewportChange;
-
-  onSelectionChange: OnSelectionChangeFunc[];
 
   autoPanOnNodeDrag: boolean;
 };

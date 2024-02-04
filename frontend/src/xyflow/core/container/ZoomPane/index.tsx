@@ -73,7 +73,6 @@ const selector = (s: ReactFlowState) => ({
 });
 
 const ZoomPane = ({
-  onMove,
   onMoveStart,
   onMoveEnd,
   onPaneContextMenu,
@@ -212,12 +211,6 @@ const ZoomPane = ({
             const nextViewport = eventToFlowTransform(
               d3Selection.property("__zoom"),
             );
-            const {
-              onViewportChangeStart,
-              onViewportChange,
-              onViewportChangeEnd,
-            } = store.getState();
-
             clearTimeout(panScrollTimeout.current);
 
             // for pan on scroll we need to handle the event calls on our own
@@ -227,16 +220,11 @@ const ZoomPane = ({
               isPanScrolling.current = true;
 
               onMoveStart?.(event, nextViewport);
-              onViewportChangeStart?.(nextViewport);
             }
 
             if (isPanScrolling.current) {
-              onMove?.(event, nextViewport);
-              onViewportChange?.(nextViewport);
-
               panScrollTimeout.current = setTimeout(() => {
                 onMoveEnd?.(event, nextViewport);
-                onViewportChangeEnd?.(nextViewport);
 
                 isPanScrolling.current = false;
               }, 150);
@@ -274,7 +262,6 @@ const ZoomPane = ({
     preventScrolling,
     noWheelClassName,
     onMoveStart,
-    onMove,
     onMoveEnd,
   ]);
 
@@ -287,7 +274,6 @@ const ZoomPane = ({
         // we need to remember it here, because it's always 0 in the "zoom" event
         mouseButton.current = event.sourceEvent?.button;
 
-        const { onViewportChangeStart } = store.getState();
         const flowTransform = eventToFlowTransform(event.transform);
 
         isZoomingOrPanning.current = true;
@@ -297,7 +283,6 @@ const ZoomPane = ({
           store.setState({ paneDragging: true });
         }
 
-        onViewportChangeStart?.(flowTransform);
         onMoveStart?.(
           event.sourceEvent as MouseEvent | TouchEvent,
           flowTransform,
@@ -312,7 +297,6 @@ const ZoomPane = ({
         d3Zoom.on("zoom", null);
       } else if (!userSelectionActive) {
         d3Zoom.on("zoom", (event: D3ZoomEvent<HTMLDivElement, any>) => {
-          const { onViewportChange } = store.getState();
           store.setState({
             transform: [
               event.transform.x,
@@ -325,20 +309,10 @@ const ZoomPane = ({
             onPaneContextMenu &&
             isRightClickPan(panOnDrag, mouseButton.current ?? 0)
           );
-
-          if ((onMove || onViewportChange) && !event.sourceEvent?.internal) {
-            const flowTransform = eventToFlowTransform(event.transform);
-
-            onViewportChange?.(flowTransform);
-            onMove?.(
-              event.sourceEvent as MouseEvent | TouchEvent,
-              flowTransform,
-            );
-          }
         });
       }
     }
-  }, [userSelectionActive, d3Zoom, onMove, panOnDrag, onPaneContextMenu]);
+  }, [userSelectionActive, d3Zoom, panOnDrag, onPaneContextMenu]);
 
   useEffect(() => {
     if (d3Zoom) {
@@ -346,8 +320,6 @@ const ZoomPane = ({
         if (!event.sourceEvent || event.sourceEvent.internal) {
           return null;
         }
-
-        const { onViewportChangeEnd } = store.getState();
 
         isZoomingOrPanning.current = false;
         store.setState({ paneDragging: false });
@@ -361,17 +333,13 @@ const ZoomPane = ({
         }
         zoomedWithRightMouseButton.current = false;
 
-        if (
-          (onMoveEnd || onViewportChangeEnd) &&
-          viewChanged(prevTransform.current, event.transform)
-        ) {
+        if (onMoveEnd && viewChanged(prevTransform.current, event.transform)) {
           const flowTransform = eventToFlowTransform(event.transform);
           prevTransform.current = flowTransform;
 
           clearTimeout(timerId.current);
           timerId.current = setTimeout(
             () => {
-              onViewportChangeEnd?.(flowTransform);
               onMoveEnd?.(
                 event.sourceEvent as MouseEvent | TouchEvent,
                 flowTransform,

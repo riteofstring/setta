@@ -25,10 +25,6 @@ type StoreUpdaterProps = Pick<
   | "translateExtent"
   | "fitView"
   | "fitViewOptions"
-  | "onNodesDelete"
-  | "onNodeDragStart"
-  | "onNodeDragStop"
-  | "onSelectionDragStop"
   | "noPanClassName"
   | "autoPanOnNodeDrag"
   | "onError"
@@ -80,22 +76,13 @@ const StoreUpdater = ({
   translateExtent,
   fitView,
   fitViewOptions,
-  onNodesDelete,
-  onNodeDragStart,
-  onNodeDragStop,
-  onSelectionDragStop,
   noPanClassName,
   autoPanOnNodeDrag,
   onError,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
-  const {
-    setNodes,
-    setMinZoom,
-    setMaxZoom,
-    setTranslateExtent,
-    reset,
-  } = useStore(selector, shallow);
+  const { setNodes, setMinZoom, setMaxZoom, setTranslateExtent, reset } =
+    useStore(selector, shallow);
   const store = useStoreApi();
 
   useEffect(() => {
@@ -116,14 +103,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater("onNodesChange", onNodesChange, store.setState);
   useDirectStoreUpdater("fitViewOnInit", fitView, store.setState);
   useDirectStoreUpdater("fitViewOnInitOptions", fitViewOptions, store.setState);
-  useDirectStoreUpdater("onNodesDelete", onNodesDelete, store.setState);
-  useDirectStoreUpdater("onNodeDragStart", onNodeDragStart, store.setState);
-  useDirectStoreUpdater("onNodeDragStop", onNodeDragStop, store.setState);
-  useDirectStoreUpdater(
-    "onSelectionDragStop",
-    onSelectionDragStop,
-    store.setState,
-  );
   useDirectStoreUpdater("noPanClassName", noPanClassName, store.setState);
   useDirectStoreUpdater("autoPanOnNodeDrag", autoPanOnNodeDrag, store.setState);
   useDirectStoreUpdater("onError", onError, store.setState);

@@ -8,10 +8,7 @@ import { createNodeTypes } from "../NodeRenderer/utils";
 import ViewportWrapper from "../Viewport";
 import { useNodeOrEdgeTypes } from "./utils";
 
-export type GraphViewProps = Omit<
-  ReactFlowProps,
-  "onSelectionChange" | "nodes" | "nodeTypes"
-> &
+export type GraphViewProps = Omit<ReactFlowProps, "nodes" | "nodeTypes"> &
   Required<
     Pick<
       ReactFlowProps,
@@ -33,12 +30,9 @@ export type GraphViewProps = Omit<
 
 const GraphView = ({
   nodeTypes,
-  onMove,
   onMoveStart,
   onMoveEnd,
   onInit,
-  onNodeContextMenu,
-  onSelectionContextMenu,
   onSelectionStart,
   onSelectionEnd,
   selectionKeyCode,
@@ -87,7 +81,6 @@ const GraphView = ({
       panActivationKeyCode={panActivationKeyCode}
       zoomActivationKeyCode={zoomActivationKeyCode}
       elementsSelectable={elementsSelectable}
-      onMove={onMove}
       onMoveStart={onMoveStart}
       onMoveEnd={onMoveEnd}
       zoomOnScroll={zoomOnScroll}
@@ -101,7 +94,6 @@ const GraphView = ({
       translateExtent={translateExtent}
       minZoom={minZoom}
       maxZoom={maxZoom}
-      onSelectionContextMenu={onSelectionContextMenu}
       preventScrolling={preventScrolling}
       noDragClassName={noDragClassName}
       noWheelClassName={noWheelClassName}
@@ -111,7 +103,6 @@ const GraphView = ({
       <ViewportWrapper>
         <NodeRenderer
           nodeTypes={nodeTypesWrapped}
-          onNodeContextMenu={onNodeContextMenu}
           selectNodesOnDrag={selectNodesOnDrag}
           noPanClassName={noPanClassName}
           noDragClassName={noDragClassName}

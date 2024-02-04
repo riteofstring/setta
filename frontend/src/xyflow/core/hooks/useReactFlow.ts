@@ -78,7 +78,7 @@ export default function useReactFlow<
 
   const deleteElements = useCallback<Instance.DeleteElements>(
     ({ nodes: nodesDeleted }) => {
-      const { getNodes, onNodesDelete, onNodesChange } = store.getState();
+      const { getNodes, onNodesChange } = store.getState();
       const nodeIds = (nodesDeleted || []).map((node) => node.id);
       const nodesToRemove = getNodes().reduce<Node[]>((res, node) => {
         const deletable =
@@ -92,8 +92,6 @@ export default function useReactFlow<
 
       if (nodesToRemove) {
         if (nodesToRemove.length > 0) {
-          onNodesDelete?.(nodesToRemove);
-
           if (onNodesChange) {
             const nodeChanges: NodeChange[] = nodesToRemove.map((n) => ({
               id: n.id,

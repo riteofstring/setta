@@ -13,12 +13,7 @@ import type {
 } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";
-import {
-  calcNextPosition,
-  getDragItems,
-  getEventHandlerParams,
-  hasSelector,
-} from "./utils";
+import { calcNextPosition, getDragItems, hasSelector } from "./utils";
 
 export type UseDragData = { dx: number; dy: number };
 
@@ -145,10 +140,8 @@ function useDrag({
           multiSelectionActive,
           nodesDraggable,
           unselectNodesAndEdges,
-          onNodeDragStart,
         } = store.getState();
         dragStarted.current = true;
-        const onStart = nodeId ? onNodeDragStart : null;
 
         if (
           (!selectNodesOnDrag || !isSelectable) &&
@@ -169,15 +162,6 @@ function useDrag({
           pointerPos,
           nodeId,
         );
-
-        if (onStart && dragItems.current) {
-          const [currentNode, nodes] = getEventHandlerParams({
-            nodeId,
-            dragItems: dragItems.current,
-            nodeInternals,
-          });
-          onStart(event.sourceEvent as MouseEvent, currentNode, nodes);
-        }
       };
 
       if (disabled) {
@@ -247,26 +231,9 @@ function useDrag({
             cancelAnimationFrame(autoPanId.current);
 
             if (dragItems.current) {
-              const {
-                updateNodePositions,
-                nodeInternals,
-                onNodeDragStop,
-                onSelectionDragStop,
-              } = store.getState();
-              const onStop = nodeId
-                ? onNodeDragStop
-                : wrapSelectionDragFunc(onSelectionDragStop);
+              const { updateNodePositions } = store.getState();
 
               updateNodePositions(dragItems.current, false, false);
-
-              if (onStop) {
-                const [currentNode, nodes] = getEventHandlerParams({
-                  nodeId,
-                  dragItems: dragItems.current,
-                  nodeInternals,
-                });
-                onStop(event.sourceEvent as MouseEvent, currentNode, nodes);
-              }
             }
           })
           .filter((event: MouseEvent) => {

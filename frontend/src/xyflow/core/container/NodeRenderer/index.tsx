@@ -16,10 +16,7 @@ import { GraphViewProps } from "../GraphView";
 
 type NodeRendererProps = Pick<
   GraphViewProps,
-  | "selectNodesOnDrag"
-  | "onNodeContextMenu"
-  | "noPanClassName"
-  | "noDragClassName"
+  "selectNodesOnDrag" | "noPanClassName" | "noDragClassName"
 > & {
   nodeTypes: NodeTypesWrapped;
 };
@@ -114,7 +111,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             xPos={posX}
             yPos={posY}
             selectNodesOnDrag={props.selectNodesOnDrag}
-            onContextMenu={props.onNodeContextMenu}
             selected={!!node.selected}
             isDraggable={isDraggable}
             isSelectable={isSelectable}

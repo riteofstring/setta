@@ -1,47 +1,30 @@
-import type {
-  HTMLAttributes,
-  MouseEvent as ReactMouseEvent,
-  WheelEvent,
-} from "react";
+import type { HTMLAttributes, MouseEvent as ReactMouseEvent } from "react";
 
 import type {
   CoordinateExtent,
   FitViewOptions,
   KeyCode,
   Node,
-  NodeDragHandler,
-  NodeMouseHandler,
   NodeTypes,
   OnError,
   OnInit,
-  OnMove,
   OnMoveEnd,
   OnMoveStart,
   OnNodesChange,
-  OnNodesDelete,
   OnSelectionChangeFunc,
   PanOnScrollMode,
-  SelectionDragHandler,
   SelectionMode,
   Viewport,
 } from ".";
 
 export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   nodes?: Node[];
-  onNodeContextMenu?: NodeMouseHandler;
-  onNodeDragStart?: NodeDragHandler;
-  onNodeDragStop?: NodeDragHandler;
   onNodesChange?: OnNodesChange;
-  onNodesDelete?: OnNodesDelete;
-  onSelectionDragStop?: SelectionDragHandler;
   onSelectionStart?: (event: ReactMouseEvent) => void;
   onSelectionEnd?: (event: ReactMouseEvent) => void;
-  onSelectionContextMenu?: (event: ReactMouseEvent, nodes: Node[]) => void;
   onInit?: OnInit;
-  onMove?: OnMove;
   onMoveStart?: OnMoveStart;
   onMoveEnd?: OnMoveEnd;
-  onSelectionChange?: OnSelectionChangeFunc;
   onPaneClick?: (event: ReactMouseEvent) => void;
   onPaneContextMenu?: (event: ReactMouseEvent) => void;
   nodeTypes?: NodeTypes;

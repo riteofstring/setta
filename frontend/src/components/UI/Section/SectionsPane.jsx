@@ -1,6 +1,5 @@
 import { useActiveSection } from "models/activeSection";
 import React, { useCallback, useState } from "react";
-import { setPositionAndZIndices } from "thunks/sections/sectionPositions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ReactFlow } from "xyflow/core";
@@ -18,13 +17,13 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-function onNodeDragStop(e, node, nodes) {
-  setPositionAndZIndices(nodes);
-}
+// function onNodeDragStop(e, node, nodes) {
+//   setPositionAndZIndices(nodes);
+// }
 
-function onSelectionDragStop(e, nodes) {
-  setPositionAndZIndices(nodes);
-}
+// function onSelectionDragStop(e, nodes) {
+//   setPositionAndZIndices(nodes);
+// }
 
 function getNodesInsideSelection(...props) {
   return getNodesInside(...props);
@@ -100,12 +99,8 @@ function _SectionsPane({
       // snapGrid={[32, 32]}
       // snapToGrid={true}
       onPaneContextMenu={openPaneCtxMenu}
-      onSelectionContextMenu={openSelectionCtxMenu}
-      onNodeContextMenu={openNodeCtxMenu}
       onPaneClick={onPaneClick}
       onMoveStart={closeCtxMenus}
-      onNodeDragStop={onNodeDragStop}
-      onSelectionDragStop={onSelectionDragStop}
       onInit={onInit}
       getNodesInsideSelection={getNodesInsideSelection}
       nodeDragThreshold={1}
