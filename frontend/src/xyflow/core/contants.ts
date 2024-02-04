@@ -1,5 +1,3 @@
-import { Edge, HandleElement } from "./types";
-
 export const errorMessages = {
   error001: () =>
     "[React Flow]: Seems like you have not used zustand provider as an ancestor. Help: https://reactflow.dev/error#001",
@@ -13,10 +11,6 @@ export const errorMessages = {
   error006: () => "Can't create edge. An edge needs a source and a target.",
   error007: (id: string) => `The old edge with id=${id} does not exist.`,
   error009: (type: string) => `Marker type "${type}" doesn't exist.`,
-  error008: (sourceHandle: HandleElement | null, edge: Edge) =>
-    `Couldn't create edge for ${!sourceHandle ? "source" : "target"} handle id: "${
-      !sourceHandle ? edge.sourceHandle : edge.targetHandle
-    }", edge id: ${edge.id}.`,
   error010: () =>
     "Handle: No node id found. Make sure to only use a Handle inside a custom Node.",
   error011: (edgeType: string) =>

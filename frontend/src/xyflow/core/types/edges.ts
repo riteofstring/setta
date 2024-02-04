@@ -10,15 +10,6 @@ import type {
 import type { Connection, HandleElement, HandleType, Node } from ".";
 import { ConnectionStatus, Position } from ".";
 
-type EdgeLabelOptions = {
-  label?: string | ReactNode;
-  labelStyle?: CSSProperties;
-  labelShowBg?: boolean;
-  labelBgStyle?: CSSProperties;
-  labelBgPadding?: [number, number];
-  labelBgBorderRadius?: number;
-};
-
 // interface for the user edge items
 type DefaultEdge<T = any> = {
   id: string;

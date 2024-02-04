@@ -1,13 +1,6 @@
 import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
 
-import {
-  BezierEdge,
-  SimpleBezierEdge,
-  SmoothStepEdge,
-  StepEdge,
-  StraightEdge,
-} from "../../components/Edges";
 import DefaultNode from "../../components/Nodes/DefaultNode";
 import GroupNode from "../../components/Nodes/GroupNode";
 import InputNode from "../../components/Nodes/InputNode";
@@ -39,13 +32,6 @@ const defaultNodeTypes: NodeTypes = {
   group: GroupNode,
 };
 
-const defaultEdgeTypes: EdgeTypes = {
-  default: BezierEdge,
-  straight: StraightEdge,
-  step: StepEdge,
-  smoothstep: SmoothStepEdge,
-  simplebezier: SimpleBezierEdge,
-};
 
 const initNodeOrigin: NodeOrigin = [0, 0];
 const initSnapGrid: [number, number] = [15, 15];
@@ -67,7 +53,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       defaultEdges,
       className,
       nodeTypes = defaultNodeTypes,
-      edgeTypes = defaultEdgeTypes,
       onNodeClick,
       onEdgeClick,
       onInit,
@@ -195,7 +180,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onNodeContextMenu={onNodeContextMenu}
             onNodeDoubleClick={onNodeDoubleClick}
             nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
             selectionKeyCode={selectionKeyCode}
             selectionOnDrag={selectionOnDrag}
             selectionMode={selectionMode}

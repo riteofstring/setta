@@ -2,8 +2,6 @@ import { memo } from "react";
 
 import useOnInitHandler from "../../hooks/useOnInitHandler";
 import type { ReactFlowProps } from "../../types";
-import EdgeRenderer from "../EdgeRenderer";
-import { createEdgeTypes } from "../EdgeRenderer/utils";
 import FlowRenderer from "../FlowRenderer";
 import NodeRenderer from "../NodeRenderer";
 import { createNodeTypes } from "../NodeRenderer/utils";
@@ -106,7 +104,6 @@ const GraphView = ({
   getNodesInsideSelection,
 }: GraphViewProps) => {
   const nodeTypesWrapped = useNodeOrEdgeTypes(nodeTypes, createNodeTypes);
-  const edgeTypesWrapped = useNodeOrEdgeTypes(edgeTypes, createEdgeTypes);
 
   useOnInitHandler(onInit);
 
@@ -151,28 +148,6 @@ const GraphView = ({
       getNodesInsideSelection={getNodesInsideSelection}
     >
       <ViewportWrapper>
-        <EdgeRenderer
-          edgeTypes={edgeTypesWrapped}
-          onEdgeClick={onEdgeClick}
-          onEdgeDoubleClick={onEdgeDoubleClick}
-          onEdgeUpdate={onEdgeUpdate}
-          onlyRenderVisibleElements={onlyRenderVisibleElements}
-          onEdgeContextMenu={onEdgeContextMenu}
-          onEdgeMouseEnter={onEdgeMouseEnter}
-          onEdgeMouseMove={onEdgeMouseMove}
-          onEdgeMouseLeave={onEdgeMouseLeave}
-          onEdgeUpdateStart={onEdgeUpdateStart}
-          onEdgeUpdateEnd={onEdgeUpdateEnd}
-          edgeUpdaterRadius={edgeUpdaterRadius}
-          defaultMarkerColor={defaultMarkerColor}
-          noPanClassName={noPanClassName}
-          elevateEdgesOnSelect={!!elevateEdgesOnSelect}
-          disableKeyboardA11y={disableKeyboardA11y}
-          rfId={rfId}
-        >
-        </EdgeRenderer>
-        <div className="react-flow__edgelabel-renderer" />
-
         <NodeRenderer
           nodeTypes={nodeTypesWrapped}
           onNodeClick={onNodeClick}
