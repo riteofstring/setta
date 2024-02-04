@@ -38,7 +38,6 @@ const selector = (s: ReactFlowState) => {
       nodes.length > 0
         ? getBoundsOfRects(getNodesBounds(nodes, s.nodeOrigin), viewBB)
         : viewBB,
-    rfId: s.rfId,
   };
 };
 
@@ -69,7 +68,7 @@ function MiniMap({
 }: MiniMapProps) {
   const store = useStoreApi();
   const svg = useRef<SVGSVGElement>(null);
-  const { boundingRect, viewBB, rfId } = useStore(selector, shallow);
+  const { boundingRect, viewBB } = useStore(selector, shallow);
   const elementWidth = (style?.width as number) ?? defaultWidth;
   const elementHeight = (style?.height as number) ?? defaultHeight;
 
@@ -83,7 +82,6 @@ function MiniMap({
   const y = boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset;
   const width = viewWidth + offset * 2;
   const height = viewHeight + offset * 2;
-  const labelledBy = `${ARIA_LABEL_KEY}-${rfId}`;
   const viewScaleRef = useRef(0);
 
   viewScaleRef.current = viewScale;
@@ -192,11 +190,9 @@ function MiniMap({
         height={elementHeight}
         viewBox={`${x} ${y} ${width} ${height}`}
         role="img"
-        aria-labelledby={labelledBy}
         ref={svg}
         onClick={onSvgClick}
       >
-        {ariaLabel && <title id={labelledBy}>{ariaLabel}</title>}
         <MiniMapNodes
           onClick={onSvgNodeClick}
           nodeColor={nodeColor}

@@ -50,7 +50,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     initialized,
     disableKeyboardA11y,
     ariaLabel,
-    rfId,
   }: WrapNodeProps) => {
     const store = useStoreApi();
     const nodeRef = useRef<HTMLDivElement>(null);

@@ -39,7 +39,7 @@ type StoreUpdaterProps = Pick<
   | "autoPanOnNodeDrag"
   | "onError"
   | "nodeDragThreshold"
-> & { rfId: string };
+>
 
 const selector = (s: ReactFlowState) => ({
   setNodes: s.setNodes,
@@ -99,7 +99,6 @@ const StoreUpdater = ({
   onSelectionDragStop,
   noPanClassName,
   nodeOrigin,
-  rfId,
   autoPanOnNodeDrag,
   onError,
   nodeDragThreshold,
@@ -152,7 +151,6 @@ const StoreUpdater = ({
   );
   useDirectStoreUpdater("noPanClassName", noPanClassName, store.setState);
   useDirectStoreUpdater("nodeOrigin", nodeOrigin, store.setState);
-  useDirectStoreUpdater("rfId", rfId, store.setState);
   useDirectStoreUpdater("autoPanOnNodeDrag", autoPanOnNodeDrag, store.setState);
   useDirectStoreUpdater("onError", onError, store.setState);
   useDirectStoreUpdater("nodeDragThreshold", nodeDragThreshold, store.setState);

@@ -32,9 +32,7 @@ export type GraphViewProps = Omit<
       | "disableKeyboardA11y"
       | "nodeOrigin"
     >
-  > & {
-    rfId: string;
-  };
+  >
 
 const GraphView = ({
   nodeTypes,
@@ -85,7 +83,6 @@ const GraphView = ({
   disableKeyboardA11y,
   nodeOrigin,
   nodeExtent,
-  rfId,
   getNodesInsideSelection,
 }: GraphViewProps) => {
   const nodeTypesWrapped = useNodeOrEdgeTypes(nodeTypes, createNodeTypes);
@@ -148,7 +145,6 @@ const GraphView = ({
           disableKeyboardA11y={disableKeyboardA11y}
           nodeOrigin={nodeOrigin}
           nodeExtent={nodeExtent}
-          rfId={rfId}
         />
       </ViewportWrapper>
     </FlowRenderer>

@@ -123,7 +123,6 @@ export type ViewportHelperFunctions = {
 };
 
 export type ReactFlowStore = {
-  rfId: string;
   width: number;
   height: number;
   transform: Transform;

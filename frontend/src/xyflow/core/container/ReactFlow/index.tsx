@@ -106,8 +106,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
     },
     ref,
   ) => {
-    const rfId = id || "1";
-
     return (
       <div
         {...rest}
@@ -163,7 +161,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             noDragClassName={noDragClassName}
             noWheelClassName={noWheelClassName}
             noPanClassName={noPanClassName}
-            rfId={rfId}
             disableKeyboardA11y={disableKeyboardA11y}
             nodeOrigin={nodeOrigin}
             nodeExtent={nodeExtent}
@@ -193,7 +190,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onSelectionDragStop={onSelectionDragStop}
             noPanClassName={noPanClassName}
             nodeOrigin={nodeOrigin}
-            rfId={rfId}
             autoPanOnNodeDrag={autoPanOnNodeDrag}
             onError={onError}
             nodeDragThreshold={nodeDragThreshold}
