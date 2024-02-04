@@ -22,7 +22,6 @@ import type {
   OnNodesDelete,
   OnSelectionChangeFunc,
   PanOnScrollMode,
-  ProOptions,
   SelectionDragHandler,
   SelectionMode,
   Viewport,
@@ -94,7 +93,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   noPanClassName?: string;
   fitView?: boolean;
   fitViewOptions?: FitViewOptions;
-  proOptions?: ProOptions;
   disableKeyboardA11y?: boolean;
   autoPanOnNodeDrag?: boolean;
   onError?: OnError;

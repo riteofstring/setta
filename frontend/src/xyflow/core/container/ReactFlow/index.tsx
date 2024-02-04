@@ -95,7 +95,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       noPanClassName = "nopan",
       fitView = false,
       fitViewOptions,
-      proOptions,
       disableKeyboardA11y = false,
       autoPanOnNodeDrag = true,
       onError,

@@ -223,10 +223,6 @@ export type PanelPosition =
   | "bottom-center"
   | "bottom-right";
 
-export type ProOptions = {
-  account?: string;
-};
-
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
 export enum SelectionMode {
