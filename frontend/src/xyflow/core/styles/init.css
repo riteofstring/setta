@@ -126,12 +126,12 @@
   z-index: 3;
   transform-origin: left top;
   pointer-events: none;
+}
 
-  &-rect {
-    position: absolute;
-    pointer-events: all;
-    cursor: grab;
-  }
+.react-flow__nodesselection-rect {
+  position: absolute;
+  pointer-events: all;
+  cursor: grab;
 }
 
 .react-flow__handle {
