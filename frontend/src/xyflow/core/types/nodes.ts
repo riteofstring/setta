@@ -6,11 +6,14 @@ import type { XYPosition } from ".";
 // interface for the user node items
 export type Node<U extends string | undefined = string | undefined> = {
   id: string;
+  position: XYPosition;
   style?: CSSProperties;
   selected?: boolean;
   dragging?: boolean;
   draggable?: boolean;
   selectable?: boolean;
+  width?: number | null;
+  height?: number | null;
   focusable?: boolean;
 };
 

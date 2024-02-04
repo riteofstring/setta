@@ -4,7 +4,6 @@ import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 import { getHighestAncestor } from "./sections/sectionSizes";
-import { useSectionPositions } from "models/info/sectionPositions";
 
 export function relativePos(sectionId) {
   const s = useSectionRefs.getState();
@@ -27,11 +26,11 @@ export function goToSection(sectionId: string) {
 }
 
 export function trueSectionPosition(sectionId) {
-  const positions = useSectionPositions.getState().x;
-  const { x, y } = positions[sectionId].position;
-  if (useSectionInfos.getState().x[sectionId].parentId) {
+  const sectionState = useSectionInfos.getState().x;
+  const { x, y } = sectionState[sectionId].position;
+  if (sectionState[sectionId].parentId) {
     const highestAncestor = getHighestAncestor(sectionId);
-    const ancestorPos = positions[highestAncestor].position;
+    const ancestorPos = sectionState[highestAncestor].position;
     return { x: ancestorPos.x + x, y: ancestorPos.y + y };
   }
   return { x, y };
