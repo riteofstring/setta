@@ -17,9 +17,6 @@ import {
   rectToBox,
 } from "../utils";
 
-export const isNode = (element: Node): element is Node =>
-  "id" in element && !("source" in element) && !("target" in element);
-
 export const pointToRendererPoint = (
   { x, y }: XYPosition,
   [tx, ty, tScale]: Transform,
