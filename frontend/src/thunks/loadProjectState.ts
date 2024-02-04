@@ -37,8 +37,14 @@ export function loadProjectState({
   }
   useProjectConfig
     .getState()
-    .resetAndSetAll(_.omit(projectConfig, ["viewport"]));
+    .resetAndSetAll(_.omit(projectConfig, ["viewport", "children"]));
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
+  REACT_FLOW_STORE.store.getState().setNodes(
+    _.map(projectConfig.children, (v, k) => ({
+      id: k,
+      position: { x: v.x, y: v.y },
+    })),
+  );
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);

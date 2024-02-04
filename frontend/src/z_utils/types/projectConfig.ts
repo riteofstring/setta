@@ -3,7 +3,6 @@ import { ManySectionPositionType } from "./sectionPosition";
 export type ProjectConfigType = {
   id: string;
   name: string;
-  children: ManySectionPositionType;
 };
 
 export type ProjectConfigFrontendType = ProjectConfigType & {

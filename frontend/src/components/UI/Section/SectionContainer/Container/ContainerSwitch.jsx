@@ -1,4 +1,4 @@
-import { useProjectConfig } from "models/info/projectConfig";
+import { useStore } from "xyflow/core";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
@@ -8,7 +8,7 @@ export function ContainerSwitch({
   dragListeners,
   children,
 }) {
-  const isTopLevel = useProjectConfig((x) => x.children.includes(sectionId));
+  const isTopLevel = useStore((x) => x.nodeInternals.has(sectionId));
 
   return isTopLevel ? (
     <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>
