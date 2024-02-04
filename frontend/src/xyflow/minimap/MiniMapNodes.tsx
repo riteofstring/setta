@@ -2,8 +2,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { memo } from "react";
 import { useStore, type ReactFlowState } from "xyflow/core";
-import { shallow } from "zustand/shallow";
-
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodes } from "./types";
 
@@ -25,7 +23,7 @@ function MiniMapNodes({
   nodeComponent: NodeComponent = MiniMapNode,
   onClick,
 }: MiniMapNodes) {
-  const nodes = useStore(selectorNodes, shallow);
+  const nodes = useStore(selectorNodes);
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
