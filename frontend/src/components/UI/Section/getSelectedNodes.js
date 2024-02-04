@@ -18,6 +18,8 @@ export function getNodesInside(
     height: rect.height / tScale,
   };
 
+  console.log("paneRect", paneRect)
+
   const visibleNodes = [];
 
   for (const section of Object.values(useSectionInfos.getState().x)) {
