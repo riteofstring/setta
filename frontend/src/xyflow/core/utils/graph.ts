@@ -2,6 +2,7 @@
 import type { Selection as D3Selection } from "d3";
 
 import {
+  Connection,
   Node,
   NodeInternals,
   NodeOrigin,
@@ -18,7 +19,7 @@ import {
   rectToBox,
 } from "../utils";
 
-export const isNode = (element: Node): element is Node =>
+export const isNode = (element: Node | Connection): element is Node =>
   "id" in element && !("source" in element) && !("target" in element);
 
 export const pointToRendererPoint = (

@@ -38,6 +38,7 @@ type NodeRendererProps = Pick<
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
+  nodesConnectable: s.nodesConnectable,
   nodesFocusable: s.nodesFocusable,
   elementsSelectable: s.elementsSelectable,
   updateNodeDimensions: s.updateNodeDimensions,
@@ -47,12 +48,40 @@ const selector = (s: ReactFlowState) => ({
 const NodeRenderer = (props: NodeRendererProps) => {
   const {
     nodesDraggable,
+    nodesConnectable,
     nodesFocusable,
     elementsSelectable,
     updateNodeDimensions,
     onError,
   } = useStore(selector, shallow);
   const nodes = useVisibleNodes(props.onlyRenderVisibleElements);
+  const resizeObserverRef = useRef<ResizeObserver>();
+
+  const resizeObserver = useMemo(() => {
+    if (typeof ResizeObserver === "undefined") {
+      return null;
+    }
+
+    const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+      const updates = entries.map((entry: ResizeObserverEntry) => ({
+        id: entry.target.getAttribute("data-id") as string,
+        nodeElement: entry.target as HTMLDivElement,
+        forceUpdate: true,
+      }));
+
+      updateNodeDimensions(updates);
+    });
+
+    resizeObserverRef.current = observer;
+
+    return observer;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      resizeObserverRef?.current?.disconnect();
+    };
+  }, []);
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
@@ -74,6 +103,10 @@ const NodeRenderer = (props: NodeRendererProps) => {
         const isSelectable = !!(
           node.selectable ||
           (elementsSelectable && typeof node.selectable === "undefined")
+        );
+        const isConnectable = !!(
+          node.connectable ||
+          (nodesConnectable && typeof node.connectable === "undefined")
         );
         const isFocusable = !!(
           node.focusable ||
@@ -119,7 +152,9 @@ const NodeRenderer = (props: NodeRendererProps) => {
             selected={!!node.selected}
             isDraggable={isDraggable}
             isSelectable={isSelectable}
+            isConnectable={isConnectable}
             isFocusable={isFocusable}
+            resizeObserver={resizeObserver}
             isParent={!!node[internalsSymbol]?.isParent}
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}

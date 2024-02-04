@@ -30,7 +30,10 @@ export {
   internalsSymbol,
   rectToBox,
 } from "./utils";
-export { applyNodeChanges, handleParentExpand } from "./utils/changes";
+export {
+  applyNodeChanges,
+  handleParentExpand,
+} from "./utils/changes";
 export {
   getNodePositionWithOrigin,
   getNodesBounds,

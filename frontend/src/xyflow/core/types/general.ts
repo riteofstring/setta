@@ -5,9 +5,15 @@ import type {
   SubjectPosition,
   ZoomBehavior,
 } from "d3";
-import type { ComponentType, MemoExoticComponent } from "react";
+import type {
+  ComponentType,
+  MemoExoticComponent,
+  MouseEvent as ReactMouseEvent,
+  TouchEvent as ReactTouchEvent,
+} from "react";
 
 import type { NodeChange } from "./changes";
+import type { ConnectingHandle, HandleType } from "./handles";
 import type { ReactFlowInstance } from "./instance";
 import type {
   Node,
@@ -63,6 +69,24 @@ export type OnInit<NodeData = any> = (
   reactFlowInstance: ReactFlowInstance<NodeData>,
 ) => void;
 
+export interface Connection {
+  source: string | null;
+  target: string | null;
+  sourceHandle: string | null;
+  targetHandle: string | null;
+}
+
+export type IsValidConnection = (Connection) => boolean;
+
+export type ConnectionStatus = "valid" | "invalid";
+
+export enum ConnectionMode {
+  Strict = "strict",
+  Loose = "loose",
+}
+
+export type OnConnect = (connection: Connection) => void;
+
 export type FitViewOptions = {
   padding?: number;
   includeHiddenNodes?: boolean;
@@ -71,6 +95,18 @@ export type FitViewOptions = {
   duration?: number;
   nodes?: (Partial<Node> & { id: Node["id"] })[];
 };
+
+export type OnConnectStartParams = {
+  nodeId: string | null;
+  handleId: string | null;
+  handleType: HandleType | null;
+};
+
+export type OnConnectStart = (
+  event: ReactMouseEvent | ReactTouchEvent,
+  params: OnConnectStartParams,
+) => void;
+export type OnConnectEnd = (event: MouseEvent | TouchEvent) => void;
 
 export type Viewport = {
   x: number;
@@ -148,14 +184,28 @@ export type ReactFlowStore = {
   userSelectionActive: boolean;
   userSelectionRect: SelectionRect | null;
 
+  // @todo remove this in next major version in favor of connectionStartHandle
+  connectionNodeId: string | null;
+  connectionHandleId: string | null;
+  connectionHandleType: HandleType | null;
+  connectionPosition: XYPosition;
+  connectionStatus: ConnectionStatus | null;
+  connectionMode: ConnectionMode;
+
   snapToGrid: boolean;
   snapGrid: SnapGrid;
 
   nodesDraggable: boolean;
+  nodesConnectable: boolean;
   nodesFocusable: boolean;
   elementsSelectable: boolean;
 
   multiSelectionActive: boolean;
+
+  connectionStartHandle: ConnectingHandle | null;
+  connectionEndHandle: ConnectingHandle | null;
+  // @todo this is only used for the click connection - we might remove this in the next major version
+  connectionClickStartHandle: ConnectingHandle | null;
 
   onNodeDragStart?: NodeDragHandler;
   onNodeDrag?: NodeDragHandler;
@@ -164,6 +214,15 @@ export type ReactFlowStore = {
   onSelectionDragStart?: SelectionDragHandler;
   onSelectionDrag?: SelectionDragHandler;
   onSelectionDragStop?: SelectionDragHandler;
+
+  onConnect?: OnConnect;
+  onConnectStart?: OnConnectStart;
+  onConnectEnd?: OnConnectEnd;
+
+  onClickConnectStart?: OnConnectStart;
+  onClickConnectEnd?: OnConnectEnd;
+
+  connectOnClick: boolean;
 
   fitViewOnInit: boolean;
   fitViewOnInitDone: boolean;
@@ -180,7 +239,11 @@ export type ReactFlowStore = {
   onSelectionChange: OnSelectionChangeFunc[];
 
   ariaLiveMessage: string;
+  autoPanOnConnect: boolean;
   autoPanOnNodeDrag: boolean;
+  connectionRadius: number;
+
+  isValidConnection?: IsValidConnection;
 };
 
 export type ReactFlowActions = {
@@ -200,6 +263,7 @@ export type ReactFlowActions = {
   setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
   setNodeExtent: (nodeExtent: CoordinateExtent) => void;
+  cancelConnection: () => void;
   reset: () => void;
   triggerNodeChanges: (changes: NodeChange[]) => void;
   panBy: (delta: XYPosition) => boolean;
@@ -223,6 +287,10 @@ export type PanelPosition =
   | "bottom-center"
   | "bottom-right";
 
+export type ProOptions = {
+  account?: string;
+};
+
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
 export enum SelectionMode {
@@ -236,3 +304,4 @@ export type SelectionRect = Rect & {
 };
 
 export type OnError = (id: string, message: string) => void;
+

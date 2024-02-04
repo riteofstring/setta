@@ -1,4 +1,5 @@
 import type { CoordinateExtent, ReactFlowStore } from "../types";
+import { ConnectionMode } from "../types";
 import { devWarn } from "../utils";
 
 export const infiniteExtent: CoordinateExtent = [
@@ -24,6 +25,12 @@ const initialState: ReactFlowStore = {
   nodesSelectionActive: false,
   userSelectionActive: false,
   userSelectionRect: null,
+  connectionNodeId: null,
+  connectionHandleId: null,
+  connectionHandleType: "source",
+  connectionPosition: { x: 0, y: 0 },
+  connectionStatus: null,
+  connectionMode: ConnectionMode.Strict,
   domNode: null,
   paneDragging: false,
   noPanClassName: "nopan",
@@ -34,6 +41,7 @@ const initialState: ReactFlowStore = {
   snapToGrid: false,
 
   nodesDraggable: true,
+  nodesConnectable: true,
   nodesFocusable: true,
   elementsSelectable: true,
   fitViewOnInit: false,
@@ -43,9 +51,17 @@ const initialState: ReactFlowStore = {
 
   multiSelectionActive: false,
 
+  connectionStartHandle: null,
+  connectionEndHandle: null,
+  connectionClickStartHandle: null,
+  connectOnClick: true,
+
   ariaLiveMessage: "",
+  autoPanOnConnect: true,
   autoPanOnNodeDrag: true,
+  connectionRadius: 20,
   onError: devWarn,
+  isValidConnection: undefined,
 };
 
 export default initialState;

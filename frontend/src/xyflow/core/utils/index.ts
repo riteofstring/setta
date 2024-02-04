@@ -52,6 +52,11 @@ export const calcAutoPan = (pos: XYPosition, bounds: Dimensions): number[] => {
   return [xMovement, yMovement];
 };
 
+export const getHostForElement = (
+  element: HTMLElement,
+): Document | ShadowRoot =>
+  (element.getRootNode?.() as Document | ShadowRoot) || window?.document;
+
 export const getBoundsOfBoxes = (box1: Box, box2: Box): Box => ({
   x: Math.min(box1.x, box2.x),
   y: Math.min(box1.y, box2.y),

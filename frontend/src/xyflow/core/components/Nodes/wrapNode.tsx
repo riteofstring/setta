@@ -38,11 +38,13 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     className,
     isDraggable,
     isSelectable,
+    isConnectable,
     isFocusable,
     selectNodesOnDrag,
     sourcePosition,
     targetPosition,
     hidden,
+    resizeObserver,
     isParent,
     noDragClassName,
     noPanClassName,
@@ -146,6 +148,15 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     };
 
     useEffect(() => {
+      if (nodeRef.current && !hidden) {
+        const currNode = nodeRef.current;
+        resizeObserver?.observe(currNode);
+
+        return () => resizeObserver?.unobserve(currNode);
+      }
+    }, [hidden]);
+
+    useEffect(() => {
       // when the user programmatically changes the source or handle position, we re-initialize the node
       const typeChanged = prevType.current !== type;
       const sourcePosChanged = prevSourcePosition.current !== sourcePosition;
@@ -229,6 +240,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
             xPos={xPos}
             yPos={yPos}
             selected={selected}
+            isConnectable={isConnectable}
             sourcePosition={sourcePosition}
             targetPosition={targetPosition}
             dragging={dragging}
