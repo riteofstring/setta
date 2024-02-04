@@ -19,7 +19,6 @@ type StoreUpdaterProps = Pick<
   | "nodesFocusable"
   | "minZoom"
   | "maxZoom"
-  | "nodeExtent"
   | "onNodesChange"
   | "elementsSelectable"
   | "snapToGrid"
@@ -45,7 +44,6 @@ const selector = (s: ReactFlowState) => ({
   setMinZoom: s.setMinZoom,
   setMaxZoom: s.setMaxZoom,
   setTranslateExtent: s.setTranslateExtent,
-  setNodeExtent: s.setNodeExtent,
   reset: s.reset,
 });
 
@@ -80,7 +78,6 @@ const StoreUpdater = ({
   nodesFocusable,
   minZoom,
   maxZoom,
-  nodeExtent,
   onNodesChange,
   elementsSelectable,
   snapGrid,
@@ -105,7 +102,6 @@ const StoreUpdater = ({
     setMinZoom,
     setMaxZoom,
     setTranslateExtent,
-    setNodeExtent,
     reset,
   } = useStore(selector, shallow);
   const store = useStoreApi();
@@ -153,7 +149,6 @@ const StoreUpdater = ({
   useStoreUpdater<number>(minZoom, setMinZoom);
   useStoreUpdater<number>(maxZoom, setMaxZoom);
   useStoreUpdater<CoordinateExtent>(translateExtent, setTranslateExtent);
-  useStoreUpdater<CoordinateExtent>(nodeExtent, setNodeExtent);
 
   return null;
 };

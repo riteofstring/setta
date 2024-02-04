@@ -71,7 +71,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       maxZoom = 2,
       translateExtent = infiniteExtent,
       preventScrolling = true,
-      nodeExtent,
       zoomOnScroll = true,
       zoomOnPinch = true,
       panOnScroll = false,
@@ -158,7 +157,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             noWheelClassName={noWheelClassName}
             noPanClassName={noPanClassName}
             nodeOrigin={nodeOrigin}
-            nodeExtent={nodeExtent}
             getNodesInsideSelection={getNodesInsideSelection}
           />
           <StoreUpdater
@@ -169,7 +167,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             elementsSelectable={elementsSelectable}
             minZoom={minZoom}
             maxZoom={maxZoom}
-            nodeExtent={nodeExtent}
             onNodesChange={onNodesChange}
             snapToGrid={snapToGrid}
             snapGrid={snapGrid}

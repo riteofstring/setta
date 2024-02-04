@@ -7,15 +7,13 @@ import { handleNodeClick } from "../../components/Nodes/utils";
 import { useStoreApi } from "../../hooks/useStore";
 import type {
   Box,
-  CoordinateExtent,
   Node,
   NodeDragItem,
   SelectionDragHandler,
   UseDragEvent,
   XYPosition,
 } from "../../types";
-import { calcAutoPan, getEventPosition, rectToBox } from "../../utils";
-import { getNodesBounds } from "../../utils/graph";
+import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";
 import {
   calcNextPosition,
@@ -72,7 +70,6 @@ function useDrag({
         const {
           nodeInternals,
           updateNodePositions,
-          nodeExtent,
           snapGrid,
           snapToGrid,
           nodeOrigin,
@@ -84,14 +81,6 @@ function useDrag({
         let hasChange = false;
         let nodesBox: Box = { x: 0, y: 0, x2: 0, y2: 0 };
 
-        if (dragItems.current.length > 1 && nodeExtent) {
-          const rect = getNodesBounds(
-            dragItems.current as unknown as Node[],
-            nodeOrigin,
-          );
-          nodesBox = rectToBox(rect);
-        }
-
         dragItems.current = dragItems.current.map((n) => {
           const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
 
@@ -102,36 +91,10 @@ function useDrag({
               snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
           }
 
-          // if there is selection with multiple nodes and a node extent is set, we need to adjust the node extent for each node
-          // based on its position so that the node stays at it's position relative to the selection.
-          const adjustedNodeExtent: CoordinateExtent = [
-            [nodeExtent[0][0], nodeExtent[0][1]],
-            [nodeExtent[1][0], nodeExtent[1][1]],
-          ];
-
-          if (dragItems.current.length > 1 && nodeExtent && !n.extent) {
-            adjustedNodeExtent[0][0] =
-              n.positionAbsolute.x - nodesBox.x + nodeExtent[0][0];
-            adjustedNodeExtent[1][0] =
-              n.positionAbsolute.x +
-              (n.width ?? 0) -
-              nodesBox.x2 +
-              nodeExtent[1][0];
-
-            adjustedNodeExtent[0][1] =
-              n.positionAbsolute.y - nodesBox.y + nodeExtent[0][1];
-            adjustedNodeExtent[1][1] =
-              n.positionAbsolute.y +
-              (n.height ?? 0) -
-              nodesBox.y2 +
-              nodeExtent[1][1];
-          }
-
           const updatedPos = calcNextPosition(
             n,
             nextPosition,
             nodeInternals,
-            adjustedNodeExtent,
             nodeOrigin,
             onError,
           );

@@ -14,7 +14,7 @@ import type {
   UnselectNodesAndEdgesParams,
   XYPosition,
 } from "../types";
-import { clampPosition, getDimensions, internalsSymbol } from "../utils";
+import { getDimensions, internalsSymbol } from "../utils";
 import {
   applyNodeChanges,
   createSelectionChange,
@@ -230,18 +230,6 @@ const createRFStore = () =>
           changedNodes: nodesToUnselect,
           get,
           set,
-        });
-      },
-      setNodeExtent: (nodeExtent: CoordinateExtent) => {
-        const { nodeInternals } = get();
-
-        nodeInternals.forEach((node) => {
-          node.positionAbsolute = clampPosition(node.position, nodeExtent);
-        });
-
-        set({
-          nodeExtent,
-          nodeInternals: new Map(nodeInternals),
         });
       },
       panBy: (delta: XYPosition): boolean => {

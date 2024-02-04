@@ -139,7 +139,6 @@ export type ReactFlowStore = {
   minZoom: number;
   maxZoom: number;
   translateExtent: CoordinateExtent;
-  nodeExtent: CoordinateExtent;
   nodeOrigin: NodeOrigin;
   nodeDragThreshold: number;
 
@@ -195,7 +194,6 @@ export type ReactFlowActions = {
   setMinZoom: (minZoom: number) => void;
   setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
-  setNodeExtent: (nodeExtent: CoordinateExtent) => void;
   reset: () => void;
   triggerNodeChanges: (changes: NodeChange[]) => void;
   panBy: (delta: XYPosition) => boolean;

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 
-import type { CoordinateExtent, HandleElement, Position, XYPosition } from ".";
+import type { Position, XYPosition } from ".";
 import { internalsSymbol } from "../utils";
 
 // interface for the user node items
@@ -22,7 +22,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   deletable?: boolean;
   width?: number | null;
   height?: number | null;
-  extent?: CoordinateExtent;
   positionAbsolute?: XYPosition;
   ariaLabel?: string;
   focusable?: boolean;
@@ -31,7 +30,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   // only used internally
   [internalsSymbol]?: {
     z?: number;
-    handleBounds?: NodeHandleBounds;
   };
 };
 
@@ -88,11 +86,6 @@ export type NodeProps<T = any> = Pick<
   sourcePosition?: Position;
 };
 
-export type NodeHandleBounds = {
-  source: HandleElement[] | null;
-  target: HandleElement[] | null;
-};
-
 export type NodeDimensionUpdate = {
   id: string;
   nodeElement: HTMLDivElement;
@@ -114,7 +107,6 @@ export type NodeDragItem = {
   distance: XYPosition;
   width?: number | null;
   height?: number | null;
-  extent?: CoordinateExtent;
   dragging?: boolean;
 };
 

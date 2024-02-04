@@ -10,7 +10,6 @@ function useUpdateNodePositions() {
     (params: { x: number; y: number; isShiftPressed: boolean }) => {
       const {
         nodeInternals,
-        nodeExtent,
         updateNodePositions,
         getNodes,
         snapToGrid,
@@ -51,7 +50,6 @@ function useUpdateNodePositions() {
             n,
             nextPosition,
             nodeInternals,
-            nodeExtent,
             undefined,
             onError,
           );

@@ -1,7 +1,6 @@
 import type { RefObject } from "react";
 
 import type {
-  CoordinateExtent,
   Node,
   NodeDragItem,
   NodeInternals,
@@ -9,7 +8,6 @@ import type {
   OnError,
   XYPosition,
 } from "../../types";
-import { clampPosition } from "../../utils";
 
 export function hasSelector(
   target: Element,
@@ -52,36 +50,19 @@ export function getDragItems(
         x: 0,
         y: 0,
       },
-      extent: n.extent,
       width: n.width,
       height: n.height,
     }));
-}
-
-function clampNodeExtent(node: NodeDragItem | Node, extent?: CoordinateExtent) {
-  if (!extent) {
-    return extent;
-  }
-  return [
-    extent[0],
-    [extent[1][0] - (node.width || 0), extent[1][1] - (node.height || 0)],
-  ];
 }
 
 export function calcNextPosition(
   node: NodeDragItem | Node,
   nextPosition: XYPosition,
   nodeInternals: NodeInternals,
-  nodeExtent?: CoordinateExtent,
   nodeOrigin: NodeOrigin = [0, 0],
   onError?: OnError,
 ): { position: XYPosition; positionAbsolute: XYPosition } {
-  const clampedNodeExtent = clampNodeExtent(node, node.extent || nodeExtent);
-  let currentExtent = clampedNodeExtent;
-
-  const positionAbsolute = currentExtent
-    ? clampPosition(nextPosition, currentExtent as CoordinateExtent)
-    : nextPosition;
+  const positionAbsolute = nextPosition;
 
   return {
     position: {

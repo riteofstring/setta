@@ -79,7 +79,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   defaultViewport?: Viewport;
   translateExtent?: CoordinateExtent;
   preventScrolling?: boolean;
-  nodeExtent?: CoordinateExtent;
   zoomOnScroll?: boolean;
   zoomOnPinch?: boolean;
   panOnScroll?: boolean;

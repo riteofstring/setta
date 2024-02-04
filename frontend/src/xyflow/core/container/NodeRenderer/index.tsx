@@ -12,7 +12,6 @@ import type {
   WrapNodeProps,
 } from "../../types";
 import { Position } from "../../types";
-import { clampPosition } from "../../utils";
 import { GraphViewProps } from "../GraphView";
 import { getPositionWithOrigin } from "./utils";
 
@@ -29,7 +28,6 @@ type NodeRendererProps = Pick<
   | "noPanClassName"
   | "noDragClassName"
   | "nodeOrigin"
-  | "nodeExtent"
 > & {
   nodeTypes: NodeTypesWrapped;
 };
@@ -105,9 +103,7 @@ const NodeRenderer = (props: NodeRendererProps) => {
           (nodesFocusable && typeof node.focusable === "undefined")
         );
 
-        const clampedPosition = props.nodeExtent
-          ? clampPosition(node.positionAbsolute, props.nodeExtent)
-          : node.positionAbsolute;
+        const clampedPosition = node.positionAbsolute;
 
         const posX = clampedPosition?.x ?? 0;
         const posY = clampedPosition?.y ?? 0;
