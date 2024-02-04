@@ -6,8 +6,6 @@ import type {
 } from "react";
 
 import type {
-  ConnectionLineComponent,
-  ConnectionLineType,
   ConnectionMode,
   CoordinateExtent,
   DefaultEdgeOptions,
@@ -105,10 +103,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onPaneMouseLeave?: (event: ReactMouseEvent) => void;
   nodeTypes?: NodeTypes;
   edgeTypes?: EdgeTypes;
-  connectionLineType?: ConnectionLineType;
-  connectionLineStyle?: CSSProperties;
-  connectionLineComponent?: ConnectionLineComponent;
-  connectionLineContainerStyle?: CSSProperties;
   connectionMode?: ConnectionMode;
   deleteKeyCode?: KeyCode | null;
   selectionKeyCode?: KeyCode | null;

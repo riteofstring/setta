@@ -170,31 +170,6 @@ export type EdgeTextProps = HTMLAttributes<SVGElement> &
     y: number;
   };
 
-export enum ConnectionLineType {
-  Bezier = "default",
-  Straight = "straight",
-  Step = "step",
-  SmoothStep = "smoothstep",
-  SimpleBezier = "simplebezier",
-}
-
-export type ConnectionLineComponentProps = {
-  connectionLineStyle?: CSSProperties;
-  connectionLineType: ConnectionLineType;
-  fromNode?: Node;
-  fromHandle?: HandleElement;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  fromPosition: Position;
-  toPosition: Position;
-  connectionStatus: ConnectionStatus | null;
-};
-
-export type ConnectionLineComponent =
-  ComponentType<ConnectionLineComponentProps>;
-
 export type OnEdgeUpdateFunc<T = any> = (
   oldEdge: Edge<T>,
   newConnection: Connection,

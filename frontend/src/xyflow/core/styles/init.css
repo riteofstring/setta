@@ -104,9 +104,6 @@
   }
 }
 
-.react-flow__connectionline {
-  z-index: 1001;
-}
 
 .react-flow__nodes {
   pointer-events: none;

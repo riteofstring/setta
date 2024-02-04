@@ -15,8 +15,6 @@ export type FlowRendererProps = Omit<
   | "nodeTypes"
   | "edgeTypes"
   | "snapGrid"
-  | "connectionLineType"
-  | "connectionLineContainerStyle"
   | "arrowHeadColor"
   | "onlyRenderVisibleElements"
   | "selectNodesOnDrag"

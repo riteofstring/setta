@@ -1,6 +1,5 @@
 import { memo } from "react";
 
-import ConnectionLine from "../../components/ConnectionLine";
 import useOnInitHandler from "../../hooks/useOnInitHandler";
 import type { ReactFlowProps } from "../../types";
 import EdgeRenderer from "../EdgeRenderer";
@@ -23,7 +22,6 @@ export type GraphViewProps = Omit<
       | "selectionKeyCode"
       | "deleteKeyCode"
       | "multiSelectionKeyCode"
-      | "connectionLineType"
       | "onlyRenderVisibleElements"
       | "translateExtent"
       | "minZoom"
@@ -60,10 +58,6 @@ const GraphView = ({
   onSelectionContextMenu,
   onSelectionStart,
   onSelectionEnd,
-  connectionLineType,
-  connectionLineStyle,
-  connectionLineComponent,
-  connectionLineContainerStyle,
   selectionKeyCode,
   selectionOnDrag,
   selectionMode,
@@ -176,12 +170,6 @@ const GraphView = ({
           disableKeyboardA11y={disableKeyboardA11y}
           rfId={rfId}
         >
-          <ConnectionLine
-            style={connectionLineStyle}
-            type={connectionLineType}
-            component={connectionLineComponent}
-            containerStyle={connectionLineContainerStyle}
-          />
         </EdgeRenderer>
         <div className="react-flow__edgelabel-renderer" />
 

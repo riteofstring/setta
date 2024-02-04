@@ -24,7 +24,6 @@ import type {
   Viewport,
 } from "../../types";
 import {
-  ConnectionLineType,
   ConnectionMode,
   PanOnScrollMode,
   SelectionMode,
@@ -98,10 +97,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onSelectionStart,
       onSelectionEnd,
       connectionMode = ConnectionMode.Strict,
-      connectionLineType = ConnectionLineType.Bezier,
-      connectionLineStyle,
-      connectionLineComponent,
-      connectionLineContainerStyle,
       deleteKeyCode = "Backspace",
       selectionKeyCode = "Shift",
       selectionOnDrag = false,
@@ -201,10 +196,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onNodeDoubleClick={onNodeDoubleClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            connectionLineType={connectionLineType}
-            connectionLineStyle={connectionLineStyle}
-            connectionLineComponent={connectionLineComponent}
-            connectionLineContainerStyle={connectionLineContainerStyle}
             selectionKeyCode={selectionKeyCode}
             selectionOnDrag={selectionOnDrag}
             selectionMode={selectionMode}
