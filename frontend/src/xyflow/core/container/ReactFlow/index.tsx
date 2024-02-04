@@ -1,21 +1,38 @@
-import React, { forwardRef, type CSSProperties } from 'react';
-import cc from 'classcat';
+import cc from "classcat";
+import { forwardRef, type CSSProperties } from "react";
 
-import Attribution from '../../components/Attribution';
-import { BezierEdge, SmoothStepEdge, StepEdge, StraightEdge, SimpleBezierEdge } from '../../components/Edges';
-import DefaultNode from '../../components/Nodes/DefaultNode';
-import InputNode from '../../components/Nodes/InputNode';
-import OutputNode from '../../components/Nodes/OutputNode';
-import GroupNode from '../../components/Nodes/GroupNode';
-import SelectionListener from '../../components/SelectionListener';
-import StoreUpdater from '../../components/StoreUpdater';
-import A11yDescriptions from '../../components/A11yDescriptions';
-import GraphView from '../GraphView';
-import Wrapper from './Wrapper';
-import { infiniteExtent } from '../../store/initialState';
-import { ConnectionLineType, ConnectionMode, PanOnScrollMode, SelectionMode } from '../../types';
-import type { EdgeTypes, NodeOrigin, NodeTypes, ReactFlowProps, ReactFlowRefType, Viewport } from '../../types';
-import { isMacOs } from '../../utils';
+import Attribution from "../../components/Attribution";
+import {
+  BezierEdge,
+  SimpleBezierEdge,
+  SmoothStepEdge,
+  StepEdge,
+  StraightEdge,
+} from "../../components/Edges";
+import DefaultNode from "../../components/Nodes/DefaultNode";
+import GroupNode from "../../components/Nodes/GroupNode";
+import InputNode from "../../components/Nodes/InputNode";
+import OutputNode from "../../components/Nodes/OutputNode";
+import SelectionListener from "../../components/SelectionListener";
+import StoreUpdater from "../../components/StoreUpdater";
+import { infiniteExtent } from "../../store/initialState";
+import type {
+  EdgeTypes,
+  NodeOrigin,
+  NodeTypes,
+  ReactFlowProps,
+  ReactFlowRefType,
+  Viewport,
+} from "../../types";
+import {
+  ConnectionLineType,
+  ConnectionMode,
+  PanOnScrollMode,
+  SelectionMode,
+} from "../../types";
+import { isMacOs } from "../../utils";
+import GraphView from "../GraphView";
+import Wrapper from "./Wrapper";
 
 const defaultNodeTypes: NodeTypes = {
   input: InputNode,
@@ -37,10 +54,10 @@ const initSnapGrid: [number, number] = [15, 15];
 const initDefaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
 
 const wrapperStyle: CSSProperties = {
-  width: '100%',
-  height: '100%',
-  overflow: 'hidden',
-  position: 'relative',
+  width: "100%",
+  height: "100%",
+  overflow: "hidden",
+  position: "relative",
 };
 
 const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
@@ -86,13 +103,13 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       connectionLineStyle,
       connectionLineComponent,
       connectionLineContainerStyle,
-      deleteKeyCode = 'Backspace',
-      selectionKeyCode = 'Shift',
+      deleteKeyCode = "Backspace",
+      selectionKeyCode = "Shift",
       selectionOnDrag = false,
       selectionMode = SelectionMode.Full,
-      panActivationKeyCode = 'Space',
-      multiSelectionKeyCode = isMacOs() ? 'Meta' : 'Control',
-      zoomActivationKeyCode = isMacOs() ? 'Meta' : 'Control',
+      panActivationKeyCode = "Space",
+      multiSelectionKeyCode = isMacOs() ? "Meta" : "Control",
+      zoomActivationKeyCode = isMacOs() ? "Meta" : "Control",
       snapToGrid = false,
       snapGrid = initSnapGrid,
       onlyRenderVisibleElements = false,
@@ -110,7 +127,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       translateExtent = infiniteExtent,
       preventScrolling = true,
       nodeExtent,
-      defaultMarkerColor = '#b1b1b7',
+      defaultMarkerColor = "#b1b1b7",
       zoomOnScroll = true,
       zoomOnPinch = true,
       panOnScroll = false,
@@ -136,9 +153,9 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       edgeUpdaterRadius = 10,
       onNodesChange,
       onEdgesChange,
-      noDragClassName = 'nodrag',
-      noWheelClassName = 'nowheel',
-      noPanClassName = 'nopan',
+      noDragClassName = "nodrag",
+      noWheelClassName = "nowheel",
+      noPanClassName = "nopan",
       fitView = false,
       fitViewOptions,
       connectOnClick = true,
@@ -158,16 +175,16 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       getNodesInsideSelection,
       ...rest
     },
-    ref
+    ref,
   ) => {
-    const rfId = id || '1';
+    const rfId = id || "1";
 
     return (
       <div
         {...rest}
         style={{ ...style, ...wrapperStyle }}
         ref={ref}
-        className={cc(['react-flow', className])}
+        className={cc(["react-flow", className])}
         data-testid="rf__wrapper"
         id={id}
       >
@@ -290,13 +307,12 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           <SelectionListener onSelectionChange={onSelectionChange} />
           {children}
           <Attribution proOptions={proOptions} position={attributionPosition} />
-          <A11yDescriptions rfId={rfId} disableKeyboardA11y={disableKeyboardA11y} />
         </Wrapper>
       </div>
     );
-  }
+  },
 );
 
-ReactFlow.displayName = 'ReactFlow';
+ReactFlow.displayName = "ReactFlow";
 
 export default ReactFlow;

@@ -1,14 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Node, Edge, EdgeChange, NodeChange } from '../types';
+import type { Edge, EdgeChange, Node, NodeChange } from "../types";
 
 export function handleParentExpand(res: any[], updateItem: any) {
   const parent = res.find((e) => e.id === updateItem.parentNode);
 
   if (parent) {
     const extendWidth = updateItem.position.x + updateItem.width - parent.width;
-    const extendHeight = updateItem.position.y + updateItem.height - parent.height;
+    const extendHeight =
+      updateItem.position.y + updateItem.height - parent.height;
 
-    if (extendWidth > 0 || extendHeight > 0 || updateItem.position.x < 0 || updateItem.position.y < 0) {
+    if (
+      extendWidth > 0 ||
+      extendHeight > 0 ||
+      updateItem.position.x < 0 ||
+      updateItem.position.y < 0
+    ) {
       parent.style = { ...parent.style } || {};
 
       parent.style.width = parent.style.width ?? parent.width;
@@ -44,10 +50,12 @@ export function handleParentExpand(res: any[], updateItem: any) {
 
 function applyChanges(changes: any[], elements: any[]): any[] {
   // we need this hack to handle the setNodes and setEdges function of the useReactFlow hook for controlled flows
-  if (changes.some((c) => c.type === 'reset')) {
-    return changes.filter((c) => c.type === 'reset').map((c) => c.item);
+  if (changes.some((c) => c.type === "reset")) {
+    return changes.filter((c) => c.type === "reset").map((c) => c.item);
   }
-  const initElements: any[] = changes.filter((c) => c.type === 'add').map((c) => c.item);
+  const initElements: any[] = changes
+    .filter((c) => c.type === "add")
+    .map((c) => c.item);
 
   return elements.reduce((res: any[], item: any) => {
     const currentChanges = changes.filter((c) => c.id === item.id);
@@ -62,20 +70,20 @@ function applyChanges(changes: any[], elements: any[]): any[] {
     for (const currentChange of currentChanges) {
       if (currentChange) {
         switch (currentChange.type) {
-          case 'select': {
+          case "select": {
             updateItem.selected = currentChange.selected;
             break;
           }
-          case 'position': {
-            if (typeof currentChange.position !== 'undefined') {
+          case "position": {
+            if (typeof currentChange.position !== "undefined") {
               updateItem.position = currentChange.position;
             }
 
-            if (typeof currentChange.positionAbsolute !== 'undefined') {
+            if (typeof currentChange.positionAbsolute !== "undefined") {
               updateItem.positionAbsolute = currentChange.positionAbsolute;
             }
 
-            if (typeof currentChange.dragging !== 'undefined') {
+            if (typeof currentChange.dragging !== "undefined") {
               updateItem.dragging = currentChange.dragging;
             }
 
@@ -84,17 +92,20 @@ function applyChanges(changes: any[], elements: any[]): any[] {
             }
             break;
           }
-          case 'dimensions': {
-            if (typeof currentChange.dimensions !== 'undefined') {
+          case "dimensions": {
+            if (typeof currentChange.dimensions !== "undefined") {
               updateItem.width = currentChange.dimensions.width;
               updateItem.height = currentChange.dimensions.height;
             }
 
-            if (typeof currentChange.updateStyle !== 'undefined') {
-              updateItem.style = { ...(updateItem.style || {}), ...currentChange.dimensions };
+            if (typeof currentChange.updateStyle !== "undefined") {
+              updateItem.style = {
+                ...(updateItem.style || {}),
+                ...currentChange.dimensions,
+              };
             }
 
-            if (typeof currentChange.resizing === 'boolean') {
+            if (typeof currentChange.resizing === "boolean") {
               updateItem.resizing = currentChange.resizing;
             }
 
@@ -103,7 +114,7 @@ function applyChanges(changes: any[], elements: any[]): any[] {
             }
             break;
           }
-          case 'remove': {
+          case "remove": {
             return res;
           }
         }
@@ -115,17 +126,23 @@ function applyChanges(changes: any[], elements: any[]): any[] {
   }, initElements);
 }
 
-export function applyNodeChanges<NodeData = any>(changes: NodeChange[], nodes: Node<NodeData>[]): Node<NodeData>[] {
+export function applyNodeChanges<NodeData = any>(
+  changes: NodeChange[],
+  nodes: Node<NodeData>[],
+): Node<NodeData>[] {
   return applyChanges(changes, nodes) as Node<NodeData>[];
 }
 
-export function applyEdgeChanges<EdgeData = any>(changes: EdgeChange[], edges: Edge<EdgeData>[]): Edge<EdgeData>[] {
+export function applyEdgeChanges<EdgeData = any>(
+  changes: EdgeChange[],
+  edges: Edge<EdgeData>[],
+): Edge<EdgeData>[] {
   return applyChanges(changes, edges) as Edge<EdgeData>[];
 }
 
 export const createSelectionChange = (id: string, selected: boolean) => ({
   id,
-  type: 'select',
+  type: "select",
   selected,
 });
 

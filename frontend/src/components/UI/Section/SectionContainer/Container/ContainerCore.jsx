@@ -1,7 +1,7 @@
 import { useHasNested } from "hooks/useSectionChildren";
 import _ from "lodash";
-import { useSectionRefAndInit, useSectionRefs } from "models/sectionRefs";
-import React, { useEffect, useRef } from "react";
+import { useSectionRefAndInit } from "models/sectionRefs";
+import React from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 
 function _Container({
@@ -74,4 +74,3 @@ function DeckSectionTitle({ sectionId }) {
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
 }
-

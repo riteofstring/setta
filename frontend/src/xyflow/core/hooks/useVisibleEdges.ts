@@ -1,13 +1,17 @@
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
-import { useStore } from '../hooks/useStore';
-import { isEdgeVisible } from '../container/EdgeRenderer/utils';
-import { internalsSymbol, isNumeric } from '../utils';
-import type { ReactFlowState, NodeInternals, Edge } from '../types';
+import { isEdgeVisible } from "../container/EdgeRenderer/utils";
+import { useStore } from "../hooks/useStore";
+import type { Edge, NodeInternals, ReactFlowState } from "../types";
+import { internalsSymbol, isNumeric } from "../utils";
 
 const defaultEdgeTree = [{ level: 0, isMaxLevel: true, edges: [] }];
 
-function groupEdgesByZLevel(edges: Edge[], nodeInternals: NodeInternals, elevateEdgesOnSelect = false) {
+function groupEdgesByZLevel(
+  edges: Edge[],
+  nodeInternals: NodeInternals,
+  elevateEdgesOnSelect = false,
+) {
   let maxLevel = -1;
 
   const levelLookup = edges.reduce<Record<string, Edge[]>>((tree, edge) => {
@@ -17,13 +21,16 @@ function groupEdgesByZLevel(edges: Edge[], nodeInternals: NodeInternals, elevate
     if (elevateEdgesOnSelect) {
       const targetNode = nodeInternals.get(edge.target);
       const sourceNode = nodeInternals.get(edge.source);
-      const edgeOrConnectedNodeSelected = edge.selected || targetNode?.selected || sourceNode?.selected;
+      const edgeOrConnectedNodeSelected =
+        edge.selected || targetNode?.selected || sourceNode?.selected;
       const selectedZIndex = Math.max(
         sourceNode?.[internalsSymbol]?.z || 0,
         targetNode?.[internalsSymbol]?.z || 0,
-        1000
+        1000,
       );
-      z = (hasZIndex ? edge.zIndex! : 0) + (edgeOrConnectedNodeSelected ? selectedZIndex : 0);
+      z =
+        (hasZIndex ? edge.zIndex! : 0) +
+        (edgeOrConnectedNodeSelected ? selectedZIndex : 0);
     }
 
     if (tree[z]) {
@@ -54,7 +61,11 @@ function groupEdgesByZLevel(edges: Edge[], nodeInternals: NodeInternals, elevate
   return edgeTree;
 }
 
-function useVisibleEdges(onlyRenderVisible: boolean, nodeInternals: NodeInternals, elevateEdgesOnSelect: boolean) {
+function useVisibleEdges(
+  onlyRenderVisible: boolean,
+  nodeInternals: NodeInternals,
+  elevateEdgesOnSelect: boolean,
+) {
   const edges = useStore(
     useCallback(
       (s: ReactFlowState) => {
@@ -85,8 +96,8 @@ function useVisibleEdges(onlyRenderVisible: boolean, nodeInternals: NodeInternal
           );
         });
       },
-      [onlyRenderVisible, nodeInternals]
-    )
+      [onlyRenderVisible, nodeInternals],
+    ),
   );
 
   return groupEdgesByZLevel(edges, nodeInternals, elevateEdgesOnSelect);

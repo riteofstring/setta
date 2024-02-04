@@ -38,7 +38,7 @@ export function getProjectData(): ProjectSaveType {
   const sectionInfosState = useSectionInfos.getState();
   const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
     sectionInfosState.x,
-    (x) => _.omit(x, ["parentId"])
+    (x) => _.omit(x, ["parentId"]),
   );
 
   const codeInfo = useCodeInfo.getState().x;
@@ -99,7 +99,7 @@ function assembleProject() {
 
 export function assembleUITypes(
   s: ManyUITypeType,
-  _isPreset: boolean
+  _isPreset: boolean,
 ): ManyUITypeType {
   return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
 }

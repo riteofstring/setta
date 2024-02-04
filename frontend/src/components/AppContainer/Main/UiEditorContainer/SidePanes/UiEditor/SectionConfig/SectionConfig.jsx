@@ -16,10 +16,10 @@ export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
   const infoViewHandlersCard = useSetCurrInfoView(
-    constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH
+    constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
   );
   const infoViewHandlersContents = useSetCurrInfoView(
-    constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH
+    constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH,
   );
 
   // pass infoViewHandlersContents down?

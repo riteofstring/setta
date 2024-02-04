@@ -1,14 +1,15 @@
-import React from 'react';
-
-import Panel from '../Panel';
-import type { PanelPosition, ProOptions } from '../../types';
+import type { PanelPosition, ProOptions } from "../../types";
+import Panel from "../Panel";
 
 type AttributionProps = {
   proOptions?: ProOptions;
   position?: PanelPosition;
 };
 
-function Attribution({ proOptions, position = 'bottom-right' }: AttributionProps) {
+function Attribution({
+  proOptions,
+  position = "bottom-right",
+}: AttributionProps) {
   if (proOptions?.hideAttribution) {
     return null;
   }
@@ -19,7 +20,12 @@ function Attribution({ proOptions, position = 'bottom-right' }: AttributionProps
       className="react-flow__attribution"
       data-message="Please only hide this attribution when you are subscribed to React Flow Pro: https://reactflow.dev/pro"
     >
-      <a href="https://reactflow.dev" target="_blank" rel="noopener noreferrer" aria-label="React Flow attribution">
+      <a
+        href="https://reactflow.dev"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="React Flow attribution"
+      >
         React Flow
       </a>
     </Panel>

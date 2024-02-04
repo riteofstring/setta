@@ -1,34 +1,43 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
-  MouseEvent as ReactMouseEvent,
-  TouchEvent as ReactTouchEvent,
+  D3DragEvent,
+  Selection as D3Selection,
+  SubjectPosition,
+  ZoomBehavior,
+} from "d3";
+import type {
   ComponentType,
   MemoExoticComponent,
-} from 'react';
-import type { D3DragEvent, Selection as D3Selection, SubjectPosition, ZoomBehavior } from 'd3';
+  MouseEvent as ReactMouseEvent,
+  TouchEvent as ReactTouchEvent,
+} from "react";
 
-import type { XYPosition, Rect, Transform, CoordinateExtent } from './utils';
-import type { NodeChange, EdgeChange } from './changes';
+import type { DefaultEdgeOptions } from ".";
+import type { EdgeChange, NodeChange } from "./changes";
+import type { Edge, EdgeProps, WrapEdgeProps } from "./edges";
+import type { ConnectingHandle, HandleType } from "./handles";
+import type { ReactFlowInstance } from "./instance";
 import type {
   Node,
-  NodeInternals,
   NodeDimensionUpdate,
-  NodeProps,
-  WrapNodeProps,
-  NodeDragItem,
   NodeDragHandler,
-  SelectionDragHandler,
+  NodeDragItem,
+  NodeInternals,
   NodeOrigin,
-} from './nodes';
-import type { Edge, EdgeProps, WrapEdgeProps } from './edges';
-import type { HandleType, ConnectingHandle } from './handles';
-import type { DefaultEdgeOptions } from '.';
-import type { ReactFlowInstance } from './instance';
+  NodeProps,
+  SelectionDragHandler,
+  WrapNodeProps,
+} from "./nodes";
+import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
 
 export type NodeTypes = { [key: string]: ComponentType<NodeProps> };
-export type NodeTypesWrapped = { [key: string]: MemoExoticComponent<ComponentType<WrapNodeProps>> };
+export type NodeTypesWrapped = {
+  [key: string]: MemoExoticComponent<ComponentType<WrapNodeProps>>;
+};
 export type EdgeTypes = { [key: string]: ComponentType<EdgeProps> };
-export type EdgeTypesWrapped = { [key: string]: MemoExoticComponent<ComponentType<WrapEdgeProps>> };
+export type EdgeTypesWrapped = {
+  [key: string]: MemoExoticComponent<ComponentType<WrapEdgeProps>>;
+};
 
 export type FitView = (fitViewOptions?: FitViewOptions) => boolean;
 
@@ -40,19 +49,34 @@ export type OnEdgesChange = (changes: EdgeChange[]) => void;
 export type OnNodesDelete = (nodes: Node[]) => void;
 export type OnEdgesDelete = (edges: Edge[]) => void;
 
-export type OnMove = (event: MouseEvent | TouchEvent, viewport: Viewport) => void;
+export type OnMove = (
+  event: MouseEvent | TouchEvent,
+  viewport: Viewport,
+) => void;
 export type OnMoveStart = OnMove;
 export type OnMoveEnd = OnMove;
 
 export type ZoomInOut = (options?: ViewportHelperFunctionOptions) => void;
-export type ZoomTo = (zoomLevel: number, options?: ViewportHelperFunctionOptions) => void;
+export type ZoomTo = (
+  zoomLevel: number,
+  options?: ViewportHelperFunctionOptions,
+) => void;
 export type GetZoom = () => number;
 export type GetViewport = () => Viewport;
-export type SetViewport = (viewport: Viewport, options?: ViewportHelperFunctionOptions) => void;
-export type SetCenter = (x: number, y: number, options?: SetCenterOptions) => void;
+export type SetViewport = (
+  viewport: Viewport,
+  options?: ViewportHelperFunctionOptions,
+) => void;
+export type SetCenter = (
+  x: number,
+  y: number,
+  options?: SetCenterOptions,
+) => void;
 export type FitBounds = (bounds: Rect, options?: FitBoundsOptions) => void;
 
-export type OnInit<NodeData = any, EdgeData = any> = (reactFlowInstance: ReactFlowInstance<NodeData, EdgeData>) => void;
+export type OnInit<NodeData = any, EdgeData = any> = (
+  reactFlowInstance: ReactFlowInstance<NodeData, EdgeData>,
+) => void;
 
 export interface Connection {
   source: string | null;
@@ -63,11 +87,11 @@ export interface Connection {
 
 export type IsValidConnection = (edge: Edge | Connection) => boolean;
 
-export type ConnectionStatus = 'valid' | 'invalid';
+export type ConnectionStatus = "valid" | "invalid";
 
 export enum ConnectionMode {
-  Strict = 'strict',
-  Loose = 'loose',
+  Strict = "strict",
+  Loose = "loose",
 }
 
 export type OnConnect = (connection: Connection) => void;
@@ -78,7 +102,7 @@ export type FitViewOptions = {
   minZoom?: number;
   maxZoom?: number;
   duration?: number;
-  nodes?: (Partial<Node> & { id: Node['id'] })[];
+  nodes?: (Partial<Node> & { id: Node["id"] })[];
 };
 
 export type OnConnectStartParams = {
@@ -87,7 +111,10 @@ export type OnConnectStartParams = {
   handleType: HandleType | null;
 };
 
-export type OnConnectStart = (event: ReactMouseEvent | ReactTouchEvent, params: OnConnectStartParams) => void;
+export type OnConnectStart = (
+  event: ReactMouseEvent | ReactTouchEvent,
+  params: OnConnectStartParams,
+) => void;
 export type OnConnectEnd = (event: MouseEvent | TouchEvent) => void;
 
 export type Viewport = {
@@ -101,9 +128,9 @@ export type KeyCode = string | Array<string>;
 export type SnapGrid = [number, number];
 
 export enum PanOnScrollMode {
-  Free = 'free',
-  Vertical = 'vertical',
-  Horizontal = 'horizontal',
+  Free = "free",
+  Vertical = "vertical",
+  Horizontal = "horizontal",
 }
 
 export type ViewportHelperFunctionOptions = {
@@ -242,7 +269,11 @@ export type ReactFlowActions = {
   setEdges: (edges: Edge[]) => void;
   setDefaultNodesAndEdges: (nodes?: Node[], edges?: Edge[]) => void;
   updateNodeDimensions: (updates: NodeDimensionUpdate[]) => void;
-  updateNodePositions: (nodeDragItems: NodeDragItem[] | Node[], positionChanged: boolean, dragging: boolean) => void;
+  updateNodePositions: (
+    nodeDragItems: NodeDragItem[] | Node[],
+    positionChanged: boolean,
+    dragging: boolean,
+  ) => void;
   resetSelectedElements: () => void;
   unselectNodesAndEdges: (params?: UnselectNodesAndEdgesParams) => void;
   addSelectedNodes: (nodeIds: string[]) => void;
@@ -268,7 +299,13 @@ export type OnSelectionChangeParams = {
 
 export type OnSelectionChangeFunc = (params: OnSelectionChangeParams) => void;
 
-export type PanelPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+export type PanelPosition =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
 
 export type ProOptions = {
   account?: string;
@@ -278,8 +315,8 @@ export type ProOptions = {
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
 export enum SelectionMode {
-  Partial = 'partial',
-  Full = 'full',
+  Partial = "partial",
+  Full = "full",
 }
 
 export type SelectionRect = Rect & {

@@ -243,7 +243,7 @@ function ParamCombobox({
   }, _.isEqual);
 
   const evCols = useGetEVColNames(forSectionId).filter(
-    (x) => evColId === x.id || !alreadySelected.includes(x.id)
+    (x) => evColId === x.id || !alreadySelected.includes(x.id),
   );
 
   return (

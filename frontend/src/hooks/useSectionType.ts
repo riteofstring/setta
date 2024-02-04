@@ -15,17 +15,17 @@ import {
 import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useGetSectionTypeConfig<
-  K extends keyof SectionUITypeConfigType
+  K extends keyof SectionUITypeConfigType,
 >(sectionId: string, key: K) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes(
-    (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key]
+    (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key],
   );
 }
 
 export function useGetSectionType<K extends keyof SectionUITypeType>(
   sectionId: string,
-  key: K
+  key: K,
 ) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const nonScalars: (keyof SectionUITypeType)[] = ["config"];
@@ -37,8 +37,8 @@ export function useIsSeriesElement(sectionId: string) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) =>
     isSeriesElement(
-      (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType
-    )
+      (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType,
+    ),
   );
 }
 
@@ -50,10 +50,10 @@ export function useSectionTypeName(sectionId: string) {
 export function useSectionTypeNames() {
   const sectionIdToUITypeId = useSectionInfos(
     (x) => _.mapValues(x.x, (s) => s.uiTypeId),
-    _.isEqual
+    _.isEqual,
   );
   return useUITypes((x) =>
-    _.mapValues(sectionIdToUITypeId, (s) => x.x[s].type)
+    _.mapValues(sectionIdToUITypeId, (s) => x.x[s].type),
   );
 }
 

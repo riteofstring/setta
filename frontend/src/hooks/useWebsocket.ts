@@ -30,7 +30,7 @@ function useWebsocketRoom(messageType) {
         sendMessage({ message, id, messageType });
       }
     },
-    [id]
+    [id],
   );
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export function useCodeCompletionWebsocketRoom(sectionId) {
       }
       send({ projectConfigId, sectionId, paramInfoId: null, value: _value });
     }, 100),
-    [send]
+    [send],
   );
 
   return [searchResults, _send];
@@ -90,7 +90,7 @@ export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
       const projectConfigId = useProjectConfig.getState().id;
       send({ projectConfigId, sectionId, paramInfoId, value });
     }, 100),
-    [send]
+    [send],
   );
 
   return [searchResults, _send];

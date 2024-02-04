@@ -3,17 +3,17 @@
  * made a selection with on or several nodes
  */
 
-import React, { memo, useRef, useEffect } from 'react';
-import type { MouseEvent, KeyboardEvent } from 'react';
-import cc from 'classcat';
-import { shallow } from 'zustand/shallow';
+import cc from "classcat";
+import type { KeyboardEvent, MouseEvent } from "react";
+import { memo, useEffect, useRef } from "react";
+import { shallow } from "zustand/shallow";
 
-import { useStore, useStoreApi } from '../../hooks/useStore';
-import { getNodesBounds } from '../../utils/graph';
-import useDrag from '../../hooks/useDrag';
-import { arrowKeyDiffs } from '../Nodes/wrapNode';
-import useUpdateNodePositions from '../../hooks/useUpdateNodePositions';
-import type { Node, ReactFlowState } from '../../types';
+import useDrag from "../../hooks/useDrag";
+import { useStore, useStoreApi } from "../../hooks/useStore";
+import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
+import type { Node, ReactFlowState } from "../../types";
+import { getNodesBounds } from "../../utils/graph";
+import { arrowKeyDiffs } from "../Nodes/wrapNode";
 
 export interface NodesSelectionProps {
   onSelectionContextMenu?: (event: MouseEvent, nodes: Node[]) => void;
@@ -30,9 +30,20 @@ const selector = (s: ReactFlowState) => {
   };
 };
 
-function NodesSelection({ onSelectionContextMenu, noPanClassName, disableKeyboardA11y }: NodesSelectionProps) {
+function NodesSelection({
+  onSelectionContextMenu,
+  noPanClassName,
+  disableKeyboardA11y,
+}: NodesSelectionProps) {
   const store = useStoreApi();
-  const { width, height, x: left, y: top, transformString, userSelectionActive } = useStore(selector, shallow);
+  const {
+    width,
+    height,
+    x: left,
+    y: top,
+    transformString,
+    userSelectionActive,
+  } = useStore(selector, shallow);
   const updatePositions = useUpdateNodePositions();
 
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -75,7 +86,11 @@ function NodesSelection({ onSelectionContextMenu, noPanClassName, disableKeyboar
 
   return (
     <div
-      className={cc(['react-flow__nodesselection', 'react-flow__container', noPanClassName])}
+      className={cc([
+        "react-flow__nodesselection",
+        "react-flow__container",
+        noPanClassName,
+      ])}
       style={{
         transform: transformString,
       }}

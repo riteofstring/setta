@@ -1,5 +1,5 @@
 /* this gets exported as style.css and can be used for the default theming */
-@import './init.css';
+@import "./init.css";
 
 .react-flow__edge {
   &.updating {

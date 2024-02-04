@@ -1,16 +1,21 @@
-import { MouseEvent, RefObject } from 'react';
-import { StoreApi } from 'zustand';
+import { MouseEvent, RefObject } from "react";
+import { StoreApi } from "zustand";
 
-import { getDimensions } from '../../utils';
-import { Position } from '../../types';
-import type { HandleElement, Node, NodeOrigin, ReactFlowState } from '../../types';
-import { errorMessages } from '../../contants';
+import { errorMessages } from "../../contants";
+import type {
+  HandleElement,
+  Node,
+  NodeOrigin,
+  ReactFlowState,
+} from "../../types";
+import { Position } from "../../types";
+import { getDimensions } from "../../utils";
 
 export const getHandleBounds = (
   selector: string,
   nodeElement: HTMLDivElement,
   zoom: number,
-  nodeOrigin: NodeOrigin
+  nodeOrigin: NodeOrigin,
 ): HandleElement[] | null => {
   const handles = nodeElement.querySelectorAll(selector);
 
@@ -29,8 +34,8 @@ export const getHandleBounds = (
     const handleBounds = handle.getBoundingClientRect();
 
     return {
-      id: handle.getAttribute('data-handleid'),
-      position: handle.getAttribute('data-handlepos') as unknown as Position,
+      id: handle.getAttribute("data-handleid"),
+      position: handle.getAttribute("data-handlepos") as unknown as Position,
       x: (handleBounds.left - nodeBounds.left - nodeOffset.x) / zoom,
       y: (handleBounds.top - nodeBounds.top - nodeOffset.y) / zoom,
       ...getDimensions(handle),
@@ -40,8 +45,8 @@ export const getHandleBounds = (
 
 export function getMouseHandler(
   id: string,
-  getState: StoreApi<ReactFlowState>['getState'],
-  handler?: (event: MouseEvent, node: Node) => void
+  getState: StoreApi<ReactFlowState>["getState"],
+  handler?: (event: MouseEvent, node: Node) => void,
 ) {
   return handler === undefined
     ? handler
@@ -66,17 +71,23 @@ export function handleNodeClick({
 }: {
   id: string;
   store: {
-    getState: StoreApi<ReactFlowState>['getState'];
-    setState: StoreApi<ReactFlowState>['setState'];
+    getState: StoreApi<ReactFlowState>["getState"];
+    setState: StoreApi<ReactFlowState>["setState"];
   };
   unselect?: boolean;
   nodeRef?: RefObject<HTMLDivElement>;
 }) {
-  const { addSelectedNodes, unselectNodesAndEdges, multiSelectionActive, nodeInternals, onError } = store.getState();
+  const {
+    addSelectedNodes,
+    unselectNodesAndEdges,
+    multiSelectionActive,
+    nodeInternals,
+    onError,
+  } = store.getState();
   const node = nodeInternals.get(id);
 
   if (!node) {
-    onError?.('012', errorMessages['error012'](id));
+    onError?.("012", errorMessages["error012"](id));
     return;
   }
 

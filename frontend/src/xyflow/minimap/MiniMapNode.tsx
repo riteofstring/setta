@@ -1,7 +1,7 @@
-import React, { memo } from 'react';
-import cc from 'classcat';
+import cc from "classcat";
+import { memo } from "react";
 
-import type { MiniMapNodeProps } from './types';
+import type { MiniMapNodeProps } from "./types";
 
 const MiniMapNode = ({
   id,
@@ -24,7 +24,7 @@ const MiniMapNode = ({
 
   return (
     <rect
-      className={cc(['react-flow__minimap-node', { selected }, className])}
+      className={cc(["react-flow__minimap-node", { selected }, className])}
       x={x}
       y={y}
       rx={borderRadius}
@@ -40,6 +40,6 @@ const MiniMapNode = ({
   );
 };
 
-MiniMapNode.displayName = 'MiniMapNode';
+MiniMapNode.displayName = "MiniMapNode";
 
 export default memo(MiniMapNode);

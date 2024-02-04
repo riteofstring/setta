@@ -28,5 +28,5 @@ export const usePanes = createProjectState(
       set((state) => {
         state.trueWidth[paneName] = trueWidth;
       }),
-  }))
+  })),
 );

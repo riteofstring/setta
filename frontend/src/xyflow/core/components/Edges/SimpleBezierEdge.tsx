@@ -1,9 +1,9 @@
-import React, { memo } from 'react';
+import { memo } from "react";
 
-import BaseEdge from './BaseEdge';
-import { getBezierEdgeCenter } from './utils';
-import { Position } from '../../types';
-import type { EdgeProps } from '../../types';
+import type { EdgeProps } from "../../types";
+import { Position } from "../../types";
+import BaseEdge from "./BaseEdge";
+import { getBezierEdgeCenter } from "./utils";
 
 export interface GetSimpleBezierPathParams {
   sourceX: number;
@@ -22,7 +22,13 @@ interface GetControlParams {
   y2: number;
 }
 
-function getControl({ pos, x1, y1, x2, y2 }: GetControlParams): [number, number] {
+function getControl({
+  pos,
+  x1,
+  y1,
+  x2,
+  y2,
+}: GetControlParams): [number, number] {
   if (pos === Position.Left || pos === Position.Right) {
     return [0.5 * (x1 + x2), y1];
   }
@@ -37,7 +43,13 @@ export function getSimpleBezierPath({
   targetX,
   targetY,
   targetPosition = Position.Top,
-}: GetSimpleBezierPathParams): [path: string, labelX: number, labelY: number, offsetX: number, offsetY: number] {
+}: GetSimpleBezierPathParams): [
+  path: string,
+  labelX: number,
+  labelY: number,
+  offsetX: number,
+  offsetY: number,
+] {
   const [sourceControlX, sourceControlY] = getControl({
     pos: sourcePosition,
     x1: sourceX,
@@ -117,9 +129,9 @@ const SimpleBezierEdge = memo(
         interactionWidth={interactionWidth}
       />
     );
-  }
+  },
 );
 
-SimpleBezierEdge.displayName = 'SimpleBezierEdge';
+SimpleBezierEdge.displayName = "SimpleBezierEdge";
 
 export default SimpleBezierEdge;

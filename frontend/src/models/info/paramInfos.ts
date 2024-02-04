@@ -27,7 +27,7 @@ export const useParamInfos = createProjectState(
       initManyEvColIds: ({ collectionIds }) =>
         set((state) => {
           _.forEach(collectionIds, (id) =>
-            initValue(state.x, id, { name: createEVColName(), values: {} })
+            initValue(state.x, id, { name: createEVColName(), values: {} }),
           );
         }),
       initManyEnteredValues: ({ collectionId, paramIdsToUITypes }) =>
@@ -58,7 +58,7 @@ export const useParamInfos = createProjectState(
       setNonPresetUITypeIds: ({ collectionId, paramInfoId, newValueFn }) =>
         set((state) => {
           state.y[collectionId][paramInfoId].nonPresetUITypeIds = newValueFn(
-            state.y[collectionId][paramInfoId].nonPresetUITypeIds
+            state.y[collectionId][paramInfoId].nonPresetUITypeIds,
           );
         }),
       deleteParamInfo: ({ evColId, uiTypeColId, ids }) =>
@@ -71,8 +71,8 @@ export const useParamInfos = createProjectState(
           state.x = { ...state.x, ...evCols };
           state.y = { ...state.y, ...uiTypeCols };
         }),
-    }))
-  )
+    })),
+  ),
 );
 
 useParamInfos.temporal.getState().pause();

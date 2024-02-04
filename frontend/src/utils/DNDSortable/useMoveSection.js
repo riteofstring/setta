@@ -14,7 +14,7 @@ function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
     setAllChildren(
       active.data.current.sortable?.containerId,
-      updateWithArrayMove(active, over)
+      updateWithArrayMove(active, over),
     );
 
     maybeIncrementProjectStateVersion(true);

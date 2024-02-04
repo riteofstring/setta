@@ -1,25 +1,32 @@
-import React, {
-  memo,
-  HTMLAttributes,
+import cc from "classcat";
+import {
   forwardRef,
+  HTMLAttributes,
+  memo,
   MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
-} from 'react';
-import cc from 'classcat';
-import { shallow } from 'zustand/shallow';
+} from "react";
+import { shallow } from "zustand/shallow";
 
-import { useStore, useStoreApi } from '../../hooks/useStore';
-import { useNodeId } from '../../contexts/NodeIdContext';
-import { handlePointerDown } from './handler';
-import { getHostForElement, isMouseEvent } from '../../utils';
-import { addEdge } from '../../utils/graph';
-import { type HandleProps, type Connection, type ReactFlowState, HandleType, Position } from '../../types';
-import { isValidHandle } from './utils';
-import { errorMessages } from '../../contants';
+import { errorMessages } from "../../contants";
+import { useNodeId } from "../../contexts/NodeIdContext";
+import { useStore, useStoreApi } from "../../hooks/useStore";
+import {
+  HandleType,
+  Position,
+  type Connection,
+  type HandleProps,
+  type ReactFlowState,
+} from "../../types";
+import { getHostForElement, isMouseEvent } from "../../utils";
+import { addEdge } from "../../utils/graph";
+import { handlePointerDown } from "./handler";
+import { isValidHandle } from "./utils";
 
 const alwaysValid = () => true;
 
-export type HandleComponentProps = HandleProps & Omit<HTMLAttributes<HTMLDivElement>, 'id'>;
+export type HandleComponentProps = HandleProps &
+  Omit<HTMLAttributes<HTMLDivElement>, "id">;
 
 const selector = (s: ReactFlowState) => ({
   connectionStartHandle: s.connectionStartHandle,
@@ -28,7 +35,8 @@ const selector = (s: ReactFlowState) => ({
 });
 
 const connectingSelector =
-  (nodeId: string | null, handleId: string | null, type: HandleType) => (state: ReactFlowState) => {
+  (nodeId: string | null, handleId: string | null, type: HandleType) =>
+  (state: ReactFlowState) => {
     const {
       connectionStartHandle: startHandle,
       connectionEndHandle: endHandle,
@@ -37,17 +45,23 @@ const connectingSelector =
 
     return {
       connecting:
-        (startHandle?.nodeId === nodeId && startHandle?.handleId === handleId && startHandle?.type === type) ||
-        (endHandle?.nodeId === nodeId && endHandle?.handleId === handleId && endHandle?.type === type),
+        (startHandle?.nodeId === nodeId &&
+          startHandle?.handleId === handleId &&
+          startHandle?.type === type) ||
+        (endHandle?.nodeId === nodeId &&
+          endHandle?.handleId === handleId &&
+          endHandle?.type === type),
       clickConnecting:
-        clickHandle?.nodeId === nodeId && clickHandle?.handleId === handleId && clickHandle?.type === type,
+        clickHandle?.nodeId === nodeId &&
+        clickHandle?.handleId === handleId &&
+        clickHandle?.type === type,
     };
   };
 
 const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
   (
     {
-      type = 'source',
+      type = "source",
       position = Position.Top,
       isValidConnection,
       isConnectable = true,
@@ -61,21 +75,28 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
       onTouchStart,
       ...rest
     },
-    ref
+    ref,
   ) => {
     const handleId = id || null;
-    const isTarget = type === 'target';
+    const isTarget = type === "target";
     const store = useStoreApi();
     const nodeId = useNodeId();
     const { connectOnClick, noPanClassName } = useStore(selector, shallow);
-    const { connecting, clickConnecting } = useStore(connectingSelector(nodeId, handleId, type), shallow);
+    const { connecting, clickConnecting } = useStore(
+      connectingSelector(nodeId, handleId, type),
+      shallow,
+    );
 
     if (!nodeId) {
-      store.getState().onError?.('010', errorMessages['error010']());
+      store.getState().onError?.("010", errorMessages["error010"]());
     }
 
     const onConnectExtended = (params: Connection) => {
-      const { defaultEdgeOptions, onConnect: onConnectAction, hasDefaultEdges } = store.getState();
+      const {
+        defaultEdgeOptions,
+        onConnect: onConnectAction,
+        hasDefaultEdges,
+      } = store.getState();
 
       const edgeParams = {
         ...defaultEdgeOptions,
@@ -90,14 +111,19 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
       onConnect?.(edgeParams);
     };
 
-    const onPointerDown = (event: ReactMouseEvent<HTMLDivElement> | ReactTouchEvent<HTMLDivElement>) => {
+    const onPointerDown = (
+      event: ReactMouseEvent<HTMLDivElement> | ReactTouchEvent<HTMLDivElement>,
+    ) => {
       if (!nodeId) {
         return;
       }
 
       const isMouseTriggered = isMouseEvent(event);
 
-      if (isConnectableStart && ((isMouseTriggered && event.button === 0) || !isMouseTriggered)) {
+      if (
+        isConnectableStart &&
+        ((isMouseTriggered && event.button === 0) || !isMouseTriggered)
+      ) {
         handlePointerDown({
           event,
           handleId,
@@ -106,7 +132,10 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
           isTarget,
           getState: store.getState,
           setState: store.setState,
-          isValidConnection: isValidConnection || store.getState().isValidConnection || alwaysValid,
+          isValidConnection:
+            isValidConnection ||
+            store.getState().isValidConnection ||
+            alwaysValid,
         });
       }
 
@@ -132,12 +161,15 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
 
       if (!connectionClickStartHandle) {
         onClickConnectStart?.(event, { nodeId, handleId, handleType: type });
-        store.setState({ connectionClickStartHandle: { nodeId, type, handleId } });
+        store.setState({
+          connectionClickStartHandle: { nodeId, type, handleId },
+        });
         return;
       }
 
       const doc = getHostForElement(event.target as HTMLElement);
-      const isValidConnectionHandler = isValidConnection || isValidConnectionStore || alwaysValid;
+      const isValidConnectionHandler =
+        isValidConnection || isValidConnectionStore || alwaysValid;
 
       const { connection, isValid } = isValidHandle(
         {
@@ -150,7 +182,7 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
         connectionClickStartHandle.handleId || null,
         connectionClickStartHandle.type,
         isValidConnectionHandler,
-        doc
+        doc,
       );
 
       if (isValid) {
@@ -169,9 +201,9 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
         data-handlepos={position}
         data-id={`${nodeId}-${handleId}-${type}`}
         className={cc([
-          'react-flow__handle',
+          "react-flow__handle",
           `react-flow__handle-${position}`,
-          'nodrag',
+          "nodrag",
           noPanClassName,
           className,
           {
@@ -183,7 +215,9 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
             connecting: clickConnecting,
             // this class is used to style the handle when the user is connecting
             connectionindicator:
-              isConnectable && ((isConnectableStart && !connecting) || (isConnectableEnd && connecting)),
+              isConnectable &&
+              ((isConnectableStart && !connecting) ||
+                (isConnectableEnd && connecting)),
           },
         ])}
         onMouseDown={onPointerDown}
@@ -195,9 +229,9 @@ const Handle = forwardRef<HTMLDivElement, HandleComponentProps>(
         {children}
       </div>
     );
-  }
+  },
 );
 
-Handle.displayName = 'Handle';
+Handle.displayName = "Handle";
 
 export default memo(Handle);

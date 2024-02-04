@@ -1,29 +1,28 @@
-import React, { memo } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
+import { memo } from "react";
 
-import { useStore } from '../../hooks/useStore';
-import useGlobalKeyHandler from '../../hooks/useGlobalKeyHandler';
-import useKeyPress from '../../hooks/useKeyPress';
-import { GraphViewProps } from '../GraphView';
-import ZoomPane from '../ZoomPane';
-import Pane from '../Pane';
-import NodesSelection from '../../components/NodesSelection';
-import type { ReactFlowState } from '../../types';
+import useGlobalKeyHandler from "../../hooks/useGlobalKeyHandler";
+import useKeyPress from "../../hooks/useKeyPress";
+import { useStore } from "../../hooks/useStore";
+import type { ReactFlowState } from "../../types";
+import { GraphViewProps } from "../GraphView";
+import Pane from "../Pane";
+import ZoomPane from "../ZoomPane";
 
 export type FlowRendererProps = Omit<
   GraphViewProps,
-  | 'snapToGrid'
-  | 'nodeTypes'
-  | 'edgeTypes'
-  | 'snapGrid'
-  | 'connectionLineType'
-  | 'connectionLineContainerStyle'
-  | 'arrowHeadColor'
-  | 'onlyRenderVisibleElements'
-  | 'selectNodesOnDrag'
-  | 'defaultMarkerColor'
-  | 'rfId'
-  | 'nodeOrigin'
+  | "snapToGrid"
+  | "nodeTypes"
+  | "edgeTypes"
+  | "snapGrid"
+  | "connectionLineType"
+  | "connectionLineContainerStyle"
+  | "arrowHeadColor"
+  | "onlyRenderVisibleElements"
+  | "selectNodesOnDrag"
+  | "defaultMarkerColor"
+  | "rfId"
+  | "nodeOrigin"
 > & {
   children: ReactNode;
 };
@@ -75,7 +74,8 @@ const FlowRenderer = ({
 
   const panOnDrag = panActivationKeyPressed || _panOnDrag;
   const panOnScroll = panActivationKeyPressed || _panOnScroll;
-  const isSelecting = selectionKeyPressed || (selectionOnDrag && panOnDrag !== true);
+  const isSelecting =
+    selectionKeyPressed || (selectionOnDrag && panOnDrag !== true);
 
   useGlobalKeyHandler({ deleteKeyCode, multiSelectionKeyCode });
 
@@ -122,6 +122,6 @@ const FlowRenderer = ({
   );
 };
 
-FlowRenderer.displayName = 'FlowRenderer';
+FlowRenderer.displayName = "FlowRenderer";
 
 export default memo(FlowRenderer);

@@ -45,7 +45,7 @@ export type SectionInfoActionType = {
   resetAndSetAll: (payload: { sections: ManySectionType }) => void;
 
   setSectionInfo: (
-    newStateFn: (currState: ManySectionType) => ManySectionType
+    newStateFn: (currState: ManySectionType) => ManySectionType,
   ) => void;
 
   setSectionInfoAttr: <K extends keyof SectionType>(payload: {

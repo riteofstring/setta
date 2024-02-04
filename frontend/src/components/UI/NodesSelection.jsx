@@ -7,8 +7,8 @@ import cc from "classcat";
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefs } from "models/sectionRefs";
 import React from "react";
-import { getNodesBounds, useStore } from "xyflow/core";
 import { trueSectionPosition } from "thunks/goToSection";
+import { getNodesBounds, useStore } from "xyflow/core";
 
 const selector = (s) => {
   const activeSectionIds = useActiveSection.getState().ids;

@@ -1,8 +1,8 @@
-import React, { memo } from 'react';
+import { memo } from "react";
 
-import Handle from '../../components/Handle';
-import { Position } from '../../types';
-import type { NodeProps } from '../../types';
+import Handle from "../../components/Handle";
+import type { NodeProps } from "../../types";
+import { Position } from "../../types";
 
 const DefaultNode = ({
   data,
@@ -12,13 +12,21 @@ const DefaultNode = ({
 }: NodeProps) => {
   return (
     <>
-      <Handle type="target" position={targetPosition} isConnectable={isConnectable} />
+      <Handle
+        type="target"
+        position={targetPosition}
+        isConnectable={isConnectable}
+      />
       {data?.label}
-      <Handle type="source" position={sourcePosition} isConnectable={isConnectable} />
+      <Handle
+        type="source"
+        position={sourcePosition}
+        isConnectable={isConnectable}
+      />
     </>
   );
 };
 
-DefaultNode.displayName = 'DefaultNode';
+DefaultNode.displayName = "DefaultNode";
 
 export default memo(DefaultNode);

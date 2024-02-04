@@ -1,19 +1,24 @@
-import { zoomIdentity } from 'd3-zoom';
-import type { StoreApi } from 'zustand';
+import { zoomIdentity } from "d3-zoom";
+import type { StoreApi } from "zustand";
 
-import { internalsSymbol, isNumeric } from '../utils';
-import { getD3Transition, getNodesBounds, getViewportForBounds, getNodePositionWithOrigin } from '../utils/graph';
 import type {
   Edge,
   EdgeSelectionChange,
+  FitViewOptions,
   Node,
   NodeInternals,
+  NodeOrigin,
   NodeSelectionChange,
   ReactFlowState,
   XYZPosition,
-  FitViewOptions,
-  NodeOrigin,
-} from '../types';
+} from "../types";
+import { internalsSymbol } from "../utils";
+import {
+  getD3Transition,
+  getNodePositionWithOrigin,
+  getNodesBounds,
+  getViewportForBounds,
+} from "../utils/graph";
 
 type ParentNodes = Record<string, boolean>;
 
@@ -21,7 +26,7 @@ function calculateXYZPosition(
   node: Node,
   nodeInternals: NodeInternals,
   result: XYZPosition,
-  nodeOrigin: NodeOrigin
+  nodeOrigin: NodeOrigin,
 ): XYZPosition {
   if (!node.parentNode) {
     return result;
@@ -35,16 +40,19 @@ function calculateXYZPosition(
     {
       x: (result.x ?? 0) + parentNodePosition.x,
       y: (result.y ?? 0) + parentNodePosition.y,
-      z: (parentNode[internalsSymbol]?.z ?? 0) > (result.z ?? 0) ? parentNode[internalsSymbol]?.z ?? 0 : result.z ?? 0,
+      z:
+        (parentNode[internalsSymbol]?.z ?? 0) > (result.z ?? 0)
+          ? parentNode[internalsSymbol]?.z ?? 0
+          : result.z ?? 0,
     },
-    nodeOrigin
+    nodeOrigin,
   );
 }
 
 export function updateAbsoluteNodePositions(
   nodeInternals: NodeInternals,
   nodeOrigin: NodeOrigin,
-  parentNodes?: ParentNodes
+  parentNodes?: ParentNodes,
 ) {
   nodeInternals.forEach((node) => {
     if (node.parentNode && !nodeInternals.has(node.parentNode)) {
@@ -59,7 +67,7 @@ export function updateAbsoluteNodePositions(
           ...node.position,
           z: node[internalsSymbol]?.z ?? 0,
         },
-        nodeOrigin
+        nodeOrigin,
       );
 
       node.positionAbsolute = {
@@ -121,7 +129,10 @@ type InternalFitViewOptions = {
   initial?: boolean;
 } & FitViewOptions;
 
-export function fitView(get: StoreApi<ReactFlowState>['getState'], options: InternalFitViewOptions = {}) {
+export function fitView(
+  get: StoreApi<ReactFlowState>["getState"],
+  options: InternalFitViewOptions = {},
+) {
   const {
     getNodes,
     width,
@@ -134,15 +145,21 @@ export function fitView(get: StoreApi<ReactFlowState>['getState'], options: Inte
     fitViewOnInit,
     nodeOrigin,
   } = get();
-  const isInitialFitView = options.initial && !fitViewOnInitDone && fitViewOnInit;
+  const isInitialFitView =
+    options.initial && !fitViewOnInitDone && fitViewOnInit;
   const d3initialized = d3Zoom && d3Selection;
 
   if (d3initialized && (isInitialFitView || !options.initial)) {
     const nodes = getNodes().filter((n) => {
-      const isVisible = options.includeHiddenNodes ? n.width && n.height : !n.hidden;
+      const isVisible = options.includeHiddenNodes
+        ? n.width && n.height
+        : !n.hidden;
 
       if (options.nodes?.length) {
-        return isVisible && options.nodes.some((optionNode) => optionNode.id === n.id);
+        return (
+          isVisible &&
+          options.nodes.some((optionNode) => optionNode.id === n.id)
+        );
       }
 
       return isVisible;
@@ -159,13 +176,16 @@ export function fitView(get: StoreApi<ReactFlowState>['getState'], options: Inte
         height,
         options.minZoom ?? minZoom,
         options.maxZoom ?? maxZoom,
-        options.padding ?? 0.1
+        options.padding ?? 0.1,
       );
 
       const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
 
-      if (typeof options.duration === 'number' && options.duration > 0) {
-        d3Zoom.transform(getD3Transition(d3Selection, options.duration), nextTransform);
+      if (typeof options.duration === "number" && options.duration > 0) {
+        d3Zoom.transform(
+          getD3Transition(d3Selection, options.duration),
+          nextTransform,
+        );
       } else {
         d3Zoom.transform(d3Selection, nextTransform);
       }
@@ -177,7 +197,10 @@ export function fitView(get: StoreApi<ReactFlowState>['getState'], options: Inte
   return false;
 }
 
-export function handleControlledNodeSelectionChange(nodeChanges: NodeSelectionChange[], nodeInternals: NodeInternals) {
+export function handleControlledNodeSelectionChange(
+  nodeChanges: NodeSelectionChange[],
+  nodeInternals: NodeInternals,
+) {
   nodeChanges.forEach((change) => {
     const node = nodeInternals.get(change.id);
     if (node) {
@@ -192,7 +215,10 @@ export function handleControlledNodeSelectionChange(nodeChanges: NodeSelectionCh
   return new Map(nodeInternals);
 }
 
-export function handleControlledEdgeSelectionChange(edgeChanges: EdgeSelectionChange[], edges: Edge[]) {
+export function handleControlledEdgeSelectionChange(
+  edgeChanges: EdgeSelectionChange[],
+  edges: Edge[],
+) {
   return edges.map((e) => {
     const change = edgeChanges.find((change) => change.id === e.id);
     if (change) {
@@ -205,16 +231,33 @@ export function handleControlledEdgeSelectionChange(edgeChanges: EdgeSelectionCh
 type UpdateNodesAndEdgesParams = {
   changedNodes: NodeSelectionChange[] | null;
   changedEdges: EdgeSelectionChange[] | null;
-  get: StoreApi<ReactFlowState>['getState'];
-  set: StoreApi<ReactFlowState>['setState'];
+  get: StoreApi<ReactFlowState>["getState"];
+  set: StoreApi<ReactFlowState>["setState"];
 };
 
-export function updateNodesAndEdgesSelections({ changedNodes, changedEdges, get, set }: UpdateNodesAndEdgesParams) {
-  const { nodeInternals, edges, onNodesChange, onEdgesChange, hasDefaultNodes, hasDefaultEdges } = get();
+export function updateNodesAndEdgesSelections({
+  changedNodes,
+  changedEdges,
+  get,
+  set,
+}: UpdateNodesAndEdgesParams) {
+  const {
+    nodeInternals,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    hasDefaultNodes,
+    hasDefaultEdges,
+  } = get();
 
   if (changedNodes?.length) {
     if (hasDefaultNodes) {
-      set({ nodeInternals: handleControlledNodeSelectionChange(changedNodes, nodeInternals) });
+      set({
+        nodeInternals: handleControlledNodeSelectionChange(
+          changedNodes,
+          nodeInternals,
+        ),
+      });
     }
 
     onNodesChange?.(changedNodes);

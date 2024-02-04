@@ -40,8 +40,8 @@ export const useRunGroups = createProjectState(
             }
           }
         }),
-    }))
-  )
+    })),
+  ),
 );
 
 useRunGroups.temporal.getState().pause();

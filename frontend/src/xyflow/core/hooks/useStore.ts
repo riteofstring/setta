@@ -1,18 +1,19 @@
-import { useContext, useMemo } from 'react';
-import { useStoreWithEqualityFn as useZustandStore } from 'zustand/traditional';
-import type { StoreApi } from 'zustand';
+import { useContext, useMemo } from "react";
+import type { StoreApi } from "zustand";
+import { useStoreWithEqualityFn as useZustandStore } from "zustand/traditional";
 
-import StoreContext from '../contexts/RFStoreContext';
-import { errorMessages } from '../contants';
-import type { ReactFlowState } from '../types';
+import { errorMessages } from "../contants";
+import StoreContext from "../contexts/RFStoreContext";
+import type { ReactFlowState } from "../types";
 
-const zustandErrorMessage = errorMessages['error001']();
+const zustandErrorMessage = errorMessages["error001"]();
 
-type ExtractState = StoreApi<ReactFlowState> extends { getState: () => infer T } ? T : never;
+type ExtractState =
+  StoreApi<ReactFlowState> extends { getState: () => infer T } ? T : never;
 
 function useStore<StateSlice = ExtractState>(
   selector: (state: ReactFlowState) => StateSlice,
-  equalityFn?: (a: StateSlice, b: StateSlice) => boolean
+  equalityFn?: (a: StateSlice, b: StateSlice) => boolean,
 ) {
   const store = useContext(StoreContext);
 
@@ -37,7 +38,7 @@ const useStoreApi = () => {
       subscribe: store.subscribe,
       destroy: store.destroy,
     }),
-    [store]
+    [store],
   );
 };
 

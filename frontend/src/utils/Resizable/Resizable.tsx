@@ -68,13 +68,13 @@ export type ResizeCallback = (
   event: MouseEvent | TouchEvent,
   direction: Direction,
   elementRef: HTMLElement,
-  delta: NumberSize
+  delta: NumberSize,
 ) => void;
 
 export type ResizeStartCallback = (
   e: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>,
   dir: Direction,
-  elementRef: HTMLElement
+  elementRef: HTMLElement,
 ) => void | boolean;
 
 export interface ResizableProps {
@@ -134,32 +134,32 @@ const clamp = (n: number, min: number, max: number): number =>
 const snap = (n: number, size: number): number => Math.round(n / size) * size;
 const hasDirection = (
   dir: "top" | "right" | "bottom" | "left",
-  target: string
+  target: string,
 ): boolean => new RegExp(dir, "i").test(target);
 
 // INFO: In case of window is a Proxy and does not porxy Events correctly, use isTouchEvent & isMouseEvent to distinguish event type instead of `instanceof`.
 const isTouchEvent = (event: MouseEvent | TouchEvent): event is TouchEvent => {
   return Boolean(
-    (event as TouchEvent).touches && (event as TouchEvent).touches.length
+    (event as TouchEvent).touches && (event as TouchEvent).touches.length,
   );
 };
 
 const isMouseEvent = (event: MouseEvent | TouchEvent): event is MouseEvent => {
   return Boolean(
     ((event as MouseEvent).clientX || (event as MouseEvent).clientX === 0) &&
-      ((event as MouseEvent).clientY || (event as MouseEvent).clientY === 0)
+      ((event as MouseEvent).clientY || (event as MouseEvent).clientY === 0),
   );
 };
 
 const findClosestSnap = (
   n: number,
   snapArray: number[],
-  snapGap: number = 0
+  snapGap: number = 0,
 ): number => {
   const closestGapIndex = snapArray.reduce(
     (prev, curr, index) =>
       Math.abs(curr - n) < Math.abs(snapArray[prev] - n) ? index : prev,
-    0
+    0,
   );
   const gap = Math.abs(snapArray[closestGapIndex] - n);
 
@@ -196,7 +196,7 @@ const getPixelSize = (
   size: undefined | string | number,
   parentSize: number,
   innerWidth: number,
-  innerHeight: number
+  innerHeight: number,
 ) => {
   if (size && typeof size === "string") {
     if (size.endsWith("px")) {
@@ -225,21 +225,21 @@ const calculateNewMax = (
   maxWidth?: string | number,
   maxHeight?: string | number,
   minWidth?: string | number,
-  minHeight?: string | number
+  minHeight?: string | number,
 ) => {
   maxWidth = getPixelSize(maxWidth, parentSize.width, innerWidth, innerHeight);
   maxHeight = getPixelSize(
     maxHeight,
     parentSize.height,
     innerWidth,
-    innerHeight
+    innerHeight,
   );
   minWidth = getPixelSize(minWidth, parentSize.width, innerWidth, innerHeight);
   minHeight = getPixelSize(
     minHeight,
     parentSize.height,
     innerWidth,
-    innerHeight
+    innerHeight,
   );
   return {
     maxWidth: typeof maxWidth === "undefined" ? undefined : Number(maxWidth),
@@ -548,9 +548,9 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
     //   el[k] = v
     // }
 
-    const el = document.getElementById(`${this.props.id} resizable`)
+    const el = document.getElementById(`${this.props.id} resizable`);
     // el.style.height = ""
-    el.style.width = "500px"
+    el.style.width = "500px";
 
     // console.log("componentDidMount")
   }
@@ -595,7 +595,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
 
   createSizeForCssProperty(
     newSize: number | string,
-    kind: "width" | "height"
+    kind: "width" | "height",
   ): number | string {
     const propsSize = this.propsSize && this.propsSize[kind];
     return this.state[kind] === "auto" &&
@@ -700,7 +700,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
     newWidth: number,
     newHeight: number,
     max: { width?: number; height?: number },
-    min: { width?: number; height?: number }
+    min: { width?: number; height?: number },
   ) {
     const {
       lockAspectRatio,
@@ -771,7 +771,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
 
   onResizeStart(
     event: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>,
-    direction: Direction
+    direction: Direction,
   ) {
     if (!this.resizable || !this.window) {
       return;
@@ -790,7 +790,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
         const startResize = this.props.onResizeStart(
           event,
           direction,
-          this.resizable
+          this.resizable,
         );
         if (startResize === false) {
           return;
@@ -882,7 +882,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
       maxWidth,
       maxHeight,
       minWidth,
-      minHeight
+      minHeight,
     );
 
     maxWidth = max.maxWidth;
@@ -893,7 +893,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
     // Calculate new size
     let { newHeight, newWidth }: NewSize = this.calculateNewSizeFromDirection(
       clientX,
-      clientY
+      clientY,
     );
 
     // Calculate max size from boundary settings
@@ -903,14 +903,14 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
       newWidth = findClosestSnap(
         newWidth,
         this.props.snap.x,
-        this.props.snapGap
+        this.props.snapGap,
       );
     }
     if (this.props.snap && this.props.snap.y) {
       newHeight = findClosestSnap(
         newHeight,
         this.props.snap.y,
-        this.props.snapGap
+        this.props.snapGap,
       );
     }
 
@@ -919,7 +919,7 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
       newWidth,
       newHeight,
       { width: boundaryMax.maxWidth, height: boundaryMax.maxHeight },
-      { width: minWidth, height: minHeight }
+      { width: minWidth, height: minHeight },
     );
     newWidth = newSize.newWidth;
     newHeight = newSize.newHeight;
@@ -1065,13 +1065,16 @@ export class Resizable extends React.PureComponent<ResizableProps, State> {
   };
 
   render() {
-    const extendsProps = Object.keys(this.props).reduce((acc, key) => {
-      if (definedProps.indexOf(key) !== -1) {
+    const extendsProps = Object.keys(this.props).reduce(
+      (acc, key) => {
+        if (definedProps.indexOf(key) !== -1) {
+          return acc;
+        }
+        acc[key] = this.props[key as keyof ResizableProps];
         return acc;
-      }
-      acc[key] = this.props[key as keyof ResizableProps];
-      return acc;
-    }, {} as { [key: string]: any });
+      },
+      {} as { [key: string]: any },
+    );
 
     const style: React.CSSProperties = {
       // position: "relative",

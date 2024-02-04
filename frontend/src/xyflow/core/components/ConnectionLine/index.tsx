@@ -1,20 +1,20 @@
-import React, { type CSSProperties, useCallback } from 'react';
-import { shallow } from 'zustand/shallow';
-import cc from 'classcat';
+import cc from "classcat";
+import { useCallback, type CSSProperties } from "react";
+import { shallow } from "zustand/shallow";
 
-import { useStore } from '../../hooks/useStore';
-import { getBezierPath } from '../Edges/BezierEdge';
-import { getSmoothStepPath } from '../Edges/SmoothStepEdge';
-import { getSimpleBezierPath } from '../Edges/SimpleBezierEdge';
-import { internalsSymbol } from '../../utils';
+import { useStore } from "../../hooks/useStore";
 import type {
   ConnectionLineComponent,
   ConnectionStatus,
   HandleType,
   ReactFlowState,
   ReactFlowStore,
-} from '../../types';
-import { Position, ConnectionLineType, ConnectionMode } from '../../types';
+} from "../../types";
+import { ConnectionLineType, ConnectionMode, Position } from "../../types";
+import { internalsSymbol } from "../../utils";
+import { getBezierPath } from "../Edges/BezierEdge";
+import { getSimpleBezierPath } from "../Edges/SimpleBezierEdge";
+import { getSmoothStepPath } from "../Edges/SmoothStepEdge";
 
 type ConnectionLineProps = {
   nodeId: string;
@@ -49,24 +49,32 @@ const ConnectionLine = ({
         toY: (s.connectionPosition.y - s.transform[1]) / s.transform[2],
         connectionMode: s.connectionMode,
       }),
-      [nodeId]
+      [nodeId],
     ),
-    shallow
+    shallow,
   );
   const fromHandleBounds = fromNode?.[internalsSymbol]?.handleBounds;
   let handleBounds = fromHandleBounds?.[handleType];
 
   if (connectionMode === ConnectionMode.Loose) {
-    handleBounds = handleBounds ? handleBounds : fromHandleBounds?.[handleType === 'source' ? 'target' : 'source'];
+    handleBounds = handleBounds
+      ? handleBounds
+      : fromHandleBounds?.[handleType === "source" ? "target" : "source"];
   }
 
   if (!fromNode || !handleBounds) {
     return null;
   }
 
-  const fromHandle = handleId ? handleBounds.find((d) => d.id === handleId) : handleBounds[0];
-  const fromHandleX = fromHandle ? fromHandle.x + fromHandle.width / 2 : (fromNode.width ?? 0) / 2;
-  const fromHandleY = fromHandle ? fromHandle.y + fromHandle.height / 2 : fromNode.height ?? 0;
+  const fromHandle = handleId
+    ? handleBounds.find((d) => d.id === handleId)
+    : handleBounds[0];
+  const fromHandleX = fromHandle
+    ? fromHandle.x + fromHandle.width / 2
+    : (fromNode.width ?? 0) / 2;
+  const fromHandleY = fromHandle
+    ? fromHandle.y + fromHandle.height / 2
+    : fromNode.height ?? 0;
   const fromX = (fromNode.positionAbsolute?.x ?? 0) + fromHandleX;
   const fromY = (fromNode.positionAbsolute?.y ?? 0) + fromHandleY;
   const fromPosition = fromHandle?.position;
@@ -94,7 +102,7 @@ const ConnectionLine = ({
     );
   }
 
-  let dAttr = '';
+  let dAttr = "";
 
   const pathParams = {
     sourceX: fromX,
@@ -121,10 +129,17 @@ const ConnectionLine = ({
     dAttr = `M${fromX},${fromY} ${toX},${toY}`;
   }
 
-  return <path d={dAttr} fill="none" className="react-flow__connection-path" style={style} />;
+  return (
+    <path
+      d={dAttr}
+      fill="none"
+      className="react-flow__connection-path"
+      style={style}
+    />
+  );
 };
 
-ConnectionLine.displayName = 'ConnectionLine';
+ConnectionLine.displayName = "ConnectionLine";
 
 type ConnectionLineWrapperProps = {
   type: ConnectionLineType;
@@ -142,8 +157,20 @@ const selector = (s: ReactFlowState) => ({
   height: s.height,
 });
 
-function ConnectionLineWrapper({ containerStyle, style, type, component }: ConnectionLineWrapperProps) {
-  const { nodeId, handleType, nodesConnectable, width, height, connectionStatus } = useStore(selector, shallow);
+function ConnectionLineWrapper({
+  containerStyle,
+  style,
+  type,
+  component,
+}: ConnectionLineWrapperProps) {
+  const {
+    nodeId,
+    handleType,
+    nodesConnectable,
+    width,
+    height,
+    connectionStatus,
+  } = useStore(selector, shallow);
   const isValid = !!(nodeId && handleType && width && nodesConnectable);
 
   if (!isValid) {
@@ -157,7 +184,7 @@ function ConnectionLineWrapper({ containerStyle, style, type, component }: Conne
       height={height}
       className="react-flow__edges react-flow__connectionline react-flow__container"
     >
-      <g className={cc(['react-flow__connection', connectionStatus])}>
+      <g className={cc(["react-flow__connection", connectionStatus])}>
         <ConnectionLine
           nodeId={nodeId}
           handleType={handleType}

@@ -1,8 +1,4 @@
-import {
-  ManySectionPositionType,
-  SectionPositionType,
-} from "./sectionPosition";
-import { ManyOf } from "./utils";
+import { ManySectionPositionType } from "./sectionPosition";
 
 export type ProjectConfigType = {
   id: string;

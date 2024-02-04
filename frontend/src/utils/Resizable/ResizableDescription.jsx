@@ -42,7 +42,7 @@ function MotionDiv({ sectionId, height, children }) {
   const localDescVis = useRef(descVis);
   const [noDiv, setNoDiv] = useState(descVis);
   const [initial, setInitial] = useState(
-    descVis ? { opacity: 1, height } : { opacity: 0, height: 0 }
+    descVis ? { opacity: 1, height } : { opacity: 0, height: 0 },
   );
 
   const variants = {

@@ -18,7 +18,7 @@ export function requestParameters(sectionId, value, callback) {
         unsub();
         useWebsocketRooms.getState().deleteRoom(id);
       }
-    }
+    },
   );
   sendMessage({
     id,
@@ -38,7 +38,7 @@ export function requestTypeCheck() {
       useNotification
         .getState()
         .setMessage(_.size(x) > 0 ? "Found type errors" : "All good!");
-    }
+    },
   );
   const project = getProjectDataToGenerateCode();
   useNotification.getState().setMessage("Checking types...");
@@ -47,5 +47,5 @@ export function requestTypeCheck() {
 
 export const debouncedRequestTypeCheck = _.debounce(
   () => requestTypeCheck(),
-  1000
+  1000,
 );

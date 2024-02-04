@@ -4,7 +4,7 @@ function _findAllDescendants(
   allCodeInfo,
   codeInfoIds,
   outputCondition,
-  stackCondition
+  stackCondition,
 ) {
   const output: CodeInfoType[] = [];
   const idStack = codeInfoIds.filter((x) => stackCondition(allCodeInfo[x]));
@@ -31,7 +31,7 @@ export function findAllCallables(allCodeInfo, codeInfoIds) {
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === RCType.CALLABLE,
-    () => true
+    () => true,
   );
 }
 
@@ -40,7 +40,7 @@ export function findAllParametersOfCallables(allCodeInfo, codeInfoIds) {
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === RCType.PARAMETER,
-    (c) => c?.rcType === RCType.CALLABLE
+    (c) => c?.rcType === RCType.CALLABLE,
   );
 }
 
@@ -49,7 +49,7 @@ export function findAllParametersOfCollections(allCodeInfo, codeInfoIds) {
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === RCType.PARAMETER,
-    (c) => c?.rcType === RCType.COLLECTION
+    (c) => c?.rcType === RCType.COLLECTION,
   );
 }
 
@@ -58,7 +58,7 @@ export function findAllParameters(allCodeInfo, codeInfoIds) {
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === RCType.PARAMETER,
-    () => true
+    () => true,
   );
 }
 
@@ -67,6 +67,6 @@ export function findAll(allCodeInfo, codeInfoIds) {
     allCodeInfo,
     codeInfoIds,
     () => true,
-    () => true
+    () => true,
   );
 }

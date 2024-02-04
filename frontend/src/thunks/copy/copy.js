@@ -9,7 +9,7 @@ export async function copy() {
       JSON.stringify({
         data,
         copyType: "sections",
-      })
+      }),
     );
   }
 }

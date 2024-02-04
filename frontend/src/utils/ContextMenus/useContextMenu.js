@@ -20,7 +20,7 @@ function useContextMenu({
     }
     e.preventDefault();
     setDetails((curr) =>
-      openFn({ isOpen: true, x: e.clientX, y: e.clientY }, curr, ...otherArgs)
+      openFn({ isOpen: true, x: e.clientX, y: e.clientY }, curr, ...otherArgs),
     );
   }
 

@@ -34,7 +34,7 @@ export function TextInput({
 }) {
   const [results, send] = useTextFieldCompletionWebsocketRoom(
     sectionId,
-    paramInfoId
+    paramInfoId,
   );
 
   const [isFocused, setIsFocused] = useState(false);
@@ -169,7 +169,7 @@ function StyledText({ value }) {
           const curr = escapeRegExp(x.name);
           colorMap[curr] = "green";
           return curr;
-        })
+        }),
       );
     } else {
       const curr = escapeRegExp(s.name);
@@ -203,7 +203,7 @@ function getOnTextInputVariableClick(color, variable) {
       const section = _.find(useSectionInfos.getState().x, (s) =>
         variableType === "global"
           ? getSectionType(s.id).type === GLOBAL_VARIABLES
-          : s.name === variable
+          : s.name === variable,
       );
       const id = section?.id;
       if (id) {

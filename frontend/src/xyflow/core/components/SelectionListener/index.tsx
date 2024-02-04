@@ -1,8 +1,13 @@
-import React, { memo, useEffect } from 'react';
-import { shallow } from 'zustand/shallow';
+import { memo, useEffect } from "react";
+import { shallow } from "zustand/shallow";
 
-import { useStore, useStoreApi } from '../../hooks/useStore';
-import type { ReactFlowState, OnSelectionChangeFunc, Node, Edge } from '../../types';
+import { useStore, useStoreApi } from "../../hooks/useStore";
+import type {
+  Edge,
+  Node,
+  OnSelectionChangeFunc,
+  ReactFlowState,
+} from "../../types";
 
 type SelectionListenerProps = {
   onSelectionChange?: OnSelectionChangeFunc;
@@ -26,20 +31,22 @@ function areEqual(a: SelectorSlice, b: SelectorSlice) {
 
 // This is just a helper component for calling the onSelectionChange listener.
 // @TODO: Now that we have the onNodesChange and on EdgesChange listeners, do we still need this component?
-const SelectionListener = memo(({ onSelectionChange }: SelectionListenerProps) => {
-  const store = useStoreApi();
-  const { selectedNodes, selectedEdges } = useStore(selector, areEqual);
+const SelectionListener = memo(
+  ({ onSelectionChange }: SelectionListenerProps) => {
+    const store = useStoreApi();
+    const { selectedNodes, selectedEdges } = useStore(selector, areEqual);
 
-  useEffect(() => {
-    const params = { nodes: selectedNodes, edges: selectedEdges };
-    onSelectionChange?.(params);
-    store.getState().onSelectionChange.forEach((fn) => fn(params));
-  }, [selectedNodes, selectedEdges, onSelectionChange]);
+    useEffect(() => {
+      const params = { nodes: selectedNodes, edges: selectedEdges };
+      onSelectionChange?.(params);
+      store.getState().onSelectionChange.forEach((fn) => fn(params));
+    }, [selectedNodes, selectedEdges, onSelectionChange]);
 
-  return null;
-});
+    return null;
+  },
+);
 
-SelectionListener.displayName = 'SelectionListener';
+SelectionListener.displayName = "SelectionListener";
 
 const changeSelector = (s: ReactFlowState) => !!s.onSelectionChange;
 

@@ -1,46 +1,51 @@
-import type { CSSProperties, HTMLAttributes, MouseEvent as ReactMouseEvent, WheelEvent } from 'react';
+import type {
+  CSSProperties,
+  HTMLAttributes,
+  MouseEvent as ReactMouseEvent,
+  WheelEvent,
+} from "react";
 
 import type {
-  OnSelectionChangeFunc,
-  NodeTypes,
-  EdgeTypes,
-  Node,
-  Edge,
-  ConnectionMode,
-  ConnectionLineType,
   ConnectionLineComponent,
-  OnConnectStart,
-  OnConnectEnd,
-  OnConnect,
+  ConnectionLineType,
+  ConnectionMode,
   CoordinateExtent,
-  KeyCode,
-  PanOnScrollMode,
-  OnEdgeUpdateFunc,
-  OnInit,
-  ProOptions,
-  PanelPosition,
   DefaultEdgeOptions,
+  Edge,
+  EdgeMouseHandler,
+  EdgeTypes,
   FitViewOptions,
-  OnNodesDelete,
-  OnEdgesDelete,
-  OnNodesChange,
-  OnEdgesChange,
-  OnMove,
-  OnMoveStart,
-  OnMoveEnd,
+  HandleType,
+  KeyCode,
+  Node,
   NodeDragHandler,
   NodeMouseHandler,
-  SelectionDragHandler,
-  Viewport,
   NodeOrigin,
-  EdgeMouseHandler,
-  HandleType,
-  SelectionMode,
+  NodeTypes,
+  OnConnect,
+  OnConnectEnd,
+  OnConnectStart,
+  OnEdgesChange,
+  OnEdgesDelete,
+  OnEdgeUpdateFunc,
   OnError,
-} from '.';
-import { ValidConnectionFunc } from '../components/Handle/utils';
+  OnInit,
+  OnMove,
+  OnMoveEnd,
+  OnMoveStart,
+  OnNodesChange,
+  OnNodesDelete,
+  OnSelectionChangeFunc,
+  PanelPosition,
+  PanOnScrollMode,
+  ProOptions,
+  SelectionDragHandler,
+  SelectionMode,
+  Viewport,
+} from ".";
+import { ValidConnectionFunc } from "../components/Handle/utils";
 
-export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, 'onError'> & {
+export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   nodes?: Node[];
   edges?: Edge[];
   defaultNodes?: Node[];
@@ -62,8 +67,16 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, 'onError'> & {
   onEdgeMouseMove?: EdgeMouseHandler;
   onEdgeMouseLeave?: EdgeMouseHandler;
   onEdgeDoubleClick?: EdgeMouseHandler;
-  onEdgeUpdateStart?: (event: ReactMouseEvent, edge: Edge, handleType: HandleType) => void;
-  onEdgeUpdateEnd?: (event: MouseEvent | TouchEvent, edge: Edge, handleType: HandleType) => void;
+  onEdgeUpdateStart?: (
+    event: ReactMouseEvent,
+    edge: Edge,
+    handleType: HandleType,
+  ) => void;
+  onEdgeUpdateEnd?: (
+    event: MouseEvent | TouchEvent,
+    edge: Edge,
+    handleType: HandleType,
+  ) => void;
   onNodesChange?: OnNodesChange;
   onEdgesChange?: OnEdgesChange;
   onNodesDelete?: OnNodesDelete;

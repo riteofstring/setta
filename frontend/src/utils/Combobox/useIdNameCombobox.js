@@ -76,7 +76,7 @@ export function idNameHelper({
     currSelectedItem,
     newSelectedItem,
     setSelection,
-    changedByUser
+    changedByUser,
   ) => {
     const sid = newSelectedItem ? newSelectedItem.id : null;
     const currId = currSelectedItem ? currSelectedItem.id : null;

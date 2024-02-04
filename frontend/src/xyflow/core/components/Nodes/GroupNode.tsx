@@ -1,5 +1,5 @@
 const GroupNode = () => null;
 
-GroupNode.displayName = 'GroupNode';
+GroupNode.displayName = "GroupNode";
 
 export default GroupNode;

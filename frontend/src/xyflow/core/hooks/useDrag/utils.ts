@@ -1,11 +1,22 @@
-import type { RefObject } from 'react';
+import type { RefObject } from "react";
 
-import { clampPosition, isNumeric } from '../../utils';
-import type { CoordinateExtent, Node, NodeDragItem, NodeInternals, NodeOrigin, OnError, XYPosition } from '../../types';
-import { getNodePositionWithOrigin } from '../../utils/graph';
-import { errorMessages } from '../../contants';
+import { errorMessages } from "../../contants";
+import type {
+  CoordinateExtent,
+  Node,
+  NodeDragItem,
+  NodeInternals,
+  NodeOrigin,
+  OnError,
+  XYPosition,
+} from "../../types";
+import { clampPosition, isNumeric } from "../../utils";
+import { getNodePositionWithOrigin } from "../../utils/graph";
 
-export function isParentSelected(node: Node, nodeInternals: NodeInternals): boolean {
+export function isParentSelected(
+  node: Node,
+  nodeInternals: NodeInternals,
+): boolean {
   if (!node.parentNode) {
     return false;
   }
@@ -23,7 +34,11 @@ export function isParentSelected(node: Node, nodeInternals: NodeInternals): bool
   return isParentSelected(parentNode, nodeInternals);
 }
 
-export function hasSelector(target: Element, selector: string, nodeRef: RefObject<Element>): boolean {
+export function hasSelector(
+  target: Element,
+  selector: string,
+  nodeRef: RefObject<Element>,
+): boolean {
   let current = target;
 
   do {
@@ -40,14 +55,14 @@ export function getDragItems(
   nodeInternals: NodeInternals,
   nodesDraggable: boolean,
   mousePos: XYPosition,
-  nodeId?: string
+  nodeId?: string,
 ): NodeDragItem[] {
   return Array.from(nodeInternals.values())
     .filter(
       (n) =>
         (n.selected || n.id === nodeId) &&
         (!n.parentNode || !isParentSelected(n, nodeInternals)) &&
-        (n.draggable || (nodesDraggable && typeof n.draggable === 'undefined'))
+        (n.draggable || (nodesDraggable && typeof n.draggable === "undefined")),
     )
     .map((n) => ({
       id: n.id,
@@ -69,11 +84,17 @@ export function getDragItems(
     }));
 }
 
-function clampNodeExtent(node: NodeDragItem | Node, extent?: CoordinateExtent | 'parent') {
-  if (!extent || extent === 'parent') {
+function clampNodeExtent(
+  node: NodeDragItem | Node,
+  extent?: CoordinateExtent | "parent",
+) {
+  if (!extent || extent === "parent") {
     return extent;
   }
-  return [extent[0], [extent[1][0] - (node.width || 0), extent[1][1] - (node.height || 0)]];
+  return [
+    extent[0],
+    [extent[1][0] - (node.width || 0), extent[1][1] - (node.height || 0)],
+  ];
 }
 
 export function calcNextPosition(
@@ -82,33 +103,52 @@ export function calcNextPosition(
   nodeInternals: NodeInternals,
   nodeExtent?: CoordinateExtent,
   nodeOrigin: NodeOrigin = [0, 0],
-  onError?: OnError
+  onError?: OnError,
 ): { position: XYPosition; positionAbsolute: XYPosition } {
   const clampedNodeExtent = clampNodeExtent(node, node.extent || nodeExtent);
   let currentExtent = clampedNodeExtent;
 
-  if (node.extent === 'parent' && !node.expandParent) {
+  if (node.extent === "parent" && !node.expandParent) {
     if (node.parentNode && node.width && node.height) {
       const parent = nodeInternals.get(node.parentNode);
-      const { x: parentX, y: parentY } = getNodePositionWithOrigin(parent, nodeOrigin).positionAbsolute;
+      const { x: parentX, y: parentY } = getNodePositionWithOrigin(
+        parent,
+        nodeOrigin,
+      ).positionAbsolute;
       currentExtent =
-        parent && isNumeric(parentX) && isNumeric(parentY) && isNumeric(parent.width) && isNumeric(parent.height)
+        parent &&
+        isNumeric(parentX) &&
+        isNumeric(parentY) &&
+        isNumeric(parent.width) &&
+        isNumeric(parent.height)
           ? [
-              [parentX + node.width * nodeOrigin[0], parentY + node.height * nodeOrigin[1]],
               [
-                parentX + parent.width - node.width + node.width * nodeOrigin[0],
-                parentY + parent.height - node.height + node.height * nodeOrigin[1],
+                parentX + node.width * nodeOrigin[0],
+                parentY + node.height * nodeOrigin[1],
+              ],
+              [
+                parentX +
+                  parent.width -
+                  node.width +
+                  node.width * nodeOrigin[0],
+                parentY +
+                  parent.height -
+                  node.height +
+                  node.height * nodeOrigin[1],
               ],
             ]
           : currentExtent;
     } else {
-      onError?.('005', errorMessages['error005']());
+      onError?.("005", errorMessages["error005"]());
 
       currentExtent = clampedNodeExtent;
     }
-  } else if (node.extent && node.parentNode && node.extent !== 'parent') {
+  } else if (node.extent && node.parentNode && node.extent !== "parent") {
     const parent = nodeInternals.get(node.parentNode);
-    const { x: parentX, y: parentY } = getNodePositionWithOrigin(parent, nodeOrigin).positionAbsolute;
+    const { x: parentX, y: parentY } = getNodePositionWithOrigin(
+      parent,
+      nodeOrigin,
+    ).positionAbsolute;
     currentExtent = [
       [node.extent[0][0] + parentX, node.extent[0][1] + parentY],
       [node.extent[1][0] + parentX, node.extent[1][1] + parentY],
@@ -119,11 +159,14 @@ export function calcNextPosition(
 
   if (node.parentNode) {
     const parentNode = nodeInternals.get(node.parentNode);
-    parentPosition = getNodePositionWithOrigin(parentNode, nodeOrigin).positionAbsolute;
+    parentPosition = getNodePositionWithOrigin(
+      parentNode,
+      nodeOrigin,
+    ).positionAbsolute;
   }
 
   const positionAbsolute =
-    currentExtent && currentExtent !== 'parent'
+    currentExtent && currentExtent !== "parent"
       ? clampPosition(nextPosition, currentExtent as CoordinateExtent)
       : nextPosition;
 
@@ -158,5 +201,10 @@ export function getEventHandlerParams({
     };
   });
 
-  return [nodeId ? extentedDragItems.find((n) => n.id === nodeId)! : extentedDragItems[0], extentedDragItems];
+  return [
+    nodeId
+      ? extentedDragItems.find((n) => n.id === nodeId)!
+      : extentedDragItems[0],
+    extentedDragItems,
+  ];
 }

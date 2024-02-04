@@ -19,7 +19,7 @@ function filterUITypes(
   uiTypes: ManyUITypeType,
   generalFilterFn,
   nonPresetFilterFn: (x: UITypeType) => boolean,
-  selectedId
+  selectedId,
 ) {
   const output: UITypeType[] = [];
 
@@ -56,7 +56,7 @@ function filterUITypes(
 
 export function useAvailableUITypesForSection(
   sectionId: string,
-  selectedId: string
+  selectedId: string,
 ) {
   const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
   const generalFilterFn = isSectionUIType;
@@ -65,14 +65,14 @@ export function useAvailableUITypesForSection(
 
   return useUITypes(
     (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
-    _.isEqual
+    _.isEqual,
   );
 }
 
 export function useAvailableUITypesForParam(
   sectionId: string,
   paramInfoId: string,
-  selectedId: string
+  selectedId: string,
 ) {
   const nonPresetUITypeIds = useParamNonPresetUITypeIds(sectionId, paramInfoId);
 
@@ -82,6 +82,6 @@ export function useAvailableUITypesForParam(
 
   return useUITypes(
     (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
-    _.isEqual
+    _.isEqual,
   );
 }

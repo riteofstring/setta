@@ -1,64 +1,91 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Selection as D3Selection } from 'd3';
+import type { Selection as D3Selection } from "d3";
 
-import { boxToRect, clamp, devWarn, getBoundsOfBoxes, getOverlappingArea, rectToBox } from '../utils';
+import { errorMessages } from "../contants";
 import {
-  Node,
-  Edge,
   Connection,
+  Edge,
   EdgeMarkerType,
-  Transform,
-  XYPosition,
-  Rect,
+  Node,
   NodeInternals,
   NodeOrigin,
+  Rect,
+  Transform,
   UpdateEdgeOptions,
   Viewport,
-} from '../types';
-import { errorMessages } from '../contants';
+  XYPosition,
+} from "../types";
+import {
+  boxToRect,
+  clamp,
+  devWarn,
+  getBoundsOfBoxes,
+  getOverlappingArea,
+  rectToBox,
+} from "../utils";
 
 export const isEdge = (element: Node | Connection | Edge): element is Edge =>
-  'id' in element && 'source' in element && 'target' in element;
+  "id" in element && "source" in element && "target" in element;
 
 export const isNode = (element: Node | Connection | Edge): element is Node =>
-  'id' in element && !('source' in element) && !('target' in element);
+  "id" in element && !("source" in element) && !("target" in element);
 
-export const getOutgoers = <T = any, U extends T = T>(node: Node<U>, nodes: Node<T>[], edges: Edge[]): Node<T>[] => {
+export const getOutgoers = <T = any, U extends T = T>(
+  node: Node<U>,
+  nodes: Node<T>[],
+  edges: Edge[],
+): Node<T>[] => {
   if (!isNode(node)) {
     return [];
   }
 
-  const outgoerIds = edges.filter((e) => e.source === node.id).map((e) => e.target);
+  const outgoerIds = edges
+    .filter((e) => e.source === node.id)
+    .map((e) => e.target);
   return nodes.filter((n) => outgoerIds.includes(n.id));
 };
 
-export const getIncomers = <T = any, U extends T = T>(node: Node<U>, nodes: Node<T>[], edges: Edge[]): Node<T>[] => {
+export const getIncomers = <T = any, U extends T = T>(
+  node: Node<U>,
+  nodes: Node<T>[],
+  edges: Edge[],
+): Node<T>[] => {
   if (!isNode(node)) {
     return [];
   }
 
-  const incomersIds = edges.filter((e) => e.target === node.id).map((e) => e.source);
+  const incomersIds = edges
+    .filter((e) => e.target === node.id)
+    .map((e) => e.source);
   return nodes.filter((n) => incomersIds.includes(n.id));
 };
 
-const getEdgeId = ({ source, sourceHandle, target, targetHandle }: Connection): string =>
-  `reactflow__edge-${source}${sourceHandle || ''}-${target}${targetHandle || ''}`;
+const getEdgeId = ({
+  source,
+  sourceHandle,
+  target,
+  targetHandle,
+}: Connection): string =>
+  `reactflow__edge-${source}${sourceHandle || ""}-${target}${targetHandle || ""}`;
 
-export const getMarkerId = (marker: EdgeMarkerType | undefined, rfId?: string): string => {
-  if (typeof marker === 'undefined') {
-    return '';
+export const getMarkerId = (
+  marker: EdgeMarkerType | undefined,
+  rfId?: string,
+): string => {
+  if (typeof marker === "undefined") {
+    return "";
   }
 
-  if (typeof marker === 'string') {
+  if (typeof marker === "string") {
     return marker;
   }
 
-  const idPrefix = rfId ? `${rfId}__` : '';
+  const idPrefix = rfId ? `${rfId}__` : "";
 
   return `${idPrefix}${Object.keys(marker)
     .sort()
     .map((key: string) => `${key}=${(marker as any)[key]}`)
-    .join('&')}`;
+    .join("&")}`;
 };
 
 const connectionExists = (edge: Edge, edges: Edge[]) => {
@@ -66,14 +93,19 @@ const connectionExists = (edge: Edge, edges: Edge[]) => {
     (el) =>
       el.source === edge.source &&
       el.target === edge.target &&
-      (el.sourceHandle === edge.sourceHandle || (!el.sourceHandle && !edge.sourceHandle)) &&
-      (el.targetHandle === edge.targetHandle || (!el.targetHandle && !edge.targetHandle))
+      (el.sourceHandle === edge.sourceHandle ||
+        (!el.sourceHandle && !edge.sourceHandle)) &&
+      (el.targetHandle === edge.targetHandle ||
+        (!el.targetHandle && !edge.targetHandle)),
   );
 };
 
-export const addEdge = (edgeParams: Edge | Connection, edges: Edge[]): Edge[] => {
+export const addEdge = (
+  edgeParams: Edge | Connection,
+  edges: Edge[],
+): Edge[] => {
   if (!edgeParams.source || !edgeParams.target) {
-    devWarn('006', errorMessages['error006']());
+    devWarn("006", errorMessages["error006"]());
 
     return edges;
   }
@@ -99,12 +131,12 @@ export const updateEdge = (
   oldEdge: Edge,
   newConnection: Connection,
   edges: Edge[],
-  options: UpdateEdgeOptions = { shouldReplaceId: true }
+  options: UpdateEdgeOptions = { shouldReplaceId: true },
 ): Edge[] => {
   const { id: oldEdgeId, ...rest } = oldEdge;
 
   if (!newConnection.source || !newConnection.target) {
-    devWarn('006', errorMessages['error006']());
+    devWarn("006", errorMessages["error006"]());
 
     return edges;
   }
@@ -112,7 +144,7 @@ export const updateEdge = (
   const foundEdge = edges.find((e) => e.id === oldEdgeId) as Edge;
 
   if (!foundEdge) {
-    devWarn('007', errorMessages['error007'](oldEdgeId));
+    devWarn("007", errorMessages["error007"](oldEdgeId));
 
     return edges;
   }
@@ -134,7 +166,7 @@ export const pointToRendererPoint = (
   { x, y }: XYPosition,
   [tx, ty, tScale]: Transform,
   snapToGrid: boolean,
-  [snapX, snapY]: [number, number]
+  [snapX, snapY]: [number, number],
 ): XYPosition => {
   const position: XYPosition = {
     x: (x - tx) / tScale,
@@ -151,7 +183,10 @@ export const pointToRendererPoint = (
   return position;
 };
 
-export const rendererPointToPoint = ({ x, y }: XYPosition, [tx, ty, tScale]: Transform): XYPosition => {
+export const rendererPointToPoint = (
+  { x, y }: XYPosition,
+  [tx, ty, tScale]: Transform,
+): XYPosition => {
   return {
     x: x * tScale + tx,
     y: y * tScale + ty,
@@ -160,7 +195,7 @@ export const rendererPointToPoint = ({ x, y }: XYPosition, [tx, ty, tScale]: Tra
 
 export const getNodePositionWithOrigin = (
   node: Node | undefined,
-  nodeOrigin: NodeOrigin = [0, 0]
+  nodeOrigin: NodeOrigin = [0, 0],
 ): XYPosition & { positionAbsolute: XYPosition } => {
   if (!node) {
     return {
@@ -192,14 +227,20 @@ export const getNodePositionWithOrigin = (
   };
 };
 
-export const getNodesBounds = (nodes: Node[], nodeOrigin: NodeOrigin = [0, 0]): Rect => {
+export const getNodesBounds = (
+  nodes: Node[],
+  nodeOrigin: NodeOrigin = [0, 0],
+): Rect => {
   if (nodes.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
 
   const box = nodes.reduce(
     (currBox, node) => {
-      const { x, y } = getNodePositionWithOrigin(node, nodeOrigin).positionAbsolute;
+      const { x, y } = getNodePositionWithOrigin(
+        node,
+        nodeOrigin,
+      ).positionAbsolute;
       return getBoundsOfBoxes(
         currBox,
         rectToBox({
@@ -207,19 +248,22 @@ export const getNodesBounds = (nodes: Node[], nodeOrigin: NodeOrigin = [0, 0]): 
           y,
           width: node.width || 0,
           height: node.height || 0,
-        })
+        }),
       );
     },
-    { x: Infinity, y: Infinity, x2: -Infinity, y2: -Infinity }
+    { x: Infinity, y: Infinity, x2: -Infinity, y2: -Infinity },
   );
 
   return boxToRect(box);
 };
 
 // @deprecated Use `getNodesBounds`.
-export const getRectOfNodes = (nodes: Node[], nodeOrigin: NodeOrigin = [0, 0]): Rect => {
+export const getRectOfNodes = (
+  nodes: Node[],
+  nodeOrigin: NodeOrigin = [0, 0],
+): Rect => {
   console.warn(
-    '[DEPRECATED] `getRectOfNodes` is deprecated. Instead use `getNodesBounds` https://reactflow.dev/api-reference/utils/get-nodes-bounds.'
+    "[DEPRECATED] `getRectOfNodes` is deprecated. Instead use `getNodesBounds` https://reactflow.dev/api-reference/utils/get-nodes-bounds.",
   );
 
   return getNodesBounds(nodes, nodeOrigin);
@@ -232,7 +276,7 @@ export const getNodesInside = (
   partially = false,
   // set excludeNonSelectableNodes if you want to pay attention to the nodes "selectable" attribute
   excludeNonSelectableNodes = false,
-  nodeOrigin: NodeOrigin = [0, 0]
+  nodeOrigin: NodeOrigin = [0, 0],
 ): Node[] => {
   const paneRect = {
     x: (rect.x - tx) / tScale,
@@ -260,11 +304,15 @@ export const getNodesInside = (
     };
     const overlappingArea = getOverlappingArea(paneRect, nodeRect);
     const notInitialized =
-      typeof width === 'undefined' || typeof height === 'undefined' || width === null || height === null;
+      typeof width === "undefined" ||
+      typeof height === "undefined" ||
+      width === null ||
+      height === null;
 
     const partiallyVisible = partially && overlappingArea > 0;
     const area = (width || 0) * (height || 0);
-    const isVisible = notInitialized || partiallyVisible || overlappingArea >= area;
+    const isVisible =
+      notInitialized || partiallyVisible || overlappingArea >= area;
 
     if (isVisible || node.dragging) {
       visibleNodes.push(node);
@@ -277,7 +325,9 @@ export const getNodesInside = (
 export const getConnectedEdges = (nodes: Node[], edges: Edge[]): Edge[] => {
   const nodeIds = nodes.map((node) => node.id);
 
-  return edges.filter((edge) => nodeIds.includes(edge.source) || nodeIds.includes(edge.target));
+  return edges.filter(
+    (edge) => nodeIds.includes(edge.source) || nodeIds.includes(edge.target),
+  );
 };
 
 // @deprecated Use `getViewportForBounds`.
@@ -287,12 +337,19 @@ export const getTransformForBounds = (
   height: number,
   minZoom: number,
   maxZoom: number,
-  padding = 0.1
+  padding = 0.1,
 ): Transform => {
-  const { x, y, zoom } = getViewportForBounds(bounds, width, height, minZoom, maxZoom, padding);
+  const { x, y, zoom } = getViewportForBounds(
+    bounds,
+    width,
+    height,
+    minZoom,
+    maxZoom,
+    padding,
+  );
 
   console.warn(
-    '[DEPRECATED] `getTransformForBounds` is deprecated. Instead use `getViewportForBounds`. Beware that the return value is type Viewport (`{ x: number, y: number, zoom: number }`) instead of Transform (`[number, number, number]`). https://reactflow.dev/api-reference/utils/get-viewport-for-bounds'
+    "[DEPRECATED] `getTransformForBounds` is deprecated. Instead use `getViewportForBounds`. Beware that the return value is type Viewport (`{ x: number, y: number, zoom: number }`) instead of Transform (`[number, number, number]`). https://reactflow.dev/api-reference/utils/get-viewport-for-bounds",
   );
 
   return [x, y, zoom];
@@ -304,7 +361,7 @@ export const getViewportForBounds = (
   height: number,
   minZoom: number,
   maxZoom: number,
-  padding = 0.1
+  padding = 0.1,
 ): Viewport => {
   const xZoom = width / (bounds.width * (1 + padding));
   const yZoom = height / (bounds.height * (1 + padding));
@@ -318,6 +375,9 @@ export const getViewportForBounds = (
   return { x, y, zoom: clampedZoom };
 };
 
-export const getD3Transition = (selection: D3Selection<Element, unknown, null, undefined>, duration = 0) => {
+export const getD3Transition = (
+  selection: D3Selection<Element, unknown, null, undefined>,
+  duration = 0,
+) => {
   return selection.transition().duration(duration);
 };

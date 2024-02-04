@@ -1,11 +1,20 @@
-import { useMemo } from 'react';
-import { zoomIdentity } from 'd3-zoom';
-import { shallow } from 'zustand/shallow';
+import { zoomIdentity } from "d3-zoom";
+import { useMemo } from "react";
+import { shallow } from "zustand/shallow";
 
-import { useStoreApi, useStore } from '../hooks/useStore';
-import { pointToRendererPoint, getViewportForBounds, getD3Transition, rendererPointToPoint } from '../utils/graph';
-import { fitView } from '../store/utils';
-import type { ViewportHelperFunctions, ReactFlowState, XYPosition } from '../types';
+import { useStore, useStoreApi } from "../hooks/useStore";
+import { fitView } from "../store/utils";
+import type {
+  ReactFlowState,
+  ViewportHelperFunctions,
+  XYPosition,
+} from "../types";
+import {
+  getD3Transition,
+  getViewportForBounds,
+  pointToRendererPoint,
+  rendererPointToPoint,
+} from "../utils/graph";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
 const noop = () => {};
@@ -38,16 +47,28 @@ const useViewportHelper = (): ViewportHelperFunctions => {
   const viewportHelperFunctions = useMemo<ViewportHelperFunctions>(() => {
     if (d3Selection && d3Zoom) {
       return {
-        zoomIn: (options) => d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1.2),
-        zoomOut: (options) => d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1 / 1.2),
-        zoomTo: (zoomLevel, options) => d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel),
+        zoomIn: (options) =>
+          d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1.2),
+        zoomOut: (options) =>
+          d3Zoom.scaleBy(
+            getD3Transition(d3Selection, options?.duration),
+            1 / 1.2,
+          ),
+        zoomTo: (zoomLevel, options) =>
+          d3Zoom.scaleTo(
+            getD3Transition(d3Selection, options?.duration),
+            zoomLevel,
+          ),
         getZoom: () => store.getState().transform[2],
         setViewport: (transform, options) => {
           const [x, y, zoom] = store.getState().transform;
           const nextTransform = zoomIdentity
             .translate(transform.x ?? x, transform.y ?? y)
             .scale(transform.zoom ?? zoom);
-          d3Zoom.transform(getD3Transition(d3Selection, options?.duration), nextTransform);
+          d3Zoom.transform(
+            getD3Transition(d3Selection, options?.duration),
+            nextTransform,
+          );
         },
         getViewport: () => {
           const [x, y, zoom] = store.getState().transform;
@@ -56,29 +77,50 @@ const useViewportHelper = (): ViewportHelperFunctions => {
         fitView: (options) => fitView(store.getState, options),
         setCenter: (x, y, options) => {
           const { width, height, maxZoom } = store.getState();
-          const nextZoom = typeof options?.zoom !== 'undefined' ? options.zoom : maxZoom;
+          const nextZoom =
+            typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
           const centerX = width / 2 - x * nextZoom;
           const centerY = height / 2 - y * nextZoom;
-          const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
+          const transform = zoomIdentity
+            .translate(centerX, centerY)
+            .scale(nextZoom);
 
-          d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
+          d3Zoom.transform(
+            getD3Transition(d3Selection, options?.duration),
+            transform,
+          );
         },
         fitBounds: (bounds, options) => {
           const { width, height, minZoom, maxZoom } = store.getState();
-          const { x, y, zoom } = getViewportForBounds(bounds, width, height, minZoom, maxZoom, options?.padding ?? 0.1);
+          const { x, y, zoom } = getViewportForBounds(
+            bounds,
+            width,
+            height,
+            minZoom,
+            maxZoom,
+            options?.padding ?? 0.1,
+          );
           const transform = zoomIdentity.translate(x, y).scale(zoom);
 
-          d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
+          d3Zoom.transform(
+            getD3Transition(d3Selection, options?.duration),
+            transform,
+          );
         },
         // @deprecated Use `screenToFlowPosition`.
         project: (position: XYPosition) => {
           const { transform, snapToGrid, snapGrid } = store.getState();
 
           console.warn(
-            '[DEPRECATED] `project` is deprecated. Instead use `screenToFlowPosition`. There is no need to subtract the react flow bounds anymore! https://reactflow.dev/api-reference/types/react-flow-instance#screen-to-flow-position'
+            "[DEPRECATED] `project` is deprecated. Instead use `screenToFlowPosition`. There is no need to subtract the react flow bounds anymore! https://reactflow.dev/api-reference/types/react-flow-instance#screen-to-flow-position",
           );
 
-          return pointToRendererPoint(position, transform, snapToGrid, snapGrid);
+          return pointToRendererPoint(
+            position,
+            transform,
+            snapToGrid,
+            snapGrid,
+          );
         },
         screenToFlowPosition: (position: XYPosition) => {
           const { transform, snapToGrid, snapGrid, domNode } = store.getState();
@@ -93,7 +135,12 @@ const useViewportHelper = (): ViewportHelperFunctions => {
             y: position.y - domY,
           };
 
-          return pointToRendererPoint(relativePosition, transform, snapToGrid, snapGrid);
+          return pointToRendererPoint(
+            relativePosition,
+            transform,
+            snapToGrid,
+            snapGrid,
+          );
         },
         flowToScreenPosition: (position: XYPosition) => {
           const { transform, domNode } = store.getState();

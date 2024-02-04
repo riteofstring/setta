@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
-import { useStoreApi } from './useStore';
-import type { OnViewportChange } from '../types';
+import type { OnViewportChange } from "../types";
+import { useStoreApi } from "./useStore";
 
 export type UseOnViewportChangeOptions = {
   onStart?: OnViewportChange;
@@ -9,7 +9,11 @@ export type UseOnViewportChangeOptions = {
   onEnd?: OnViewportChange;
 };
 
-function useOnViewportChange({ onStart, onChange, onEnd }: UseOnViewportChangeOptions) {
+function useOnViewportChange({
+  onStart,
+  onChange,
+  onEnd,
+}: UseOnViewportChangeOptions) {
   const store = useStoreApi();
 
   useEffect(() => {

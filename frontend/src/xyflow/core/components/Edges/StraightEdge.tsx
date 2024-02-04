@@ -1,8 +1,8 @@
-import React, { memo } from 'react';
+import { memo } from "react";
 
-import BaseEdge from './BaseEdge';
-import { getEdgeCenter } from './utils';
-import type { EdgeProps } from '../../types';
+import type { EdgeProps } from "../../types";
+import BaseEdge from "./BaseEdge";
+import { getEdgeCenter } from "./utils";
 
 export type GetStraightPathParams = {
   sourceX: number;
@@ -16,7 +16,13 @@ export function getStraightPath({
   sourceY,
   targetX,
   targetY,
-}: GetStraightPathParams): [path: string, labelX: number, labelY: number, offsetX: number, offsetY: number] {
+}: GetStraightPathParams): [
+  path: string,
+  labelX: number,
+  labelY: number,
+  offsetX: number,
+  offsetY: number,
+] {
   const [labelX, labelY, offsetX, offsetY] = getEdgeCenter({
     sourceX,
     sourceY,
@@ -24,7 +30,13 @@ export function getStraightPath({
     targetY,
   });
 
-  return [`M ${sourceX},${sourceY}L ${targetX},${targetY}`, labelX, labelY, offsetX, offsetY];
+  return [
+    `M ${sourceX},${sourceY}L ${targetX},${targetY}`,
+    labelX,
+    labelY,
+    offsetX,
+    offsetY,
+  ];
 }
 
 const StraightEdge = memo(
@@ -44,7 +56,12 @@ const StraightEdge = memo(
     markerStart,
     interactionWidth,
   }: EdgeProps) => {
-    const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+    const [path, labelX, labelY] = getStraightPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+    });
 
     return (
       <BaseEdge
@@ -63,9 +80,9 @@ const StraightEdge = memo(
         interactionWidth={interactionWidth}
       />
     );
-  }
+  },
 );
 
-StraightEdge.displayName = 'StraightEdge';
+StraightEdge.displayName = "StraightEdge";
 
 export default StraightEdge;

@@ -1,13 +1,13 @@
-import React, { useMemo } from 'react';
+import { useMemo } from "react";
 
-import { MarkerType } from '../../types';
-import type { EdgeMarker } from '../../types';
-import { useStoreApi } from '../../hooks/useStore';
-import { errorMessages } from '../../contants';
+import { errorMessages } from "../../contants";
+import { useStoreApi } from "../../hooks/useStore";
+import type { EdgeMarker } from "../../types";
+import { MarkerType } from "../../types";
 
-type SymbolProps = Omit<EdgeMarker, 'type'>;
+type SymbolProps = Omit<EdgeMarker, "type">;
 
-const ArrowSymbol = ({ color = 'none', strokeWidth = 1 }: SymbolProps) => {
+const ArrowSymbol = ({ color = "none", strokeWidth = 1 }: SymbolProps) => {
   return (
     <polyline
       style={{
@@ -22,7 +22,10 @@ const ArrowSymbol = ({ color = 'none', strokeWidth = 1 }: SymbolProps) => {
   );
 };
 
-const ArrowClosedSymbol = ({ color = 'none', strokeWidth = 1 }: SymbolProps) => {
+const ArrowClosedSymbol = ({
+  color = "none",
+  strokeWidth = 1,
+}: SymbolProps) => {
   return (
     <polyline
       style={{
@@ -46,10 +49,13 @@ export function useMarkerSymbol(type: MarkerType) {
   const store = useStoreApi();
 
   const symbol = useMemo(() => {
-    const symbolExists = Object.prototype.hasOwnProperty.call(MarkerSymbols, type);
+    const symbolExists = Object.prototype.hasOwnProperty.call(
+      MarkerSymbols,
+      type,
+    );
 
     if (!symbolExists) {
-      store.getState().onError?.('009', errorMessages['error009'](type));
+      store.getState().onError?.("009", errorMessages["error009"](type));
 
       return null;
     }

@@ -1,5 +1,5 @@
 /* this will be exported as base.css and can be used for a basic styling */
-@import './init.css';
+@import "./init.css";
 
 .react-flow__handle {
   background-color: #333;

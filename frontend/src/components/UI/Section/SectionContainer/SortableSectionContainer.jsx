@@ -62,7 +62,7 @@ const SortableCore = React.memo(
   (p, n) =>
     p.sectionId === n.sectionId &&
     p.transform === n.transform &&
-    p.transition === n.transition
+    p.transition === n.transition,
 );
 
 function transformWithZoom(transform, store) {

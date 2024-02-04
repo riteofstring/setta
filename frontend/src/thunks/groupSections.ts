@@ -4,7 +4,7 @@ import { createDeck } from "./createSectionOrDeck";
 export function groupSections() {
   const store = REACT_FLOW_STORE.store;
   const selectedNodes = [...store.getState().nodeInternals].filter(
-    (x) => x[1].selected
+    (x) => x[1].selected,
   );
   const numSelected = selectedNodes.length;
   if (numSelected > 0) {

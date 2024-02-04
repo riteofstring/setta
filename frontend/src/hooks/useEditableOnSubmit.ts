@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 export function useEditableOnSubmit<T>(
   initialValue: T,
   onSetTitle: (x: T) => void,
-  condition: (x: T) => boolean = () => true
+  condition: (x: T) => boolean = () => true,
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
 

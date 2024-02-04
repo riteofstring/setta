@@ -1,9 +1,9 @@
-import React, { memo, useCallback } from 'react';
+import { memo, useCallback } from "react";
 
-import { useStore } from '../../hooks/useStore';
-import { getMarkerId } from '../../utils/graph';
-import { useMarkerSymbol } from './MarkerSymbols';
-import type { EdgeMarker, ReactFlowState } from '../../types';
+import { useStore } from "../../hooks/useStore";
+import type { EdgeMarker, ReactFlowState } from "../../types";
+import { getMarkerId } from "../../utils/graph";
+import { useMarkerSymbol } from "./MarkerSymbols";
 
 type MarkerProps = EdgeMarker & {
   id: string;
@@ -20,9 +20,9 @@ const Marker = ({
   color,
   width = 12.5,
   height = 12.5,
-  markerUnits = 'strokeWidth',
+  markerUnits = "strokeWidth",
   strokeWidth,
-  orient = 'auto-start-reverse',
+  orient = "auto-start-reverse",
 }: MarkerProps) => {
   const Symbol = useMarkerSymbol(type);
 
@@ -55,10 +55,14 @@ const markerSelector =
     return s.edges
       .reduce<MarkerProps[]>((markers, edge) => {
         [edge.markerStart, edge.markerEnd].forEach((marker) => {
-          if (marker && typeof marker === 'object') {
+          if (marker && typeof marker === "object") {
             const markerId = getMarkerId(marker, rfId);
             if (!ids.includes(markerId)) {
-              markers.push({ id: markerId, color: marker.color || defaultColor, ...marker });
+              markers.push({
+                id: markerId,
+                color: marker.color || defaultColor,
+                ...marker,
+              });
               ids.push(markerId);
             }
           }
@@ -75,7 +79,7 @@ const MarkerDefinitions = ({ defaultColor, rfId }: MarkerDefinitionsProps) => {
   const markers = useStore(
     useCallback(markerSelector({ defaultColor, rfId }), [defaultColor, rfId]),
     // the id includes all marker options, so we just need to look at that part of the marker
-    (a, b) => !(a.length !== b.length || a.some((m, i) => m.id !== b[i].id))
+    (a, b) => !(a.length !== b.length || a.some((m, i) => m.id !== b[i].id)),
   );
 
   return (
@@ -97,6 +101,6 @@ const MarkerDefinitions = ({ defaultColor, rfId }: MarkerDefinitionsProps) => {
   );
 };
 
-MarkerDefinitions.displayName = 'MarkerDefinitions';
+MarkerDefinitions.displayName = "MarkerDefinitions";
 
 export default memo(MarkerDefinitions);

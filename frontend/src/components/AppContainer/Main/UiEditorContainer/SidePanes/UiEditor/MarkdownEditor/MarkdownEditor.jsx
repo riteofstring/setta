@@ -27,7 +27,7 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
         maybeIncrementProjectStateVersion(true);
       }
     }, 200),
-    [description]
+    [description],
   );
 
   return (

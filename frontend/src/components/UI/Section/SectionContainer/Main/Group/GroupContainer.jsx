@@ -55,7 +55,7 @@ function useNoWheel(sectionId) {
   useEffect(() => {
     setDidUpdate(false);
     setNoWheel(
-      ref.current.scrollHeight > ref.current.clientHeight ? "nowheel" : ""
+      ref.current.scrollHeight > ref.current.clientHeight ? "nowheel" : "",
     );
   }, [didUpdate, height]);
 

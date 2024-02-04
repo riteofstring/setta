@@ -1,24 +1,38 @@
-import { useMemo, useRef } from 'react';
-import { shallow } from 'zustand/shallow';
+import { useMemo, useRef } from "react";
+import { shallow } from "zustand/shallow";
 
-import { CreateEdgeTypes } from '../EdgeRenderer/utils';
-import { CreateNodeTypes } from '../NodeRenderer/utils';
-import type { EdgeTypes, EdgeTypesWrapped, NodeTypes, NodeTypesWrapped } from '../../types';
-import { errorMessages } from '../../contants';
-import { useStoreApi } from '../../hooks/useStore';
+import { errorMessages } from "../../contants";
+import { useStoreApi } from "../../hooks/useStore";
+import type {
+  EdgeTypes,
+  EdgeTypesWrapped,
+  NodeTypes,
+  NodeTypesWrapped,
+} from "../../types";
+import { CreateEdgeTypes } from "../EdgeRenderer/utils";
+import { CreateNodeTypes } from "../NodeRenderer/utils";
 
-export function useNodeOrEdgeTypes(nodeOrEdgeTypes: NodeTypes, createTypes: CreateNodeTypes): NodeTypesWrapped;
-export function useNodeOrEdgeTypes(nodeOrEdgeTypes: EdgeTypes, createTypes: CreateEdgeTypes): EdgeTypesWrapped;
+export function useNodeOrEdgeTypes(
+  nodeOrEdgeTypes: NodeTypes,
+  createTypes: CreateNodeTypes,
+): NodeTypesWrapped;
+export function useNodeOrEdgeTypes(
+  nodeOrEdgeTypes: EdgeTypes,
+  createTypes: CreateEdgeTypes,
+): EdgeTypesWrapped;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useNodeOrEdgeTypes(nodeOrEdgeTypes: any, createTypes: any): any {
+export function useNodeOrEdgeTypes(
+  nodeOrEdgeTypes: any,
+  createTypes: any,
+): any {
   const typesKeysRef = useRef<string[] | null>(null);
   const store = useStoreApi();
 
   const typesParsed = useMemo(() => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       const typeKeys = Object.keys(nodeOrEdgeTypes);
       if (shallow(typesKeysRef.current, typeKeys)) {
-        store.getState().onError?.('002', errorMessages['error002']());
+        store.getState().onError?.("002", errorMessages["error002"]());
       }
 
       typesKeysRef.current = typeKeys;

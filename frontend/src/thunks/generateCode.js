@@ -59,7 +59,7 @@ function* getProjectRuns(project) {
       const keepSections = [];
       const keepParamSweeps = [];
       for (const [sectionId, paramSweeps] of Object.entries(
-        runGroup.sections
+        runGroup.sections,
       )) {
         keepSections.push(sectionId);
         keepParamSweeps.push(...Object.keys(paramSweeps));
@@ -67,7 +67,7 @@ function* getProjectRuns(project) {
 
       variant.projectConfig.children = _.pick(
         variant.projectConfig.children,
-        keepSections
+        keepSections,
       );
       variant.sections = _.pick(variant.sections, keepSections);
       variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
@@ -105,7 +105,7 @@ function* getProjectVariants(project) {
       for (const parts of combo) {
         const { paramSweepId, paramInfoId, value } = parts;
         const forSectionId = Object.values(useSectionInfos.getState().x).find(
-          (x) => x.paramSweepId === paramSweepId
+          (x) => x.paramSweepId === paramSweepId,
         ).id;
         const evCol = variant.evCols[getSectionInfo(forSectionId).evColId];
         evCol.values[paramInfoId] = value;

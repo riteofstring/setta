@@ -1,16 +1,28 @@
-import React, { memo, useEffect, useState, type FC, type PropsWithChildren } from 'react';
-import cc from 'classcat';
-import { shallow } from 'zustand/shallow';
-import { useStore, useStoreApi, useReactFlow, Panel, type ReactFlowState } from 'xyflow/core';
+import cc from "classcat";
+import {
+  memo,
+  useEffect,
+  useState,
+  type FC,
+  type PropsWithChildren,
+} from "react";
+import {
+  Panel,
+  useReactFlow,
+  useStore,
+  useStoreApi,
+  type ReactFlowState,
+} from "xyflow/core";
+import { shallow } from "zustand/shallow";
 
-import PlusIcon from './Icons/Plus';
-import MinusIcon from './Icons/Minus';
-import FitviewIcon from './Icons/FitView';
-import LockIcon from './Icons/Lock';
-import UnlockIcon from './Icons/Unlock';
-import ControlButton from './ControlButton';
+import ControlButton from "./ControlButton";
+import FitviewIcon from "./Icons/FitView";
+import LockIcon from "./Icons/Lock";
+import MinusIcon from "./Icons/Minus";
+import PlusIcon from "./Icons/Plus";
+import UnlockIcon from "./Icons/Unlock";
 
-import type { ControlProps } from './types';
+import type { ControlProps } from "./types";
 
 const selector = (s: ReactFlowState) => ({
   isInteractive: s.nodesDraggable || s.nodesConnectable || s.elementsSelectable,
@@ -30,11 +42,14 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   onInteractiveChange,
   className,
   children,
-  position = 'bottom-left',
+  position = "bottom-left",
 }) => {
   const store = useStoreApi();
   const [isVisible, setIsVisible] = useState<boolean>(false);
-  const { isInteractive, minZoomReached, maxZoomReached } = useStore(selector, shallow);
+  const { isInteractive, minZoomReached, maxZoomReached } = useStore(
+    selector,
+    shallow,
+  );
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
   useEffect(() => {
@@ -72,7 +87,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
 
   return (
     <Panel
-      className={cc(['react-flow__controls', className])}
+      className={cc(["react-flow__controls", className])}
       position={position}
       style={style}
       data-testid="rf__controls"
@@ -124,6 +139,6 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   );
 };
 
-Controls.displayName = 'Controls';
+Controls.displayName = "Controls";
 
 export default memo(Controls);

@@ -8,5 +8,5 @@ export const useSectionParamFilter = createProjectState(
       set((state) => {
         state.x[sectionId] = filter;
       }),
-  }))
+  })),
 );

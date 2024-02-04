@@ -1,10 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ComponentType, CSSProperties, HTMLAttributes, MouseEvent } from 'react';
-import type { Node, PanelPosition, XYPosition } from 'xyflow/core';
+import type {
+  ComponentType,
+  CSSProperties,
+  HTMLAttributes,
+  MouseEvent,
+} from "react";
+import type { Node, PanelPosition, XYPosition } from "xyflow/core";
 
-export type GetMiniMapNodeAttribute<NodeData = any> = (node: Node<NodeData>) => string;
+export type GetMiniMapNodeAttribute<NodeData = any> = (
+  node: Node<NodeData>,
+) => string;
 
-export type MiniMapProps<NodeData = any> = Omit<HTMLAttributes<SVGSVGElement>, 'onClick'> & {
+export type MiniMapProps<NodeData = any> = Omit<
+  HTMLAttributes<SVGSVGElement>,
+  "onClick"
+> & {
   nodeColor?: string | GetMiniMapNodeAttribute<NodeData>;
   nodeStrokeColor?: string | GetMiniMapNodeAttribute<NodeData>;
   nodeClassName?: string | GetMiniMapNodeAttribute<NodeData>;
@@ -27,7 +37,12 @@ export type MiniMapProps<NodeData = any> = Omit<HTMLAttributes<SVGSVGElement>, '
 
 export type MiniMapNodes = Pick<
   MiniMapProps,
-  'nodeColor' | 'nodeStrokeColor' | 'nodeClassName' | 'nodeBorderRadius' | 'nodeStrokeWidth' | 'nodeComponent'
+  | "nodeColor"
+  | "nodeStrokeColor"
+  | "nodeClassName"
+  | "nodeBorderRadius"
+  | "nodeStrokeWidth"
+  | "nodeComponent"
 > & {
   onClick?: (event: MouseEvent, nodeId: string) => void;
 };

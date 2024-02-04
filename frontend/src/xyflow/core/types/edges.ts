@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { CSSProperties, ComponentType, HTMLAttributes, ReactNode, MouseEvent as ReactMouseEvent } from 'react';
+import type {
+  ComponentType,
+  CSSProperties,
+  HTMLAttributes,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
+} from "react";
 
-import { ConnectionStatus, Position } from '.';
-import type { Connection, HandleElement, HandleType, Node } from '.';
+import type { Connection, HandleElement, HandleType, Node } from ".";
+import { ConnectionStatus, Position } from ".";
 
 type EdgeLabelOptions = {
   label?: string | ReactNode;
@@ -47,7 +53,7 @@ export type SmoothStepPathOptions = {
 };
 
 type SmoothStepEdgeType<T> = DefaultEdge<T> & {
-  type: 'smoothstep';
+  type: "smoothstep";
   pathOptions?: SmoothStepPathOptions;
 };
 
@@ -56,20 +62,32 @@ export type BezierPathOptions = {
 };
 
 type BezierEdgeType<T> = DefaultEdge<T> & {
-  type: 'default';
+  type: "default";
   pathOptions?: BezierPathOptions;
 };
 
-export type Edge<T = any> = DefaultEdge<T> | SmoothStepEdgeType<T> | BezierEdgeType<T>;
+export type Edge<T = any> =
+  | DefaultEdge<T>
+  | SmoothStepEdgeType<T>
+  | BezierEdgeType<T>;
 
 export type DefaultEdgeOptions = Omit<
   Edge,
-  'id' | 'source' | 'target' | 'sourceHandle' | 'targetHandle' | 'sourceNode' | 'targetNode'
+  | "id"
+  | "source"
+  | "target"
+  | "sourceHandle"
+  | "targetHandle"
+  | "sourceNode"
+  | "targetNode"
 >;
 
 export type EdgeMouseHandler = (event: ReactMouseEvent, edge: Edge) => void;
 
-export type WrapEdgeProps<T = any> = Omit<Edge<T>, 'sourceHandle' | 'targetHandle'> & {
+export type WrapEdgeProps<T = any> = Omit<
+  Edge<T>,
+  "sourceHandle" | "targetHandle"
+> & {
   onClick?: EdgeMouseHandler;
   onEdgeDoubleClick?: EdgeMouseHandler;
   sourceHandleId?: string | null;
@@ -87,8 +105,16 @@ export type WrapEdgeProps<T = any> = Omit<Edge<T>, 'sourceHandle' | 'targetHandl
   onMouseMove?: EdgeMouseHandler;
   onMouseLeave?: EdgeMouseHandler;
   edgeUpdaterRadius?: number;
-  onEdgeUpdateStart?: (event: ReactMouseEvent, edge: Edge, handleType: HandleType) => void;
-  onEdgeUpdateEnd?: (event: MouseEvent | TouchEvent, edge: Edge, handleType: HandleType) => void;
+  onEdgeUpdateStart?: (
+    event: ReactMouseEvent,
+    edge: Edge,
+    handleType: HandleType,
+  ) => void;
+  onEdgeUpdateEnd?: (
+    event: MouseEvent | TouchEvent,
+    edge: Edge,
+    handleType: HandleType,
+  ) => void;
   rfId?: string;
   isFocusable: boolean;
   isUpdatable: EdgeUpdatable;
@@ -98,19 +124,19 @@ export type WrapEdgeProps<T = any> = Omit<Edge<T>, 'sourceHandle' | 'targetHandl
 // props that get passed to a custom edge
 export type EdgeProps<T = any> = Pick<
   Edge<T>,
-  'id' | 'animated' | 'data' | 'style' | 'selected' | 'source' | 'target'
+  "id" | "animated" | "data" | "style" | "selected" | "source" | "target"
 > &
   Pick<
     WrapEdgeProps,
-    | 'sourceX'
-    | 'sourceY'
-    | 'targetX'
-    | 'targetY'
-    | 'sourcePosition'
-    | 'targetPosition'
-    | 'sourceHandleId'
-    | 'targetHandleId'
-    | 'interactionWidth'
+    | "sourceX"
+    | "sourceY"
+    | "targetX"
+    | "targetY"
+    | "sourcePosition"
+    | "targetPosition"
+    | "sourceHandleId"
+    | "targetHandleId"
+    | "interactionWidth"
   > &
   EdgeLabelOptions & {
     markerStart?: string;
@@ -119,7 +145,10 @@ export type EdgeProps<T = any> = Pick<
     pathOptions?: any;
   };
 
-export type BaseEdgeProps = Pick<EdgeProps, 'style' | 'markerStart' | 'markerEnd' | 'interactionWidth'> &
+export type BaseEdgeProps = Pick<
+  EdgeProps,
+  "style" | "markerStart" | "markerEnd" | "interactionWidth"
+> &
   EdgeLabelOptions & {
     id?: string;
     labelX?: number;
@@ -142,11 +171,11 @@ export type EdgeTextProps = HTMLAttributes<SVGElement> &
   };
 
 export enum ConnectionLineType {
-  Bezier = 'default',
-  Straight = 'straight',
-  Step = 'step',
-  SmoothStep = 'smoothstep',
-  SimpleBezier = 'simplebezier',
+  Bezier = "default",
+  Straight = "straight",
+  Step = "step",
+  SmoothStep = "smoothstep",
+  SimpleBezier = "simplebezier",
 }
 
 export type ConnectionLineComponentProps = {
@@ -163,9 +192,13 @@ export type ConnectionLineComponentProps = {
   connectionStatus: ConnectionStatus | null;
 };
 
-export type ConnectionLineComponent = ComponentType<ConnectionLineComponentProps>;
+export type ConnectionLineComponent =
+  ComponentType<ConnectionLineComponentProps>;
 
-export type OnEdgeUpdateFunc<T = any> = (oldEdge: Edge<T>, newConnection: Connection) => void;
+export type OnEdgeUpdateFunc<T = any> = (
+  oldEdge: Edge<T>,
+  newConnection: Connection,
+) => void;
 
 export type EdgeMarker = {
   type: MarkerType;
@@ -180,6 +213,6 @@ export type EdgeMarker = {
 export type EdgeMarkerType = string | EdgeMarker;
 
 export enum MarkerType {
-  Arrow = 'arrow',
-  ArrowClosed = 'arrowclosed',
+  Arrow = "arrow",
+  ArrowClosed = "arrowclosed",
 }

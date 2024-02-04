@@ -7,13 +7,13 @@ import { useGetSectionTypeConfig } from "./useSectionType";
 export function useParamSweepInfo(sectionId) {
   const forSectionId = useSectionInfos(
     (x) =>
-      Object.values(x.x).find((s) => s.paramSweepSectionId === sectionId)?.id
+      Object.values(x.x).find((s) => s.paramSweepSectionId === sectionId)?.id,
   );
   const paramSweepId = useSectionInfos((x) =>
-    forSectionId ? x.x[forSectionId].paramSweepId : null
+    forSectionId ? x.x[forSectionId].paramSweepId : null,
   );
   const paramSweep = useParamSweep((x) =>
-    paramSweepId ? x.x[paramSweepId].sweep : null
+    paramSweepId ? x.x[paramSweepId].sweep : null,
   );
   const codeInfoId = useGetSectionTypeConfig(forSectionId, "codeInfoId");
   const selectedItem = useGetSectionInfo(forSectionId, "selectedItem");
@@ -33,6 +33,6 @@ export function useGetParamSweepNames(sectionId: string) {
   const paramSweepIds = useGetSectionInfo(sectionId, "paramSweepIds");
   return useParamSweep(
     (x) => paramSweepIds.map((e) => ({ id: e, name: x.x[e].name })),
-    _.isEqual
+    _.isEqual,
   );
 }

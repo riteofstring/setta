@@ -37,7 +37,7 @@ function getUITypes(sections) {
 function getCodeInfo(sections) {
   const sectionCodeInfoIds = _.map(
     sections,
-    (x) => getSectionTypeConfig(x.id).codeInfoId
+    (x) => getSectionTypeConfig(x.id).codeInfoId,
   );
   let output = [];
   for (const cid of sectionCodeInfoIds) {
@@ -49,8 +49,8 @@ function getCodeInfo(sections) {
             x.isSelected ||
             x.rcType === RCType.CALLABLE ||
             x.rcType === RCType.COLLECTION ||
-            sectionCodeInfoIds.includes(x.id)
-        )
+            sectionCodeInfoIds.includes(x.id),
+        ),
       );
     } else {
       output.push(...codeInfos);
@@ -77,14 +77,14 @@ function getEVCols(sections) {
 function getUITypeCols(sections) {
   return _.pick(
     useParamInfos.getState().y,
-    _.map(sections, (x) => x.uiTypeColId)
+    _.map(sections, (x) => x.uiTypeColId),
   );
 }
 
 function getRelativePositions(sections) {
   const positions = _.pick(
     useProjectConfig.getState().children,
-    _.map(sections, (x) => x.id)
+    _.map(sections, (x) => x.id),
   );
 
   let minX = Infinity;

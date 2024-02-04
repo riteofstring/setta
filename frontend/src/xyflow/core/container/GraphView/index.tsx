@@ -1,39 +1,42 @@
-import React, { memo } from 'react';
+import { memo } from "react";
 
-import FlowRenderer from '../FlowRenderer';
-import NodeRenderer from '../NodeRenderer';
-import EdgeRenderer from '../EdgeRenderer';
-import ViewportWrapper from '../Viewport';
-import useOnInitHandler from '../../hooks/useOnInitHandler';
-import ConnectionLine from '../../components/ConnectionLine';
-import { useNodeOrEdgeTypes } from './utils';
-import { createNodeTypes } from '../NodeRenderer/utils';
-import { createEdgeTypes } from '../EdgeRenderer/utils';
-import type { ReactFlowProps } from '../../types';
+import ConnectionLine from "../../components/ConnectionLine";
+import useOnInitHandler from "../../hooks/useOnInitHandler";
+import type { ReactFlowProps } from "../../types";
+import EdgeRenderer from "../EdgeRenderer";
+import { createEdgeTypes } from "../EdgeRenderer/utils";
+import FlowRenderer from "../FlowRenderer";
+import NodeRenderer from "../NodeRenderer";
+import { createNodeTypes } from "../NodeRenderer/utils";
+import ViewportWrapper from "../Viewport";
+import { useNodeOrEdgeTypes } from "./utils";
 
-export type GraphViewProps = Omit<ReactFlowProps, 'onSelectionChange' | 'nodes' | 'edges' | 'nodeTypes' | 'edgeTypes'> &
+export type GraphViewProps = Omit<
+  ReactFlowProps,
+  "onSelectionChange" | "nodes" | "edges" | "nodeTypes" | "edgeTypes"
+> &
   Required<
     Pick<
       ReactFlowProps,
-      | 'nodeTypes'
-      | 'edgeTypes'
-      | 'selectionKeyCode'
-      | 'deleteKeyCode'
-      | 'multiSelectionKeyCode'
-      | 'connectionLineType'
-      | 'onlyRenderVisibleElements'
-      | 'translateExtent'
-      | 'minZoom'
-      | 'maxZoom'
-      | 'defaultMarkerColor'
-      | 'selectNodesOnDrag'
-      | 'noDragClassName'
-      | 'noDragClassName'
-      | 'noWheelClassName'
-      | 'noPanClassName'
-      | 'defaultViewport'
-      | 'disableKeyboardA11y'
-      | 'nodeOrigin'
+      | "nodeTypes"
+      | "edgeTypes"
+      | "selectionKeyCode"
+      | "deleteKeyCode"
+      | "multiSelectionKeyCode"
+      | "connectionLineType"
+      | "onlyRenderVisibleElements"
+      | "translateExtent"
+      | "minZoom"
+      | "maxZoom"
+      | "defaultMarkerColor"
+      | "selectNodesOnDrag"
+      | "noDragClassName"
+      | "noDragClassName"
+      | "noWheelClassName"
+      | "noPanClassName"
+      | "defaultViewport"
+      | "disableKeyboardA11y"
+      | "nodeOrigin"
     >
   > & {
     rfId: string;
@@ -204,6 +207,6 @@ const GraphView = ({
   );
 };
 
-GraphView.displayName = 'GraphView';
+GraphView.displayName = "GraphView";
 
 export default memo(GraphView);

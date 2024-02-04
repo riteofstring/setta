@@ -92,7 +92,7 @@ const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
   const infoViewHandlers = useSetCurrInfoView(constInfoViews.OVERVIEW);
   const infoViewHandlersSearch = useSetCurrInfoView(
-    constInfoViews.OVERVIEW_SEARCH
+    constInfoViews.OVERVIEW_SEARCH,
   );
   return (
     <>

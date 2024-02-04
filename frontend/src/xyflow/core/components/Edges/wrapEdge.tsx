@@ -1,15 +1,14 @@
-import React, { memo, useState, useMemo, useRef } from 'react';
-import type { ComponentType, KeyboardEvent } from 'react';
-import cc from 'classcat';
+import cc from "classcat";
+import type { ComponentType, KeyboardEvent } from "react";
+import React, { memo, useMemo, useRef, useState } from "react";
 
-import { useStoreApi } from '../../hooks/useStore';
-import { ARIA_EDGE_DESC_KEY } from '../A11yDescriptions';
-import { handlePointerDown } from '../Handle/handler';
-import { EdgeAnchor } from './EdgeAnchor';
-import { getMarkerId } from '../../utils/graph';
-import { getMouseHandler } from './utils';
-import { elementSelectionKeys } from '../../utils';
-import type { EdgeProps, WrapEdgeProps, Connection } from '../../types';
+import { useStoreApi } from "../../hooks/useStore";
+import type { Connection, EdgeProps, WrapEdgeProps } from "../../types";
+import { elementSelectionKeys } from "../../utils";
+import { getMarkerId } from "../../utils/graph";
+import { handlePointerDown } from "../Handle/handler";
+import { EdgeAnchor } from "./EdgeAnchor";
+import { getMouseHandler } from "./utils";
 
 const alwaysValidConnection = () => true;
 
@@ -64,15 +63,28 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
     const [updating, setUpdating] = useState<boolean>(false);
     const store = useStoreApi();
 
-    const markerStartUrl = useMemo(() => `url(#${getMarkerId(markerStart, rfId)})`, [markerStart, rfId]);
-    const markerEndUrl = useMemo(() => `url(#${getMarkerId(markerEnd, rfId)})`, [markerEnd, rfId]);
+    const markerStartUrl = useMemo(
+      () => `url(#${getMarkerId(markerStart, rfId)})`,
+      [markerStart, rfId],
+    );
+    const markerEndUrl = useMemo(
+      () => `url(#${getMarkerId(markerEnd, rfId)})`,
+      [markerEnd, rfId],
+    );
 
     if (hidden) {
       return null;
     }
 
-    const onEdgeClick = (event: React.MouseEvent<SVGGElement, MouseEvent>): void => {
-      const { edges, addSelectedEdges, unselectNodesAndEdges, multiSelectionActive } = store.getState();
+    const onEdgeClick = (
+      event: React.MouseEvent<SVGGElement, MouseEvent>,
+    ): void => {
+      const {
+        edges,
+        addSelectedEdges,
+        unselectNodesAndEdges,
+        multiSelectionActive,
+      } = store.getState();
       const edge = edges.find((e) => e.id === id);
 
       if (!edge) {
@@ -95,22 +107,35 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
       }
     };
 
-    const onEdgeDoubleClickHandler = getMouseHandler(id, store.getState, onEdgeDoubleClick);
-    const onEdgeContextMenu = getMouseHandler(id, store.getState, onContextMenu);
+    const onEdgeDoubleClickHandler = getMouseHandler(
+      id,
+      store.getState,
+      onEdgeDoubleClick,
+    );
+    const onEdgeContextMenu = getMouseHandler(
+      id,
+      store.getState,
+      onContextMenu,
+    );
     const onEdgeMouseEnter = getMouseHandler(id, store.getState, onMouseEnter);
     const onEdgeMouseMove = getMouseHandler(id, store.getState, onMouseMove);
     const onEdgeMouseLeave = getMouseHandler(id, store.getState, onMouseLeave);
 
-    const handleEdgeUpdater = (event: React.MouseEvent<SVGGElement, MouseEvent>, isSourceHandle: boolean) => {
+    const handleEdgeUpdater = (
+      event: React.MouseEvent<SVGGElement, MouseEvent>,
+      isSourceHandle: boolean,
+    ) => {
       // avoid triggering edge updater if mouse btn is not left
       if (event.button !== 0) {
         return;
       }
 
-      const { edges, isValidConnection: isValidConnectionStore } = store.getState();
+      const { edges, isValidConnection: isValidConnectionStore } =
+        store.getState();
       const nodeId = isSourceHandle ? target : source;
-      const handleId = (isSourceHandle ? targetHandleId : sourceHandleId) || null;
-      const handleType = isSourceHandle ? 'target' : 'source';
+      const handleId =
+        (isSourceHandle ? targetHandleId : sourceHandleId) || null;
+      const handleType = isSourceHandle ? "target" : "source";
       const isValidConnection = isValidConnectionStore || alwaysValidConnection;
 
       const isTarget = isSourceHandle;
@@ -124,7 +149,8 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
         onEdgeUpdateEnd?.(evt, edge, handleType);
       };
 
-      const onConnectEdge = (connection: Connection) => onEdgeUpdate?.(edge, connection);
+      const onConnectEdge = (connection: Connection) =>
+        onEdgeUpdate?.(edge, connection);
 
       handlePointerDown({
         event,
@@ -140,10 +166,12 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
       });
     };
 
-    const onEdgeUpdaterSourceMouseDown = (event: React.MouseEvent<SVGGElement, MouseEvent>): void =>
-      handleEdgeUpdater(event, true);
-    const onEdgeUpdaterTargetMouseDown = (event: React.MouseEvent<SVGGElement, MouseEvent>): void =>
-      handleEdgeUpdater(event, false);
+    const onEdgeUpdaterSourceMouseDown = (
+      event: React.MouseEvent<SVGGElement, MouseEvent>,
+    ): void => handleEdgeUpdater(event, true);
+    const onEdgeUpdaterTargetMouseDown = (
+      event: React.MouseEvent<SVGGElement, MouseEvent>,
+    ): void => handleEdgeUpdater(event, false);
 
     const onEdgeUpdaterMouseEnter = () => setUpdateHover(true);
     const onEdgeUpdaterMouseOut = () => setUpdateHover(false);
@@ -152,8 +180,9 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (elementSelectionKeys.includes(event.key) && elementsSelectable) {
-        const { unselectNodesAndEdges, addSelectedEdges, edges } = store.getState();
-        const unselect = event.key === 'Escape';
+        const { unselectNodesAndEdges, addSelectedEdges, edges } =
+          store.getState();
+        const unselect = event.key === "Escape";
 
         if (unselect) {
           edgeRef.current?.blur();
@@ -167,7 +196,7 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
     return (
       <g
         className={cc([
-          'react-flow__edge',
+          "react-flow__edge",
           `react-flow__edge-${type}`,
           className,
           { selected, animated, inactive, updating: updateHover },
@@ -180,10 +209,15 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
         onMouseLeave={onEdgeMouseLeave}
         onKeyDown={isFocusable ? onKeyDown : undefined}
         tabIndex={isFocusable ? 0 : undefined}
-        role={isFocusable ? 'button' : 'img'}
+        role={isFocusable ? "button" : "img"}
         data-testid={`rf__edge-${id}`}
-        aria-label={ariaLabel === null ? undefined : ariaLabel ? ariaLabel : `Edge from ${source} to ${target}`}
-        aria-describedby={isFocusable ? `${ARIA_EDGE_DESC_KEY}-${rfId}` : undefined}
+        aria-label={
+          ariaLabel === null
+            ? undefined
+            : ariaLabel
+              ? ariaLabel
+              : `Edge from ${source} to ${target}`
+        }
         ref={edgeRef}
       >
         {!updating && (
@@ -217,7 +251,7 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
         )}
         {isUpdatable && (
           <>
-            {(isUpdatable === 'source' || isUpdatable === true) && (
+            {(isUpdatable === "source" || isUpdatable === true) && (
               <EdgeAnchor
                 position={sourcePosition}
                 centerX={sourceX}
@@ -229,7 +263,7 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
                 type="source"
               />
             )}
-            {(isUpdatable === 'target' || isUpdatable === true) && (
+            {(isUpdatable === "target" || isUpdatable === true) && (
               <EdgeAnchor
                 position={targetPosition}
                 centerX={targetX}
@@ -247,7 +281,7 @@ export default (EdgeComponent: ComponentType<EdgeProps>) => {
     );
   };
 
-  EdgeWrapper.displayName = 'EdgeWrapper';
+  EdgeWrapper.displayName = "EdgeWrapper";
 
   return memo(EdgeWrapper);
 };

@@ -124,11 +124,11 @@ export function ComboboxItems({
               />
             );
           })}
-        </dl>
+        </dl>,
       );
 
       return result;
     },
-    { groups: [], itemIndex: 0 }
+    { groups: [], itemIndex: 0 },
   ).groups;
 }

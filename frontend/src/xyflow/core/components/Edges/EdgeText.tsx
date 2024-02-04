@@ -1,8 +1,8 @@
-import React, { memo, useRef, useState, useEffect } from 'react';
-import type { FC, PropsWithChildren } from 'react';
-import cc from 'classcat';
+import cc from "classcat";
+import type { FC, PropsWithChildren } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
-import { EdgeTextProps, Rect } from '../../types';
+import { EdgeTextProps, Rect } from "../../types";
 
 const EdgeText: FC<PropsWithChildren<EdgeTextProps>> = ({
   x,
@@ -18,8 +18,13 @@ const EdgeText: FC<PropsWithChildren<EdgeTextProps>> = ({
   ...rest
 }) => {
   const edgeRef = useRef<SVGTextElement>(null);
-  const [edgeTextBbox, setEdgeTextBbox] = useState<Rect>({ x: 0, y: 0, width: 0, height: 0 });
-  const edgeTextClasses = cc(['react-flow__edge-textwrapper', className]);
+  const [edgeTextBbox, setEdgeTextBbox] = useState<Rect>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+  const edgeTextClasses = cc(["react-flow__edge-textwrapper", className]);
 
   useEffect(() => {
     if (edgeRef.current) {
@@ -34,7 +39,7 @@ const EdgeText: FC<PropsWithChildren<EdgeTextProps>> = ({
     }
   }, [label]);
 
-  if (typeof label === 'undefined' || !label) {
+  if (typeof label === "undefined" || !label) {
     return null;
   }
 
@@ -42,7 +47,7 @@ const EdgeText: FC<PropsWithChildren<EdgeTextProps>> = ({
     <g
       transform={`translate(${x - edgeTextBbox.width / 2} ${y - edgeTextBbox.height / 2})`}
       className={edgeTextClasses}
-      visibility={edgeTextBbox.width ? 'visible' : 'hidden'}
+      visibility={edgeTextBbox.width ? "visible" : "hidden"}
       {...rest}
     >
       {labelShowBg && (
@@ -57,7 +62,13 @@ const EdgeText: FC<PropsWithChildren<EdgeTextProps>> = ({
           ry={labelBgBorderRadius}
         />
       )}
-      <text className="react-flow__edge-text" y={edgeTextBbox.height / 2} dy="0.3em" ref={edgeRef} style={labelStyle}>
+      <text
+        className="react-flow__edge-text"
+        y={edgeTextBbox.height / 2}
+        dy="0.3em"
+        ref={edgeRef}
+        style={labelStyle}
+      >
         {label}
       </text>
       {children}

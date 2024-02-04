@@ -42,7 +42,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
   const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
     sectionName,
     onTitleInputChange,
-    condition
+    condition,
   );
 
   return (

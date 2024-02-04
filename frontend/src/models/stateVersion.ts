@@ -6,7 +6,7 @@ export const useStateVersion = createProjectState(
     version: 0,
     incrementVersion: () => set((state) => ({ version: state.version + 1 })),
     reset: () => set({ version: 0 }),
-  }))
+  })),
 );
 
 useStateVersion.temporal.getState().pause();

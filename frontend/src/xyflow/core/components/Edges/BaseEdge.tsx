@@ -1,8 +1,6 @@
-import React from 'react';
-
-import EdgeText from './EdgeText';
-import { isNumeric } from '../../utils';
-import type { BaseEdgeProps } from '../../types';
+import type { BaseEdgeProps } from "../../types";
+import { isNumeric } from "../../utils";
+import EdgeText from "./EdgeText";
 
 const BaseEdge = ({
   id,
@@ -56,6 +54,6 @@ const BaseEdge = ({
   );
 };
 
-BaseEdge.displayName = 'BaseEdge';
+BaseEdge.displayName = "BaseEdge";
 
 export default BaseEdge;

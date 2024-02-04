@@ -14,7 +14,7 @@ export const StandardSearch = React.forwardRef(
       onFormSubmit,
       ...props
     },
-    ref
+    ref,
   ) => {
     const classes = `w-full flex-grow outline-0 cursor-auto ${twClasses}`;
 
@@ -36,7 +36,7 @@ export const StandardSearch = React.forwardRef(
         {rightElement}
       </MaybeForm>
     );
-  }
+  },
 );
 
 function MaybeForm({ onFormSubmit, children, outerClasses }) {

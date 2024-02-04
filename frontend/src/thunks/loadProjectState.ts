@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useParamSweep } from "models/paramSweep";
+import { useRunGroups } from "models/runGroups";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
@@ -14,7 +15,6 @@ import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
 import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
-import { useRunGroups } from "models/runGroups";
 
 export function loadProjectState({
   project,
@@ -42,7 +42,7 @@ export function loadProjectState({
   useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);
-  useRunGroups.getState().resetAndSetAll(runGroups)
+  useRunGroups.getState().resetAndSetAll(runGroups);
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
   useProjectConfigCodeInfoMaps
     .getState()

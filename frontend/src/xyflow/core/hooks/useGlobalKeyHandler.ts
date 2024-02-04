@@ -1,15 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
-import { useStoreApi } from '../hooks/useStore';
-import useKeyPress, { type UseKeyPressOptions } from './useKeyPress';
-import type { KeyCode } from '../types';
-import useReactFlow from './useReactFlow';
+import { useStoreApi } from "../hooks/useStore";
+import type { KeyCode } from "../types";
+import useKeyPress, { type UseKeyPressOptions } from "./useKeyPress";
+import useReactFlow from "./useReactFlow";
 interface HookParams {
   deleteKeyCode: KeyCode | null;
   multiSelectionKeyCode: KeyCode | null;
 }
 
-const deleteKeyOptions: UseKeyPressOptions = { actInsideInputWithModifier: false };
+const deleteKeyOptions: UseKeyPressOptions = {
+  actInsideInputWithModifier: false,
+};
 
 export default ({ deleteKeyCode, multiSelectionKeyCode }: HookParams): void => {
   const store = useStoreApi();

@@ -12,7 +12,7 @@ export const getDepthListing = (
   idNames: ManyOf<string>,
   sectionTypeNames: ManyOf<string>,
   sectionTypeFilter: any,
-  startingDepth = 0
+  startingDepth = 0,
 ) => {
   const outputList: DepthType[] = [];
   for (const sectionId of topLevelIds) {
@@ -23,8 +23,8 @@ export const getDepthListing = (
         idNames,
         sectionTypeNames,
         sectionTypeFilter,
-        startingDepth
-      )
+        startingDepth,
+      ),
     );
   }
   return outputList;
@@ -36,7 +36,7 @@ const getDepthListingHelper = (
   idNames: ManyOf<string>,
   sectionTypeNames: ManyOf<string>,
   sectionTypeFilter: any,
-  depth: number
+  depth: number,
 ) => {
   const outputList =
     !sectionTypeFilter || sectionTypeFilter(sectionTypeNames[sectionId])
@@ -48,7 +48,7 @@ const getDepthListingHelper = (
           },
         ]
       : [];
-      
+
   if (children[sectionId]) {
     for (const childId of children[sectionId]) {
       outputList.push(
@@ -58,8 +58,8 @@ const getDepthListingHelper = (
           idNames,
           sectionTypeNames,
           sectionTypeFilter,
-          depth + 1
-        )
+          depth + 1,
+        ),
       );
     }
   }

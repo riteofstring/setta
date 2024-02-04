@@ -10,7 +10,7 @@ export function useAnimatedScale({
   pixelRangeIncreases,
 }) {
   const allValues: number[] = _.flatten(
-    series.map((s) => s.values.map((v) => v[attr]))
+    series.map((s) => s.values.map((v) => v[attr])),
   );
 
   const lowerBound = useScaleMotionValue({ isMin: true, allValues });
@@ -22,7 +22,7 @@ export function useAnimatedScale({
         domain: [lowerBound, upperBound],
         range: pixelRangeIncreases ? [0, maxPixelRange] : [maxPixelRange, 0],
       }),
-    [lowerBound, upperBound, maxPixelRange]
+    [lowerBound, upperBound, maxPixelRange],
   );
 
   return scale;

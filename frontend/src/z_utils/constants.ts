@@ -70,7 +70,7 @@ export const rootTypeToChildSubType = {
 };
 
 export function isSectionUIType(
-  uiType: UITypeType
+  uiType: UITypeType,
 ): uiType is SectionUITypeType {
   return SECTION_TYPE_NAMES.includes(uiType.type);
 }
@@ -95,8 +95,8 @@ export const uiTypesToPretty = Object.freeze(
       [PARAM_SWEEP]: "Parameter Sweep",
       [TERMINAL]: "Terminal",
       [GLOBAL_PARAM_SWEEP]: "Global Param Sweep",
-    })
-  )
+    }),
+  ),
 );
 
 export function requiresKeyInput(sectionSubTypeName) {

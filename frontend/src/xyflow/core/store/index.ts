@@ -1,26 +1,35 @@
-import { createWithEqualityFn } from 'zustand/traditional';
-import { zoomIdentity } from 'd3-zoom';
+import { zoomIdentity } from "d3-zoom";
+import { createWithEqualityFn } from "zustand/traditional";
 
-import { clampPosition, getDimensions, internalsSymbol } from '../utils';
-import { applyNodeChanges, createSelectionChange, getSelectionChanges } from '../utils/changes';
-import { getHandleBounds } from '../components/Nodes/utils';
-import { createNodeInternals, fitView, updateAbsoluteNodePositions, updateNodesAndEdgesSelections } from './utils';
-import initialState from './initialState';
+import { getHandleBounds } from "../components/Nodes/utils";
 import type {
-  ReactFlowState,
-  Node,
-  Edge,
-  NodeDimensionUpdate,
   CoordinateExtent,
-  NodeDimensionChange,
+  Edge,
   EdgeSelectionChange,
-  NodeSelectionChange,
-  NodePositionChange,
-  NodeDragItem,
-  UnselectNodesAndEdgesParams,
+  Node,
   NodeChange,
+  NodeDimensionChange,
+  NodeDimensionUpdate,
+  NodeDragItem,
+  NodePositionChange,
+  NodeSelectionChange,
+  ReactFlowState,
+  UnselectNodesAndEdgesParams,
   XYPosition,
-} from '../types';
+} from "../types";
+import { clampPosition, getDimensions, internalsSymbol } from "../utils";
+import {
+  applyNodeChanges,
+  createSelectionChange,
+  getSelectionChanges,
+} from "../utils/changes";
+import initialState from "./initialState";
+import {
+  createNodeInternals,
+  fitView,
+  updateAbsoluteNodePositions,
+  updateNodesAndEdgesSelections,
+} from "./utils";
 
 const createRFStore = () =>
   createWithEqualityFn<ReactFlowState>(
@@ -28,7 +37,9 @@ const createRFStore = () =>
       ...initialState,
       setNodes: (nodes: Node[]) => {
         const { nodeInternals, nodeOrigin } = get();
-        set({ nodeInternals: createNodeInternals(nodes, nodeInternals, nodeOrigin) });
+        set({
+          nodeInternals: createNodeInternals(nodes, nodeInternals, nodeOrigin),
+        });
       },
       getNodes: () => {
         return Array.from(get().nodeInternals.values());
@@ -38,15 +49,20 @@ const createRFStore = () =>
         set({ edges: edges.map((e) => ({ ...defaultEdgeOptions, ...e })) });
       },
       setDefaultNodesAndEdges: (nodes?: Node[], edges?: Edge[]) => {
-        const hasDefaultNodes = typeof nodes !== 'undefined';
-        const hasDefaultEdges = typeof edges !== 'undefined';
+        const hasDefaultNodes = typeof nodes !== "undefined";
+        const hasDefaultEdges = typeof edges !== "undefined";
 
         const nodeInternals = hasDefaultNodes
           ? createNodeInternals(nodes, new Map(), get().nodeOrigin)
           : new Map();
         const nextEdges = hasDefaultEdges ? edges : [];
 
-        set({ nodeInternals, edges: nextEdges, hasDefaultNodes, hasDefaultEdges });
+        set({
+          nodeInternals,
+          edges: nextEdges,
+          hasDefaultNodes,
+          hasDefaultEdges,
+        });
       },
       updateNodeDimensions: (updates: NodeDimensionUpdate[]) => {
         const {
@@ -58,7 +74,7 @@ const createRFStore = () =>
           domNode,
           nodeOrigin,
         } = get();
-        const viewportNode = domNode?.querySelector('.react-flow__viewport');
+        const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
         if (!viewportNode) {
           return;
@@ -67,7 +83,9 @@ const createRFStore = () =>
         const style = window.getComputedStyle(viewportNode);
         const { m22: zoom } = new window.DOMMatrixReadOnly(style.transform);
 
-        const changes: NodeDimensionChange[] = updates.reduce<NodeDimensionChange[]>((res, update) => {
+        const changes: NodeDimensionChange[] = updates.reduce<
+          NodeDimensionChange[]
+        >((res, update) => {
           const node = nodeInternals.get(update.id);
 
           if (node) {
@@ -75,7 +93,9 @@ const createRFStore = () =>
             const doUpdate = !!(
               dimensions.width &&
               dimensions.height &&
-              (node.width !== dimensions.width || node.height !== dimensions.height || update.forceUpdate)
+              (node.width !== dimensions.width ||
+                node.height !== dimensions.height ||
+                update.forceUpdate)
             );
 
             if (doUpdate) {
@@ -84,8 +104,18 @@ const createRFStore = () =>
                 [internalsSymbol]: {
                   ...node[internalsSymbol],
                   handleBounds: {
-                    source: getHandleBounds('.source', update.nodeElement, zoom, nodeOrigin),
-                    target: getHandleBounds('.target', update.nodeElement, zoom, nodeOrigin),
+                    source: getHandleBounds(
+                      ".source",
+                      update.nodeElement,
+                      zoom,
+                      nodeOrigin,
+                    ),
+                    target: getHandleBounds(
+                      ".target",
+                      update.nodeElement,
+                      zoom,
+                      nodeOrigin,
+                    ),
                   },
                 },
                 ...dimensions,
@@ -93,7 +123,7 @@ const createRFStore = () =>
 
               res.push({
                 id: node.id,
-                type: 'dimensions',
+                type: "dimensions",
                 dimensions,
               });
             }
@@ -106,20 +136,29 @@ const createRFStore = () =>
 
         const nextFitViewOnInitDone =
           fitViewOnInitDone ||
-          (fitViewOnInit && !fitViewOnInitDone && fitView(get, { initial: true, ...fitViewOnInitOptions }));
-        set({ nodeInternals: new Map(nodeInternals), fitViewOnInitDone: nextFitViewOnInitDone });
+          (fitViewOnInit &&
+            !fitViewOnInitDone &&
+            fitView(get, { initial: true, ...fitViewOnInitOptions }));
+        set({
+          nodeInternals: new Map(nodeInternals),
+          fitViewOnInitDone: nextFitViewOnInitDone,
+        });
 
         if (changes?.length > 0) {
           onNodesChange?.(changes);
         }
       },
-      updateNodePositions: (nodeDragItems: NodeDragItem[] | Node[], positionChanged = true, dragging = false) => {
+      updateNodePositions: (
+        nodeDragItems: NodeDragItem[] | Node[],
+        positionChanged = true,
+        dragging = false,
+      ) => {
         const { triggerNodeChanges } = get();
 
         const changes = nodeDragItems.map((node) => {
           const change: NodePositionChange = {
             id: node.id,
-            type: 'position',
+            type: "position",
             dragging,
           };
 
@@ -135,12 +174,22 @@ const createRFStore = () =>
       },
 
       triggerNodeChanges: (changes: NodeChange[]) => {
-        const { onNodesChange, nodeInternals, hasDefaultNodes, nodeOrigin, getNodes } = get();
+        const {
+          onNodesChange,
+          nodeInternals,
+          hasDefaultNodes,
+          nodeOrigin,
+          getNodes,
+        } = get();
 
         if (changes?.length) {
           if (hasDefaultNodes) {
             const nodes = applyNodeChanges(changes, getNodes());
-            const nextNodeInternals = createNodeInternals(nodes, nodeInternals, nodeOrigin);
+            const nextNodeInternals = createNodeInternals(
+              nodes,
+              nodeInternals,
+              nodeOrigin,
+            );
             set({ nodeInternals: nextNodeInternals });
           }
 
@@ -154,7 +203,9 @@ const createRFStore = () =>
         let changedEdges: EdgeSelectionChange[] | null = null;
 
         if (multiSelectionActive) {
-          changedNodes = selectedNodeIds.map((nodeId) => createSelectionChange(nodeId, true)) as NodeSelectionChange[];
+          changedNodes = selectedNodeIds.map((nodeId) =>
+            createSelectionChange(nodeId, true),
+          ) as NodeSelectionChange[];
         } else {
           changedNodes = getSelectionChanges(getNodes(), selectedNodeIds);
           changedEdges = getSelectionChanges(edges, []);
@@ -173,7 +224,9 @@ const createRFStore = () =>
         let changedNodes: NodeSelectionChange[] | null = null;
 
         if (multiSelectionActive) {
-          changedEdges = selectedEdgeIds.map((edgeId) => createSelectionChange(edgeId, true)) as EdgeSelectionChange[];
+          changedEdges = selectedEdgeIds.map((edgeId) =>
+            createSelectionChange(edgeId, true),
+          ) as EdgeSelectionChange[];
         } else {
           changedEdges = getSelectionChanges(edges, selectedEdgeIds);
           changedNodes = getSelectionChanges(getNodes(), []);
@@ -186,7 +239,10 @@ const createRFStore = () =>
           set,
         });
       },
-      unselectNodesAndEdges: ({ nodes, edges }: UnselectNodesAndEdgesParams = {}) => {
+      unselectNodesAndEdges: ({
+        nodes,
+        edges,
+      }: UnselectNodesAndEdgesParams = {}) => {
         const { edges: storeEdges, getNodes } = get();
         const nodesToUnselect = nodes ? nodes : getNodes();
         const edgesToUnselect = edges ? edges : storeEdges;
@@ -196,7 +252,7 @@ const createRFStore = () =>
           return createSelectionChange(n.id, false);
         }) as NodeSelectionChange[];
         const changedEdges = edgesToUnselect.map((edge) =>
-          createSelectionChange(edge.id, false)
+          createSelectionChange(edge.id, false),
         ) as EdgeSelectionChange[];
 
         updateNodesAndEdgesSelections({
@@ -229,10 +285,14 @@ const createRFStore = () =>
 
         const nodesToUnselect = nodes
           .filter((e) => e.selected)
-          .map((n) => createSelectionChange(n.id, false)) as NodeSelectionChange[];
+          .map((n) =>
+            createSelectionChange(n.id, false),
+          ) as NodeSelectionChange[];
         const edgesToUnselect = edges
           .filter((e) => e.selected)
-          .map((e) => createSelectionChange(e.id, false)) as EdgeSelectionChange[];
+          .map((e) =>
+            createSelectionChange(e.id, false),
+          ) as EdgeSelectionChange[];
 
         updateNodesAndEdgesSelections({
           changedNodes: nodesToUnselect,
@@ -254,7 +314,14 @@ const createRFStore = () =>
         });
       },
       panBy: (delta: XYPosition): boolean => {
-        const { transform, width, height, d3Zoom, d3Selection, translateExtent } = get();
+        const {
+          transform,
+          width,
+          height,
+          d3Zoom,
+          d3Selection,
+          translateExtent,
+        } = get();
 
         if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
           return false;
@@ -269,7 +336,11 @@ const createRFStore = () =>
           [width, height],
         ];
 
-        const constrainedTransform = d3Zoom?.constrain()(nextTransform, extent, translateExtent);
+        const constrainedTransform = d3Zoom?.constrain()(
+          nextTransform,
+          extent,
+          translateExtent,
+        );
         d3Zoom.transform(d3Selection, constrainedTransform);
 
         const transformChanged =
@@ -290,7 +361,7 @@ const createRFStore = () =>
         }),
       reset: () => set({ ...initialState }),
     }),
-    Object.is
+    Object.is,
   );
 
 export { createRFStore };

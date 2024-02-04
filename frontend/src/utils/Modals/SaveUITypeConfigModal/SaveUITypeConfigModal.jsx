@@ -12,7 +12,7 @@ export function SaveUITypeConfigModal({ open }) {
   useEffect(() => {
     if (open) {
       const uiTypes = Object.values(useUITypes.getState().x).filter(
-        isUserPreset
+        isUserPreset,
       );
       setFiles(uiTypes);
     }

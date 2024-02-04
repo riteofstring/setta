@@ -1,16 +1,24 @@
-import React, { memo } from 'react';
+import { memo } from "react";
 
-import Handle from '../../components/Handle';
-import { Position } from '../../types';
-import type { NodeProps } from '../../types';
+import Handle from "../../components/Handle";
+import type { NodeProps } from "../../types";
+import { Position } from "../../types";
 
-const OutputNode = ({ data, isConnectable, targetPosition = Position.Top }: NodeProps) => (
+const OutputNode = ({
+  data,
+  isConnectable,
+  targetPosition = Position.Top,
+}: NodeProps) => (
   <>
-    <Handle type="target" position={targetPosition} isConnectable={isConnectable} />
+    <Handle
+      type="target"
+      position={targetPosition}
+      isConnectable={isConnectable}
+    />
     {data?.label}
   </>
 );
 
-OutputNode.displayName = 'OutputNode';
+OutputNode.displayName = "OutputNode";
 
 export default memo(OutputNode);

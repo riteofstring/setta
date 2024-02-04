@@ -28,7 +28,7 @@ export const DummyDragOverlay = React.forwardRef((props, ref) => {
       <DragOverlay dropAnimation={null}>
         <DummySection sectionId={activeId} ref={ref} />
       </DragOverlay>,
-      document.body
+      document.body,
     )
   );
 });

@@ -1,33 +1,37 @@
-import React, { memo, useMemo, useEffect, useRef } from 'react';
-import type { ComponentType } from 'react';
-import { shallow } from 'zustand/shallow';
+import type { ComponentType } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
+import { shallow } from "zustand/shallow";
 
-import useVisibleNodes from '../../hooks/useVisibleNodes';
-import { useStore } from '../../hooks/useStore';
-import { clampPosition, internalsSymbol } from '../../utils';
-import { containerStyle } from '../../styles';
-import { GraphViewProps } from '../GraphView';
-import { getPositionWithOrigin } from './utils';
-import { Position } from '../../types';
-import type { NodeTypesWrapped, ReactFlowState, WrapNodeProps } from '../../types';
-import { errorMessages } from '../../contants';
+import { errorMessages } from "../../contants";
+import { useStore } from "../../hooks/useStore";
+import useVisibleNodes from "../../hooks/useVisibleNodes";
+import { containerStyle } from "../../styles";
+import type {
+  NodeTypesWrapped,
+  ReactFlowState,
+  WrapNodeProps,
+} from "../../types";
+import { Position } from "../../types";
+import { clampPosition, internalsSymbol } from "../../utils";
+import { GraphViewProps } from "../GraphView";
+import { getPositionWithOrigin } from "./utils";
 
 type NodeRendererProps = Pick<
   GraphViewProps,
-  | 'selectNodesOnDrag'
-  | 'onNodeClick'
-  | 'onNodeDoubleClick'
-  | 'onNodeMouseEnter'
-  | 'onNodeMouseMove'
-  | 'onNodeMouseLeave'
-  | 'onNodeContextMenu'
-  | 'onlyRenderVisibleElements'
-  | 'noPanClassName'
-  | 'noDragClassName'
-  | 'rfId'
-  | 'disableKeyboardA11y'
-  | 'nodeOrigin'
-  | 'nodeExtent'
+  | "selectNodesOnDrag"
+  | "onNodeClick"
+  | "onNodeDoubleClick"
+  | "onNodeMouseEnter"
+  | "onNodeMouseMove"
+  | "onNodeMouseLeave"
+  | "onNodeContextMenu"
+  | "onlyRenderVisibleElements"
+  | "noPanClassName"
+  | "noDragClassName"
+  | "rfId"
+  | "disableKeyboardA11y"
+  | "nodeOrigin"
+  | "nodeExtent"
 > & {
   nodeTypes: NodeTypesWrapped;
 };
@@ -42,19 +46,25 @@ const selector = (s: ReactFlowState) => ({
 });
 
 const NodeRenderer = (props: NodeRendererProps) => {
-  const { nodesDraggable, nodesConnectable, nodesFocusable, elementsSelectable, updateNodeDimensions, onError } =
-    useStore(selector, shallow);
+  const {
+    nodesDraggable,
+    nodesConnectable,
+    nodesFocusable,
+    elementsSelectable,
+    updateNodeDimensions,
+    onError,
+  } = useStore(selector, shallow);
   const nodes = useVisibleNodes(props.onlyRenderVisibleElements);
   const resizeObserverRef = useRef<ResizeObserver>();
 
   const resizeObserver = useMemo(() => {
-    if (typeof ResizeObserver === 'undefined') {
+    if (typeof ResizeObserver === "undefined") {
       return null;
     }
 
     const observer = new ResizeObserver((entries: ResizeObserverEntry[]) => {
       const updates = entries.map((entry: ResizeObserverEntry) => ({
-        id: entry.target.getAttribute('data-id') as string,
+        id: entry.target.getAttribute("data-id") as string,
         nodeElement: entry.target as HTMLDivElement,
         forceUpdate: true,
       }));
@@ -76,19 +86,32 @@ const NodeRenderer = (props: NodeRendererProps) => {
   return (
     <div className="react-flow__nodes" style={containerStyle}>
       {nodes.map((node) => {
-        let nodeType = node.type || 'default';
+        let nodeType = node.type || "default";
 
         if (!props.nodeTypes[nodeType]) {
-          onError?.('003', errorMessages['error003'](nodeType));
+          onError?.("003", errorMessages["error003"](nodeType));
 
-          nodeType = 'default';
+          nodeType = "default";
         }
 
-        const NodeComponent = (props.nodeTypes[nodeType] || props.nodeTypes.default) as ComponentType<WrapNodeProps>;
-        const isDraggable = !!(node.draggable || (nodesDraggable && typeof node.draggable === 'undefined'));
-        const isSelectable = !!(node.selectable || (elementsSelectable && typeof node.selectable === 'undefined'));
-        const isConnectable = !!(node.connectable || (nodesConnectable && typeof node.connectable === 'undefined'));
-        const isFocusable = !!(node.focusable || (nodesFocusable && typeof node.focusable === 'undefined'));
+        const NodeComponent = (props.nodeTypes[nodeType] ||
+          props.nodeTypes.default) as ComponentType<WrapNodeProps>;
+        const isDraggable = !!(
+          node.draggable ||
+          (nodesDraggable && typeof node.draggable === "undefined")
+        );
+        const isSelectable = !!(
+          node.selectable ||
+          (elementsSelectable && typeof node.selectable === "undefined")
+        );
+        const isConnectable = !!(
+          node.connectable ||
+          (nodesConnectable && typeof node.connectable === "undefined")
+        );
+        const isFocusable = !!(
+          node.focusable ||
+          (nodesFocusable && typeof node.focusable === "undefined")
+        );
 
         const clampedPosition = props.nodeExtent
           ? clampPosition(node.positionAbsolute, props.nodeExtent)
@@ -147,6 +170,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
   );
 };
 
-NodeRenderer.displayName = 'NodeRenderer';
+NodeRenderer.displayName = "NodeRenderer";
 
 export default memo(NodeRenderer);

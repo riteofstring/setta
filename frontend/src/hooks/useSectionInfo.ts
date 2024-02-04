@@ -4,7 +4,7 @@ import { SectionType } from "z_utils/types/section";
 
 export function useGetSectionInfo<K extends keyof SectionType>(
   sectionId: string,
-  key: K
+  key: K,
 ) {
   const equalityFn = [
     "children",

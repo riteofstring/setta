@@ -1,8 +1,8 @@
-import React, { useContext } from 'react';
-import type { FC, PropsWithChildren } from 'react';
+import type { FC, PropsWithChildren } from "react";
+import { useContext } from "react";
 
-import StoreContext from '../../contexts/RFStoreContext';
-import ReactFlowProvider from '../../components/ReactFlowProvider';
+import ReactFlowProvider from "../../components/ReactFlowProvider";
+import StoreContext from "../../contexts/RFStoreContext";
 
 const Wrapper: FC<PropsWithChildren<unknown>> = ({ children }) => {
   const isWrapped = useContext(StoreContext);
@@ -16,6 +16,6 @@ const Wrapper: FC<PropsWithChildren<unknown>> = ({ children }) => {
   return <ReactFlowProvider>{children}</ReactFlowProvider>;
 };
 
-Wrapper.displayName = 'ReactFlowWrapper';
+Wrapper.displayName = "ReactFlowWrapper";
 
 export default Wrapper;

@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { XYPosition, Dimensions } from './utils';
-import type { Node } from './nodes';
-import type { Edge } from './edges';
+import type { Edge } from "./edges";
+import type { Node } from "./nodes";
+import type { Dimensions, XYPosition } from "./utils";
 
 export type NodeDimensionChange = {
   id: string;
-  type: 'dimensions';
+  type: "dimensions";
   dimensions?: Dimensions;
   updateStyle?: boolean;
   resizing?: boolean;
@@ -14,7 +14,7 @@ export type NodeDimensionChange = {
 
 export type NodePositionChange = {
   id: string;
-  type: 'position';
+  type: "position";
   position?: XYPosition;
   positionAbsolute?: XYPosition;
   dragging?: boolean;
@@ -22,23 +22,23 @@ export type NodePositionChange = {
 
 export type NodeSelectionChange = {
   id: string;
-  type: 'select';
+  type: "select";
   selected: boolean;
 };
 
 export type NodeRemoveChange = {
   id: string;
-  type: 'remove';
+  type: "remove";
 };
 
 export type NodeAddChange<NodeData = any> = {
   item: Node<NodeData>;
-  type: 'add';
+  type: "add";
 };
 
 export type NodeResetChange<NodeData = any> = {
   item: Node<NodeData>;
-  type: 'reset';
+  type: "reset";
 };
 
 export type NodeChange =
@@ -53,10 +53,14 @@ export type EdgeSelectionChange = NodeSelectionChange;
 export type EdgeRemoveChange = NodeRemoveChange;
 export type EdgeAddChange<EdgeData = any> = {
   item: Edge<EdgeData>;
-  type: 'add';
+  type: "add";
 };
 export type EdgeResetChange<EdgeData = any> = {
   item: Edge<EdgeData>;
-  type: 'reset';
+  type: "reset";
 };
-export type EdgeChange = EdgeSelectionChange | EdgeRemoveChange | EdgeAddChange | EdgeResetChange;
+export type EdgeChange =
+  | EdgeSelectionChange
+  | EdgeRemoveChange
+  | EdgeAddChange
+  | EdgeResetChange;

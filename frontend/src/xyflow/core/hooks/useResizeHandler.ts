@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
-import type { MutableRefObject } from 'react';
+import type { MutableRefObject } from "react";
+import { useEffect } from "react";
 
-import { useStoreApi } from '../hooks/useStore';
-import { getDimensions } from '../utils';
-import { errorMessages } from '../contants';
+import { errorMessages } from "../contants";
+import { useStoreApi } from "../hooks/useStore";
+import { getDimensions } from "../utils";
 
-function useResizeHandler(rendererNode: MutableRefObject<HTMLDivElement | null>): void {
+function useResizeHandler(
+  rendererNode: MutableRefObject<HTMLDivElement | null>,
+): void {
   const store = useStoreApi();
 
   useEffect(() => {
@@ -19,14 +21,14 @@ function useResizeHandler(rendererNode: MutableRefObject<HTMLDivElement | null>)
       const size = getDimensions(rendererNode.current);
 
       if (size.height === 0 || size.width === 0) {
-        store.getState().onError?.('004', errorMessages['error004']());
+        store.getState().onError?.("004", errorMessages["error004"]());
       }
 
       store.setState({ width: size.width || 500, height: size.height || 500 });
     };
 
     updateDimensions();
-    window.addEventListener('resize', updateDimensions);
+    window.addEventListener("resize", updateDimensions);
 
     if (rendererNode.current) {
       resizeObserver = new ResizeObserver(() => updateDimensions());
@@ -34,7 +36,7 @@ function useResizeHandler(rendererNode: MutableRefObject<HTMLDivElement | null>)
     }
 
     return () => {
-      window.removeEventListener('resize', updateDimensions);
+      window.removeEventListener("resize", updateDimensions);
 
       if (resizeObserver && rendererNode.current) {
         resizeObserver.unobserve(rendererNode.current!);

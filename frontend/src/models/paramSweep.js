@@ -52,8 +52,8 @@ export const useParamSweep = createProjectState(
             state.x[paramSweepId].sweep.push({ evColId });
           }
         }),
-    }))
-  )
+    })),
+  ),
 );
 
 useParamSweep.temporal.getState().pause();

@@ -22,7 +22,7 @@ export const FileList = React.forwardRef(
         })}
       </div>
     );
-  }
+  },
 );
 
 function File({

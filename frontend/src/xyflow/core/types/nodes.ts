@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 
-import { internalsSymbol } from '../utils';
-import type { XYPosition, Position, CoordinateExtent, HandleElement } from '.';
+import type { CoordinateExtent, HandleElement, Position, XYPosition } from ".";
+import { internalsSymbol } from "../utils";
 
 // interface for the user node items
 export type Node<T = any, U extends string | undefined = string | undefined> = {
@@ -25,7 +25,7 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   width?: number | null;
   height?: number | null;
   parentNode?: string;
-  extent?: 'parent' | CoordinateExtent;
+  extent?: "parent" | CoordinateExtent;
   expandParent?: boolean;
   positionAbsolute?: XYPosition;
   ariaLabel?: string;
@@ -41,14 +41,29 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
 };
 
 export type NodeMouseHandler = (event: ReactMouseEvent, node: Node) => void;
-export type NodeDragHandler = (event: ReactMouseEvent, node: Node, nodes: Node[]) => void;
-export type SelectionDragHandler = (event: ReactMouseEvent, nodes: Node[]) => void;
+export type NodeDragHandler = (
+  event: ReactMouseEvent,
+  node: Node,
+  nodes: Node[],
+) => void;
+export type SelectionDragHandler = (
+  event: ReactMouseEvent,
+  nodes: Node[],
+) => void;
 
 export type WrapNodeProps<T = any> = Pick<
   Node<T>,
-  'id' | 'data' | 'style' | 'className' | 'dragHandle' | 'sourcePosition' | 'targetPosition' | 'hidden' | 'ariaLabel'
+  | "id"
+  | "data"
+  | "style"
+  | "className"
+  | "dragHandle"
+  | "sourcePosition"
+  | "targetPosition"
+  | "hidden"
+  | "ariaLabel"
 > &
-  Required<Pick<Node<T>, 'selected' | 'type'>> & {
+  Required<Pick<Node<T>, "selected" | "type">> & {
     isConnectable: boolean;
     xPos: number;
     yPos: number;
@@ -76,7 +91,14 @@ export type WrapNodeProps<T = any> = Pick<
 // props that get passed to a custom node
 export type NodeProps<T = any> = Pick<
   WrapNodeProps<T>,
-  'id' | 'data' | 'dragHandle' | 'type' | 'selected' | 'isConnectable' | 'xPos' | 'yPos'
+  | "id"
+  | "data"
+  | "dragHandle"
+  | "type"
+  | "selected"
+  | "isConnectable"
+  | "xPos"
+  | "yPos"
 > & {
   dragging: boolean;
   targetPosition?: Position;
@@ -109,7 +131,7 @@ export type NodeDragItem = {
   distance: XYPosition;
   width?: number | null;
   height?: number | null;
-  extent?: 'parent' | CoordinateExtent;
+  extent?: "parent" | CoordinateExtent;
   parentNode?: string;
   dragging?: boolean;
   expandParent?: boolean;

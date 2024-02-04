@@ -1,9 +1,9 @@
-import React, { memo } from 'react';
+import { memo } from "react";
 
-import BaseEdge from './BaseEdge';
-import { getBezierEdgeCenter } from './utils';
-import { Position } from '../../types';
-import type { BezierEdgeProps } from '../../types';
+import type { BezierEdgeProps } from "../../types";
+import { Position } from "../../types";
+import BaseEdge from "./BaseEdge";
+import { getBezierEdgeCenter } from "./utils";
 
 export interface GetBezierPathParams {
   sourceX: number;
@@ -32,7 +32,14 @@ function calculateControlOffset(distance: number, curvature: number): number {
   return curvature * 25 * Math.sqrt(-distance);
 }
 
-function getControlWithCurvature({ pos, x1, y1, x2, y2, c }: GetControlWithCurvatureParams): [number, number] {
+function getControlWithCurvature({
+  pos,
+  x1,
+  y1,
+  x2,
+  y2,
+  c,
+}: GetControlWithCurvatureParams): [number, number] {
   switch (pos) {
     case Position.Left:
       return [x1 - calculateControlOffset(x1 - x2, c), y1];
@@ -53,7 +60,13 @@ export function getBezierPath({
   targetY,
   targetPosition = Position.Top,
   curvature = 0.25,
-}: GetBezierPathParams): [path: string, labelX: number, labelY: number, offsetX: number, offsetY: number] {
+}: GetBezierPathParams): [
+  path: string,
+  labelX: number,
+  labelY: number,
+  offsetX: number,
+  offsetY: number,
+] {
   const [sourceControlX, sourceControlY] = getControlWithCurvature({
     pos: sourcePosition,
     x1: sourceX,
@@ -137,9 +150,9 @@ const BezierEdge = memo(
         interactionWidth={interactionWidth}
       />
     );
-  }
+  },
 );
 
-BezierEdge.displayName = 'BezierEdge';
+BezierEdge.displayName = "BezierEdge";
 
 export default BezierEdge;

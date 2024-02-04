@@ -1,16 +1,15 @@
-import React, { useEffect, useRef, memo } from 'react';
-import type { ComponentType, MouseEvent, KeyboardEvent } from 'react';
-import cc from 'classcat';
+import cc from "classcat";
+import type { ComponentType, KeyboardEvent, MouseEvent } from "react";
+import { memo, useEffect, useRef } from "react";
 
-import { useStoreApi } from '../../hooks/useStore';
-import { Provider } from '../../contexts/NodeIdContext';
-import { ARIA_NODE_DESC_KEY } from '../A11yDescriptions';
-import useDrag from '../../hooks/useDrag';
-import useUpdateNodePositions from '../../hooks/useUpdateNodePositions';
-import { getMouseHandler, handleNodeClick } from './utils';
-import { elementSelectionKeys, isInputDOMNode } from '../../utils';
-import type { NodeProps, WrapNodeProps, XYPosition } from '../../types';
-import { useSectionInfos } from 'models/info/sectionInfos';
+import { useSectionInfos } from "models/info/sectionInfos";
+import { Provider } from "../../contexts/NodeIdContext";
+import useDrag from "../../hooks/useDrag";
+import { useStoreApi } from "../../hooks/useStore";
+import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
+import type { NodeProps, WrapNodeProps, XYPosition } from "../../types";
+import { elementSelectionKeys, isInputDOMNode } from "../../utils";
+import { getMouseHandler, handleNodeClick } from "./utils";
 
 export const arrowKeyDiffs: Record<string, XYPosition> = {
   ArrowUp: { x: 0, y: -1 },
@@ -60,19 +59,44 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     const prevSourcePosition = useRef(sourcePosition);
     const prevTargetPosition = useRef(targetPosition);
     const prevType = useRef(type);
-    const hasPointerEvents = isSelectable || isDraggable || onClick || onMouseEnter || onMouseMove || onMouseLeave;
+    const hasPointerEvents =
+      isSelectable ||
+      isDraggable ||
+      onClick ||
+      onMouseEnter ||
+      onMouseMove ||
+      onMouseLeave;
     const updatePositions = useUpdateNodePositions();
-    const zIndex = useSectionInfos(x=>x.x[id].zIndex)
+    const zIndex = useSectionInfos((x) => x.x[id].zIndex);
 
-    const onMouseEnterHandler = getMouseHandler(id, store.getState, onMouseEnter);
+    const onMouseEnterHandler = getMouseHandler(
+      id,
+      store.getState,
+      onMouseEnter,
+    );
     const onMouseMoveHandler = getMouseHandler(id, store.getState, onMouseMove);
-    const onMouseLeaveHandler = getMouseHandler(id, store.getState, onMouseLeave);
-    const onContextMenuHandler = getMouseHandler(id, store.getState, onContextMenu);
-    const onDoubleClickHandler = getMouseHandler(id, store.getState, onDoubleClick);
+    const onMouseLeaveHandler = getMouseHandler(
+      id,
+      store.getState,
+      onMouseLeave,
+    );
+    const onContextMenuHandler = getMouseHandler(
+      id,
+      store.getState,
+      onContextMenu,
+    );
+    const onDoubleClickHandler = getMouseHandler(
+      id,
+      store.getState,
+      onDoubleClick,
+    );
     const onSelectNodeHandler = (event: MouseEvent) => {
       const { nodeDragThreshold } = store.getState();
 
-      if (isSelectable && (!selectNodesOnDrag || !isDraggable || nodeDragThreshold > 0)) {
+      if (
+        isSelectable &&
+        (!selectNodesOnDrag || !isDraggable || nodeDragThreshold > 0)
+      ) {
         // this handler gets called within the drag start event when selectNodesOnDrag=true
         handleNodeClick({
           id,
@@ -96,7 +120,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       }
 
       if (elementSelectionKeys.includes(event.key) && isSelectable) {
-        const unselect = event.key === 'Escape';
+        const unselect = event.key === "Escape";
 
         handleNodeClick({
           id,
@@ -112,7 +136,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       ) {
         store.setState({
           ariaLiveMessage: `Moved selected node ${event.key
-            .replace('Arrow', '')
+            .replace("Arrow", "")
             .toLowerCase()}. New position, x: ${~~xPos}, y: ${~~yPos}`,
         });
 
@@ -139,7 +163,10 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       const sourcePosChanged = prevSourcePosition.current !== sourcePosition;
       const targetPosChanged = prevTargetPosition.current !== targetPosition;
 
-      if (nodeRef.current && (typeChanged || sourcePosChanged || targetPosChanged)) {
+      if (
+        nodeRef.current &&
+        (typeChanged || sourcePosChanged || targetPosChanged)
+      ) {
         if (typeChanged) {
           prevType.current = type;
         }
@@ -149,7 +176,11 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         if (targetPosChanged) {
           prevTargetPosition.current = targetPosition;
         }
-        store.getState().updateNodeDimensions([{ id, nodeElement: nodeRef.current, forceUpdate: true }]);
+        store
+          .getState()
+          .updateNodeDimensions([
+            { id, nodeElement: nodeRef.current, forceUpdate: true },
+          ]);
       }
     }, [id, type, sourcePosition, targetPosition]);
 
@@ -170,7 +201,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     return (
       <div
         className={cc([
-          'react-flow__node',
+          "react-flow__node",
           `react-flow__node-${type}`,
           {
             // this is overwritable by passing `nopan` as a class name
@@ -185,8 +216,8 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         ref={nodeRef}
         style={{
           transform: `translate(${xPosOrigin}px,${yPosOrigin}px)`,
-          pointerEvents: hasPointerEvents ? 'all' : 'none',
-          visibility: initialized ? 'visible' : 'hidden',
+          pointerEvents: hasPointerEvents ? "all" : "none",
+          visibility: initialized ? "visible" : "hidden",
           zIndex,
           ...style,
         }}
@@ -200,8 +231,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         onDoubleClick={onDoubleClickHandler}
         onKeyDown={isFocusable ? onKeyDown : undefined}
         tabIndex={isFocusable ? 0 : undefined}
-        role={isFocusable ? 'button' : undefined}
-        aria-describedby={disableKeyboardA11y ? undefined : `${ARIA_NODE_DESC_KEY}-${rfId}`}
+        role={isFocusable ? "button" : undefined}
         aria-label={ariaLabel}
       >
         <Provider value={id}>
@@ -223,7 +253,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     );
   };
 
-  NodeWrapper.displayName = 'NodeWrapper';
+  NodeWrapper.displayName = "NodeWrapper";
 
   return memo(NodeWrapper);
 };

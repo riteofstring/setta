@@ -1,35 +1,35 @@
-import React, { memo, ReactNode } from 'react';
-import { shallow } from 'zustand/shallow';
-import cc from 'classcat';
+import cc from "classcat";
+import { memo, ReactNode } from "react";
+import { shallow } from "zustand/shallow";
 
-import { useStore } from '../../hooks/useStore';
-import useVisibleEdges from '../../hooks/useVisibleEdges';
-import MarkerDefinitions from './MarkerDefinitions';
-import { getEdgePositions, getHandle, getNodeData } from './utils';
+import { useStore } from "../../hooks/useStore";
+import useVisibleEdges from "../../hooks/useVisibleEdges";
+import MarkerDefinitions from "./MarkerDefinitions";
+import { getEdgePositions, getHandle, getNodeData } from "./utils";
 
-import { GraphViewProps } from '../GraphView';
-import { ConnectionMode, Position } from '../../types';
-import type { Edge, EdgeTypesWrapped, ReactFlowState } from '../../types';
-import { errorMessages } from '../../contants';
+import { errorMessages } from "../../contants";
+import type { Edge, EdgeTypesWrapped, ReactFlowState } from "../../types";
+import { ConnectionMode, Position } from "../../types";
+import { GraphViewProps } from "../GraphView";
 
 type EdgeRendererProps = Pick<
   GraphViewProps,
-  | 'onEdgeClick'
-  | 'onEdgeDoubleClick'
-  | 'defaultMarkerColor'
-  | 'onlyRenderVisibleElements'
-  | 'onEdgeUpdate'
-  | 'onEdgeContextMenu'
-  | 'onEdgeMouseEnter'
-  | 'onEdgeMouseMove'
-  | 'onEdgeMouseLeave'
-  | 'onEdgeUpdateStart'
-  | 'onEdgeUpdateEnd'
-  | 'edgeUpdaterRadius'
-  | 'noPanClassName'
-  | 'elevateEdgesOnSelect'
-  | 'rfId'
-  | 'disableKeyboardA11y'
+  | "onEdgeClick"
+  | "onEdgeDoubleClick"
+  | "defaultMarkerColor"
+  | "onlyRenderVisibleElements"
+  | "onEdgeUpdate"
+  | "onEdgeContextMenu"
+  | "onEdgeMouseEnter"
+  | "onEdgeMouseMove"
+  | "onEdgeMouseLeave"
+  | "onEdgeUpdateStart"
+  | "onEdgeUpdateEnd"
+  | "edgeUpdaterRadius"
+  | "noPanClassName"
+  | "elevateEdgesOnSelect"
+  | "rfId"
+  | "disableKeyboardA11y"
 > & {
   edgeTypes: EdgeTypesWrapped;
   elevateEdgesOnSelect: boolean;
@@ -67,9 +67,21 @@ const EdgeRenderer = ({
   onEdgeUpdateEnd,
   children,
 }: EdgeRendererProps) => {
-  const { edgesFocusable, edgesUpdatable, elementsSelectable, width, height, connectionMode, nodeInternals, onError } =
-    useStore(selector, shallow);
-  const edgeTree = useVisibleEdges(onlyRenderVisibleElements, nodeInternals, elevateEdgesOnSelect);
+  const {
+    edgesFocusable,
+    edgesUpdatable,
+    elementsSelectable,
+    width,
+    height,
+    connectionMode,
+    nodeInternals,
+    onError,
+  } = useStore(selector, shallow);
+  const edgeTree = useVisibleEdges(
+    onlyRenderVisibleElements,
+    nodeInternals,
+    elevateEdgesOnSelect,
+  );
 
   if (!width) {
     return null;
@@ -85,21 +97,25 @@ const EdgeRenderer = ({
           height={height}
           className="react-flow__edges react-flow__container"
         >
-          {isMaxLevel && <MarkerDefinitions defaultColor={defaultMarkerColor} rfId={rfId} />}
+          {isMaxLevel && (
+            <MarkerDefinitions defaultColor={defaultMarkerColor} rfId={rfId} />
+          )}
           <g>
             {edges.map((edge: Edge) => {
-              const [sourceNodeRect, sourceHandleBounds, sourceIsValid] = getNodeData(nodeInternals.get(edge.source));
-              const [targetNodeRect, targetHandleBounds, targetIsValid] = getNodeData(nodeInternals.get(edge.target));
+              const [sourceNodeRect, sourceHandleBounds, sourceIsValid] =
+                getNodeData(nodeInternals.get(edge.source));
+              const [targetNodeRect, targetHandleBounds, targetIsValid] =
+                getNodeData(nodeInternals.get(edge.target));
 
               if (!sourceIsValid || !targetIsValid) {
                 return null;
               }
 
-              let edgeType = edge.type || 'default';
+              let edgeType = edge.type || "default";
 
               if (!edgeTypes[edgeType]) {
-                onError?.('011', errorMessages['error011'](edgeType));
-                edgeType = 'default';
+                onError?.("011", errorMessages["error011"](edgeType));
+                edgeType = "default";
               }
 
               const EdgeComponent = edgeTypes[edgeType] || edgeTypes.default;
@@ -107,18 +123,30 @@ const EdgeRenderer = ({
               const targetNodeHandles =
                 connectionMode === ConnectionMode.Strict
                   ? targetHandleBounds!.target
-                  : (targetHandleBounds!.target ?? []).concat(targetHandleBounds!.source ?? []);
-              const sourceHandle = getHandle(sourceHandleBounds!.source!, edge.sourceHandle);
-              const targetHandle = getHandle(targetNodeHandles!, edge.targetHandle);
+                  : (targetHandleBounds!.target ?? []).concat(
+                      targetHandleBounds!.source ?? [],
+                    );
+              const sourceHandle = getHandle(
+                sourceHandleBounds!.source!,
+                edge.sourceHandle,
+              );
+              const targetHandle = getHandle(
+                targetNodeHandles!,
+                edge.targetHandle,
+              );
               const sourcePosition = sourceHandle?.position || Position.Bottom;
               const targetPosition = targetHandle?.position || Position.Top;
-              const isFocusable = !!(edge.focusable || (edgesFocusable && typeof edge.focusable === 'undefined'));
+              const isFocusable = !!(
+                edge.focusable ||
+                (edgesFocusable && typeof edge.focusable === "undefined")
+              );
               const isUpdatable =
-                typeof onEdgeUpdate !== 'undefined' &&
-                (edge.updatable || (edgesUpdatable && typeof edge.updatable === 'undefined'));
+                typeof onEdgeUpdate !== "undefined" &&
+                (edge.updatable ||
+                  (edgesUpdatable && typeof edge.updatable === "undefined"));
 
               if (!sourceHandle || !targetHandle) {
-                onError?.('008', errorMessages['error008'](sourceHandle, edge));
+                onError?.("008", errorMessages["error008"](sourceHandle, edge));
 
                 return null;
               }
@@ -129,7 +157,7 @@ const EdgeRenderer = ({
                 sourcePosition,
                 targetNodeRect,
                 targetHandle,
-                targetPosition
+                targetPosition,
               );
 
               return (
@@ -176,7 +204,9 @@ const EdgeRenderer = ({
                   ariaLabel={edge.ariaLabel}
                   isFocusable={isFocusable}
                   isUpdatable={isUpdatable}
-                  pathOptions={'pathOptions' in edge ? edge.pathOptions : undefined}
+                  pathOptions={
+                    "pathOptions" in edge ? edge.pathOptions : undefined
+                  }
                   interactionWidth={edge.interactionWidth}
                 />
               );
@@ -189,6 +219,6 @@ const EdgeRenderer = ({
   );
 };
 
-EdgeRenderer.displayName = 'EdgeRenderer';
+EdgeRenderer.displayName = "EdgeRenderer";
 
 export default memo(EdgeRenderer);

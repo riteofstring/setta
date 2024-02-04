@@ -73,7 +73,7 @@ function SectionList({ runGroupId, runGroup }) {
     CODE,
   ];
   const allSections = useGetOverviewListing((sectionTypeName) =>
-    shownSectionTypes.includes(sectionTypeName)
+    shownSectionTypes.includes(sectionTypeName),
   )[0];
 
   return (

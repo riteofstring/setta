@@ -1,6 +1,6 @@
-import { devWarn } from '../utils';
-import { ConnectionMode } from '../types';
-import type { CoordinateExtent, ReactFlowStore } from '../types';
+import type { CoordinateExtent, ReactFlowStore } from "../types";
+import { ConnectionMode } from "../types";
+import { devWarn } from "../utils";
 
 export const infiniteExtent: CoordinateExtent = [
   [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
@@ -8,7 +8,7 @@ export const infiniteExtent: CoordinateExtent = [
 ];
 
 const initialState: ReactFlowStore = {
-  rfId: '1',
+  rfId: "1",
   width: 0,
   height: 0,
   transform: [0, 0, 1],
@@ -30,13 +30,13 @@ const initialState: ReactFlowStore = {
   userSelectionRect: null,
   connectionNodeId: null,
   connectionHandleId: null,
-  connectionHandleType: 'source',
+  connectionHandleType: "source",
   connectionPosition: { x: 0, y: 0 },
   connectionStatus: null,
   connectionMode: ConnectionMode.Strict,
   domNode: null,
   paneDragging: false,
-  noPanClassName: 'nopan',
+  noPanClassName: "nopan",
   nodeOrigin: [0, 0],
   nodeDragThreshold: 0,
 
@@ -61,7 +61,7 @@ const initialState: ReactFlowStore = {
   connectionClickStartHandle: null,
   connectOnClick: true,
 
-  ariaLiveMessage: '',
+  ariaLiveMessage: "",
   autoPanOnConnect: true,
   autoPanOnNodeDrag: true,
   connectionRadius: 20,

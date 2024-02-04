@@ -1,8 +1,21 @@
-import { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
+import {
+  MouseEvent as ReactMouseEvent,
+  TouchEvent as ReactTouchEvent,
+} from "react";
 
-import { ConnectingHandle, ConnectionMode, ConnectionStatus } from '../../types';
-import { getEventPosition, internalsSymbol } from '../../utils';
-import type { Connection, HandleType, XYPosition, Node, NodeHandleBounds } from '../../types';
+import type {
+  Connection,
+  HandleType,
+  Node,
+  NodeHandleBounds,
+  XYPosition,
+} from "../../types";
+import {
+  ConnectingHandle,
+  ConnectionMode,
+  ConnectionStatus,
+} from "../../types";
+import { getEventPosition, internalsSymbol } from "../../utils";
 
 export type ConnectionHandle = {
   id: string | null;
@@ -20,7 +33,7 @@ export function getHandles(
   node: Node,
   handleBounds: NodeHandleBounds,
   type: HandleType,
-  currentHandle: string
+  currentHandle: string,
 ): ConnectionHandle[] {
   return (handleBounds[type] || []).reduce<ConnectionHandle[]>((res, h) => {
     if (`${node.id}-${h.id}-${type}` !== currentHandle) {
@@ -42,25 +55,38 @@ export function getClosestHandle(
   pos: XYPosition,
   connectionRadius: number,
   handles: ConnectionHandle[],
-  validator: (handle: Pick<ConnectionHandle, 'nodeId' | 'id' | 'type'>) => Result
+  validator: (
+    handle: Pick<ConnectionHandle, "nodeId" | "id" | "type">,
+  ) => Result,
 ) {
   // we always want to prioritize the handle below the mouse cursor over the closest distance handle,
   // because it could be that the center of another handle is closer to the mouse pointer than the handle below the cursor
   const { x, y } = getEventPosition(event);
   const domNodes = doc.elementsFromPoint(x, y);
 
-  const handleBelow = domNodes.find((el) => el.classList.contains('react-flow__handle'));
+  const handleBelow = domNodes.find((el) =>
+    el.classList.contains("react-flow__handle"),
+  );
 
   if (handleBelow) {
-    const handleNodeId = handleBelow.getAttribute('data-nodeid');
+    const handleNodeId = handleBelow.getAttribute("data-nodeid");
 
     if (handleNodeId) {
       const handleType = getHandleType(undefined, handleBelow);
-      const handleId = handleBelow.getAttribute('data-handleid');
-      const validHandleResult = validator({ nodeId: handleNodeId, id: handleId, type: handleType });
+      const handleId = handleBelow.getAttribute("data-handleid");
+      const validHandleResult = validator({
+        nodeId: handleNodeId,
+        id: handleId,
+        type: handleType,
+      });
 
       if (validHandleResult) {
-        const handle = handles.find((h) => h.nodeId === handleNodeId && h.type === handleType && h.id === handleId);
+        const handle = handles.find(
+          (h) =>
+            h.nodeId === handleNodeId &&
+            h.type === handleType &&
+            h.id === handleId,
+        );
 
         return {
           handle: {
@@ -77,11 +103,16 @@ export function getClosestHandle(
   }
 
   // if we couldn't find a handle below the mouse cursor we look for the closest distance based on the connectionRadius
-  let closestHandles: { handle: ConnectionHandle; validHandleResult: Result }[] = [];
+  let closestHandles: {
+    handle: ConnectionHandle;
+    validHandleResult: Result;
+  }[] = [];
   let minDistance = Infinity;
 
   handles.forEach((handle) => {
-    const distance = Math.sqrt((handle.x - pos.x) ** 2 + (handle.y - pos.y) ** 2);
+    const distance = Math.sqrt(
+      (handle.x - pos.x) ** 2 + (handle.y - pos.y) ** 2,
+    );
 
     if (distance <= connectionRadius) {
       const validHandleResult = validator(handle);
@@ -110,13 +141,19 @@ export function getClosestHandle(
     return closestHandles[0];
   }
 
-  const hasValidHandle = closestHandles.some(({ validHandleResult }) => validHandleResult.isValid);
-  const hasTargetHandle = closestHandles.some(({ handle }) => handle.type === 'target');
+  const hasValidHandle = closestHandles.some(
+    ({ validHandleResult }) => validHandleResult.isValid,
+  );
+  const hasTargetHandle = closestHandles.some(
+    ({ handle }) => handle.type === "target",
+  );
 
   // if multiple handles are layouted on top of each other we prefer the one with type = target and the one that is valid
   return (
     closestHandles.find(({ handle, validHandleResult }) =>
-      hasTargetHandle ? handle.type === 'target' : true && (hasValidHandle ? validHandleResult.isValid : true)
+      hasTargetHandle
+        ? handle.type === "target"
+        : true && (hasValidHandle ? validHandleResult.isValid : true),
     ) || closestHandles[0]
   );
 }
@@ -128,7 +165,12 @@ type Result = {
   endHandle: ConnectingHandle | null;
 };
 
-const nullConnection: Connection = { source: null, target: null, sourceHandle: null, targetHandle: null };
+const nullConnection: Connection = {
+  source: null,
+  target: null,
+  sourceHandle: null,
+  targetHandle: null,
+};
 
 const defaultResult = (): Result => ({
   handleDomNode: null,
@@ -139,17 +181,17 @@ const defaultResult = (): Result => ({
 
 // checks if  and returns connection in fom of an object { source: 123, target: 312 }
 export function isValidHandle(
-  handle: Pick<ConnectionHandle, 'nodeId' | 'id' | 'type'>,
+  handle: Pick<ConnectionHandle, "nodeId" | "id" | "type">,
   connectionMode: ConnectionMode,
   fromNodeId: string,
   fromHandleId: string | null,
   fromType: HandleType,
   isValidConnection: ValidConnectionFunc,
-  doc: Document | ShadowRoot
+  doc: Document | ShadowRoot,
 ) {
-  const isTarget = fromType === 'target';
+  const isTarget = fromType === "target";
   const handleToCheck = doc.querySelector(
-    `.react-flow__handle[data-id="${handle?.nodeId}-${handle?.id}-${handle?.type}"]`
+    `.react-flow__handle[data-id="${handle?.nodeId}-${handle?.id}-${handle?.type}"]`,
   );
 
   const result = {
@@ -159,10 +201,10 @@ export function isValidHandle(
 
   if (handleToCheck) {
     const handleType = getHandleType(undefined, handleToCheck);
-    const handleNodeId = handleToCheck.getAttribute('data-nodeid');
-    const handleId = handleToCheck.getAttribute('data-handleid');
-    const connectable = handleToCheck.classList.contains('connectable');
-    const connectableEnd = handleToCheck.classList.contains('connectableend');
+    const handleNodeId = handleToCheck.getAttribute("data-nodeid");
+    const handleId = handleToCheck.getAttribute("data-handleid");
+    const connectable = handleToCheck.classList.contains("connectable");
+    const connectableEnd = handleToCheck.classList.contains("connectableend");
 
     const connection: Connection = {
       source: isTarget ? handleNodeId : fromNodeId,
@@ -178,7 +220,8 @@ export function isValidHandle(
     const isValid =
       isConnectable &&
       (connectionMode === ConnectionMode.Strict
-        ? (isTarget && handleType === 'source') || (!isTarget && handleType === 'target')
+        ? (isTarget && handleType === "source") ||
+          (!isTarget && handleType === "target")
         : handleNodeId !== fromNodeId || handleId !== fromHandleId);
 
     if (isValid) {
@@ -202,7 +245,12 @@ type GetHandleLookupParams = {
   handleType: string;
 };
 
-export function getHandleLookup({ nodes, nodeId, handleId, handleType }: GetHandleLookupParams) {
+export function getHandleLookup({
+  nodes,
+  nodeId,
+  handleId,
+  handleType,
+}: GetHandleLookupParams) {
   return nodes.reduce<ConnectionHandle[]>((res, node) => {
     if (node[internalsSymbol]) {
       const { handleBounds } = node[internalsSymbol];
@@ -210,8 +258,18 @@ export function getHandleLookup({ nodes, nodeId, handleId, handleType }: GetHand
       let targetHandles: ConnectionHandle[] = [];
 
       if (handleBounds) {
-        sourceHandles = getHandles(node, handleBounds, 'source', `${nodeId}-${handleId}-${handleType}`);
-        targetHandles = getHandles(node, handleBounds, 'target', `${nodeId}-${handleId}-${handleType}`);
+        sourceHandles = getHandles(
+          node,
+          handleBounds,
+          "source",
+          `${nodeId}-${handleId}-${handleType}`,
+        );
+        targetHandles = getHandles(
+          node,
+          handleBounds,
+          "target",
+          `${nodeId}-${handleId}-${handleType}`,
+        );
       }
 
       res.push(...sourceHandles, ...targetHandles);
@@ -222,30 +280,38 @@ export function getHandleLookup({ nodes, nodeId, handleId, handleType }: GetHand
 
 export function getHandleType(
   edgeUpdaterType: HandleType | undefined,
-  handleDomNode: Element | null
+  handleDomNode: Element | null,
 ): HandleType | null {
   if (edgeUpdaterType) {
     return edgeUpdaterType;
-  } else if (handleDomNode?.classList.contains('target')) {
-    return 'target';
-  } else if (handleDomNode?.classList.contains('source')) {
-    return 'source';
+  } else if (handleDomNode?.classList.contains("target")) {
+    return "target";
+  } else if (handleDomNode?.classList.contains("source")) {
+    return "source";
   }
 
   return null;
 }
 
 export function resetRecentHandle(handleDomNode: Element): void {
-  handleDomNode?.classList.remove('valid', 'connecting', 'react-flow__handle-valid', 'react-flow__handle-connecting');
+  handleDomNode?.classList.remove(
+    "valid",
+    "connecting",
+    "react-flow__handle-valid",
+    "react-flow__handle-connecting",
+  );
 }
 
-export function getConnectionStatus(isInsideConnectionRadius: boolean, isHandleValid: boolean) {
+export function getConnectionStatus(
+  isInsideConnectionRadius: boolean,
+  isHandleValid: boolean,
+) {
   let connectionStatus = null;
 
   if (isHandleValid) {
-    connectionStatus = 'valid';
+    connectionStatus = "valid";
   } else if (isInsideConnectionRadius && !isHandleValid) {
-    connectionStatus = 'invalid';
+    connectionStatus = "invalid";
   }
 
   return connectionStatus as ConnectionStatus;

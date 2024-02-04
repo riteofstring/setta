@@ -23,5 +23,5 @@ export const MenuBarButton = forwardRef<HTMLButtonElement, MenuBarButtonTypes>(
         {children}
       </Button>
     );
-  }
+  },
 );

@@ -17,7 +17,7 @@ export function useGetParamInfos(sectionId: string) {
 export function useGetParamInfosThatHaveNames(sectionId: string) {
   return useSectionToParams(
     (x) => x.params[sectionId]?.filter((x) => x.name) ?? [],
-    _.isEqual
+    _.isEqual,
   );
 }
 
@@ -30,7 +30,7 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
   const collections = useGetSelectedCollections(sectionId);
   return useCodeInfo(
     (x) => assembleCollectionsForSectionConfig(x.x, collections),
-    _.isEqual
+    _.isEqual,
   );
 }
 

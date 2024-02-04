@@ -8,6 +8,6 @@ export function updateMapPosition(widthDiff: number) {
     { x: x + widthDiff, y, zoom },
     {
       duration: 100,
-    }
+    },
   );
 }

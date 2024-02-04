@@ -1,8 +1,7 @@
-import React from 'react';
-import type { FC, MouseEvent as ReactMouseEvent, SVGAttributes } from 'react';
-import cc from 'classcat';
+import cc from "classcat";
+import type { FC, MouseEvent as ReactMouseEvent, SVGAttributes } from "react";
 
-import { Position } from '../../types';
+import { Position } from "../../types";
 
 const shiftX = (x: number, shift: number, position: Position): number => {
   if (position === Position.Left) return x - shift;
@@ -27,7 +26,7 @@ export interface EdgeAnchorProps extends SVGAttributes<SVGGElement> {
   type: string;
 }
 
-const EdgeUpdaterClassName = 'react-flow__edgeupdater';
+const EdgeUpdaterClassName = "react-flow__edgeupdater";
 
 export const EdgeAnchor: FC<EdgeAnchorProps> = ({
   position,

@@ -19,8 +19,8 @@ export const useSectionToParams = createProjectState(
         set((state) => {
           state.params[sectionId] = params;
         }),
-    }))
-  )
+    })),
+  ),
 );
 
 useSectionToParams.temporal.getState().pause();

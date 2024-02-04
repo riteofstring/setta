@@ -79,7 +79,7 @@ export type Direction =
 
 export type OnStartCallback = (
   e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
-  dir: Direction
+  dir: Direction,
 ) => void;
 
 export interface Props {

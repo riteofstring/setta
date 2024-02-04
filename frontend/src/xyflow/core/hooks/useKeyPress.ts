@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { isInputDOMNode } from '../utils';
-import type { KeyCode } from '../types';
+import type { KeyCode } from "../types";
+import { isInputDOMNode } from "../utils";
 
 type Keys = Array<string>;
 type PressedKeys = Set<string>;
-type KeyOrCode = 'key' | 'code';
+type KeyOrCode = "key" | "code";
 export interface UseKeyPressOptions {
   target?: Window | Document | HTMLElement | ShadowRoot | null;
   // we want to distinguish between actions that are doable within an input (like multiselection) and actions that are not (like deleting a node) while pressing a modifier key
@@ -18,7 +18,7 @@ export interface UseKeyPressOptions {
 // user can use the single key 'a' or the combination 'd' + 's'
 export default (
   keyCode: KeyCode | null = null,
-  options: UseKeyPressOptions = { actInsideInputWithModifier: true }
+  options: UseKeyPressOptions = { actInsideInputWithModifier: true },
 ): boolean => {
   const [keyPressed, setKeyPressed] = useState(false);
 
@@ -37,8 +37,13 @@ export default (
   const [keyCodes, keysToWatch] = useMemo<[Array<Keys>, Keys]>(() => {
     if (keyCode !== null) {
       const keyCodeArr = Array.isArray(keyCode) ? keyCode : [keyCode];
-      const keys = keyCodeArr.filter((kc) => typeof kc === 'string').map((kc) => kc.split('+'));
-      const keysFlat = keys.reduce((res: Keys, item) => res.concat(...item), []);
+      const keys = keyCodeArr
+        .filter((kc) => typeof kc === "string")
+        .map((kc) => kc.split("+"));
+      const keysFlat = keys.reduce(
+        (res: Keys, item) => res.concat(...item),
+        [],
+      );
 
       return [keys, keysFlat];
     }
@@ -47,14 +52,16 @@ export default (
   }, [keyCode]);
 
   useEffect(() => {
-    const doc = typeof document !== 'undefined' ? document : null;
+    const doc = typeof document !== "undefined" ? document : null;
     const target = options?.target || doc;
 
     if (keyCode !== null) {
       const downHandler = (event: KeyboardEvent) => {
-        modifierPressed.current = event.ctrlKey || event.metaKey || event.shiftKey;
+        modifierPressed.current =
+          event.ctrlKey || event.metaKey || event.shiftKey;
         const preventAction =
-          (!modifierPressed.current || (modifierPressed.current && !options.actInsideInputWithModifier)) &&
+          (!modifierPressed.current ||
+            (modifierPressed.current && !options.actInsideInputWithModifier)) &&
           isInputDOMNode(event);
 
         if (preventAction) {
@@ -72,7 +79,8 @@ export default (
 
       const upHandler = (event: KeyboardEvent) => {
         const preventAction =
-          (!modifierPressed.current || (modifierPressed.current && !options.actInsideInputWithModifier)) &&
+          (!modifierPressed.current ||
+            (modifierPressed.current && !options.actInsideInputWithModifier)) &&
           isInputDOMNode(event);
         if (preventAction) {
           return false;
@@ -87,7 +95,7 @@ export default (
         }
 
         // fix for Mac: when cmd key is pressed, keyup is not triggered for any other key, see: https://stackoverflow.com/questions/27380018/when-cmd-key-is-kept-pressed-keyup-is-not-triggered-for-any-other-key
-        if (event.key === 'Meta') {
+        if (event.key === "Meta") {
           pressedKeys.current.clear();
         }
 
@@ -99,14 +107,26 @@ export default (
         setKeyPressed(false);
       };
 
-      target?.addEventListener('keydown', downHandler as EventListenerOrEventListenerObject);
-      target?.addEventListener('keyup', upHandler as EventListenerOrEventListenerObject);
-      window.addEventListener('blur', resetHandler);
+      target?.addEventListener(
+        "keydown",
+        downHandler as EventListenerOrEventListenerObject,
+      );
+      target?.addEventListener(
+        "keyup",
+        upHandler as EventListenerOrEventListenerObject,
+      );
+      window.addEventListener("blur", resetHandler);
 
       return () => {
-        target?.removeEventListener('keydown', downHandler as EventListenerOrEventListenerObject);
-        target?.removeEventListener('keyup', upHandler as EventListenerOrEventListenerObject);
-        window.removeEventListener('blur', resetHandler);
+        target?.removeEventListener(
+          "keydown",
+          downHandler as EventListenerOrEventListenerObject,
+        );
+        target?.removeEventListener(
+          "keyup",
+          upHandler as EventListenerOrEventListenerObject,
+        );
+        window.removeEventListener("blur", resetHandler);
       };
     }
   }, [keyCode, setKeyPressed]);
@@ -116,7 +136,11 @@ export default (
 
 // utils
 
-function isMatchingKey(keyCodes: Array<Keys>, pressedKeys: PressedKeys, isUp: boolean): boolean {
+function isMatchingKey(
+  keyCodes: Array<Keys>,
+  pressedKeys: PressedKeys,
+  isUp: boolean,
+): boolean {
   return (
     keyCodes
       // we only want to compare same sizes of keyCode definitions
@@ -130,5 +154,5 @@ function isMatchingKey(keyCodes: Array<Keys>, pressedKeys: PressedKeys, isUp: bo
 }
 
 function useKeyOrCode(eventCode: string, keysToWatch: KeyCode): KeyOrCode {
-  return keysToWatch.includes(eventCode) ? 'code' : 'key';
+  return keysToWatch.includes(eventCode) ? "code" : "key";
 }

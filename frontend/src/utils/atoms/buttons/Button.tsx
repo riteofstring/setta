@@ -37,5 +37,5 @@ export const Button = forwardRef<HTMLButtonElement, ButtonTypes>(
         {children}
       </button>
     );
-  }
+  },
 );

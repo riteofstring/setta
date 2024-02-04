@@ -1,37 +1,53 @@
-import type { ComponentType } from 'react';
+import type { ComponentType } from "react";
 
-import { BezierEdge, SmoothStepEdge, StepEdge, StraightEdge, SimpleBezierEdge } from '../../components/Edges';
-import wrapEdge from '../../components/Edges/wrapEdge';
-import { internalsSymbol, rectToBox } from '../../utils';
-import { Position } from '../../types';
+import {
+  BezierEdge,
+  SimpleBezierEdge,
+  SmoothStepEdge,
+  StepEdge,
+  StraightEdge,
+} from "../../components/Edges";
+import wrapEdge from "../../components/Edges/wrapEdge";
 import type {
   EdgeProps,
   EdgeTypes,
   EdgeTypesWrapped,
   HandleElement,
-  NodeHandleBounds,
   Node,
+  NodeHandleBounds,
   Rect,
   Transform,
   XYPosition,
-} from '../../types';
+} from "../../types";
+import { Position } from "../../types";
+import { internalsSymbol, rectToBox } from "../../utils";
 
 export type CreateEdgeTypes = (edgeTypes: EdgeTypes) => EdgeTypesWrapped;
 
 export function createEdgeTypes(edgeTypes: EdgeTypes): EdgeTypesWrapped {
   const standardTypes: EdgeTypesWrapped = {
-    default: wrapEdge((edgeTypes.default || BezierEdge) as ComponentType<EdgeProps>),
-    straight: wrapEdge((edgeTypes.bezier || StraightEdge) as ComponentType<EdgeProps>),
+    default: wrapEdge(
+      (edgeTypes.default || BezierEdge) as ComponentType<EdgeProps>,
+    ),
+    straight: wrapEdge(
+      (edgeTypes.bezier || StraightEdge) as ComponentType<EdgeProps>,
+    ),
     step: wrapEdge((edgeTypes.step || StepEdge) as ComponentType<EdgeProps>),
-    smoothstep: wrapEdge((edgeTypes.step || SmoothStepEdge) as ComponentType<EdgeProps>),
-    simplebezier: wrapEdge((edgeTypes.simplebezier || SimpleBezierEdge) as ComponentType<EdgeProps>),
+    smoothstep: wrapEdge(
+      (edgeTypes.step || SmoothStepEdge) as ComponentType<EdgeProps>,
+    ),
+    simplebezier: wrapEdge(
+      (edgeTypes.simplebezier || SimpleBezierEdge) as ComponentType<EdgeProps>,
+    ),
   };
 
   const wrappedTypes = {} as EdgeTypesWrapped;
   const specialTypes: EdgeTypesWrapped = Object.keys(edgeTypes)
-    .filter((k) => !['default', 'bezier'].includes(k))
+    .filter((k) => !["default", "bezier"].includes(k))
     .reduce((res, key) => {
-      res[key] = wrapEdge((edgeTypes[key] || BezierEdge) as ComponentType<EdgeProps>);
+      res[key] = wrapEdge(
+        (edgeTypes[key] || BezierEdge) as ComponentType<EdgeProps>,
+      );
 
       return res;
     }, wrappedTypes);
@@ -42,7 +58,11 @@ export function createEdgeTypes(edgeTypes: EdgeTypes): EdgeTypesWrapped {
   };
 }
 
-export function getHandlePosition(position: Position, nodeRect: Rect, handle: HandleElement | null = null): XYPosition {
+export function getHandlePosition(
+  position: Position,
+  nodeRect: Rect,
+  handle: HandleElement | null = null,
+): XYPosition {
   const x = (handle?.x || 0) + nodeRect.x;
   const y = (handle?.y || 0) + nodeRect.y;
   const width = handle?.width || nodeRect.width;
@@ -72,7 +92,10 @@ export function getHandlePosition(position: Position, nodeRect: Rect, handle: Ha
   }
 }
 
-export function getHandle(bounds: HandleElement[], handleId?: string | null): HandleElement | null {
+export function getHandle(
+  bounds: HandleElement[],
+  handleId?: string | null,
+): HandleElement | null {
   if (!bounds) {
     return null;
   }
@@ -99,10 +122,18 @@ export const getEdgePositions = (
   sourcePosition: Position,
   targetNodeRect: Rect,
   targetHandle: HandleElement,
-  targetPosition: Position
+  targetPosition: Position,
 ): EdgePositions => {
-  const sourceHandlePos = getHandlePosition(sourcePosition, sourceNodeRect, sourceHandle);
-  const targetHandlePos = getHandlePosition(targetPosition, targetNodeRect, targetHandle);
+  const sourceHandlePos = getHandlePosition(
+    sourcePosition,
+    sourceNodeRect,
+    sourceHandle,
+  );
+  const targetHandlePos = getHandlePosition(
+    targetPosition,
+    targetNodeRect,
+    targetHandle,
+  );
 
   return {
     sourceX: sourceHandlePos.x,
@@ -157,22 +188,30 @@ export function isEdgeVisible({
     height: height / transform[2],
   });
 
-  const xOverlap = Math.max(0, Math.min(viewBox.x2, edgeBox.x2) - Math.max(viewBox.x, edgeBox.x));
-  const yOverlap = Math.max(0, Math.min(viewBox.y2, edgeBox.y2) - Math.max(viewBox.y, edgeBox.y));
+  const xOverlap = Math.max(
+    0,
+    Math.min(viewBox.x2, edgeBox.x2) - Math.max(viewBox.x, edgeBox.x),
+  );
+  const yOverlap = Math.max(
+    0,
+    Math.min(viewBox.y2, edgeBox.y2) - Math.max(viewBox.y, edgeBox.y),
+  );
   const overlappingArea = Math.ceil(xOverlap * yOverlap);
 
   return overlappingArea > 0;
 }
 
-export function getNodeData(node?: Node): [Rect, NodeHandleBounds | null, boolean] {
+export function getNodeData(
+  node?: Node,
+): [Rect, NodeHandleBounds | null, boolean] {
   const handleBounds = node?.[internalsSymbol]?.handleBounds || null;
 
   const isValid =
     handleBounds &&
     node?.width &&
     node?.height &&
-    typeof node?.positionAbsolute?.x !== 'undefined' &&
-    typeof node?.positionAbsolute?.y !== 'undefined';
+    typeof node?.positionAbsolute?.x !== "undefined" &&
+    typeof node?.positionAbsolute?.y !== "undefined";
 
   return [
     {
