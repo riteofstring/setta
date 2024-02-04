@@ -1,14 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
-  ComponentType,
   CSSProperties,
   HTMLAttributes,
   MouseEvent as ReactMouseEvent,
-  ReactNode,
 } from "react";
 
-import type { Connection, HandleElement, HandleType, Node } from ".";
-import { ConnectionStatus, Position } from ".";
+import type { Connection, HandleType, Node } from ".";
+import { Position } from ".";
 
 // interface for the user edge items
 type DefaultEdge<T = any> = {

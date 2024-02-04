@@ -1,37 +1,25 @@
 import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
 
-import DefaultNode from "../../components/Nodes/DefaultNode";
 import GroupNode from "../../components/Nodes/GroupNode";
-import InputNode from "../../components/Nodes/InputNode";
-import OutputNode from "../../components/Nodes/OutputNode";
 import SelectionListener from "../../components/SelectionListener";
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
 import type {
-  EdgeTypes,
   NodeOrigin,
   NodeTypes,
   ReactFlowProps,
   ReactFlowRefType,
   Viewport,
 } from "../../types";
-import {
-  ConnectionMode,
-  PanOnScrollMode,
-  SelectionMode,
-} from "../../types";
+import { ConnectionMode, PanOnScrollMode, SelectionMode } from "../../types";
 import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
 import Wrapper from "./Wrapper";
 
 const defaultNodeTypes: NodeTypes = {
-  input: InputNode,
-  default: DefaultNode,
-  output: OutputNode,
   group: GroupNode,
 };
-
 
 const initNodeOrigin: NodeOrigin = [0, 0];
 const initSnapGrid: [number, number] = [15, 15];

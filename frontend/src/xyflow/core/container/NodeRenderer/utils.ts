@@ -1,9 +1,6 @@
 import type { ComponentType } from "react";
 
-import DefaultNode from "../../components/Nodes/DefaultNode";
 import GroupNode from "../../components/Nodes/GroupNode";
-import InputNode from "../../components/Nodes/InputNode";
-import OutputNode from "../../components/Nodes/OutputNode";
 import wrapNode from "../../components/Nodes/wrapNode";
 import type {
   NodeOrigin,
@@ -17,12 +14,9 @@ export type CreateNodeTypes = (nodeTypes: NodeTypes) => NodeTypesWrapped;
 
 export function createNodeTypes(nodeTypes: NodeTypes): NodeTypesWrapped {
   const standardTypes: NodeTypesWrapped = {
-    input: wrapNode((nodeTypes.input || InputNode) as ComponentType<NodeProps>),
-    default: wrapNode(
-      (nodeTypes.default || DefaultNode) as ComponentType<NodeProps>,
-    ),
+    input: wrapNode((nodeTypes.input) as ComponentType<NodeProps>),
     output: wrapNode(
-      (nodeTypes.output || OutputNode) as ComponentType<NodeProps>,
+      (nodeTypes.output) as ComponentType<NodeProps>,
     ),
     group: wrapNode((nodeTypes.group || GroupNode) as ComponentType<NodeProps>),
   };
@@ -32,7 +26,7 @@ export function createNodeTypes(nodeTypes: NodeTypes): NodeTypesWrapped {
     .filter((k) => !["input", "default", "output", "group"].includes(k))
     .reduce((res, key) => {
       res[key] = wrapNode(
-        (nodeTypes[key] || DefaultNode) as ComponentType<NodeProps>,
+        (nodeTypes[key]) as ComponentType<NodeProps>,
       );
 
       return res;

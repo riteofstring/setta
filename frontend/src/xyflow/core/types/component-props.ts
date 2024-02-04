@@ -1,5 +1,4 @@
 import type {
-  CSSProperties,
   HTMLAttributes,
   MouseEvent as ReactMouseEvent,
   WheelEvent,
@@ -34,14 +33,12 @@ import type {
   OnNodesChange,
   OnNodesDelete,
   OnSelectionChangeFunc,
-  PanelPosition,
   PanOnScrollMode,
   ProOptions,
   SelectionDragHandler,
   SelectionMode,
   Viewport,
 } from ".";
-import { ValidConnectionFunc } from "../components/Handle/utils";
 
 export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   nodes?: Node[];
@@ -151,7 +148,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   autoPanOnConnect?: boolean;
   connectionRadius?: number;
   onError?: OnError;
-  isValidConnection?: ValidConnectionFunc;
   nodeDragThreshold?: number;
 };
 

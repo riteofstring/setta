@@ -1,4 +1,3 @@
-export { default as Handle } from "./components/Handle";
 export { default as Panel } from "./components/Panel";
 export { default as ReactFlowProvider } from "./components/ReactFlowProvider";
 export { default as ReactFlow } from "./container/ReactFlow";
