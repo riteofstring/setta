@@ -1,7 +1,6 @@
 import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
 
-import GroupNode from "../../components/Nodes/GroupNode";
 import SelectionListener from "../../components/SelectionListener";
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
@@ -16,10 +15,6 @@ import { ConnectionMode, PanOnScrollMode, SelectionMode } from "../../types";
 import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
 import Wrapper from "./Wrapper";
-
-const defaultNodeTypes: NodeTypes = {
-  group: GroupNode,
-};
 
 const initNodeOrigin: NodeOrigin = [0, 0];
 const initSnapGrid: [number, number] = [15, 15];
@@ -40,7 +35,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       defaultNodes,
       defaultEdges,
       className,
-      nodeTypes = defaultNodeTypes,
+      nodeTypes,
       onNodeClick,
       onEdgeClick,
       onInit,

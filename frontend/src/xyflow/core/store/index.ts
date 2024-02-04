@@ -1,7 +1,6 @@
 import { zoomIdentity } from "d3-zoom";
 import { createWithEqualityFn } from "zustand/traditional";
 
-import { getHandleBounds } from "../components/Nodes/utils";
 import type {
   CoordinateExtent,
   Edge,
@@ -80,8 +79,6 @@ const createRFStore = () =>
           return;
         }
 
-        const style = window.getComputedStyle(viewportNode);
-        const { m22: zoom } = new window.DOMMatrixReadOnly(style.transform);
 
         const changes: NodeDimensionChange[] = updates.reduce<
           NodeDimensionChange[]
@@ -103,20 +100,6 @@ const createRFStore = () =>
                 ...node,
                 [internalsSymbol]: {
                   ...node[internalsSymbol],
-                  handleBounds: {
-                    source: getHandleBounds(
-                      ".source",
-                      update.nodeElement,
-                      zoom,
-                      nodeOrigin,
-                    ),
-                    target: getHandleBounds(
-                      ".target",
-                      update.nodeElement,
-                      zoom,
-                      nodeOrigin,
-                    ),
-                  },
                 },
                 ...dimensions,
               });

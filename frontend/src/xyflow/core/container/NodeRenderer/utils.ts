@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
 
-import GroupNode from "../../components/Nodes/GroupNode";
 import wrapNode from "../../components/Nodes/wrapNode";
 import type {
   NodeOrigin,
@@ -18,7 +17,7 @@ export function createNodeTypes(nodeTypes: NodeTypes): NodeTypesWrapped {
     output: wrapNode(
       (nodeTypes.output) as ComponentType<NodeProps>,
     ),
-    group: wrapNode((nodeTypes.group || GroupNode) as ComponentType<NodeProps>),
+    group: wrapNode((nodeTypes.group) as ComponentType<NodeProps>),
   };
 
   const wrappedTypes = {} as NodeTypesWrapped;
