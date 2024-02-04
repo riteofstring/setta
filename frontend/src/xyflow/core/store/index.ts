@@ -102,7 +102,7 @@ const createRFStore = () =>
         positionChanged = true,
         dragging = false,
       ) => {
-        const { triggerNodeChanges } = get();
+        const { onNodesChange } = get();
 
         const changes = nodeDragItems.map((node) => {
           const change: NodePositionChange = {
@@ -118,12 +118,6 @@ const createRFStore = () =>
           return change;
         });
 
-        triggerNodeChanges(changes);
-      },
-
-      triggerNodeChanges: (changes: NodeChange[]) => {
-        const { onNodesChange } = get();
-
         if (changes?.length) {
           onNodesChange(changes);
         }
@@ -131,9 +125,6 @@ const createRFStore = () =>
       onNodesChange: (changes: NodeChange[]) => {
         const { nodeInternals } = get();
         const newNodes = new Map(nodeInternals);
-        for (const [, n] of newNodes) {
-          n.tempZIndex = n.zIndex;
-        }
         for (const c of changes) {
           switch (c.type) {
             case "select": {
@@ -155,14 +146,20 @@ const createRFStore = () =>
               break;
             }
           }
-          if (c.dragging) {
-            newNodes.get(c.id).tempZIndex = newNodes.get(c.id).zIndex + 1000;
-          }
         }
-
         set({ nodeInternals: newNodes });
       },
-
+      raiseZIndex: (nodes) => {
+        const { nodeInternals } = get();
+        const newNodes = new Map(nodeInternals);
+        for (const [, n] of newNodes) {
+          n.tempZIndex = n.zIndex;
+        }
+        for (const n of nodes) {
+          newNodes.get(n.id).tempZIndex = newNodes.get(n.id).zIndex + 1000;
+        }
+        set({ nodeInternals: newNodes });
+      },
       addSelectedNodes: (selectedNodeIds: string[]) => {
         const { multiSelectionActive, getNodes } = get();
         let changedNodes: NodeSelectionChange[];

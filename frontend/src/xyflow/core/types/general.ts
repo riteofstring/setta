@@ -164,7 +164,6 @@ export type ReactFlowActions = {
   setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
   reset: () => void;
-  triggerNodeChanges: (changes: NodeChange[]) => void;
   panBy: (delta: XYPosition) => boolean;
 };
 

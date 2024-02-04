@@ -115,6 +115,7 @@ function useDrag({
           multiSelectionActive,
           nodesDraggable,
           unselectNodesAndEdges,
+          raiseZIndex,
         } = store.getState();
         dragStarted.current = true;
 
@@ -137,6 +138,10 @@ function useDrag({
           pointerPos,
           nodeId,
         );
+
+        if (dragItems.current) {
+          raiseZIndex(dragItems.current);
+        }
       };
 
       if (disabled) {

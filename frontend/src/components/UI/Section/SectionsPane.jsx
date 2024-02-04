@@ -40,7 +40,7 @@ function _SectionsPane({
       defaultViewport={REACT_FLOW_STORE.initialViewport}
       // snapGrid={[32, 32]}
       // snapToGrid={true}
-      nodeDragThreshold={1}
+      nodeDragThreshold={0}
       className="rcbg-light dark:rcbg-dark"
     />
   );
