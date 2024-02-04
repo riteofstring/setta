@@ -17,11 +17,6 @@ import { GraphViewProps } from "../GraphView";
 type NodeRendererProps = Pick<
   GraphViewProps,
   | "selectNodesOnDrag"
-  | "onNodeClick"
-  | "onNodeDoubleClick"
-  | "onNodeMouseEnter"
-  | "onNodeMouseMove"
-  | "onNodeMouseLeave"
   | "onNodeContextMenu"
   | "noPanClassName"
   | "noDragClassName"
@@ -119,12 +114,7 @@ const NodeRenderer = (props: NodeRendererProps) => {
             xPos={posX}
             yPos={posY}
             selectNodesOnDrag={props.selectNodesOnDrag}
-            onClick={props.onNodeClick}
-            onMouseEnter={props.onNodeMouseEnter}
-            onMouseMove={props.onNodeMouseMove}
-            onMouseLeave={props.onNodeMouseLeave}
             onContextMenu={props.onNodeContextMenu}
-            onDoubleClick={props.onNodeDoubleClick}
             selected={!!node.selected}
             isDraggable={isDraggable}
             isSelectable={isSelectable}

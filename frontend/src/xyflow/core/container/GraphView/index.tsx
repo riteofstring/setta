@@ -37,11 +37,6 @@ const GraphView = ({
   onMoveStart,
   onMoveEnd,
   onInit,
-  onNodeClick,
-  onNodeDoubleClick,
-  onNodeMouseEnter,
-  onNodeMouseMove,
-  onNodeMouseLeave,
   onNodeContextMenu,
   onSelectionContextMenu,
   onSelectionStart,
@@ -124,11 +119,6 @@ const GraphView = ({
       <ViewportWrapper>
         <NodeRenderer
           nodeTypes={nodeTypesWrapped}
-          onNodeClick={onNodeClick}
-          onNodeDoubleClick={onNodeDoubleClick}
-          onNodeMouseEnter={onNodeMouseEnter}
-          onNodeMouseMove={onNodeMouseMove}
-          onNodeMouseLeave={onNodeMouseLeave}
           onNodeContextMenu={onNodeContextMenu}
           selectNodesOnDrag={selectNodesOnDrag}
           noPanClassName={noPanClassName}

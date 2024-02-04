@@ -1,7 +1,6 @@
 export { default as Panel } from "./components/Panel";
 export { default as ReactFlowProvider } from "./components/ReactFlowProvider";
 export { default as ReactFlow } from "./container/ReactFlow";
-export { useNodeId } from "./contexts/NodeIdContext";
 export { default as useGetPointerPosition } from "./hooks/useGetPointerPosition";
 export { default as useKeyPress } from "./hooks/useKeyPress";
 export { default as useReactFlow } from "./hooks/useReactFlow";

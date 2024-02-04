@@ -26,16 +26,11 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       defaultNodes,
       className,
       nodeTypes,
-      onNodeClick,
       onInit,
       onMove,
       onMoveStart,
       onMoveEnd,
-      onNodeMouseEnter,
-      onNodeMouseMove,
-      onNodeMouseLeave,
       onNodeContextMenu,
-      onNodeDoubleClick,
       onNodeDragStart,
       onNodeDragStop,
       onNodesDelete,
@@ -107,12 +102,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onMove={onMove}
             onMoveStart={onMoveStart}
             onMoveEnd={onMoveEnd}
-            onNodeClick={onNodeClick}
-            onNodeMouseEnter={onNodeMouseEnter}
-            onNodeMouseMove={onNodeMouseMove}
-            onNodeMouseLeave={onNodeMouseLeave}
             onNodeContextMenu={onNodeContextMenu}
-            onNodeDoubleClick={onNodeDoubleClick}
             nodeTypes={nodeTypes}
             selectionKeyCode={selectionKeyCode}
             selectionOnDrag={selectionOnDrag}

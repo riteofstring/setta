@@ -3,7 +3,6 @@ import type { ComponentType, KeyboardEvent, MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 
 import { useSectionInfos } from "models/info/sectionInfos";
-import { Provider } from "../../contexts/NodeIdContext";
 import useDrag from "../../hooks/useDrag";
 import { useStoreApi } from "../../hooks/useStore";
 import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
@@ -27,11 +26,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     yPos,
     selected,
     onClick,
-    onMouseEnter,
-    onMouseMove,
-    onMouseLeave,
     onContextMenu,
-    onDoubleClick,
     style,
     className,
     isDraggable,
@@ -52,36 +47,14 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     const prevSourcePosition = useRef(sourcePosition);
     const prevTargetPosition = useRef(targetPosition);
     const prevType = useRef(type);
-    const hasPointerEvents =
-      isSelectable ||
-      isDraggable ||
-      onClick ||
-      onMouseEnter ||
-      onMouseMove ||
-      onMouseLeave;
+    const hasPointerEvents = isSelectable || isDraggable || onClick;
     const updatePositions = useUpdateNodePositions();
     const zIndex = useSectionInfos((x) => x.x[id]?.zIndex);
 
-    const onMouseEnterHandler = getMouseHandler(
-      id,
-      store.getState,
-      onMouseEnter,
-    );
-    const onMouseMoveHandler = getMouseHandler(id, store.getState, onMouseMove);
-    const onMouseLeaveHandler = getMouseHandler(
-      id,
-      store.getState,
-      onMouseLeave,
-    );
     const onContextMenuHandler = getMouseHandler(
       id,
       store.getState,
       onContextMenu,
-    );
-    const onDoubleClickHandler = getMouseHandler(
-      id,
-      store.getState,
-      onDoubleClick,
     );
     const onSelectNodeHandler = (event: MouseEvent) => {
       if (onClick) {
@@ -184,30 +157,24 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         }}
         data-id={id}
         data-testid={`rf__node-${id}`}
-        onMouseEnter={onMouseEnterHandler}
-        onMouseMove={onMouseMoveHandler}
-        onMouseLeave={onMouseLeaveHandler}
         onContextMenu={onContextMenuHandler}
         onClick={onSelectNodeHandler}
-        onDoubleClick={onDoubleClickHandler}
         onKeyDown={isFocusable ? onKeyDown : undefined}
         tabIndex={isFocusable ? 0 : undefined}
         role={isFocusable ? "button" : undefined}
         aria-label={ariaLabel}
       >
-        <Provider value={id}>
-          <NodeComponent
-            id={id}
-            data={data}
-            type={type}
-            xPos={xPos}
-            yPos={yPos}
-            selected={selected}
-            sourcePosition={sourcePosition}
-            targetPosition={targetPosition}
-            dragging={dragging}
-          />
-        </Provider>
+        <NodeComponent
+          id={id}
+          data={data}
+          type={type}
+          xPos={xPos}
+          yPos={yPos}
+          selected={selected}
+          sourcePosition={sourcePosition}
+          targetPosition={targetPosition}
+          dragging={dragging}
+        />
       </div>
     );
   };
