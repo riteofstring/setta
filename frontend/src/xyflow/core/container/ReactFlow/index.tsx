@@ -23,7 +23,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
   (
     {
       nodes,
-      defaultNodes,
       className,
       nodeTypes,
       onInit,
@@ -132,7 +131,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           />
           <StoreUpdater
             nodes={nodes}
-            defaultNodes={defaultNodes}
             nodesDraggable={nodesDraggable}
             nodesFocusable={nodesFocusable}
             elementsSelectable={elementsSelectable}

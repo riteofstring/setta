@@ -15,11 +15,7 @@ import type {
   XYPosition,
 } from "../types";
 import { getDimensions } from "../utils";
-import {
-  applyNodeChanges,
-  createSelectionChange,
-  getSelectionChanges,
-} from "../utils/changes";
+import { createSelectionChange, getSelectionChanges } from "../utils/changes";
 import initialState from "./initialState";
 import {
   createNodeInternals,
@@ -39,18 +35,6 @@ const createRFStore = () =>
       },
       getNodes: () => {
         return Array.from(get().nodeInternals.values());
-      },
-      setDefaultNodesAndEdges: (nodes?: Node[]) => {
-        const hasDefaultNodes = typeof nodes !== "undefined";
-
-        const nodeInternals = hasDefaultNodes
-          ? createNodeInternals(nodes, new Map())
-          : new Map();
-
-        set({
-          nodeInternals,
-          hasDefaultNodes,
-        });
       },
       updateNodeDimensions: (updates: NodeDimensionUpdate[]) => {
         const {
@@ -139,16 +123,9 @@ const createRFStore = () =>
       },
 
       triggerNodeChanges: (changes: NodeChange[]) => {
-        const { onNodesChange, nodeInternals, hasDefaultNodes, getNodes } =
-          get();
+        const { onNodesChange } = get();
 
         if (changes?.length) {
-          if (hasDefaultNodes) {
-            const nodes = applyNodeChanges(changes, getNodes());
-            const nextNodeInternals = createNodeInternals(nodes, nodeInternals);
-            set({ nodeInternals: nextNodeInternals });
-          }
-
           onNodesChange?.(changes);
         }
       },

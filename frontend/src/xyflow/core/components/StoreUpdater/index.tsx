@@ -14,7 +14,6 @@ import type {
 type StoreUpdaterProps = Pick<
   ReactFlowProps,
   | "nodes"
-  | "defaultNodes"
   | "nodesDraggable"
   | "nodesFocusable"
   | "minZoom"
@@ -38,7 +37,6 @@ type StoreUpdaterProps = Pick<
 
 const selector = (s: ReactFlowState) => ({
   setNodes: s.setNodes,
-  setDefaultNodesAndEdges: s.setDefaultNodesAndEdges,
   setMinZoom: s.setMinZoom,
   setMaxZoom: s.setMaxZoom,
   setTranslateExtent: s.setTranslateExtent,
@@ -71,7 +69,6 @@ function useDirectStoreUpdater(
 
 const StoreUpdater = ({
   nodes,
-  defaultNodes,
   nodesDraggable,
   nodesFocusable,
   minZoom,
@@ -94,7 +91,6 @@ const StoreUpdater = ({
 }: StoreUpdaterProps) => {
   const {
     setNodes,
-    setDefaultNodesAndEdges,
     setMinZoom,
     setMaxZoom,
     setTranslateExtent,
@@ -103,8 +99,6 @@ const StoreUpdater = ({
   const store = useStoreApi();
 
   useEffect(() => {
-    setDefaultNodesAndEdges(defaultNodes);
-
     return () => {
       reset();
     };

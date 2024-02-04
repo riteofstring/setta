@@ -33,14 +33,11 @@ export default function useReactFlow<
   }, []);
 
   const setNodes = useCallback<Instance.SetNodes<NodeData>>((payload) => {
-    const { getNodes, setNodes, hasDefaultNodes, onNodesChange } =
-      store.getState();
+    const { getNodes, onNodesChange } = store.getState();
     const nodes = getNodes();
     const nextNodes = typeof payload === "function" ? payload(nodes) : payload;
 
-    if (hasDefaultNodes) {
-      setNodes(nextNodes);
-    } else if (onNodesChange) {
+    if (onNodesChange) {
       const changes =
         nextNodes.length === 0
           ? nodes.map(
@@ -56,14 +53,9 @@ export default function useReactFlow<
 
   const addNodes = useCallback<Instance.AddNodes<NodeData>>((payload) => {
     const nodes = Array.isArray(payload) ? payload : [payload];
-    const { getNodes, setNodes, hasDefaultNodes, onNodesChange } =
-      store.getState();
+    const { onNodesChange } = store.getState();
 
-    if (hasDefaultNodes) {
-      const currentNodes = getNodes();
-      const nextNodes = [...currentNodes, ...nodes];
-      setNodes(nextNodes);
-    } else if (onNodesChange) {
+    if (onNodesChange) {
       const changes = nodes.map(
         (node) => ({ item: node, type: "add" }) as NodeAddChange<NodeData>,
       );
@@ -86,13 +78,7 @@ export default function useReactFlow<
 
   const deleteElements = useCallback<Instance.DeleteElements>(
     ({ nodes: nodesDeleted }) => {
-      const {
-        nodeInternals,
-        getNodes,
-        hasDefaultNodes,
-        onNodesDelete,
-        onNodesChange,
-      } = store.getState();
+      const { getNodes, onNodesDelete, onNodesChange } = store.getState();
       const nodeIds = (nodesDeleted || []).map((node) => node.id);
       const nodesToRemove = getNodes().reduce<Node[]>((res, node) => {
         const deletable =
@@ -105,18 +91,6 @@ export default function useReactFlow<
       }, []);
 
       if (nodesToRemove) {
-        if (hasDefaultNodes) {
-          if (hasDefaultNodes) {
-            nodesToRemove.forEach((node) => {
-              nodeInternals.delete(node.id);
-            });
-
-            store.setState({
-              nodeInternals: new Map(nodeInternals),
-            });
-          }
-        }
-
         if (nodesToRemove.length > 0) {
           onNodesDelete?.(nodesToRemove);
 

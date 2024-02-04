@@ -136,20 +136,10 @@ type UpdateNodesAndEdgesParams = {
 export function updateNodesAndEdgesSelections({
   changedNodes,
   get,
-  set,
 }: UpdateNodesAndEdgesParams) {
-  const { nodeInternals, onNodesChange, hasDefaultNodes } = get();
+  const { onNodesChange } = get();
 
   if (changedNodes?.length) {
-    if (hasDefaultNodes) {
-      set({
-        nodeInternals: handleControlledNodeSelectionChange(
-          changedNodes,
-          nodeInternals,
-        ),
-      });
-    }
-
     onNodesChange?.(changedNodes);
   }
 }

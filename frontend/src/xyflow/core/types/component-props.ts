@@ -28,7 +28,6 @@ import type {
 
 export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   nodes?: Node[];
-  defaultNodes?: Node[];
   onNodeContextMenu?: NodeMouseHandler;
   onNodeDragStart?: NodeDragHandler;
   onNodeDragStop?: NodeDragHandler;

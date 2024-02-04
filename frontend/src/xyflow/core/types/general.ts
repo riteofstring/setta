@@ -127,7 +127,6 @@ export type ReactFlowStore = {
   transform: Transform;
   nodeInternals: NodeInternals;
   onNodesChange: OnNodesChange | null;
-  hasDefaultNodes: boolean;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
   noPanClassName: string;
@@ -178,7 +177,6 @@ export type ReactFlowStore = {
 export type ReactFlowActions = {
   setNodes: (nodes: Node[]) => void;
   getNodes: () => Node[];
-  setDefaultNodesAndEdges: (nodes?: Node[]) => void;
   updateNodeDimensions: (updates: NodeDimensionUpdate[]) => void;
   updateNodePositions: (
     nodeDragItems: NodeDragItem[] | Node[],
