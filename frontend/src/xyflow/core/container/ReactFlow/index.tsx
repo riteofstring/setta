@@ -65,10 +65,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       zoomOnDoubleClick = true,
       panOnDrag = true,
       onPaneClick,
-      onPaneMouseEnter,
-      onPaneMouseMove,
-      onPaneMouseLeave,
-      onPaneScroll,
       onPaneContextMenu,
       children,
       onNodesChange,
@@ -125,10 +121,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             panOnScrollMode={panOnScrollMode}
             panOnDrag={panOnDrag}
             onPaneClick={onPaneClick}
-            onPaneMouseEnter={onPaneMouseEnter}
-            onPaneMouseMove={onPaneMouseMove}
-            onPaneMouseLeave={onPaneMouseLeave}
-            onPaneScroll={onPaneScroll}
             onPaneContextMenu={onPaneContextMenu}
             onSelectionContextMenu={onSelectionContextMenu}
             onSelectionStart={onSelectionStart}

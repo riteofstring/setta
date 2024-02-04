@@ -21,11 +21,7 @@ export type FlowRendererProps = Omit<
 const FlowRenderer = ({
   children,
   onPaneClick,
-  onPaneMouseEnter,
-  onPaneMouseMove,
-  onPaneMouseLeave,
   onPaneContextMenu,
-  onPaneScroll,
   deleteKeyCode,
   onMove,
   onMoveStart,
@@ -92,11 +88,7 @@ const FlowRenderer = ({
         onSelectionStart={onSelectionStart}
         onSelectionEnd={onSelectionEnd}
         onPaneClick={onPaneClick}
-        onPaneMouseEnter={onPaneMouseEnter}
-        onPaneMouseMove={onPaneMouseMove}
-        onPaneMouseLeave={onPaneMouseLeave}
         onPaneContextMenu={onPaneContextMenu}
-        onPaneScroll={onPaneScroll}
         getNodesInsideSelection={getNodesInsideSelection}
         panOnDrag={panOnDrag}
         isSelecting={!!isSelecting}

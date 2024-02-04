@@ -30,10 +30,6 @@ type PaneProps = {
     | "onSelectionEnd"
     | "onPaneClick"
     | "onPaneContextMenu"
-    | "onPaneScroll"
-    | "onPaneMouseEnter"
-    | "onPaneMouseMove"
-    | "onPaneMouseLeave"
   >
 >;
 
@@ -64,10 +60,6 @@ const Pane = memo(
     onSelectionEnd,
     onPaneClick,
     onPaneContextMenu,
-    onPaneScroll,
-    onPaneMouseEnter,
-    onPaneMouseMove,
-    onPaneMouseLeave,
     getNodesInsideSelection,
     children,
   }: PaneProps) => {
@@ -100,10 +92,6 @@ const Pane = memo(
 
       onPaneContextMenu?.(event);
     };
-
-    const onWheel = onPaneScroll
-      ? (event: React.WheelEvent) => onPaneScroll(event)
-      : undefined;
 
     const onMouseDown = (event: ReactMouseEvent): void => {
       const { resetSelectedElements, domNode } = store.getState();
@@ -230,12 +218,10 @@ const Pane = memo(
           hasActiveSelection ? undefined : wrapHandler(onClick, container)
         }
         onContextMenu={wrapHandler(onContextMenu, container)}
-        onWheel={wrapHandler(onWheel, container)}
-        onMouseEnter={hasActiveSelection ? undefined : onPaneMouseEnter}
         onMouseDown={hasActiveSelection ? onMouseDown : undefined}
-        onMouseMove={hasActiveSelection ? onMouseMove : onPaneMouseMove}
+        onMouseMove={hasActiveSelection ? onMouseMove : undefined}
         onMouseUp={hasActiveSelection ? onMouseUp : undefined}
-        onMouseLeave={hasActiveSelection ? onMouseLeave : onPaneMouseLeave}
+        onMouseLeave={hasActiveSelection ? onMouseLeave : undefined}
         ref={container}
         style={containerStyle}
       >
