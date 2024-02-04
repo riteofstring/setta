@@ -284,15 +284,6 @@ const createRFStore = () =>
 
         return transformChanged;
       },
-      cancelConnection: () =>
-        set({
-          connectionNodeId: initialState.connectionNodeId,
-          connectionHandleId: initialState.connectionHandleId,
-          connectionHandleType: initialState.connectionHandleType,
-          connectionStatus: initialState.connectionStatus,
-          connectionStartHandle: initialState.connectionStartHandle,
-          connectionEndHandle: initialState.connectionEndHandle,
-        }),
       reset: () => set({ ...initialState }),
     }),
     Object.is,

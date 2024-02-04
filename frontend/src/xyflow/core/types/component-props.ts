@@ -5,7 +5,6 @@ import type {
 } from "react";
 
 import type {
-  ConnectionMode,
   CoordinateExtent,
   FitViewOptions,
   KeyCode,
@@ -14,9 +13,6 @@ import type {
   NodeMouseHandler,
   NodeOrigin,
   NodeTypes,
-  OnConnect,
-  OnConnectEnd,
-  OnConnectStart,
   OnError,
   OnInit,
   OnMove,
@@ -52,11 +48,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onSelectionStart?: (event: ReactMouseEvent) => void;
   onSelectionEnd?: (event: ReactMouseEvent) => void;
   onSelectionContextMenu?: (event: ReactMouseEvent, nodes: Node[]) => void;
-  onConnect?: OnConnect;
-  onConnectStart?: OnConnectStart;
-  onConnectEnd?: OnConnectEnd;
-  onClickConnectStart?: OnConnectStart;
-  onClickConnectEnd?: OnConnectEnd;
   onInit?: OnInit;
   onMove?: OnMove;
   onMoveStart?: OnMoveStart;
@@ -69,7 +60,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onPaneMouseMove?: (event: ReactMouseEvent) => void;
   onPaneMouseLeave?: (event: ReactMouseEvent) => void;
   nodeTypes?: NodeTypes;
-  connectionMode?: ConnectionMode;
   deleteKeyCode?: KeyCode | null;
   selectionKeyCode?: KeyCode | null;
   selectionOnDrag?: boolean;
@@ -81,7 +71,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   snapGrid?: [number, number];
   onlyRenderVisibleElements?: boolean;
   nodesDraggable?: boolean;
-  nodesConnectable?: boolean;
   nodesFocusable?: boolean;
   nodeOrigin?: NodeOrigin;
   initNodeOrigin?: NodeOrigin;
@@ -105,12 +94,9 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   noPanClassName?: string;
   fitView?: boolean;
   fitViewOptions?: FitViewOptions;
-  connectOnClick?: boolean;
   proOptions?: ProOptions;
   disableKeyboardA11y?: boolean;
   autoPanOnNodeDrag?: boolean;
-  autoPanOnConnect?: boolean;
-  connectionRadius?: number;
   onError?: OnError;
   nodeDragThreshold?: number;
 };

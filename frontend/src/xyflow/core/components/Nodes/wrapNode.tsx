@@ -38,7 +38,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     className,
     isDraggable,
     isSelectable,
-    isConnectable,
     isFocusable,
     selectNodesOnDrag,
     sourcePosition,
@@ -240,7 +239,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
             xPos={xPos}
             yPos={yPos}
             selected={selected}
-            isConnectable={isConnectable}
             sourcePosition={sourcePosition}
             targetPosition={targetPosition}
             dragging={dragging}

@@ -15,24 +15,16 @@ type StoreUpdaterProps = Pick<
   ReactFlowProps,
   | "nodes"
   | "defaultNodes"
-  | "onConnect"
-  | "onConnectStart"
-  | "onConnectEnd"
-  | "onClickConnectStart"
-  | "onClickConnectEnd"
   | "nodesDraggable"
-  | "nodesConnectable"
   | "nodesFocusable"
   | "minZoom"
   | "maxZoom"
   | "nodeExtent"
   | "onNodesChange"
   | "elementsSelectable"
-  | "connectionMode"
   | "snapToGrid"
   | "snapGrid"
   | "translateExtent"
-  | "connectOnClick"
   | "fitView"
   | "fitViewOptions"
   | "onNodesDelete"
@@ -44,10 +36,7 @@ type StoreUpdaterProps = Pick<
   | "onSelectionDragStop"
   | "noPanClassName"
   | "nodeOrigin"
-  | "autoPanOnConnect"
   | "autoPanOnNodeDrag"
-  | "connectionRadius"
-  | "isValidConnection"
   | "onError"
   | "nodeDragThreshold"
 > & { rfId: string };
@@ -89,24 +78,16 @@ function useDirectStoreUpdater(
 const StoreUpdater = ({
   nodes,
   defaultNodes,
-  onConnect,
-  onConnectStart,
-  onConnectEnd,
-  onClickConnectStart,
-  onClickConnectEnd,
   nodesDraggable,
-  nodesConnectable,
   nodesFocusable,
   minZoom,
   maxZoom,
   nodeExtent,
   onNodesChange,
   elementsSelectable,
-  connectionMode,
   snapGrid,
   snapToGrid,
   translateExtent,
-  connectOnClick,
   fitView,
   fitViewOptions,
   onNodesDelete,
@@ -119,11 +100,8 @@ const StoreUpdater = ({
   noPanClassName,
   nodeOrigin,
   rfId,
-  autoPanOnConnect,
   autoPanOnNodeDrag,
   onError,
-  connectionRadius,
-  isValidConnection,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
   const {
@@ -145,18 +123,7 @@ const StoreUpdater = ({
     };
   }, []);
 
-  useDirectStoreUpdater("connectionMode", connectionMode, store.setState);
-  useDirectStoreUpdater("onConnect", onConnect, store.setState);
-  useDirectStoreUpdater("onConnectStart", onConnectStart, store.setState);
-  useDirectStoreUpdater("onConnectEnd", onConnectEnd, store.setState);
-  useDirectStoreUpdater(
-    "onClickConnectStart",
-    onClickConnectStart,
-    store.setState,
-  );
-  useDirectStoreUpdater("onClickConnectEnd", onClickConnectEnd, store.setState);
   useDirectStoreUpdater("nodesDraggable", nodesDraggable, store.setState);
-  useDirectStoreUpdater("nodesConnectable", nodesConnectable, store.setState);
   useDirectStoreUpdater("nodesFocusable", nodesFocusable, store.setState);
   useDirectStoreUpdater(
     "elementsSelectable",
@@ -166,7 +133,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater("snapToGrid", snapToGrid, store.setState);
   useDirectStoreUpdater("snapGrid", snapGrid, store.setState);
   useDirectStoreUpdater("onNodesChange", onNodesChange, store.setState);
-  useDirectStoreUpdater("connectOnClick", connectOnClick, store.setState);
   useDirectStoreUpdater("fitViewOnInit", fitView, store.setState);
   useDirectStoreUpdater("fitViewOnInitOptions", fitViewOptions, store.setState);
   useDirectStoreUpdater("onNodesDelete", onNodesDelete, store.setState);
@@ -187,11 +153,8 @@ const StoreUpdater = ({
   useDirectStoreUpdater("noPanClassName", noPanClassName, store.setState);
   useDirectStoreUpdater("nodeOrigin", nodeOrigin, store.setState);
   useDirectStoreUpdater("rfId", rfId, store.setState);
-  useDirectStoreUpdater("autoPanOnConnect", autoPanOnConnect, store.setState);
   useDirectStoreUpdater("autoPanOnNodeDrag", autoPanOnNodeDrag, store.setState);
   useDirectStoreUpdater("onError", onError, store.setState);
-  useDirectStoreUpdater("connectionRadius", connectionRadius, store.setState);
-  useDirectStoreUpdater("isValidConnection", isValidConnection, store.setState);
   useDirectStoreUpdater("nodeDragThreshold", nodeDragThreshold, store.setState);
 
   useStoreUpdater<Node[]>(nodes, setNodes);

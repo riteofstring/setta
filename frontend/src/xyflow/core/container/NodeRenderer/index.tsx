@@ -38,7 +38,6 @@ type NodeRendererProps = Pick<
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
-  nodesConnectable: s.nodesConnectable,
   nodesFocusable: s.nodesFocusable,
   elementsSelectable: s.elementsSelectable,
   updateNodeDimensions: s.updateNodeDimensions,
@@ -48,7 +47,6 @@ const selector = (s: ReactFlowState) => ({
 const NodeRenderer = (props: NodeRendererProps) => {
   const {
     nodesDraggable,
-    nodesConnectable,
     nodesFocusable,
     elementsSelectable,
     updateNodeDimensions,
@@ -104,10 +102,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
           node.selectable ||
           (elementsSelectable && typeof node.selectable === "undefined")
         );
-        const isConnectable = !!(
-          node.connectable ||
-          (nodesConnectable && typeof node.connectable === "undefined")
-        );
         const isFocusable = !!(
           node.focusable ||
           (nodesFocusable && typeof node.focusable === "undefined")
@@ -152,7 +146,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             selected={!!node.selected}
             isDraggable={isDraggable}
             isSelectable={isSelectable}
-            isConnectable={isConnectable}
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
             isParent={!!node[internalsSymbol]?.isParent}

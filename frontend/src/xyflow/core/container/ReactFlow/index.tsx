@@ -10,7 +10,7 @@ import type {
   ReactFlowRefType,
   Viewport,
 } from "../../types";
-import { ConnectionMode, PanOnScrollMode, SelectionMode } from "../../types";
+import { PanOnScrollMode, SelectionMode } from "../../types";
 import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
 import Wrapper from "./Wrapper";
@@ -38,11 +38,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onMove,
       onMoveStart,
       onMoveEnd,
-      onConnect,
-      onConnectStart,
-      onConnectEnd,
-      onClickConnectStart,
-      onClickConnectEnd,
       onNodeMouseEnter,
       onNodeMouseMove,
       onNodeMouseLeave,
@@ -59,7 +54,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onSelectionContextMenu,
       onSelectionStart,
       onSelectionEnd,
-      connectionMode = ConnectionMode.Strict,
       deleteKeyCode = "Backspace",
       selectionKeyCode = "Shift",
       selectionOnDrag = false,
@@ -72,7 +66,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onlyRenderVisibleElements = false,
       selectNodesOnDrag = true,
       nodesDraggable,
-      nodesConnectable,
       nodesFocusable,
       nodeOrigin = initNodeOrigin,
       elementsSelectable,
@@ -102,13 +95,9 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       noPanClassName = "nopan",
       fitView = false,
       fitViewOptions,
-      connectOnClick = true,
       proOptions,
       disableKeyboardA11y = false,
-      autoPanOnConnect = true,
       autoPanOnNodeDrag = true,
-      connectionRadius = 20,
-      isValidConnection,
       onError,
       style,
       id,
@@ -184,13 +173,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           <StoreUpdater
             nodes={nodes}
             defaultNodes={defaultNodes}
-            onConnect={onConnect}
-            onConnectStart={onConnectStart}
-            onConnectEnd={onConnectEnd}
-            onClickConnectStart={onClickConnectStart}
-            onClickConnectEnd={onClickConnectEnd}
             nodesDraggable={nodesDraggable}
-            nodesConnectable={nodesConnectable}
             nodesFocusable={nodesFocusable}
             elementsSelectable={elementsSelectable}
             minZoom={minZoom}
@@ -199,9 +182,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onNodesChange={onNodesChange}
             snapToGrid={snapToGrid}
             snapGrid={snapGrid}
-            connectionMode={connectionMode}
             translateExtent={translateExtent}
-            connectOnClick={connectOnClick}
             fitView={fitView}
             fitViewOptions={fitViewOptions}
             onNodesDelete={onNodesDelete}
@@ -214,11 +195,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             noPanClassName={noPanClassName}
             nodeOrigin={nodeOrigin}
             rfId={rfId}
-            autoPanOnConnect={autoPanOnConnect}
             autoPanOnNodeDrag={autoPanOnNodeDrag}
             onError={onError}
-            connectionRadius={connectionRadius}
-            isValidConnection={isValidConnection}
             nodeDragThreshold={nodeDragThreshold}
           />
           <SelectionListener onSelectionChange={onSelectionChange} />
