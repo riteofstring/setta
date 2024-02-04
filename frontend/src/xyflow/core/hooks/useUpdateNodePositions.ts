@@ -14,7 +14,6 @@ function useUpdateNodePositions() {
         getNodes,
         snapToGrid,
         snapGrid,
-        onError,
         nodesDraggable,
       } = store.getState();
       const selectedNodes = getNodes().filter(
@@ -50,8 +49,6 @@ function useUpdateNodePositions() {
             n,
             nextPosition,
             nodeInternals,
-            undefined,
-            onError,
           );
 
           n.position = position;

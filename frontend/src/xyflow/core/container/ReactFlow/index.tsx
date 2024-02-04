@@ -58,7 +58,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       fitView = false,
       fitViewOptions,
       autoPanOnNodeDrag = true,
-      onError,
       style,
       id,
       nodeDragThreshold,
@@ -117,7 +116,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             fitViewOptions={fitViewOptions}
             noPanClassName={noPanClassName}
             autoPanOnNodeDrag={autoPanOnNodeDrag}
-            onError={onError}
             nodeDragThreshold={nodeDragThreshold}
           />
           {children}

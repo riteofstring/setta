@@ -27,7 +27,6 @@ type StoreUpdaterProps = Pick<
   | "fitViewOptions"
   | "noPanClassName"
   | "autoPanOnNodeDrag"
-  | "onError"
   | "nodeDragThreshold"
 >;
 
@@ -78,7 +77,6 @@ const StoreUpdater = ({
   fitViewOptions,
   noPanClassName,
   autoPanOnNodeDrag,
-  onError,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
   const { setNodes, setMinZoom, setMaxZoom, setTranslateExtent, reset } =
@@ -105,7 +103,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater("fitViewOnInitOptions", fitViewOptions, store.setState);
   useDirectStoreUpdater("noPanClassName", noPanClassName, store.setState);
   useDirectStoreUpdater("autoPanOnNodeDrag", autoPanOnNodeDrag, store.setState);
-  useDirectStoreUpdater("onError", onError, store.setState);
   useDirectStoreUpdater("nodeDragThreshold", nodeDragThreshold, store.setState);
 
   useStoreUpdater<Node[]>(nodes, setNodes);

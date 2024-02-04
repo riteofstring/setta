@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
+import { devWarn } from "xyflow/core/utils";
 import { errorMessages } from "../../contants";
 import { useStoreApi } from "../../hooks/useStore";
 import type { NodeTypes, NodeTypesWrapped } from "../../types";
@@ -22,7 +23,7 @@ export function useNodeOrEdgeTypes(
     if (process.env.NODE_ENV === "development") {
       const typeKeys = Object.keys(nodeOrEdgeTypes);
       if (shallow(typesKeysRef.current, typeKeys)) {
-        store.getState().onError?.("002", errorMessages["error002"]());
+        devWarn("002", errorMessages["error002"]());
       }
 
       typesKeysRef.current = typeKeys;

@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 import { errorMessages } from "../contants";
 import { useStoreApi } from "../hooks/useStore";
-import { getDimensions } from "../utils";
+import { devWarn, getDimensions } from "../utils";
 
 function useResizeHandler(
   rendererNode: MutableRefObject<HTMLDivElement | null>,
@@ -21,7 +21,7 @@ function useResizeHandler(
       const size = getDimensions(rendererNode.current);
 
       if (size.height === 0 || size.width === 0) {
-        store.getState().onError?.("004", errorMessages["error004"]());
+        devWarn("004", errorMessages["error004"]());
       }
 
       store.setState({ width: size.width || 500, height: size.height || 500 });

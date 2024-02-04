@@ -1,19 +1,16 @@
-import type { HTMLAttributes } from "react";
-
 import type {
   CoordinateExtent,
   FitViewOptions,
   KeyCode,
   Node,
   NodeTypes,
-  OnError,
   OnNodesChange,
   PanOnScrollMode,
   SelectionMode,
   Viewport,
 } from ".";
 
-export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
+export type ReactFlowProps = {
   nodes?: Node[];
   onNodesChange?: OnNodesChange;
   nodeTypes?: NodeTypes;
@@ -48,7 +45,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   fitView?: boolean;
   fitViewOptions?: FitViewOptions;
   autoPanOnNodeDrag?: boolean;
-  onError?: OnError;
   nodeDragThreshold?: number;
 };
 

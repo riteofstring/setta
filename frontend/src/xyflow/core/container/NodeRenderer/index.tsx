@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
+import { devWarn } from "xyflow/core/utils";
 import { errorMessages } from "../../contants";
 import { useStore } from "../../hooks/useStore";
 import useVisibleNodes from "../../hooks/useVisibleNodes";
@@ -26,7 +27,6 @@ const selector = (s: ReactFlowState) => ({
   nodesFocusable: s.nodesFocusable,
   elementsSelectable: s.elementsSelectable,
   updateNodeDimensions: s.updateNodeDimensions,
-  onError: s.onError,
 });
 
 const NodeRenderer = (props: NodeRendererProps) => {
@@ -35,7 +35,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
     nodesFocusable,
     elementsSelectable,
     updateNodeDimensions,
-    onError,
   } = useStore(selector, shallow);
   const nodes = useVisibleNodes();
   const resizeObserverRef = useRef<ResizeObserver>();
@@ -72,7 +71,7 @@ const NodeRenderer = (props: NodeRendererProps) => {
         let nodeType = node.type || "default";
 
         if (!props.nodeTypes[nodeType]) {
-          onError?.("003", errorMessages["error003"](nodeType));
+          devWarn("003", errorMessages["error003"](nodeType));
 
           nodeType = "default";
         }

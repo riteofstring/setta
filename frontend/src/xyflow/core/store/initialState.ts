@@ -1,5 +1,4 @@
 import type { CoordinateExtent, ReactFlowStore } from "../types";
-import { devWarn } from "../utils";
 
 export const infiniteExtent: CoordinateExtent = [
   [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
@@ -39,7 +38,6 @@ const initialState: ReactFlowStore = {
   multiSelectionActive: false,
 
   autoPanOnNodeDrag: true,
-  onError: devWarn,
 };
 
 export default initialState;

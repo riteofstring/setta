@@ -60,13 +60,8 @@ function useDrag({
       const selection = select(nodeRef.current);
 
       const updateNodes = ({ x, y }: XYPosition) => {
-        const {
-          nodeInternals,
-          updateNodePositions,
-          snapGrid,
-          snapToGrid,
-          onError,
-        } = store.getState();
+        const { nodeInternals, updateNodePositions, snapGrid, snapToGrid } =
+          store.getState();
 
         lastPos.current = { x, y };
 
@@ -82,12 +77,7 @@ function useDrag({
               snapGrid[1] * Math.round(nextPosition.y / snapGrid[1]);
           }
 
-          const updatedPos = calcNextPosition(
-            n,
-            nextPosition,
-            nodeInternals,
-            onError,
-          );
+          const updatedPos = calcNextPosition(n, nextPosition, nodeInternals);
 
           // we want to make sure that we only fire a change event when there is a change
           hasChange =

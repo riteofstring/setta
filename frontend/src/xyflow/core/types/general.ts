@@ -154,8 +154,6 @@ export type ReactFlowStore = {
   fitViewOnInitDone: boolean;
   fitViewOnInitOptions: FitViewOptions | undefined;
 
-  onError?: OnError;
-
   autoPanOnNodeDrag: boolean;
 };
 
