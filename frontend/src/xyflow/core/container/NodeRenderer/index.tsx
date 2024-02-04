@@ -28,7 +28,6 @@ type NodeRendererProps = Pick<
   | "onlyRenderVisibleElements"
   | "noPanClassName"
   | "noDragClassName"
-  | "disableKeyboardA11y"
   | "nodeOrigin"
   | "nodeExtent"
 > & {
@@ -151,7 +150,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}
             initialized={!!node.width && !!node.height}
-            disableKeyboardA11y={props.disableKeyboardA11y}
             ariaLabel={node.ariaLabel}
           />
         );

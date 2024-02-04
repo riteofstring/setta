@@ -71,8 +71,6 @@ function useDrag({
       const updateNodes = ({ x, y }: XYPosition) => {
         const {
           nodeInternals,
-          onNodeDrag,
-          onSelectionDrag,
           updateNodePositions,
           nodeExtent,
           snapGrid,
@@ -156,19 +154,6 @@ function useDrag({
 
         updateNodePositions(dragItems.current, true, true);
         setDragging(true);
-
-        const onDrag = nodeId
-          ? onNodeDrag
-          : wrapSelectionDragFunc(onSelectionDrag);
-
-        if (onDrag && dragEvent.current) {
-          const [currentNode, nodes] = getEventHandlerParams({
-            nodeId,
-            dragItems: dragItems.current,
-            nodeInternals,
-          });
-          onDrag(dragEvent.current as MouseEvent, currentNode, nodes);
-        }
       };
 
       const autoPan = (): void => {

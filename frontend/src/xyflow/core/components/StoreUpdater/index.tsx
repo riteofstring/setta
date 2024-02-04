@@ -29,17 +29,15 @@ type StoreUpdaterProps = Pick<
   | "fitViewOptions"
   | "onNodesDelete"
   | "onNodeDragStart"
-  | "onNodeDrag"
   | "onNodeDragStop"
   | "onSelectionDragStart"
-  | "onSelectionDrag"
   | "onSelectionDragStop"
   | "noPanClassName"
   | "nodeOrigin"
   | "autoPanOnNodeDrag"
   | "onError"
   | "nodeDragThreshold"
->
+>;
 
 const selector = (s: ReactFlowState) => ({
   setNodes: s.setNodes,
@@ -91,10 +89,8 @@ const StoreUpdater = ({
   fitView,
   fitViewOptions,
   onNodesDelete,
-  onNodeDrag,
   onNodeDragStart,
   onNodeDragStop,
-  onSelectionDrag,
   onSelectionDragStart,
   onSelectionDragStop,
   noPanClassName,
@@ -135,10 +131,8 @@ const StoreUpdater = ({
   useDirectStoreUpdater("fitViewOnInit", fitView, store.setState);
   useDirectStoreUpdater("fitViewOnInitOptions", fitViewOptions, store.setState);
   useDirectStoreUpdater("onNodesDelete", onNodesDelete, store.setState);
-  useDirectStoreUpdater("onNodeDrag", onNodeDrag, store.setState);
   useDirectStoreUpdater("onNodeDragStart", onNodeDragStart, store.setState);
   useDirectStoreUpdater("onNodeDragStop", onNodeDragStop, store.setState);
-  useDirectStoreUpdater("onSelectionDrag", onSelectionDrag, store.setState);
   useDirectStoreUpdater(
     "onSelectionDragStart",
     onSelectionDragStart,

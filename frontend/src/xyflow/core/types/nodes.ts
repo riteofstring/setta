@@ -80,7 +80,6 @@ export type WrapNodeProps<T = any> = Pick<
     isParent: boolean;
     noDragClassName: string;
     noPanClassName: string;
-    disableKeyboardA11y: boolean;
   };
 
 // props that get passed to a custom node

@@ -57,10 +57,8 @@ const FlowRenderer = ({
   minZoom,
   maxZoom,
   preventScrolling,
-  onSelectionContextMenu,
   noWheelClassName,
   noPanClassName,
-  disableKeyboardA11y,
   getNodesInsideSelection,
 }: FlowRendererProps) => {
   const nodesSelectionActive = useStore(selector);

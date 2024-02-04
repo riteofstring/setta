@@ -42,7 +42,6 @@ const initialState: ReactFlowStore = {
 
   multiSelectionActive: false,
 
-  ariaLiveMessage: "",
   autoPanOnNodeDrag: true,
   onError: devWarn,
 };

@@ -43,12 +43,10 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onNodeContextMenu,
       onNodeDoubleClick,
       onNodeDragStart,
-      onNodeDrag,
       onNodeDragStop,
       onNodesDelete,
       onSelectionChange,
       onSelectionDragStart,
-      onSelectionDrag,
       onSelectionDragStop,
       onSelectionContextMenu,
       onSelectionStart,
@@ -94,7 +92,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       noPanClassName = "nopan",
       fitView = false,
       fitViewOptions,
-      disableKeyboardA11y = false,
       autoPanOnNodeDrag = true,
       onError,
       style,
@@ -160,7 +157,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             noDragClassName={noDragClassName}
             noWheelClassName={noWheelClassName}
             noPanClassName={noPanClassName}
-            disableKeyboardA11y={disableKeyboardA11y}
             nodeOrigin={nodeOrigin}
             nodeExtent={nodeExtent}
             getNodesInsideSelection={getNodesInsideSelection}
@@ -182,9 +178,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             fitViewOptions={fitViewOptions}
             onNodesDelete={onNodesDelete}
             onNodeDragStart={onNodeDragStart}
-            onNodeDrag={onNodeDrag}
             onNodeDragStop={onNodeDragStop}
-            onSelectionDrag={onSelectionDrag}
             onSelectionDragStart={onSelectionDragStart}
             onSelectionDragStop={onSelectionDragStop}
             noPanClassName={noPanClassName}

@@ -48,7 +48,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     noDragClassName,
     noPanClassName,
     initialized,
-    disableKeyboardA11y,
     ariaLabel,
   }: WrapNodeProps) => {
     const store = useStoreApi();
@@ -126,17 +125,10 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
           nodeRef,
         });
       } else if (
-        !disableKeyboardA11y &&
         isDraggable &&
         selected &&
         Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)
       ) {
-        store.setState({
-          ariaLiveMessage: `Moved selected node ${event.key
-            .replace("Arrow", "")
-            .toLowerCase()}. New position, x: ${~~xPos}, y: ${~~yPos}`,
-        });
-
         updatePositions({
           x: arrowKeyDiffs[event.key].x,
           y: arrowKeyDiffs[event.key].y,

@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
 import useKeyPress from "../../hooks/useKeyPress";
+import useResizeHandler from "../../hooks/useResizeHandler";
 import { useStore, useStoreApi } from "../../hooks/useStore";
 import { containerStyle } from "../../styles";
 import {
@@ -22,7 +23,6 @@ import {
 } from "../../types";
 import { clamp, isMacOs } from "../../utils";
 import type { FlowRendererProps } from "../FlowRenderer";
-import useResizeHandler from "../../hooks/useResizeHandler";
 
 type ZoomPaneProps = Omit<
   FlowRendererProps,
@@ -30,7 +30,6 @@ type ZoomPaneProps = Omit<
   | "selectionKeyCode"
   | "multiSelectionKeyCode"
   | "noDragClassName"
-  | "disableKeyboardA11y"
   | "selectionOnDrag"
 >;
 

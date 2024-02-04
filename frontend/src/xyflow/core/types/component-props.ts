@@ -37,12 +37,10 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onNodeMouseLeave?: NodeMouseHandler;
   onNodeContextMenu?: NodeMouseHandler;
   onNodeDragStart?: NodeDragHandler;
-  onNodeDrag?: NodeDragHandler;
   onNodeDragStop?: NodeDragHandler;
   onNodesChange?: OnNodesChange;
   onNodesDelete?: OnNodesDelete;
   onSelectionDragStart?: SelectionDragHandler;
-  onSelectionDrag?: SelectionDragHandler;
   onSelectionDragStop?: SelectionDragHandler;
   onSelectionStart?: (event: ReactMouseEvent) => void;
   onSelectionEnd?: (event: ReactMouseEvent) => void;
@@ -93,7 +91,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   noPanClassName?: string;
   fitView?: boolean;
   fitViewOptions?: FitViewOptions;
-  disableKeyboardA11y?: boolean;
   autoPanOnNodeDrag?: boolean;
   onError?: OnError;
   nodeDragThreshold?: number;

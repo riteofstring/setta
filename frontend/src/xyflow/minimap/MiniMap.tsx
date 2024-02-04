@@ -41,7 +41,6 @@ const selector = (s: ReactFlowState) => {
   };
 };
 
-const ARIA_LABEL_KEY = "react-flow__minimap-desc";
 function MiniMap({
   style,
   className,
@@ -61,7 +60,6 @@ function MiniMap({
   onNodeClick,
   pannable = false,
   zoomable = false,
-  ariaLabel = "React Flow mini map",
   inversePan = false,
   zoomStep = 10,
   offsetScale = 5,

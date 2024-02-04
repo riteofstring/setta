@@ -157,11 +157,9 @@ export type ReactFlowStore = {
   multiSelectionActive: boolean;
 
   onNodeDragStart?: NodeDragHandler;
-  onNodeDrag?: NodeDragHandler;
   onNodeDragStop?: NodeDragHandler;
 
   onSelectionDragStart?: SelectionDragHandler;
-  onSelectionDrag?: SelectionDragHandler;
   onSelectionDragStop?: SelectionDragHandler;
 
   fitViewOnInit: boolean;
@@ -178,7 +176,6 @@ export type ReactFlowStore = {
 
   onSelectionChange: OnSelectionChangeFunc[];
 
-  ariaLiveMessage: string;
   autoPanOnNodeDrag: boolean;
 };
 

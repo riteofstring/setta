@@ -29,10 +29,9 @@ export type GraphViewProps = Omit<
       | "noWheelClassName"
       | "noPanClassName"
       | "defaultViewport"
-      | "disableKeyboardA11y"
       | "nodeOrigin"
     >
-  >
+  >;
 
 const GraphView = ({
   nodeTypes,
@@ -80,7 +79,6 @@ const GraphView = ({
   noDragClassName,
   noWheelClassName,
   noPanClassName,
-  disableKeyboardA11y,
   nodeOrigin,
   nodeExtent,
   getNodesInsideSelection,
@@ -126,7 +124,6 @@ const GraphView = ({
       noDragClassName={noDragClassName}
       noWheelClassName={noWheelClassName}
       noPanClassName={noPanClassName}
-      disableKeyboardA11y={disableKeyboardA11y}
       getNodesInsideSelection={getNodesInsideSelection}
     >
       <ViewportWrapper>
@@ -142,7 +139,6 @@ const GraphView = ({
           onlyRenderVisibleElements={onlyRenderVisibleElements}
           noPanClassName={noPanClassName}
           noDragClassName={noDragClassName}
-          disableKeyboardA11y={disableKeyboardA11y}
           nodeOrigin={nodeOrigin}
           nodeExtent={nodeExtent}
         />
