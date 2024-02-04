@@ -8,7 +8,6 @@ export type NodeDimensionChange = {
   type: "dimensions";
   dimensions?: Dimensions;
   updateStyle?: boolean;
-  resizing?: boolean;
 };
 
 export type NodePositionChange = {

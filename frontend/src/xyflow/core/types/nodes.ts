@@ -25,7 +25,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   positionAbsolute?: XYPosition;
   ariaLabel?: string;
   focusable?: boolean;
-  resizing?: boolean;
 
   // only used internally
   [internalsSymbol]?: {

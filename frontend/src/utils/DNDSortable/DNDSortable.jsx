@@ -1,19 +1,25 @@
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useDisableSortable } from "hooks/useDndUtils";
+import React from "react";
+
 export function DNDSortable({ sectionId, items, children }) {
-  // const disabled = useDisableSortable(sectionId);
+  const disabled = useDisableSortable(sectionId);
   return (
-    // <SortableContext
-    //   id={sectionId}
-    //   items={items}
-    //   strategy={
-    //     disabled.draggable || disabled.droppable
-    //       ? DisabledSortingStrategy
-    //       : verticalListSortingStrategy
-    //   }
-    //   disabled={disabled}
-    // >
-    // React.cloneElement(children, { droppableDisabled: disabled.droppable })
-    children
-    // </SortableContext>
+    <SortableContext
+      id={sectionId}
+      items={items}
+      strategy={
+        disabled.draggable || disabled.droppable
+          ? DisabledSortingStrategy
+          : verticalListSortingStrategy
+      }
+      disabled={disabled}
+    >
+      {React.cloneElement(children, { droppableDisabled: disabled.droppable })}
+    </SortableContext>
   );
 }
 

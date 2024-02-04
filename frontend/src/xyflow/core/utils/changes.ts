@@ -55,10 +55,6 @@ function applyChanges(changes: any[], elements: any[]): any[] {
               };
             }
 
-            if (typeof currentChange.resizing === "boolean") {
-              updateItem.resizing = currentChange.resizing;
-            }
-
             break;
           }
           case "remove": {

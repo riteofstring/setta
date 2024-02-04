@@ -2,7 +2,7 @@ import { useIsDraggingFreely } from "hooks/useDndUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { goToSection } from "thunks/goToSection";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
-import { SectionContainer } from "../SectionContainer/SectionContainer";
+import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
   const childIds = useSectionInfos((x) => x.x[sectionId].children);
@@ -40,7 +40,7 @@ function NestedSectionsWithMargin({
       )}
       <div className="flex flex-col items-start gap-2 ">
         {childIds.map((e) => (
-          <SectionContainer sectionId={e} key={`Nested-Sec-${e}`} />
+          <SortableSectionContainer sectionId={e} key={`Nested-Sec-${e}`} />
         ))}
       </div>
     </div>
