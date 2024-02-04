@@ -105,15 +105,6 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
   return boxToRect(box);
 };
 
-// @deprecated Use `getNodesBounds`.
-export const getRectOfNodes = (nodes: Node[]): Rect => {
-  console.warn(
-    "[DEPRECATED] `getRectOfNodes` is deprecated. Instead use `getNodesBounds` https://reactflow.dev/api-reference/utils/get-nodes-bounds.",
-  );
-
-  return getNodesBounds(nodes);
-};
-
 export const getNodesInside = (
   nodeInternals: NodeInternals,
   rect: Rect,
@@ -164,31 +155,6 @@ export const getNodesInside = (
   });
 
   return visibleNodes;
-};
-
-// @deprecated Use `getViewportForBounds`.
-export const getTransformForBounds = (
-  bounds: Rect,
-  width: number,
-  height: number,
-  minZoom: number,
-  maxZoom: number,
-  padding = 0.1,
-): Transform => {
-  const { x, y, zoom } = getViewportForBounds(
-    bounds,
-    width,
-    height,
-    minZoom,
-    maxZoom,
-    padding,
-  );
-
-  console.warn(
-    "[DEPRECATED] `getTransformForBounds` is deprecated. Instead use `getViewportForBounds`. Beware that the return value is type Viewport (`{ x: number, y: number, zoom: number }`) instead of Transform (`[number, number, number]`). https://reactflow.dev/api-reference/utils/get-viewport-for-bounds",
-  );
-
-  return [x, y, zoom];
 };
 
 export const getViewportForBounds = (

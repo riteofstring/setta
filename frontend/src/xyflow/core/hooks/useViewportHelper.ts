@@ -29,7 +29,6 @@ const initialViewportHelper: ViewportHelperFunctions = {
   fitView: () => false,
   setCenter: noop,
   fitBounds: noop,
-  project: (position: XYPosition) => position,
   screenToFlowPosition: (position: XYPosition) => position,
   flowToScreenPosition: (position: XYPosition) => position,
   viewportInitialized: false,
@@ -105,21 +104,6 @@ const useViewportHelper = (): ViewportHelperFunctions => {
           d3Zoom.transform(
             getD3Transition(d3Selection, options?.duration),
             transform,
-          );
-        },
-        // @deprecated Use `screenToFlowPosition`.
-        project: (position: XYPosition) => {
-          const { transform, snapToGrid, snapGrid } = store.getState();
-
-          console.warn(
-            "[DEPRECATED] `project` is deprecated. Instead use `screenToFlowPosition`. There is no need to subtract the react flow bounds anymore! https://reactflow.dev/api-reference/types/react-flow-instance#screen-to-flow-position",
-          );
-
-          return pointToRendererPoint(
-            position,
-            transform,
-            snapToGrid,
-            snapGrid,
           );
         },
         screenToFlowPosition: (position: XYPosition) => {

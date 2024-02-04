@@ -14,8 +14,6 @@ export { applyNodeChanges } from "./utils/changes";
 export {
   getNodePositionWithOrigin,
   getNodesBounds,
-  getRectOfNodes,
-  getTransformForBounds,
   getViewportForBounds,
   isNode,
 } from "./utils/graph";
