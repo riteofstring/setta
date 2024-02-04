@@ -19,7 +19,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   dragging?: boolean;
   draggable?: boolean;
   selectable?: boolean;
-  connectable?: boolean;
   deletable?: boolean;
   width?: number | null;
   height?: number | null;
@@ -62,7 +61,6 @@ export type WrapNodeProps<T = any> = Pick<
   | "ariaLabel"
 > &
   Required<Pick<Node<T>, "selected" | "type">> & {
-    isConnectable: boolean;
     xPos: number;
     yPos: number;
     xPosOrigin: number;
@@ -89,13 +87,7 @@ export type WrapNodeProps<T = any> = Pick<
 // props that get passed to a custom node
 export type NodeProps<T = any> = Pick<
   WrapNodeProps<T>,
-  | "id"
-  | "data"
-  | "type"
-  | "selected"
-  | "isConnectable"
-  | "xPos"
-  | "yPos"
+  "id" | "data" | "type" | "selected" | "xPos" | "yPos"
 > & {
   dragging: boolean;
   targetPosition?: Position;

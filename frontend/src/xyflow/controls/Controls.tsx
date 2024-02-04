@@ -25,7 +25,7 @@ import UnlockIcon from "./Icons/Unlock";
 import type { ControlProps } from "./types";
 
 const selector = (s: ReactFlowState) => ({
-  isInteractive: s.nodesDraggable || s.nodesConnectable || s.elementsSelectable,
+  isInteractive: s.nodesDraggable || s.elementsSelectable,
   minZoomReached: s.transform[2] <= s.minZoom,
   maxZoomReached: s.transform[2] >= s.maxZoom,
 });
@@ -78,7 +78,6 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   const onToggleInteractivity = () => {
     store.setState({
       nodesDraggable: !isInteractive,
-      nodesConnectable: !isInteractive,
       elementsSelectable: !isInteractive,
     });
 

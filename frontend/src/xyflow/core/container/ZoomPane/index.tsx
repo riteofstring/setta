@@ -22,7 +22,6 @@ import {
 } from "../../types";
 import { clamp, isMacOs } from "../../utils";
 import type { FlowRendererProps } from "../FlowRenderer";
-import useResizeHandler from "../../hooks/useResizeHandler";
 
 type ZoomPaneProps = Omit<
   FlowRendererProps,
@@ -110,8 +109,6 @@ const ZoomPane = ({
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
-
-  useResizeHandler(zoomPane);
 
   useEffect(() => {
     if (zoomPane.current) {

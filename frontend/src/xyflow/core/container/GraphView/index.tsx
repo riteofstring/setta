@@ -10,7 +10,7 @@ import { useNodeOrEdgeTypes } from "./utils";
 
 export type GraphViewProps = Omit<
   ReactFlowProps,
-  "onSelectionChange" | "nodes"  | "nodeTypes"
+  "onSelectionChange" | "nodes" | "nodeTypes"
 > &
   Required<
     Pick<
