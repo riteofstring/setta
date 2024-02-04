@@ -4,13 +4,7 @@ import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { useStoreApi } from "../../hooks/useStore";
-import type {
-  Node,
-  NodeDragItem,
-  SelectionDragHandler,
-  UseDragEvent,
-  XYPosition,
-} from "../../types";
+import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";
 import { calcNextPosition, getDragItems, hasSelector } from "./utils";
@@ -25,11 +19,6 @@ type UseDragParams = {
   isSelectable?: boolean;
   selectNodesOnDrag?: boolean;
 };
-
-function wrapSelectionDragFunc(selectionFunc?: SelectionDragHandler) {
-  return (event: MouseEvent, _: Node, nodes: Node[]) =>
-    selectionFunc?.(event, nodes);
-}
 
 function useDrag({
   nodeRef,

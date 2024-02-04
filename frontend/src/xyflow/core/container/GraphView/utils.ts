@@ -17,7 +17,6 @@ export function useNodeOrEdgeTypes(
   createTypes: any,
 ): any {
   const typesKeysRef = useRef<string[] | null>(null);
-  const store = useStoreApi();
 
   const typesParsed = useMemo(() => {
     if (process.env.NODE_ENV === "development") {
