@@ -14,7 +14,6 @@ export type ReactFlowProps = {
   nodes?: Node[];
   onNodesChange?: OnNodesChange;
   nodeTypes?: NodeTypes;
-  deleteKeyCode?: KeyCode | null;
   selectionKeyCode?: KeyCode | null;
   selectionOnDrag?: boolean;
   selectionMode?: SelectionMode;

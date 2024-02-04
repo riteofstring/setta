@@ -39,7 +39,6 @@ export type ReactFlowInstance<NodeData = any> = {
   addNodes: Instance.AddNodes<NodeData>;
   getNode: Instance.GetNode<NodeData>;
   toObject: Instance.ToObject<NodeData>;
-  deleteElements: Instance.DeleteElements;
   getIntersectingNodes: Instance.GetIntersectingNodes<NodeData>;
   isNodeIntersecting: Instance.IsNodeIntersecting<NodeData>;
   viewportInitialized: boolean;

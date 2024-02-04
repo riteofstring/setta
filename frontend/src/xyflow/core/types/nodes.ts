@@ -14,7 +14,6 @@ export type Node<U extends string | undefined = string | undefined> = {
   dragging?: boolean;
   draggable?: boolean;
   selectable?: boolean;
-  deletable?: boolean;
   width?: number | null;
   height?: number | null;
   ariaLabel?: string;

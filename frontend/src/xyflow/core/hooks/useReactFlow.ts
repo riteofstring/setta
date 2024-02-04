@@ -5,7 +5,6 @@ import type {
   Instance,
   Node,
   NodeAddChange,
-  NodeChange,
   NodeRemoveChange,
   NodeResetChange,
   ReactFlowInstance,
@@ -75,35 +74,6 @@ export default function useReactFlow<
       },
     };
   }, []);
-
-  const deleteElements = useCallback<Instance.DeleteElements>(
-    ({ nodes: nodesDeleted }) => {
-      const { getNodes, onNodesChange } = store.getState();
-      const nodeIds = (nodesDeleted || []).map((node) => node.id);
-      const nodesToRemove = getNodes().reduce<Node[]>((res, node) => {
-        const deletable =
-          typeof node.deletable === "boolean" ? node.deletable : true;
-        if (deletable && nodeIds.includes(node.id)) {
-          res.push(node);
-        }
-
-        return res;
-      }, []);
-
-      if (nodesToRemove) {
-        if (nodesToRemove.length > 0) {
-          if (onNodesChange) {
-            const nodeChanges: NodeChange[] = nodesToRemove.map((n) => ({
-              id: n.id,
-              type: "remove",
-            }));
-            onNodesChange(nodeChanges);
-          }
-        }
-      }
-    },
-    [],
-  );
 
   const getNodeRect = useCallback(
     (
@@ -175,7 +145,6 @@ export default function useReactFlow<
       setNodes,
       addNodes,
       toObject,
-      deleteElements,
       getIntersectingNodes,
       isNodeIntersecting,
     };
@@ -186,7 +155,6 @@ export default function useReactFlow<
     setNodes,
     addNodes,
     toObject,
-    deleteElements,
     getIntersectingNodes,
     isNodeIntersecting,
   ]);

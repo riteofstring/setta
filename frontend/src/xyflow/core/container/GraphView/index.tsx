@@ -14,7 +14,6 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes" | "nodeTypes"> &
       ReactFlowProps,
       | "nodeTypes"
       | "selectionKeyCode"
-      | "deleteKeyCode"
       | "multiSelectionKeyCode"
       | "translateExtent"
       | "minZoom"
@@ -36,7 +35,6 @@ const GraphView = ({
   multiSelectionKeyCode,
   panActivationKeyCode,
   zoomActivationKeyCode,
-  deleteKeyCode,
   elementsSelectable,
   selectNodesOnDrag,
   defaultViewport,
@@ -61,7 +59,6 @@ const GraphView = ({
 
   return (
     <FlowRenderer
-      deleteKeyCode={deleteKeyCode}
       selectionKeyCode={selectionKeyCode}
       selectionOnDrag={selectionOnDrag}
       selectionMode={selectionMode}

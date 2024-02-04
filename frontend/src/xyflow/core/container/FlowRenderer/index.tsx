@@ -21,7 +21,6 @@ export type FlowRendererProps = Omit<
 
 const FlowRenderer = ({
   children,
-  deleteKeyCode,
   selectionKeyCode,
   selectionOnDrag,
   selectionMode,
@@ -52,7 +51,7 @@ const FlowRenderer = ({
   const isSelecting =
     selectionKeyPressed || (selectionOnDrag && panOnDrag !== true);
 
-  useGlobalKeyHandler({ deleteKeyCode, multiSelectionKeyCode });
+  useGlobalKeyHandler({ multiSelectionKeyCode });
 
   return (
     <ZoomPane

@@ -25,7 +25,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       nodes,
       className,
       nodeTypes,
-      deleteKeyCode = "Backspace",
       selectionKeyCode = "Shift",
       selectionOnDrag = false,
       selectionMode = SelectionMode.Full,
@@ -80,7 +79,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             selectionKeyCode={selectionKeyCode}
             selectionOnDrag={selectionOnDrag}
             selectionMode={selectionMode}
-            deleteKeyCode={deleteKeyCode}
             multiSelectionKeyCode={multiSelectionKeyCode}
             panActivationKeyCode={panActivationKeyCode}
             zoomActivationKeyCode={zoomActivationKeyCode}

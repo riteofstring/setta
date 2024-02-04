@@ -26,7 +26,6 @@ import type { FlowRendererProps } from "../FlowRenderer";
 
 type ZoomPaneProps = Omit<
   FlowRendererProps,
-  | "deleteKeyCode"
   | "selectionKeyCode"
   | "multiSelectionKeyCode"
   | "noDragClassName"
