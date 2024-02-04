@@ -24,7 +24,6 @@ export function UIPage() {
           id: k,
           position: x.x[k].position,
           type: "sectionContainerNode",
-          zIndex: x.x[k].zIndex,
           selected: useActiveSection.getState().ids.includes(k),
           style: { visibility: "visible" }, // needed to prevent flickering
         })),

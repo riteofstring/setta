@@ -10,6 +10,7 @@ import useUpdateNodePositions from '../../hooks/useUpdateNodePositions';
 import { getMouseHandler, handleNodeClick } from './utils';
 import { elementSelectionKeys, isInputDOMNode } from '../../utils';
 import type { NodeProps, WrapNodeProps, XYPosition } from '../../types';
+import { useSectionInfos } from 'models/info/sectionInfos';
 
 export const arrowKeyDiffs: Record<string, XYPosition> = {
   ArrowUp: { x: 0, y: -1 },
@@ -61,6 +62,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     const prevType = useRef(type);
     const hasPointerEvents = isSelectable || isDraggable || onClick || onMouseEnter || onMouseMove || onMouseLeave;
     const updatePositions = useUpdateNodePositions();
+    const zIndex = useSectionInfos(x=>x.x[id].zIndex)
 
     const onMouseEnterHandler = getMouseHandler(id, store.getState, onMouseEnter);
     const onMouseMoveHandler = getMouseHandler(id, store.getState, onMouseMove);
@@ -185,6 +187,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
           transform: `translate(${xPosOrigin}px,${yPosOrigin}px)`,
           pointerEvents: hasPointerEvents ? 'all' : 'none',
           visibility: initialized ? 'visible' : 'hidden',
+          zIndex,
           ...style,
         }}
         data-id={id}
