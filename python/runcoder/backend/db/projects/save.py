@@ -67,8 +67,8 @@ def save_project_configs(db, projectId, configs):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ProjectConfigChildren (parentId, childId, "order")
-        VALUES (:parentId, :childId, :order)
+        INSERT INTO ProjectConfigChildren (parentId, childId, x, y, zIndex)
+        VALUES (:parentId, :childId, :x, :y, :zIndex)
     """
     query_params = []
     for c in configs:
@@ -78,9 +78,11 @@ def save_project_configs(db, projectId, configs):
                 {
                     "parentId": c["id"],
                     "childId": childId,
-                    "order": idx,
+                    "x": details["x"],
+                    "y": details["y"],
+                    "zIndex": details["zIndex"],
                 }
-                for idx, childId in enumerate(c["children"])
+                for childId, details in c["children"].items()
             ]
         )
     db.executemany(query, query_params)

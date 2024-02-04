@@ -43,9 +43,6 @@ CREATE_TABLES_COMMANDS = [
         name TEXT,
         width INTEGER,
         height INTEGER,
-        x INTEGER,
-        y INTEGER,
-        zIndex INTEGER,
         chainedFromId TEXT,
         evColId TEXT,
         paramSweepId TEXT,
@@ -170,7 +167,9 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS ProjectConfigChildren (
         parentId TEXT,
         childId TEXT,
-        "order" INTEGER,
+        x REAL DEFAULT 0,
+        y REAL DEFAULT 0,
+        zIndex REAL DEFAULT 0,
         PRIMARY KEY (parentId, childId),
         FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
         FOREIGN KEY (childId) REFERENCES Section(id)
