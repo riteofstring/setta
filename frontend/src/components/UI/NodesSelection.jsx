@@ -35,8 +35,6 @@ function _NodesSelection({ onSelectionContextMenu, disableKeyboardA11y }) {
     userSelectionActive,
   } = useStore(selector);
 
-  console.log(left, top, width, height)
-
   //   const {
   //     width,
   //     height,
