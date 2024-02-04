@@ -3,7 +3,6 @@ import { select } from "d3-selection";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 
-import { handleNodeClick } from "../../components/Nodes/utils";
 import { useStoreApi } from "../../hooks/useStore";
 import type {
   Node,
@@ -160,14 +159,6 @@ function useDrag({
             // we need to reset selected nodes when selectNodesOnDrag=false
             unselectNodesAndEdges();
           }
-        }
-
-        if (nodeId && isSelectable && selectNodesOnDrag) {
-          handleNodeClick({
-            id: nodeId,
-            store,
-            nodeRef: nodeRef as RefObject<HTMLDivElement>,
-          });
         }
 
         const pointerPos = getPointerPosition(event);

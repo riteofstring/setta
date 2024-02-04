@@ -8,8 +8,8 @@ import useDrag from "../../hooks/useDrag";
 import { useStoreApi } from "../../hooks/useStore";
 import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
 import type { NodeProps, WrapNodeProps, XYPosition } from "../../types";
-import { elementSelectionKeys, isInputDOMNode } from "../../utils";
-import { getMouseHandler, handleNodeClick } from "./utils";
+import { isInputDOMNode } from "../../utils";
+import { getMouseHandler } from "./utils";
 
 export const arrowKeyDiffs: Record<string, XYPosition> = {
   ArrowUp: { x: 0, y: -1 },
@@ -84,20 +84,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       onDoubleClick,
     );
     const onSelectNodeHandler = (event: MouseEvent) => {
-      const { nodeDragThreshold } = store.getState();
-
-      if (
-        isSelectable &&
-        (!selectNodesOnDrag || !isDraggable || nodeDragThreshold > 0)
-      ) {
-        // this handler gets called within the drag start event when selectNodesOnDrag=true
-        handleNodeClick({
-          id,
-          store,
-          nodeRef,
-        });
-      }
-
       if (onClick) {
         const node = store.getState().nodeInternals.get(id);
 
@@ -112,16 +98,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         return;
       }
 
-      if (elementSelectionKeys.includes(event.key) && isSelectable) {
-        const unselect = event.key === "Escape";
-
-        handleNodeClick({
-          id,
-          store,
-          unselect,
-          nodeRef,
-        });
-      } else if (
+      if (
         isDraggable &&
         selected &&
         Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)
