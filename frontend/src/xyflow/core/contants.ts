@@ -1,8 +1,6 @@
 export const errorMessages = {
   error001: () =>
     "[React Flow]: Seems like you have not used zustand provider as an ancestor. Help: https://reactflow.dev/error#001",
-  error002: () =>
-    "It looks like you've created a new nodeTypes object. If this wasn't on purpose please define the nodeTypes outside of the component or memoize them.",
   error003: (nodeType: string) =>
     `Node type "${nodeType}" not found. Using fallback type "default".`,
   error004: () =>

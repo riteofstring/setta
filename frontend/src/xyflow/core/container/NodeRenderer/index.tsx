@@ -1,23 +1,17 @@
-import type { ComponentType } from "react";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
+import { NodeWrapper } from "xyflow/core/components/Nodes/wrapNode";
 import { useStore } from "../../hooks/useStore";
 import useVisibleNodes from "../../hooks/useVisibleNodes";
 import { containerStyle } from "../../styles";
-import type {
-  NodeTypesWrapped,
-  ReactFlowState,
-  WrapNodeProps,
-} from "../../types";
+import type { ReactFlowState } from "../../types";
 import { GraphViewProps } from "../GraphView";
 
 type NodeRendererProps = Pick<
   GraphViewProps,
   "selectNodesOnDrag" | "noPanClassName" | "noDragClassName"
-> & {
-  nodeTypes: NodeTypesWrapped;
-};
+>;
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
@@ -65,12 +59,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
   return (
     <div className="react-flow__nodes" style={containerStyle}>
       {nodes.map((node) => {
-        const nodeType = node.type;
-
-        const NodeComponent = props.nodeTypes[
-          nodeType
-        ] as ComponentType<WrapNodeProps>;
-
         const isDraggable = !!(
           node.draggable ||
           (nodesDraggable && typeof node.draggable === "undefined")
@@ -88,11 +76,10 @@ const NodeRenderer = (props: NodeRendererProps) => {
         const posY = node.position?.y ?? 0;
 
         return (
-          <NodeComponent
+          <NodeWrapper
             key={node.id}
             id={node.id}
             style={node.style}
-            type={nodeType}
             xPos={posX}
             yPos={posY}
             selectNodesOnDrag={props.selectNodesOnDrag}

@@ -5,9 +5,6 @@ import { REACT_FLOW_STORE } from "utils/constants";
 import { ReactFlow } from "xyflow/core";
 import "xyflow/core/styles/style.css";
 import "./react-flow-css.css";
-import { SectionContainerNode } from "./SectionContainer/SectionContainerNode";
-
-const nodeTypes = { sectionContainerNode: SectionContainerNode };
 
 const reactFlowStyle = {
   // background: "#94a3b8",
@@ -82,7 +79,6 @@ function _SectionsPane({
       nodes={Object.values(nodes)}
       minZoom={0.1}
       maxZoom={10}
-      nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       style={reactFlowStyle}
       defaultViewport={REACT_FLOW_STORE.initialViewport}

@@ -24,7 +24,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
     {
       nodes,
       className,
-      nodeTypes,
       selectionKeyCode = "Shift",
       selectionOnDrag = false,
       selectionMode = SelectionMode.Full,
@@ -75,7 +74,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       >
         <Wrapper>
           <GraphView
-            nodeTypes={nodeTypes}
             selectionKeyCode={selectionKeyCode}
             selectionOnDrag={selectionOnDrag}
             selectionMode={selectionMode}

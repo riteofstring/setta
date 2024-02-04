@@ -4,15 +4,12 @@ import useOnInitHandler from "../../hooks/useOnInitHandler";
 import type { ReactFlowProps } from "../../types";
 import FlowRenderer from "../FlowRenderer";
 import NodeRenderer from "../NodeRenderer";
-import { createNodeTypes } from "../NodeRenderer/utils";
 import ViewportWrapper from "../Viewport";
-import { useNodeOrEdgeTypes } from "./utils";
 
-export type GraphViewProps = Omit<ReactFlowProps, "nodes" | "nodeTypes"> &
+export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
   Required<
     Pick<
       ReactFlowProps,
-      | "nodeTypes"
       | "selectionKeyCode"
       | "multiSelectionKeyCode"
       | "translateExtent"
@@ -28,7 +25,6 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes" | "nodeTypes"> &
   >;
 
 const GraphView = ({
-  nodeTypes,
   selectionKeyCode,
   selectionOnDrag,
   selectionMode,
@@ -53,8 +49,6 @@ const GraphView = ({
   noWheelClassName,
   noPanClassName,
 }: GraphViewProps) => {
-  const nodeTypesWrapped = useNodeOrEdgeTypes(nodeTypes, createNodeTypes);
-
   useOnInitHandler();
 
   return (
@@ -84,7 +78,6 @@ const GraphView = ({
     >
       <ViewportWrapper>
         <NodeRenderer
-          nodeTypes={nodeTypesWrapped}
           selectNodesOnDrag={selectNodesOnDrag}
           noPanClassName={noPanClassName}
           noDragClassName={noDragClassName}

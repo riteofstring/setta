@@ -23,7 +23,6 @@ export function UIPage() {
         topLevelSectionIds.map((k) => ({
           id: k,
           position: x.x[k].position,
-          type: "sectionContainerNode",
           selected: useActiveSection.getState().ids.includes(k),
           style: { visibility: "visible" }, // needed to prevent flickering
         })),

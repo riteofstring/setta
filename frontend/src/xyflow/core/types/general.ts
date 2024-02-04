@@ -5,7 +5,6 @@ import type {
   SubjectPosition,
   ZoomBehavior,
 } from "d3";
-import type { ComponentType, MemoExoticComponent } from "react";
 
 import type { NodeChange } from "./changes";
 import type { ReactFlowInstance } from "./instance";
@@ -14,15 +13,9 @@ import type {
   NodeDimensionUpdate,
   NodeDragItem,
   NodeInternals,
-  NodeProps,
-  WrapNodeProps,
 } from "./nodes";
 import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
 
-export type NodeTypes = { [key: string]: ComponentType<NodeProps> };
-export type NodeTypesWrapped = {
-  [key: string]: MemoExoticComponent<ComponentType<WrapNodeProps>>;
-};
 export type FitView = (fitViewOptions?: FitViewOptions) => boolean;
 
 export type Project = (position: XYPosition) => XYPosition;
