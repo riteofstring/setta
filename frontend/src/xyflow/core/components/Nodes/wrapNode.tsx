@@ -1,10 +1,8 @@
 import cc from "classcat";
+import { useSectionInfos } from "models/info/sectionInfos";
 import type { ComponentType, KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-
-import { useSectionInfos } from "models/info/sectionInfos";
 import useDrag from "../../hooks/useDrag";
-import { useStoreApi } from "../../hooks/useStore";
 import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
 import type { NodeProps, WrapNodeProps, XYPosition } from "../../types";
 import { isInputDOMNode } from "../../utils";
@@ -33,9 +31,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     noPanClassName,
     initialized,
   }: WrapNodeProps) => {
-    const store = useStoreApi();
     const nodeRef = useRef<HTMLDivElement>(null);
-    const prevType = useRef(type);
     const hasPointerEvents = isSelectable || isDraggable;
     const updatePositions = useUpdateNodePositions();
     const zIndex = useSectionInfos((x) => x.x[id]?.zIndex);
@@ -67,23 +63,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       }
     }, []);
 
-    useEffect(() => {
-      // when the user programmatically changes the source or handle position, we re-initialize the node
-      const typeChanged = prevType.current !== type;
-
-      if (nodeRef.current && typeChanged) {
-        if (typeChanged) {
-          prevType.current = type;
-        }
-        store
-          .getState()
-          .updateNodeDimensions([
-            { id, nodeElement: nodeRef.current, forceUpdate: true },
-          ]);
-      }
-    }, [id, type]);
-
-    const dragging = useDrag({
+    useDrag({
       nodeRef,
       disabled: !isDraggable,
       noDragClassName,
@@ -119,14 +99,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         tabIndex={isFocusable ? 0 : undefined}
         role={isFocusable ? "button" : undefined}
       >
-        <NodeComponent
-          id={id}
-          type={type}
-          xPos={xPos}
-          yPos={yPos}
-          selected={selected}
-          dragging={dragging}
-        />
+        <NodeComponent id={id} />
       </div>
     );
   };
