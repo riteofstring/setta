@@ -29,11 +29,11 @@ const _NodeWrapper = ({
   noDragClassName,
   noPanClassName,
   initialized,
+  zIndex,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
   const hasPointerEvents = isSelectable || isDraggable;
   const updatePositions = useUpdateNodePositions();
-  const zIndex = useSectionInfos((x) => x.x[id]?.zIndex);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (isInputDOMNode(event)) {

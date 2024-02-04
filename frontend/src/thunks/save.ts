@@ -27,7 +27,7 @@ export function getProjectData(): ProjectSaveType {
   projectConfig.viewport = REACT_FLOW_STORE.rf.getViewport();
   const children = {};
   for (const c of REACT_FLOW_STORE.store.getState().nodeInternals.values()) {
-    children[c.id] = { x: c.position.x, y: c.position.y, zIndex: 0 };
+    children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
   }
   projectConfig.children = children
 

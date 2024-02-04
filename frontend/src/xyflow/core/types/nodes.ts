@@ -14,6 +14,7 @@ export type Node<U extends string | undefined = string | undefined> = {
   selectable?: boolean;
   width?: number | null;
   height?: number | null;
+  zIndex: number;
   focusable?: boolean;
 };
 
@@ -40,6 +41,7 @@ export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> &
     resizeObserver: ResizeObserver | null;
     noDragClassName: string;
     noPanClassName: string;
+    zIndex: number;
   };
 
 // props that get passed to a custom node

@@ -43,6 +43,7 @@ export function loadProjectState({
     _.map(projectConfig.children, (v, k) => ({
       id: k,
       position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
     })),
   );
   useUITypes.getState().resetAndSetAll(uiTypes);

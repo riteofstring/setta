@@ -91,6 +91,7 @@ const NodeRenderer = (props: NodeRendererProps) => {
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}
             initialized={!!node.width && !!node.height}
+            zIndex={node.zIndex}
           />
         );
       })}
