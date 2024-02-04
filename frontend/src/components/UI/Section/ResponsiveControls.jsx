@@ -4,7 +4,6 @@ import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
-import { setPositionState } from "thunks/sections/sectionPositions";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
 import { ControlButton, Controls } from "xyflow/controls";
 import "xyflow/controls/style.css";
@@ -38,8 +37,6 @@ export function ResponsiveControls() {
         return node;
       }),
     );
-
-    setPositionState(Array.from(store.getState().nodeInternals.values()), true);
   }
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.

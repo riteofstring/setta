@@ -40,7 +40,7 @@ function _SectionContainerCore({ sectionId }) {
       useActiveSection.getState().setIds([sectionId]);
     }
     const highestAncestor = getHighestAncestor(sectionId);
-    setZIndices([useSectionInfos.getState().x[highestAncestor]], false);
+    // setZIndices([useSectionInfos.getState().x[highestAncestor]], false);
   }
 
   useEffect(() => {

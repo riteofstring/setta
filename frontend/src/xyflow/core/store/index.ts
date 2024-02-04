@@ -131,6 +131,9 @@ const createRFStore = () =>
       onNodesChange: (changes: NodeChange[]) => {
         const { nodeInternals } = get();
         const newNodes = new Map(nodeInternals);
+        for (const [, n] of newNodes) {
+          n.tempZIndex = n.zIndex;
+        }
         for (const c of changes) {
           switch (c.type) {
             case "select": {
@@ -152,7 +155,11 @@ const createRFStore = () =>
               break;
             }
           }
+          if (c.dragging) {
+            newNodes.get(c.id).tempZIndex = newNodes.get(c.id).zIndex + 1000;
+          }
         }
+
         set({ nodeInternals: newNodes });
       },
 

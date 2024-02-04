@@ -15,6 +15,7 @@ export type Node<U extends string | undefined = string | undefined> = {
   width?: number | null;
   height?: number | null;
   zIndex: number;
+  tempZIndex: number;
   focusable?: boolean;
 };
 

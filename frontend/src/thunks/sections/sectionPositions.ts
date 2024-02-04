@@ -4,24 +4,6 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { SectionType } from "z_utils/types/section";
 
-export function setPositionState(inputNodes, incrementVersion) {
-  const nodes = inputNodes.filter((x) => x.id);
-  const newValues = [];
-  const s = useSectionInfos.getState();
-  for (const n of nodes) {
-    if (!_.isEqual(s.x[n.id].position, n.position)) {
-      newValues.push({ id: n.id, position: n.position });
-    }
-  }
-
-  const positionsChanged = newValues.length > 0;
-  if (positionsChanged) {
-    s.updatePositions(newValues);
-    maybeIncrementProjectStateVersion(incrementVersion);
-  }
-  return positionsChanged;
-}
-
 export function setZIndices(inputNodes: SectionType[], incrementVersion) {
   const nodes = inputNodes.filter((x) => x.id);
   const s = useSectionInfos.getState();
@@ -51,7 +33,3 @@ export function setZIndices(inputNodes: SectionType[], incrementVersion) {
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function setPositionAndZIndices(nodes) {
-  const positionsChanged = setPositionState(nodes, false);
-  setZIndices(nodes, positionsChanged);
-}
