@@ -7,7 +7,6 @@ import type { XYPosition } from ".";
 export type Node<U extends string | undefined = string | undefined> = {
   id: string;
   position: XYPosition;
-  type?: U;
   style?: CSSProperties;
   selected?: boolean;
   dragging?: boolean;
@@ -30,7 +29,7 @@ export type SelectionDragHandler = (
 ) => void;
 
 export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> &
-  Required<Pick<Node<T>, "selected" | "type">> & {
+  Required<Pick<Node<T>, "selected">> & {
     xPos: number;
     yPos: number;
     initialized: boolean;
@@ -46,7 +45,7 @@ export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> &
 // props that get passed to a custom node
 export type NodeProps<T = any> = Pick<
   WrapNodeProps<T>,
-  "id" | "type" | "selected" | "xPos" | "yPos"
+  "id" | "selected" | "xPos" | "yPos"
 > & {
   dragging: boolean;
 };
