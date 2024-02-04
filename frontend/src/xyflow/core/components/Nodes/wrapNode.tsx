@@ -21,7 +21,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
   const NodeWrapper = ({
     id,
     type,
-    data,
     xPos,
     yPos,
     selected,
@@ -33,8 +32,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     isSelectable,
     isFocusable,
     selectNodesOnDrag,
-    sourcePosition,
-    targetPosition,
     hidden,
     resizeObserver,
     noDragClassName,
@@ -44,8 +41,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
   }: WrapNodeProps) => {
     const store = useStoreApi();
     const nodeRef = useRef<HTMLDivElement>(null);
-    const prevSourcePosition = useRef(sourcePosition);
-    const prevTargetPosition = useRef(targetPosition);
     const prevType = useRef(type);
     const hasPointerEvents = isSelectable || isDraggable || onClick;
     const updatePositions = useUpdateNodePositions();
@@ -96,21 +91,10 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     useEffect(() => {
       // when the user programmatically changes the source or handle position, we re-initialize the node
       const typeChanged = prevType.current !== type;
-      const sourcePosChanged = prevSourcePosition.current !== sourcePosition;
-      const targetPosChanged = prevTargetPosition.current !== targetPosition;
 
-      if (
-        nodeRef.current &&
-        (typeChanged || sourcePosChanged || targetPosChanged)
-      ) {
+      if (nodeRef.current && typeChanged) {
         if (typeChanged) {
           prevType.current = type;
-        }
-        if (sourcePosChanged) {
-          prevSourcePosition.current = sourcePosition;
-        }
-        if (targetPosChanged) {
-          prevTargetPosition.current = targetPosition;
         }
         store
           .getState()
@@ -118,7 +102,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
             { id, nodeElement: nodeRef.current, forceUpdate: true },
           ]);
       }
-    }, [id, type, sourcePosition, targetPosition]);
+    }, [id, type]);
 
     const dragging = useDrag({
       nodeRef,
@@ -166,13 +150,10 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       >
         <NodeComponent
           id={id}
-          data={data}
           type={type}
           xPos={xPos}
           yPos={yPos}
           selected={selected}
-          sourcePosition={sourcePosition}
-          targetPosition={targetPosition}
           dragging={dragging}
         />
       </div>

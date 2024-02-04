@@ -12,7 +12,6 @@ import type {
   ReactFlowState,
   WrapNodeProps,
 } from "../../types";
-import { Position } from "../../types";
 import { GraphViewProps } from "../GraphView";
 
 type NodeRendererProps = Pick<
@@ -103,9 +102,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             className={node.className}
             style={node.style}
             type={nodeType}
-            data={node.data}
-            sourcePosition={node.sourcePosition || Position.Bottom}
-            targetPosition={node.targetPosition || Position.Top}
             hidden={node.hidden}
             xPos={posX}
             yPos={posY}

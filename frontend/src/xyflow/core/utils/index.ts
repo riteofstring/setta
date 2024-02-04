@@ -74,7 +74,7 @@ export const boxToRect = ({ x, y, x2, y2 }: Box): Rect => ({
 });
 
 export const nodeToRect = (node: Node): Rect => ({
-  ...(node.positionAbsolute || { x: 0, y: 0 }),
+  ...(node.position || { x: 0, y: 0 }),
   width: node.width || 0,
   height: node.height || 0,
 });

@@ -1,18 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 
-import type { Position, XYPosition } from ".";
+import type { XYPosition } from ".";
 
 // interface for the user node items
-export type Node<T = any, U extends string | undefined = string | undefined> = {
+export type Node<U extends string | undefined = string | undefined> = {
   id: string;
   position: XYPosition;
-  data: T;
   type?: U;
   style?: CSSProperties;
   className?: string;
-  sourcePosition?: Position;
-  targetPosition?: Position;
   hidden?: boolean;
   selected?: boolean;
   dragging?: boolean;
@@ -38,14 +35,7 @@ export type SelectionDragHandler = (
 
 export type WrapNodeProps<T = any> = Pick<
   Node<T>,
-  | "id"
-  | "data"
-  | "style"
-  | "className"
-  | "sourcePosition"
-  | "targetPosition"
-  | "hidden"
-  | "ariaLabel"
+  "id" | "style" | "className" | "hidden" | "ariaLabel"
 > &
   Required<Pick<Node<T>, "selected" | "type">> & {
     xPos: number;
@@ -69,11 +59,9 @@ export type WrapNodeProps<T = any> = Pick<
 // props that get passed to a custom node
 export type NodeProps<T = any> = Pick<
   WrapNodeProps<T>,
-  "id" | "data" | "type" | "selected" | "xPos" | "yPos"
+  "id" | "type" | "selected" | "xPos" | "yPos"
 > & {
   dragging: boolean;
-  targetPosition?: Position;
-  sourcePosition?: Position;
 };
 
 export type NodeDimensionUpdate = {
