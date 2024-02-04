@@ -25,6 +25,11 @@ export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = REACT_FLOW_STORE.rf.getViewport();
+  const children = {};
+  for (const c of REACT_FLOW_STORE.store.getState().nodeInternals.values()) {
+    children[c.id] = { x: c.position.x, y: c.position.y, zIndex: 0 };
+  }
+  projectConfig.children = children
 
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
