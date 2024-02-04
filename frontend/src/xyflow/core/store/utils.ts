@@ -2,8 +2,6 @@ import { zoomIdentity } from "d3-zoom";
 import type { StoreApi } from "zustand";
 
 import type {
-  Edge,
-  EdgeSelectionChange,
   FitViewOptions,
   Node,
   NodeInternals,
@@ -215,40 +213,18 @@ export function handleControlledNodeSelectionChange(
   return new Map(nodeInternals);
 }
 
-export function handleControlledEdgeSelectionChange(
-  edgeChanges: EdgeSelectionChange[],
-  edges: Edge[],
-) {
-  return edges.map((e) => {
-    const change = edgeChanges.find((change) => change.id === e.id);
-    if (change) {
-      e.selected = change.selected;
-    }
-    return e;
-  });
-}
-
 type UpdateNodesAndEdgesParams = {
   changedNodes: NodeSelectionChange[] | null;
-  changedEdges: EdgeSelectionChange[] | null;
   get: StoreApi<ReactFlowState>["getState"];
   set: StoreApi<ReactFlowState>["setState"];
 };
 
 export function updateNodesAndEdgesSelections({
   changedNodes,
-  changedEdges,
   get,
   set,
 }: UpdateNodesAndEdgesParams) {
-  const {
-    nodeInternals,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    hasDefaultNodes,
-    hasDefaultEdges,
-  } = get();
+  const { nodeInternals, onNodesChange, hasDefaultNodes } = get();
 
   if (changedNodes?.length) {
     if (hasDefaultNodes) {
@@ -261,13 +237,5 @@ export function updateNodesAndEdgesSelections({
     }
 
     onNodesChange?.(changedNodes);
-  }
-
-  if (changedEdges?.length) {
-    if (hasDefaultEdges) {
-      set({ edges: handleControlledEdgeSelectionChange(changedEdges, edges) });
-    }
-
-    onEdgesChange?.(changedEdges);
   }
 }

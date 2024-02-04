@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { Edge } from "./edges";
 import type { Node } from "./nodes";
 import type { Dimensions, XYPosition } from "./utils";
 
@@ -48,19 +47,3 @@ export type NodeChange =
   | NodeRemoveChange
   | NodeAddChange
   | NodeResetChange;
-
-export type EdgeSelectionChange = NodeSelectionChange;
-export type EdgeRemoveChange = NodeRemoveChange;
-export type EdgeAddChange<EdgeData = any> = {
-  item: Edge<EdgeData>;
-  type: "add";
-};
-export type EdgeResetChange<EdgeData = any> = {
-  item: Edge<EdgeData>;
-  type: "reset";
-};
-export type EdgeChange =
-  | EdgeSelectionChange
-  | EdgeRemoveChange
-  | EdgeAddChange
-  | EdgeResetChange;

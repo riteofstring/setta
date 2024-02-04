@@ -10,13 +10,12 @@ import { useNodeOrEdgeTypes } from "./utils";
 
 export type GraphViewProps = Omit<
   ReactFlowProps,
-  "onSelectionChange" | "nodes" | "edges" | "nodeTypes" | "edgeTypes"
+  "onSelectionChange" | "nodes"  | "nodeTypes"
 > &
   Required<
     Pick<
       ReactFlowProps,
       | "nodeTypes"
-      | "edgeTypes"
       | "selectionKeyCode"
       | "deleteKeyCode"
       | "multiSelectionKeyCode"
@@ -24,7 +23,6 @@ export type GraphViewProps = Omit<
       | "translateExtent"
       | "minZoom"
       | "maxZoom"
-      | "defaultMarkerColor"
       | "selectNodesOnDrag"
       | "noDragClassName"
       | "noDragClassName"
@@ -40,15 +38,12 @@ export type GraphViewProps = Omit<
 
 const GraphView = ({
   nodeTypes,
-  edgeTypes,
   onMove,
   onMoveStart,
   onMoveEnd,
   onInit,
   onNodeClick,
-  onEdgeClick,
   onNodeDoubleClick,
-  onEdgeDoubleClick,
   onNodeMouseEnter,
   onNodeMouseMove,
   onNodeMouseLeave,
@@ -71,7 +66,6 @@ const GraphView = ({
   minZoom,
   maxZoom,
   preventScrolling,
-  defaultMarkerColor,
   zoomOnScroll,
   zoomOnPinch,
   panOnScroll,
@@ -85,18 +79,9 @@ const GraphView = ({
   onPaneMouseLeave,
   onPaneScroll,
   onPaneContextMenu,
-  onEdgeUpdate,
-  onEdgeContextMenu,
-  onEdgeMouseEnter,
-  onEdgeMouseMove,
-  onEdgeMouseLeave,
-  edgeUpdaterRadius,
-  onEdgeUpdateStart,
-  onEdgeUpdateEnd,
   noDragClassName,
   noWheelClassName,
   noPanClassName,
-  elevateEdgesOnSelect,
   disableKeyboardA11y,
   nodeOrigin,
   nodeExtent,

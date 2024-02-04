@@ -12,9 +12,7 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
-import type { DefaultEdgeOptions } from ".";
-import type { EdgeChange, NodeChange } from "./changes";
-import type { Edge, EdgeProps, WrapEdgeProps } from "./edges";
+import type { NodeChange } from "./changes";
 import type { ConnectingHandle, HandleType } from "./handles";
 import type { ReactFlowInstance } from "./instance";
 import type {
@@ -34,20 +32,13 @@ export type NodeTypes = { [key: string]: ComponentType<NodeProps> };
 export type NodeTypesWrapped = {
   [key: string]: MemoExoticComponent<ComponentType<WrapNodeProps>>;
 };
-export type EdgeTypes = { [key: string]: ComponentType<EdgeProps> };
-export type EdgeTypesWrapped = {
-  [key: string]: MemoExoticComponent<ComponentType<WrapEdgeProps>>;
-};
-
 export type FitView = (fitViewOptions?: FitViewOptions) => boolean;
 
 export type Project = (position: XYPosition) => XYPosition;
 
 export type OnNodesChange = (changes: NodeChange[]) => void;
-export type OnEdgesChange = (changes: EdgeChange[]) => void;
 
 export type OnNodesDelete = (nodes: Node[]) => void;
-export type OnEdgesDelete = (edges: Edge[]) => void;
 
 export type OnMove = (
   event: MouseEvent | TouchEvent,
@@ -74,8 +65,8 @@ export type SetCenter = (
 ) => void;
 export type FitBounds = (bounds: Rect, options?: FitBoundsOptions) => void;
 
-export type OnInit<NodeData = any, EdgeData = any> = (
-  reactFlowInstance: ReactFlowInstance<NodeData, EdgeData>,
+export type OnInit<NodeData = any> = (
+  reactFlowInstance: ReactFlowInstance<NodeData>,
 ) => void;
 
 export interface Connection {
@@ -85,7 +76,7 @@ export interface Connection {
   targetHandle: string | null;
 }
 
-export type IsValidConnection = (edge: Edge | Connection) => boolean;
+export type IsValidConnection = (Connection) => boolean;
 
 export type ConnectionStatus = "valid" | "invalid";
 
@@ -147,7 +138,6 @@ export type FitBoundsOptions = ViewportHelperFunctionOptions & {
 
 export type UnselectNodesAndEdgesParams = {
   nodes?: Node[];
-  edges?: Edge[];
 };
 
 export type OnViewportChange = (viewport: Viewport) => void;
@@ -174,11 +164,8 @@ export type ReactFlowStore = {
   height: number;
   transform: Transform;
   nodeInternals: NodeInternals;
-  edges: Edge[];
   onNodesChange: OnNodesChange | null;
-  onEdgesChange: OnEdgesChange | null;
   hasDefaultNodes: boolean;
-  hasDefaultEdges: boolean;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
   noPanClassName: string;
@@ -211,8 +198,6 @@ export type ReactFlowStore = {
   nodesDraggable: boolean;
   nodesConnectable: boolean;
   nodesFocusable: boolean;
-  edgesFocusable: boolean;
-  edgesUpdatable: boolean;
   elementsSelectable: boolean;
 
   multiSelectionActive: boolean;
@@ -238,14 +223,12 @@ export type ReactFlowStore = {
   onClickConnectEnd?: OnConnectEnd;
 
   connectOnClick: boolean;
-  defaultEdgeOptions?: DefaultEdgeOptions;
 
   fitViewOnInit: boolean;
   fitViewOnInitDone: boolean;
   fitViewOnInitOptions: FitViewOptions | undefined;
 
   onNodesDelete?: OnNodesDelete;
-  onEdgesDelete?: OnEdgesDelete;
   onError?: OnError;
 
   // event handlers
@@ -266,8 +249,7 @@ export type ReactFlowStore = {
 export type ReactFlowActions = {
   setNodes: (nodes: Node[]) => void;
   getNodes: () => Node[];
-  setEdges: (edges: Edge[]) => void;
-  setDefaultNodesAndEdges: (nodes?: Node[], edges?: Edge[]) => void;
+  setDefaultNodesAndEdges: (nodes?: Node[]) => void;
   updateNodeDimensions: (updates: NodeDimensionUpdate[]) => void;
   updateNodePositions: (
     nodeDragItems: NodeDragItem[] | Node[],
@@ -277,7 +259,6 @@ export type ReactFlowActions = {
   resetSelectedElements: () => void;
   unselectNodesAndEdges: (params?: UnselectNodesAndEdgesParams) => void;
   addSelectedNodes: (nodeIds: string[]) => void;
-  addSelectedEdges: (edgeIds: string[]) => void;
   setMinZoom: (minZoom: number) => void;
   setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
@@ -294,7 +275,6 @@ export type UpdateNodeInternals = (nodeId: string | string[]) => void;
 
 export type OnSelectionChangeParams = {
   nodes: Node[];
-  edges: Edge[];
 };
 
 export type OnSelectionChangeFunc = (params: OnSelectionChangeParams) => void;
@@ -325,6 +305,3 @@ export type SelectionRect = Rect & {
 
 export type OnError = (id: string, message: string) => void;
 
-export interface UpdateEdgeOptions {
-  shouldReplaceId?: boolean;
-}

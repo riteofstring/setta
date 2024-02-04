@@ -1,166 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
 
-import { errorMessages } from "../contants";
 import {
   Connection,
-  Edge,
-  EdgeMarkerType,
   Node,
   NodeInternals,
   NodeOrigin,
   Rect,
   Transform,
-  UpdateEdgeOptions,
   Viewport,
   XYPosition,
 } from "../types";
 import {
   boxToRect,
   clamp,
-  devWarn,
   getBoundsOfBoxes,
   getOverlappingArea,
   rectToBox,
 } from "../utils";
 
-export const isEdge = (element: Node | Connection | Edge): element is Edge =>
-  "id" in element && "source" in element && "target" in element;
-
-export const isNode = (element: Node | Connection | Edge): element is Node =>
+export const isNode = (element: Node | Connection): element is Node =>
   "id" in element && !("source" in element) && !("target" in element);
-
-export const getOutgoers = <T = any, U extends T = T>(
-  node: Node<U>,
-  nodes: Node<T>[],
-  edges: Edge[],
-): Node<T>[] => {
-  if (!isNode(node)) {
-    return [];
-  }
-
-  const outgoerIds = edges
-    .filter((e) => e.source === node.id)
-    .map((e) => e.target);
-  return nodes.filter((n) => outgoerIds.includes(n.id));
-};
-
-export const getIncomers = <T = any, U extends T = T>(
-  node: Node<U>,
-  nodes: Node<T>[],
-  edges: Edge[],
-): Node<T>[] => {
-  if (!isNode(node)) {
-    return [];
-  }
-
-  const incomersIds = edges
-    .filter((e) => e.target === node.id)
-    .map((e) => e.source);
-  return nodes.filter((n) => incomersIds.includes(n.id));
-};
-
-const getEdgeId = ({
-  source,
-  sourceHandle,
-  target,
-  targetHandle,
-}: Connection): string =>
-  `reactflow__edge-${source}${sourceHandle || ""}-${target}${targetHandle || ""}`;
-
-export const getMarkerId = (
-  marker: EdgeMarkerType | undefined,
-  rfId?: string,
-): string => {
-  if (typeof marker === "undefined") {
-    return "";
-  }
-
-  if (typeof marker === "string") {
-    return marker;
-  }
-
-  const idPrefix = rfId ? `${rfId}__` : "";
-
-  return `${idPrefix}${Object.keys(marker)
-    .sort()
-    .map((key: string) => `${key}=${(marker as any)[key]}`)
-    .join("&")}`;
-};
-
-const connectionExists = (edge: Edge, edges: Edge[]) => {
-  return edges.some(
-    (el) =>
-      el.source === edge.source &&
-      el.target === edge.target &&
-      (el.sourceHandle === edge.sourceHandle ||
-        (!el.sourceHandle && !edge.sourceHandle)) &&
-      (el.targetHandle === edge.targetHandle ||
-        (!el.targetHandle && !edge.targetHandle)),
-  );
-};
-
-export const addEdge = (
-  edgeParams: Edge | Connection,
-  edges: Edge[],
-): Edge[] => {
-  if (!edgeParams.source || !edgeParams.target) {
-    devWarn("006", errorMessages["error006"]());
-
-    return edges;
-  }
-
-  let edge: Edge;
-  if (isEdge(edgeParams)) {
-    edge = { ...edgeParams };
-  } else {
-    edge = {
-      ...edgeParams,
-      id: getEdgeId(edgeParams),
-    } as Edge;
-  }
-
-  if (connectionExists(edge, edges)) {
-    return edges;
-  }
-
-  return edges.concat(edge);
-};
-
-export const updateEdge = (
-  oldEdge: Edge,
-  newConnection: Connection,
-  edges: Edge[],
-  options: UpdateEdgeOptions = { shouldReplaceId: true },
-): Edge[] => {
-  const { id: oldEdgeId, ...rest } = oldEdge;
-
-  if (!newConnection.source || !newConnection.target) {
-    devWarn("006", errorMessages["error006"]());
-
-    return edges;
-  }
-
-  const foundEdge = edges.find((e) => e.id === oldEdgeId) as Edge;
-
-  if (!foundEdge) {
-    devWarn("007", errorMessages["error007"](oldEdgeId));
-
-    return edges;
-  }
-
-  // Remove old edge and create the new edge with parameters of old edge.
-  const edge = {
-    ...rest,
-    id: options.shouldReplaceId ? getEdgeId(newConnection) : oldEdgeId,
-    source: newConnection.source,
-    target: newConnection.target,
-    sourceHandle: newConnection.sourceHandle,
-    targetHandle: newConnection.targetHandle,
-  } as Edge;
-
-  return edges.filter((e) => e.id !== oldEdgeId).concat(edge);
-};
 
 export const pointToRendererPoint = (
   { x, y }: XYPosition,
@@ -320,14 +180,6 @@ export const getNodesInside = (
   });
 
   return visibleNodes;
-};
-
-export const getConnectedEdges = (nodes: Node[], edges: Edge[]): Edge[] => {
-  const nodeIds = nodes.map((node) => node.id);
-
-  return edges.filter(
-    (edge) => nodeIds.includes(edge.source) || nodeIds.includes(edge.target),
-  );
 };
 
 // @deprecated Use `getViewportForBounds`.

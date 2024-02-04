@@ -31,13 +31,10 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
   (
     {
       nodes,
-      edges,
       defaultNodes,
-      defaultEdges,
       className,
       nodeTypes,
       onNodeClick,
-      onEdgeClick,
       onInit,
       onMove,
       onMoveStart,
@@ -56,7 +53,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onNodeDrag,
       onNodeDragStop,
       onNodesDelete,
-      onEdgesDelete,
       onSelectionChange,
       onSelectionDragStart,
       onSelectionDrag,
@@ -80,8 +76,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       nodesConnectable,
       nodesFocusable,
       nodeOrigin = initNodeOrigin,
-      edgesFocusable,
-      edgesUpdatable,
       elementsSelectable,
       defaultViewport = initDefaultViewport,
       minZoom = 0.5,
@@ -89,7 +83,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       translateExtent = infiniteExtent,
       preventScrolling = true,
       nodeExtent,
-      defaultMarkerColor = "#b1b1b7",
       zoomOnScroll = true,
       zoomOnPinch = true,
       panOnScroll = false,
@@ -104,17 +97,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       onPaneScroll,
       onPaneContextMenu,
       children,
-      onEdgeUpdate,
-      onEdgeContextMenu,
-      onEdgeDoubleClick,
-      onEdgeMouseEnter,
-      onEdgeMouseMove,
-      onEdgeMouseLeave,
-      onEdgeUpdateStart,
-      onEdgeUpdateEnd,
-      edgeUpdaterRadius = 10,
       onNodesChange,
-      onEdgesChange,
       noDragClassName = "nodrag",
       noWheelClassName = "nowheel",
       noPanClassName = "nopan",
@@ -122,8 +105,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       fitViewOptions,
       connectOnClick = true,
       proOptions,
-      defaultEdgeOptions,
-      elevateEdgesOnSelect = false,
       disableKeyboardA11y = false,
       autoPanOnConnect = true,
       autoPanOnNodeDrag = true,
@@ -156,7 +137,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onMoveStart={onMoveStart}
             onMoveEnd={onMoveEnd}
             onNodeClick={onNodeClick}
-            onEdgeClick={onEdgeClick}
             onNodeMouseEnter={onNodeMouseEnter}
             onNodeMouseMove={onNodeMouseMove}
             onNodeMouseLeave={onNodeMouseLeave}
@@ -193,20 +173,9 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             onSelectionContextMenu={onSelectionContextMenu}
             onSelectionStart={onSelectionStart}
             onSelectionEnd={onSelectionEnd}
-            onEdgeUpdate={onEdgeUpdate}
-            onEdgeContextMenu={onEdgeContextMenu}
-            onEdgeDoubleClick={onEdgeDoubleClick}
-            onEdgeMouseEnter={onEdgeMouseEnter}
-            onEdgeMouseMove={onEdgeMouseMove}
-            onEdgeMouseLeave={onEdgeMouseLeave}
-            onEdgeUpdateStart={onEdgeUpdateStart}
-            onEdgeUpdateEnd={onEdgeUpdateEnd}
-            edgeUpdaterRadius={edgeUpdaterRadius}
-            defaultMarkerColor={defaultMarkerColor}
             noDragClassName={noDragClassName}
             noWheelClassName={noWheelClassName}
             noPanClassName={noPanClassName}
-            elevateEdgesOnSelect={elevateEdgesOnSelect}
             rfId={rfId}
             disableKeyboardA11y={disableKeyboardA11y}
             nodeOrigin={nodeOrigin}
@@ -215,9 +184,7 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           />
           <StoreUpdater
             nodes={nodes}
-            edges={edges}
             defaultNodes={defaultNodes}
-            defaultEdges={defaultEdges}
             onConnect={onConnect}
             onConnectStart={onConnectStart}
             onConnectEnd={onConnectEnd}
@@ -226,24 +193,19 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             nodesDraggable={nodesDraggable}
             nodesConnectable={nodesConnectable}
             nodesFocusable={nodesFocusable}
-            edgesFocusable={edgesFocusable}
-            edgesUpdatable={edgesUpdatable}
             elementsSelectable={elementsSelectable}
             minZoom={minZoom}
             maxZoom={maxZoom}
             nodeExtent={nodeExtent}
             onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
             snapToGrid={snapToGrid}
             snapGrid={snapGrid}
             connectionMode={connectionMode}
             translateExtent={translateExtent}
             connectOnClick={connectOnClick}
-            defaultEdgeOptions={defaultEdgeOptions}
             fitView={fitView}
             fitViewOptions={fitViewOptions}
             onNodesDelete={onNodesDelete}
-            onEdgesDelete={onEdgesDelete}
             onNodeDragStart={onNodeDragStart}
             onNodeDrag={onNodeDrag}
             onNodeDragStop={onNodeDragStop}

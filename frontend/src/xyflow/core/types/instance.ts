@@ -1,16 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-namespace */
-import { Edge, Node, Rect, Viewport, ViewportHelperFunctions } from ".";
+import { Node, Rect, Viewport, ViewportHelperFunctions } from ".";
 
-export type ReactFlowJsonObject<NodeData = any, EdgeData = any> = {
+export type ReactFlowJsonObject<NodeData = any> = {
   nodes: Node<NodeData>[];
-  edges: Edge<EdgeData>[];
   viewport: Viewport;
 };
 
 export type DeleteElementsOptions = {
   nodes?: (Partial<Node> & { id: Node["id"] })[];
-  edges?: (Partial<Edge> & { id: Edge["id"] })[];
 };
 export namespace Instance {
   export type GetNodes<NodeData> = () => Node<NodeData>[];
@@ -21,21 +19,11 @@ export namespace Instance {
     payload: Node<NodeData>[] | Node<NodeData>,
   ) => void;
   export type GetNode<NodeData> = (id: string) => Node<NodeData> | undefined;
-  export type GetEdges<EdgeData> = () => Edge<EdgeData>[];
-  export type SetEdges<EdgeData> = (
-    payload: Edge<EdgeData>[] | ((edges: Edge<EdgeData>[]) => Edge<EdgeData>[]),
-  ) => void;
-  export type GetEdge<EdgeData> = (id: string) => Edge<EdgeData> | undefined;
-  export type AddEdges<EdgeData> = (
-    payload: Edge<EdgeData>[] | Edge<EdgeData>,
-  ) => void;
   export type ToObject<
     NodeData = any,
-    EdgeData = any,
-  > = () => ReactFlowJsonObject<NodeData, EdgeData>;
+  > = () => ReactFlowJsonObject<NodeData>;
   export type DeleteElements = ({
     nodes,
-    edges,
   }: DeleteElementsOptions) => void;
   export type GetIntersectingNodes<NodeData> = (
     node: (Partial<Node<NodeData>> & { id: Node["id"] }) | Rect,
@@ -49,16 +37,12 @@ export namespace Instance {
   ) => boolean;
 }
 
-export type ReactFlowInstance<NodeData = any, EdgeData = any> = {
+export type ReactFlowInstance<NodeData = any> = {
   getNodes: Instance.GetNodes<NodeData>;
   setNodes: Instance.SetNodes<NodeData>;
   addNodes: Instance.AddNodes<NodeData>;
   getNode: Instance.GetNode<NodeData>;
-  getEdges: Instance.GetEdges<EdgeData>;
-  setEdges: Instance.SetEdges<EdgeData>;
-  addEdges: Instance.AddEdges<EdgeData>;
-  getEdge: Instance.GetEdge<EdgeData>;
-  toObject: Instance.ToObject<NodeData, EdgeData>;
+  toObject: Instance.ToObject<NodeData>;
   deleteElements: Instance.DeleteElements;
   getIntersectingNodes: Instance.GetIntersectingNodes<NodeData>;
   isNodeIntersecting: Instance.IsNodeIntersecting<NodeData>;

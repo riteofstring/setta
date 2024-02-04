@@ -5,7 +5,6 @@ import { shallow } from "zustand/shallow";
 import { useStore, useStoreApi } from "../../hooks/useStore";
 import type {
   CoordinateExtent,
-  Edge,
   Node,
   ReactFlowProps,
   ReactFlowState,
@@ -15,9 +14,7 @@ import type {
 type StoreUpdaterProps = Pick<
   ReactFlowProps,
   | "nodes"
-  | "edges"
   | "defaultNodes"
-  | "defaultEdges"
   | "onConnect"
   | "onConnectStart"
   | "onConnectEnd"
@@ -26,24 +23,19 @@ type StoreUpdaterProps = Pick<
   | "nodesDraggable"
   | "nodesConnectable"
   | "nodesFocusable"
-  | "edgesFocusable"
-  | "edgesUpdatable"
   | "minZoom"
   | "maxZoom"
   | "nodeExtent"
   | "onNodesChange"
-  | "onEdgesChange"
   | "elementsSelectable"
   | "connectionMode"
   | "snapToGrid"
   | "snapGrid"
   | "translateExtent"
   | "connectOnClick"
-  | "defaultEdgeOptions"
   | "fitView"
   | "fitViewOptions"
   | "onNodesDelete"
-  | "onEdgesDelete"
   | "onNodeDragStart"
   | "onNodeDrag"
   | "onNodeDragStop"
@@ -62,7 +54,6 @@ type StoreUpdaterProps = Pick<
 
 const selector = (s: ReactFlowState) => ({
   setNodes: s.setNodes,
-  setEdges: s.setEdges,
   setDefaultNodesAndEdges: s.setDefaultNodesAndEdges,
   setMinZoom: s.setMinZoom,
   setMaxZoom: s.setMaxZoom,
@@ -97,9 +88,7 @@ function useDirectStoreUpdater(
 
 const StoreUpdater = ({
   nodes,
-  edges,
   defaultNodes,
-  defaultEdges,
   onConnect,
   onConnectStart,
   onConnectEnd,
@@ -108,24 +97,19 @@ const StoreUpdater = ({
   nodesDraggable,
   nodesConnectable,
   nodesFocusable,
-  edgesFocusable,
-  edgesUpdatable,
   minZoom,
   maxZoom,
   nodeExtent,
   onNodesChange,
-  onEdgesChange,
   elementsSelectable,
   connectionMode,
   snapGrid,
   snapToGrid,
   translateExtent,
   connectOnClick,
-  defaultEdgeOptions,
   fitView,
   fitViewOptions,
   onNodesDelete,
-  onEdgesDelete,
   onNodeDrag,
   onNodeDragStart,
   onNodeDragStop,
@@ -144,7 +128,6 @@ const StoreUpdater = ({
 }: StoreUpdaterProps) => {
   const {
     setNodes,
-    setEdges,
     setDefaultNodesAndEdges,
     setMinZoom,
     setMaxZoom,
@@ -155,22 +138,13 @@ const StoreUpdater = ({
   const store = useStoreApi();
 
   useEffect(() => {
-    const edgesWithDefaults = defaultEdges?.map((e) => ({
-      ...e,
-      ...defaultEdgeOptions,
-    }));
-    setDefaultNodesAndEdges(defaultNodes, edgesWithDefaults);
+    setDefaultNodesAndEdges(defaultNodes);
 
     return () => {
       reset();
     };
   }, []);
 
-  useDirectStoreUpdater(
-    "defaultEdgeOptions",
-    defaultEdgeOptions,
-    store.setState,
-  );
   useDirectStoreUpdater("connectionMode", connectionMode, store.setState);
   useDirectStoreUpdater("onConnect", onConnect, store.setState);
   useDirectStoreUpdater("onConnectStart", onConnectStart, store.setState);
@@ -184,8 +158,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater("nodesDraggable", nodesDraggable, store.setState);
   useDirectStoreUpdater("nodesConnectable", nodesConnectable, store.setState);
   useDirectStoreUpdater("nodesFocusable", nodesFocusable, store.setState);
-  useDirectStoreUpdater("edgesFocusable", edgesFocusable, store.setState);
-  useDirectStoreUpdater("edgesUpdatable", edgesUpdatable, store.setState);
   useDirectStoreUpdater(
     "elementsSelectable",
     elementsSelectable,
@@ -194,12 +166,10 @@ const StoreUpdater = ({
   useDirectStoreUpdater("snapToGrid", snapToGrid, store.setState);
   useDirectStoreUpdater("snapGrid", snapGrid, store.setState);
   useDirectStoreUpdater("onNodesChange", onNodesChange, store.setState);
-  useDirectStoreUpdater("onEdgesChange", onEdgesChange, store.setState);
   useDirectStoreUpdater("connectOnClick", connectOnClick, store.setState);
   useDirectStoreUpdater("fitViewOnInit", fitView, store.setState);
   useDirectStoreUpdater("fitViewOnInitOptions", fitViewOptions, store.setState);
   useDirectStoreUpdater("onNodesDelete", onNodesDelete, store.setState);
-  useDirectStoreUpdater("onEdgesDelete", onEdgesDelete, store.setState);
   useDirectStoreUpdater("onNodeDrag", onNodeDrag, store.setState);
   useDirectStoreUpdater("onNodeDragStart", onNodeDragStart, store.setState);
   useDirectStoreUpdater("onNodeDragStop", onNodeDragStop, store.setState);
@@ -225,7 +195,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater("nodeDragThreshold", nodeDragThreshold, store.setState);
 
   useStoreUpdater<Node[]>(nodes, setNodes);
-  useStoreUpdater<Edge[]>(edges, setEdges);
   useStoreUpdater<number>(minZoom, setMinZoom);
   useStoreUpdater<number>(maxZoom, setMaxZoom);
   useStoreUpdater<CoordinateExtent>(translateExtent, setTranslateExtent);

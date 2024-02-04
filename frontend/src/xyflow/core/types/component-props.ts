@@ -7,10 +7,6 @@ import type {
 import type {
   ConnectionMode,
   CoordinateExtent,
-  DefaultEdgeOptions,
-  Edge,
-  EdgeMouseHandler,
-  EdgeTypes,
   FitViewOptions,
   HandleType,
   KeyCode,
@@ -22,9 +18,6 @@ import type {
   OnConnect,
   OnConnectEnd,
   OnConnectStart,
-  OnEdgesChange,
-  OnEdgesDelete,
-  OnEdgeUpdateFunc,
   OnError,
   OnInit,
   OnMove,
@@ -42,10 +35,7 @@ import type {
 
 export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   nodes?: Node[];
-  edges?: Edge[];
   defaultNodes?: Node[];
-  defaultEdges?: Edge[];
-  defaultEdgeOptions?: DefaultEdgeOptions;
   onNodeClick?: NodeMouseHandler;
   onNodeDoubleClick?: NodeMouseHandler;
   onNodeMouseEnter?: NodeMouseHandler;
@@ -55,27 +45,8 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onNodeDragStart?: NodeDragHandler;
   onNodeDrag?: NodeDragHandler;
   onNodeDragStop?: NodeDragHandler;
-  onEdgeClick?: (event: ReactMouseEvent, node: Edge) => void;
-  onEdgeUpdate?: OnEdgeUpdateFunc;
-  onEdgeContextMenu?: EdgeMouseHandler;
-  onEdgeMouseEnter?: EdgeMouseHandler;
-  onEdgeMouseMove?: EdgeMouseHandler;
-  onEdgeMouseLeave?: EdgeMouseHandler;
-  onEdgeDoubleClick?: EdgeMouseHandler;
-  onEdgeUpdateStart?: (
-    event: ReactMouseEvent,
-    edge: Edge,
-    handleType: HandleType,
-  ) => void;
-  onEdgeUpdateEnd?: (
-    event: MouseEvent | TouchEvent,
-    edge: Edge,
-    handleType: HandleType,
-  ) => void;
   onNodesChange?: OnNodesChange;
-  onEdgesChange?: OnEdgesChange;
   onNodesDelete?: OnNodesDelete;
-  onEdgesDelete?: OnEdgesDelete;
   onSelectionDragStart?: SelectionDragHandler;
   onSelectionDrag?: SelectionDragHandler;
   onSelectionDragStop?: SelectionDragHandler;
@@ -99,7 +70,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   onPaneMouseMove?: (event: ReactMouseEvent) => void;
   onPaneMouseLeave?: (event: ReactMouseEvent) => void;
   nodeTypes?: NodeTypes;
-  edgeTypes?: EdgeTypes;
   connectionMode?: ConnectionMode;
   deleteKeyCode?: KeyCode | null;
   selectionKeyCode?: KeyCode | null;
@@ -115,8 +85,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   nodesConnectable?: boolean;
   nodesFocusable?: boolean;
   nodeOrigin?: NodeOrigin;
-  edgesFocusable?: boolean;
-  edgesUpdatable?: boolean;
   initNodeOrigin?: NodeOrigin;
   elementsSelectable?: boolean;
   selectNodesOnDrag?: boolean;
@@ -127,14 +95,12 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   translateExtent?: CoordinateExtent;
   preventScrolling?: boolean;
   nodeExtent?: CoordinateExtent;
-  defaultMarkerColor?: string;
   zoomOnScroll?: boolean;
   zoomOnPinch?: boolean;
   panOnScroll?: boolean;
   panOnScrollSpeed?: number;
   panOnScrollMode?: PanOnScrollMode;
   zoomOnDoubleClick?: boolean;
-  edgeUpdaterRadius?: number;
   noDragClassName?: string;
   noWheelClassName?: string;
   noPanClassName?: string;
@@ -142,7 +108,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   fitViewOptions?: FitViewOptions;
   connectOnClick?: boolean;
   proOptions?: ProOptions;
-  elevateEdgesOnSelect?: boolean;
   disableKeyboardA11y?: boolean;
   autoPanOnNodeDrag?: boolean;
   autoPanOnConnect?: boolean;

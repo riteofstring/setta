@@ -74,7 +74,6 @@ const Pane = memo(
     const container = useRef<HTMLDivElement | null>(null);
     const store = useStoreApi();
     const prevSelectedNodesCount = useRef<number>(0);
-    const prevSelectedEdgesCount = useRef<number>(0);
     const containerBounds = useRef<DOMRect>();
     const { userSelectionActive, elementsSelectable, dragging } = useStore(
       selector,
@@ -85,7 +84,6 @@ const Pane = memo(
       store.setState({ userSelectionActive: false, userSelectionRect: null });
 
       prevSelectedNodesCount.current = 0;
-      prevSelectedEdgesCount.current = 0;
     };
 
     const onClick = (event: ReactMouseEvent) => {
@@ -142,11 +140,8 @@ const Pane = memo(
     const onMouseMove = (event: ReactMouseEvent): void => {
       const {
         userSelectionRect,
-        nodeInternals,
-        edges,
         transform,
         onNodesChange,
-        onEdgesChange,
         nodeOrigin,
         getNodes,
       } = store.getState();
@@ -179,7 +174,6 @@ const Pane = memo(
         true,
         nodeOrigin,
       );
-      // const selectedEdgeIds = getConnectedEdges(selectedNodes, edges).map((e) => e.id);
       // const selectedNodeIds = selectedNodes.map((n) => n.id);
 
       if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
@@ -192,14 +186,6 @@ const Pane = memo(
           onNodesChange?.(changes);
         }
       }
-
-      // if (prevSelectedEdgesCount.current !== selectedEdgeIds.length) {
-      //   prevSelectedEdgesCount.current = selectedEdgeIds.length;
-      //   const changes = getSelectionChanges(edges, selectedEdgeIds) as EdgeChange[];
-      //   if (changes.length) {
-      //     onEdgesChange?.(changes);
-      //   }
-      // }
 
       store.setState({
         userSelectionRect: nextUserSelectRect,

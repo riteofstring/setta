@@ -12,7 +12,6 @@ import { useEffect, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
 import useKeyPress from "../../hooks/useKeyPress";
-import useResizeHandler from "../../hooks/useResizeHandler";
 import { useStore, useStoreApi } from "../../hooks/useStore";
 import { containerStyle } from "../../styles";
 import {
@@ -110,8 +109,6 @@ const ZoomPane = ({
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
-
-  useResizeHandler(zoomPane);
 
   useEffect(() => {
     if (zoomPane.current) {
@@ -396,8 +393,7 @@ const ZoomPane = ({
             (Array.isArray(panOnDrag) && panOnDrag.includes(1))) &&
           event.button === 1 &&
           event.type === "mousedown" &&
-          (isWrappedWithClass(event, "react-flow__node") ||
-            isWrappedWithClass(event, "react-flow__edge"))
+          isWrappedWithClass(event, "react-flow__node")
         ) {
           return true;
         }

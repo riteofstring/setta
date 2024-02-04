@@ -3,23 +3,13 @@ import { shallow } from "zustand/shallow";
 
 import { errorMessages } from "../../contants";
 import { useStoreApi } from "../../hooks/useStore";
-import type {
-  EdgeTypes,
-  EdgeTypesWrapped,
-  NodeTypes,
-  NodeTypesWrapped,
-} from "../../types";
-import { CreateEdgeTypes } from "../EdgeRenderer/utils";
+import type { NodeTypes, NodeTypesWrapped } from "../../types";
 import { CreateNodeTypes } from "../NodeRenderer/utils";
 
 export function useNodeOrEdgeTypes(
   nodeOrEdgeTypes: NodeTypes,
   createTypes: CreateNodeTypes,
 ): NodeTypesWrapped;
-export function useNodeOrEdgeTypes(
-  nodeOrEdgeTypes: EdgeTypes,
-  createTypes: CreateEdgeTypes,
-): EdgeTypesWrapped;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useNodeOrEdgeTypes(
   nodeOrEdgeTypes: any,

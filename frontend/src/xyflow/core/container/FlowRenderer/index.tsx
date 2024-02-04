@@ -13,12 +13,10 @@ export type FlowRendererProps = Omit<
   GraphViewProps,
   | "snapToGrid"
   | "nodeTypes"
-  | "edgeTypes"
   | "snapGrid"
   | "arrowHeadColor"
   | "onlyRenderVisibleElements"
   | "selectNodesOnDrag"
-  | "defaultMarkerColor"
   | "rfId"
   | "nodeOrigin"
 > & {

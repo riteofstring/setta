@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Edge, EdgeChange, Node, NodeChange } from "../types";
+import type { Node, NodeChange } from "../types";
 
 export function handleParentExpand(res: any[], updateItem: any) {
   const parent = res.find((e) => e.id === updateItem.parentNode);
@@ -49,7 +49,7 @@ export function handleParentExpand(res: any[], updateItem: any) {
 }
 
 function applyChanges(changes: any[], elements: any[]): any[] {
-  // we need this hack to handle the setNodes and setEdges function of the useReactFlow hook for controlled flows
+  // we need this hack to handle the setNodes function of the useReactFlow hook for controlled flows
   if (changes.some((c) => c.type === "reset")) {
     return changes.filter((c) => c.type === "reset").map((c) => c.item);
   }
@@ -131,13 +131,6 @@ export function applyNodeChanges<NodeData = any>(
   nodes: Node<NodeData>[],
 ): Node<NodeData>[] {
   return applyChanges(changes, nodes) as Node<NodeData>[];
-}
-
-export function applyEdgeChanges<EdgeData = any>(
-  changes: EdgeChange[],
-  edges: Edge<EdgeData>[],
-): Edge<EdgeData>[] {
-  return applyChanges(changes, edges) as Edge<EdgeData>[];
 }
 
 export const createSelectionChange = (id: string, selected: boolean) => ({

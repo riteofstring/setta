@@ -2,8 +2,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useState } from "react";
 
-import type { Edge, EdgeChange, Node, NodeChange } from "../types";
-import { applyEdgeChanges, applyNodeChanges } from "../utils/changes";
+import type { Node, NodeChange } from "../types";
+import { applyNodeChanges } from "../utils/changes";
 
 type ApplyChanges<ItemType, ChangesType> = (
   changes: ChangesType[],
@@ -22,15 +22,7 @@ function createUseItemsState(
   Dispatch<SetStateAction<Node<NodeData>[]>>,
   OnChange<NodeChange>,
 ];
-function createUseItemsState(
-  applyChanges: ApplyChanges<Edge, EdgeChange>,
-): <EdgeData = any>(
-  initialItems: Edge<EdgeData>[],
-) => [
-  Edge<EdgeData>[],
-  Dispatch<SetStateAction<Edge<EdgeData>[]>>,
-  OnChange<EdgeChange>,
-];
+
 function createUseItemsState(
   applyChanges: ApplyChanges<any, any>,
 ): (
@@ -50,4 +42,3 @@ function createUseItemsState(
 }
 
 export const useNodesState = createUseItemsState(applyNodeChanges);
-export const useEdgesState = createUseItemsState(applyEdgeChanges);

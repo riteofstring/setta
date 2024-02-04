@@ -2,9 +2,6 @@ import { useCallback, useMemo } from "react";
 
 import { useStoreApi } from "../hooks/useStore";
 import type {
-  EdgeAddChange,
-  EdgeRemoveChange,
-  EdgeResetChange,
   Instance,
   Node,
   NodeAddChange,
@@ -15,14 +12,12 @@ import type {
   Rect,
 } from "../types";
 import { getOverlappingArea, isRectObject, nodeToRect } from "../utils";
-import { getConnectedEdges } from "../utils/graph";
 import useViewportHelper from "./useViewportHelper";
 
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 export default function useReactFlow<
   NodeData = any,
-  EdgeData = any,
->(): ReactFlowInstance<NodeData, EdgeData> {
+>(): ReactFlowInstance<NodeData> {
   const viewportHelper = useViewportHelper();
   const store = useStoreApi();
 
@@ -35,16 +30,6 @@ export default function useReactFlow<
 
   const getNode = useCallback<Instance.GetNode<NodeData>>((id) => {
     return store.getState().nodeInternals.get(id);
-  }, []);
-
-  const getEdges = useCallback<Instance.GetEdges<EdgeData>>(() => {
-    const { edges = [] } = store.getState();
-    return edges.map((e) => ({ ...e }));
-  }, []);
-
-  const getEdge = useCallback<Instance.GetEdge<EdgeData>>((id) => {
-    const { edges = [] } = store.getState();
-    return edges.find((e) => e.id === id);
   }, []);
 
   const setNodes = useCallback<Instance.SetNodes<NodeData>>((payload) => {
@@ -69,31 +54,6 @@ export default function useReactFlow<
     }
   }, []);
 
-  const setEdges = useCallback<Instance.SetEdges<EdgeData>>((payload) => {
-    const {
-      edges = [],
-      setEdges,
-      hasDefaultEdges,
-      onEdgesChange,
-    } = store.getState();
-    const nextEdges = typeof payload === "function" ? payload(edges) : payload;
-
-    if (hasDefaultEdges) {
-      setEdges(nextEdges);
-    } else if (onEdgesChange) {
-      const changes =
-        nextEdges.length === 0
-          ? edges.map(
-              (edge) => ({ type: "remove", id: edge.id }) as EdgeRemoveChange,
-            )
-          : nextEdges.map(
-              (edge) =>
-                ({ item: edge, type: "reset" }) as EdgeResetChange<EdgeData>,
-            );
-      onEdgesChange(changes);
-    }
-  }, []);
-
   const addNodes = useCallback<Instance.AddNodes<NodeData>>((payload) => {
     const nodes = Array.isArray(payload) ? payload : [payload];
     const { getNodes, setNodes, hasDefaultNodes, onNodesChange } =
@@ -111,31 +71,11 @@ export default function useReactFlow<
     }
   }, []);
 
-  const addEdges = useCallback<Instance.AddEdges<EdgeData>>((payload) => {
-    const nextEdges = Array.isArray(payload) ? payload : [payload];
-    const {
-      edges = [],
-      setEdges,
-      hasDefaultEdges,
-      onEdgesChange,
-    } = store.getState();
-
-    if (hasDefaultEdges) {
-      setEdges([...edges, ...nextEdges]);
-    } else if (onEdgesChange) {
-      const changes = nextEdges.map(
-        (edge) => ({ item: edge, type: "add" }) as EdgeAddChange<EdgeData>,
-      );
-      onEdgesChange(changes);
-    }
-  }, []);
-
-  const toObject = useCallback<Instance.ToObject<NodeData, EdgeData>>(() => {
-    const { getNodes, edges = [], transform } = store.getState();
+  const toObject = useCallback<Instance.ToObject<NodeData>>(() => {
+    const { getNodes, transform } = store.getState();
     const [x, y, zoom] = transform;
     return {
       nodes: getNodes().map((n) => ({ ...n })),
-      edges: edges.map((e) => ({ ...e })),
       viewport: {
         x,
         y,
@@ -145,20 +85,15 @@ export default function useReactFlow<
   }, []);
 
   const deleteElements = useCallback<Instance.DeleteElements>(
-    ({ nodes: nodesDeleted, edges: edgesDeleted }) => {
+    ({ nodes: nodesDeleted }) => {
       const {
         nodeInternals,
         getNodes,
-        edges,
         hasDefaultNodes,
-        hasDefaultEdges,
         onNodesDelete,
-        onEdgesDelete,
         onNodesChange,
-        onEdgesChange,
       } = store.getState();
       const nodeIds = (nodesDeleted || []).map((node) => node.id);
-      const edgeIds = (edgesDeleted || []).map((edge) => edge.id);
       const nodesToRemove = getNodes().reduce<Node[]>((res, node) => {
         const parentHit =
           !nodeIds.includes(node.id) &&
@@ -172,29 +107,9 @@ export default function useReactFlow<
 
         return res;
       }, []);
-      const deletableEdges = edges.filter((e) =>
-        typeof e.deletable === "boolean" ? e.deletable : true,
-      );
-      const initialHitEdges = deletableEdges.filter((e) =>
-        edgeIds.includes(e.id),
-      );
-      if (nodesToRemove || initialHitEdges) {
-        const connectedEdges = getConnectedEdges(nodesToRemove, deletableEdges);
-        const edgesToRemove = [...initialHitEdges, ...connectedEdges];
-        const edgeIdsToRemove = edgesToRemove.reduce<string[]>((res, edge) => {
-          if (!res.includes(edge.id)) {
-            res.push(edge.id);
-          }
-          return res;
-        }, []);
 
-        if (hasDefaultEdges || hasDefaultNodes) {
-          if (hasDefaultEdges) {
-            store.setState({
-              edges: edges.filter((e) => !edgeIdsToRemove.includes(e.id)),
-            });
-          }
-
+      if (nodesToRemove) {
+        if (hasDefaultNodes) {
           if (hasDefaultNodes) {
             nodesToRemove.forEach((node) => {
               nodeInternals.delete(node.id);
@@ -203,19 +118,6 @@ export default function useReactFlow<
             store.setState({
               nodeInternals: new Map(nodeInternals),
             });
-          }
-        }
-
-        if (edgeIdsToRemove.length > 0) {
-          onEdgesDelete?.(edgesToRemove);
-
-          if (onEdgesChange) {
-            onEdgesChange(
-              edgeIdsToRemove.map((id) => ({
-                id,
-                type: "remove",
-              })),
-            );
           }
         }
 
@@ -302,12 +204,8 @@ export default function useReactFlow<
       ...viewportHelper,
       getNodes,
       getNode,
-      getEdges,
-      getEdge,
       setNodes,
-      setEdges,
       addNodes,
-      addEdges,
       toObject,
       deleteElements,
       getIntersectingNodes,
@@ -317,12 +215,8 @@ export default function useReactFlow<
     viewportHelper,
     getNodes,
     getNode,
-    getEdges,
-    getEdge,
     setNodes,
-    setEdges,
     addNodes,
-    addEdges,
     toObject,
     deleteElements,
     getIntersectingNodes,

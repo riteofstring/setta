@@ -3,8 +3,6 @@ import { createWithEqualityFn } from "zustand/traditional";
 
 import type {
   CoordinateExtent,
-  Edge,
-  EdgeSelectionChange,
   Node,
   NodeChange,
   NodeDimensionChange,
@@ -43,24 +41,16 @@ const createRFStore = () =>
       getNodes: () => {
         return Array.from(get().nodeInternals.values());
       },
-      setEdges: (edges: Edge[]) => {
-        const { defaultEdgeOptions = {} } = get();
-        set({ edges: edges.map((e) => ({ ...defaultEdgeOptions, ...e })) });
-      },
-      setDefaultNodesAndEdges: (nodes?: Node[], edges?: Edge[]) => {
+      setDefaultNodesAndEdges: (nodes?: Node[]) => {
         const hasDefaultNodes = typeof nodes !== "undefined";
-        const hasDefaultEdges = typeof edges !== "undefined";
 
         const nodeInternals = hasDefaultNodes
           ? createNodeInternals(nodes, new Map(), get().nodeOrigin)
           : new Map();
-        const nextEdges = hasDefaultEdges ? edges : [];
 
         set({
           nodeInternals,
-          edges: nextEdges,
           hasDefaultNodes,
-          hasDefaultEdges,
         });
       },
       updateNodeDimensions: (updates: NodeDimensionUpdate[]) => {
@@ -78,7 +68,6 @@ const createRFStore = () =>
         if (!viewportNode) {
           return;
         }
-
 
         const changes: NodeDimensionChange[] = updates.reduce<
           NodeDimensionChange[]
@@ -181,9 +170,8 @@ const createRFStore = () =>
       },
 
       addSelectedNodes: (selectedNodeIds: string[]) => {
-        const { multiSelectionActive, edges, getNodes } = get();
+        const { multiSelectionActive, getNodes } = get();
         let changedNodes: NodeSelectionChange[];
-        let changedEdges: EdgeSelectionChange[] | null = null;
 
         if (multiSelectionActive) {
           changedNodes = selectedNodeIds.map((nodeId) =>
@@ -191,56 +179,27 @@ const createRFStore = () =>
           ) as NodeSelectionChange[];
         } else {
           changedNodes = getSelectionChanges(getNodes(), selectedNodeIds);
-          changedEdges = getSelectionChanges(edges, []);
         }
 
         updateNodesAndEdgesSelections({
           changedNodes,
-          changedEdges,
-          get,
-          set,
-        });
-      },
-      addSelectedEdges: (selectedEdgeIds: string[]) => {
-        const { multiSelectionActive, edges, getNodes } = get();
-        let changedEdges: EdgeSelectionChange[];
-        let changedNodes: NodeSelectionChange[] | null = null;
-
-        if (multiSelectionActive) {
-          changedEdges = selectedEdgeIds.map((edgeId) =>
-            createSelectionChange(edgeId, true),
-          ) as EdgeSelectionChange[];
-        } else {
-          changedEdges = getSelectionChanges(edges, selectedEdgeIds);
-          changedNodes = getSelectionChanges(getNodes(), []);
-        }
-
-        updateNodesAndEdgesSelections({
-          changedNodes,
-          changedEdges,
           get,
           set,
         });
       },
       unselectNodesAndEdges: ({
         nodes,
-        edges,
       }: UnselectNodesAndEdgesParams = {}) => {
-        const { edges: storeEdges, getNodes } = get();
+        const { getNodes } = get();
         const nodesToUnselect = nodes ? nodes : getNodes();
-        const edgesToUnselect = edges ? edges : storeEdges;
 
         const changedNodes = nodesToUnselect.map((n) => {
           n.selected = false;
           return createSelectionChange(n.id, false);
         }) as NodeSelectionChange[];
-        const changedEdges = edgesToUnselect.map((edge) =>
-          createSelectionChange(edge.id, false),
-        ) as EdgeSelectionChange[];
 
         updateNodesAndEdgesSelections({
           changedNodes,
-          changedEdges,
           get,
           set,
         });
@@ -263,7 +222,7 @@ const createRFStore = () =>
         set({ translateExtent });
       },
       resetSelectedElements: () => {
-        const { edges, getNodes } = get();
+        const { getNodes } = get();
         const nodes = getNodes();
 
         const nodesToUnselect = nodes
@@ -271,15 +230,9 @@ const createRFStore = () =>
           .map((n) =>
             createSelectionChange(n.id, false),
           ) as NodeSelectionChange[];
-        const edgesToUnselect = edges
-          .filter((e) => e.selected)
-          .map((e) =>
-            createSelectionChange(e.id, false),
-          ) as EdgeSelectionChange[];
 
         updateNodesAndEdgesSelections({
           changedNodes: nodesToUnselect,
-          changedEdges: edgesToUnselect,
           get,
           set,
         });

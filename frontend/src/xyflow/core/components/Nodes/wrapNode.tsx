@@ -66,7 +66,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
       onMouseMove ||
       onMouseLeave;
     const updatePositions = useUpdateNodePositions();
-    const zIndex = useSectionInfos((x) => x.x[id].zIndex);
+    const zIndex = useSectionInfos((x) => x.x[id]?.zIndex);
 
     const onMouseEnterHandler = getMouseHandler(
       id,
