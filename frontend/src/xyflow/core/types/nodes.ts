@@ -22,9 +22,7 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   deletable?: boolean;
   width?: number | null;
   height?: number | null;
-  parentNode?: string;
-  extent?: "parent" | CoordinateExtent;
-  expandParent?: boolean;
+  extent?: CoordinateExtent;
   positionAbsolute?: XYPosition;
   ariaLabel?: string;
   focusable?: boolean;
@@ -34,7 +32,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   [internalsSymbol]?: {
     z?: number;
     handleBounds?: NodeHandleBounds;
-    isParent?: boolean;
   };
 };
 
@@ -77,7 +74,6 @@ export type WrapNodeProps<T = any> = Pick<
     onMouseLeave?: NodeMouseHandler;
     onContextMenu?: NodeMouseHandler;
     resizeObserver: ResizeObserver | null;
-    isParent: boolean;
     noDragClassName: string;
     noPanClassName: string;
   };
@@ -118,10 +114,8 @@ export type NodeDragItem = {
   distance: XYPosition;
   width?: number | null;
   height?: number | null;
-  extent?: "parent" | CoordinateExtent;
-  parentNode?: string;
+  extent?: CoordinateExtent;
   dragging?: boolean;
-  expandParent?: boolean;
 };
 
 export type NodeOrigin = [number, number];

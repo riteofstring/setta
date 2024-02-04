@@ -1,53 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Node, NodeChange } from "../types";
 
-export function handleParentExpand(res: any[], updateItem: any) {
-  const parent = res.find((e) => e.id === updateItem.parentNode);
-
-  if (parent) {
-    const extendWidth = updateItem.position.x + updateItem.width - parent.width;
-    const extendHeight =
-      updateItem.position.y + updateItem.height - parent.height;
-
-    if (
-      extendWidth > 0 ||
-      extendHeight > 0 ||
-      updateItem.position.x < 0 ||
-      updateItem.position.y < 0
-    ) {
-      parent.style = { ...parent.style } || {};
-
-      parent.style.width = parent.style.width ?? parent.width;
-      parent.style.height = parent.style.height ?? parent.height;
-
-      if (extendWidth > 0) {
-        parent.style.width += extendWidth;
-      }
-
-      if (extendHeight > 0) {
-        parent.style.height += extendHeight;
-      }
-
-      if (updateItem.position.x < 0) {
-        const xDiff = Math.abs(updateItem.position.x);
-        parent.position.x = parent.position.x - xDiff;
-        parent.style.width += xDiff;
-        updateItem.position.x = 0;
-      }
-
-      if (updateItem.position.y < 0) {
-        const yDiff = Math.abs(updateItem.position.y);
-        parent.position.y = parent.position.y - yDiff;
-        parent.style.height += yDiff;
-        updateItem.position.y = 0;
-      }
-
-      parent.width = parent.style.width;
-      parent.height = parent.style.height;
-    }
-  }
-}
-
 function applyChanges(changes: any[], elements: any[]): any[] {
   // we need this hack to handle the setNodes function of the useReactFlow hook for controlled flows
   if (changes.some((c) => c.type === "reset")) {
@@ -87,9 +40,6 @@ function applyChanges(changes: any[], elements: any[]): any[] {
               updateItem.dragging = currentChange.dragging;
             }
 
-            if (updateItem.expandParent) {
-              handleParentExpand(res, updateItem);
-            }
             break;
           }
           case "dimensions": {
@@ -109,9 +59,6 @@ function applyChanges(changes: any[], elements: any[]): any[] {
               updateItem.resizing = currentChange.resizing;
             }
 
-            if (updateItem.expandParent) {
-              handleParentExpand(res, updateItem);
-            }
             break;
           }
           case "remove": {

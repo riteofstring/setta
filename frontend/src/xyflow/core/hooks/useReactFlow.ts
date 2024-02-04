@@ -95,13 +95,9 @@ export default function useReactFlow<
       } = store.getState();
       const nodeIds = (nodesDeleted || []).map((node) => node.id);
       const nodesToRemove = getNodes().reduce<Node[]>((res, node) => {
-        const parentHit =
-          !nodeIds.includes(node.id) &&
-          node.parentNode &&
-          res.find((n) => n.id === node.parentNode);
         const deletable =
           typeof node.deletable === "boolean" ? node.deletable : true;
-        if (deletable && (nodeIds.includes(node.id) || parentHit)) {
+        if (deletable && nodeIds.includes(node.id)) {
           res.push(node);
         }
 

@@ -1,6 +1,5 @@
 import type { RefObject } from "react";
 
-import { errorMessages } from "../../contants";
 import type {
   CoordinateExtent,
   Node,
@@ -10,29 +9,7 @@ import type {
   OnError,
   XYPosition,
 } from "../../types";
-import { clampPosition, isNumeric } from "../../utils";
-import { getNodePositionWithOrigin } from "../../utils/graph";
-
-export function isParentSelected(
-  node: Node,
-  nodeInternals: NodeInternals,
-): boolean {
-  if (!node.parentNode) {
-    return false;
-  }
-
-  const parentNode = nodeInternals.get(node.parentNode);
-
-  if (!parentNode) {
-    return false;
-  }
-
-  if (parentNode.selected) {
-    return true;
-  }
-
-  return isParentSelected(parentNode, nodeInternals);
-}
+import { clampPosition } from "../../utils";
 
 export function hasSelector(
   target: Element,
@@ -61,7 +38,6 @@ export function getDragItems(
     .filter(
       (n) =>
         (n.selected || n.id === nodeId) &&
-        (!n.parentNode || !isParentSelected(n, nodeInternals)) &&
         (n.draggable || (nodesDraggable && typeof n.draggable === "undefined")),
     )
     .map((n) => ({
@@ -77,18 +53,13 @@ export function getDragItems(
         y: 0,
       },
       extent: n.extent,
-      parentNode: n.parentNode,
       width: n.width,
       height: n.height,
-      expandParent: n.expandParent,
     }));
 }
 
-function clampNodeExtent(
-  node: NodeDragItem | Node,
-  extent?: CoordinateExtent | "parent",
-) {
-  if (!extent || extent === "parent") {
+function clampNodeExtent(node: NodeDragItem | Node, extent?: CoordinateExtent) {
+  if (!extent) {
     return extent;
   }
   return [
@@ -108,72 +79,14 @@ export function calcNextPosition(
   const clampedNodeExtent = clampNodeExtent(node, node.extent || nodeExtent);
   let currentExtent = clampedNodeExtent;
 
-  if (node.extent === "parent" && !node.expandParent) {
-    if (node.parentNode && node.width && node.height) {
-      const parent = nodeInternals.get(node.parentNode);
-      const { x: parentX, y: parentY } = getNodePositionWithOrigin(
-        parent,
-        nodeOrigin,
-      ).positionAbsolute;
-      currentExtent =
-        parent &&
-        isNumeric(parentX) &&
-        isNumeric(parentY) &&
-        isNumeric(parent.width) &&
-        isNumeric(parent.height)
-          ? [
-              [
-                parentX + node.width * nodeOrigin[0],
-                parentY + node.height * nodeOrigin[1],
-              ],
-              [
-                parentX +
-                  parent.width -
-                  node.width +
-                  node.width * nodeOrigin[0],
-                parentY +
-                  parent.height -
-                  node.height +
-                  node.height * nodeOrigin[1],
-              ],
-            ]
-          : currentExtent;
-    } else {
-      onError?.("005", errorMessages["error005"]());
-
-      currentExtent = clampedNodeExtent;
-    }
-  } else if (node.extent && node.parentNode && node.extent !== "parent") {
-    const parent = nodeInternals.get(node.parentNode);
-    const { x: parentX, y: parentY } = getNodePositionWithOrigin(
-      parent,
-      nodeOrigin,
-    ).positionAbsolute;
-    currentExtent = [
-      [node.extent[0][0] + parentX, node.extent[0][1] + parentY],
-      [node.extent[1][0] + parentX, node.extent[1][1] + parentY],
-    ];
-  }
-
-  let parentPosition = { x: 0, y: 0 };
-
-  if (node.parentNode) {
-    const parentNode = nodeInternals.get(node.parentNode);
-    parentPosition = getNodePositionWithOrigin(
-      parentNode,
-      nodeOrigin,
-    ).positionAbsolute;
-  }
-
-  const positionAbsolute =
-    currentExtent && currentExtent !== "parent"
-      ? clampPosition(nextPosition, currentExtent as CoordinateExtent)
-      : nextPosition;
+  const positionAbsolute = currentExtent
+    ? clampPosition(nextPosition, currentExtent as CoordinateExtent)
+    : nextPosition;
 
   return {
     position: {
-      x: positionAbsolute.x - parentPosition.x,
-      y: positionAbsolute.y - parentPosition.y,
+      x: positionAbsolute.x,
+      y: positionAbsolute.y,
     },
     positionAbsolute,
   };

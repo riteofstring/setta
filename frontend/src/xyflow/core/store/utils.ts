@@ -8,79 +8,13 @@ import type {
   NodeOrigin,
   NodeSelectionChange,
   ReactFlowState,
-  XYZPosition,
 } from "../types";
 import { internalsSymbol } from "../utils";
 import {
   getD3Transition,
-  getNodePositionWithOrigin,
   getNodesBounds,
   getViewportForBounds,
 } from "../utils/graph";
-
-type ParentNodes = Record<string, boolean>;
-
-function calculateXYZPosition(
-  node: Node,
-  nodeInternals: NodeInternals,
-  result: XYZPosition,
-  nodeOrigin: NodeOrigin,
-): XYZPosition {
-  if (!node.parentNode) {
-    return result;
-  }
-  const parentNode = nodeInternals.get(node.parentNode)!;
-  const parentNodePosition = getNodePositionWithOrigin(parentNode, nodeOrigin);
-
-  return calculateXYZPosition(
-    parentNode,
-    nodeInternals,
-    {
-      x: (result.x ?? 0) + parentNodePosition.x,
-      y: (result.y ?? 0) + parentNodePosition.y,
-      z:
-        (parentNode[internalsSymbol]?.z ?? 0) > (result.z ?? 0)
-          ? parentNode[internalsSymbol]?.z ?? 0
-          : result.z ?? 0,
-    },
-    nodeOrigin,
-  );
-}
-
-export function updateAbsoluteNodePositions(
-  nodeInternals: NodeInternals,
-  nodeOrigin: NodeOrigin,
-  parentNodes?: ParentNodes,
-) {
-  nodeInternals.forEach((node) => {
-    if (node.parentNode && !nodeInternals.has(node.parentNode)) {
-      throw new Error(`Parent node ${node.parentNode} not found`);
-    }
-
-    if (node.parentNode || parentNodes?.[node.id]) {
-      const { x, y, z } = calculateXYZPosition(
-        node,
-        nodeInternals,
-        {
-          ...node.position,
-          z: node[internalsSymbol]?.z ?? 0,
-        },
-        nodeOrigin,
-      );
-
-      node.positionAbsolute = {
-        x,
-        y,
-      };
-
-      node[internalsSymbol]!.z = z;
-
-      if (parentNodes?.[node.id]) {
-        node[internalsSymbol]!.isParent = true;
-      }
-    }
-  });
-}
 
 export function createNodeInternals(
   nodes: Node[],
@@ -88,7 +22,6 @@ export function createNodeInternals(
   nodeOrigin: NodeOrigin,
 ): NodeInternals {
   const nextNodeInternals = new Map<string, Node>();
-  const parentNodes: ParentNodes = {};
 
   nodes.forEach((node) => {
     const currInternals = nodeInternals.get(node.id);
@@ -103,11 +36,6 @@ export function createNodeInternals(
       },
     };
 
-    if (node.parentNode) {
-      internals.parentNode = node.parentNode;
-      parentNodes[node.parentNode] = true;
-    }
-
     Object.defineProperty(internals, internalsSymbol, {
       enumerable: false,
       value: {
@@ -117,8 +45,6 @@ export function createNodeInternals(
 
     nextNodeInternals.set(node.id, internals);
   });
-
-  updateAbsoluteNodePositions(nextNodeInternals, nodeOrigin, parentNodes);
 
   return nextNodeInternals;
 }

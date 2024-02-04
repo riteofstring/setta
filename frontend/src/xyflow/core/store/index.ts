@@ -24,7 +24,6 @@ import initialState from "./initialState";
 import {
   createNodeInternals,
   fitView,
-  updateAbsoluteNodePositions,
   updateNodesAndEdgesSelections,
 } from "./utils";
 
@@ -103,8 +102,6 @@ const createRFStore = () =>
 
           return res;
         }, []);
-
-        updateAbsoluteNodePositions(nodeInternals, nodeOrigin);
 
         const nextFitViewOnInitDone =
           fitViewOnInitDone ||

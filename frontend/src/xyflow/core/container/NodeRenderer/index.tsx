@@ -12,7 +12,7 @@ import type {
   WrapNodeProps,
 } from "../../types";
 import { Position } from "../../types";
-import { clampPosition, internalsSymbol } from "../../utils";
+import { clampPosition } from "../../utils";
 import { GraphViewProps } from "../GraphView";
 import { getPositionWithOrigin } from "./utils";
 
@@ -146,7 +146,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             isSelectable={isSelectable}
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
-            isParent={!!node[internalsSymbol]?.isParent}
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}
             initialized={!!node.width && !!node.height}

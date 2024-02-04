@@ -44,7 +44,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     targetPosition,
     hidden,
     resizeObserver,
-    isParent,
     noDragClassName,
     noPanClassName,
     initialized,
@@ -198,7 +197,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
           className,
           {
             selectable: isSelectable,
-            parent: isParent,
           },
         ])}
         ref={nodeRef}
