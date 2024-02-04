@@ -9,14 +9,12 @@ export type Node<U extends string | undefined = string | undefined> = {
   position: XYPosition;
   type?: U;
   style?: CSSProperties;
-  className?: string;
   selected?: boolean;
   dragging?: boolean;
   draggable?: boolean;
   selectable?: boolean;
   width?: number | null;
   height?: number | null;
-  ariaLabel?: string;
   focusable?: boolean;
 };
 
@@ -31,10 +29,7 @@ export type SelectionDragHandler = (
   nodes: Node[],
 ) => void;
 
-export type WrapNodeProps<T = any> = Pick<
-  Node<T>,
-  "id" | "style" | "className" | "ariaLabel"
-> &
+export type WrapNodeProps<T = any> = Pick<Node<T>, "id" | "style"> &
   Required<Pick<Node<T>, "selected" | "type">> & {
     xPos: number;
     yPos: number;
@@ -43,12 +38,6 @@ export type WrapNodeProps<T = any> = Pick<
     isDraggable: boolean;
     isFocusable: boolean;
     selectNodesOnDrag: boolean;
-    onClick?: NodeMouseHandler;
-    onDoubleClick?: NodeMouseHandler;
-    onMouseEnter?: NodeMouseHandler;
-    onMouseMove?: NodeMouseHandler;
-    onMouseLeave?: NodeMouseHandler;
-    onContextMenu?: NodeMouseHandler;
     resizeObserver: ResizeObserver | null;
     noDragClassName: string;
     noPanClassName: string;

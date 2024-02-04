@@ -2,8 +2,6 @@ import type { ComponentType } from "react";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
-import { devWarn } from "xyflow/core/utils";
-import { errorMessages } from "../../contants";
 import { useStore } from "../../hooks/useStore";
 import useVisibleNodes from "../../hooks/useVisibleNodes";
 import { containerStyle } from "../../styles";
@@ -67,16 +65,12 @@ const NodeRenderer = (props: NodeRendererProps) => {
   return (
     <div className="react-flow__nodes" style={containerStyle}>
       {nodes.map((node) => {
-        let nodeType = node.type || "default";
+        const nodeType = node.type;
 
-        if (!props.nodeTypes[nodeType]) {
-          devWarn("003", errorMessages["error003"](nodeType));
+        const NodeComponent = props.nodeTypes[
+          nodeType
+        ] as ComponentType<WrapNodeProps>;
 
-          nodeType = "default";
-        }
-
-        const NodeComponent = (props.nodeTypes[nodeType] ||
-          props.nodeTypes.default) as ComponentType<WrapNodeProps>;
         const isDraggable = !!(
           node.draggable ||
           (nodesDraggable && typeof node.draggable === "undefined")
@@ -90,16 +84,13 @@ const NodeRenderer = (props: NodeRendererProps) => {
           (nodesFocusable && typeof node.focusable === "undefined")
         );
 
-        const clampedPosition = node.position;
-
-        const posX = clampedPosition?.x ?? 0;
-        const posY = clampedPosition?.y ?? 0;
+        const posX = node.position?.x ?? 0;
+        const posY = node.position?.y ?? 0;
 
         return (
           <NodeComponent
             key={node.id}
             id={node.id}
-            className={node.className}
             style={node.style}
             type={nodeType}
             xPos={posX}
@@ -113,7 +104,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             noDragClassName={props.noDragClassName}
             noPanClassName={props.noPanClassName}
             initialized={!!node.width && !!node.height}
-            ariaLabel={node.ariaLabel}
           />
         );
       })}

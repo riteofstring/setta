@@ -6,12 +6,6 @@ import type { NodeProps, NodeTypes, NodeTypesWrapped } from "../../types";
 export type CreateNodeTypes = (nodeTypes: NodeTypes) => NodeTypesWrapped;
 
 export function createNodeTypes(nodeTypes: NodeTypes): NodeTypesWrapped {
-  const standardTypes: NodeTypesWrapped = {
-    input: wrapNode(nodeTypes.input as ComponentType<NodeProps>),
-    output: wrapNode(nodeTypes.output as ComponentType<NodeProps>),
-    group: wrapNode(nodeTypes.group as ComponentType<NodeProps>),
-  };
-
   const wrappedTypes = {} as NodeTypesWrapped;
   const specialTypes: NodeTypesWrapped = Object.keys(nodeTypes)
     .filter((k) => !["input", "default", "output", "group"].includes(k))
@@ -22,7 +16,6 @@ export function createNodeTypes(nodeTypes: NodeTypes): NodeTypesWrapped {
     }, wrappedTypes);
 
   return {
-    ...standardTypes,
     ...specialTypes,
   };
 }

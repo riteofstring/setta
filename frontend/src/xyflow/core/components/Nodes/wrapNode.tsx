@@ -1,5 +1,5 @@
 import cc from "classcat";
-import type { ComponentType, KeyboardEvent, MouseEvent } from "react";
+import type { ComponentType, KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -8,7 +8,6 @@ import { useStoreApi } from "../../hooks/useStore";
 import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
 import type { NodeProps, WrapNodeProps, XYPosition } from "../../types";
 import { isInputDOMNode } from "../../utils";
-import { getMouseHandler } from "./utils";
 
 export const arrowKeyDiffs: Record<string, XYPosition> = {
   ArrowUp: { x: 0, y: -1 },
@@ -24,10 +23,7 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     xPos,
     yPos,
     selected,
-    onClick,
-    onContextMenu,
     style,
-    className,
     isDraggable,
     isSelectable,
     isFocusable,
@@ -36,29 +32,13 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
     noDragClassName,
     noPanClassName,
     initialized,
-    ariaLabel,
   }: WrapNodeProps) => {
     const store = useStoreApi();
     const nodeRef = useRef<HTMLDivElement>(null);
     const prevType = useRef(type);
-    const hasPointerEvents = isSelectable || isDraggable || onClick;
+    const hasPointerEvents = isSelectable || isDraggable;
     const updatePositions = useUpdateNodePositions();
     const zIndex = useSectionInfos((x) => x.x[id]?.zIndex);
-
-    const onContextMenuHandler = getMouseHandler(
-      id,
-      store.getState,
-      onContextMenu,
-    );
-    const onSelectNodeHandler = (event: MouseEvent) => {
-      if (onClick) {
-        const node = store.getState().nodeInternals.get(id);
-
-        if (node) {
-          onClick(event, { ...node });
-        }
-      }
-    };
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (isInputDOMNode(event)) {
@@ -121,7 +101,6 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
             // this is overwritable by passing `nopan` as a class name
             [noPanClassName]: isDraggable,
           },
-          className,
           {
             selectable: isSelectable,
           },
@@ -136,12 +115,9 @@ export default (NodeComponent: ComponentType<NodeProps>) => {
         }}
         data-id={id}
         data-testid={`rf__node-${id}`}
-        onContextMenu={onContextMenuHandler}
-        onClick={onSelectNodeHandler}
         onKeyDown={isFocusable ? onKeyDown : undefined}
         tabIndex={isFocusable ? 0 : undefined}
         role={isFocusable ? "button" : undefined}
-        aria-label={ariaLabel}
       >
         <NodeComponent
           id={id}
