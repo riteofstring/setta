@@ -8,7 +8,6 @@ import type {
   ConnectionMode,
   CoordinateExtent,
   FitViewOptions,
-  HandleType,
   KeyCode,
   Node,
   NodeDragHandler,

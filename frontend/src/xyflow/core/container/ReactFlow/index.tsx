@@ -6,7 +6,6 @@ import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
 import type {
   NodeOrigin,
-  NodeTypes,
   ReactFlowProps,
   ReactFlowRefType,
   Viewport,

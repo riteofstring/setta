@@ -19,12 +19,8 @@ export namespace Instance {
     payload: Node<NodeData>[] | Node<NodeData>,
   ) => void;
   export type GetNode<NodeData> = (id: string) => Node<NodeData> | undefined;
-  export type ToObject<
-    NodeData = any,
-  > = () => ReactFlowJsonObject<NodeData>;
-  export type DeleteElements = ({
-    nodes,
-  }: DeleteElementsOptions) => void;
+  export type ToObject<NodeData = any> = () => ReactFlowJsonObject<NodeData>;
+  export type DeleteElements = ({ nodes }: DeleteElementsOptions) => void;
   export type GetIntersectingNodes<NodeData> = (
     node: (Partial<Node<NodeData>> & { id: Node["id"] }) | Rect,
     partially?: boolean,
