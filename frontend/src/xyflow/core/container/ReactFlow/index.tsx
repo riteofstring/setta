@@ -1,7 +1,6 @@
 import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
 
-import Attribution from "../../components/Attribution";
 import {
   BezierEdge,
   SimpleBezierEdge,
@@ -159,7 +158,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       fitView = false,
       fitViewOptions,
       connectOnClick = true,
-      attributionPosition,
       proOptions,
       defaultEdgeOptions,
       elevateEdgesOnSelect = false,
@@ -306,7 +304,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           />
           <SelectionListener onSelectionChange={onSelectionChange} />
           {children}
-          <Attribution proOptions={proOptions} position={attributionPosition} />
         </Wrapper>
       </div>
     );

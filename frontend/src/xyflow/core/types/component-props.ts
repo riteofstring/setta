@@ -150,7 +150,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   fitView?: boolean;
   fitViewOptions?: FitViewOptions;
   connectOnClick?: boolean;
-  attributionPosition?: PanelPosition;
   proOptions?: ProOptions;
   elevateEdgesOnSelect?: boolean;
   disableKeyboardA11y?: boolean;

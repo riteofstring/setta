@@ -309,7 +309,6 @@ export type PanelPosition =
 
 export type ProOptions = {
   account?: string;
-  hideAttribution: boolean;
 };
 
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
