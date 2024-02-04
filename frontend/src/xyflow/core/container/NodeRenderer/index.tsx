@@ -23,7 +23,6 @@ type NodeRendererProps = Pick<
   | "onNodeMouseMove"
   | "onNodeMouseLeave"
   | "onNodeContextMenu"
-  | "onlyRenderVisibleElements"
   | "noPanClassName"
   | "noDragClassName"
 > & {
@@ -46,7 +45,7 @@ const NodeRenderer = (props: NodeRendererProps) => {
     updateNodeDimensions,
     onError,
   } = useStore(selector, shallow);
-  const nodes = useVisibleNodes(props.onlyRenderVisibleElements);
+  const nodes = useVisibleNodes();
   const resizeObserverRef = useRef<ResizeObserver>();
 
   const resizeObserver = useMemo(() => {

@@ -2,24 +2,9 @@ import { useCallback } from "react";
 
 import { useStore } from "../hooks/useStore";
 import type { ReactFlowState } from "../types";
-import { getNodesInside } from "../utils/graph";
 
-function useVisibleNodes(onlyRenderVisible: boolean) {
-  const nodes = useStore(
-    useCallback(
-      (s: ReactFlowState) =>
-        onlyRenderVisible
-          ? getNodesInside(
-              s.nodeInternals,
-              { x: 0, y: 0, width: s.width, height: s.height },
-              s.transform,
-              true,
-            )
-          : s.getNodes(),
-      [onlyRenderVisible],
-    ),
-  );
-
+function useVisibleNodes() {
+  const nodes = useStore(useCallback((s: ReactFlowState) => s.getNodes(), []));
   return nodes;
 }
 

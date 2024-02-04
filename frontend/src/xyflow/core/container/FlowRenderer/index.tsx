@@ -3,8 +3,6 @@ import { memo } from "react";
 
 import useGlobalKeyHandler from "../../hooks/useGlobalKeyHandler";
 import useKeyPress from "../../hooks/useKeyPress";
-import { useStore } from "../../hooks/useStore";
-import type { ReactFlowState } from "../../types";
 import { GraphViewProps } from "../GraphView";
 import Pane from "../Pane";
 import ZoomPane from "../ZoomPane";
@@ -15,13 +13,10 @@ export type FlowRendererProps = Omit<
   | "nodeTypes"
   | "snapGrid"
   | "arrowHeadColor"
-  | "onlyRenderVisibleElements"
   | "selectNodesOnDrag"
 > & {
   children: ReactNode;
 };
-
-const selector = (s: ReactFlowState) => s.nodesSelectionActive;
 
 const FlowRenderer = ({
   children,
@@ -60,7 +55,6 @@ const FlowRenderer = ({
   noPanClassName,
   getNodesInsideSelection,
 }: FlowRendererProps) => {
-  const nodesSelectionActive = useStore(selector);
   const selectionKeyPressed = useKeyPress(selectionKeyCode);
   const panActivationKeyPressed = useKeyPress(panActivationKeyCode);
 

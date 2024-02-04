@@ -19,7 +19,6 @@ export type GraphViewProps = Omit<
       | "selectionKeyCode"
       | "deleteKeyCode"
       | "multiSelectionKeyCode"
-      | "onlyRenderVisibleElements"
       | "translateExtent"
       | "minZoom"
       | "maxZoom"
@@ -54,7 +53,6 @@ const GraphView = ({
   panActivationKeyCode,
   zoomActivationKeyCode,
   deleteKeyCode,
-  onlyRenderVisibleElements,
   elementsSelectable,
   selectNodesOnDrag,
   defaultViewport,
@@ -133,7 +131,6 @@ const GraphView = ({
           onNodeMouseLeave={onNodeMouseLeave}
           onNodeContextMenu={onNodeContextMenu}
           selectNodesOnDrag={selectNodesOnDrag}
-          onlyRenderVisibleElements={onlyRenderVisibleElements}
           noPanClassName={noPanClassName}
           noDragClassName={noDragClassName}
         />

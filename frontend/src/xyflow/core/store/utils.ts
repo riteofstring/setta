@@ -8,7 +8,6 @@ import type {
   NodeSelectionChange,
   ReactFlowState,
 } from "../types";
-import { internalsSymbol } from "../utils";
 import {
   getD3Transition,
   getNodesBounds,
@@ -33,13 +32,6 @@ export function createNodeInternals(
         y: node.position.y,
       },
     };
-
-    Object.defineProperty(internals, internalsSymbol, {
-      enumerable: false,
-      value: {
-        handleBounds: currInternals?.[internalsSymbol]?.handleBounds,
-      },
-    });
 
     nextNodeInternals.set(node.id, internals);
   });
@@ -127,7 +119,6 @@ export function handleControlledNodeSelectionChange(
     if (node) {
       nodeInternals.set(node.id, {
         ...node,
-        [internalsSymbol]: node[internalsSymbol],
         selected: change.selected,
       });
     }

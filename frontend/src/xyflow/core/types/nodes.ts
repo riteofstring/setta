@@ -2,7 +2,6 @@
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 
 import type { Position, XYPosition } from ".";
-import { internalsSymbol } from "../utils";
 
 // interface for the user node items
 export type Node<T = any, U extends string | undefined = string | undefined> = {
@@ -25,11 +24,6 @@ export type Node<T = any, U extends string | undefined = string | undefined> = {
   positionAbsolute?: XYPosition;
   ariaLabel?: string;
   focusable?: boolean;
-
-  // only used internally
-  [internalsSymbol]?: {
-    z?: number;
-  };
 };
 
 export type NodeMouseHandler = (event: ReactMouseEvent, node: Node) => void;

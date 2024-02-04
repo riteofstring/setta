@@ -64,7 +64,6 @@ export type ReactFlowProps = Omit<HTMLAttributes<HTMLDivElement>, "onError"> & {
   zoomActivationKeyCode?: KeyCode | null;
   snapToGrid?: boolean;
   snapGrid?: [number, number];
-  onlyRenderVisibleElements?: boolean;
   nodesDraggable?: boolean;
   nodesFocusable?: boolean;
   elementsSelectable?: boolean;

@@ -53,7 +53,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       zoomActivationKeyCode = isMacOs() ? "Meta" : "Control",
       snapToGrid = false,
       snapGrid = initSnapGrid,
-      onlyRenderVisibleElements = false,
       selectNodesOnDrag = true,
       nodesDraggable,
       nodesFocusable,
@@ -122,7 +121,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
             multiSelectionKeyCode={multiSelectionKeyCode}
             panActivationKeyCode={panActivationKeyCode}
             zoomActivationKeyCode={zoomActivationKeyCode}
-            onlyRenderVisibleElements={onlyRenderVisibleElements}
             selectNodesOnDrag={selectNodesOnDrag}
             defaultViewport={defaultViewport}
             translateExtent={translateExtent}

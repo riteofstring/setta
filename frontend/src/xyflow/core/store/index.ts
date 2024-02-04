@@ -14,7 +14,7 @@ import type {
   UnselectNodesAndEdgesParams,
   XYPosition,
 } from "../types";
-import { getDimensions, internalsSymbol } from "../utils";
+import { getDimensions } from "../utils";
 import {
   applyNodeChanges,
   createSelectionChange,
@@ -85,9 +85,6 @@ const createRFStore = () =>
             if (doUpdate) {
               nodeInternals.set(node.id, {
                 ...node,
-                [internalsSymbol]: {
-                  ...node[internalsSymbol],
-                },
                 ...dimensions,
               });
 
