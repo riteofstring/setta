@@ -27,16 +27,15 @@ export function ResponsiveControls() {
 
     const minX = Math.min(...nodeInternals.map((n) => n.position.x));
     const minY = Math.min(...nodeInternals.map((n) => n.position.y));
+    const newNodes = nodeInternals.map((node) => {
+      node.position = {
+        x: sizes[node.id].x + minX,
+        y: sizes[node.id].y + minY,
+      };
+      return node;
+    });
 
-    useNodeInternals.getState().setNodes((nodes) =>
-      nodes.map((node) => {
-        node.position = {
-          x: sizes[node.id].x + minX,
-          y: sizes[node.id].y + minY,
-        };
-        return node;
-      }),
-    );
+    useNodeInternals.getState().setNodes(newNodes);
   }
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
