@@ -14,11 +14,12 @@ function _NodesSelection({ x, y, width, height }) {
   const nodeRef = useRef(null);
 
   const onContextMenu = (event) => {
-    const selectedNodes = REACT_FLOW_STORE.store
+    const selectedNodeIds = REACT_FLOW_STORE.store
       .getState()
       .getNodes()
-      .filter((n) => n.selected);
-    useContextMenus.getState().openSelection(event, selectedNodes);
+      .filter((n) => n.selected)
+      .map((n) => n.id);
+    useContextMenus.getState().openSelection(event, selectedNodeIds);
   };
 
   //   useEffect(() => {

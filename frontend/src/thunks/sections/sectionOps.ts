@@ -106,7 +106,7 @@ function setChildrenAndParent({
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
-    p.deleteChildren([sectionId]);
+    REACT_FLOW_STORE.rf.deleteNodes([sectionId]);
   } else {
     setAllChildren(oldParentId, (x) => x.filter((y) => y !== sectionId));
   }

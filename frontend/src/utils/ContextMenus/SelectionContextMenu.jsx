@@ -5,8 +5,8 @@ import { deleteSections } from "thunks/sections/sectionOps";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 
-export function SelectionContextMenu({ nodeIds }) {
-  const { isOpen, x, y } = useContextMenus((x) => x.selection, _.isEqual);
+export function SelectionContextMenu() {
+  const { isOpen, x, y, nodeIds } = useContextMenus((x) => x.selection, _.isEqual);
   const closeContextMenu = () => useContextMenus.getState().closeAll();
 
   const onClickProps = {
