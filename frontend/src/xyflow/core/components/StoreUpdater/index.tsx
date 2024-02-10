@@ -1,8 +1,7 @@
 import { useEffect } from "react";
+import { useReactFlow } from "xyflow/core/store";
 import { StoreApi } from "zustand";
 import { shallow } from "zustand/shallow";
-
-import { useStore, useStoreApi } from "../../hooks/useStore";
 import type {
   CoordinateExtent,
   ReactFlowProps,
@@ -29,7 +28,6 @@ type StoreUpdaterProps = Pick<
 >;
 
 const selector = (s: ReactFlowState) => ({
-  setNodes: s.setNodes,
   setMinZoom: s.setMinZoom,
   setMaxZoom: s.setMaxZoom,
   setTranslateExtent: s.setTranslateExtent,
@@ -75,11 +73,10 @@ const StoreUpdater = ({
   autoPanOnNodeDrag,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
-  const { setMinZoom, setMaxZoom, setTranslateExtent, reset } = useStore(
+  const { setMinZoom, setMaxZoom, setTranslateExtent, reset } = useReactFlow(
     selector,
     shallow,
   );
-  const store = useStoreApi();
 
   useEffect(() => {
     return () => {
@@ -87,20 +84,44 @@ const StoreUpdater = ({
     };
   }, []);
 
-  useDirectStoreUpdater("nodesDraggable", nodesDraggable, store.setState);
-  useDirectStoreUpdater("nodesFocusable", nodesFocusable, store.setState);
+  useDirectStoreUpdater(
+    "nodesDraggable",
+    nodesDraggable,
+    useReactFlow.setState,
+  );
+  useDirectStoreUpdater(
+    "nodesFocusable",
+    nodesFocusable,
+    useReactFlow.setState,
+  );
   useDirectStoreUpdater(
     "elementsSelectable",
     elementsSelectable,
-    store.setState,
+    useReactFlow.setState,
   );
-  useDirectStoreUpdater("snapToGrid", snapToGrid, store.setState);
-  useDirectStoreUpdater("snapGrid", snapGrid, store.setState);
-  useDirectStoreUpdater("fitViewOnInit", fitView, store.setState);
-  useDirectStoreUpdater("fitViewOnInitOptions", fitViewOptions, store.setState);
-  useDirectStoreUpdater("noPanClassName", noPanClassName, store.setState);
-  useDirectStoreUpdater("autoPanOnNodeDrag", autoPanOnNodeDrag, store.setState);
-  useDirectStoreUpdater("nodeDragThreshold", nodeDragThreshold, store.setState);
+  useDirectStoreUpdater("snapToGrid", snapToGrid, useReactFlow.setState);
+  useDirectStoreUpdater("snapGrid", snapGrid, useReactFlow.setState);
+  useDirectStoreUpdater("fitViewOnInit", fitView, useReactFlow.setState);
+  useDirectStoreUpdater(
+    "fitViewOnInitOptions",
+    fitViewOptions,
+    useReactFlow.setState,
+  );
+  useDirectStoreUpdater(
+    "noPanClassName",
+    noPanClassName,
+    useReactFlow.setState,
+  );
+  useDirectStoreUpdater(
+    "autoPanOnNodeDrag",
+    autoPanOnNodeDrag,
+    useReactFlow.setState,
+  );
+  useDirectStoreUpdater(
+    "nodeDragThreshold",
+    nodeDragThreshold,
+    useReactFlow.setState,
+  );
 
   useStoreUpdater<number>(minZoom, setMinZoom);
   useStoreUpdater<number>(maxZoom, setMaxZoom);

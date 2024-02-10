@@ -1,11 +1,11 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
-import { REACT_FLOW_STORE } from "utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { RCType } from "z_utils/types/codeInfo";
@@ -69,7 +69,7 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
   }
 
   if (topLevelSectionIds.length > 0) {
-    REACT_FLOW_STORE.rf.addNodes(
+    addNodes(
       topLevelSectionIds.map((s) => ({
         id: s,
         position,

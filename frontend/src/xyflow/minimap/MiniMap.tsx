@@ -4,42 +4,43 @@ import cc from "classcat";
 import { pointer, select } from "d3-selection";
 import type { D3ZoomEvent } from "d3-zoom";
 import { zoom, zoomIdentity } from "d3-zoom";
+import { useNodeInternals } from "models/info/nodeInternals";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import type { ReactFlowState, Rect } from "xyflow/core";
 import {
   CoordinateExtent,
   getBoundsOfRects,
   getNodesBounds,
   Panel,
-  useStore,
-  useStoreApi,
+  Rect,
 } from "xyflow/core";
+import useVisibleNodes from "xyflow/core/hooks/useVisibleNodes";
+import { useReactFlow } from "xyflow/core/store";
 import { shallow } from "zustand/shallow";
-
 import MiniMapNodes from "./MiniMapNodes";
 import type { MiniMapProps } from "./types";
 
 const defaultWidth = 200;
 const defaultHeight = 150;
 
-const selector = (s: ReactFlowState) => {
-  const nodes = s.getNodes();
-  const viewBB: Rect = {
-    x: -s.transform[0] / s.transform[2],
-    y: -s.transform[1] / s.transform[2],
-    width: s.width / s.transform[2],
-    height: s.height / s.transform[2],
-  };
+function getSelector(nodes) {
+  return (s) => {
+    const viewBB: Rect = {
+      x: -s.transform[0] / s.transform[2],
+      y: -s.transform[1] / s.transform[2],
+      width: s.width / s.transform[2],
+      height: s.height / s.transform[2],
+    };
 
-  return {
-    viewBB,
-    boundingRect:
-      nodes.length > 0
-        ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
-        : viewBB,
+    return {
+      viewBB,
+      boundingRect:
+        nodes.length > 0
+          ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
+          : viewBB,
+    };
   };
-};
+}
 
 function MiniMap({
   style,
@@ -64,9 +65,9 @@ function MiniMap({
   zoomStep = 10,
   offsetScale = 5,
 }: MiniMapProps) {
-  const store = useStoreApi();
   const svg = useRef<SVGSVGElement>(null);
-  const { boundingRect, viewBB } = useStore(selector, shallow);
+  const nodes = useVisibleNodes();
+  const { boundingRect, viewBB } = useReactFlow(getSelector(nodes), shallow);
   const elementWidth = (style?.width as number) ?? defaultWidth;
   const elementHeight = (style?.height as number) ?? defaultHeight;
 
@@ -89,7 +90,7 @@ function MiniMap({
       const selection = select(svg.current as Element);
 
       const zoomHandler = (event: D3ZoomEvent<SVGSVGElement, any>) => {
-        const { transform, d3Selection, d3Zoom } = store.getState();
+        const { transform, d3Selection, d3Zoom } = useReactFlow.getState();
 
         if (event.sourceEvent.type !== "wheel" || !d3Selection || !d3Zoom) {
           return;
@@ -116,7 +117,7 @@ function MiniMap({
           translateExtent,
           width,
           height,
-        } = store.getState();
+        } = useReactFlow.getState();
 
         if (event.sourceEvent.type !== "mousemove" || !d3Selection || !d3Zoom) {
           return;
@@ -171,7 +172,7 @@ function MiniMap({
 
   const onSvgNodeClick = onNodeClick
     ? (event: MouseEvent, nodeId: string) => {
-        const node = store.getState().nodeInternals.get(nodeId)!;
+        const node = useNodeInternals.getState().x.get(nodeId)!;
         onNodeClick(event, node);
       }
     : undefined;

@@ -1,6 +1,5 @@
+import { useReactFlow } from "xyflow/core/store";
 import { shallow } from "zustand/shallow";
-
-import { useStore } from "../../hooks/useStore";
 import type { ReactFlowState } from "../../types";
 
 const selector = (s: ReactFlowState) => ({
@@ -9,7 +8,7 @@ const selector = (s: ReactFlowState) => ({
 });
 
 function UserSelection() {
-  const { userSelectionActive, userSelectionRect } = useStore(
+  const { userSelectionActive, userSelectionRect } = useReactFlow(
     selector,
     shallow,
   );

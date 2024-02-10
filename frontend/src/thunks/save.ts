@@ -6,6 +6,7 @@ import {
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
@@ -26,7 +27,7 @@ export function getProjectData(): ProjectSaveType {
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = REACT_FLOW_STORE.rf.getViewport();
   const children = {};
-  for (const c of REACT_FLOW_STORE.store.getState().nodeInternals.values()) {
+  for (const c of useNodeInternals.getState().x.values()) {
     children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
   }
   projectConfig.children = children;

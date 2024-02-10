@@ -2,19 +2,18 @@ import cc from "classcat";
 import _ from "lodash";
 import { useContextMenus } from "models/contextMenus";
 import React, { useRef } from "react";
-import { REACT_FLOW_STORE } from "utils/constants";
-import { useStore } from "xyflow/core";
 import useDrag from "xyflow/core/hooks/useDrag";
+import { useReactFlow } from "xyflow/core/store";
 
 function _NodesSelection({ x, y, width, height }) {
-  const transformString = useStore(
+  const transformString = useReactFlow(
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const nodeRef = useRef(null);
 
   const onContextMenu = (event) => {
-    const selectedNodeIds = REACT_FLOW_STORE.store
+    const selectedNodeIds = useNodeInternals
       .getState()
       .getNodes()
       .filter((n) => n.selected)
@@ -67,7 +66,10 @@ function _NodesSelection({ x, y, width, height }) {
 }
 
 function _NodesSelectionWrapper() {
-  const nodesSelectionDims = useStore((s) => s.nodesSelectionDims, _.isEqual);
+  const nodesSelectionDims = useReactFlow(
+    (s) => s.nodesSelectionDims,
+    _.isEqual,
+  );
   return nodesSelectionDims && <NodesSelection {...nodesSelectionDims} />;
 }
 const NodesSelection = React.memo(_NodesSelection);

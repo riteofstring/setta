@@ -1,8 +1,8 @@
+import { updateNodeDimensions } from "models/info/nodeInternals";
 import { memo, useEffect, useMemo, useRef } from "react";
-import { shallow } from "zustand/shallow";
-
 import { NodeWrapper } from "xyflow/core/components/Nodes/wrapNode";
-import { useStore } from "../../hooks/useStore";
+import { useReactFlow } from "xyflow/core/store";
+import { shallow } from "zustand/shallow";
 import useVisibleNodes from "../../hooks/useVisibleNodes";
 import { containerStyle } from "../../styles";
 import type { ReactFlowState } from "../../types";
@@ -17,16 +17,13 @@ const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
   nodesFocusable: s.nodesFocusable,
   elementsSelectable: s.elementsSelectable,
-  updateNodeDimensions: s.updateNodeDimensions,
 });
 
 const NodeRenderer = (props: NodeRendererProps) => {
-  const {
-    nodesDraggable,
-    nodesFocusable,
-    elementsSelectable,
-    updateNodeDimensions,
-  } = useStore(selector, shallow);
+  const { nodesDraggable, nodesFocusable, elementsSelectable } = useReactFlow(
+    selector,
+    shallow,
+  );
   const nodes = useVisibleNodes();
   const resizeObserverRef = useRef<ResizeObserver>();
 

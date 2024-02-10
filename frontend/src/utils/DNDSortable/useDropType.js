@@ -8,15 +8,15 @@ import {
   getSectionIsRoot,
   getSectionParentId,
 } from "thunks/sections/getters";
-import { REACT_FLOW_STORE } from "utils/constants";
 import {
   BehaviorDropType,
   PositionDropType,
 } from "utils/DNDSortable/dropTypes";
+import { useReactFlow } from "xyflow/core/store";
 
 export function useOnDragMove() {
   const { isMovingFree } = useDndMode();
-  const rfStore = REACT_FLOW_STORE.store;
+  const rfStore = useReactFlow.getState();
   return (props) => {
     onDragMove({
       ...props,

@@ -1,10 +1,10 @@
-import { REACT_FLOW_STORE } from "utils/constants";
+import { useReactFlow } from "xyflow/core/store";
 
 export function updateMapPosition(widthDiff: number) {
   const {
     transform: [x, y, zoom],
-  } = REACT_FLOW_STORE.store.getState();
-  REACT_FLOW_STORE.rf.setViewport(
+  } = useReactFlow.getState();
+  useReactFlow.getState().setViewport(
     { x: x + widthDiff, y, zoom },
     {
       duration: 100,

@@ -1,9 +1,9 @@
-import { REACT_FLOW_STORE } from "utils/constants";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { SectionType } from "z_utils/types/section";
 
 export function setZIndices(inputNodes: SectionType[], incrementVersion) {
   const nodes = inputNodes.filter((x) => x.id);
-  const nodeInternals = REACT_FLOW_STORE.store.getState().nodeInternals;
+  const nodeInternals = useNodeInternals.getState().x;
   const excludingInputIds = Array.from(nodeInternals.values()).filter(
     (x) => !nodes.map((x) => x.id).includes(x),
   );
@@ -21,7 +21,7 @@ export function setZIndices(inputNodes: SectionType[], incrementVersion) {
     newValues.get(nodes[i].id).zIndex = i + excludingInputIds.length;
   }
 
-  REACT_FLOW_STORE.store.setState({ nodeInternals: newValues });
+  useNodeInternals.setState({ nodeInternals: newValues });
 
   // maybeIncrementProjectStateVersion(incrementVersion);
 }

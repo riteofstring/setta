@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { useNodeInternals } from "models/info/nodeInternals";
 import { memo } from "react";
-import { useStore, type ReactFlowState } from "xyflow/core";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodes } from "./types";
 
 declare const window: any;
 
-const selectorNodes = (s: ReactFlowState) =>
+const selectorNodes = (s) =>
   s.getNodes().filter((node) => node.width && node.height);
 const getAttrFunction = (func: any): GetMiniMapNodeAttribute =>
   func instanceof Function ? func : () => func;
@@ -23,7 +23,7 @@ function MiniMapNodes({
   nodeComponent: NodeComponent = MiniMapNode,
   onClick,
 }: MiniMapNodes) {
-  const nodes = useStore(selectorNodes);
+  const nodes = useNodeInternals(selectorNodes);
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);

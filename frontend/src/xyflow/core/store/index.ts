@@ -1,293 +1,81 @@
 import { zoomIdentity } from "d3-zoom";
-import { createWithEqualityFn } from "zustand/traditional";
-
 import { useActiveSection } from "models/activeSection";
-import type {
-  CoordinateExtent,
-  Node,
-  NodeChange,
-  NodeDimensionChange,
-  NodeDimensionUpdate,
-  NodeDragItem,
-  NodePositionChange,
-  NodeSelectionChange,
-  ReactFlowState,
-  UnselectNodesAndEdgesParams,
-  XYPosition,
-} from "../types";
-import { getDimensions } from "../utils";
-import { createSelectionChange, getSelectionChanges } from "../utils/changes";
+import { createWithEqualityFn } from "zustand/traditional";
+import type { CoordinateExtent, ReactFlowState, XYPosition } from "../types";
 import { getNodesBounds, getSectionRect } from "../utils/graph";
 import initialState from "./initialState";
-import {
-  createNodeInternals,
-  fitView,
-  updateNodesAndEdgesSelections,
-} from "./utils";
 
-const createRFStore = () =>
-  createWithEqualityFn<ReactFlowState>(
-    (set, get) => ({
-      ...initialState,
-      setNodes: (nodes: Node[]) => {
-        const { nodeInternals } = get();
-        set({
-          nodeInternals: createNodeInternals(nodes, nodeInternals),
+export const useReactFlow = createWithEqualityFn<ReactFlowState>(
+  (set, get) => ({
+    ...initialState,
+    setNodesSelection: (selectedNodesCount) => {
+      if (selectedNodesCount > 0) {
+        const activeSectionIds = useActiveSection.getState().ids;
+        const sections = activeSectionIds.map((sectionId) => {
+          const { x, y, width, height } = getSectionRect(sectionId);
+          return { position: { x, y }, width, height };
         });
-      },
-      getNodes: () => {
-        return Array.from(get().nodeInternals.values());
-      },
-      updateNodeDimensions: (updates: NodeDimensionUpdate[]) => {
-        const {
-          onNodesChange,
-          nodeInternals,
-          fitViewOnInit,
-          fitViewOnInitDone,
-          fitViewOnInitOptions,
-          domNode,
-        } = get();
-        const viewportNode = domNode?.querySelector(".react-flow__viewport");
+        set({ nodesSelectionDims: getNodesBounds(sections) });
+      }
+    },
+    shiftNodesSelection: (delta) => {
+      set((state) => ({
+        nodesSelectionDims: {
+          ...state.nodesSelectionDims,
+          x: state.nodesSelectionDims.x + delta.x,
+          y: state.nodesSelectionDims.y + delta.y,
+        },
+      }));
+    },
+    setMinZoom: (minZoom: number) => {
+      const { d3Zoom, maxZoom } = get();
+      d3Zoom?.scaleExtent([minZoom, maxZoom]);
 
-        if (!viewportNode) {
-          return;
-        }
+      set({ minZoom });
+    },
+    setMaxZoom: (maxZoom: number) => {
+      const { d3Zoom, minZoom } = get();
+      d3Zoom?.scaleExtent([minZoom, maxZoom]);
 
-        const changes: NodeDimensionChange[] = updates.reduce<
-          NodeDimensionChange[]
-        >((res, update) => {
-          const node = nodeInternals.get(update.id);
+      set({ maxZoom });
+    },
+    setTranslateExtent: (translateExtent: CoordinateExtent) => {
+      get().d3Zoom?.translateExtent(translateExtent);
 
-          if (node) {
-            const dimensions = getDimensions(update.nodeElement);
-            const doUpdate = !!(
-              dimensions.width &&
-              dimensions.height &&
-              (node.width !== dimensions.width ||
-                node.height !== dimensions.height ||
-                update.forceUpdate)
-            );
+      set({ translateExtent });
+    },
+    panBy: (delta: XYPosition): boolean => {
+      const { transform, width, height, d3Zoom, d3Selection, translateExtent } =
+        get();
 
-            if (doUpdate) {
-              nodeInternals.set(node.id, {
-                ...node,
-                ...dimensions,
-              });
+      if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
+        return false;
+      }
 
-              res.push({
-                id: node.id,
-                type: "dimensions",
-                dimensions,
-              });
-            }
-          }
+      const nextTransform = zoomIdentity
+        .translate(transform[0] + delta.x, transform[1] + delta.y)
+        .scale(transform[2]);
 
-          return res;
-        }, []);
+      const extent: CoordinateExtent = [
+        [0, 0],
+        [width, height],
+      ];
 
-        const nextFitViewOnInitDone =
-          fitViewOnInitDone ||
-          (fitViewOnInit &&
-            !fitViewOnInitDone &&
-            fitView(get, { initial: true, ...fitViewOnInitOptions }));
-        set({
-          nodeInternals: new Map(nodeInternals),
-          fitViewOnInitDone: nextFitViewOnInitDone,
-        });
+      const constrainedTransform = d3Zoom?.constrain()(
+        nextTransform,
+        extent,
+        translateExtent,
+      );
+      d3Zoom.transform(d3Selection, constrainedTransform);
 
-        if (changes?.length > 0) {
-          onNodesChange(changes);
-        }
-      },
-      updateNodePositions: (
-        nodeDragItems: NodeDragItem[] | Node[],
-        positionChanged = true,
-        dragging = false,
-      ) => {
-        const { onNodesChange } = get();
+      const transformChanged =
+        transform[0] !== constrainedTransform.x ||
+        transform[1] !== constrainedTransform.y ||
+        transform[2] !== constrainedTransform.k;
 
-        const changes = nodeDragItems.map((node) => {
-          const change: NodePositionChange = {
-            id: node.id,
-            type: "position",
-            dragging,
-          };
-
-          if (positionChanged) {
-            change.position = node.position;
-          }
-
-          return change;
-        });
-
-        if (changes?.length) {
-          onNodesChange(changes);
-        }
-      },
-      onNodesChange: (changes: NodeChange[]) => {
-        const { nodeInternals } = get();
-        const newNodes = new Map(nodeInternals);
-        for (const c of changes) {
-          switch (c.type) {
-            case "select": {
-              newNodes.get(c.id).selected = c.selected;
-              break;
-            }
-            case "position": {
-              if (typeof c.position !== "undefined") {
-                newNodes.get(c.id).position = c.position;
-              }
-              break;
-            }
-            case "add": {
-              newNodes.set(c.item.id, c.item);
-              break;
-            }
-            case "remove": {
-              newNodes.delete(c.id);
-              break;
-            }
-          }
-        }
-        set({ nodeInternals: newNodes });
-      },
-      raiseZIndex: (nodes) => {
-        const { nodeInternals } = get();
-        const newNodes = new Map(nodeInternals);
-        for (const [, n] of newNodes) {
-          n.tempZIndex = n.zIndex;
-        }
-        for (const n of nodes) {
-          newNodes.get(n.id).tempZIndex = newNodes.get(n.id).zIndex + 1000;
-        }
-        set({ nodeInternals: newNodes });
-      },
-      setNodesSelection: (selectedNodesCount) => {
-        if (selectedNodesCount > 0) {
-          const activeSectionIds = useActiveSection.getState().ids;
-          const sections = activeSectionIds.map((sectionId) => {
-            const { x, y, width, height } = getSectionRect(sectionId);
-            return { position: { x, y }, width, height };
-          });
-          set({ nodesSelectionDims: getNodesBounds(sections) });
-        }
-      },
-      shiftNodesSelection: (delta) => {
-        set((state) => ({
-          nodesSelectionDims: {
-            ...state.nodesSelectionDims,
-            x: state.nodesSelectionDims.x + delta.x,
-            y: state.nodesSelectionDims.y + delta.y,
-          },
-        }));
-      },
-
-      addSelectedNodes: (selectedNodeIds: string[]) => {
-        const { multiSelectionActive, getNodes } = get();
-        let changedNodes: NodeSelectionChange[];
-
-        if (multiSelectionActive) {
-          changedNodes = selectedNodeIds.map((nodeId) =>
-            createSelectionChange(nodeId, true),
-          ) as NodeSelectionChange[];
-        } else {
-          changedNodes = getSelectionChanges(getNodes(), selectedNodeIds);
-        }
-
-        updateNodesAndEdgesSelections({
-          changedNodes,
-          get,
-          set,
-        });
-      },
-      unselectNodesAndEdges: ({ nodes }: UnselectNodesAndEdgesParams = {}) => {
-        const { getNodes } = get();
-        const nodesToUnselect = nodes ? nodes : getNodes();
-
-        const changedNodes = nodesToUnselect.map((n) => {
-          n.selected = false;
-          return createSelectionChange(n.id, false);
-        }) as NodeSelectionChange[];
-
-        updateNodesAndEdgesSelections({
-          changedNodes,
-          get,
-          set,
-        });
-      },
-      setMinZoom: (minZoom: number) => {
-        const { d3Zoom, maxZoom } = get();
-        d3Zoom?.scaleExtent([minZoom, maxZoom]);
-
-        set({ minZoom });
-      },
-      setMaxZoom: (maxZoom: number) => {
-        const { d3Zoom, minZoom } = get();
-        d3Zoom?.scaleExtent([minZoom, maxZoom]);
-
-        set({ maxZoom });
-      },
-      setTranslateExtent: (translateExtent: CoordinateExtent) => {
-        get().d3Zoom?.translateExtent(translateExtent);
-
-        set({ translateExtent });
-      },
-      resetSelectedElements: () => {
-        const { getNodes } = get();
-        const nodes = getNodes();
-
-        const nodesToUnselect = nodes
-          .filter((e) => e.selected)
-          .map((n) =>
-            createSelectionChange(n.id, false),
-          ) as NodeSelectionChange[];
-
-        updateNodesAndEdgesSelections({
-          changedNodes: nodesToUnselect,
-          get,
-          set,
-        });
-      },
-      panBy: (delta: XYPosition): boolean => {
-        const {
-          transform,
-          width,
-          height,
-          d3Zoom,
-          d3Selection,
-          translateExtent,
-        } = get();
-
-        if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
-          return false;
-        }
-
-        const nextTransform = zoomIdentity
-          .translate(transform[0] + delta.x, transform[1] + delta.y)
-          .scale(transform[2]);
-
-        const extent: CoordinateExtent = [
-          [0, 0],
-          [width, height],
-        ];
-
-        const constrainedTransform = d3Zoom?.constrain()(
-          nextTransform,
-          extent,
-          translateExtent,
-        );
-        d3Zoom.transform(d3Selection, constrainedTransform);
-
-        const transformChanged =
-          transform[0] !== constrainedTransform.x ||
-          transform[1] !== constrainedTransform.y ||
-          transform[2] !== constrainedTransform.k;
-
-        return transformChanged;
-      },
-      reset: () => set({ ...initialState }),
-    }),
-    Object.is,
-  );
-
-export { createRFStore };
+      return transformChanged;
+    },
+    reset: () => set({ ...initialState }),
+  }),
+  Object.is,
+);

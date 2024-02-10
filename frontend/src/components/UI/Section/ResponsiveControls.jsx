@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import _ from "lodash";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
-import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
+import { OVERVIEW } from "utils/constants";
 import { ControlButton, Controls } from "xyflow/controls";
 import "xyflow/controls/style.css";
 
@@ -14,8 +15,7 @@ export function ResponsiveControls() {
 
   function onClickLayout() {
     const margin = 50;
-    const store = REACT_FLOW_STORE.store;
-    const nodeInternals = Array.from(store.getState().nodeInternals.values());
+    const nodeInternals = useNodeInternals.getState().getNodes();
 
     let sizes = nodeInternals.map((x) => ({
       id: x.id,
@@ -28,7 +28,7 @@ export function ResponsiveControls() {
     const minX = Math.min(...nodeInternals.map((n) => n.position.x));
     const minY = Math.min(...nodeInternals.map((n) => n.position.y));
 
-    REACT_FLOW_STORE.rf.setNodes((nodes) =>
+    useNodeInternals.getState().setNodes((nodes) =>
       nodes.map((node) => {
         node.position = {
           x: sizes[node.id].x + minX,

@@ -4,6 +4,10 @@
 
 import { useActiveSection } from "models/activeSection";
 import { useContextMenus } from "models/contextMenus";
+import {
+  resetSelectedElements,
+  useNodeInternals,
+} from "models/info/nodeInternals";
 import React, {
   memo,
   MouseEvent as ReactMouseEvent,
@@ -11,10 +15,10 @@ import React, {
   useRef,
 } from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
+import { useReactFlow } from "xyflow/core/store";
 import { getNodesInside } from "xyflow/core/utils/graph";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../../components/UserSelection";
-import { useStore, useStoreApi } from "../../hooks/useStore";
 import { containerStyle } from "../../styles";
 import type { NodeChange, ReactFlowProps, ReactFlowState } from "../../types";
 import { SelectionMode } from "../../types";
@@ -52,16 +56,18 @@ const Pane = memo(
     children,
   }: PaneProps) => {
     const container = useRef<HTMLDivElement | null>(null);
-    const store = useStoreApi();
     const prevSelectedNodesCount = useRef<number>(0);
     const containerBounds = useRef<DOMRect>();
-    const { userSelectionActive, elementsSelectable } = useStore(
+    const { userSelectionActive, elementsSelectable } = useReactFlow(
       selector,
       shallow,
     );
 
     const resetUserSelection = () => {
-      store.setState({ userSelectionActive: false, userSelectionRect: null });
+      useReactFlow.setState({
+        userSelectionActive: false,
+        userSelectionRect: null,
+      });
 
       prevSelectedNodesCount.current = 0;
     };
@@ -73,8 +79,8 @@ const Pane = memo(
           x: event.clientX,
           y: event.clientY,
         });
-      store.getState().resetSelectedElements();
-      store.setState({
+      resetSelectedElements();
+      useReactFlow.setState({
         nodesSelectionDims: null,
       });
     };
@@ -88,7 +94,7 @@ const Pane = memo(
     };
 
     const onMouseDown = (event: ReactMouseEvent): void => {
-      const { resetSelectedElements, domNode } = store.getState();
+      const { domNode } = useReactFlow.getState();
       containerBounds.current = domNode?.getBoundingClientRect();
 
       if (
@@ -105,7 +111,7 @@ const Pane = memo(
 
       resetSelectedElements();
 
-      store.setState({
+      useReactFlow.setState({
         userSelectionRect: {
           width: 0,
           height: 0,
@@ -118,13 +124,13 @@ const Pane = memo(
     };
 
     const onMouseMove = (event: ReactMouseEvent): void => {
-      const { userSelectionRect, transform, onNodesChange, getNodes } =
-        store.getState();
+      const { userSelectionRect, transform, onNodesChange } =
+        useReactFlow.getState();
       if (!isSelecting || !containerBounds.current || !userSelectionRect) {
         return;
       }
 
-      store.setState({
+      useReactFlow.setState({
         userSelectionActive: true,
         nodesSelectionDims: null,
       });
@@ -141,7 +147,7 @@ const Pane = memo(
         height: Math.abs(mousePos.y - startY),
       };
 
-      const nodes = getNodes();
+      const nodes = useNodeInternals.getState().getNodes();
       const selectedNodeIds = getNodesInside(
         nextUserSelectRect,
         transform,
@@ -161,7 +167,7 @@ const Pane = memo(
         }
       }
 
-      store.setState({
+      useReactFlow.setState({
         userSelectionRect: nextUserSelectRect,
       });
     };
@@ -170,7 +176,7 @@ const Pane = memo(
       if (event.button !== 0) {
         return;
       }
-      const { userSelectionRect } = store.getState();
+      const { userSelectionRect } = useReactFlow.getState();
       // We only want to trigger click functions when in selection mode if
       // the user did not move the mouse.
       if (
@@ -181,13 +187,15 @@ const Pane = memo(
         onClick(event);
       }
 
-      store.getState().setNodesSelection(prevSelectedNodesCount.current);
+      useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
       resetUserSelection();
     };
 
     const onMouseLeave = (event: ReactMouseEvent) => {
       if (userSelectionActive) {
-        store.getState().setNodesSelection(prevSelectedNodesCount.current);
+        useReactFlow
+          .getState()
+          .setNodesSelection(prevSelectedNodesCount.current);
       }
       resetUserSelection();
     };

@@ -9,7 +9,6 @@ const initialState: ReactFlowStore = {
   width: 0,
   height: 0,
   transform: [0, 0, 1],
-  nodeInternals: new Map(),
   d3Zoom: null,
   d3Selection: null,
   d3ZoomHandler: undefined,

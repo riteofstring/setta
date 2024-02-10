@@ -1,10 +1,15 @@
 import { drag } from "d3-drag";
 import { select } from "d3-selection";
+import {
+  raiseZIndex,
+  unselectNodesAndEdges,
+  updateNodePositions,
+  useNodeInternals,
+} from "models/info/nodeInternals";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
-
 import { setZIndices } from "thunks/sections/sectionPositions";
-import { useStoreApi } from "../../hooks/useStore";
+import { useReactFlow } from "xyflow/core/store";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";
@@ -29,7 +34,6 @@ function useDrag({
   isSelectable,
   selectNodesOnDrag,
 }: UseDragParams) {
-  const store = useStoreApi();
   const [dragging, setDragging] = useState<boolean>(false);
   const dragItems = useRef<NodeDragItem[]>([]);
   const lastPos = useRef<{ x: number | null; y: number | null }>({
@@ -52,11 +56,10 @@ function useDrag({
       const updateNodes = ({ x, y }: XYPosition) => {
         const {
           nodesSelectionDims,
-          updateNodePositions,
           snapGrid,
           snapToGrid,
           shiftNodesSelection,
-        } = store.getState();
+        } = useReactFlow.getState();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
         lastPos.current = { x, y };
@@ -109,7 +112,7 @@ function useDrag({
         );
 
         if (xMovement !== 0 || yMovement !== 0) {
-          const { transform, panBy } = store.getState();
+          const { transform, panBy } = useReactFlow.getState();
 
           lastPos.current.x =
             (lastPos.current.x ?? 0) - xMovement / transform[2];
@@ -124,13 +127,9 @@ function useDrag({
       };
 
       const startDrag = (event: UseDragEvent) => {
-        const {
-          nodeInternals,
-          multiSelectionActive,
-          nodesDraggable,
-          unselectNodesAndEdges,
-          raiseZIndex,
-        } = store.getState();
+        const { multiSelectionActive, nodesDraggable } =
+          useReactFlow.getState();
+        const nodeInternals = useNodeInternals.getState().x;
         dragStarted.current = true;
 
         if (
@@ -158,7 +157,7 @@ function useDrag({
       } else {
         const dragHandler = drag()
           .on("start", (event: UseDragEvent) => {
-            const { domNode, nodeDragThreshold } = store.getState();
+            const { domNode, nodeDragThreshold } = useReactFlow.getState();
             if (nodeDragThreshold === 0) {
               startDrag(event);
             }
@@ -173,7 +172,8 @@ function useDrag({
           })
           .on("drag", (event: UseDragEvent) => {
             const pointerPos = getPointerPosition(event);
-            const { autoPanOnNodeDrag, nodeDragThreshold } = store.getState();
+            const { autoPanOnNodeDrag, nodeDragThreshold } =
+              useReactFlow.getState();
 
             if (
               !autoPanStarted.current &&
@@ -245,7 +245,6 @@ function useDrag({
     disabled,
     noDragClassName,
     isSelectable,
-    store,
     nodeId,
     selectNodesOnDrag,
     getPointerPosition,

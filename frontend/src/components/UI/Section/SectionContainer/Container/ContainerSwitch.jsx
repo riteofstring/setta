@@ -1,4 +1,4 @@
-import { useStore } from "xyflow/core";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
@@ -8,7 +8,7 @@ export function ContainerSwitch({
   dragListeners,
   children,
 }) {
-  const isTopLevel = useStore((x) => x.nodeInternals.has(sectionId));
+  const isTopLevel = useNodeInternals((x) => x.x.has(sectionId));
 
   return isTopLevel ? (
     <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>

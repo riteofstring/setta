@@ -1,7 +1,6 @@
 import cc from "classcat";
 import { type HTMLAttributes, type ReactNode } from "react";
-
-import { useStore } from "../../hooks/useStore";
+import { useReactFlow } from "xyflow/core/store";
 import type { PanelPosition, ReactFlowState } from "../../types";
 
 export type PanelProps = HTMLAttributes<HTMLDivElement> & {
@@ -13,7 +12,7 @@ const selector = (s: ReactFlowState) =>
   s.userSelectionActive ? "none" : "all";
 
 function Panel({ position, children, className, style, ...rest }: PanelProps) {
-  const pointerEvents = useStore(selector);
+  const pointerEvents = useReactFlow(selector);
   const positionClasses = `${position}`.split("-");
 
   return (

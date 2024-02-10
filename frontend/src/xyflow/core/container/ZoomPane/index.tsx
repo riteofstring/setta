@@ -12,9 +12,9 @@ import { useEffect, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
 import { useContextMenus } from "models/contextMenus";
+import { useReactFlow } from "xyflow/core/store";
 import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";
-import { useStore, useStoreApi } from "../../hooks/useStore";
 import { containerStyle } from "../../styles";
 import {
   CoordinateExtent,
@@ -92,15 +92,12 @@ const ZoomPane = ({
   noPanClassName,
 }: ZoomPaneProps) => {
   const timerId = useRef<ReturnType<typeof setTimeout>>();
-  const store = useStoreApi();
   const isZoomingOrPanning = useRef(false);
   const zoomedWithRightMouseButton = useRef(false);
   const zoomPane = useRef<HTMLDivElement>(null);
   const prevTransform = useRef<Viewport>({ x: 0, y: 0, zoom: 0 });
-  const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } = useStore(
-    selector,
-    shallow,
-  );
+  const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
+    useReactFlow(selector, shallow);
   const zoomActivationKeyPressed = useKeyPress(zoomActivationKeyCode);
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
@@ -135,7 +132,7 @@ const ZoomPane = ({
       d3ZoomInstance.transform(selection, constrainedTransform);
       d3ZoomInstance.wheelDelta(wheelDelta);
 
-      store.setState({
+      useReactFlow.setState({
         d3Zoom: d3ZoomInstance,
         d3Selection: selection,
         d3ZoomHandler: selection.on("wheel.zoom"),
@@ -265,7 +262,7 @@ const ZoomPane = ({
         prevTransform.current = flowTransform;
 
         if (event.sourceEvent?.type === "mousedown") {
-          store.setState({ paneDragging: true });
+          useReactFlow.setState({ paneDragging: true });
         }
 
         useContextMenus.getState().closeAll();
@@ -279,7 +276,7 @@ const ZoomPane = ({
         d3Zoom.on("zoom", null);
       } else if (!userSelectionActive) {
         d3Zoom.on("zoom", (event: D3ZoomEvent<HTMLDivElement, any>) => {
-          store.setState({
+          useReactFlow.setState({
             transform: [
               event.transform.x,
               event.transform.y,
@@ -304,7 +301,7 @@ const ZoomPane = ({
         }
 
         isZoomingOrPanning.current = false;
-        store.setState({ paneDragging: false });
+        useReactFlow.setState({ paneDragging: false });
         zoomedWithRightMouseButton.current = false;
       });
     }

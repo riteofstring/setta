@@ -1,6 +1,7 @@
 import { usePanes } from "models/panes";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
-import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
+import { OVERVIEW } from "utils/constants";
+import { useReactFlow } from "xyflow/core/store";
 
 export function addSectionInEmptySpace({
   type,
@@ -9,10 +10,9 @@ export function addSectionInEmptySpace({
   type: string;
   inputSectionProps: any;
 }) {
-  const store = REACT_FLOW_STORE.store;
   const {
     transform: [_x, _y, zoom],
-  } = store.getState();
+  } = useReactFlow.getState();
   const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
 
   const x = (overviewWidth - _x) / zoom;

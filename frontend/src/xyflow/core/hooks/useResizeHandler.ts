@@ -1,15 +1,12 @@
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
-
 import { errorMessages } from "../contants";
-import { useStoreApi } from "../hooks/useStore";
+import { useReactFlow } from "../store";
 import { devWarn, getDimensions } from "../utils";
 
 function useResizeHandler(
   rendererNode: MutableRefObject<HTMLDivElement | null>,
 ): void {
-  const store = useStoreApi();
-
   useEffect(() => {
     let resizeObserver: ResizeObserver;
 
@@ -24,7 +21,10 @@ function useResizeHandler(
         devWarn("004", errorMessages["error004"]());
       }
 
-      store.setState({ width: size.width || 500, height: size.height || 500 });
+      useReactFlow.setState({
+        width: size.width || 500,
+        height: size.height || 500,
+      });
     };
 
     updateDimensions();

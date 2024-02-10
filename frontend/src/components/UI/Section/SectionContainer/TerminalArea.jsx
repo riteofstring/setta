@@ -4,7 +4,7 @@ import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
-import { useStore } from "xyflow/core";
+import { useReactFlow } from "xyflow/core/store";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { createNewId } from "z_utils/utils";
 import { theme } from "./Terminal/TerminalTheme";
@@ -48,7 +48,7 @@ function _TerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
   const terminalRef = useTerminal({ sectionId, width, height });
 
-  window.reactFlowZoom = useStore((x) => x.transform[2]);
+  window.reactFlowZoom = useReactFlow((x) => x.transform[2]);
 
   return (
     <div

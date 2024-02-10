@@ -4,7 +4,7 @@ import { useContextMenus } from "models/contextMenus";
 import { createDeck } from "thunks/createSectionOrDeck";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { Item } from "utils/atoms/dropdown/item";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { useReactFlow } from "xyflow/core/store";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function SelectionContextMenu() {
@@ -15,7 +15,7 @@ export function SelectionContextMenu() {
   const closeContextMenu = () => {
     useContextMenus.getState().closeAll();
     useActiveSection.getState().clear();
-    REACT_FLOW_STORE.store.setState({ nodesSelectionDims: null });
+    useReactFlow.setState({ nodesSelectionDims: null });
   };
 
   const onClickProps = {

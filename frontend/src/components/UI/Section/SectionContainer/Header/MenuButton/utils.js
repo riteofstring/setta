@@ -1,11 +1,10 @@
+import { useNodeInternals } from "models/info/nodeInternals";
 import { createSectionInfo } from "thunks/sections/createSectionInfo";
-import { REACT_FLOW_STORE } from "utils/constants";
 
 export function creatAdjacentSection(sectionId, sectionProps) {
-  const reactFlowStore = REACT_FLOW_STORE.store;
-  const { position: sectionPosition, width: sectionWidth } = reactFlowStore
+  const { position: sectionPosition, width: sectionWidth } = useNodeInternals
     .getState()
-    .nodeInternals.get(sectionId);
+    .x.get(sectionId);
 
   const position = {
     x: sectionPosition.x + sectionWidth,

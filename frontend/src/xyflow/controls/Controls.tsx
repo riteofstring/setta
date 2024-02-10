@@ -6,22 +6,16 @@ import {
   type FC,
   type PropsWithChildren,
 } from "react";
-import {
-  Panel,
-  useReactFlow,
-  useStore,
-  useStoreApi,
-  type ReactFlowState,
-} from "xyflow/core";
+import { Panel, type ReactFlowState } from "xyflow/core";
+import useViewportHelper from "xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "xyflow/core/store";
 import { shallow } from "zustand/shallow";
-
 import ControlButton from "./ControlButton";
 import FitviewIcon from "./Icons/FitView";
 import LockIcon from "./Icons/Lock";
 import MinusIcon from "./Icons/Minus";
 import PlusIcon from "./Icons/Plus";
 import UnlockIcon from "./Icons/Unlock";
-
 import type { ControlProps } from "./types";
 
 const selector = (s: ReactFlowState) => ({
@@ -44,13 +38,12 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   children,
   position = "bottom-left",
 }) => {
-  const store = useStoreApi();
   const [isVisible, setIsVisible] = useState<boolean>(false);
-  const { isInteractive, minZoomReached, maxZoomReached } = useStore(
+  const { isInteractive, minZoomReached, maxZoomReached } = useReactFlow(
     selector,
     shallow,
   );
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const { zoomIn, zoomOut, fitView } = useViewportHelper();
 
   useEffect(() => {
     setIsVisible(true);
@@ -76,7 +69,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   };
 
   const onToggleInteractivity = () => {
-    store.setState({
+    useReactFlow.setState({
       nodesDraggable: !isInteractive,
       elementsSelectable: !isInteractive,
     });

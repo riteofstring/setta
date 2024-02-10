@@ -8,12 +8,7 @@ import type {
 
 import type { NodeChange } from "./changes";
 import type { ReactFlowInstance } from "./instance";
-import type {
-  Node,
-  NodeDimensionUpdate,
-  NodeDragItem,
-  NodeInternals,
-} from "./nodes";
+import type { Node } from "./nodes";
 import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
 
 export type FitView = (fitViewOptions?: FitViewOptions) => boolean;
@@ -115,7 +110,6 @@ export type ReactFlowStore = {
   width: number;
   height: number;
   transform: Transform;
-  nodeInternals: NodeInternals;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
   noPanClassName: string;
@@ -154,17 +148,6 @@ export type ReactFlowStore = {
 };
 
 export type ReactFlowActions = {
-  setNodes: (nodes: Node[]) => void;
-  getNodes: () => Node[];
-  updateNodeDimensions: (updates: NodeDimensionUpdate[]) => void;
-  updateNodePositions: (
-    nodeDragItems: NodeDragItem[] | Node[],
-    positionChanged: boolean,
-    dragging: boolean,
-  ) => void;
-  resetSelectedElements: () => void;
-  unselectNodesAndEdges: (params?: UnselectNodesAndEdgesParams) => void;
-  addSelectedNodes: (nodeIds: string[]) => void;
   setMinZoom: (minZoom: number) => void;
   setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;

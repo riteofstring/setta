@@ -1,14 +1,14 @@
 import _ from "lodash";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useStore } from "xyflow/core";
 import { getDepthListing } from "z_utils/childrenToDepth";
 import { useMatchSorterFilter } from "./useMatchSorterFilter";
 import { useSectionInfoNames } from "./useSectionInfo";
 import { useSectionTypeNames } from "./useSectionType";
 
 export function useGetOverviewListing(sectionTypeFilter = null) {
-  const topLevelSectionIds = useStore(
-    (x) => [...x.nodeInternals.keys()],
+  const topLevelSectionIds = useNodeInternals(
+    (x) => [...x.x.keys()],
     _.isEqual,
   );
   const sectionChildren = useSectionInfos(

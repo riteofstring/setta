@@ -1,6 +1,5 @@
 import { type ReactNode } from "react";
-
-import { useStore } from "../../hooks/useStore";
+import { useReactFlow } from "xyflow/core/store";
 import type { ReactFlowState } from "../../types";
 
 const selector = (s: ReactFlowState) =>
@@ -11,7 +10,7 @@ type ViewportProps = {
 };
 
 function Viewport({ children }: ViewportProps) {
-  const transform = useStore(selector);
+  const transform = useReactFlow(selector);
 
   return (
     <div

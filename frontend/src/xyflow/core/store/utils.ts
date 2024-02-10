@@ -1,9 +1,9 @@
 import { zoomIdentity } from "d3-zoom";
 import type { StoreApi } from "zustand";
 
+import { useNodeInternals } from "models/info/nodeInternals";
 import type {
   FitViewOptions,
-  Node,
   NodeInternals,
   NodeSelectionChange,
   ReactFlowState,
@@ -14,27 +14,6 @@ import {
   getViewportForBounds,
 } from "../utils/graph";
 
-export function createNodeInternals(
-  nodes: Node[],
-  nodeInternals: NodeInternals,
-): NodeInternals {
-  const nextNodeInternals = new Map<string, Node>();
-
-  nodes.forEach((node) => {
-    const currInternals = nodeInternals.get(node.id);
-
-    const internals: Node = {
-      width: currInternals?.width,
-      height: currInternals?.height,
-      ...node,
-    };
-
-    nextNodeInternals.set(node.id, internals);
-  });
-
-  return nextNodeInternals;
-}
-
 type InternalFitViewOptions = {
   initial?: boolean;
 } & FitViewOptions;
@@ -44,7 +23,6 @@ export function fitView(
   options: InternalFitViewOptions = {},
 ) {
   const {
-    getNodes,
     width,
     height,
     minZoom,
@@ -59,13 +37,16 @@ export function fitView(
   const d3initialized = d3Zoom && d3Selection;
 
   if (d3initialized && (isInitialFitView || !options.initial)) {
-    const nodes = getNodes().filter((n) => {
-      if (options.nodes?.length) {
-        return options.nodes.some((optionNode) => optionNode.id === n.id);
-      }
+    const nodes = useNodeInternals
+      .getState()
+      .getNodes()
+      .filter((n) => {
+        if (options.nodes?.length) {
+          return options.nodes.some((optionNode) => optionNode.id === n.id);
+        }
 
-      return true;
-    });
+        return true;
+      });
 
     const nodesInitialized = nodes.every((n) => n.width && n.height);
 

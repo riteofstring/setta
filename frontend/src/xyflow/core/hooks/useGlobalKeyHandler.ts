@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-
-import { useStoreApi } from "../hooks/useStore";
+import { useReactFlow } from "../store";
 import type { KeyCode } from "../types";
 import useKeyPress from "./useKeyPress";
 interface HookParams {
@@ -8,10 +7,9 @@ interface HookParams {
 }
 
 export default ({ multiSelectionKeyCode }: HookParams): void => {
-  const store = useStoreApi();
   const multiSelectionKeyPressed = useKeyPress(multiSelectionKeyCode);
 
   useEffect(() => {
-    store.setState({ multiSelectionActive: multiSelectionKeyPressed });
+    useReactFlow.setState({ multiSelectionActive: multiSelectionKeyPressed });
   }, [multiSelectionKeyPressed]);
 };

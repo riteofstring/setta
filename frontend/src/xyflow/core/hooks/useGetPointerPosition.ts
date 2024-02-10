@@ -1,14 +1,11 @@
 import { useCallback } from "react";
-
+import { useReactFlow } from "../store";
 import type { UseDragEvent } from "../types";
-import { useStoreApi } from "./useStore";
 
 function useGetPointerPosition() {
-  const store = useStoreApi();
-
   // returns the pointer position projected to the RF coordinate system
   const getPointerPosition = useCallback(({ sourceEvent }: UseDragEvent) => {
-    const { transform, snapGrid, snapToGrid } = store.getState();
+    const { transform, snapGrid, snapToGrid } = useReactFlow.getState();
     const x = sourceEvent.touches
       ? sourceEvent.touches[0].clientX
       : sourceEvent.clientX;

@@ -1,8 +1,7 @@
 import { zoomIdentity } from "d3-zoom";
 import { useMemo } from "react";
 import { shallow } from "zustand/shallow";
-
-import { useStore, useStoreApi } from "../hooks/useStore";
+import { useReactFlow } from "../store";
 import { fitView } from "../store/utils";
 import type {
   ReactFlowState,
@@ -40,8 +39,7 @@ const selector = (s: ReactFlowState) => ({
 });
 
 const useViewportHelper = (): ViewportHelperFunctions => {
-  const store = useStoreApi();
-  const { d3Zoom, d3Selection } = useStore(selector, shallow);
+  const { d3Zoom, d3Selection } = useReactFlow(selector, shallow);
 
   const viewportHelperFunctions = useMemo<ViewportHelperFunctions>(() => {
     if (d3Selection && d3Zoom) {
@@ -58,9 +56,9 @@ const useViewportHelper = (): ViewportHelperFunctions => {
             getD3Transition(d3Selection, options?.duration),
             zoomLevel,
           ),
-        getZoom: () => store.getState().transform[2],
+        getZoom: () => useReactFlow.getState().transform[2],
         setViewport: (transform, options) => {
-          const [x, y, zoom] = store.getState().transform;
+          const [x, y, zoom] = useReactFlow.getState().transform;
           const nextTransform = zoomIdentity
             .translate(transform.x ?? x, transform.y ?? y)
             .scale(transform.zoom ?? zoom);
@@ -70,12 +68,12 @@ const useViewportHelper = (): ViewportHelperFunctions => {
           );
         },
         getViewport: () => {
-          const [x, y, zoom] = store.getState().transform;
+          const [x, y, zoom] = useReactFlow.getState().transform;
           return { x, y, zoom };
         },
-        fitView: (options) => fitView(store.getState, options),
+        fitView: (options) => fitView(useReactFlow.getState, options),
         setCenter: (x, y, options) => {
-          const { width, height, maxZoom } = store.getState();
+          const { width, height, maxZoom } = useReactFlow.getState();
           const nextZoom =
             typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
           const centerX = width / 2 - x * nextZoom;
@@ -90,7 +88,7 @@ const useViewportHelper = (): ViewportHelperFunctions => {
           );
         },
         fitBounds: (bounds, options) => {
-          const { width, height, minZoom, maxZoom } = store.getState();
+          const { width, height, minZoom, maxZoom } = useReactFlow.getState();
           const { x, y, zoom } = getViewportForBounds(
             bounds,
             width,
@@ -107,7 +105,8 @@ const useViewportHelper = (): ViewportHelperFunctions => {
           );
         },
         screenToFlowPosition: (position: XYPosition) => {
-          const { transform, snapToGrid, snapGrid, domNode } = store.getState();
+          const { transform, snapToGrid, snapGrid, domNode } =
+            useReactFlow.getState();
 
           if (!domNode) {
             return position;
@@ -127,7 +126,7 @@ const useViewportHelper = (): ViewportHelperFunctions => {
           );
         },
         flowToScreenPosition: (position: XYPosition) => {
-          const { transform, domNode } = store.getState();
+          const { transform, domNode } = useReactFlow.getState();
 
           if (!domNode) {
             return position;

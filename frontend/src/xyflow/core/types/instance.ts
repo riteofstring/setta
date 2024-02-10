@@ -34,12 +34,6 @@ export namespace Instance {
 }
 
 export type ReactFlowInstance<NodeData = any> = {
-  getNodes: Instance.GetNodes<NodeData>;
-  setNodes: Instance.SetNodes<NodeData>;
   addNodes: Instance.AddNodes<NodeData>;
-  getNode: Instance.GetNode<NodeData>;
-  toObject: Instance.ToObject<NodeData>;
-  getIntersectingNodes: Instance.GetIntersectingNodes<NodeData>;
-  isNodeIntersecting: Instance.IsNodeIntersecting<NodeData>;
   viewportInitialized: boolean;
 } & Omit<ViewportHelperFunctions, "initialized">;

@@ -1,13 +1,11 @@
 import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
-
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
 import type { ReactFlowProps, ReactFlowRefType, Viewport } from "../../types";
 import { PanOnScrollMode, SelectionMode } from "../../types";
 import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
-import Wrapper from "./Wrapper";
 
 const initSnapGrid: [number, number] = [15, 15];
 const initDefaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
@@ -70,48 +68,46 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
         data-testid="rf__wrapper"
         id={id}
       >
-        <Wrapper>
-          <GraphView
-            selectionKeyCode={selectionKeyCode}
-            selectionOnDrag={selectionOnDrag}
-            selectionMode={selectionMode}
-            multiSelectionKeyCode={multiSelectionKeyCode}
-            panActivationKeyCode={panActivationKeyCode}
-            zoomActivationKeyCode={zoomActivationKeyCode}
-            selectNodesOnDrag={selectNodesOnDrag}
-            defaultViewport={defaultViewport}
-            translateExtent={translateExtent}
-            minZoom={minZoom}
-            maxZoom={maxZoom}
-            preventScrolling={preventScrolling}
-            zoomOnScroll={zoomOnScroll}
-            zoomOnPinch={zoomOnPinch}
-            zoomOnDoubleClick={zoomOnDoubleClick}
-            panOnScroll={panOnScroll}
-            panOnScrollSpeed={panOnScrollSpeed}
-            panOnScrollMode={panOnScrollMode}
-            panOnDrag={panOnDrag}
-            noDragClassName={noDragClassName}
-            noWheelClassName={noWheelClassName}
-            noPanClassName={noPanClassName}
-          />
-          <StoreUpdater
-            nodesDraggable={nodesDraggable}
-            nodesFocusable={nodesFocusable}
-            elementsSelectable={elementsSelectable}
-            minZoom={minZoom}
-            maxZoom={maxZoom}
-            snapToGrid={snapToGrid}
-            snapGrid={snapGrid}
-            translateExtent={translateExtent}
-            fitView={fitView}
-            fitViewOptions={fitViewOptions}
-            noPanClassName={noPanClassName}
-            autoPanOnNodeDrag={autoPanOnNodeDrag}
-            nodeDragThreshold={nodeDragThreshold}
-          />
-          {children}
-        </Wrapper>
+        <GraphView
+          selectionKeyCode={selectionKeyCode}
+          selectionOnDrag={selectionOnDrag}
+          selectionMode={selectionMode}
+          multiSelectionKeyCode={multiSelectionKeyCode}
+          panActivationKeyCode={panActivationKeyCode}
+          zoomActivationKeyCode={zoomActivationKeyCode}
+          selectNodesOnDrag={selectNodesOnDrag}
+          defaultViewport={defaultViewport}
+          translateExtent={translateExtent}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
+          preventScrolling={preventScrolling}
+          zoomOnScroll={zoomOnScroll}
+          zoomOnPinch={zoomOnPinch}
+          zoomOnDoubleClick={zoomOnDoubleClick}
+          panOnScroll={panOnScroll}
+          panOnScrollSpeed={panOnScrollSpeed}
+          panOnScrollMode={panOnScrollMode}
+          panOnDrag={panOnDrag}
+          noDragClassName={noDragClassName}
+          noWheelClassName={noWheelClassName}
+          noPanClassName={noPanClassName}
+        />
+        <StoreUpdater
+          nodesDraggable={nodesDraggable}
+          nodesFocusable={nodesFocusable}
+          elementsSelectable={elementsSelectable}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
+          snapToGrid={snapToGrid}
+          snapGrid={snapGrid}
+          translateExtent={translateExtent}
+          fitView={fitView}
+          fitViewOptions={fitViewOptions}
+          noPanClassName={noPanClassName}
+          autoPanOnNodeDrag={autoPanOnNodeDrag}
+          nodeDragThreshold={nodeDragThreshold}
+        />
+        {children}
       </div>
     );
   },
