@@ -1,5 +1,4 @@
 import { useActiveSection } from "models/activeSection";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
@@ -7,7 +6,6 @@ import { PANEID, REACT_FLOW_STORE } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { DECK, isRoot, rootTypeToChildSubType } from "z_utils/constants";
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
@@ -102,7 +100,6 @@ function setChildrenAndParent({
   newIndex,
   position,
 }) {
-  const p = useProjectConfig.getState();
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
@@ -112,7 +109,9 @@ function setChildrenAndParent({
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    p.addChildren({ [sectionId]: newSectionPosition(position) });
+    REACT_FLOW_STORE.rf.addNodes([
+      { id: sectionId, position, zIndex: 0, tempZIndex: 0 },
+    ]);
   } else {
     // Add child to new parent's list
     setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
