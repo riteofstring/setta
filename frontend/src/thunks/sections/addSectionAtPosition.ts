@@ -25,6 +25,7 @@ export function addSectionAtPosition({
   callbackBeforeExit = () => undefined,
   incrementVersion = false,
   inputSectionProps = {},
+  position,
 }: {
   type: string;
   callbackBeforeExit?: callbackBeforeExitType;
@@ -54,7 +55,7 @@ export function addSectionAtPosition({
   } else if (type === GLOBAL_PARAM_SWEEP) {
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
   }
-  const [newId] = createSectionInfo({ sectionProps });
+  const [newId] = createSectionInfo({ sectionProps, position });
   callbackBeforeExit(newId);
   maybeIncrementProjectStateVersion(incrementVersion);
   return newId;

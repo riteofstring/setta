@@ -22,7 +22,8 @@ export function addSectionInEmptySpace({
 
   return addSectionAtPosition({
     type,
-    inputSectionProps: { ...inputSectionProps, position },
+    inputSectionProps,
+    position,
     incrementVersion: true,
   });
 }

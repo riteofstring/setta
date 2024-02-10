@@ -53,7 +53,6 @@ function _NodesSelection({ onSelectionContextMenu, disableKeyboardA11y }) {
   //   if (userSelectionActive || !width || !height) {
   //     return null;
   //   }
-  console.log("NodeSelection");
 
   return (
     <div

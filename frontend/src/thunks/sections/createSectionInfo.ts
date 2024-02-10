@@ -1,11 +1,11 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { RCType } from "z_utils/types/codeInfo";
@@ -29,17 +29,21 @@ export function createChildForSeries({ parentId, numChildren }) {
   });
 }
 
-export function createSectionInfo({ sectionProps = {}, numSections = 1 }) {
+export function createSectionInfo({
+  sectionProps = {},
+  numSections = 1,
+  position,
+}) {
   const newInfos = {};
   for (let i = 0; i < numSections; i++) {
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos);
+  addSectionsToState(newInfos, position);
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(sectionInfos: ManySectionType) {
+function addSectionsToState(sectionInfos: ManySectionType, position) {
   const siState = useSectionInfos.getState();
   siState.setSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
@@ -64,7 +68,16 @@ function addSectionsToState(sectionInfos: ManySectionType) {
     }
   }
 
-  useProjectConfig.getState().addChildren(topLevelSectionIds);
+  if (topLevelSectionIds.length > 0) {
+    REACT_FLOW_STORE.rf.addNodes(
+      topLevelSectionIds.map((s) => ({
+        id: s,
+        position,
+        zIndex: 0,
+        tempZIndex: 0,
+      })),
+    );
+  }
 }
 
 function initializeNewSectionConfig(sectionId) {

@@ -68,7 +68,8 @@ export function onClickAddSection({
     type,
     callbackBeforeExit,
     incrementVersion,
-    inputSectionProps: { ...inputSectionProps, position },
+    inputSectionProps,
+    position,
   });
 }
 

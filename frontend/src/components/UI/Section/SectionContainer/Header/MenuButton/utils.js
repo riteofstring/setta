@@ -12,5 +12,5 @@ export function creatAdjacentSection(sectionId, sectionProps) {
     y: sectionPosition.y,
   };
 
-  createSectionInfo({ sectionProps: { ...sectionProps, position } });
+  createSectionInfo({ sectionProps, position });
 }
