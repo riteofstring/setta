@@ -27,11 +27,13 @@ export function goToSection(sectionId: string) {
 
 export function trueSectionPosition(sectionId) {
   const sectionState = useSectionInfos.getState().x;
-  const { x, y } = sectionState[sectionId].position;
   if (sectionState[sectionId].parentId) {
+    const { x, y } = sectionState[sectionId].position;
     const highestAncestor = getHighestAncestor(sectionId);
     const ancestorPos = sectionState[highestAncestor].position;
     return { x: ancestorPos.x + x, y: ancestorPos.y + y };
+  } else {
+    return REACT_FLOW_STORE.store.getState().nodeInternals.get(sectionId)
+      .position;
   }
-  return { x, y };
 }
