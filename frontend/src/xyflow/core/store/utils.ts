@@ -96,20 +96,3 @@ export function handleControlledNodeSelectionChange(
 
   return new Map(nodeInternals);
 }
-
-type UpdateNodesAndEdgesParams = {
-  changedNodes: NodeSelectionChange[] | null;
-  get: StoreApi<ReactFlowState>["getState"];
-  set: StoreApi<ReactFlowState>["setState"];
-};
-
-export function updateNodesAndEdgesSelections({
-  changedNodes,
-  get,
-}: UpdateNodesAndEdgesParams) {
-  const { onNodesChange } = get();
-
-  if (changedNodes?.length) {
-    onNodesChange(changedNodes);
-  }
-}

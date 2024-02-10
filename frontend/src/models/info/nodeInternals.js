@@ -150,7 +150,7 @@ export function onNodesChange(changes) {
       }
     }
   }
-  useNodeInternals.setState({ nodeInternals: newNodes });
+  useNodeInternals.setState({ x: newNodes });
 }
 
 export function raiseZIndex(nodes) {
@@ -175,11 +175,9 @@ export function unselectNodesAndEdges({ nodes }) {
     return createSelectionChange(n.id, false);
   });
 
-  updateNodesAndEdgesSelections({
-    changedNodes,
-    get,
-    set,
-  });
+  if (changedNodes?.length) {
+    onNodesChange(changedNodes);
+  }
 }
 
 export function resetSelectedElements() {
@@ -189,9 +187,7 @@ export function resetSelectedElements() {
     .filter((e) => e.selected)
     .map((n) => createSelectionChange(n.id, false));
 
-  updateNodesAndEdgesSelections({
-    changedNodes: nodesToUnselect,
-    get,
-    set,
-  });
+  if (nodesToUnselect?.length) {
+    onNodesChange(nodesToUnselect);
+  }
 }

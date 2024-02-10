@@ -1,6 +1,5 @@
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
-import { errorMessages } from "../contants";
 import { useReactFlow } from "../store";
 import { devWarn, getDimensions } from "../utils";
 
@@ -18,7 +17,10 @@ function useResizeHandler(
       const size = getDimensions(rendererNode.current);
 
       if (size.height === 0 || size.width === 0) {
-        devWarn("004", errorMessages["error004"]());
+        devWarn(
+          "004",
+          "The React Flow parent container needs a width and a height to render the graph.",
+        );
       }
 
       useReactFlow.setState({

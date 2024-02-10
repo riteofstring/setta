@@ -7,7 +7,6 @@ import type {
 } from "d3";
 
 import type { NodeChange } from "./changes";
-import type { ReactFlowInstance } from "./instance";
 import type { Node } from "./nodes";
 import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
 
@@ -43,10 +42,6 @@ export type SetCenter = (
   options?: SetCenterOptions,
 ) => void;
 export type FitBounds = (bounds: Rect, options?: FitBoundsOptions) => void;
-
-export type OnInit<NodeData = any> = (
-  reactFlowInstance: ReactFlowInstance<NodeData>,
-) => void;
 
 export type FitViewOptions = {
   padding?: number;
