@@ -68,7 +68,6 @@ const Pane = memo(
 
     const onClick = (event: ReactMouseEvent) => {
       useActiveSection.getState().clear();
-      useContextMenus.getState().closeAll();
       REACT_FLOW_STORE.lastPaneClickLocation =
         REACT_FLOW_STORE.rf.screenToFlowPosition({
           x: event.clientX,

@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
+import { useContextMenus } from "models/contextMenus";
 import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";
 import { useStore, useStoreApi } from "../../hooks/useStore";
@@ -72,8 +73,6 @@ const selector = (s: ReactFlowState) => ({
 });
 
 const ZoomPane = ({
-  onMoveStart,
-  onMoveEnd,
   zoomOnScroll = true,
   zoomOnPinch = true,
   panOnScroll = false,
@@ -216,16 +215,6 @@ const ZoomPane = ({
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
               isPanScrolling.current = true;
-
-              onMoveStart?.(event, nextViewport);
-            }
-
-            if (isPanScrolling.current) {
-              panScrollTimeout.current = setTimeout(() => {
-                onMoveEnd?.(event, nextViewport);
-
-                isPanScrolling.current = false;
-              }, 150);
             }
           },
           { passive: false },
@@ -259,8 +248,6 @@ const ZoomPane = ({
     zoomOnPinch,
     preventScrolling,
     noWheelClassName,
-    onMoveStart,
-    onMoveEnd,
   ]);
 
   useEffect(() => {
@@ -281,13 +268,10 @@ const ZoomPane = ({
           store.setState({ paneDragging: true });
         }
 
-        onMoveStart?.(
-          event.sourceEvent as MouseEvent | TouchEvent,
-          flowTransform,
-        );
+        useContextMenus.getState().closeAll();
       });
     }
-  }, [d3Zoom, onMoveStart]);
+  }, [d3Zoom]);
 
   useEffect(() => {
     if (d3Zoom) {
@@ -322,25 +306,9 @@ const ZoomPane = ({
         isZoomingOrPanning.current = false;
         store.setState({ paneDragging: false });
         zoomedWithRightMouseButton.current = false;
-
-        if (onMoveEnd && viewChanged(prevTransform.current, event.transform)) {
-          const flowTransform = eventToFlowTransform(event.transform);
-          prevTransform.current = flowTransform;
-
-          clearTimeout(timerId.current);
-          timerId.current = setTimeout(
-            () => {
-              onMoveEnd?.(
-                event.sourceEvent as MouseEvent | TouchEvent,
-                flowTransform,
-              );
-            },
-            panOnScroll ? 150 : 0,
-          );
-        }
       });
     }
-  }, [d3Zoom, panOnScroll, panOnDrag, onMoveEnd]);
+  }, [d3Zoom, panOnScroll, panOnDrag]);
 
   useEffect(() => {
     if (d3Zoom) {
