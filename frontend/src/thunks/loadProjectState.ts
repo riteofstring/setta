@@ -44,7 +44,7 @@ export function loadProjectState({
       id: k,
       position: { x: v.x, y: v.y },
       zIndex: v.zIndex,
-      tempZIndex: v.zIndex
+      tempZIndex: v.zIndex,
     })),
   );
   useUITypes.getState().resetAndSetAll(uiTypes);

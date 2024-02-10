@@ -1,11 +1,6 @@
 import type { RefObject } from "react";
 
-import type {
-  Node,
-  NodeDragItem,
-  NodeInternals,
-  XYPosition,
-} from "../../types";
+import type { Node, NodeDragItem, NodeInternals } from "../../types";
 
 export function hasSelector(
   target: Element,

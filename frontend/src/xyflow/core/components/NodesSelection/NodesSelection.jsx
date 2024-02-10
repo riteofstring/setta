@@ -68,13 +68,8 @@ function _NodesSelection({
 }
 
 function _NodesSelectionWrapper() {
-  const nodesSelectionDims = useStore(
-    (s) => s.nodesSelectionDims,
-    _.isEqual,
-  );
-  return (
-    nodesSelectionDims && <NodesSelection {...nodesSelectionDims} />
-  );
+  const nodesSelectionDims = useStore((s) => s.nodesSelectionDims, _.isEqual);
+  return nodesSelectionDims && <NodesSelection {...nodesSelectionDims} />;
 }
 const NodesSelection = React.memo(_NodesSelection);
 export const NodesSelectionWrapper = React.memo(_NodesSelectionWrapper);

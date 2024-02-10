@@ -29,7 +29,7 @@ export function getProjectData(): ProjectSaveType {
   for (const c of REACT_FLOW_STORE.store.getState().nodeInternals.values()) {
     children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
   }
-  projectConfig.children = children
+  projectConfig.children = children;
 
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);

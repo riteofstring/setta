@@ -1,6 +1,5 @@
 import cc from "classcat";
 import { SectionContainerNode } from "components/UI/Section/SectionContainer/SectionContainerNode";
-import { useSectionInfos } from "models/info/sectionInfos";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import useDrag from "../../hooks/useDrag";

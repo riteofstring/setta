@@ -5,7 +5,6 @@ import { shallow } from "zustand/shallow";
 import { useStore, useStoreApi } from "../../hooks/useStore";
 import type {
   CoordinateExtent,
-  Node,
   ReactFlowProps,
   ReactFlowState,
   ReactFlowStore,
@@ -76,8 +75,10 @@ const StoreUpdater = ({
   autoPanOnNodeDrag,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
-  const { setMinZoom, setMaxZoom, setTranslateExtent, reset } =
-    useStore(selector, shallow);
+  const { setMinZoom, setMaxZoom, setTranslateExtent, reset } = useStore(
+    selector,
+    shallow,
+  );
   const store = useStoreApi();
 
   useEffect(() => {
