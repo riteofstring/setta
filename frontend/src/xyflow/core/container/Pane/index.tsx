@@ -2,15 +2,16 @@
  * The user selection rectangle gets displayed when a user drags the mouse while pressing shift
  */
 
+import { useActiveSection } from "models/activeSection";
 import React, {
   memo,
   MouseEvent as ReactMouseEvent,
   ReactNode,
   useRef,
 } from "react";
-import { shallow } from "zustand/shallow";
-
+import { REACT_FLOW_STORE } from "utils/constants";
 import { getNodesInside } from "xyflow/core/utils/graph";
+import { shallow } from "zustand/shallow";
 import UserSelection from "../../components/UserSelection";
 import { useStore, useStoreApi } from "../../hooks/useStore";
 import { containerStyle } from "../../styles";
@@ -65,6 +66,12 @@ const Pane = memo(
     };
 
     const onClick = (event: ReactMouseEvent) => {
+      useActiveSection.getState().clear();
+      REACT_FLOW_STORE.lastPaneClickLocation =
+        REACT_FLOW_STORE.rf.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
       store.getState().resetSelectedElements();
       store.setState({ nodesSelectionActive: false });
     };
