@@ -4,7 +4,7 @@ import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefAndInit, useSectionRefs } from "models/sectionRefs";
-import React, { useEffect } from "react";
+import React, { useLayoutEffect } from "react";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { setZIndices } from "thunks/sections/sectionPositions";
@@ -43,7 +43,7 @@ function _SectionContainerCore({ sectionId }) {
     // setZIndices([useSectionInfos.getState().x[highestAncestor]], false);
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (useSectionInfos.getState().x[sectionId].parentId) {
       const { x, y } = refForPosition.current.getBoundingClientRect();
       const highestAncestor = getHighestAncestor(sectionId);
