@@ -49,9 +49,9 @@ function _SectionHeader({
           <MenuButton sectionId={sectionId} />
         </>
       )}
-      {(isSeriesElement || _isRoot) && (
+      {/* {(isSeriesElement || _isRoot) && (
         <Incrementer sectionId={sectionId} isRoot={_isRoot} />
-      )}
+      )} */}
 
       <CustomCloseButton
         onClick={onCustomCloseButtonClick}

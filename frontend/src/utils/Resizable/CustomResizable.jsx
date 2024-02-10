@@ -74,7 +74,7 @@ function CustomResizableCore({
       maxWidth={maxWidth}
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
-      handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
+      // handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={{
         top: false,
         left: false,
