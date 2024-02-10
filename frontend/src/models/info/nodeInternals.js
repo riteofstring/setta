@@ -1,5 +1,6 @@
 import { useReactFlow } from "xyflow/core/store";
 import { getDimensions } from "xyflow/core/utils";
+import { createSelectionChange } from "xyflow/core/utils/changes";
 import { temporal } from "zundo";
 import { createProjectState } from "../utils";
 

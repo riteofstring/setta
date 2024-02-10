@@ -16,12 +16,10 @@ import { useReactFlow } from "xyflow/core/store";
 
 export function useOnDragMove() {
   const { isMovingFree } = useDndMode();
-  const rfStore = useReactFlow.getState();
   return (props) => {
     onDragMove({
       ...props,
       isMovingFree,
-      rfStore,
     });
   };
 }
@@ -36,12 +34,12 @@ export function onDragEnd() {
   useDndState.getState().reset();
 }
 
-function onDragMove({ active, over, collisions, isMovingFree, rfStore }) {
+function onDragMove({ active, over, collisions, isMovingFree }) {
   if (isMovingFree) {
     const shouldDrop = getShouldDrop(active, over, collisions);
     const overId = over ? over.id : null;
     const centerYCondition = collisions[0]?.data.centerYDist < 0;
-    const leftDistCondition = getLeftDistCondition(collisions, rfStore);
+    const leftDistCondition = getLeftDistCondition(collisions);
     const dndState = useDndState.getState();
 
     if (
@@ -60,12 +58,12 @@ function onDragMove({ active, over, collisions, isMovingFree, rfStore }) {
   }
 }
 
-function getLeftDistCondition(collisions, rfStore) {
+function getLeftDistCondition(collisions) {
   // true if section has not children
   // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
   return (
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
-    collisions[0]?.data.leftDist > 200 * rfStore.getState().transform[2]
+    collisions[0]?.data.leftDist > 200 * useReactFlow.getState().transform[2]
   );
 }
 
