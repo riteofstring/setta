@@ -5,6 +5,7 @@
 import { useActiveSection } from "models/activeSection";
 import { useContextMenus } from "models/contextMenus";
 import {
+  onNodesChange,
   resetSelectedElements,
   useNodeInternals,
 } from "models/info/nodeInternals";
@@ -124,8 +125,7 @@ const Pane = memo(
     };
 
     const onMouseMove = (event: ReactMouseEvent): void => {
-      const { userSelectionRect, transform, onNodesChange } =
-        useReactFlow.getState();
+      const { userSelectionRect, transform } = useReactFlow.getState();
       if (!isSelecting || !containerBounds.current || !userSelectionRect) {
         return;
       }
