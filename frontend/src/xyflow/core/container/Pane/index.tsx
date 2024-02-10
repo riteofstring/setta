@@ -73,7 +73,9 @@ const Pane = memo(
           y: event.clientY,
         });
       store.getState().resetSelectedElements();
-      store.setState({ nodesSelectionActive: false });
+      store.setState({
+        nodesSelectionDims: null,
+      });
     };
 
     const onContextMenu = (event: ReactMouseEvent) => {
@@ -122,7 +124,7 @@ const Pane = memo(
 
       store.setState({
         userSelectionActive: true,
-        nodesSelectionActive: false,
+        nodesSelectionDims: null,
       });
 
       const mousePos = getEventPosition(event, containerBounds.current);
@@ -174,23 +176,17 @@ const Pane = memo(
         userSelectionRect &&
         event.target === container.current
       ) {
-        onClick?.(event);
+        onClick(event);
       }
 
-      store.setState({
-        nodesSelectionActive: prevSelectedNodesCount.current > 0,
-      });
-
+      store.getState().setNodesSelection(prevSelectedNodesCount.current);
       resetUserSelection();
     };
 
     const onMouseLeave = (event: ReactMouseEvent) => {
       if (userSelectionActive) {
-        store.setState({
-          nodesSelectionActive: prevSelectedNodesCount.current > 0,
-        });
+        store.getState().setNodesSelection(prevSelectedNodesCount.current);
       }
-
       resetUserSelection();
     };
 

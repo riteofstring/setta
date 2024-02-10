@@ -128,7 +128,12 @@ export type ReactFlowStore = {
   translateExtent: CoordinateExtent;
   nodeDragThreshold: number;
 
-  nodesSelectionActive: boolean;
+  nodesSelectionDims: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  } | null;
   userSelectionActive: boolean;
   userSelectionRect: SelectionRect | null;
 

@@ -16,7 +16,7 @@ const initialState: ReactFlowStore = {
   minZoom: 0.5,
   maxZoom: 2,
   translateExtent: infiniteExtent,
-  nodesSelectionActive: false,
+  nodesSelectionDims: null,
   userSelectionActive: false,
   userSelectionRect: null,
   domNode: null,

@@ -1,21 +1,13 @@
 import { useActiveSection } from "models/activeSection";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { usePanes } from "models/panes";
-import { useSectionRefs } from "models/sectionRefs";
 import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
-import { getHighestAncestor } from "./sections/sectionSizes";
-
-export function relativePos(sectionId) {
-  const s = useSectionRefs.getState();
-  const ref = s.withNested[sectionId].getBoundingClientRect();
-  return { y: ref.y, x: ref.x };
-}
+import { getSectionRect } from "xyflow/core/utils/graph";
 
 export function goToSection(sectionId: string) {
   const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
   const margin = 20;
   const { width, height } = REACT_FLOW_STORE.store.getState();
-  const { x, y } = trueSectionPosition(sectionId);
+  const { x, y } = getSectionRect(sectionId);
   const newX = x + width / 2 - overviewWidth - margin;
   const newY = y + height / 2 - margin;
   REACT_FLOW_STORE.rf.setCenter(newX, newY, {
@@ -23,17 +15,4 @@ export function goToSection(sectionId: string) {
     duration: 100,
   });
   useActiveSection.getState().setIds([sectionId]);
-}
-
-export function trueSectionPosition(sectionId) {
-  const sectionState = useSectionInfos.getState().x;
-  const nodeInternals = REACT_FLOW_STORE.store.getState().nodeInternals;
-  if (sectionState[sectionId].parentId) {
-    const { x, y } = sectionState[sectionId].position;
-    const highestAncestor = getHighestAncestor(sectionId);
-    const ancestorPos = nodeInternals.get(highestAncestor).position;
-    return { x: ancestorPos.x + x, y: ancestorPos.y + y };
-  } else {
-    return nodeInternals.get(sectionId).position;
-  }
 }

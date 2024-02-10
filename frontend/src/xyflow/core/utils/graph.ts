@@ -3,7 +3,7 @@ import type { Selection as D3Selection } from "d3";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefs } from "models/sectionRefs";
-import { trueSectionPosition } from "thunks/goToSection";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
 import {
   boxToRect,
@@ -85,9 +85,7 @@ export function getNodesInside(
   const visibleNodes = [];
 
   for (const section of Object.values(useSectionInfos.getState().x)) {
-    const ref = useSectionRefs.getState().selfOnly[section.id];
-    const { clientWidth: width, clientHeight: height } = ref;
-    const { x, y } = trueSectionPosition(section.id);
+    const { x, y, width, height } = getSectionRect(section.id);
 
     const nodeRect = {
       x,
@@ -142,3 +140,14 @@ export const getD3Transition = (
 ) => {
   return selection.transition().duration(duration);
 };
+
+export function getSectionRect(sectionId) {
+  const ref = useSectionRefs.getState().selfOnly[sectionId];
+  const { clientWidth: width, clientHeight: height } = ref;
+  const { x: _x, y: _y } = ref.getBoundingClientRect();
+  const { x, y } = REACT_FLOW_STORE.rf.screenToFlowPosition({
+    x: _x,
+    y: _y,
+  });
+  return { x, y, width, height };
+}

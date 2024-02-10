@@ -50,14 +50,24 @@ function useDrag({
       const selection = select(nodeRef.current);
 
       const updateNodes = ({ x, y }: XYPosition) => {
-        const { updateNodePositions, snapGrid, snapToGrid } = store.getState();
+        const {
+          nodesSelectionDims,
+          updateNodePositions,
+          snapGrid,
+          snapToGrid,
+          shiftNodesSelection,
+        } = store.getState();
 
+        const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
         lastPos.current = { x, y };
 
         let hasChange = false;
 
         dragItems.current = dragItems.current.map((n) => {
-          const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
+          const nextPosition = {
+            x: n.position.x + delta.x,
+            y: n.position.y + delta.y,
+          };
 
           if (snapToGrid) {
             nextPosition.x =
@@ -82,6 +92,9 @@ function useDrag({
         }
 
         updateNodePositions(dragItems.current, true, true);
+        if (nodesSelectionDims) {
+          shiftNodesSelection(delta);
+        }
         setDragging(true);
       };
 
@@ -133,12 +146,7 @@ function useDrag({
 
         const pointerPos = getPointerPosition(event);
         lastPos.current = pointerPos;
-        dragItems.current = getDragItems(
-          nodeInternals,
-          nodesDraggable,
-          pointerPos,
-          nodeId,
-        );
+        dragItems.current = getDragItems(nodeInternals, nodesDraggable, nodeId);
 
         if (dragItems.current) {
           raiseZIndex(dragItems.current);

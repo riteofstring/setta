@@ -1,13 +1,13 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import { deleteSections, moveSections } from "thunks/sections/sectionOps";
 import { PANEID, REACT_FLOW_STORE } from "utils/constants";
-import { relativePos } from "./goToSection";
+import { getSectionRect } from "xyflow/core/utils/graph";
 
 export function undeck(deckId) {
   const childIds = useSectionInfos.getState().x[deckId].children;
   const positions = {};
   childIds.forEach((id) => {
-    const { x, y } = relativePos(id);
+    const { x, y } = getSectionRect(id);
     positions[id] = { ...REACT_FLOW_STORE.rf.screenToFlowPosition({ x, y }) };
   });
   moveSections({

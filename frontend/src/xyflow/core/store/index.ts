@@ -1,6 +1,7 @@
 import { zoomIdentity } from "d3-zoom";
 import { createWithEqualityFn } from "zustand/traditional";
 
+import { useActiveSection } from "models/activeSection";
 import type {
   CoordinateExtent,
   Node,
@@ -16,6 +17,7 @@ import type {
 } from "../types";
 import { getDimensions } from "../utils";
 import { createSelectionChange, getSelectionChanges } from "../utils/changes";
+import { getNodesBounds, getSectionRect } from "../utils/graph";
 import initialState from "./initialState";
 import {
   createNodeInternals,
@@ -160,6 +162,26 @@ const createRFStore = () =>
         }
         set({ nodeInternals: newNodes });
       },
+      setNodesSelection: (selectedNodesCount) => {
+        if (selectedNodesCount > 0) {
+          const activeSectionIds = useActiveSection.getState().ids;
+          const sections = activeSectionIds.map((sectionId) => {
+            const { x, y, width, height } = getSectionRect(sectionId);
+            return { position: { x, y }, width, height };
+          });
+          set({ nodesSelectionDims: getNodesBounds(sections) });
+        }
+      },
+      shiftNodesSelection: (delta) => {
+        set((state) => ({
+          nodesSelectionDims: {
+            ...state.nodesSelectionDims,
+            x: state.nodesSelectionDims.x + delta.x,
+            y: state.nodesSelectionDims.y + delta.y,
+          },
+        }));
+      },
+
       addSelectedNodes: (selectedNodeIds: string[]) => {
         const { multiSelectionActive, getNodes } = get();
         let changedNodes: NodeSelectionChange[];

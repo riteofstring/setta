@@ -27,7 +27,6 @@ export function hasSelector(
 export function getDragItems(
   nodeInternals: NodeInternals,
   nodesDraggable: boolean,
-  mousePos: XYPosition,
   nodeId?: string,
 ): NodeDragItem[] {
   return Array.from(nodeInternals.values())
@@ -39,16 +38,6 @@ export function getDragItems(
     .map((n) => ({
       id: n.id,
       position: n.position || { x: 0, y: 0 },
-      distance: {
-        x: mousePos.x - (n.position?.x ?? 0),
-        y: mousePos.y - (n.position?.y ?? 0),
-      },
-      delta: {
-        x: 0,
-        y: 0,
-      },
-      width: n.width,
-      height: n.height,
     }));
 }
 

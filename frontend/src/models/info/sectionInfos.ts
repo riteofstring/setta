@@ -97,13 +97,6 @@ export const useSectionInfos = createProjectState(
         set((state) => {
           state.x = { ...state.x, ...payload };
         }),
-
-      updatePositions: (payload) =>
-        set((state) => {
-          for (const p of payload) {
-            state.x[p.id].position = p.position;
-          }
-        }),
     })),
   ),
 );
