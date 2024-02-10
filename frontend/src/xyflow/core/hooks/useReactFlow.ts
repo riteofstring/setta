@@ -58,6 +58,15 @@ export default function useReactFlow<
     onNodesChange(changes);
   }, []);
 
+  const deleteNodes = useCallback((nodeIds) => {
+    const { onNodesChange } = store.getState();
+
+    const changes = nodeIds.map(
+      (id) => ({ id, type: "remove" }) as NodeAddChange<NodeData>,
+    );
+    onNodesChange(changes);
+  }, []);
+
   const toObject = useCallback<Instance.ToObject<NodeData>>(() => {
     const { getNodes, transform } = store.getState();
     const [x, y, zoom] = transform;
@@ -140,6 +149,7 @@ export default function useReactFlow<
       getNode,
       setNodes,
       addNodes,
+      deleteNodes,
       toObject,
       getIntersectingNodes,
       isNodeIntersecting,
@@ -150,6 +160,7 @@ export default function useReactFlow<
     getNode,
     setNodes,
     addNodes,
+    deleteNodes,
     toObject,
     getIntersectingNodes,
     isNodeIntersecting,

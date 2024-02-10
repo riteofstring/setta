@@ -3,7 +3,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID } from "utils/constants";
+import { PANEID, REACT_FLOW_STORE } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { DECK, isRoot, rootTypeToChildSubType } from "z_utils/constants";
@@ -25,7 +25,7 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
 
   useActiveSection.getState().removeIds(idsToDelete);
   useSectionInfos.getState().removeSectionInfos(idsToDelete);
-  useProjectConfig.getState().deleteChildren(idsToDelete);
+  REACT_FLOW_STORE.rf.deleteNodes(idsToDelete);
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }
