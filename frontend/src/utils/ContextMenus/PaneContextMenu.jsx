@@ -1,6 +1,6 @@
 import _ from "lodash";
+import { useContextMenus } from "models/contextMenus";
 import { useModal } from "models/modal";
-import { useEffect, useState } from "react";
 import { onClickAddSection } from "thunks/createSectionOrDeck";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
@@ -16,16 +16,13 @@ import {
 } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
-export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
-  useEffect(() => {
-    if (isOpen) {
-      setCoords({ x, y });
-    }
-  }, [isOpen]);
+export function PaneContextMenu() {
+  const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
+  const closeContextMenu = () => useContextMenus.getState().closeAll();
 
   const commonProps = {
-    ...coords,
+    x,
+    y,
     callbackBeforeExit: closeContextMenu,
     projectXY: true,
     incrementVersion: true,

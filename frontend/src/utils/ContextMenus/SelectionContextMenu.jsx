@@ -5,7 +5,7 @@ import { deleteSections } from "thunks/sections/sectionOps";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 
-export function SelectionContextMenu({ nodeIds, ...props }) {
+export function SelectionContextMenu({ nodeIds }) {
   const { isOpen, x, y } = useContextMenus((x) => x.selection, _.isEqual);
   const closeContextMenu = () => useContextMenus.getState().closeAll();
 
@@ -23,7 +23,12 @@ export function SelectionContextMenu({ nodeIds, ...props }) {
   }
 
   return (
-    <ContextMenuCore x={x} y={y} isOpen={isOpen} closeContextMenu={closeContextMenu}>
+    <ContextMenuCore
+      x={x}
+      y={y}
+      isOpen={isOpen}
+      closeContextMenu={closeContextMenu}
+    >
       <Item onClick={() => createDeck(onClickProps)}>Create Group</Item>
       <Item onClick={onClickDelete}>Delete</Item>
     </ContextMenuCore>

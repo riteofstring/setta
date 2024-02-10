@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "thunks/keyActivations";
+import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { ResponsiveControls } from "./Section/ResponsiveControls";
@@ -12,10 +13,7 @@ export function UIPage() {
   return (
     <GlobalDndContext>
       <SectionsPane />
-      {/* <PaneContextMenu
-        {...paneCtxMenuDetails}
-        closeContextMenu={closePaneCtxMenu}
-      /> */}
+      <PaneContextMenu />
       <SelectionContextMenu />
       {/* {nodeCtxMenuDetails.nodeId && (
         <NodeContextMenu

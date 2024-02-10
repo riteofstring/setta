@@ -10,6 +10,8 @@ const initialState = {
 
 export const useContextMenus = createProjectState((set, get) => ({
   ...initialState,
+  openPane: (e) => get().open(e, "pane"),
+  openNode: (e) => get().open(e, "node"),
   openSelection: (e) => get().open(e, "selection"),
   open: (e, name) => {
     if (NO_CONTEXT_MENU) {
