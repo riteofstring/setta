@@ -1,27 +1,25 @@
-/**
- * The nodes selection rectangle gets displayed when a user
- * made a selection with on or several nodes
- */
-
 import cc from "classcat";
 import _ from "lodash";
+import { useContextMenus } from "models/contextMenus";
 import React, { useRef } from "react";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { useStore } from "xyflow/core";
 import useDrag from "xyflow/core/hooks/useDrag";
 
-function _NodesSelection({
-  onSelectionContextMenu,
-  disableKeyboardA11y,
-  x,
-  y,
-  width,
-  height,
-}) {
+function _NodesSelection({ x, y, width, height }) {
   const transformString = useStore(
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const nodeRef = useRef(null);
+
+  const onContextMenu = (event) => {
+    const selectedNodes = REACT_FLOW_STORE.store
+      .getState()
+      .getNodes()
+      .filter((n) => n.selected);
+    useContextMenus.getState().openSelection(event, selectedNodes);
+  };
 
   //   useEffect(() => {
   //     if (!disableKeyboardA11y) {
@@ -53,7 +51,7 @@ function _NodesSelection({
       <div
         ref={nodeRef}
         className="react-flow__nodesselection-rect"
-        // onContextMenu={onContextMenu}
+        onContextMenu={onContextMenu}
         // tabIndex={disableKeyboardA11y ? undefined : -1}
         // onKeyDown={disableKeyboardA11y ? undefined : onKeyDown}
         style={{

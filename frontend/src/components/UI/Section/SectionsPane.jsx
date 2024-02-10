@@ -1,4 +1,3 @@
-import { useActiveSection } from "models/activeSection";
 import React from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ReactFlow } from "xyflow/core";
@@ -11,27 +10,7 @@ const reactFlowStyle = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-// function onNodeDragStop(e, node, nodes) {
-//   setPositionAndZIndices(nodes);
-// }
-
-// function onSelectionDragStop(e, nodes) {
-//   setPositionAndZIndices(nodes);
-// }
-
-function _SectionsPane({
-  closeCtxMenus,
-  openPaneCtxMenu,
-  openSelectionCtxMenu,
-  openNodeCtxMenu,
-}) {
-  function onPaneClick(e) {
-    closeCtxMenus();
-    useActiveSection.getState().clear();
-    REACT_FLOW_STORE.lastPaneClickLocation =
-      REACT_FLOW_STORE.rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-  }
-
+function _SectionsPane() {
   return (
     <ReactFlow
       minZoom={0.1}
