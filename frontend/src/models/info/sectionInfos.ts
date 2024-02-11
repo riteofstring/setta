@@ -97,6 +97,10 @@ export const useSectionInfos = createProjectState(
         set((state) => {
           state.x = { ...state.x, ...payload };
         }),
+      setResizeEvent: ({ sectionId, resizeEvent }) =>
+        set((state) => {
+          state.x[sectionId].resizeEvent = resizeEvent;
+        }),
     })),
   ),
 );

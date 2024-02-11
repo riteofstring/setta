@@ -13,7 +13,6 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
-import { ResizeIcon } from "./ResizeIcon";
 
 const SIZE_MODE = {
   any: "any",
@@ -52,6 +51,12 @@ function CustomResizableCore({
   const size = useSectionInfos((x) => x.x[sectionId].size);
   const aspectRatio = useAspectRatio(sectionId);
 
+  function onResizeStart() {
+    useSectionInfos
+      .getState()
+      .setResizeEvent({ sectionId, resizeEvent: "start" });
+  }
+
   function onResizeStop(...props) {
     const { width, height } = getNewSize({
       props,
@@ -59,6 +64,9 @@ function CustomResizableCore({
       sizeMode,
     });
     setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
+    useSectionInfos
+      .getState()
+      .setResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
   const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
@@ -72,6 +80,7 @@ function CustomResizableCore({
       minHeight={minHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
+      onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"

@@ -6,7 +6,7 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
-  // const { overflow, ref, setDidUpdate } = useOverflow(sectionId);
+  const { overflow, ref, setDidUpdate } = useOverflow(sectionId);
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
@@ -19,13 +19,13 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
     //   ref={ref}
     // >
     <div
-      className={`card-args-list py-1 overflow-y-scroll`}
-      // ref={ref}
+      className={`card-args-list py-1 ${overflow ? "overflow-y-scroll" : ""}`}
+      ref={ref}
     >
       <GetParams
         sectionId={sectionId}
         objInfoId={objInfoId}
-        // setDidUpdate={setDidUpdate}
+        setDidUpdate={setDidUpdate}
       />
     </div>
     // </ScrollingArea>
@@ -36,7 +36,7 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
   const params = useGetParamInfos(sectionId);
 
   useDeepCompareEffect(() => {
-    // setDidUpdate(true);
+    setDidUpdate(true);
   }, [params]);
 
   return (
@@ -52,14 +52,32 @@ export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
 function useOverflow(sectionId) {
   const ref = useRef();
-  const height = useSectionInfos((x) => x.x[sectionId].size.height);
+  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
   const [didUpdate, setDidUpdate] = useState(false);
   const [overflow, setOverflow] = useState(false);
 
+  // Add overflow whenever resizing.
+  // Add the end of resizing, compare scrollHeight to clientHeight and remove overflow if scrollHeight <= clientHeight
   useEffect(() => {
-    setDidUpdate(false);
-    setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
-  }, [didUpdate, height]);
+    if (resizeEvent === "start") {
+      setOverflow(true);
+    } else if (resizeEvent === "end") {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [resizeEvent]);
+
+  // If params update (didUpdate goes from false->true), overflow may be needed. So set overflow to true
+  // Then set didUpdate to false.
+  // Then detect didUpdate going from true->false and check if overflow is actually needed
+  // TODO: find better way to do this?
+  useEffect(() => {
+    if (didUpdate) {
+      setOverflow(true);
+      setDidUpdate(false);
+    } else {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [didUpdate]);
 
   return { overflow, ref, setDidUpdate };
 }
