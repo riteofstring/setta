@@ -42,12 +42,12 @@ export function Incrementer({ sectionId, isRoot }) {
       )}
       {isRoot && <i className="gg-corner-right-down" />}
 
-      {/* <input
+      <input
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         aria-label="Number of sections"
-      /> */}
+      />
 
       <button
         className="nodrag rounded-full focus-visible:ring-2 dark:text-runcoder-300"
