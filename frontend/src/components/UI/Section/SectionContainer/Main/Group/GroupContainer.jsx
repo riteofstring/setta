@@ -7,24 +7,24 @@ import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
-  const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
+  // const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
   // border-b border-solid border-runcoder-100
   return (
-    <ScrollingArea
-      styles={`card-args-list py-1 ${noWheel} ${
-        hasVersions ? "last:[&>div]:mb-12" : ""
-      }`}
-      ref={ref}
-    >
+    // <ScrollingArea
+    //   styles={`card-args-list py-1 ${noWheel} ${
+    //     hasVersions ? "last:[&>div]:mb-12" : ""
+    //   }`}
+    //   ref={ref}
+    // >
       <GetParams
         sectionId={sectionId}
         objInfoId={objInfoId}
-        setDidUpdate={setDidUpdate}
+        // setDidUpdate={setDidUpdate}
       />
-    </ScrollingArea>
+    // </ScrollingArea>
   );
 }
 
@@ -32,7 +32,7 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
   const params = useGetParamInfos(sectionId);
 
   useDeepCompareEffect(() => {
-    setDidUpdate(true);
+    // setDidUpdate(true);
   }, [params]);
 
   return (

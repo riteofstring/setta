@@ -83,7 +83,7 @@ function CustomResizableCore({
         bottomRight: heightResizable && widthResizable,
       }}
       className={inputClasses}
-      handleComponent={{ bottomRight: <ResizeIcon /> }}
+      // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}
     </ResizableWithScale>

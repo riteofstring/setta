@@ -42,30 +42,30 @@ export function Incrementer({ sectionId, isRoot }) {
       )}
       {isRoot && <i className="gg-corner-right-down" />}
 
-      <input
+      {/* <input
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         aria-label="Number of sections"
-      />
+      /> */}
+
+      <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300">
+        {numSections}
+      </div>
 
       <button
-        className="nodrag rounded-full focus-visible:ring-2 dark:text-runcoder-300"
+        className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-runcoder-300"
         onClick={() => deleteChildren(numSections)}
         aria-label="Delete child section"
         role="button"
-      >
-        <i className="gg-math-minus" />
-      </button>
+      />
 
       <button
-        className="nodrag rounded-full focus-visible:ring-2 dark:text-runcoder-300"
+        className="nodrag gg-math-plus rounded-full focus-visible:ring-2 dark:text-runcoder-300"
         onClick={() => addSections(numSections)}
         aria-label="Add child section"
         role="button"
-      >
-        <i className="gg-math-plus" />
-      </button>
+      />
     </div>
     //     </Tooltip.Trigger>
     //     <Tooltip.Portal>

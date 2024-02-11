@@ -1,7 +1,5 @@
 import React from "react";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
 
 export function ComboboxInput({
   getInputProps,
@@ -11,27 +9,44 @@ export function ComboboxInput({
   onInputMouseDown,
 }) {
   return (
-    <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700 ${
-        small ? "h-7" : "h-8"
-      }`}
-      leftElementStyles="pl-3"
-      {...getInputProps({ onMouseDown: onInputMouseDown })}
-      rightElement={
-        <StandardSearchRightBtn
-          {...getToggleButtonProps()}
-          icon={
-            isOpen ? (
-              <i className="gg-chevron-up" />
-            ) : (
-              <i className="gg-chevron-down" />
-            )
-          }
-          size={small ? "w-7 h-7" : "w-8 h-8"}
-        />
-      }
-    />
+    <>
+      <div className="flex-grow cursor-auto rounded-full border border-solid border-runcoder-200 bg-white pl-9 text-xs font-medium text-runcoder-600 shadow-sm outline-0 focus-visible:border-white focus-visible:ring-2 dark:border-runcoder-700 dark:bg-runcoder-900 dark:text-runcoder-300 dark:focus-visible:border-runcoder-900">
+        Search
+      </div>
+      {/* <input
+        className={inputStyles || classes}
+        placeholder={placeholder}
+        {...props}
+        ref={ref}
+        tabIndex="0"
+        onChange={onChange}
+      />
+      {rightElement} */}
+    </>
   );
+
+  // return (
+  //   <StandardSearch
+  //     inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700 ${
+  //       small ? "h-7" : "h-8"
+  //     }`}
+  //     leftElementStyles="pl-3"
+  //     {...getInputProps({ onMouseDown: onInputMouseDown })}
+  //     rightElement={
+  //       <StandardSearchRightBtn
+  //         {...getToggleButtonProps()}
+  //         icon={
+  //           isOpen ? (
+  //             <i className="gg-chevron-up" />
+  //           ) : (
+  //             <i className="gg-chevron-down" />
+  //           )
+  //         }
+  //         size={small ? "w-7 h-7" : "w-8 h-8"}
+  //       />
+  //     }
+  //   />
+  // );
 }
 
 export function ComboboxList({

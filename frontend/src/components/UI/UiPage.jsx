@@ -21,7 +21,7 @@ export function UIPage() {
           closeContextMenu={closeNodeCtxMenu}
         />
       )} */}
-      <ResponsiveMiniMap />
+      {/* <ResponsiveMiniMap /> */}
       <ResponsiveControls />
     </GlobalDndContext>
   );

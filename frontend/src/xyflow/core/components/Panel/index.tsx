@@ -15,6 +15,8 @@ function Panel({ position, children, className, style, ...rest }: PanelProps) {
   const pointerEvents = useReactFlow(selector);
   const positionClasses = `${position}`.split("-");
 
+  // console.log("Panel")
+
   return (
     <div
       className={cc(["react-flow__panel", className, ...positionClasses])}

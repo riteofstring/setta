@@ -177,6 +177,8 @@ function MiniMap({
       }
     : undefined;
 
+  // console.log("minimap")
+
   return (
     <Panel
       position={position}

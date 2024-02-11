@@ -33,6 +33,9 @@ function MiniMapNodes({
       ? "crispEdges"
       : "geometricPrecision";
 
+
+  console.log("MiniMapNodes")
+
   return (
     <>
       {nodes.map((node) => {
