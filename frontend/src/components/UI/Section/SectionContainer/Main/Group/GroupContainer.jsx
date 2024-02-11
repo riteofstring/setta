@@ -3,11 +3,10 @@ import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef, useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
-  // const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
+  // const { overflow, ref, setDidUpdate } = useOverflow(sectionId);
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
@@ -19,11 +18,16 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
     //   }`}
     //   ref={ref}
     // >
+    <div
+      className={`card-args-list py-1 overflow-y-scroll`}
+      // ref={ref}
+    >
       <GetParams
         sectionId={sectionId}
         objInfoId={objInfoId}
         // setDidUpdate={setDidUpdate}
       />
+    </div>
     // </ScrollingArea>
   );
 }
@@ -46,18 +50,16 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function useNoWheel(sectionId) {
+function useOverflow(sectionId) {
   const ref = useRef();
   const height = useSectionInfos((x) => x.x[sectionId].size.height);
   const [didUpdate, setDidUpdate] = useState(false);
-  const [noWheel, setNoWheel] = useState("");
+  const [overflow, setOverflow] = useState(false);
 
   useEffect(() => {
     setDidUpdate(false);
-    setNoWheel(
-      ref.current.scrollHeight > ref.current.clientHeight ? "nowheel" : "",
-    );
+    setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
   }, [didUpdate, height]);
 
-  return { noWheel, ref, setDidUpdate };
+  return { overflow, ref, setDidUpdate };
 }
