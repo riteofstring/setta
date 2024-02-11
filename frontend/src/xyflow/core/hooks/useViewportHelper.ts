@@ -1,13 +1,6 @@
 import { zoomIdentity } from "d3-zoom";
-import { useMemo } from "react";
-import { shallow } from "zustand/shallow";
 import { useReactFlow } from "../store";
-import { fitView } from "../store/utils";
-import type {
-  ReactFlowState,
-  ViewportHelperFunctions,
-  XYPosition,
-} from "../types";
+import type { XYPosition } from "../types";
 import {
   getD3Transition,
   getViewportForBounds,
@@ -15,139 +8,106 @@ import {
   rendererPointToPoint,
 } from "../utils/graph";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-const noop = () => {};
+export function zoomIn(options) {
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1.2);
+}
 
-const initialViewportHelper: ViewportHelperFunctions = {
-  zoomIn: noop,
-  zoomOut: noop,
-  zoomTo: noop,
-  getZoom: () => 1,
-  setViewport: noop,
-  getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
-  fitView: () => false,
-  setCenter: noop,
-  fitBounds: noop,
-  screenToFlowPosition: (position: XYPosition) => position,
-  flowToScreenPosition: (position: XYPosition) => position,
-  viewportInitialized: false,
-};
+export function zoomOut(options) {
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1 / 1.2);
+}
 
-const selector = (s: ReactFlowState) => ({
-  d3Zoom: s.d3Zoom,
-  d3Selection: s.d3Selection,
-});
+export function zoomTo(zoomLevel, options) {
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel);
+}
 
-const useViewportHelper = (): ViewportHelperFunctions => {
-  const { d3Zoom, d3Selection } = useReactFlow(selector, shallow);
+export function getZoom() {
+  return useReactFlow.getState().transform[2];
+}
 
-  const viewportHelperFunctions = useMemo<ViewportHelperFunctions>(() => {
-    if (d3Selection && d3Zoom) {
-      return {
-        zoomIn: (options) =>
-          d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1.2),
-        zoomOut: (options) =>
-          d3Zoom.scaleBy(
-            getD3Transition(d3Selection, options?.duration),
-            1 / 1.2,
-          ),
-        zoomTo: (zoomLevel, options) =>
-          d3Zoom.scaleTo(
-            getD3Transition(d3Selection, options?.duration),
-            zoomLevel,
-          ),
-        getZoom: () => useReactFlow.getState().transform[2],
-        setViewport: (transform, options) => {
-          const [x, y, zoom] = useReactFlow.getState().transform;
-          const nextTransform = zoomIdentity
-            .translate(transform.x ?? x, transform.y ?? y)
-            .scale(transform.zoom ?? zoom);
-          d3Zoom.transform(
-            getD3Transition(d3Selection, options?.duration),
-            nextTransform,
-          );
-        },
-        getViewport: () => {
-          const [x, y, zoom] = useReactFlow.getState().transform;
-          return { x, y, zoom };
-        },
-        fitView: (options) => fitView(useReactFlow.getState, options),
-        setCenter: (x, y, options) => {
-          const { width, height, maxZoom } = useReactFlow.getState();
-          const nextZoom =
-            typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
-          const centerX = width / 2 - x * nextZoom;
-          const centerY = height / 2 - y * nextZoom;
-          const transform = zoomIdentity
-            .translate(centerX, centerY)
-            .scale(nextZoom);
+export function setViewport(transform, options) {
+  const {
+    d3Zoom,
+    d3Selection,
+    transform: [x, y, zoom],
+  } = useReactFlow.getState();
+  const nextTransform = zoomIdentity
+    .translate(transform.x ?? x, transform.y ?? y)
+    .scale(transform.zoom ?? zoom);
+  d3Zoom.transform(
+    getD3Transition(d3Selection, options?.duration),
+    nextTransform,
+  );
+}
 
-          d3Zoom.transform(
-            getD3Transition(d3Selection, options?.duration),
-            transform,
-          );
-        },
-        fitBounds: (bounds, options) => {
-          const { width, height, minZoom, maxZoom } = useReactFlow.getState();
-          const { x, y, zoom } = getViewportForBounds(
-            bounds,
-            width,
-            height,
-            minZoom,
-            maxZoom,
-            options?.padding ?? 0.1,
-          );
-          const transform = zoomIdentity.translate(x, y).scale(zoom);
+export function getViewport() {
+  const [x, y, zoom] = useReactFlow.getState().transform;
+  return { x, y, zoom };
+}
 
-          d3Zoom.transform(
-            getD3Transition(d3Selection, options?.duration),
-            transform,
-          );
-        },
-        screenToFlowPosition: (position: XYPosition) => {
-          const { transform, snapToGrid, snapGrid, domNode } =
-            useReactFlow.getState();
+export function setCenter(x, y, options) {
+  const { width, height, maxZoom, d3Zoom, d3Selection } =
+    useReactFlow.getState();
+  const nextZoom =
+    typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
+  const centerX = width / 2 - x * nextZoom;
+  const centerY = height / 2 - y * nextZoom;
+  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
-          if (!domNode) {
-            return position;
-          }
+  d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
+}
 
-          const { x: domX, y: domY } = domNode.getBoundingClientRect();
-          const relativePosition = {
-            x: position.x - domX,
-            y: position.y - domY,
-          };
+export function fitBounds(bounds, options) {
+  const { width, height, minZoom, maxZoom, d3Zoom, d3Selection } =
+    useReactFlow.getState();
+  const { x, y, zoom } = getViewportForBounds(
+    bounds,
+    width,
+    height,
+    minZoom,
+    maxZoom,
+    options?.padding ?? 0.1,
+  );
+  const transform = zoomIdentity.translate(x, y).scale(zoom);
 
-          return pointToRendererPoint(
-            relativePosition,
-            transform,
-            snapToGrid,
-            snapGrid,
-          );
-        },
-        flowToScreenPosition: (position: XYPosition) => {
-          const { transform, domNode } = useReactFlow.getState();
+  d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
+}
 
-          if (!domNode) {
-            return position;
-          }
+export function screenToFlowPosition(position: XYPosition) {
+  const { transform, snapToGrid, snapGrid, domNode } = useReactFlow.getState();
 
-          const { x: domX, y: domY } = domNode.getBoundingClientRect();
-          const rendererPosition = rendererPointToPoint(position, transform);
+  if (!domNode) {
+    return position;
+  }
 
-          return {
-            x: rendererPosition.x + domX,
-            y: rendererPosition.y + domY,
-          };
-        },
-        viewportInitialized: true,
-      };
-    }
+  const { x: domX, y: domY } = domNode.getBoundingClientRect();
+  const relativePosition = {
+    x: position.x - domX,
+    y: position.y - domY,
+  };
 
-    return initialViewportHelper;
-  }, [d3Zoom, d3Selection]);
+  return pointToRendererPoint(
+    relativePosition,
+    transform,
+    snapToGrid,
+    snapGrid,
+  );
+}
 
-  return viewportHelperFunctions;
-};
+export function flowToScreenPosition(position: XYPosition) {
+  const { transform, domNode } = useReactFlow.getState();
 
-export default useViewportHelper;
+  if (!domNode) {
+    return position;
+  }
+
+  const { x: domX, y: domY } = domNode.getBoundingClientRect();
+  const rendererPosition = rendererPointToPoint(position, transform);
+
+  return {
+    x: rendererPosition.x + domX,
+    y: rendererPosition.y + domY,
+  };
+}

@@ -14,7 +14,8 @@ import {
 } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID, REACT_FLOW_STORE } from "utils/constants";
+import { PANEID } from "utils/constants";
+import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import {
   DECK,
   GLOBAL_VARIABLES,
@@ -61,7 +62,7 @@ export function onClickAddSection({
   inputSectionProps = {},
 }) {
   const position = projectXY
-    ? REACT_FLOW_STORE.rf.screenToFlowPosition({ x, y })
+    ? screenToFlowPosition({ x, y })
     : newSectionPosition({ x, y });
 
   return addSectionAtPosition({

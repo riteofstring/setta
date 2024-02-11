@@ -16,6 +16,7 @@ import React, {
   useRef,
 } from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
+import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "xyflow/core/store";
 import { getNodesInside } from "xyflow/core/utils/graph";
 import { shallow } from "zustand/shallow";
@@ -75,11 +76,10 @@ const Pane = memo(
 
     const onClick = (event: ReactMouseEvent) => {
       useActiveSection.getState().clear();
-      REACT_FLOW_STORE.lastPaneClickLocation =
-        REACT_FLOW_STORE.rf.screenToFlowPosition({
-          x: event.clientX,
-          y: event.clientY,
-        });
+      REACT_FLOW_STORE.lastPaneClickLocation = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
       resetSelectedElements();
       useReactFlow.setState({
         nodesSelectionDims: null,

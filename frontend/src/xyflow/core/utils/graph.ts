@@ -3,7 +3,7 @@ import type { Selection as D3Selection } from "d3";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefs } from "models/sectionRefs";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
 import {
   boxToRect,
@@ -145,7 +145,7 @@ export function getSectionRect(sectionId) {
   const ref = useSectionRefs.getState().selfOnly[sectionId];
   const { clientWidth: width, clientHeight: height } = ref;
   const { x: _x, y: _y } = ref.getBoundingClientRect();
-  const { x, y } = REACT_FLOW_STORE.rf.screenToFlowPosition({
+  const { x, y } = screenToFlowPosition({
     x: _x,
     y: _y,
   });

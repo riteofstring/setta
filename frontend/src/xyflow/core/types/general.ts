@@ -85,22 +85,6 @@ export type UnselectNodesAndEdgesParams = {
 
 export type OnViewportChange = (viewport: Viewport) => void;
 
-export type ViewportHelperFunctions = {
-  zoomIn: ZoomInOut;
-  zoomOut: ZoomInOut;
-  zoomTo: ZoomTo;
-  getZoom: GetZoom;
-  setViewport: SetViewport;
-  getViewport: GetViewport;
-  fitView: FitView;
-  setCenter: SetCenter;
-  fitBounds: FitBounds;
-  project: Project;
-  screenToFlowPosition: (position: XYPosition) => XYPosition;
-  flowToScreenPosition: (position: XYPosition) => XYPosition;
-  viewportInitialized: boolean;
-};
-
 export type ReactFlowStore = {
   width: number;
   height: number;

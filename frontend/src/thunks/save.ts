@@ -15,8 +15,8 @@ import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
-import { REACT_FLOW_STORE } from "utils/constants";
 import { xnor } from "utils/utils";
+import { getViewport } from "xyflow/core/hooks/useViewportHelper";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
 import { ManyUITypeType } from "z_utils/types/uiType";
@@ -25,7 +25,7 @@ import { isPreset } from "z_utils/uiTypeConstants";
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
-  projectConfig.viewport = REACT_FLOW_STORE.rf.getViewport();
+  projectConfig.viewport = getViewport();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {
     children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };

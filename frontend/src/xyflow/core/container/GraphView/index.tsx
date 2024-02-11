@@ -1,6 +1,5 @@
 import { memo } from "react";
 
-import useOnInitHandler from "../../hooks/useOnInitHandler";
 import type { ReactFlowProps } from "../../types";
 import FlowRenderer from "../FlowRenderer";
 import NodeRenderer from "../NodeRenderer";
@@ -49,8 +48,6 @@ const GraphView = ({
   noWheelClassName,
   noPanClassName,
 }: GraphViewProps) => {
-  useOnInitHandler();
-
   return (
     <FlowRenderer
       selectionKeyCode={selectionKeyCode}

@@ -1,6 +1,7 @@
 import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
-import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
+import { OVERVIEW } from "utils/constants";
+import { setCenter } from "xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "xyflow/core/store";
 import { getSectionRect } from "xyflow/core/utils/graph";
 
@@ -11,7 +12,7 @@ export function goToSection(sectionId: string) {
   const { x, y } = getSectionRect(sectionId);
   const newX = x + width / 2 - overviewWidth - margin;
   const newY = y + height / 2 - margin;
-  REACT_FLOW_STORE.rf.setCenter(newX, newY, {
+  setCenter(newX, newY, {
     zoom: 1,
     duration: 100,
   });

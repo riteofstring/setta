@@ -1,4 +1,5 @@
 import { useReactFlow } from "xyflow/core/store";
+import { fitView } from "xyflow/core/store/utils";
 import { getDimensions } from "xyflow/core/utils";
 import { createSelectionChange } from "xyflow/core/utils/changes";
 import { temporal } from "zundo";
@@ -90,7 +91,7 @@ export function updateNodeDimensions(updates) {
     fitViewOnInitDone ||
     (fitViewOnInit &&
       !fitViewOnInitDone &&
-      fitView(get, { initial: true, ...fitViewOnInitOptions }));
+      fitView(useReactFlow.getState, { initial: true, ...fitViewOnInitOptions }));
 
   useNodeInternals.setState({
     x: new Map(nodeInternals),

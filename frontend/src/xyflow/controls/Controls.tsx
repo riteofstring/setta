@@ -7,8 +7,9 @@ import {
   type PropsWithChildren,
 } from "react";
 import { Panel, type ReactFlowState } from "xyflow/core";
-import useViewportHelper from "xyflow/core/hooks/useViewportHelper";
+import { zoomIn, zoomOut } from "xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "xyflow/core/store";
+import { fitView } from "xyflow/core/store/utils";
 import { shallow } from "zustand/shallow";
 import ControlButton from "./ControlButton";
 import FitviewIcon from "./Icons/FitView";
@@ -43,8 +44,6 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
     selector,
     shallow,
   );
-  const { zoomIn, zoomOut, fitView } = useViewportHelper();
-
   useEffect(() => {
     setIsVisible(true);
   }, []);
@@ -64,7 +63,7 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   };
 
   const onFitViewHandler = () => {
-    fitView(fitViewOptions);
+    fitView(useReactFlow.getState, fitViewOptions);
     onFitView?.();
   };
 
