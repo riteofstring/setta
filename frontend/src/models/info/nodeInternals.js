@@ -154,7 +154,7 @@ export function onNodesChange(changes) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function raiseZIndex(nodes) {
+export function raiseTempZIndex(nodes) {
   const nodeInternals = useNodeInternals.getState().x;
   const newNodes = new Map(nodeInternals);
   for (const [, n] of newNodes) {

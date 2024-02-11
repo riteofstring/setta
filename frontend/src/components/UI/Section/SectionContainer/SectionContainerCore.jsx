@@ -2,10 +2,12 @@ import { toggleSectionDescription } from "hooks/useSectionDescription";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
 import { getParamInfos } from "thunks/sections/sectionContents";
+import { setZIndices } from "thunks/sections/sectionPositions";
 import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
@@ -38,7 +40,7 @@ function _SectionContainerCore({ sectionId }) {
       useActiveSection.getState().setIds([sectionId]);
     }
     const highestAncestor = getHighestAncestor(sectionId);
-    // setZIndices([useSectionInfos.getState().x[highestAncestor]], false);
+    setZIndices([useSectionInfos.getState().x[highestAncestor]], false);
   }
 
   const boxShadow = isActiveSection

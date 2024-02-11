@@ -1,7 +1,7 @@
 import { drag } from "d3-drag";
 import { select } from "d3-selection";
 import {
-  raiseZIndex,
+  raiseTempZIndex,
   unselectNodesAndEdges,
   updateNodePositions,
   useNodeInternals,
@@ -150,7 +150,7 @@ function useDrag({
         );
 
         if (dragItems.current) {
-          raiseZIndex(dragItems.current);
+          raiseTempZIndex(dragItems.current);
         }
       };
 
