@@ -57,7 +57,7 @@ export function IdNameCombobox({
         onInputMouseDown={onInputMouseDown}
       />
 
-      {/* <ComboboxList
+      <ComboboxList
         isOpen={isReallyOpen}
         getMenuProps={getMenuProps}
         position={position}
@@ -68,7 +68,7 @@ export function IdNameCombobox({
           highlightedIndex={highlightedIndex}
           itemToString={itemToString}
         />
-      </ComboboxList> */}
+      </ComboboxList>
     </search>
   );
 }
