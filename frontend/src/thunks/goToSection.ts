@@ -1,5 +1,4 @@
 import { useActiveSection } from "models/activeSection";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { usePanes } from "models/panes";
 import { OVERVIEW } from "utils/constants";
 import { setCenter } from "xyflow/core/hooks/useViewportHelper";
@@ -16,5 +15,5 @@ export function goToSection(sectionId: string) {
     duration: 100,
   });
   useActiveSection.getState().setIds([sectionId]);
-  setZIndices([useSectionInfos.getState().x[sectionId]]);
+  setZIndices([sectionId]);
 }

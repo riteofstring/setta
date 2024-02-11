@@ -2,7 +2,6 @@ import { toggleSectionDescription } from "hooks/useSectionDescription";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { useActiveSection } from "models/activeSection";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
@@ -40,7 +39,7 @@ function _SectionContainerCore({ sectionId }) {
       useActiveSection.getState().setIds([sectionId]);
     }
     const highestAncestor = getHighestAncestor(sectionId);
-    setZIndices([useSectionInfos.getState().x[highestAncestor]], false);
+    setZIndices([highestAncestor], false);
   }
 
   const boxShadow = isActiveSection

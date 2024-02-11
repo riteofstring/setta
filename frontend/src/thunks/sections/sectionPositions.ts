@@ -1,12 +1,10 @@
 import { useNodeInternals } from "models/info/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { SectionType } from "z_utils/types/section";
 
-export function setZIndices(inputNodes: SectionType[], incrementVersion) {
-  const nodes = inputNodes.filter((x) => x.id);
+export function setZIndices(sectionIds, incrementVersion) {
   const nodeInternals = useNodeInternals.getState().x;
   const excludingInputIds = Array.from(nodeInternals.values()).filter(
-    (x) => !nodes.map((x) => x.id).includes(x),
+    (x) => !sectionIds.includes(x),
   );
 
   excludingInputIds.sort((a, b) => a.zIndex - b.zIndex); //sort in increasing order of zindex
@@ -17,11 +15,11 @@ export function setZIndices(inputNodes: SectionType[], incrementVersion) {
     curr.zIndex = i;
     curr.tempZIndex = curr.zIndex;
   }
-  for (let i = 0; i < nodes.length; i++) {
-    if (!nodeInternals.has(nodes[i].id)) {
+  for (let i = 0; i < sectionIds.length; i++) {
+    if (!nodeInternals.has(sectionIds[i])) {
       continue;
     }
-    const curr = newValues.get(nodes[i].id);
+    const curr = newValues.get(sectionIds[i]);
     curr.zIndex = i + excludingInputIds.length;
     curr.tempZIndex = curr.zIndex;
   }
