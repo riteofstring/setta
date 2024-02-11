@@ -67,10 +67,7 @@ function useDrag({
         let hasChange = false;
 
         dragItems.current = dragItems.current.map((n) => {
-          const nextPosition = {
-            x: n.position.x + delta.x,
-            y: n.position.y + delta.y,
-          };
+          const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
 
           if (snapToGrid) {
             nextPosition.x =
@@ -145,7 +142,12 @@ function useDrag({
 
         const pointerPos = getPointerPosition(event);
         lastPos.current = pointerPos;
-        dragItems.current = getDragItems(nodeInternals, nodesDraggable, nodeId);
+        dragItems.current = getDragItems(
+          nodeInternals,
+          nodesDraggable,
+          pointerPos,
+          nodeId,
+        );
 
         if (dragItems.current) {
           raiseZIndex(dragItems.current);
