@@ -1,3 +1,4 @@
+import { usePanes } from "models/panes";
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
 import { useReactFlow } from "../store";
@@ -6,6 +7,10 @@ import { devWarn, getDimensions } from "../utils";
 function useResizeHandler(
   rendererNode: MutableRefObject<HTMLDivElement | null>,
 ): void {
+
+  const overviewWidth = usePanes(x=>x.trueWidth.overview)
+  const uiEditorWidth = usePanes(x=>x.trueWidth.uiEditor)
+
   useEffect(() => {
     let resizeObserver: ResizeObserver;
 
@@ -24,7 +29,7 @@ function useResizeHandler(
       }
 
       useReactFlow.setState({
-        width: size.width || 500,
+        width: size.width - overviewWidth - uiEditorWidth || 500,
         height: size.height || 500,
       });
     };
@@ -44,7 +49,7 @@ function useResizeHandler(
         resizeObserver.unobserve(rendererNode.current!);
       }
     };
-  }, []);
+  }, [overviewWidth, uiEditorWidth]);
 }
 
 export default useResizeHandler;

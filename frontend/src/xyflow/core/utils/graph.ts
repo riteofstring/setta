@@ -2,6 +2,7 @@
 import type { Selection as D3Selection } from "d3";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
@@ -128,7 +129,10 @@ export const getViewportForBounds = (
   const clampedZoom = clamp(zoom, minZoom, maxZoom);
   const boundsCenterX = bounds.x + bounds.width / 2;
   const boundsCenterY = bounds.y + bounds.height / 2;
-  const x = width / 2 - boundsCenterX * clampedZoom;
+  const x =
+    width / 2 -
+    boundsCenterX * clampedZoom +
+    usePanes.getState().trueWidth.overview;
   const y = height / 2 - boundsCenterY * clampedZoom;
 
   return { x, y, zoom: clampedZoom };
