@@ -8,7 +8,9 @@ export function useGetParamEnteredValue(
 ) {
   const evColId = useGetSectionInfo(sectionId, "evColId");
   const previewEVColId = useGetSectionInfo(sectionId, "previewEVColId");
-  return useParamInfos((x) => x.x[previewEVColId ?? evColId].values[paramInfoId]);
+  return useParamInfos(
+    (x) => x.x[previewEVColId ?? evColId].values[paramInfoId],
+  );
 }
 
 export function useGetEVColNames(sectionId: string) {

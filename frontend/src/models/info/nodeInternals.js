@@ -91,7 +91,10 @@ export function updateNodeDimensions(updates) {
     fitViewOnInitDone ||
     (fitViewOnInit &&
       !fitViewOnInitDone &&
-      fitView(useReactFlow.getState, { initial: true, ...fitViewOnInitOptions }));
+      fitView(useReactFlow.getState, {
+        initial: true,
+        ...fitViewOnInitOptions,
+      }));
 
   useNodeInternals.setState({
     x: new Map(nodeInternals),

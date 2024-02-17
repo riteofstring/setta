@@ -7,9 +7,8 @@ import { devWarn, getDimensions } from "../utils";
 function useResizeHandler(
   rendererNode: MutableRefObject<HTMLDivElement | null>,
 ): void {
-
-  const overviewWidth = usePanes(x=>x.trueWidth.overview)
-  const uiEditorWidth = usePanes(x=>x.trueWidth.uiEditor)
+  const overviewWidth = usePanes((x) => x.trueWidth.overview);
+  const uiEditorWidth = usePanes((x) => x.trueWidth.uiEditor);
 
   useEffect(() => {
     let resizeObserver: ResizeObserver;

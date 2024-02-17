@@ -13,7 +13,5 @@ export function CustomCloseButton({ isInfo, onClick, ...props }) {
   //     twClasses="ml-auto mr-1"
   //   />
   // );
-  return (
-    <button onClick={onClick} className="gg-close"/>
-  );
+  return <button onClick={onClick} className="gg-close" />;
 }
