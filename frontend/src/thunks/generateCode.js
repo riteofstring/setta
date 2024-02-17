@@ -5,13 +5,11 @@ import {
 import { dbGetFreeTerminal } from "dbRequests/terminals";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { TERMINAL } from "z_utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
-import { getSectionInfo } from "./sections/getters";
 
 export function getProjectDataToGenerateCode() {
   const project = getProjectData();
@@ -49,7 +47,15 @@ export async function runCode({ codeId }) {
 
 function* getProjectRuns(project) {
   if (_.size(project.runGroups) === 0) {
-    yield* getProjectVariants(project);
+    const variant = _.cloneDeep(project);
+    const keepParamSweeps = [];
+    for (const s of Object.values(project.sections)) {
+      if (s.paramSweepId) {
+        keepParamSweeps.push(s.paramSweepId);
+      }
+    }
+    variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
+    yield* getProjectVariants(variant);
   } else {
     for (const runGroup of Object.values(project.runGroups)) {
       const variant = _.cloneDeep(project);
@@ -104,10 +110,10 @@ function* getProjectVariants(project) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
         const { paramSweepId, paramInfoId, value } = parts;
-        const forSectionId = Object.values(useSectionInfos.getState().x).find(
+        const forSectionId = Object.values(project.sections).find(
           (x) => x.paramSweepId === paramSweepId,
         ).id;
-        const evCol = variant.evCols[getSectionInfo(forSectionId).evColId];
+        const evCol = variant.evCols[project.sections[forSectionId].evColId];
         evCol.values[paramInfoId] = value;
       }
       yield variant;
