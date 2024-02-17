@@ -7,6 +7,7 @@ import {
   isSeriesElement,
   OUTPUT,
   SOCIAL,
+  TERMINAL,
 } from "z_utils/constants";
 import {
   SectionUITypeConfigType,
@@ -98,3 +99,7 @@ export function useIsSocial(sectionId: string) {
 // export function useIsVarControl(sectionId: string) {
 //   return useIsType(sectionId, VAR_CONTROL);
 // }
+
+export function useIsTerminal(sectionId: string) {
+  return useIsType(sectionId, TERMINAL);
+}
