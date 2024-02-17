@@ -9,7 +9,7 @@ export function ComboboxInput({
   onInputMouseDown,
 }) {
   const className =
-    "nodrag card-value font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400";
+    "nodrag card-value font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400";
 
   return (
     <>
@@ -17,7 +17,6 @@ export function ComboboxInput({
         className={className}
         {...getInputProps({ onMouseDown: onInputMouseDown })}
       />
-
     </>
   );
 

@@ -38,10 +38,6 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
       setSelectedItemChildren(sectionId, id, changedByUser);
     });
   }
-
-  if (changedByUser) {
-    varControlUpdate();
-  }
 }
 
 function createChildrenCodeInfo(parent, params) {
@@ -63,6 +59,9 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     codeInfoIds: [selectedItem],
   });
   updateParams(sectionId);
+  if (incrementVersion) {
+    varControlUpdate();
+  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
