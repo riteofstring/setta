@@ -1,17 +1,24 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
-import { useGetParamSweepNames } from "hooks/useParamSweepInfo";
+import {
+  getForSectionId,
+  useCurrParamSweepId,
+  useForSectionId,
+  useGetParamSweepNames,
+} from "hooks/useParamSweepInfo";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 import { PARAM_SWEEP } from "z_utils/constants";
 
 export function VersionList({ sectionId, sectionTypeName }) {
   function onMouseLeave() {
-    if (sectionTypeName === PARAM_SWEEP) {
-      return;
-    } else {
-      setSectionInfoAttr({ sectionId, attr: "previewEVColId", value: null });
-    }
+    setSectionInfoAttr({ sectionId, attr: "previewEVColId", value: null });
+    setSectionInfoAttr({
+      sectionId: getForSectionId(useSectionInfos.getState().x, sectionId),
+      attr: "previewParamSweepId",
+      value: null,
+    });
   }
 
   return (
@@ -57,10 +64,23 @@ function EVItems({ sectionId }) {
 }
 
 function ParamSweepItems({ sectionId }) {
-  const currParamSweepId = useGetSectionInfo(sectionId, "paramSweepId");
+  const forSectionId = useForSectionId(sectionId);
+  const currParamSweepId = useCurrParamSweepId(sectionId);
   const paramSweepNames = useGetParamSweepNames(sectionId);
   function onMouseOver(id) {
-    setSectionInfoAttr({ sectionId, attr: "paramSweepId", value: id });
+    setSectionInfoAttr({
+      sectionId: forSectionId,
+      attr: "previewParamSweepId",
+      value: id,
+    });
+  }
+
+  function onClick(id) {
+    setSectionInfoAttr({
+      sectionId: forSectionId,
+      attr: "paramSweepId",
+      value: id,
+    });
   }
 
   return paramSweepNames.map((e) => (
@@ -70,6 +90,7 @@ function ParamSweepItems({ sectionId }) {
       name={e.name}
       isCurr={currParamSweepId === e.id}
       onMouseOver={onMouseOver}
+      onClick={onClick}
     />
   ));
 }
