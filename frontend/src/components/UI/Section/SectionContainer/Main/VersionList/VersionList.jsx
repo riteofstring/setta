@@ -6,9 +6,20 @@ import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 import { PARAM_SWEEP } from "z_utils/constants";
 
 export function VersionList({ sectionId, sectionTypeName }) {
+  function onMouseLeave() {
+    if (sectionTypeName === PARAM_SWEEP) {
+      return;
+    } else {
+      setSectionInfoAttr({ sectionId, attr: "previewEVColId", value: null });
+    }
+  }
+
   return (
     <ResizableDescription sectionId={sectionId}>
-      <section className="version-section -my-4 flex-1 self-stretch pb-8 pt-9">
+      <section
+        className="version-section -my-4 flex-1 self-stretch pb-8 pt-9"
+        onMouseLeave={onMouseLeave}
+      >
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
           {sectionTypeName === PARAM_SWEEP ? (
             <ParamSweepItems sectionId={sectionId} />
@@ -24,7 +35,12 @@ export function VersionList({ sectionId, sectionTypeName }) {
 function EVItems({ sectionId }) {
   const currEVColId = useGetSectionInfo(sectionId, "evColId");
   const evColNames = useGetEVColNames(sectionId);
+
   function onMouseOver(id) {
+    setSectionInfoAttr({ sectionId, attr: "previewEVColId", value: id });
+  }
+
+  function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "evColId", value: id });
   }
 
@@ -35,6 +51,7 @@ function EVItems({ sectionId }) {
       name={e.name}
       isCurr={currEVColId === e.id}
       onMouseOver={onMouseOver}
+      onClick={onClick}
     />
   ));
 }
@@ -57,10 +74,11 @@ function ParamSweepItems({ sectionId }) {
   ));
 }
 
-function OneItem({ id, name, isCurr, onMouseOver }) {
+function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
   return (
     <li
       onMouseOver={() => onMouseOver(id)}
+      onClick={() => onClick(id)}
       className="version-list-item -mx-2 -my-1 cursor-pointer auto-rows-auto justify-between rounded-xl px-2 py-1 text-xs hover:bg-runcoder-50/50 dark:hover:bg-runcoder-800/50"
     >
       <p
