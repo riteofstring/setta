@@ -18,6 +18,8 @@ import {
 export function GlobalParamSweepArea() {
   const runGroups = useRunGroups((x) => x.x);
   const [shownRunGroup, setShownRunGroup] = useState(Object.keys(runGroups)[0]);
+  const [previewRunGroup, setPreviewRunGroup] = useState(null);
+  const toShow = previewRunGroup ?? shownRunGroup;
 
   return (
     <>
@@ -27,15 +29,14 @@ export function GlobalParamSweepArea() {
           <RunGroupList
             runGroups={runGroups}
             setShownRunGroup={setShownRunGroup}
+            setPreviewRunGroup={setPreviewRunGroup}
+            shownRunGroup={shownRunGroup}
           />
         </article>
-        {runGroups[shownRunGroup] && (
+        {runGroups[toShow] && (
           <article className="flex flex-1 flex-col gap-2">
             <FilterSection />
-            <SectionList
-              runGroupId={shownRunGroup}
-              runGroup={runGroups[shownRunGroup]}
-            />
+            <SectionList runGroupId={toShow} runGroup={runGroups[toShow]} />
           </article>
         )}
       </section>
@@ -43,20 +44,28 @@ export function GlobalParamSweepArea() {
   );
 }
 
-function RunGroupList({ runGroups, setShownRunGroup }) {
+function RunGroupList({
+  runGroups,
+  shownRunGroup,
+  setShownRunGroup,
+  setPreviewRunGroup,
+}) {
   return (
     <div className="noscroll nowheel flex flex-col gap-2 overflow-y-scroll pt-2">
       {Object.entries(runGroups).map(([id, x], idx) => (
-        <CheckboxGroup
+        <CheckboxNextToLabel
           key={idx}
+          shown={shownRunGroup === id}
           checked={x.selected}
           onChange={() => {
             useRunGroups.getState().toggleSelected(id);
           }}
-          onMouseOver={() => setShownRunGroup(id)}
+          onClick={() => setShownRunGroup(id)}
+          onMouseOver={() => setPreviewRunGroup(id)}
+          onMouseLeave={() => setPreviewRunGroup(null)}
         >
           {x.name}
-        </CheckboxGroup>
+        </CheckboxNextToLabel>
       ))}
     </div>
   );
@@ -151,12 +160,9 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
-function CheckboxGroup({ children, checked, onChange, onMouseOver }) {
+function CheckboxGroup({ children, checked, onChange }) {
   return (
-    <label
-      className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700"
-      onMouseOver={onMouseOver}
-    >
+    <label className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700">
       <input
         type="checkbox"
         className="h-4 w-4 rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
@@ -165,6 +171,36 @@ function CheckboxGroup({ children, checked, onChange, onMouseOver }) {
       />
       {children}
     </label>
+  );
+}
+
+function CheckboxNextToLabel({
+  children,
+  checked,
+  shown,
+  onChange,
+  onClick,
+  onMouseOver,
+  onMouseLeave,
+}) {
+  const font = shown ? "font-bold" : "";
+
+  return (
+    <div className="flex items-center" onMouseLeave={onMouseLeave}>
+      <input
+        type="checkbox"
+        className="h-4 w-4 rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
+        checked={checked}
+        onChange={onChange}
+      />
+      <label
+        className={`${font} dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700`}
+        onMouseOver={onMouseOver}
+        onClick={onClick}
+      >
+        {children}
+      </label>
+    </div>
   );
 }
 
