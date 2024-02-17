@@ -34,7 +34,9 @@ export function useSectionHasMultipleParamSweeps(sectionId) {
 
 export function useGetParamSweepNames(sectionId: string) {
   const forSectionId = useForSectionId(sectionId);
-  const paramSweepIds = useGetSectionInfo(forSectionId, "paramSweepIds");
+  const paramSweepIds = useSectionInfos((x) =>
+    forSectionId ? x.x[forSectionId].paramSweepIds : [],
+  );
   return useParamSweep(
     (x) => paramSweepIds.map((e) => ({ id: e, name: x.x[e].name })),
     _.isEqual,
