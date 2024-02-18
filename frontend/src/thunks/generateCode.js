@@ -61,26 +61,42 @@ function* getProjectRuns(project) {
     yield* getProjectVariants(variant);
   } else {
     for (const runGroup of Object.values(project.runGroups)) {
-      const variant = _.cloneDeep(project);
       if (!runGroup.selected || _.size(runGroup.sections) === 0) {
         continue;
       }
-      const keepSections = [];
-      const keepParamSweeps = [];
+      const sectionParamSweepPairs = [];
       for (const [sectionId, paramSweeps] of Object.entries(
         runGroup.sections,
       )) {
-        keepSections.push(sectionId);
-        keepParamSweeps.push(...Object.keys(paramSweeps));
+        const paramSweepIds = Object.keys(paramSweeps);
+        if (paramSweepIds.length === 0) {
+          sectionParamSweepPairs.push([{ sectionId, paramSweepId: null }]);
+        } else {
+          sectionParamSweepPairs.push(
+            paramSweepIds.map((paramSweepId) => ({
+              sectionId,
+              paramSweepId,
+            })),
+          );
+        }
       }
 
-      variant.projectConfig.children = _.pick(
-        variant.projectConfig.children,
-        keepSections,
-      );
-      variant.sections = _.pick(variant.sections, keepSections);
-      variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
-      yield* getProjectVariants(variant);
+      for (const combo of cartesian(...sectionParamSweepPairs)) {
+        const variant = _.cloneDeep(project);
+        variant.projectConfig.children = _.pick(
+          variant.projectConfig.children,
+          combo.map((x) => x.sectionId),
+        );
+        variant.sections = _.pick(
+          variant.sections,
+          combo.map((x) => x.sectionId),
+        );
+        variant.paramSweeps = _.pick(
+          variant.paramSweeps,
+          combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
+        );
+        yield* getProjectVariants(variant);
+      }
     }
   }
 }
@@ -113,8 +129,8 @@ function* getProjectVariants(project) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
         const { paramSweepId, paramInfoId, value } = parts;
-        const forSectionId = Object.values(project.sections).find(
-          (x) => x.paramSweepId === paramSweepId,
+        const forSectionId = Object.values(project.sections).find((x) =>
+          x.paramSweepIds.includes(paramSweepId),
         ).id;
         const evCol = variant.evCols[project.sections[forSectionId].evColId];
         evCol.values[paramInfoId] = value;
