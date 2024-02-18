@@ -4,6 +4,7 @@ import { useModal } from "models/modal";
 import { onClickAddSection } from "thunks/createSectionOrDeck";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
+import { SINGLETON_SECTIONS } from "utils/constants";
 import {
   CODE,
   DECK,
@@ -51,13 +52,15 @@ export function PaneContextMenu() {
       <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
         New Group
       </Item>
-      <Item
-        onClick={() =>
-          onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
-        }
-      >
-        New Global Variables
-      </Item>
+      {!SINGLETON_SECTIONS.globalVariables && (
+        <Item
+          onClick={() =>
+            onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
+          }
+        >
+          New Global Variables
+        </Item>
+      )}
       <Item onClick={() => onClickAddSection({ type: SCRIPT, ...commonProps })}>
         New Script
       </Item>
@@ -74,13 +77,15 @@ export function PaneContextMenu() {
       >
         New Terminal
       </Item>
-      <Item
-        onClick={() =>
-          onClickAddSection({ type: GLOBAL_PARAM_SWEEP, ...commonProps })
-        }
-      >
-        New Global Param Sweep
-      </Item>
+      {!SINGLETON_SECTIONS.globalParamSweep && (
+        <Item
+          onClick={() =>
+            onClickAddSection({ type: GLOBAL_PARAM_SWEEP, ...commonProps })
+          }
+        >
+          New Global Param Sweep
+        </Item>
+      )}
       <DialogDropdownTriggerItem
         onClick={() => openLoadModal("Create From Argparse")}
       >

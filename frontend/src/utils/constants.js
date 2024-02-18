@@ -11,3 +11,8 @@ export const REACT_FLOW_STORE = {
   initialViewport: {},
   lastPaneClickLocation: {},
 };
+
+export const SINGLETON_SECTIONS = {
+  globalVariables: null,
+  globalParamSweep: null,
+};

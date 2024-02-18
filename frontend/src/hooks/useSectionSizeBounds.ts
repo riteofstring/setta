@@ -1,6 +1,12 @@
 import { SECTIONWIDTH } from "utils/constants";
+import { CODE, SCRIPT, VAR_CONTROL } from "z_utils/constants";
 import { useGetAllCallables } from "./useSectionContents";
-import { useIsOutput, useIsRoot, useIsTerminal } from "./useSectionType";
+import {
+  useIsOneOfType,
+  useIsOutput,
+  useIsRoot,
+  useIsTerminal,
+} from "./useSectionType";
 import { useIsTwitter } from "./useSocialUtils";
 
 export function useMinSectionHeight(sectionId) {
@@ -23,6 +29,7 @@ export function useMinSectionHeight(sectionId) {
 export function useMinSectionWidth(sectionId) {
   const isTwitter = useIsTwitter(sectionId);
   const isTerminal = useIsTerminal(sectionId);
+  const containsCode = useIsOneOfType(sectionId, [CODE, SCRIPT, VAR_CONTROL]);
 
   if (isTwitter) {
     // 250 is min width of a tweet. Add 150 for margin
@@ -31,6 +38,9 @@ export function useMinSectionWidth(sectionId) {
   }
   if (isTerminal) {
     return 700;
+  }
+  if (containsCode) {
+    return 500;
   }
 
   return SECTIONWIDTH;

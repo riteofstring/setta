@@ -222,7 +222,10 @@ function useDrag({
             cancelAnimationFrame(autoPanId.current);
 
             if (dragItems.current) {
-              setZIndices(dragItems.current.map((x) => x.id), true);
+              setZIndices(
+                dragItems.current.map((x) => x.id),
+                true,
+              );
             }
           })
           .filter((event: MouseEvent) => {
