@@ -90,6 +90,9 @@ export const useSectionInfos = createProjectState(
             state.x[k].children = v.children.filter(
               (x) => !payload.includes(x),
             );
+            if (payload.includes(v.paramSweepSectionId)) {
+              state.x[k].paramSweepSectionId = null;
+            }
           }
         }),
 
