@@ -34,28 +34,38 @@ def save_project(db, project):
 
 def save_project_configs(db, projectId, configs):
     query = """
-        INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom)
-        VALUES (:id, :name, :projectId, :x, :y, :zoom)
+        INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom, overviewVis, uiEditorVis, overviewWidth, uiEditorWidth)
+        VALUES (:id, :name, :projectId, :x, :y, :zoom, :overviewVis, :uiEditorVis, :overviewWidth, :uiEditorWidth)
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
             projectId = :projectId,
             x = :x,
             y = :y,
-            zoom = :zoom
+            zoom = :zoom,
+            overviewVis = :overviewVis,
+            uiEditorVis = :uiEditorVis,
+            overviewWidth = :overviewWidth,
+            uiEditorWidth = :uiEditorWidth
     """
 
     query_params = []
     for c in configs:
         c = c["projectConfig"]
+        panes = c["panes"]
         query_params.append(
             {
                 "id": c["id"],
                 "name": c["name"],
                 "projectId": projectId,
                 **c["viewport"],
+                "overviewVis": panes["vis"]["overview"],
+                "uiEditorVis": panes["vis"]["uiEditor"],
+                "overviewWidth": panes["width"]["overview"],
+                "uiEditorWidth": panes["width"]["uiEditor"],
             }
         )
+    print(query_params, flush=True)
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(configs))

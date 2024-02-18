@@ -13,6 +13,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
+import { usePanes } from "models/panes";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
 import { xnor } from "utils/utils";
@@ -31,6 +32,11 @@ export function getProjectData(): ProjectSaveType {
     children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
   }
   projectConfig.children = children;
+  projectConfig.panes = {
+    vis: usePanes.getState().vis,
+    width: usePanes.getState().width,
+  };
+
 
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);

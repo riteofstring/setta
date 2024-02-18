@@ -71,6 +71,10 @@ def load_project_config_metadata(db, project_id, config_name):
             ProjectConfig.x,
             ProjectConfig.y,
             ProjectConfig.zoom,
+            ProjectConfig.overviewVis,
+            ProjectConfig.uiEditorVis,
+            ProjectConfig.overviewWidth,
+            ProjectConfig.uiEditorWidth,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.x as childX,
             ProjectConfigChildren.y as childY,
@@ -108,6 +112,13 @@ def load_project_config_metadata(db, project_id, config_name):
         "id": out["id"],
         "name": out["name"],
         "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
+        "panes": {
+            "vis": {"overview": out["overviewVis"], "uiEditor": out["uiEditorVis"]},
+            "width": {
+                "overview": out["overviewWidth"],
+                "uiEditor": out["uiEditorWidth"],
+            },
+        },
         "children": children,
     }
 

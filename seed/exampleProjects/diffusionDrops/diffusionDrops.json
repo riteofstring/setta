@@ -21,6 +21,10 @@
           "x": 100,
           "y": -100,
           "zoom": 1
+        },
+        "panes": {
+          "vis": { "overview": true, "uiEditor": false },
+          "width": { "overview": 300, "uiEditor": 500 }
         }
       },
       "paramSweeps": {},
@@ -46,6 +50,10 @@
           "x": -61.56644983676915,
           "y": -110.21689914011779,
           "zoom": 1
+        },
+        "panes": {
+          "vis": { "overview": true, "uiEditor": false },
+          "width": { "overview": 300, "uiEditor": 500 }
         }
       },
       "evCols": {

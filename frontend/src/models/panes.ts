@@ -4,6 +4,7 @@ import { createProjectState } from "./utils";
 
 type PanesStateType = {
   vis: { [OVERVIEW]: boolean; [UI_EDITOR]: boolean };
+  width: { [OVERVIEW]: number; [UI_EDITOR]: number };
   trueWidth: { [OVERVIEW]: number; [UI_EDITOR]: number };
 };
 
@@ -17,11 +18,16 @@ type PanesZustandType = PanesStateType & PanesActionType;
 export const usePanes = createProjectState(
   immer<PanesZustandType>((set) => ({
     vis: { [OVERVIEW]: true, [UI_EDITOR]: false },
+    width: { [OVERVIEW]: 335, [UI_EDITOR]: 500 },
     trueWidth: { [OVERVIEW]: 335, [UI_EDITOR]: CLOSED_PANE_WIDTH },
-
     setVis: ({ paneName, vis }) =>
       set((state) => {
         state.vis[paneName] = vis;
+      }),
+
+    setWidth: ({ paneName, width }) =>
+      set((state) => {
+        state.width[paneName] = width;
       }),
 
     setTrueWidth: ({ paneName, trueWidth }) =>

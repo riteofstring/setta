@@ -12,6 +12,10 @@
           "y": 518.9143162672918,
           "zoom": 0.2639015821545791
         },
+        "panes": {
+          "vis": { "overview": true, "uiEditor": false },
+          "width": { "overview": 300, "uiEditor": 500 }
+        },
         "children": {
           "01982661-ade6-41de-a509-7e16a4e1fd5a": {
             "x": 1079.5600199511364,
