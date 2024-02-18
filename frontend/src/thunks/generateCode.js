@@ -103,6 +103,7 @@ function* getProjectRuns(project) {
 
 function* getProjectVariants(project) {
   const allSweeps = [];
+  const versions = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
     for (const sweep of details.sweep) {
       const curr = [];
@@ -114,6 +115,8 @@ function* getProjectVariants(project) {
             value,
           });
         }
+      } else {
+        versions.push({ paramSweepId, evColId: sweep.evColId });
       }
       if (curr.length > 0) {
         allSweeps.push(curr);
@@ -121,10 +124,7 @@ function* getProjectVariants(project) {
     }
   }
 
-  if (allSweeps.length === 0) {
-    yield project;
-    return;
-  } else {
+  if (allSweeps.length > 0) {
     for (const combo of cartesian(...allSweeps)) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
@@ -137,6 +137,22 @@ function* getProjectVariants(project) {
       }
       yield variant;
     }
+  }
+
+  if (versions.length > 0) {
+    for (const version of versions) {
+      const variant = _.cloneDeep(project);
+      const { paramSweepId, evColId } = version;
+      const forSectionId = Object.values(project.sections).find((x) =>
+        x.paramSweepIds.includes(paramSweepId),
+      ).id;
+      variant.sections[forSectionId].evColId = evColId;
+      yield variant;
+    }
+  }
+
+  if (allSweeps.length === 0 && versions.length === 0) {
+    yield project;
   }
 }
 
