@@ -1,7 +1,8 @@
 import { useNodeInternals } from "models/info/nodeInternals";
+import { useCallback } from "react";
 
 function useVisibleNodes() {
-  const nodes = useNodeInternals((s) => Array.from(s.x.values()));
+  const nodes = useNodeInternals(useCallback((s) => s.getNodes(), []));
   return nodes;
 }
 
