@@ -1,6 +1,7 @@
 import asyncio
 import json
 import platform
+import time
 from asyncio import CancelledError
 
 import psutil
@@ -29,21 +30,22 @@ else:
 PTY_PIDS = {}
 
 
-def is_command_running_in_pty(terminal_id):
+def is_command_running_in_pty(pid):
     try:
-        shell_pid = PTY_PIDS.get(terminal_id, None)
-        if not shell_pid:
-            return False
-        return has_child_processes(shell_pid)
+        return has_child_processes(pid)
     except psutil.NoSuchProcess:
         return False
 
 
 def get_free_terminal():
-    for k in PTY_PIDS.keys():
-        if not is_command_running_in_pty(k):
+    for k, v in PTY_PIDS.copy().items():
+        if not is_command_running_in_pty(v["pid"]) and time.time() - v["start"] > 1:
             return k
     return None
+
+
+def set_terminal_start_time(id):
+    PTY_PIDS[id]["start"] = time.time()
 
 
 async def start_terminal(terminal_websocket, id):
@@ -52,7 +54,7 @@ async def start_terminal(terminal_websocket, id):
 
     # Start the WinPTY terminal
     pty_process = PtyProcess.spawn(TERMINAL_NAME)
-    PTY_PIDS[id] = pty_process.pid
+    PTY_PIDS[id] = {"pid": pty_process.pid, "start": time.time()}
 
     # Function to read from the terminal
     async def read_from_terminal():
@@ -78,6 +80,7 @@ async def start_terminal(terminal_websocket, id):
                             pty_process.setwinsize(json_val["rows"], json_val["cols"])
                         elif json_val["type"] == "runCode":
                             runCode(json_val, pty_process.write)
+                            set_terminal_start_time(id)
                         continue
                 except json.decoder.JSONDecodeError:
                     pass
@@ -85,6 +88,7 @@ async def start_terminal(terminal_websocket, id):
                     break
                 # Write received data to the terminal
                 pty_process.write(input_data)
+                set_terminal_start_time(id)
         except (WebSocketDisconnect, CancelledError):
             pass
 
