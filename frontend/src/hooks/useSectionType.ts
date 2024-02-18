@@ -64,6 +64,11 @@ function useIsType(sectionId, type) {
   return useUITypes((x) => x.x[uiTypeId].type === type);
 }
 
+export function useIsOneOfType(sectionId, types) {
+  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
+  return useUITypes((x) => types.includes(x.x[uiTypeId].type));
+}
+
 export function useIsRoot(sectionId: string) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) => isRoot(x.x[uiTypeId].type));

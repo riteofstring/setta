@@ -38,7 +38,7 @@
       "sections": {
         "2a7156ce-56f0-4f44-a415-190464979f61": {
           "id": "2a7156ce-56f0-4f44-a415-190464979f61",
-          "name": "graceful_silver",
+          "name": "Global Variables Sweep",
           "evColId": "3dbb4893-bd44-4e67-a6c3-1148d7205d42",
           "paramSweepId": null,
           "paramSweepSectionId": null,

@@ -1,6 +1,7 @@
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useParamSweep } from "models/paramSweep";
 import { goToSection } from "thunks/goToSection";
+import { getSectionName } from "thunks/sections/getters";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { PARAM_SWEEP_UI_TYPE_ID } from "z_utils/constants";
@@ -43,6 +44,7 @@ function addParamSweepSection(sectionId) {
 
   creatAdjacentSection(sectionId, {
     id: newSectionId,
+    name: `${getSectionName(sectionId)} Sweep`,
     uiTypeId: PARAM_SWEEP_UI_TYPE_ID,
   });
 }
