@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
@@ -57,7 +57,7 @@ export function getSectionSiblingNames(sectionId: string) {
   const parentId = getSectionParentId(sectionId);
   const siblingIds = parentId
     ? _.defaultTo(getSectionInfo(parentId).children, [])
-    : Object.keys(useProjectConfig.getState().children);
+    : Array.from(useNodeInternals.getState().x.keys());
 
   const siblingNames = siblingIds.map((x) => getSectionName(x));
   const output = new Set(siblingNames);

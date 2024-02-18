@@ -102,3 +102,7 @@ export const uiTypesToPretty = Object.freeze(
 export function requiresKeyInput(sectionSubTypeName) {
   return [null, DICT].includes(sectionSubTypeName);
 }
+
+export function getParamSweepSectionName(sectionName) {
+  return `${sectionName} Sweep`;
+}
