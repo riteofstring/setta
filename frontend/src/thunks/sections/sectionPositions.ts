@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 
@@ -9,7 +10,7 @@ export function setZIndices(sectionIds, incrementVersion) {
 
   excludingInputIds.sort((a, b) => a.zIndex - b.zIndex); //sort in increasing order of zindex
 
-  const newValues = new Map(nodeInternals);
+  const newValues = _.cloneDeep(nodeInternals);
   for (let i = 0; i < excludingInputIds.length; i++) {
     const curr = newValues.get(excludingInputIds[i].id);
     curr.zIndex = i;
@@ -24,7 +25,7 @@ export function setZIndices(sectionIds, incrementVersion) {
     curr.tempZIndex = curr.zIndex;
   }
 
-  useNodeInternals.setState({ nodeInternals: newValues });
+  useNodeInternals.setState({ x: newValues });
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }

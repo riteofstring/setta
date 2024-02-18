@@ -2,12 +2,7 @@ import { zoomIdentity } from "d3-zoom";
 import type { StoreApi } from "zustand";
 
 import { useNodeInternals } from "models/info/nodeInternals";
-import type {
-  FitViewOptions,
-  NodeInternals,
-  NodeSelectionChange,
-  ReactFlowState,
-} from "../types";
+import type { FitViewOptions, ReactFlowState } from "../types";
 import {
   getD3Transition,
   getNodesBounds,
@@ -78,21 +73,4 @@ export function fitView(
   }
 
   return false;
-}
-
-export function handleControlledNodeSelectionChange(
-  nodeChanges: NodeSelectionChange[],
-  nodeInternals: NodeInternals,
-) {
-  nodeChanges.forEach((change) => {
-    const node = nodeInternals.get(change.id);
-    if (node) {
-      nodeInternals.set(node.id, {
-        ...node,
-        selected: change.selected,
-      });
-    }
-  });
-
-  return new Map(nodeInternals);
 }

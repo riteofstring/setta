@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useReactFlow } from "xyflow/core/store";
 import { fitView } from "xyflow/core/store/utils";
 import { getDimensions } from "xyflow/core/utils";
@@ -5,7 +6,7 @@ import { createSelectionChange } from "xyflow/core/utils/changes";
 import { temporal } from "zundo";
 import { createProjectState } from "../utils";
 
-const initialState = { x: new Map() };
+const initialState = { x: new Map(), version: 0 };
 
 export const useNodeInternals = createProjectState(
   temporal((set, get) => ({
@@ -97,7 +98,7 @@ export function updateNodeDimensions(updates) {
       }));
 
   useNodeInternals.setState({
-    x: new Map(nodeInternals),
+    x: _.cloneDeep(nodeInternals),
   });
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
 
@@ -132,7 +133,7 @@ export function updateNodePositions(
 
 export function onNodesChange(changes) {
   const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = new Map(nodeInternals);
+  const newNodes = _.cloneDeep(nodeInternals);
   for (const c of changes) {
     switch (c.type) {
       case "select": {
@@ -160,7 +161,7 @@ export function onNodesChange(changes) {
 
 export function raiseTempZIndex(nodes) {
   const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = new Map(nodeInternals);
+  const newNodes = _.cloneDeep(nodeInternals);
   for (const [, n] of newNodes) {
     n.tempZIndex = n.zIndex;
   }
