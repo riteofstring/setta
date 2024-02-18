@@ -34,9 +34,13 @@ function getIdsToDelete(sectionId) {
   const idsToDelete = [sectionId];
   let idx = 0;
   while (idx < idsToDelete.length) {
-    const idxChildren = sectionInfosState.x[idsToDelete[idx]].children;
+    const { children: idxChildren, paramSweepSectionId } =
+      sectionInfosState.x[idsToDelete[idx]];
     if (idxChildren) {
       idsToDelete.push(...idxChildren);
+    }
+    if (paramSweepSectionId) {
+      idsToDelete.push(paramSweepSectionId);
     }
     idx += 1;
   }
