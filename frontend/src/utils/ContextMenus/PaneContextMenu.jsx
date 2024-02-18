@@ -67,11 +67,15 @@ export function PaneContextMenu() {
       <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
         New Code
       </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: VAR_CONTROL, ...commonProps })}
-      >
-        New Variable Control
-      </Item>
+      {!SINGLETON_SECTIONS.varControl && (
+        <Item
+          onClick={() =>
+            onClickAddSection({ type: VAR_CONTROL, ...commonProps })
+          }
+        >
+          New Variable Control
+        </Item>
+      )}
       <Item
         onClick={() => onClickAddSection({ type: TERMINAL, ...commonProps })}
       >

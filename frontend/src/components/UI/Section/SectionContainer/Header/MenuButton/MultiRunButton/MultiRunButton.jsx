@@ -8,7 +8,7 @@ import {
   getParamSweepSectionName,
   PARAM_SWEEP_UI_TYPE_ID,
 } from "z_utils/constants";
-import { createRandomName, createNewId } from "z_utils/utils";
+import { createNewId, createRandomName } from "z_utils/utils";
 import { creatAdjacentSection } from "../utils";
 
 export function MultirunButton({ sectionId }) {

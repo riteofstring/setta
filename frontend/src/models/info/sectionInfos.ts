@@ -7,6 +7,7 @@ import {
   GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
   isListRoot,
+  VAR_CONTROL,
 } from "z_utils/constants";
 import {
   SectionInfoStateType,
@@ -143,9 +144,14 @@ function getSingletonSubscriptionFn(type) {
 useSectionInfos.subscribe(getSingletonSubscriptionFn(GLOBAL_VARIABLES), (x) => {
   SINGLETON_SECTIONS.globalVariables = x;
 });
+
 useSectionInfos.subscribe(
   getSingletonSubscriptionFn(GLOBAL_PARAM_SWEEP),
   (x) => {
     SINGLETON_SECTIONS.globalParamSweep = x;
   },
 );
+
+useSectionInfos.subscribe(getSingletonSubscriptionFn(VAR_CONTROL), (x) => {
+  SINGLETON_SECTIONS.varControl = x;
+});

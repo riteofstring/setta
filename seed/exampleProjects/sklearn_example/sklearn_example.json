@@ -155,7 +155,7 @@
         },
         "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
           "id": "40c921b7-10e8-4c69-a9fa-f39db37ea98f",
-          "name": "moderate_aqua",
+          "name": "Global Param Sweep",
           "evColId": "3383d9b9-5cee-445f-a242-fde820c76c73",
           "paramSweepId": null,
           "paramSweepSectionId": null,

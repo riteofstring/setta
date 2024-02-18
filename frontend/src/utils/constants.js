@@ -15,4 +15,5 @@ export const REACT_FLOW_STORE = {
 export const SINGLETON_SECTIONS = {
   globalVariables: null,
   globalParamSweep: null,
+  varControl: null,
 };

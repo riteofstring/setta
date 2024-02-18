@@ -53,6 +53,7 @@ export function addSectionAtPosition({
   } else if (type === TERMINAL) {
     sectionProps.uiTypeId = TERMINAL_UI_TYPE_ID;
   } else if (type === GLOBAL_PARAM_SWEEP) {
+    sectionProps.name = "Global Param Sweep";
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({ sectionProps, position });
