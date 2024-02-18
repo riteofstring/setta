@@ -22,6 +22,7 @@ export function getProjectDataToGenerateCode() {
 
 export async function runCode({ codeId }) {
   const project = getProjectDataToGenerateCode();
+  let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
     const res = await dbGetFreeTerminal();
     if (res.status === 200) {
@@ -39,9 +40,11 @@ export async function runCode({ codeId }) {
         addSectionInEmptySpace({
           type: TERMINAL,
           inputSectionProps: { id },
+          positionOffset: { x: count * 100, y: 0 },
         });
       }
     }
+    count += 1;
   }
 }
 

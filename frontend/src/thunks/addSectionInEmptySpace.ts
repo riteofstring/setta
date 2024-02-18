@@ -6,6 +6,7 @@ import { useReactFlow } from "xyflow/core/store";
 export function addSectionInEmptySpace({
   type,
   inputSectionProps = {},
+  positionOffset = { x: 0, y: 0 },
 }: {
   type: string;
   inputSectionProps: any;
@@ -18,7 +19,7 @@ export function addSectionInEmptySpace({
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
 
-  const position = { x, y };
+  const position = { x: x + positionOffset.x, y: y + positionOffset.y };
 
   return addSectionAtPosition({
     type,
