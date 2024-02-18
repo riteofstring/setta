@@ -21,14 +21,18 @@ function MenuButton({ sectionId }) {
         triggerStyle="ml-1"
         trigger={<i className="gg-shape-circle" />}
       >
-        <SaveCustomArgumentsButton sectionId={sectionId} />
+        {sectionType !== PARAM_SWEEP && (
+          <SaveCustomArgumentsButton sectionId={sectionId} />
+        )}
         {sectionType === PARAM_SWEEP ? (
           <CreateNewParamSweepButton sectionId={sectionId} />
         ) : (
           <CreateNewEnteredValuesButton sectionId={sectionId} />
         )}
-        <DeriveButton sectionId={sectionId} />
-        <MultirunButton sectionId={sectionId} />
+        {sectionType !== PARAM_SWEEP && <DeriveButton sectionId={sectionId} />}
+        {sectionType !== PARAM_SWEEP && (
+          <MultirunButton sectionId={sectionId} />
+        )}
         <FreezeButton sectionId={sectionId} />
       </MenuDropdown>
     </Menubar.Root>
