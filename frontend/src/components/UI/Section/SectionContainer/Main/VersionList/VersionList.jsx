@@ -66,7 +66,7 @@ function EVItems({ sectionId }) {
 function ParamSweepItems({ sectionId }) {
   const forSectionId = useForSectionId(sectionId);
   const currParamSweepId = useCurrParamSweepId(sectionId);
-  const paramSweepNames = useGetParamSweepNames(sectionId);
+  const paramSweepNames = useGetParamSweepNames(forSectionId);
   function onMouseOver(id) {
     setSectionInfoAttr({
       sectionId: forSectionId,

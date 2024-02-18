@@ -6,7 +6,7 @@ import {
   ParamInfoStateType,
   ParamInfoZustandType,
 } from "z_utils/types/paramInfo";
-import { createEVColName } from "z_utils/utils";
+import { createRandomName } from "z_utils/utils";
 import { createProjectState } from "../utils";
 import { initValue } from "./utils";
 
@@ -27,7 +27,7 @@ export const useParamInfos = createProjectState(
       initManyEvColIds: ({ collectionIds }) =>
         set((state) => {
           _.forEach(collectionIds, (id) =>
-            initValue(state.x, id, { name: createEVColName(), values: {} }),
+            initValue(state.x, id, { name: createRandomName(), values: {} }),
           );
         }),
       initManyEnteredValues: ({ collectionId, paramIdsToUITypes }) =>

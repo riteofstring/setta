@@ -8,7 +8,7 @@ import {
   getParamSweepSectionName,
   PARAM_SWEEP_UI_TYPE_ID,
 } from "z_utils/constants";
-import { createEVColName, createNewId } from "z_utils/utils";
+import { createRandomName, createNewId } from "z_utils/utils";
 import { creatAdjacentSection } from "../utils";
 
 export function MultirunButton({ sectionId }) {
@@ -31,7 +31,7 @@ function addParamSweepSection(sectionId) {
 
   useParamSweep
     .getState()
-    .initParamSweep({ id: paramSweepId, name: createEVColName() });
+    .initParamSweep({ id: paramSweepId, name: createRandomName() });
 
   setSectionInfoAttr({ sectionId, attr: "paramSweepId", value: paramSweepId });
   setSectionInfoAttr({

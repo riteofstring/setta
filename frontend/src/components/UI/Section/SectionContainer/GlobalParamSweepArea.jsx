@@ -14,6 +14,7 @@ import {
   SCRIPT,
   SECTION,
 } from "z_utils/constants";
+import { createNewId, createRandomName } from "z_utils/utils";
 
 export function GlobalParamSweepArea() {
   const runGroups = useRunGroups((x) => x.x);
@@ -26,6 +27,7 @@ export function GlobalParamSweepArea() {
       <section className="card-global-param-sweep flex min-w-0 flex-col overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
         <article className="flex flex-col gap-2 ">
           <FilterSection />
+          <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
           <RunGroupList
             runGroups={runGroups}
             setShownRunGroup={setShownRunGroup}
@@ -217,5 +219,19 @@ function FilterSection() {
         outerClasses="flex-1"
       />
     </search>
+  );
+}
+
+function CreateNewRunGroupButton({ setShownRunGroup }) {
+  function onClick() {
+    const id = createNewId();
+    useRunGroups.getState().newRunGroup({ id, name: createRandomName() });
+    setShownRunGroup(id);
+  }
+
+  return (
+    <button className="text-xs text-white" onClick={onClick}>
+      New Run Group
+    </button>
   );
 }
