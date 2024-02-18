@@ -22,7 +22,7 @@ export function MultirunButton({ sectionId }) {
     }
   }
 
-  return <MenuItem onClick={onClick}>Multi-Run</MenuItem>;
+  return <MenuItem onClick={onClick}>Param Sweep</MenuItem>;
 }
 
 function addParamSweepSection(sectionId) {

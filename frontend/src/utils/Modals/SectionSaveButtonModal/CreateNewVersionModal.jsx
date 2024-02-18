@@ -5,8 +5,8 @@ import { setSectionInfoAttr } from "thunks/sections/setters";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { createNewId } from "z_utils/utils";
 
-export function CreateNewEnteredValuesModal() {
-  function onClickCreateNewEnteredValues({ filename }) {
+export function CreateNewVersionModal() {
+  function onClickCreateNewVersion({ filename }) {
     const sectionId = useModal.getState().modalData;
     const currId = getSectionInfo(sectionId).evColId;
     const newId = createNewId();
@@ -25,7 +25,7 @@ export function CreateNewEnteredValuesModal() {
     <SaveLoadModal
       modalType={"Save"}
       files={[]} // TODO
-      onClickActionButton={onClickCreateNewEnteredValues}
+      onClickActionButton={onClickCreateNewVersion}
       title="Save Collection As"
       buttonText="Save As"
       placeholder="Collection Name"

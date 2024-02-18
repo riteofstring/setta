@@ -1,15 +1,15 @@
 import { useModal } from "models/modal";
 import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 
-export function CreateNewEnteredValuesButton({ sectionId }) {
+export function CreateNewVersionButton({ sectionId }) {
   function openModal() {
     useModal.getState().setModalData(sectionId);
-    useModal.getState().setModalType("Create New Entered Values");
+    useModal.getState().setModalType("New Version");
   }
 
   return (
     <DialogMenuBarTriggerItem onClick={openModal}>
-      Create New Entered Values
+      New Version
     </DialogMenuBarTriggerItem>
   );
 }
