@@ -1,4 +1,6 @@
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useParamSweep } from "models/paramSweep";
+import { goToSection } from "thunks/goToSection";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { PARAM_SWEEP_UI_TYPE_ID } from "z_utils/constants";
@@ -6,8 +8,14 @@ import { createEVColName, createNewId } from "z_utils/utils";
 import { creatAdjacentSection } from "../utils";
 
 export function MultirunButton({ sectionId }) {
-  function onClick() {
-    addParamSweepSection(sectionId);
+  function onClick(e) {
+    const { paramSweepSectionId } = useSectionInfos.getState().x[sectionId];
+    if (paramSweepSectionId) {
+      goToSection(paramSweepSectionId);
+      e.stopPropagation();
+    } else {
+      addParamSweepSection(sectionId);
+    }
   }
 
   return <MenuItem onClick={onClick}>Multi-Run</MenuItem>;

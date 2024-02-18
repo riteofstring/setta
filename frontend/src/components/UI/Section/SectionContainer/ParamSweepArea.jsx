@@ -263,7 +263,6 @@ function ParamCombobox({
 }
 
 function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
-  console.log("Input value", value);
   return (
     <>
       <IconButton
