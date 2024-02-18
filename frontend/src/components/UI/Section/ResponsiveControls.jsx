@@ -25,13 +25,11 @@ export function ResponsiveControls() {
     potpack(sizes); // mutates input
     sizes = _.keyBy(sizes, "id");
 
-    const minX = Math.min(...nodeInternals.map((n) => n.position.x));
-    const minY = Math.min(...nodeInternals.map((n) => n.position.y));
+    const minX = Math.min(...nodeInternals.map((n) => n.x));
+    const minY = Math.min(...nodeInternals.map((n) => n.y));
     const newNodes = nodeInternals.map((node) => {
-      node.position = {
-        x: sizes[node.id].x + minX,
-        y: sizes[node.id].y + minY,
-      };
+      node.x = sizes[node.id].x + minX;
+      node.y = sizes[node.id].y + minY;
       return node;
     });
 

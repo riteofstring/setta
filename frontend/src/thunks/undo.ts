@@ -1,3 +1,5 @@
+import _ from "lodash";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { useStateVersion } from "models/stateVersion";
 import { stateDict, STATE_TYPES } from "models/utils";
 
@@ -8,6 +10,7 @@ export function undoProjectState() {
   }
 
   const version = useStateVersion.getState().version;
+  console.log(_.cloneDeep(useNodeInternals.temporal.getState().pastStates))
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
     if (s.temporal && version === s.getState().version) {
       s.temporal.getState().undo(2);
@@ -69,6 +72,8 @@ function resumeThenPauseTemporal(statePointer, callback) {
 
 export function maybeIncrementProjectStateVersion(doIncrementVersion) {
   if (doIncrementVersion) {
+    console.log("incrementing!");
     incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE].statePointers);
+    console.log(_.cloneDeep(useNodeInternals.temporal.getState().pastStates))
   }
 }

@@ -72,7 +72,8 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
     addNodes(
       topLevelSectionIds.map((s) => ({
         id: s,
-        position,
+        x: position.x,
+        y: position.y,
         zIndex: 0,
         tempZIndex: 0,
       })),

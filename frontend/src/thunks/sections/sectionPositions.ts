@@ -24,7 +24,8 @@ export function setZIndices(sectionIds, incrementVersion) {
     curr.tempZIndex = curr.zIndex;
   }
 
-  useNodeInternals.setState({ nodeInternals: newValues });
+  useNodeInternals.setState({ x: newValues });
 
+  console.log("setZIndices", newValues)
   maybeIncrementProjectStateVersion(incrementVersion);
 }
