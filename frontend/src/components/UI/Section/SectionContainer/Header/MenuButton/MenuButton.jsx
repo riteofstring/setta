@@ -1,7 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useGetSectionType } from "hooks/useSectionType";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { PARAM_SWEEP } from "z_utils/constants";
+import { GLOBAL_VARIABLES, PARAM_SWEEP } from "z_utils/constants";
 import { CreateNewEnteredValuesButton } from "./CreateNewEnteredValuesButton/CreateNewEnteredValuesButton";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";
 import { DeriveButton } from "./DeriveButton/DeriveButton";
@@ -29,7 +29,9 @@ function MenuButton({ sectionId }) {
         ) : (
           <CreateNewEnteredValuesButton sectionId={sectionId} />
         )}
-        {sectionType !== PARAM_SWEEP && <DeriveButton sectionId={sectionId} />}
+        {![PARAM_SWEEP, GLOBAL_VARIABLES].includes(sectionType) && (
+          <DeriveButton sectionId={sectionId} />
+        )}
         {sectionType !== PARAM_SWEEP && (
           <MultirunButton sectionId={sectionId} />
         )}

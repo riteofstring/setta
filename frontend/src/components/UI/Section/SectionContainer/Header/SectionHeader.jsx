@@ -68,26 +68,35 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
   //   x.sections.includes(sectionId)
   // );
 
-  const titleProps = {
-    editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full ${
-      isGlobalVariables
-        ? "uppercase font-black tracking-widest"
-        : "font-semibold"
-    }`,
-    notEditing: `transition-colors font-heading cursor-pointer max-w-full truncate ${
-      isActiveSection
-        ? isGlobalVariables
-          ? "text-green-800 dark:text-green-200"
-          : "text-blue-800 dark:text-blue-400"
-        : "text-runcoder-700 dark:text-runcoder-300"
-    } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
-  };
-
   return (
     // <div className={`${isSearchResult ? "outline outline-green-400" : ""}`}>
-    <SectionTitle sectionId={sectionId} titleProps={titleProps} />
+    <SectionTitle
+      sectionId={sectionId}
+      titleProps={getTitleStyles({ isActiveSection, isGlobalVariables })}
+    />
     // </div>
   );
 }
 
 export const SectionHeader = React.memo(_SectionHeader);
+
+function getTitleStyles({ isActiveSection, isGlobalVariables }) {
+  const editing =
+    "cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full font-semibold";
+
+  const notEditing = `transition-colors font-heading cursor-pointer max-w-full truncate ${
+    isActiveSection
+      ? isGlobalVariables
+        ? "text-green-800 dark:text-green-200"
+        : "text-blue-800 dark:text-blue-400"
+      : "text-runcoder-700 dark:text-runcoder-300"
+  } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`;
+
+  if (isGlobalVariables) {
+    return { fixed: notEditing };
+  }
+
+  const fixed = "select-none font-thin italic text-runcoder-400";
+
+  return { editing, notEditing, fixed };
+}

@@ -3,6 +3,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import {
   DECK,
+  GLOBAL_VARIABLES,
   isRoot,
   isSeriesElement,
   OUTPUT,
@@ -84,9 +85,9 @@ export function useIsSocial(sectionId: string) {
   return useIsType(sectionId, SOCIAL);
 }
 
-// export function useIsGlobalVariables(sectionId: string) {
-//   return useIsType(sectionId, GLOBAL_VARIABLES);
-// }
+export function useIsGlobalVariables(sectionId: string) {
+  return useIsType(sectionId, GLOBAL_VARIABLES);
+}
 
 // export function useIsScript(sectionId: string) {
 //   return useIsType(sectionId, SCRIPT);
