@@ -5,6 +5,7 @@ import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { ResponsiveControls } from "./Section/ResponsiveControls";
 import { SectionsPane } from "./Section/SectionsPane";
+import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
@@ -20,7 +21,7 @@ export function UIPage() {
           closeContextMenu={closeNodeCtxMenu}
         />
       )} */}
-      {/* <ResponsiveMiniMap /> */}
+      <ResponsiveMiniMap />
       <ResponsiveControls />
     </GlobalDndContext>
   );
