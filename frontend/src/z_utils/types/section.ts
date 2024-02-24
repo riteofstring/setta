@@ -17,8 +17,8 @@ export type SectionType = {
   social: string | null;
   outputGroup: string | null;
   description: string;
-  descriptionHeight: number;
-  descriptionVisible: boolean;
+  versionsHeight: number;
+  versionsVisible: boolean;
   evColIds: string[];
   paramSweepIds: string[];
   paramSweepSectionId: string | null;
