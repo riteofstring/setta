@@ -8,7 +8,7 @@ export function setSectionVersionsHeight({ sectionId, height }) {
   });
 }
 
-export function toggleSectionDescription(sectionId) {
+export function toggleVersionsVisible(sectionId) {
   setSectionInfoAttr({
     sectionId,
     attr: "versionsVisible",

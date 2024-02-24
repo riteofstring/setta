@@ -1,6 +1,6 @@
-import { toggleSectionDescription } from "hooks/useSectionDescription";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
+import { toggleVersionsVisible } from "hooks/useSectionVersions";
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
@@ -58,7 +58,7 @@ function _SectionContainerCore({ sectionId }) {
         isSeriesElement={isSeriesElement}
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
-        toggleDescVis={() => toggleSectionDescription(sectionId)}
+        toggleDescVis={() => toggleVersionsVisible(sectionId)}
         isWrongType={false} // TODO add the logic for this
       />
     </section>

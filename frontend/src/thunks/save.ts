@@ -37,7 +37,6 @@ export function getProjectData(): ProjectSaveType {
     width: usePanes.getState().width,
   };
 
-
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useParamInfos.getState().y;

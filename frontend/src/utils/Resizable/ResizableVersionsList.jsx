@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
-import { setSectionVersionsHeight } from "hooks/useSectionDescription";
+import { setSectionVersionsHeight } from "hooks/useSectionVersions";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
 import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
 
-export function ResizableDescription({ sectionId, children }) {
+export function ResizableVersionsList({ sectionId, children }) {
   const height = useSectionInfos((x) => x.x[sectionId].versionsHeight);
 
   function onResizeStop(e, direction, ref, d) {

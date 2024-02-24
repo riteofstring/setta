@@ -4,8 +4,8 @@ import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { ResponsiveControls } from "./Section/ResponsiveControls";
-import { SectionsPane } from "./Section/SectionsPane";
 import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
+import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();

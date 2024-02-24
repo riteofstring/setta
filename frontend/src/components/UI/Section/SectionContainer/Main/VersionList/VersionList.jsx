@@ -8,7 +8,7 @@ import {
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionInfoAttr } from "thunks/sections/setters";
-import { ResizableDescription } from "utils/Resizable/ResizableDescription";
+import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
 import { PARAM_SWEEP } from "z_utils/constants";
 
 export function VersionList({ sectionId, sectionTypeName }) {
@@ -22,7 +22,7 @@ export function VersionList({ sectionId, sectionTypeName }) {
   }
 
   return (
-    <ResizableDescription sectionId={sectionId}>
+    <ResizableVersionsList sectionId={sectionId}>
       <section
         className="version-section -my-4 flex-1 self-stretch pb-8 pt-9"
         onMouseLeave={onMouseLeave}
@@ -35,7 +35,7 @@ export function VersionList({ sectionId, sectionTypeName }) {
           )}
         </ul>
       </section>
-    </ResizableDescription>
+    </ResizableVersionsList>
   );
 }
 

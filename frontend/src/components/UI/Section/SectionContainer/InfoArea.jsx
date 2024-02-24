@@ -3,18 +3,8 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
-import { ResizableDescription } from "utils/Resizable/ResizableDescription";
 
-function _SectionDescription({ sectionId, card = false }) {
-  if (!card) {
-    return (
-      <ResizableDescription sectionId={sectionId}>
-        <div className="relative m-8 flex w-min flex-1 flex-col self-stretch overflow-auto [&_.prose]:p-0 [&_pre]:w-full">
-          <Markdown sectionId={sectionId} />
-        </div>
-      </ResizableDescription>
-    );
-  }
+function _InfoArea({ sectionId }) {
   return (
     <ScrollingArea styles="card-markdown pr-6 pl-2 my-4 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
       <Markdown sectionId={sectionId} />
@@ -35,5 +25,5 @@ function _Markdown({ sectionId }) {
   );
 }
 
-export const SectionDescription = React.memo(_SectionDescription);
+export const InfoArea = React.memo(_InfoArea);
 const Markdown = React.memo(_Markdown);

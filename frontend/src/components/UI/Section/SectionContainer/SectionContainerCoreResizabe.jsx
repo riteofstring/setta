@@ -21,8 +21,8 @@ import "./dndline.css";
 import { GlobalParamSweepArea } from "./GlobalParamSweepArea";
 import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
+import { InfoArea } from "./InfoArea";
 import { InputArea } from "./InputArea";
-import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
@@ -133,7 +133,7 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
     case SOCIAL:
       return <SocialArea sectionId={sectionId} />;
     case INFO:
-      return <SectionDescription sectionId={sectionId} card={true} />;
+      return <InfoArea sectionId={sectionId} />;
     case GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} />;
     case SCRIPT:
