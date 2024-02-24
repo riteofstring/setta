@@ -8,8 +8,10 @@ import { SINGLETON_SECTIONS } from "utils/constants";
 import {
   CODE,
   DECK,
+  DICT_ROOT,
   GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
+  LIST_ROOT,
   SCRIPT,
   SECTION,
   TERMINAL,
@@ -48,6 +50,16 @@ export function PaneContextMenu() {
         onClick={() => onClickAddSection({ type: SECTION, ...commonProps })}
       >
         New Section
+      </Item>
+      <Item
+        onClick={() => onClickAddSection({ type: LIST_ROOT, ...commonProps })}
+      >
+        New List
+      </Item>
+      <Item
+        onClick={() => onClickAddSection({ type: DICT_ROOT, ...commonProps })}
+      >
+        New Dict
       </Item>
       <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
         New Group

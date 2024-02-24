@@ -4,10 +4,14 @@ import {
   CODE_UI_TYPE_ID,
   DECK,
   DECK_UI_TYPE_ID,
+  DICT_ROOT,
+  DICT_ROOT_UI_TYPE_ID,
   GLOBAL_PARAM_SWEEP,
   GLOBAL_PARAM_SWEEP_UI_TYPE_ID,
   GLOBAL_VARIABLES,
   GLOBAL_VARIABLES_UI_TYPE_ID,
+  LIST_ROOT,
+  LIST_ROOT_UI_TYPE_ID,
   SCRIPT,
   SCRIPT_UI_TYPE_ID,
   TERMINAL,
@@ -55,6 +59,10 @@ export function addSectionAtPosition({
   } else if (type === GLOBAL_PARAM_SWEEP) {
     sectionProps.name = "Global Param Sweep";
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
+  } else if (type === LIST_ROOT){
+    sectionProps.uiTypeId = LIST_ROOT_UI_TYPE_ID;
+  } else if (type === DICT_ROOT){
+    sectionProps.uiTypeId = DICT_ROOT_UI_TYPE_ID
   }
   const [newId] = createSectionInfo({ sectionProps, position });
   callbackBeforeExit(newId);

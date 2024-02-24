@@ -50,6 +50,8 @@ export const SWITCH_UI_TYPE_ID = "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5";
 export const TERMINAL_UI_TYPE_ID = "d6d40533-ee47-42a5-8b55-5455716c71ac";
 export const GLOBAL_PARAM_SWEEP_UI_TYPE_ID =
   "02f5da7b-71ae-4e42-b5b3-286fae1823ee";
+export const LIST_ROOT_UI_TYPE_ID = "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f";
+export const DICT_ROOT_UI_TYPE_ID = "623a9242-53e9-4b42-b695-431e9754a836";
 
 export function isRoot(sectionTypeName) {
   return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
