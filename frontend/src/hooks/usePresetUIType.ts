@@ -1,11 +1,18 @@
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";
-import { isSectionUIType, uiTypesToPretty } from "z_utils/constants";
+import {
+  DICT_ROOT,
+  isSectionUIType,
+  LIST_ROOT,
+  SECTION,
+  uiTypesToPretty,
+} from "z_utils/constants";
 import { ManyUITypeType, PresetType, UITypeType } from "z_utils/types/uiType";
 import { isBasePreset, isPreset, isUserPreset } from "z_utils/uiTypeConstants";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionType } from "./useSectionType";
 
 function createName(uiType) {
   const x = uiTypesToPretty.get(uiType.type);
@@ -59,7 +66,8 @@ export function useAvailableUITypesForSection(
   selectedId: string,
 ) {
   const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
-  const generalFilterFn = isSectionUIType;
+  const currTypeName = useGetSectionType(sectionId, "type");
+  const generalFilterFn = getSectionFilterFn(currTypeName);
   const nonPresetFilterFn = (uiType: UITypeType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
@@ -84,4 +92,23 @@ export function useAvailableUITypesForParam(
     (x) => filterUITypes(x.x, generalFilterFn, nonPresetFilterFn, selectedId),
     _.isEqual,
   );
+}
+
+function getOtherSectionTypeNamesToShow(currTypeName) {
+  switch (currTypeName) {
+    case SECTION:
+      return [LIST_ROOT, DICT_ROOT];
+    case LIST_ROOT:
+      return [SECTION, DICT_ROOT];
+    case DICT_ROOT:
+      return [SECTION, LIST_ROOT];
+    default:
+      return [];
+  }
+}
+
+function getSectionFilterFn(currTypeName) {
+  return (uiType) =>
+    uiType.type === currTypeName ||
+    getOtherSectionTypeNamesToShow(currTypeName).includes(uiType.type);
 }
