@@ -14,10 +14,11 @@ export const useSectionRefs = createProjectState(
           state.selfOnly[sectionId] = selfOnly;
         }
       }),
-    deleteRef: ({ sectionId }) => {
-      delete state.withNested[sectionId];
-      delete state.selfOnly[sectionId];
-    },
+    deleteRef: ({ sectionId }) =>
+      set((state) => {
+        delete state.withNested[sectionId];
+        delete state.selfOnly[sectionId];
+      }),
   })),
 );
 
