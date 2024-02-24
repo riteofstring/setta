@@ -11,6 +11,7 @@ import {
   DICT_ROOT,
   GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
+  INFO,
   LIST_ROOT,
   SCRIPT,
   SECTION,
@@ -63,6 +64,9 @@ export function PaneContextMenu() {
       </Item>
       <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
         New Group
+      </Item>
+      <Item onClick={() => onClickAddSection({ type: INFO, ...commonProps })}>
+        New Info
       </Item>
       {!SINGLETON_SECTIONS.globalVariables && (
         <Item

@@ -1,3 +1,4 @@
+import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/MarkdownEditor/MarkdownEditor";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import {
   CODE,
@@ -10,6 +11,8 @@ import {
   GLOBAL_PARAM_SWEEP_UI_TYPE_ID,
   GLOBAL_VARIABLES,
   GLOBAL_VARIABLES_UI_TYPE_ID,
+  INFO,
+  INFO_UI_TYPE_ID,
   LIST_ROOT,
   LIST_ROOT_UI_TYPE_ID,
   SCRIPT,
@@ -40,7 +43,6 @@ export function addSectionAtPosition({
     ...inputSectionProps,
   };
   if (type === DECK) {
-    sectionProps.name = "Group";
     sectionProps.uiTypeId = DECK_UI_TYPE_ID;
   } else if (type === GLOBAL_VARIABLES) {
     sectionProps.name = "Global Variables";
@@ -59,10 +61,13 @@ export function addSectionAtPosition({
   } else if (type === GLOBAL_PARAM_SWEEP) {
     sectionProps.name = "Global Param Sweep";
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
-  } else if (type === LIST_ROOT){
+  } else if (type === LIST_ROOT) {
     sectionProps.uiTypeId = LIST_ROOT_UI_TYPE_ID;
-  } else if (type === DICT_ROOT){
-    sectionProps.uiTypeId = DICT_ROOT_UI_TYPE_ID
+  } else if (type === DICT_ROOT) {
+    sectionProps.uiTypeId = DICT_ROOT_UI_TYPE_ID;
+  } else if (type === INFO) {
+    sectionProps.name = getDefaultInfoTitle();
+    sectionProps.uiTypeId = INFO_UI_TYPE_ID;
   }
   const [newId] = createSectionInfo({ sectionProps, position });
   callbackBeforeExit(newId);
