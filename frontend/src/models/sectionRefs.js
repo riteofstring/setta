@@ -14,6 +14,10 @@ export const useSectionRefs = createProjectState(
           state.selfOnly[sectionId] = selfOnly;
         }
       }),
+    deleteRef: ({ sectionId }) => {
+      delete state.withNested[sectionId];
+      delete state.selfOnly[sectionId];
+    },
   })),
 );
 
@@ -22,6 +26,7 @@ export function useSectionRefAndInit(sectionId, type) {
 
   useEffect(() => {
     useSectionRefs.getState().setRef({ sectionId, [type]: ref.current });
+    return () => useSectionRefs.getState().deleteRef({ sectionId });
   }, []);
 
   return ref;

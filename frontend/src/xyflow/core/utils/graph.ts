@@ -146,7 +146,9 @@ export const getD3Transition = (
 };
 
 export function getSectionRect(sectionId) {
-  const ref = useSectionRefs.getState().selfOnly[sectionId];
+  const ref =
+    useSectionRefs.getState().selfOnly[sectionId] ??
+    useSectionRefs.getState().withNested[sectionId];
   const { clientWidth: width, clientHeight: height } = ref;
   const { x: _x, y: _y } = ref.getBoundingClientRect();
   const { x, y } = screenToFlowPosition({
