@@ -7,6 +7,7 @@ import {
 } from "hooks/useParamSweepInfo";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useRef, useState, useEffect } from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
 import { PARAM_SWEEP } from "z_utils/constants";
@@ -21,11 +22,21 @@ export function VersionList({ sectionId, sectionTypeName }) {
     });
   }
 
+  const contentRef = useRef();
+  const [contentHeight, setContentHeight] = useState();
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setContentHeight(contentRef.current.clientHeight);
+    }
+  }, [sectionId]);
+
   return (
-    <ResizableVersionsList sectionId={sectionId}>
+    <ResizableVersionsList sectionId={sectionId} contentHeight={contentHeight}>
       <section
         className="version-section -my-4 flex-1 self-stretch pb-8 pt-9"
         onMouseLeave={onMouseLeave}
+        ref={contentRef}
       >
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
           {sectionTypeName === PARAM_SWEEP ? (

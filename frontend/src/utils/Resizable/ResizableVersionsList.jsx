@@ -6,11 +6,18 @@ import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize } from "./utils";
 
-export function ResizableVersionsList({ sectionId, children }) {
+// if height === "auto"
+//   if initiallyNotVisible
+//    then setMotionDivHeight(contentHeight)
+//   else
+//    then setMotionDivHeight(contentHeight)
+
+export function ResizableVersionsList({ sectionId, contentHeight, children }) {
   const height = useSectionInfos((x) => x.x[sectionId].versionsHeight);
   const descVis = useSectionInfos((x) => x.x[sectionId].versionsVisible);
   const containerRef = useRef(null);
   const [motionDivHeight, setMotionDivHeight] = useState();
+  const [initiallyVisible, setInitiallyVisible] = useState(false);
 
   function onResizeStop(...props) {
     const { height: newHeight } = getNewSize({
@@ -31,12 +38,36 @@ export function ResizableVersionsList({ sectionId, children }) {
     }
   }, [descVis]);
 
+  useEffect(() => {
+    setInitiallyVisible(Boolean(descVis));
+  }, []);
+
   const minHeight = 50;
+
+  console.log("initiallyVisible", initiallyVisible);
+  console.log("motionDivHeight", motionDivHeight);
+  console.log("contentHeight", contentHeight);
+  console.log(
+    "final",
+    height === "auto"
+      ? initiallyVisible
+        ? motionDivHeight
+        : contentHeight
+      : height,
+  );
 
   return (
     <MotionDiv
       sectionId={sectionId}
-      height={height === "auto" ? motionDivHeight : height}
+      height={
+        height === "auto"
+          ? initiallyVisible
+            ? motionDivHeight
+            : contentHeight
+          : height
+      }
+      initiallyVisible={initiallyVisible}
+      setInitiallyVisible={setInitiallyVisible}
     >
       <ResizableWithScale
         size={{ width: "100%", height }}
@@ -62,7 +93,13 @@ export function ResizableVersionsList({ sectionId, children }) {
   );
 }
 
-function MotionDiv({ sectionId, height, children }) {
+function MotionDiv({
+  sectionId,
+  height,
+  initiallyVisible,
+  setInitiallyVisible,
+  children,
+}) {
   const descVis = useSectionInfos((x) => x.x[sectionId].versionsVisible);
   const localDescVis = useRef(descVis);
   const [noDiv, setNoDiv] = useState(descVis);
@@ -91,6 +128,9 @@ function MotionDiv({ sectionId, height, children }) {
 
   function onAnimationComplete(name) {
     setNoDiv(name === "open");
+    if (!initiallyVisible) {
+      setInitiallyVisible(name === "open");
+    }
   }
 
   return noDiv ? (
