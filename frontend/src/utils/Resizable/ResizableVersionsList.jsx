@@ -21,24 +21,24 @@ export function ResizableVersionsList({ sectionId, children }) {
     setSectionVersionsHeight({ sectionId, height: newHeight });
   }
 
-  useEffect(() => {
-    // This gets triggered when the height is in "auto" mode (double clicked)
-    // and the version toggle button is clicked to hide the version list.
-    // So it sets motionDivHeight to the height of the list before it closes.
-    // Then when it re-opens, it animates to the saved height.
-    if (height === "auto" && !descVis) {
-      setMotionDivHeight(containerRef.current.clientHeight);
-    }
-  }, [descVis]);
+  // useEffect(() => {
+  //   // This gets triggered when the height is in "auto" mode (double clicked)
+  //   // and the version toggle button is clicked to hide the version list.
+  //   // So it sets motionDivHeight to the height of the list before it closes.
+  //   // Then when it re-opens, it animates to the saved height.
+  //   if (height === "auto" && !descVis) {
+  //     setMotionDivHeight(containerRef.current.clientHeight);
+  //   }
+  // }, [descVis]);
 
   const minHeight = 50;
 
   return (
     <MotionDiv
       sectionId={sectionId}
-      height={height === "auto" ? motionDivHeight : height}
+      // height={height === "auto" ? motionDivHeight : height}
     >
-      <ResizableWithScale
+      {/* <ResizableWithScale
         size={{ width: "100%", height }}
         minHeight={minHeight}
         onResizeStop={onResizeStop}
@@ -55,54 +55,54 @@ export function ResizableVersionsList({ sectionId, children }) {
         ref={(r) => {
           containerRef.current = r?.resizable;
         }}
-      >
+      > */}
         {children}
-      </ResizableWithScale>
+      {/* </ResizableWithScale> */}
     </MotionDiv>
   );
 }
 
-function MotionDiv({ sectionId, height, children }) {
+function MotionDiv({ sectionId, children }) {
   const descVis = useSectionInfos((x) => x.x[sectionId].versionsVisible);
-  const localDescVis = useRef(descVis);
-  const [noDiv, setNoDiv] = useState(descVis);
-  const [initial, setInitial] = useState(
-    descVis ? { opacity: 1, height } : { opacity: 0, height: 0 },
-  );
+  // const localDescVis = useRef(descVis);
+  // const [noDiv, setNoDiv] = useState(descVis);
+  // const [initial, setInitial] = useState(
+  //   descVis ? { opacity: 1, height: "auto" } : { opacity: 0, height: 0 },
+  // );
 
   const variants = {
     ease: "easeOut",
-    initial,
+    // initial,
     open: {
       opacity: 1,
-      height,
+      height: "auto",
     },
     collapsed: { opacity: 0, height: 0 },
   };
 
-  useEffect(() => {
-    // to prevent running animation on very first render
-    if (localDescVis.current !== descVis) {
-      setNoDiv(false);
-      setInitial(descVis ? { opacity: 0, height: 0 } : { opacity: 1, height });
-    }
-    localDescVis.current = descVis;
-  }, [descVis]);
+  // useEffect(() => {
+  //   // to prevent running animation on very first render
+  //   if (localDescVis.current !== descVis) {
+  //     setNoDiv(false);
+  //     setInitial(
+  //       descVis ? { opacity: 0, height: 0 } : { opacity: 1, height: "auto" },
+  //     );
+  //   }
+  //   localDescVis.current = descVis;
+  // }, [descVis]);
 
-  function onAnimationComplete(name) {
-    setNoDiv(name === "open");
-  }
+  // function onAnimationComplete(name) {
+  //   setNoDiv(name === "open");
+  // }
 
-  return noDiv ? (
-    children
-  ) : (
+  return (
     <motion.section
       layout="position"
       className="flex overflow-hidden"
       variants={variants}
-      initial={"initial"}
+      initial={descVis ? "open" : "collapsed"}
       animate={descVis ? "open" : "collapsed"}
-      onAnimationComplete={onAnimationComplete}
+      // onAnimationComplete={onAnimationComplete}
     >
       {children}
     </motion.section>
