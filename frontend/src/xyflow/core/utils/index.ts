@@ -4,6 +4,7 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
+import { usePanes } from "models/panes";
 import type {
   Box,
   CoordinateExtent,
@@ -46,7 +47,13 @@ const calcAutoPanVelocity = (
 };
 
 export const calcAutoPan = (pos: XYPosition, bounds: Dimensions): number[] => {
-  const xMovement = calcAutoPanVelocity(pos.x, 35, bounds.width - 35) * 20;
+  const { overview, uiEditor } = usePanes.getState().trueWidth;
+  const xMovement =
+    calcAutoPanVelocity(
+      pos.x - overview,
+      35,
+      bounds.width - overview - uiEditor - 35,
+    ) * 20;
   const yMovement = calcAutoPanVelocity(pos.y, 35, bounds.height - 35) * 20;
 
   return [xMovement, yMovement];
