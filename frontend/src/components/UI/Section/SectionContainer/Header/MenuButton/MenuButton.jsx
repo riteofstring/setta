@@ -5,7 +5,6 @@ import {
   CODE,
   GLOBAL_VARIABLES,
   PARAM_SWEEP,
-  SCRIPT,
   VAR_CONTROL,
 } from "z_utils/constants";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";
@@ -27,7 +26,7 @@ function MenuButton({ sectionId }) {
         triggerStyle="ml-1"
         trigger={<i className="gg-shape-circle" />}
       >
-        {![PARAM_SWEEP, CODE, SCRIPT, VAR_CONTROL].includes(sectionType) && (
+        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
         )}
 
@@ -37,11 +36,11 @@ function MenuButton({ sectionId }) {
           <CreateNewVersionButton sectionId={sectionId} />
         )}
 
-        {![PARAM_SWEEP, GLOBAL_VARIABLES, CODE, SCRIPT, VAR_CONTROL].includes(
+        {![PARAM_SWEEP, GLOBAL_VARIABLES, CODE, VAR_CONTROL].includes(
           sectionType,
         ) && <DeriveButton sectionId={sectionId} />}
 
-        {![PARAM_SWEEP, CODE, SCRIPT, VAR_CONTROL].includes(sectionType) && (
+        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
           <MultirunButton sectionId={sectionId} />
         )}
 

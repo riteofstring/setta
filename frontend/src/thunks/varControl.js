@@ -6,7 +6,7 @@ import { useSectionToParams } from "models/info/sectionToParams";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { getSectionByName, getSectionType } from "thunks/sections/getters";
 import { setSelectedItem } from "thunks/sections/setters";
-import { CODE, GLOBAL_VARIABLES, SCRIPT, VAR_CONTROL } from "z_utils/constants";
+import { CODE, GLOBAL_VARIABLES, VAR_CONTROL } from "z_utils/constants";
 
 export function varControlUpdate() {
   const js_code = getVarControlSection()?.varControl;
@@ -53,7 +53,7 @@ function niceState() {
   const output = {};
   for (const v of Object.values(useSectionInfos.getState().x)) {
     const sectionType = getSectionType(v.id).type;
-    if ([CODE, SCRIPT, VAR_CONTROL].includes(sectionType)) {
+    if ([CODE, VAR_CONTROL].includes(sectionType)) {
       continue;
     }
     if (sectionType === GLOBAL_VARIABLES) {

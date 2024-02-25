@@ -28,9 +28,8 @@ export function newSectionInfo({
   paramSweepIds = [],
   paramSweepSectionId = null,
   nonPresetUITypeIds = [],
-  script = "",
   code = "",
-  varControl = "",
+  codeLanguage = "",
   isFrozen = false,
 }: Partial<SectionType> & {
   size: SizeType;
@@ -58,9 +57,8 @@ export function newSectionInfo({
     description,
     versionsHeight,
     versionsVisible,
-    script,
     code,
-    varControl,
+    codeLanguage,
     evColIds: _evColIds,
     paramSweepIds,
     paramSweepSectionId,

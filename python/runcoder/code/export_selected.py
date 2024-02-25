@@ -10,7 +10,6 @@ from ..utils.constants import (
     INFO,
     LIST_ROOT,
     PARAM_SWEEP,
-    SCRIPT,
     SECTION,
     TERMINAL,
     VAR_CONTROL,
@@ -134,7 +133,6 @@ class Exporter:
                 self.export_params(id, generate_var_name=False)
             if section_type in [
                 GLOBAL_VARIABLES,
-                SCRIPT,
                 CODE,
                 VAR_CONTROL,
                 INFO,

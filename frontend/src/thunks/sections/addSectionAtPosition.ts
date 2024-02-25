@@ -15,8 +15,6 @@ import {
   INFO_UI_TYPE_ID,
   LIST_ROOT,
   LIST_ROOT_UI_TYPE_ID,
-  SCRIPT,
-  SCRIPT_UI_TYPE_ID,
   TERMINAL,
   TERMINAL_UI_TYPE_ID,
   VAR_CONTROL,
@@ -47,9 +45,6 @@ export function addSectionAtPosition({
   } else if (type === GLOBAL_VARIABLES) {
     sectionProps.name = "Global Variables";
     sectionProps.uiTypeId = GLOBAL_VARIABLES_UI_TYPE_ID;
-  } else if (type === SCRIPT) {
-    sectionProps.name = "Script";
-    sectionProps.uiTypeId = SCRIPT_UI_TYPE_ID;
   } else if (type === CODE) {
     sectionProps.name = "Code";
     sectionProps.uiTypeId = CODE_UI_TYPE_ID;

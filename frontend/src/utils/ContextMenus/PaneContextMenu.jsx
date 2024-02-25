@@ -13,7 +13,6 @@ import {
   GLOBAL_VARIABLES,
   INFO,
   LIST_ROOT,
-  SCRIPT,
   SECTION,
   TERMINAL,
   VAR_CONTROL,
@@ -77,11 +76,27 @@ export function PaneContextMenu() {
           New Global Variables
         </Item>
       )}
-      <Item onClick={() => onClickAddSection({ type: SCRIPT, ...commonProps })}>
-        New Script
+      <Item
+        onClick={() =>
+          onClickAddSection({
+            type: CODE,
+            ...commonProps,
+            inputSectionProps: { codeLanguage: "python" },
+          })
+        }
+      >
+        New Python Script
       </Item>
-      <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
-        New Code
+      <Item
+        onClick={() =>
+          onClickAddSection({
+            type: CODE,
+            ...commonProps,
+            inputSectionProps: { codeLanguage: "bash" },
+          })
+        }
+      >
+        New Bash Script
       </Item>
       {!SINGLETON_SECTIONS.varControl && (
         <Item

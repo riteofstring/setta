@@ -1,11 +1,9 @@
 import React from "react";
-import { FaTerminal } from "react-icons/fa";
-import { IoLogoJavascript } from "react-icons/io";
-import { SiGnubash, SiPython } from "react-icons/si";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
+import { HeaderIcon } from "./HeaderIcon/HeaderIcon";
 import MenuButton from "./MenuButton/MenuButton";
 import { SectionTitle } from "./Title/SectionTitle";
 
@@ -33,12 +31,11 @@ function _SectionHeader({
     <header className="card-title flex flex-row items-center">
       {!isInfo && (
         <>
-          {sectionTypeName === "CODE" && <SiPython className={classes} />}
-          {sectionTypeName === "SCRIPT" && <SiGnubash className={classes} />}
-          {sectionTypeName === "VAR_CONTROL" && (
-            <IoLogoJavascript className={classes} />
-          )}
-          {sectionTypeName === "TERMINAL" && <FaTerminal className={classes} />}
+          <HeaderIcon
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            classes={classes}
+          />
 
           <CardTitle
             sectionId={sectionId}

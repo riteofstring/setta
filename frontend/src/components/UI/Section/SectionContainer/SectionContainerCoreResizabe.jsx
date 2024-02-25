@@ -10,7 +10,6 @@ import {
   INFO,
   OUTPUT,
   PARAM_SWEEP,
-  SCRIPT,
   SECTION,
   SOCIAL,
   TERMINAL,
@@ -64,7 +63,6 @@ export function SectionContainerCoreResizable({
     }
     switch (sectionTypeName) {
       case VAR_CONTROL:
-      case SCRIPT:
       case CODE:
         return "bg-white dark:bg-runcoder-900";
       case TERMINAL:
@@ -136,12 +134,9 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <InfoArea sectionId={sectionId} />;
     case GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} />;
-    case SCRIPT:
-      return <CodeArea sectionId={sectionId} codeType="script" />;
     case CODE:
-      return <CodeArea sectionId={sectionId} codeType="code" />;
     case VAR_CONTROL:
-      return <CodeArea sectionId={sectionId} codeType="varControl" />;
+      return <CodeArea sectionId={sectionId} />;
     case PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
     case TERMINAL:

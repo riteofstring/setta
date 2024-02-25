@@ -23,9 +23,8 @@ export type SectionType = {
   paramSweepIds: string[];
   paramSweepSectionId: string | null;
   nonPresetUITypeIds: string[];
-  script: string;
   code: string;
-  varControl: string;
+  codeLanguage: string;
   isFrozen: boolean;
 };
 

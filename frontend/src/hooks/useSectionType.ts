@@ -94,10 +94,6 @@ export function useIsGlobalVariables(sectionId: string) {
   return useIsType(sectionId, GLOBAL_VARIABLES);
 }
 
-// export function useIsScript(sectionId: string) {
-//   return useIsType(sectionId, SCRIPT);
-// }
-
 // export function useIsCode(sectionId: string) {
 //   return useIsType(sectionId, CODE);
 // }

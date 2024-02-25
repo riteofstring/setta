@@ -17,9 +17,9 @@ import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import {
+  CODE,
   DECK,
   GLOBAL_VARIABLES,
-  SCRIPT,
   SWITCH_UI_TYPE_ID,
 } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
@@ -156,7 +156,7 @@ function createSectionsFromArgparse({ pathToScript, args, ...props }) {
   updateParams(varSectionId);
 
   onClickAddSection({
-    type: SCRIPT,
+    type: CODE,
     ...props,
     x: props.x + 600,
     incrementVersion: false,

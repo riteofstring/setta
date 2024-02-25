@@ -15,9 +15,8 @@ def save_sections(db, sections):
             description,
             versionsHeight,
             versionsVisible,
-            script,
             code,
-            varControl,
+            codeLanguage,
             isFrozen,
             paramSweepId
         )
@@ -36,9 +35,8 @@ def save_sections(db, sections):
             :description,
             :versionsHeight,
             :versionsVisible,
-            :script,
             :code,
-            :varControl,
+            :codeLanguage,
             :isFrozen,
             :paramSweepId
         )
@@ -57,9 +55,8 @@ def save_sections(db, sections):
             description = :description,
             versionsHeight = :versionsHeight,
             versionsVisible = :versionsVisible,
-            script = :script,
             code = :code,
-            varControl = :varControl,
+            codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
             paramSweepId = :paramSweepId
     """
@@ -80,9 +77,8 @@ def save_sections(db, sections):
             "description": s["description"],
             "versionsHeight": s["versionsHeight"],
             "versionsVisible": s["versionsVisible"],
-            "script": s["script"],
             "code": s["code"],
-            "varControl": s["varControl"],
+            "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "paramSweepId": s["paramSweepId"],
         }

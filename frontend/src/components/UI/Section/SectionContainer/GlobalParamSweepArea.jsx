@@ -11,7 +11,6 @@ import {
   DICT_ROOT,
   GLOBAL_VARIABLES,
   LIST_ROOT,
-  SCRIPT,
   SECTION,
 } from "z_utils/constants";
 import { createNewId, createRandomName } from "z_utils/utils";
@@ -80,7 +79,6 @@ function SectionList({ runGroupId, runGroup }) {
     DICT_ROOT,
     DECK,
     GLOBAL_VARIABLES,
-    SCRIPT,
     CODE,
   ];
   const allSections = useGetOverviewListing((sectionTypeName) =>
