@@ -4,12 +4,19 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
 import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
+import { getNewSize } from "./utils";
 
 export function ResizableVersionsList({ sectionId, children }) {
   const height = useSectionInfos((x) => x.x[sectionId].versionsHeight);
+  
+  function onResizeStop(...props) {
+    const { height: newHeight } = getNewSize({
+      props,
+      minHeight: "auto",
+      sizeMode: { height: "any" },
+    });
 
-  function onResizeStop(e, direction, ref, d) {
-    setSectionVersionsHeight({ sectionId, height: height + d.height });
+    setSectionVersionsHeight({ sectionId, height: newHeight });
   }
 
   const minHeight = 50;
