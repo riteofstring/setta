@@ -41,7 +41,7 @@ const codeLanguageToExtension = {
 
 function _CodeArea({ sectionId }) {
   const value = useGetSectionInfo(sectionId, "code");
-  const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage")
+  const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
   function onChange(v) {
     setSectionInfoAttr({
       sectionId,
