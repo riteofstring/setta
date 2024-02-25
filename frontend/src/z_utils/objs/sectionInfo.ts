@@ -22,7 +22,7 @@ export function newSectionInfo({
   social = null,
   outputGroup = null,
   description = "",
-  versionsHeight = 100,
+  versionsHeight = "auto",
   versionsVisible = false,
   evColIds = [],
   paramSweepIds = [],
