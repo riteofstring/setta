@@ -22,7 +22,6 @@ function MiniMapNodes({
   // a component properly.
   nodeComponent: NodeComponent = MiniMapNode,
   onClick,
-  xOffset,
 }: MiniMapNodes) {
   const nodes = useNodeInternals(selectorNodes);
   const nodeColorFunc = getAttrFunction(nodeColor);
@@ -42,7 +41,7 @@ function MiniMapNodes({
         return (
           <NodeComponent
             key={node.id}
-            x={x-xOffset}
+            x={x}
             y={y}
             width={node.width!}
             height={node.height!}

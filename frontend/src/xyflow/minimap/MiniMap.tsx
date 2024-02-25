@@ -4,9 +4,7 @@ import cc from "classcat";
 import { pointer, select } from "d3-selection";
 import type { D3ZoomEvent } from "d3-zoom";
 import { zoom, zoomIdentity } from "d3-zoom";
-import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
-import { usePanes } from "models/panes";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import {
@@ -25,7 +23,7 @@ import type { MiniMapProps } from "./types";
 const defaultWidth = 200;
 const defaultHeight = 150;
 
-function getSelector(nodes, overviewWidth, uiEditorWidth) {
+function getSelector(nodes) {
   return (s) => {
     const viewBB: Rect = {
       x: -s.transform[0] / s.transform[2],
@@ -34,17 +32,13 @@ function getSelector(nodes, overviewWidth, uiEditorWidth) {
       height: s.height / s.transform[2],
     };
 
-    const output = {
+    return {
       viewBB,
       boundingRect:
         nodes.length > 0
           ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
           : viewBB,
     };
-
-    // output.boundingRect.x -= overviewWidth
-
-    return output;
   };
 }
 
@@ -73,11 +67,7 @@ function MiniMap({
 }: MiniMapProps) {
   const svg = useRef<SVGSVGElement>(null);
   const nodes = useVisibleNodes();
-  const { overview, uiEditor } = usePanes((x) => x.trueWidth, _.isEqual);
-  const { boundingRect, viewBB } = useReactFlow(
-    getSelector(nodes, overview, uiEditor),
-    shallow,
-  );
+  const { boundingRect, viewBB } = useReactFlow(getSelector(nodes), shallow);
   const elementWidth = (style?.width as number) ?? defaultWidth;
   const elementHeight = (style?.height as number) ?? defaultHeight;
 
@@ -92,9 +82,6 @@ function MiniMap({
   const width = viewWidth + offset * 2;
   const height = viewHeight + offset * 2;
   const viewScaleRef = useRef(0);
-
-  console.log("viewWidth", viewWidth);
-  console.log("boundingRect.width", boundingRect.width);
 
   viewScaleRef.current = viewScale;
 
@@ -213,7 +200,6 @@ function MiniMap({
           nodeClassName={nodeClassName}
           nodeStrokeWidth={nodeStrokeWidth}
           nodeComponent={nodeComponent}
-          xOffset={overview+uiEditor}
         />
         <path
           className="react-flow__minimap-mask"
