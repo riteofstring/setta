@@ -6,11 +6,8 @@ import { VscGrabber } from "react-icons/vsc";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize } from "./utils";
 
-export function ResizableVersionsList({ sectionId, children }) {
+export function ResizableVersionsList({ sectionId, numListings, children }) {
   const height = useSectionInfos((x) => x.x[sectionId].versionsHeight);
-  const descVis = useSectionInfos((x) => x.x[sectionId].versionsVisible);
-  const containerRef = useRef(null);
-  const [motionDivHeight, setMotionDivHeight] = useState();
 
   function onResizeStop(...props) {
     const { height: newHeight } = getNewSize({
@@ -21,22 +18,12 @@ export function ResizableVersionsList({ sectionId, children }) {
     setSectionVersionsHeight({ sectionId, height: newHeight });
   }
 
-  useEffect(() => {
-    // This gets triggered when the height is in "auto" mode (double clicked)
-    // and the version toggle button is clicked to hide the version list.
-    // So it sets motionDivHeight to the height of the list before it closes.
-    // Then when it re-opens, it animates to the saved height.
-    if (height === "auto" && !descVis) {
-      setMotionDivHeight(containerRef.current.clientHeight);
-    }
-  }, [descVis]);
-
   const minHeight = 50;
 
   return (
     <MotionDiv
       sectionId={sectionId}
-      height={height === "auto" ? motionDivHeight : height}
+      height={height === "auto" ? numListings * 24 + 36 : height}
     >
       <ResizableWithScale
         size={{ width: "100%", height }}
@@ -52,9 +39,6 @@ export function ResizableVersionsList({ sectionId, children }) {
         }}
         className="flex flex-1"
         handleComponent={{ bottom: <Handle /> }}
-        ref={(r) => {
-          containerRef.current = r?.resizable;
-        }}
       >
         {children}
       </ResizableWithScale>

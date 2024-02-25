@@ -7,7 +7,9 @@ import {
 } from "hooks/useParamSweepInfo";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useState } from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
+import useDeepCompareEffect from "use-deep-compare-effect";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
 import { PARAM_SWEEP } from "z_utils/constants";
 
@@ -21,17 +23,22 @@ export function VersionList({ sectionId, sectionTypeName }) {
     });
   }
 
+  const [numListings, setNumListings] = useState();
+
   return (
-    <ResizableVersionsList sectionId={sectionId}>
+    <ResizableVersionsList sectionId={sectionId} numListings={numListings}>
       <section
         className="version-section -my-4 flex-1 self-stretch pb-8 pt-9"
         onMouseLeave={onMouseLeave}
       >
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
           {sectionTypeName === PARAM_SWEEP ? (
-            <ParamSweepItems sectionId={sectionId} />
+            <ParamSweepItems
+              sectionId={sectionId}
+              setNumListings={setNumListings}
+            />
           ) : (
-            <EVItems sectionId={sectionId} />
+            <EVItems sectionId={sectionId} setNumListings={setNumListings} />
           )}
         </ul>
       </section>
@@ -39,7 +46,7 @@ export function VersionList({ sectionId, sectionTypeName }) {
   );
 }
 
-function EVItems({ sectionId }) {
+function EVItems({ sectionId, setNumListings }) {
   const currEVColId = useGetSectionInfo(sectionId, "evColId");
   const evColNames = useGetEVColNames(sectionId);
 
@@ -50,6 +57,10 @@ function EVItems({ sectionId }) {
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "evColId", value: id });
   }
+
+  useDeepCompareEffect(() => {
+    setNumListings(evColNames.length);
+  }, [evColNames]);
 
   return evColNames.map((e) => (
     <OneItem
@@ -63,7 +74,7 @@ function EVItems({ sectionId }) {
   ));
 }
 
-function ParamSweepItems({ sectionId }) {
+function ParamSweepItems({ sectionId, setNumListings }) {
   const forSectionId = useForSectionId(sectionId);
   const currParamSweepId = useCurrParamSweepId(sectionId);
   const paramSweepNames = useGetParamSweepNames(forSectionId);
@@ -82,6 +93,10 @@ function ParamSweepItems({ sectionId }) {
       value: id,
     });
   }
+
+  useDeepCompareEffect(() => {
+    setNumListings(paramSweepNames.length);
+  }, [paramSweepNames]);
 
   return paramSweepNames.map((e) => (
     <OneItem
