@@ -51,6 +51,7 @@ export function ResponsiveControls() {
         left: "15px",
       }}
       animate={{ translateX: overviewCssWidth }}
+      transition={{ duration: 0.2, type: "tween" }}
     >
       <Controls className="[&>button]:bg-runcoder-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300">
         <ControlButton onClick={onClickLayout}>

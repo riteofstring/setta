@@ -22,6 +22,7 @@ export function ResponsiveMiniMap() {
         right: "15px",
       }}
       animate={{ translateX: -uiEditorWidth }}
+      transition={{ duration: 0.2, type: "tween" }}
     >
       <MiniMap
         nodeStrokeColor={(n) => {
