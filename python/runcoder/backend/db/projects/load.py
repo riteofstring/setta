@@ -113,7 +113,7 @@ def load_project_config_metadata(db, project_id, config_name):
         "name": out["name"],
         "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
         "panes": {
-            "vis": {"overview": out["overviewVis"], "uiEditor": out["uiEditorVis"]},
+            "vis": {"overview": bool(out["overviewVis"]), "uiEditor": bool(out["uiEditorVis"])},
             "width": {
                 "overview": out["overviewWidth"],
                 "uiEditor": out["uiEditorWidth"],

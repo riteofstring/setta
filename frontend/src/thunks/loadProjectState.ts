@@ -40,7 +40,7 @@ export function loadProjectState({
   useProjectConfig
     .getState()
     .resetAndSetAll(_.omit(projectConfig, ["viewport", "children"]));
-  usePanes.setState(projectConfig.panes);
+  usePanes.getState().setAll(projectConfig.panes);
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   useNodeInternals.getState().setNodes(
     _.map(projectConfig.children, (v, k) => ({

@@ -34,5 +34,16 @@ export const usePanes = createProjectState(
       set((state) => {
         state.trueWidth[paneName] = trueWidth;
       }),
+    setAll: ({ vis, width }) =>
+      set((state) => {
+        state.vis = vis;
+        state.width = width;
+        state.trueWidth.overview = vis.overview
+          ? width.overview
+          : CLOSED_PANE_WIDTH;
+        state.trueWidth.uiEditor = vis.uiEditor
+          ? width.uiEditor
+          : CLOSED_PANE_WIDTH;
+      }),
   })),
 );
