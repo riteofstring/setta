@@ -2,6 +2,7 @@ import React from "react";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
+import CodeLanguageSelection from "./CodeLanguageSelection/CodeLanguageSelection";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import { HeaderIcon } from "./HeaderIcon/HeaderIcon";
 import MenuButton from "./MenuButton/MenuButton";
@@ -44,6 +45,11 @@ function _SectionHeader({
           />
 
           <MenuButton sectionId={sectionId} />
+
+          <CodeLanguageSelection
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+          />
         </>
       )}
       {(isSeriesElement || _isRoot) && (
