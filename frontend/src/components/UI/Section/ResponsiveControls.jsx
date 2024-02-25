@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { usePanes } from "models/panes";
@@ -10,7 +9,7 @@ import { ControlButton, Controls } from "xyflow/controls";
 import "xyflow/controls/style.css";
 
 export function ResponsiveControls() {
-  const overviewCssWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
+  const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
   const darkMode = useSettings((x) => x.darkMode);
 
   function onClickLayout() {
@@ -42,22 +41,13 @@ export function ResponsiveControls() {
   // It's the style used inside of Controls.
   // For some reason it doesn't work unless the motion.div also has the style
   return (
-    <motion.div
-      initial={false}
-      style={{
-        position: "absolute",
-        zIndex: 5,
-        bottom: "20px",
-        left: "15px",
-      }}
-      animate={{ translateX: overviewCssWidth }}
-      transition={{ duration: 0.2, type: "tween" }}
+    <Controls
+      style={{ transform: `translateX(${overviewWidth}px)` }}
+      className="transition-transform [&>button]:bg-runcoder-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300"
     >
-      <Controls className="[&>button]:bg-runcoder-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300">
-        <ControlButton onClick={onClickLayout}>
-          <RiLayoutFill />
-        </ControlButton>
-      </Controls>
-    </motion.div>
+      <ControlButton onClick={onClickLayout}>
+        <RiLayoutFill />
+      </ControlButton>
+    </Controls>
   );
 }
