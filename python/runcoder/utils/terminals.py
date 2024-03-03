@@ -234,13 +234,6 @@ def create_timestamped_folder(base_dir, prefix=''):
 
     return folder_path
 
-# Example usage
-base_directory = 'path/to/base/directory'
-folder_prefix = 'my_folder_'
-folder_path = create_timestamped_folder(base_directory, folder_prefix)
-print(f"Folder created at: {folder_path}")
-
-
 def write_string_to_file(folder, filename, content):
     # Full path to the file
     file_path = os.path.join(folder, filename)
