@@ -53,7 +53,7 @@ function* getProjectRuns(project) {
     const variant = _.cloneDeep(project);
     const keepParamSweeps = [];
     for (const s of Object.values(project.sections)) {
-      if (s.paramSweepId) {
+      if (s.paramSweepId && s.paramSweepSectionId) {
         keepParamSweeps.push(s.paramSweepId);
       }
     }

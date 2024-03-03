@@ -171,40 +171,6 @@ def runCode(message, terminal_write_fn):
         terminal_write_fn(f"\x15{callingProgram} {filepath}\n")
 
 
-    # unprocessed_script = get_script(p)
-    # write = []
-    # in_file_with_suffix = []
-    # if needs_python_code(unprocessed_script):
-    #     code, _ = generate_code(selected, p)
-    #     write.append(code)
-    #     in_file_with_suffix.append(".py")
-    # if needs_yaml(unprocessed_script):
-    #     yaml_dict = generate_yaml(selected)
-    #     write.append(yaml_dict)
-    #     in_file_with_suffix.append(".yaml")
-
-    # withTempFiles(
-    #     write=write,
-    #     in_file_with_suffix=in_file_with_suffix,
-    #     then_do=write_bash,
-    #     auto_delete=False,
-    # )
-
-
-
-    # def write_bash(filepaths_for_bash):
-    #     def execute_bash(temp_filepaths):
-    #         terminal_write_fn(f"\x15bash {temp_filepaths[0]}\n")
-
-    #     script = generate_script(p, selected, filepaths_for_bash)
-    #     withTempFiles(
-    #         write=[script],
-    #         in_file_with_suffix=[".sh"],
-    #         then_do=execute_bash,
-    #         auto_delete=False,
-    #     )
-
-
 
 def languageToExtension(x):
     return {"python": ".py", "bash": ".sh", "yaml": ".yaml"}[x]
@@ -225,10 +191,9 @@ def codeCallStr(folder_path, section):
 
 
 
+
 import os
 from datetime import datetime
-
-
 
 def topological_sort(objects):
     graph = {obj['id']: obj['refs'] for obj in objects}
@@ -253,32 +218,27 @@ def topological_sort(objects):
     return order[::-1]
 
 
-
-
-
-
 def create_timestamped_folder(base_dir, prefix=''):
-    # Ensure the base directory exists, if not, create it
-    if not os.path.exists(base_dir):
-        try:
-            os.makedirs(base_dir)
-        except FileExistsError:
-            pass  # Directory already created by another thread
-
-    # Format the current timestamp
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    # Create folder name with optional prefix
+    # Format the current timestamp with subsecond precision
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    # Create folder name with optional prefix and subsecond precision
     folder_name = f"{prefix}{timestamp}"
     # Full path for the new folder
     folder_path = os.path.join(base_dir, folder_name)
 
-    # Attempt to create the timestamped folder
-    try:
-        os.makedirs(folder_path)
-    except FileExistsError:
-        pass  # Folder already created by another thread
+    if not os.path.exists(folder_path):
+        try:
+            os.makedirs(folder_path)
+        except FileExistsError:
+            pass 
 
     return folder_path
+
+# Example usage
+base_directory = 'path/to/base/directory'
+folder_prefix = 'my_folder_'
+folder_path = create_timestamped_folder(base_directory, folder_prefix)
+print(f"Folder created at: {folder_path}")
 
 
 def write_string_to_file(folder, filename, content):
