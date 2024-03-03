@@ -8,21 +8,19 @@ from asyncio import CancelledError
 import psutil
 from fastapi import WebSocketDisconnect
 
-from runcoder.code.export_selected import export_selected, get_script, get_section_type
+from runcoder.code.export_selected import export_selected, get_section_type
 from runcoder.code.find_placeholders import (
     double_braces,
+    needs_generated_python,
     needs_python_argparse,
-    needs_python_code,
     needs_yaml,
 )
 from runcoder.code.generate_code import (
     generate_argparse,
     generate_code,
-    generate_script,
     replace_keywords,
 )
 from runcoder.code.generate_yaml import generate_yaml
-from runcoder.processors.utils import withTempFiles
 from runcoder.utils.constants import CODE
 
 if platform.system() == "Windows":
@@ -151,6 +149,10 @@ def runCode(message, terminal_write_fn):
             replacements["RUNCODER_YAML_FILE"] = codePathStr(
                 folder_path, "RUNCODER_YAML", "yaml"
             )
+        if needs_generated_python(curr_code):
+            replacements["RUNCODER_GENERATED_CODE"] = generate_code(
+                selected, p, replace_templated_code=False
+            )[0]
 
         s["code"] = replace_keywords(s["code"], replacements)
         dependencies[s["id"]] = curr_dependencies
