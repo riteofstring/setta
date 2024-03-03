@@ -220,7 +220,7 @@ def prepend_with_imports(
 
 def generate_code(
     selected,
-    p,
+    templated_code,
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
@@ -234,11 +234,9 @@ def generate_code(
         force_appear_var_name=force_appear_var_name,
     )
 
-    code = get_code(p)
-
     return prepend_with_imports(
         lines,
-        code,
+        templated_code,
         force_appear_var_name,
         var_name_to_line_num,
         replace_templated_code,

@@ -151,7 +151,7 @@ def runCode(message, terminal_write_fn):
             )
         if needs_generated_python(curr_code):
             replacements["RUNCODER_GENERATED_CODE"] = generate_code(
-                selected, p, replace_templated_code=False
+                selected, curr_code, replace_templated_code=False
             )[0]
 
         s["code"] = replace_keywords(s["code"], replacements)
