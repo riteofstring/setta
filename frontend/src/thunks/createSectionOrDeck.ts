@@ -1,7 +1,7 @@
 import { sendMessage } from "dbRequests/websocket";
 import { useCodeInfo } from "models/info/codeInfo";
+import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useWebsocketRooms } from "models/websocket";
@@ -101,7 +101,16 @@ export function loadSectionIntoState({
   useCodeInfo.getState().update(codeInfo);
   useSectionInfos.getState().update(sections);
   updateManyParamsAndCallables(Object.keys(sections));
-  useProjectConfig.getState().addChildren(topLevelMapping);
+  const nodes = [];
+  for (const [id, n] of Object.entries(topLevelMapping)) {
+    nodes.push({
+      id,
+      position: { x: n.x, y: n.y },
+      zIndex: n.zIndex,
+      tempZIndex: n.zIndex,
+    });
+  }
+  addNodes(nodes);
 
   if (callbackBeforeExit) {
     callbackBeforeExit();

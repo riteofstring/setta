@@ -7,6 +7,7 @@ import { useUITypes } from "models/info/uiTypes";
 import { findAll } from "z_utils/getDescendants";
 import { RCType } from "z_utils/types/codeInfo";
 import { getSectionTypeConfig } from "../sections/getters";
+import { useNodeInternals } from "models/info/nodeInternals";
 
 export function copySections(sectionIds) {
   const sections = _.pick(useSectionInfos.getState().x, sectionIds);
@@ -83,7 +84,7 @@ function getUITypeCols(sections) {
 
 function getRelativePositions(sections) {
   const positions = _.pick(
-    useProjectConfig.getState().children,
+    Object.fromEntries(useNodeInternals.getState().x),
     _.map(sections, (x) => x.id),
   );
 
