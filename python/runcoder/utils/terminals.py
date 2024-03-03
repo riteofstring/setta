@@ -66,13 +66,20 @@ async def start_terminal(terminal_websocket, projectConfigId, id):
     # Main event loop
     loop = asyncio.get_event_loop()
 
-    # Start the WinPTY terminal
-    pty_process = PtyProcess.spawn(TERMINAL_NAME)
-    PTY_PIDS[id] = {
-        "pid": pty_process.pid,
-        "start": time.time(),
-        "projectConfigId": projectConfigId,
-    }
+    if (id in PTY_PIDS):
+        pty_process = PTY_PIDS[id]["process"]
+    else:
+        print("************START NEW TERMINAL************\n\n\n")
+        # Start the WinPTY terminal
+        pty_process = PtyProcess.spawn(TERMINAL_NAME)
+        PTY_PIDS[id] = {
+            "pid": pty_process.pid,
+            "start": time.time(),
+            "projectConfigId": projectConfigId,
+            "process": pty_process
+        }
+
+    print("PTY_PIDS", PTY_PIDS, flush=True)
 
     # Function to read from the terminal
     async def read_from_terminal():
@@ -82,7 +89,9 @@ async def start_terminal(terminal_websocket, projectConfigId, id):
                 if not output:
                     break
                 # Send output to WebSocket
-                await terminal_websocket.send_text(output)
+                output = time.time()
+                print("output", output)
+                await terminal_websocket.send_text(f"{output}\n")
         except (WebSocketDisconnect, CancelledError):
             pass
 
@@ -91,6 +100,7 @@ async def start_terminal(terminal_websocket, projectConfigId, id):
         try:
             while True:
                 input_data = await terminal_websocket.receive_text()
+                print("input_data", input_data, flush=True)
                 try:
                     json_val = json.loads(input_data)
                     if isinstance(json_val, dict):

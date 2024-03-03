@@ -236,7 +236,7 @@ async def websocket_endpoint(websocket: WebSocket):
 async def terminal_websocket_endpoint(
     websocket: WebSocket, projectConfigId: str, id: str
 ):
-    print("terminal websocket", id, flush=True)
+    print(f"terminal websocket {id}\n\n", flush=True)
     await websocket.accept()
     try:
         await start_terminal(websocket, projectConfigId, id)
