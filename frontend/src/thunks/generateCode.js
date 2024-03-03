@@ -1,6 +1,6 @@
 import {
   INITIAL_MESSAGE,
-  useTerminalWebsockets,
+  TERMINAL_WEBSOCKETS,
 } from "components/UI/Section/SectionContainer/TerminalArea";
 import { dbGetFreeTerminal } from "dbRequests/terminals";
 import _ from "lodash";
@@ -33,7 +33,7 @@ export async function runCode({ codeId }) {
         message: projectVariant,
       });
       if (freeTerminalId) {
-        useTerminalWebsockets.getState()[freeTerminalId].send(message);
+        TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
       } else {
         const id = createNewId();
         INITIAL_MESSAGE[id] = message;

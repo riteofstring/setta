@@ -126,7 +126,6 @@ async def start_terminal(terminal_websocket, projectConfigId, id):
             await task  # Ensure task is properly cancelled
     finally:
         # Cleanup
-        print("deleting terminal", id, flush=True)
         pty_process.terminate()
         del PTY_PIDS[id]
 
