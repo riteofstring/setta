@@ -37,9 +37,6 @@ function newTerminalWebsocket(sectionId) {
     ws.addEventListener("error", () => {
       delete TERMINAL_WEBSOCKETS[sectionId];
     });
-    ws.addEventListener("message", (x) => {
-      console.log("received message", x)
-    });
 
     TERMINAL_WEBSOCKETS[sectionId] = ws;
   }
