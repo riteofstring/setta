@@ -1,24 +1,38 @@
+import _ from "lodash";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { create } from "models/utils";
 import React, { useEffect, useRef } from "react";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { useReactFlow } from "xyflow/core/store";
+import { subscribeWithSelector } from "zustand/middleware";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { theme } from "./Terminal/TerminalTheme";
-import { useProjectConfig } from "models/info/projectConfig";
 
-export const TERMINAL_WEBSOCKETS = {};
+export const useTerminalWebsockets = create(
+  subscribeWithSelector((set) => ({
+    add: (id, ws) => set((state) => ({ ...state, [id]: ws })),
+    delete: (id) =>
+      set((state) => {
+        const newState = _.omit(state, [id]);
+        console.log("newState on delete", newState);
+        return newState;
+      }),
+  })),
+);
 export const INITIAL_MESSAGE = {};
 let pendingMsg = null;
 
 function newTerminalWebsocket(sectionId) {
   let ws;
-  if (TERMINAL_WEBSOCKETS[sectionId]) {
-    ws = TERMINAL_WEBSOCKETS[sectionId];
+  const terminalWebsocketState = useTerminalWebsockets.getState();
+  if (terminalWebsocketState[sectionId]) {
+    ws = terminalWebsocketState[sectionId];
   } else {
-    const projectConfigId = useProjectConfig.getState().id
+    const projectConfigId = useProjectConfig.getState().id;
     const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${projectConfigId}/${sectionId}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
@@ -32,19 +46,24 @@ function newTerminalWebsocket(sectionId) {
       }
     });
     ws.addEventListener("close", () => {
-      delete TERMINAL_WEBSOCKETS[sectionId];
+      console.log("terminalWebsocketState.delete");
+      terminalWebsocketState.delete(sectionId);
     });
     ws.addEventListener("error", () => {
-      delete TERMINAL_WEBSOCKETS[sectionId];
+      terminalWebsocketState.delete(sectionId);
     });
 
-    TERMINAL_WEBSOCKETS[sectionId] = ws;
+    terminalWebsocketState.add(sectionId, ws);
   }
 
   return {
     disposeWs: () => {
+      console.log("sectionId", sectionId);
+      console.log("useSectionInfos.getState().x", useSectionInfos.getState().x);
       if (!(sectionId in useSectionInfos.getState().x)) {
+        console.log("closing websocket");
         ws.close();
+        // tell backend to delete terminal
       }
     },
     ws,
@@ -114,6 +133,7 @@ function useTerminal({ sectionId, width, height }) {
     return () => {
       // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
       // https://github.com/xtermjs/xterm.js/issues/4775
+      console.log("cleaning up");
       disposeWs();
       terminal.dispose();
     };
@@ -125,3 +145,8 @@ function useTerminal({ sectionId, width, height }) {
 
   return terminalRef;
 }
+
+const unsub2 = useTerminalWebsockets.subscribe(
+  (state) => state,
+  (curr) => console.log("curr", curr),
+);
