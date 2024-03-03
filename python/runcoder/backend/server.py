@@ -232,12 +232,14 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.disconnect(id)
 
 
-@app.websocket("/terminal/{id}")
-async def terminal_websocket_endpoint(websocket: WebSocket, id: str):
+@app.websocket("/terminal/{projectConfigId}/{id}")
+async def terminal_websocket_endpoint(
+    websocket: WebSocket, projectConfigId: str, id: str
+):
     print("terminal websocket", id, flush=True)
     await websocket.accept()
     try:
-        await start_terminal(websocket, id)
+        await start_terminal(websocket, projectConfigId, id)
     except WebSocketDisconnect:
         print("disconnected terminal")
 
@@ -369,6 +371,6 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
     return {**output, "relativePositions": relativePositions}
 
 
-@app.post("/terminal/getFreeTerminal")
-def route_terminal_get_free_terminal():
-    return get_free_terminal()
+@app.post("/terminal/getFreeTerminal/{projectConfigId}")
+def route_terminal_get_free_terminal(projectConfigId):
+    return get_free_terminal(projectConfigId)

@@ -24,7 +24,7 @@ export async function runCode({ codeId }) {
   const project = getProjectDataToGenerateCode();
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    const res = await dbGetFreeTerminal();
+    const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
     if (res.status === 200) {
       const freeTerminalId = res.data;
       const message = JSON.stringify({

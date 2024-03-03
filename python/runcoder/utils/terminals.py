@@ -47,9 +47,13 @@ def is_command_running_in_pty(pid):
         return False
 
 
-def get_free_terminal():
+def get_free_terminal(projectConfigId):
     for k, v in PTY_PIDS.copy().items():
-        if not is_command_running_in_pty(v["pid"]) and time.time() - v["start"] > 1:
+        if (
+            v["projectConfigId"] == projectConfigId
+            and not is_command_running_in_pty(v["pid"])
+            and time.time() - v["start"] > 1
+        ):
             return k
     return None
 
@@ -58,13 +62,17 @@ def set_terminal_start_time(id):
     PTY_PIDS[id]["start"] = time.time()
 
 
-async def start_terminal(terminal_websocket, id):
+async def start_terminal(terminal_websocket, projectConfigId, id):
     # Main event loop
     loop = asyncio.get_event_loop()
 
     # Start the WinPTY terminal
     pty_process = PtyProcess.spawn(TERMINAL_NAME)
-    PTY_PIDS[id] = {"pid": pty_process.pid, "start": time.time()}
+    PTY_PIDS[id] = {
+        "pid": pty_process.pid,
+        "start": time.time(),
+        "projectConfigId": projectConfigId,
+    }
 
     # Function to read from the terminal
     async def read_from_terminal():

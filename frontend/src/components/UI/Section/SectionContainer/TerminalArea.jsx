@@ -7,6 +7,7 @@ import "xterm/css/xterm.css";
 import { useReactFlow } from "xyflow/core/store";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { theme } from "./Terminal/TerminalTheme";
+import { useProjectConfig } from "models/info/projectConfig";
 
 export const TERMINAL_WEBSOCKETS = {};
 export const INITIAL_MESSAGE = {};
@@ -17,7 +18,8 @@ function newTerminalWebsocket(sectionId) {
   if (TERMINAL_WEBSOCKETS[sectionId]) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
   } else {
-    const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${sectionId}`;
+    const projectConfigId = useProjectConfig.getState().id
+    const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${projectConfigId}/${sectionId}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
       if (pendingMsg) {
