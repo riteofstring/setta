@@ -235,8 +235,7 @@ def replace_keywords(x, replacements):
     return x
 
 
-def generate_script(p, selected, filepaths):
-    script = get_script(p)
+def generate_script(script, selected, sections):
     replacements = {}
     if needs_python_argparse(script):
         argparse_args = generate_argparse(selected)

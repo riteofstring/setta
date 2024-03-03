@@ -408,44 +408,93 @@
 # print(children)
 
 
-import subprocess
-import re
-import psutil
+# import subprocess
+# import re
+# import psutil
 
 
-def has_child_processes(input_winpid):
-    if len(psutil.Process(input_winpid).children()) > 0:
-        return True
+# def has_child_processes(input_winpid):
+#     if len(psutil.Process(input_winpid).children()) > 0:
+#         return True
 
-    output = subprocess.check_output("ps", shell=True).decode()
-    processes = []
-    bash_pid = None
-    pid_idx, ppid_idx, winpid_idx = None, None, None
-    for i,line in enumerate(output.split('\n')):  # Skip the header line
-        columns = re.split(r'\s+', line)
-        if i==0:
-            pid_idx = columns.index("PID")
-            ppid_idx = columns.index("PPID")
-            winpid_idx = columns.index("WINPID")
-        elif columns != ['']:
-            pid = int(columns[pid_idx])
-            ppid = int(columns[ppid_idx])
-            winpid = int(columns[winpid_idx])
-            processes.append({"pid": pid, "ppid": ppid, "winpid": winpid})
-            if winpid == input_winpid:
-                bash_pid = pid
+#     output = subprocess.check_output("ps", shell=True).decode()
+#     processes = []
+#     bash_pid = None
+#     pid_idx, ppid_idx, winpid_idx = None, None, None
+#     for i,line in enumerate(output.split('\n')):  # Skip the header line
+#         columns = re.split(r'\s+', line)
+#         if i==0:
+#             pid_idx = columns.index("PID")
+#             ppid_idx = columns.index("PPID")
+#             winpid_idx = columns.index("WINPID")
+#         elif columns != ['']:
+#             pid = int(columns[pid_idx])
+#             ppid = int(columns[ppid_idx])
+#             winpid = int(columns[winpid_idx])
+#             processes.append({"pid": pid, "ppid": ppid, "winpid": winpid})
+#             if winpid == input_winpid:
+#                 bash_pid = pid
 
-    return len([p for p in processes if p['ppid'] == bash_pid]) > 0
+#     return len([p for p in processes if p['ppid'] == bash_pid]) > 0
 
     
 
 
-def main():
-    bash_pid, processes = get_bash_pid(7520)
-    print(bash_pid)
-    print(find_child_processes(bash_pid, processes))
-    print(psutil.Process(7520).children())
+# def main():
+#     bash_pid, processes = get_bash_pid(7520)
+#     print(bash_pid)
+#     print(find_child_processes(bash_pid, processes))
+#     print(psutil.Process(7520).children())
 
 
 
-main()
+# main()
+
+def topological_sort(objects):
+    graph = {obj['id']: obj['refs'] for obj in objects}
+    visiting, visited = set(), set()
+    order = []
+
+    def dfs(node):
+        if node in visiting:
+            raise ValueError("Circular reference detected")
+        if node not in visited:
+            visiting.add(node)
+            for neighbour in graph[node]:
+                dfs(neighbour)
+            visiting.remove(node)
+            visited.add(node)
+            order.append(node)
+
+    for obj in objects:
+        if obj['id'] not in visited:
+            dfs(obj['id'])
+
+    return order[::-1]
+
+# Example usage
+objects = [{"id": "A", "refs": ["B"]}]
+sorted_objects = topological_sort(objects)
+print(sorted_objects)
+
+
+# import os
+# from datetime import datetime
+
+
+
+# def create_timestamped_folder(base_dir, prefix=''):
+#     # Ensure the base directory exists, if not, create it
+#     if not os.path.exists(base_dir):
+#         os.makedirs(base_dir)
+#     # Format the current timestamp using datetime.datetime.now()
+#     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+#     # Create folder name with optional prefix
+#     folder_name = f"{prefix}{timestamp}"
+#     # Full path for the new folder
+#     folder_path = os.path.join(base_dir, folder_name)
+#     # Create the timestamped folder
+#     os.makedirs(folder_path)
+#     return folder_path
+
+# create_timestamped_folder(".runcoder_code", "")
