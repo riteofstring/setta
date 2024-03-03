@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import platform
 import time
@@ -8,12 +9,21 @@ import psutil
 from fastapi import WebSocketDisconnect
 
 from runcoder.code.export_selected import export_selected, get_script, get_section_type
-from runcoder.code.find_placeholders import needs_python_code, needs_yaml, double_braces, needs_python_argparse
-from runcoder.code.generate_code import generate_code, generate_script, generate_argparse, replace_keywords
+from runcoder.code.find_placeholders import (
+    double_braces,
+    needs_python_argparse,
+    needs_python_code,
+    needs_yaml,
+)
+from runcoder.code.generate_code import (
+    generate_argparse,
+    generate_code,
+    generate_script,
+    replace_keywords,
+)
 from runcoder.code.generate_yaml import generate_yaml
 from runcoder.processors.utils import withTempFiles
 from runcoder.utils.constants import CODE
-import copy
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
@@ -119,7 +129,11 @@ def runCode(message, terminal_write_fn):
     selected = export_selected(p)
     folder_path = create_timestamped_folder(".runcoder_code")
 
-    code_sections = {id:copy.deepcopy(s) for id,s in p["sections"].items() if get_section_type(p, s["id"]) == CODE}
+    code_sections = {
+        id: copy.deepcopy(s)
+        for id, s in p["sections"].items()
+        if get_section_type(p, s["id"]) == CODE
+    }
     dependencies = {}
     for s in code_sections.values():
         curr_code = s["code"]
@@ -127,26 +141,30 @@ def runCode(message, terminal_write_fn):
         replacements = {}
         for other_s in code_sections.values():
             if double_braces(other_s["name"]) in curr_code:
-                replacements[other_s["name"]] = codePathStr(folder_path, other_s['name'], other_s["codeLanguage"])
+                replacements[other_s["name"]] = codePathStr(
+                    folder_path, other_s["name"], other_s["codeLanguage"]
+                )
                 curr_dependencies.append(other_s["id"])
         if needs_python_argparse(curr_code):
             replacements["RUNCODER_PYTHON_ARGPARSE"] = generate_argparse(selected)
         if needs_yaml(curr_code):
-            replacements["RUNCODER_YAML_FILE"] = codePathStr(folder_path, "RUNCODER_YAML", "yaml")
-        
+            replacements["RUNCODER_YAML_FILE"] = codePathStr(
+                folder_path, "RUNCODER_YAML", "yaml"
+            )
+
         s["code"] = replace_keywords(s["code"], replacements)
         dependencies[s["id"]] = curr_dependencies
 
-    
     to_write = topological_sort(dependencies)
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
         extension = languageToExtension(curr_section["codeLanguage"])
-        filepath = write_string_to_file(folder_path, f"{curr_section['name']}{extension}", curr_section["code"])
+        filepath = write_string_to_file(
+            folder_path, f"{curr_section['name']}{extension}", curr_section["code"]
+        )
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         id_to_filepath[sid] = filepath
-
 
     # Only run code that isn't referenced by other code
     run_order = [x for x in to_write if all(x not in y for y in dependencies.values())]
@@ -167,7 +185,6 @@ def runCode(message, terminal_write_fn):
         terminal_write_fn(f"\x15{callingProgram} {filepath}\n")
 
 
-
 def languageToExtension(x):
     return {"python": ".py", "bash": ".sh", "yaml": ".yaml"}[x]
 
@@ -181,15 +198,15 @@ def codePathStr(folder_path, filename, codeLanguage):
     output = f"{folder_path}/{filename}{extension}"
     return os.path.relpath(output).replace(os.sep, "/")
 
+
 def codeCallStr(folder_path, section):
     codePath = codePathStr(folder_path, section["name"], section["codeLanguage"])
     return f"{languageToCall(section['codeLanguage'])} {codePath}\n"
 
 
-
-
 import os
 from datetime import datetime
+
 
 def topological_sort(objects):
     graph = {id: refs for id, refs in objects.items()}
@@ -214,9 +231,9 @@ def topological_sort(objects):
     return order[::-1]
 
 
-def create_timestamped_folder(base_dir, prefix=''):
+def create_timestamped_folder(base_dir, prefix=""):
     # Format the current timestamp with subsecond precision
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     # Create folder name with optional prefix and subsecond precision
     folder_name = f"{prefix}{timestamp}"
     # Full path for the new folder
@@ -226,14 +243,15 @@ def create_timestamped_folder(base_dir, prefix=''):
         try:
             os.makedirs(folder_path)
         except FileExistsError:
-            pass 
+            pass
 
     return folder_path
+
 
 def write_string_to_file(folder, filename, content):
     # Full path to the file
     file_path = os.path.join(folder, filename)
     # Write the content to the file
-    with open(file_path, 'w') as file:
+    with open(file_path, "w") as file:
         file.write(content)
     return file_path
