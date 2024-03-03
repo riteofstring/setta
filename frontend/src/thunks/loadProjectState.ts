@@ -62,6 +62,6 @@ export function loadProjectState({
   useOutputs.getState().resetAndSetAll(outputs);
   useOutputGroups.getState().resetAndSetAll(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));
-  maybeIncrementProjectStateVersion(true);
+  maybeIncrementProjectStateVersion(true, false);
   return true;
 }
