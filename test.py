@@ -451,7 +451,7 @@
 # main()
 
 def topological_sort(objects):
-    graph = {obj['id']: obj['refs'] for obj in objects}
+    graph = {id: refs for id, refs in objects.items()}
     visiting, visited = set(), set()
     order = []
 
@@ -466,14 +466,14 @@ def topological_sort(objects):
             visited.add(node)
             order.append(node)
 
-    for obj in objects:
-        if obj['id'] not in visited:
-            dfs(obj['id'])
+    for id in objects.keys():
+        if id not in visited:
+            dfs(id)
 
     return order[::-1]
 
 # Example usage
-objects = [{"id": "A", "refs": ["B"]}]
+objects = {"A": [], "B": ["A"]}
 sorted_objects = topological_sort(objects)
 print(sorted_objects)
 

@@ -120,7 +120,7 @@ def runCode(message, terminal_write_fn):
     folder_path = create_timestamped_folder(".runcoder_code")
 
     code_sections = {id:copy.deepcopy(s) for id,s in p["sections"].items() if get_section_type(p, s["id"]) == CODE}
-    dependencies = []
+    dependencies = {}
     for s in code_sections.values():
         curr_code = s["code"]
         curr_dependencies = []
@@ -135,7 +135,7 @@ def runCode(message, terminal_write_fn):
             replacements["RUNCODER_YAML_FILE"] = codePathStr(folder_path, "RUNCODER_YAML", "yaml")
         
         s["code"] = replace_keywords(s["code"], replacements)
-        dependencies.append({"id": s["id"], "refs": curr_dependencies})
+        dependencies[s["id"]] = curr_dependencies
 
     
     to_write = topological_sort(dependencies)
@@ -148,12 +148,8 @@ def runCode(message, terminal_write_fn):
         id_to_filepath[sid] = filepath
 
 
-    # If none of the code sections refer to any others, then run all.
-    # Otherwise, only run code sections that have references to others.
-    if all(len(x["refs"]) == 0 for x in dependencies):
-        run_order = to_write
-    else:
-        run_order = [x["id"] for x in dependencies if len(x["refs"]) > 0]
+    # Only run code that isn't referenced by other code
+    run_order = [x for x in to_write if all(x not in y for y in dependencies.values())]
 
     # create a wrapper script if there are multiple files to run
     if len(run_order) > 1:
@@ -196,7 +192,7 @@ import os
 from datetime import datetime
 
 def topological_sort(objects):
-    graph = {obj['id']: obj['refs'] for obj in objects}
+    graph = {id: refs for id, refs in objects.items()}
     visiting, visited = set(), set()
     order = []
 
@@ -211,9 +207,9 @@ def topological_sort(objects):
             visited.add(node)
             order.append(node)
 
-    for obj in objects:
-        if obj['id'] not in visited:
-            dfs(obj['id'])
+    for id in objects.keys():
+        if id not in visited:
+            dfs(id)
 
     return order[::-1]
 
