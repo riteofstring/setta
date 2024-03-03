@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -37,7 +38,6 @@ from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
-import asyncio
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -221,7 +221,6 @@ manager = ConnectionManager()
 terminal_websockets = TerminalWebsockets()
 
 
-
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     print("regular websocket", websocket)
@@ -242,8 +241,12 @@ async def terminal_websocket_endpoint(
     await terminal_websockets.connect(websocket, projectConfigId, id)
     try:
         # Start reading from and writing to the terminal
-        read_task = terminal_websockets.loop.create_task(terminal_websockets.read_from_terminal(id))
-        write_task = terminal_websockets.loop.create_task(terminal_websockets.write_to_terminal(websocket, id))
+        read_task = terminal_websockets.loop.create_task(
+            terminal_websockets.read_from_terminal(id)
+        )
+        write_task = terminal_websockets.loop.create_task(
+            terminal_websockets.write_to_terminal(websocket, id)
+        )
 
         # Wait for either task to complete
         _, pending = await asyncio.wait(
@@ -258,7 +261,6 @@ async def terminal_websocket_endpoint(
         # Cleanup
         terminal_websockets.disconnect(websocket, id)
 
-    
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):

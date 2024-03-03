@@ -4,6 +4,7 @@ import json
 import platform
 import time
 from asyncio import CancelledError
+from collections import defaultdict
 
 import psutil
 from fastapi import WebSocketDisconnect
@@ -22,7 +23,6 @@ from runcoder.code.generate_code import (
 )
 from runcoder.code.generate_yaml import generate_yaml
 from runcoder.utils.constants import CODE
-from collections import defaultdict
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
@@ -45,17 +45,12 @@ def is_command_running_in_pty(pid):
         return False
 
 
-
-
-
-
-
 class TerminalWebsockets:
     def __init__(self):
         self.sockets = defaultdict(list)
         self.PTY_PIDS = {}
         self.loop = asyncio.get_event_loop()
-    
+
     async def connect(self, websocket, projectConfigId, id):
         await websocket.accept()
         self.sockets[id].append(websocket)
@@ -65,7 +60,7 @@ class TerminalWebsockets:
                 "pid": pty_process.pid,
                 "start": time.time(),
                 "projectConfigId": projectConfigId,
-                "process": pty_process
+                "process": pty_process,
             }
 
     def disconnect(self, websocket, id):
@@ -74,7 +69,6 @@ class TerminalWebsockets:
             self.PTY_PIDS[id]["process"].terminate()
             del self.PTY_PIDS[id]
             del self.sockets[id]
-
 
     # Function to read from the terminal
     async def read_from_terminal(self, id):
@@ -88,7 +82,6 @@ class TerminalWebsockets:
                     await ws.send_text(output)
         except (WebSocketDisconnect, CancelledError):
             pass
-
 
     # Function to write to the terminal
     async def write_to_terminal(self, websocket, id):
@@ -116,10 +109,8 @@ class TerminalWebsockets:
         except (WebSocketDisconnect, CancelledError):
             pass
 
-
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()
-
 
     def get_free_terminal(self, projectConfigId):
         for k, v in self.PTY_PIDS.copy().items():
@@ -130,7 +121,6 @@ class TerminalWebsockets:
             ):
                 return k
         return None
-
 
 
 def runCode(message, terminal_write_fn):
