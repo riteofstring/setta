@@ -68,7 +68,7 @@ class TerminalWebsockets:
                 "process": pty_process
             }
 
-    async def disconnect(self, websocket, id):
+    def disconnect(self, websocket, id):
         self.sockets[id].remove(websocket)
         if not self.sockets[id]:
             self.PTY_PIDS[id]["process"].terminate()
@@ -79,36 +79,42 @@ class TerminalWebsockets:
     # Function to read from the terminal
     async def read_from_terminal(self, id):
         pty_process = self.PTY_PIDS[id]["process"]
-        while True:
-            output = await self.loop.run_in_executor(None, pty_process.read, 1024)
-            if not output:
-                break
-            for ws in self.sockets[id]:
-                await ws.send_text(output)
+        try:
+            while True:
+                output = await self.loop.run_in_executor(None, pty_process.read, 1024)
+                if not output:
+                    break
+                for ws in self.sockets[id]:
+                    await ws.send_text(output)
+        except (WebSocketDisconnect, CancelledError):
+            pass
 
 
     # Function to write to the terminal
     async def write_to_terminal(self, websocket, id):
         pty_process = self.PTY_PIDS[id]["process"]
-        while True:
-            print("now waiting to receive text", flush=True)
-            input_data = await websocket.receive_text()
-            try:
-                json_val = json.loads(input_data)
-                if isinstance(json_val, dict):
-                    if json_val["type"] == "resize":
-                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                    elif json_val["type"] == "runCode":
-                        runCode(json_val, pty_process.write)
-                        self.set_terminal_start_time(id)
-                    continue
-            except json.decoder.JSONDecodeError:
-                pass
-            if input_data is None:
-                break
-            # Write received data to the terminal
-            pty_process.write(input_data)
-            self.set_terminal_start_time(id)
+        try:
+            while True:
+                print("now waiting to receive text", flush=True)
+                input_data = await websocket.receive_text()
+                try:
+                    json_val = json.loads(input_data)
+                    if isinstance(json_val, dict):
+                        if json_val["type"] == "resize":
+                            pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                        elif json_val["type"] == "runCode":
+                            runCode(json_val, pty_process.write)
+                            self.set_terminal_start_time(id)
+                        continue
+                except json.decoder.JSONDecodeError:
+                    pass
+                if input_data is None:
+                    break
+                # Write received data to the terminal
+                pty_process.write(input_data)
+                self.set_terminal_start_time(id)
+        except (WebSocketDisconnect, CancelledError):
+            pass
 
 
     def set_terminal_start_time(self, id):
