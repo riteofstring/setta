@@ -37,6 +37,8 @@ from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
+from collections import defaultdict
+import asyncio
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -215,8 +217,58 @@ class ConnectionManager:
             {"messageType": "allConnections", "connections": connections}
         )
 
+class TerminalWebsockets:
+    def __init__(self):
+        self.sockets = defaultdict(list)
+        self.events = {}  # Track events for signaling new websocket additions
+    
+    async def connect(self, websocket, id):
+        await websocket.accept()
+        self.sockets[id].append(websocket)
+        # Signal that a new websocket has been added
+        if id in self.events:
+            self.events[id].set()
+        else:
+            self.events[id] = asyncio.Event()
+
+    async def disconnect(self, websocket, id):
+        self.sockets[id].remove(websocket)
+        # Clean up if no more sockets are connected to this ID
+        if not self.sockets[id]:
+            del self.sockets[id]
+            del self.events[id]
+
+    async def send_text(self, msg, id):
+        for ws in self.sockets[id]:
+            await ws.send_text(msg)
+    
+    async def receive_text(self, id):
+        while True:
+            print("in receive_text", flush=True)
+            event = self.events.get(id, asyncio.Event())
+            receive_tasks = [asyncio.create_task(ws.receive_text()) for ws in self.sockets[id]]
+            done, pending = await asyncio.wait(
+                receive_tasks + [asyncio.create_task(event.wait())],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Reset the event if it's set
+            if event.is_set():
+                event.clear()
+                for task in pending:
+                    task.cancel()
+                continue  # Restart waiting due to new websocket addition
+            
+            for task in receive_tasks:
+                if task in done:
+                    for t in pending:  # Cancel all pending tasks
+                        t.cancel()
+                    return task.result()
+
 
 manager = ConnectionManager()
+terminal_websockets = TerminalWebsockets()
+
 
 
 @app.websocket("/")
@@ -236,13 +288,11 @@ async def websocket_endpoint(websocket: WebSocket):
 async def terminal_websocket_endpoint(
     websocket: WebSocket, projectConfigId: str, id: str
 ):
-    print("terminal websocket", id, flush=True)
-    await websocket.accept()
-    try:
-        await start_terminal(websocket, projectConfigId, id)
-    except WebSocketDisconnect:
-        print("disconnected terminal")
-
+    await terminal_websockets.connect(websocket, id)
+    existing_terminal = await start_terminal(terminal_websockets, projectConfigId, id)
+    if existing_terminal:
+        await asyncio.Event().wait()
+    
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
