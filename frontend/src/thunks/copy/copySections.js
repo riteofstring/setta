@@ -1,13 +1,12 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { findAll } from "z_utils/getDescendants";
 import { RCType } from "z_utils/types/codeInfo";
 import { getSectionTypeConfig } from "../sections/getters";
-import { useNodeInternals } from "models/info/nodeInternals";
 
 export function copySections(sectionIds) {
   const sections = _.pick(useSectionInfos.getState().x, sectionIds);
@@ -91,17 +90,17 @@ function getRelativePositions(sections) {
   let minX = Infinity;
   let minY = Infinity;
   for (const p of Object.values(positions)) {
-    if (p.x < minX) {
-      minX = p.x;
+    if (p.position.x < minX) {
+      minX = p.position.x;
     }
-    if (p.y < minY) {
-      minY = p.y;
+    if (p.position.y < minY) {
+      minY = p.position.y;
     }
   }
 
   return _.mapValues(positions, (v) => ({
-    x: v.x - minX,
-    y: v.y - minY,
+    x: v.position.x - minX,
+    y: v.position.y - minY,
     zIndex: v.zIndex,
   }));
 }

@@ -133,7 +133,7 @@ useSectionInfos.temporal.getState().pause();
 function getSingletonSubscriptionFn(type) {
   return (state) => {
     for (const s of Object.values(state.x)) {
-      if (useUITypes.getState().x[s.uiTypeId].type === type) {
+      if (useUITypes.getState().x[s.uiTypeId]?.type === type) {
         return s.id;
       }
     }
