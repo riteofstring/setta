@@ -51,7 +51,13 @@ class TerminalWebsockets:
         self.PTY_PIDS = {}
         self.loop = asyncio.get_event_loop()
 
-    async def connect(self, websocket, projectConfigId, id):
+    async def connect(self, websocket, projectConfigId, id, initialPos):
+        # initialPos is to account for the edge case where
+        # a terminal is created but the section is not saved to the db.
+        # If the project is reloaded, we want the terminal to be loaded anyway.
+        # To load it in the correct position on the frontend, we need to save
+        # its initial position here.
+
         await websocket.accept()
         self.sockets[id].append(websocket)
         if id not in self.PTY_PIDS:
@@ -61,6 +67,7 @@ class TerminalWebsockets:
                 "start": time.time(),
                 "projectConfigId": projectConfigId,
                 "process": pty_process,
+                "initialPos": initialPos
             }
 
     def disconnect(self, websocket, id):
