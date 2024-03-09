@@ -1,12 +1,10 @@
-import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
-import { FaTerminal } from "react-icons/fa";
-import { IoLogoJavascript } from "react-icons/io";
-import { SiGnubash, SiPython } from "react-icons/si";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
+import CodeLanguageSelection from "./CodeLanguageSelection/CodeLanguageSelection";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
+import { HeaderIcon } from "./HeaderIcon/HeaderIcon";
 import MenuButton from "./MenuButton/MenuButton";
 import { SectionTitle } from "./Title/SectionTitle";
 
@@ -34,12 +32,11 @@ function _SectionHeader({
     <header className="card-title flex flex-row items-center">
       {!isInfo && (
         <>
-          {sectionTypeName === "CODE" && <SiPython className={classes} />}
-          {sectionTypeName === "SCRIPT" && <SiGnubash className={classes} />}
-          {sectionTypeName === "VAR_CONTROL" && (
-            <IoLogoJavascript className={classes} />
-          )}
-          {sectionTypeName === "TERMINAL" && <FaTerminal className={classes} />}
+          <HeaderIcon
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            classes={classes}
+          />
 
           <CardTitle
             sectionId={sectionId}
@@ -48,6 +45,11 @@ function _SectionHeader({
           />
 
           <MenuButton sectionId={sectionId} />
+
+          <CodeLanguageSelection
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+          />
         </>
       )}
       {(isSeriesElement || _isRoot) && (
@@ -65,30 +67,39 @@ function _SectionHeader({
 }
 
 function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
-  const isSearchResult = useProjectSearch((x) =>
-    x.sections.includes(sectionId)
-  );
-
-  const titleProps = {
-    editing: `cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full ${
-      isGlobalVariables
-        ? "uppercase font-black tracking-widest"
-        : "font-semibold"
-    }`,
-    notEditing: `transition-colors font-heading cursor-pointer max-w-full truncate ${
-      isActiveSection
-        ? isGlobalVariables
-          ? "text-green-800 dark:text-green-200"
-          : "text-blue-800 dark:text-blue-400"
-        : "text-runcoder-700 dark:text-runcoder-300"
-    } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`,
-  };
+  // const isSearchResult = useProjectSearch((x) =>
+  //   x.sections.includes(sectionId)
+  // );
 
   return (
-    <div className={`${isSearchResult ? "outline outline-green-400" : ""}`}>
-      <SectionTitle sectionId={sectionId} titleProps={titleProps} />
-    </div>
+    // <div className={`${isSearchResult ? "outline outline-green-400" : ""}`}>
+    <SectionTitle
+      sectionId={sectionId}
+      titleProps={getTitleStyles({ isActiveSection, isGlobalVariables })}
+    />
+    // </div>
   );
 }
 
 export const SectionHeader = React.memo(_SectionHeader);
+
+function getTitleStyles({ isActiveSection, isGlobalVariables }) {
+  const editing =
+    "cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full font-semibold";
+
+  const notEditing = `transition-colors font-heading cursor-pointer max-w-full truncate ${
+    isActiveSection
+      ? isGlobalVariables
+        ? "text-green-800 dark:text-green-200"
+        : "text-blue-800 dark:text-blue-400"
+      : "text-runcoder-700 dark:text-runcoder-300"
+  } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`;
+
+  if (isGlobalVariables) {
+    return { fixed: notEditing };
+  }
+
+  const fixed = "select-none font-thin italic text-runcoder-400";
+
+  return { editing, notEditing, fixed };
+}

@@ -33,12 +33,16 @@
             "y": 7.86005060936999,
             "zIndex": 2
           }
+        },
+        "panes": {
+          "vis": { "overview": true, "uiEditor": false },
+          "width": { "overview": 300, "uiEditor": 500 }
         }
       },
       "sections": {
         "2a7156ce-56f0-4f44-a415-190464979f61": {
           "id": "2a7156ce-56f0-4f44-a415-190464979f61",
-          "name": "graceful_silver",
+          "name": "Global Variables Sweep",
           "evColId": "3dbb4893-bd44-4e67-a6c3-1148d7205d42",
           "paramSweepId": null,
           "paramSweepSectionId": null,
@@ -46,11 +50,10 @@
           "uiTypeColId": "4d17b28e-51ff-4617-8564-eb4494cd7b6f",
           "social": null,
           "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "",
+          "versionsHeight": 100,
+          "versionsVisible": 0,
           "code": "",
-          "varControl": "",
+          "codeLanguage": "",
           "isFrozen": 0,
           "nonPresetUITypeIds": ["d5b6998c-c047-4ab9-8380-d8d4347173ee"],
           "evColIds": ["3dbb4893-bd44-4e67-a6c3-1148d7205d42"],
@@ -75,11 +78,10 @@
           "uiTypeColId": "57361935-d007-420a-aab8-cca04ff45bb3",
           "social": null,
           "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "",
+          "versionsHeight": 100,
+          "versionsVisible": 0,
           "code": "import argparse\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Example script using argparse.\")\n\n    parser.add_argument(\"--name\", type=str, help=\"Your name\", required=True)\n    parser.add_argument(\"--age\", type=int, help=\"Your age\", required=True)\n    parser.add_argument(\"--verbose\", action=\"store_true\", help=\"Enable verbose output\")\n    parser.add_argument(\n        \"--number\", type=int, default=0, help=\"An example integer flag\", required=True\n    )\n\n    args = parser.parse_args()\n\n    if args.verbose:\n        print(\"Verbose mode is enabled.\")\n    print(f\"Hello, {args.name}! You are {args.age} years old.\")\n    print(f\"The number provided is {args.number}.\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
-          "varControl": "",
+          "codeLanguage": "python",
           "isFrozen": 0,
           "nonPresetUITypeIds": ["067bc370-2934-40d7-ba76-f456d74923f2"],
           "evColIds": ["3ec298ce-5d49-42f8-8700-3e2efb26855b"],
@@ -104,11 +106,10 @@
           "uiTypeColId": "73a2bf21-5e2d-45bb-8c89-25d2f5518d00",
           "social": null,
           "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "printf \"***START***\\n\\n\"\n\npython {{ RUNCODER_PYTHON_FILE }} {{ RUNCODER_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
-          "code": "",
-          "varControl": "",
+          "versionsHeight": 100,
+          "versionsVisible": 0,
+          "code": "printf \"***START***\\n\\n\"\n\npython {{ RUNCODER_PYTHON_FILE }} {{ RUNCODER_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
+          "codeLanguage": "bash",
           "isFrozen": 0,
           "nonPresetUITypeIds": ["1748d396-9558-466a-9e3b-05b2e7f4b63b"],
           "evColIds": ["40fd1a3c-6fca-4b87-b427-5bee353cef09"],
@@ -133,15 +134,18 @@
           "uiTypeColId": "fdc39bbf-baba-46e8-9a38-c578daa67290",
           "social": null,
           "description": "",
-          "descriptionHeight": 100,
-          "descriptionVisible": 0,
-          "script": "",
+          "versionsHeight": 100,
+          "versionsVisible": 0,
           "code": "",
-          "varControl": "",
+          "codeLanguage": "",
+          "codeLanguage": "",
           "isFrozen": 0,
           "nonPresetUITypeIds": ["d3715781-7b8b-446d-a6ad-029db459ee40"],
           "evColIds": ["dc1879dd-4591-46c0-8fc6-f733c6b177ca"],
-          "paramSweepIds": ["e30db601-cda1-4b31-bafe-a8dd047af670"],
+          "paramSweepIds": [
+            "e30db601-cda1-4b31-bafe-a8dd047af670",
+            "4fe62be1-f939-4d84-9c3f-f20412754e0c"
+          ],
           "parentId": null,
           "chainedFrom": null,
           "selectedItem": null,
@@ -191,7 +195,7 @@
         "1748d396-9558-466a-9e3b-05b2e7f4b63b": {
           "id": "1748d396-9558-466a-9e3b-05b2e7f4b63b",
           "name": "Script",
-          "type": "SCRIPT",
+          "type": "CODE",
           "presetType": null,
           "config": {
             "subType": null,
@@ -252,6 +256,15 @@
             {
               "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
               "values": ["Kevin", "Jeff"]
+            }
+          ]
+        },
+        "4fe62be1-f939-4d84-9c3f-f20412754e0c": {
+          "name": "blueberries",
+          "sweep": [
+            {
+              "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
+              "values": ["Aaron", "Joseph"]
             }
           ]
         }

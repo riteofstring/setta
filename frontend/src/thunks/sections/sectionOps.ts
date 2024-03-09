@@ -1,5 +1,5 @@
 import { useActiveSection } from "models/activeSection";
-import { useProjectConfig } from "models/info/projectConfig";
+import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
@@ -7,7 +7,6 @@ import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { DECK, isRoot, rootTypeToChildSubType } from "z_utils/constants";
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
@@ -16,6 +15,7 @@ import { setAllChildren } from "./children";
 import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
+import { dbDeleteTerminals } from "dbRequests/terminals";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];
@@ -25,7 +25,8 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
 
   useActiveSection.getState().removeIds(idsToDelete);
   useSectionInfos.getState().removeSectionInfos(idsToDelete);
-  useProjectConfig.getState().deleteChildren(idsToDelete);
+  deleteNodes(idsToDelete);
+  dbDeleteTerminals(idsToDelete) // delete any terminals associated with the sections
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }
@@ -35,9 +36,13 @@ function getIdsToDelete(sectionId) {
   const idsToDelete = [sectionId];
   let idx = 0;
   while (idx < idsToDelete.length) {
-    const idxChildren = sectionInfosState.x[idsToDelete[idx]].children;
+    const { children: idxChildren, paramSweepSectionId } =
+      sectionInfosState.x[idsToDelete[idx]];
     if (idxChildren) {
       idsToDelete.push(...idxChildren);
+    }
+    if (paramSweepSectionId) {
+      idsToDelete.push(paramSweepSectionId);
     }
     idx += 1;
   }
@@ -102,17 +107,16 @@ function setChildrenAndParent({
   newIndex,
   position,
 }) {
-  const p = useProjectConfig.getState();
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
-    p.deleteChildren([sectionId]);
+    deleteNodes([sectionId]);
   } else {
     setAllChildren(oldParentId, (x) => x.filter((y) => y !== sectionId));
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    p.addChildren({ [sectionId]: newSectionPosition(position) });
+    addNodes([{ id: sectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
     setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));

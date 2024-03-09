@@ -13,13 +13,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
-import { ResizeIcon } from "./ResizeIcon";
-
-const SIZE_MODE = {
-  any: "any",
-  auto_only: "auto_only",
-  manual_only: "manual_only",
-};
+import { getNewSize, SIZE_MODE } from "./utils";
 
 export function CustomResizable({ sectionId, children, inputClasses, as }) {
   const minHeight = useMinSectionHeight(sectionId);
@@ -52,13 +46,23 @@ function CustomResizableCore({
   const size = useSectionInfos((x) => x.x[sectionId].size);
   const aspectRatio = useAspectRatio(sectionId);
 
+  function onResizeStart() {
+    useSectionInfos
+      .getState()
+      .setResizeEvent({ sectionId, resizeEvent: "start" });
+  }
+
   function onResizeStop(...props) {
     const { width, height } = getNewSize({
       props,
       minWidth,
+      minHeight: "auto",
       sizeMode,
     });
     setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
+    useSectionInfos
+      .getState()
+      .setResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
   const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
@@ -66,11 +70,13 @@ function CustomResizableCore({
 
   return (
     <ResizableWithScale
+      id={sectionId}
       as={as}
       size={size}
       minHeight={minHeight}
       minWidth={minWidth}
       maxWidth={maxWidth}
+      onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
@@ -82,60 +88,11 @@ function CustomResizableCore({
         bottomRight: heightResizable && widthResizable,
       }}
       className={inputClasses}
-      handleComponent={{ bottomRight: <ResizeIcon /> }}
+      // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}
     </ResizableWithScale>
   );
-}
-
-function parseCurrPx(x) {
-  return x === "auto" ? x : parseInt(x);
-}
-
-function maybeAutoPx(autoDim, pxDim, sizeMode) {
-  return sizeMode !== SIZE_MODE.manual_only ? autoDim : pxDim;
-}
-
-function getDoubleClickSize({ direction, ref, minWidth, sizeMode }) {
-  // width returns minWidth instead of auto because
-  // it seems like once width is resized, auto does nothing
-
-  const pxWidth = parseCurrPx(ref.style.width);
-  const pxHeight = parseCurrPx(ref.style.height);
-
-  if (direction === "bottomRight") {
-    return [
-      maybeAutoPx(minWidth, pxWidth, sizeMode.width),
-      maybeAutoPx("auto", pxHeight, sizeMode.height),
-    ];
-  }
-  if (direction === "right" && sizeMode.width) {
-    return [maybeAutoPx(minWidth, pxWidth, sizeMode.width), pxHeight];
-  }
-  if (direction === "bottom" && sizeMode.height) {
-    return [pxWidth, maybeAutoPx("auto", pxHeight, sizeMode.height)];
-  }
-  return [pxWidth, pxHeight];
-}
-
-function getNewSize({ props, minWidth, sizeMode }) {
-  const [e, direction, ref, d] = props;
-  let width;
-  let height;
-  // detect double click (but only for non-output sections)
-  if (d.width === 0 && d.height === 0 && e.detail === 2) {
-    [width, height] = getDoubleClickSize({
-      direction,
-      ref,
-      minWidth,
-      sizeMode,
-    });
-  } else {
-    width = parseCurrPx(ref.style.width);
-    height = parseCurrPx(ref.style.height);
-  }
-  return { width, height };
 }
 
 function useSizeMode(sectionId) {

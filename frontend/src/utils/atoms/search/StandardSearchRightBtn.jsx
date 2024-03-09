@@ -17,5 +17,5 @@ export const StandardSearchRightBtn = React.forwardRef(
         ref={ref}
       />
     );
-  }
+  },
 );

@@ -9,7 +9,6 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
-import { getSectionType } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import {
   ComboboxItems,
@@ -17,7 +16,7 @@ import {
 } from "utils/Combobox/ComboboxParts";
 import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
 import { flattenedItems } from "utils/Combobox/utils";
-import { GLOBAL_VARIABLES } from "z_utils/constants";
+import { SINGLETON_SECTIONS } from "utils/constants";
 
 export function TextInputConfig() {
   return null;
@@ -34,7 +33,7 @@ export function TextInput({
 }) {
   const [results, send] = useTextFieldCompletionWebsocketRoom(
     sectionId,
-    paramInfoId
+    paramInfoId,
   );
 
   const [isFocused, setIsFocused] = useState(false);
@@ -163,13 +162,13 @@ function StyledText({ value }) {
   const names = [];
   const colorMap = {};
   for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (getSectionType(s.id).type === GLOBAL_VARIABLES) {
+    if (SINGLETON_SECTIONS.globalVariables === s.id) {
       names.push(
         ...getParamInfos(s.id).map((x) => {
           const curr = escapeRegExp(x.name);
           colorMap[curr] = "green";
           return curr;
-        })
+        }),
       );
     } else {
       const curr = escapeRegExp(s.name);
@@ -199,12 +198,10 @@ function StyledText({ value }) {
 function getOnTextInputVariableClick(color, variable) {
   if (color) {
     return (e) => {
-      const variableType = color === "green" ? "global" : "section";
-      const section = _.find(useSectionInfos.getState().x, (s) =>
-        variableType === "global"
-          ? getSectionType(s.id).type === GLOBAL_VARIABLES
-          : s.name === variable
-      );
+      const section =
+        color === "green"
+          ? useSectionInfos.getState().x[SINGLETON_SECTIONS.globalVariables]
+          : _.find(useSectionInfos.getState().x, (s) => s.name === variable);
       const id = section?.id;
       if (id) {
         e.stopPropagation(); //prevent SectionContainerCore onClick from triggering

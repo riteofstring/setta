@@ -15,13 +15,13 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isSearchResult = useProjectSearch((x) =>
-    x.codeInfo.includes(paramInfo.id)
+    x.codeInfo.includes(paramInfo.id),
   );
   const border = maybeErrorMessage
     ? "border-red-600 border-2"
     : isSearchResult
-    ? "outline outline-green-400"
-    : "";
+      ? "outline outline-green-400"
+      : "";
   const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
   const paramIsSelected = paramInfo.isSelected;
 
@@ -56,7 +56,7 @@ export const ParamContainer = React.memo(
   (p, n) =>
     p.sectionId === n.sectionId &&
     _.isEqual(p.paramInfo, n.paramInfo) &&
-    _.isEqual(p.uiType, n.uiType)
+    _.isEqual(p.uiType, n.uiType),
 );
 
 function onClick(e, sectionId, paramInfoId) {

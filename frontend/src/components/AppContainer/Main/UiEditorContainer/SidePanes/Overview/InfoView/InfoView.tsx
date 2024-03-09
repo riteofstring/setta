@@ -31,14 +31,14 @@ const AccordionItem = React.forwardRef(
     <Accordion.Item
       className={classNames(
         "focus-within:relative focus-within:z-10",
-        className
+        className,
       )}
       {...props}
       ref={forwardedRef}
     >
       {children}
     </Accordion.Item>
-  )
+  ),
 );
 
 const AccordionTrigger = React.forwardRef(
@@ -47,7 +47,7 @@ const AccordionTrigger = React.forwardRef(
       <Accordion.Trigger
         className={classNames(
           "group flex h-11 flex-1 cursor-default items-center justify-between overflow-hidden rounded-md bg-white px-5 font-heading text-xs font-bold uppercase leading-none tracking-widest text-runcoder-400 shadow-sm outline-none transition-all hover:cursor-pointer hover:bg-runcoder-500 hover:text-white dark:bg-runcoder-800",
-          className
+          className,
         )}
         {...props}
         ref={forwardedRef}
@@ -59,7 +59,7 @@ const AccordionTrigger = React.forwardRef(
         />
       </Accordion.Trigger>
     </Accordion.Header>
-  )
+  ),
 );
 
 const AccordionContent = React.forwardRef(
@@ -67,7 +67,7 @@ const AccordionContent = React.forwardRef(
     <Accordion.Content
       className={classNames(
         "h-36 overflow-hidden rounded-b-md bg-runcoder-100 text-sm  data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-900",
-        className
+        className,
       )}
       {...props}
       ref={forwardedRef}
@@ -76,5 +76,5 @@ const AccordionContent = React.forwardRef(
         {children}
       </aside>
     </Accordion.Content>
-  )
+  ),
 );

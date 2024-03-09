@@ -1,15 +1,23 @@
+import _ from "lodash";
+import { useActiveSection } from "models/activeSection";
+import { useContextMenus } from "models/contextMenus";
 import { createDeck } from "thunks/createSectionOrDeck";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { Item } from "utils/atoms/dropdown/item";
+import { useReactFlow } from "xyflow/core/store";
 import { ContextMenuCore } from "./ContextMenuCore";
 
-export function SelectionContextMenu({
-  x,
-  y,
-  closeContextMenu,
-  nodeIds,
-  ...props
-}) {
+export function SelectionContextMenu() {
+  const { isOpen, x, y, nodeIds } = useContextMenus(
+    (x) => x.selection,
+    _.isEqual,
+  );
+  const closeContextMenu = () => {
+    useContextMenus.getState().closeAll();
+    useActiveSection.getState().clear();
+    useReactFlow.setState({ nodesSelectionDims: null });
+  };
+
   const onClickProps = {
     nodeIds,
     x,
@@ -24,7 +32,12 @@ export function SelectionContextMenu({
   }
 
   return (
-    <ContextMenuCore x={x} y={y} closeContextMenu={closeContextMenu} {...props}>
+    <ContextMenuCore
+      x={x}
+      y={y}
+      isOpen={isOpen}
+      closeContextMenu={closeContextMenu}
+    >
       <Item onClick={() => createDeck(onClickProps)}>Create Group</Item>
       <Item onClick={onClickDelete}>Delete</Item>
     </ContextMenuCore>

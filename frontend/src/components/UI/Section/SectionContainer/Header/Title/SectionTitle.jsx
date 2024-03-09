@@ -18,15 +18,11 @@ export function SectionTitle({ sectionId, titleProps }) {
       />
     );
   }
-  return <FixedTitle sectionName={sectionName} />;
+  return <FixedTitle sectionName={sectionName} className={titleProps.fixed} />;
 }
 
-function FixedTitle({ sectionName }) {
-  return (
-    <h2 className="select-none font-thin italic text-runcoder-400">
-      {sectionName}
-    </h2>
-  );
+function FixedTitle({ sectionName, className }) {
+  return <h2 className={className}>{sectionName}</h2>;
 }
 
 function EditableTitle({ sectionId, sectionName, titleProps }) {
@@ -42,7 +38,7 @@ function EditableTitle({ sectionId, sectionName, titleProps }) {
   const [inputValue, setInputValue, onBlur, onCancel] = useEditableOnSubmit(
     sectionName,
     onTitleInputChange,
-    condition
+    condition,
   );
 
   return (

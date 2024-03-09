@@ -13,7 +13,7 @@ export function WebsocketConnections() {
 
 function ConnectionList() {
   const connections = useWebsocketConnectionList((x) =>
-    x.connections.filter((c) => c.isCLI)
+    x.connections.filter((c) => c.isCLI),
   );
 
   return connections.length > 0 ? (

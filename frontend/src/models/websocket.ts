@@ -7,7 +7,7 @@ export const useWebsocketRooms = createProjectState(
     createRoom: (id) => set(() => ({ [id]: "" })),
     deleteRoom: (id) => set((state) => _.omit(state, [id]), true),
     setMessage: (id, message) => set(() => ({ [id]: message })),
-  }))
+  })),
 );
 
 export const useWebsocketConnectionList = create((set) => ({

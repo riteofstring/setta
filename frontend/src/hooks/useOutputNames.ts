@@ -5,7 +5,7 @@ import { useOutputs } from "models/info/outputs";
 export function useAllOutputNames() {
   const outputNames = useOutputs(
     (x) => _.mapValues(x.x, (output) => output.name),
-    _.isEqual
+    _.isEqual,
   );
 
   const groups = useOutputGroups(
@@ -15,7 +15,7 @@ export function useAllOutputNames() {
         name: group.name,
         children: _.map(group.children, (c) => outputNames[c]),
       })),
-    _.isEqual
+    _.isEqual,
   );
 
   return groups;
@@ -28,9 +28,9 @@ export function useOutputValues(groupId) {
     (x) =>
       _.keyBy(
         children.map((c) => x.x[c]),
-        "id"
+        "id",
       ),
-    _.isEqual
+    _.isEqual,
   );
 
   if (!groupId) {

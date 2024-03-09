@@ -1,4 +1,4 @@
-import { useProjectConfig } from "models/info/projectConfig";
+import { useNodeInternals } from "models/info/nodeInternals";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
@@ -8,7 +8,7 @@ export function ContainerSwitch({
   dragListeners,
   children,
 }) {
-  const isTopLevel = useProjectConfig((x) => sectionId in x.children);
+  const isTopLevel = useNodeInternals((x) => x.x.has(sectionId));
 
   return isTopLevel ? (
     <TopLevelContainer isDeck={isDeck} sectionId={sectionId}>

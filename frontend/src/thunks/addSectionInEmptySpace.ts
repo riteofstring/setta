@@ -1,28 +1,30 @@
 import { usePanes } from "models/panes";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
-import { OVERVIEW, REACT_FLOW_STORE } from "utils/constants";
-import { newSectionPosition } from "z_utils/objs/sectionPosition";
+import { OVERVIEW } from "utils/constants";
+import { useReactFlow } from "xyflow/core/store";
 
 export function addSectionInEmptySpace({
   type,
   inputSectionProps = {},
+  positionOffset = { x: 0, y: 0 },
 }: {
   type: string;
   inputSectionProps: any;
 }) {
-  const store = REACT_FLOW_STORE.store;
   const {
     transform: [_x, _y, zoom],
-  } = store.getState();
+  } = useReactFlow.getState();
   const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
 
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
 
+  const position = { x: x + positionOffset.x, y: y + positionOffset.y };
+
   return addSectionAtPosition({
     type,
-    topLevelPosition: newSectionPosition({ x, y, zIndex: 0 }),
     inputSectionProps,
+    position,
     incrementVersion: true,
   });
 }

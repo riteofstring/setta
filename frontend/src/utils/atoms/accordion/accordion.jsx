@@ -45,13 +45,13 @@ const AccordionItem = React.forwardRef(
     <Accordion.Item className={itemStyles} {...props} ref={forwardedRef}>
       {children}
     </Accordion.Item>
-  )
+  ),
 );
 
 const AccordionTrigger = React.forwardRef(
   (
     { children, headerStyles, trigger, triggerStyles, ...props },
-    forwardedRef
+    forwardedRef,
   ) => (
     <Accordion.Header className={headerStyles}>
       <Accordion.Trigger
@@ -67,7 +67,7 @@ const AccordionTrigger = React.forwardRef(
         />
       </Accordion.Trigger>
     </Accordion.Header>
-  )
+  ),
 );
 
 const AccordionContent = React.forwardRef(
@@ -75,5 +75,5 @@ const AccordionContent = React.forwardRef(
     <Accordion.Content className={contentStyles} {...props} ref={forwardedRef}>
       <div className="overflow-y-auto px-5 py-4 ">{children}</div>
     </Accordion.Content>
-  )
+  ),
 );

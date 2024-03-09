@@ -12,3 +12,7 @@ def needs_yaml(script):
 
 def needs_python_argparse(script):
     return double_braces("RUNCODER_PYTHON_ARGPARSE") in script
+
+
+def needs_generated_python(script):
+    return double_braces("RUNCODER_GENERATED_CODE") in script

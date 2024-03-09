@@ -12,6 +12,10 @@ export const useRunGroups = createProjectState(
     immer((set) => ({
       ...initialState,
       resetAndSetAll: (payload) => set({ x: payload }),
+      newRunGroup: ({ id, name }) =>
+        set((state) => {
+          state.x[id] = { name, selected: 0, sections: {} };
+        }),
       toggleSelected: (id) =>
         set((state) => {
           state.x[id].selected = !state.x[id].selected;
@@ -40,8 +44,8 @@ export const useRunGroups = createProjectState(
             }
           }
         }),
-    }))
-  )
+    })),
+  ),
 );
 
 useRunGroups.temporal.getState().pause();

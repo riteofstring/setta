@@ -16,14 +16,14 @@ To test pip package installation:
 Format and lint python:
 
 ```
-./format_code.sh && ./run_linter.sh
+./format_code.sh
 ```
 
 
 Start frontend and backend in dev mode:
 ```
 cd frontend
-npm run start
+pnpm start
 ```
 
 There is reload mode where the backend reloads on file changes, but it's broken.

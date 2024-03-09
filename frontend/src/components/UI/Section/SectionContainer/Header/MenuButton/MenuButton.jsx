@@ -1,10 +1,14 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useGetSectionType } from "hooks/useSectionType";
-import { FiSettings } from "react-icons/fi";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { PARAM_SWEEP } from "z_utils/constants";
-import { CreateNewEnteredValuesButton } from "./CreateNewEnteredValuesButton/CreateNewEnteredValuesButton";
+import {
+  CODE,
+  GLOBAL_VARIABLES,
+  PARAM_SWEEP,
+  VAR_CONTROL,
+} from "z_utils/constants";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";
+import { CreateNewVersionButton } from "./CreateNewVersionButton/CreateNewVersionButton";
 import { DeriveButton } from "./DeriveButton/DeriveButton";
 import { FreezeButton } from "./FreezeButton/FreezeButton";
 import { MultirunButton } from "./MultiRunButton/MultiRunButton";
@@ -20,18 +24,26 @@ function MenuButton({ sectionId }) {
         padding="p-1"
         rounded="rounded-full"
         triggerStyle="ml-1"
-        trigger={
-          <FiSettings className="bg-transparent text-runcoder-300 transition-colors duration-150 hover:text-runcoder-500 focus-visible:ring-2 dark:text-runcoder-400/50 dark:hover:text-runcoder-300" />
-        }
+        trigger={<i className="gg-shape-circle" />}
       >
-        <SaveCustomArgumentsButton sectionId={sectionId} />
+        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
+          <SaveCustomArgumentsButton sectionId={sectionId} />
+        )}
+
         {sectionType === PARAM_SWEEP ? (
           <CreateNewParamSweepButton sectionId={sectionId} />
         ) : (
-          <CreateNewEnteredValuesButton sectionId={sectionId} />
+          <CreateNewVersionButton sectionId={sectionId} />
         )}
-        <DeriveButton sectionId={sectionId} />
-        <MultirunButton sectionId={sectionId} />
+
+        {![PARAM_SWEEP, GLOBAL_VARIABLES, CODE, VAR_CONTROL].includes(
+          sectionType,
+        ) && <DeriveButton sectionId={sectionId} />}
+
+        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
+          <MultirunButton sectionId={sectionId} />
+        )}
+
         <FreezeButton sectionId={sectionId} />
       </MenuDropdown>
     </Menubar.Root>

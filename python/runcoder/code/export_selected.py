@@ -10,12 +10,11 @@ from ..utils.constants import (
     INFO,
     LIST_ROOT,
     PARAM_SWEEP,
-    SCRIPT,
     SECTION,
     TERMINAL,
     VAR_CONTROL,
 )
-from .find_placeholders import double_braces
+from .find_placeholders import double_braces, needs_generated_python
 
 
 def get_section_config(p, id):
@@ -98,16 +97,13 @@ def export_selected(p):
     return e.output
 
 
-def get_script(p):
-    for id, s in p["sections"].items():
-        if get_section_type(p, id) == SCRIPT:
-            return s["script"]
-    return f"python {double_braces('RUNCODER_PYTHON_FILE')}"
-
-
 def get_code(p):
     for id, s in p["sections"].items():
-        if get_section_type(p, id) == CODE:
+        if (
+            get_section_type(p, id) == CODE
+            and s["codeLanguage"] == "python"
+            and needs_generated_python(s["code"])
+        ):
             return s["code"]
     return double_braces("RUNCODER_GENERATED_CODE")
 
@@ -134,7 +130,6 @@ class Exporter:
                 self.export_params(id, generate_var_name=False)
             if section_type in [
                 GLOBAL_VARIABLES,
-                SCRIPT,
                 CODE,
                 VAR_CONTROL,
                 INFO,

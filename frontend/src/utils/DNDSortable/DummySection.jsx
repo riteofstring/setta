@@ -3,11 +3,11 @@ import { useDndState } from "models/info/dndState";
 import { useTrueSectionSize } from "models/sectionRefs";
 import React from "react";
 import { createPortal } from "react-dom";
-import { useStore } from "reactflow";
+import { useReactFlow } from "xyflow/core/store";
 
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
   const { width, height } = useTrueSectionSize(sectionId);
-  const zoom = useStore((x) => x.transform[2]);
+  const zoom = useReactFlow((x) => x.transform[2]);
   return (
     <div
       style={{ width: `${width * zoom}px`, height: `${height * zoom}px` }}
@@ -28,7 +28,7 @@ export const DummyDragOverlay = React.forwardRef((props, ref) => {
       <DragOverlay dropAnimation={null}>
         <DummySection sectionId={activeId} ref={ref} />
       </DragOverlay>,
-      document.body
+      document.body,
     )
   );
 });

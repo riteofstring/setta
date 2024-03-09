@@ -1,3 +1,5 @@
+import _ from "lodash";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { DEFAULT_SECTION_UI_TYPE_ID } from "../constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";
@@ -7,7 +9,9 @@ export function newSectionInfo({
   id,
   name,
   children = [],
-  size,
+  size = { width: "auto", height: "auto" },
+  position,
+  zIndex = 0,
   parentId = null,
   chainedFrom = null,
   uiTypeId = DEFAULT_SECTION_UI_TYPE_ID,
@@ -18,21 +22,19 @@ export function newSectionInfo({
   social = null,
   outputGroup = null,
   description = "",
-  descriptionHeight = 100,
-  descriptionVisible = false,
+  versionsHeight = "auto",
+  versionsVisible = false,
   evColIds = [],
   paramSweepIds = [],
   paramSweepSectionId = null,
   nonPresetUITypeIds = [],
-  script = "",
   code = "",
-  varControl = "",
-  existingVarNames,
+  codeLanguage = "",
   isFrozen = false,
 }: Partial<SectionType> & {
   size: SizeType;
-  existingVarNames: string[];
 }): SectionType {
+  const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _evColId = maybeNewId(evColId);
   const _evColIds = [...evColIds, _evColId];
 
@@ -41,6 +43,8 @@ export function newSectionInfo({
     name: name ? name : createVarName(existingVarNames),
     children,
     size,
+    position,
+    zIndex,
     parentId,
     chainedFrom,
     uiTypeId: maybeNewId(uiTypeId),
@@ -51,11 +55,10 @@ export function newSectionInfo({
     social,
     outputGroup,
     description,
-    descriptionHeight,
-    descriptionVisible,
-    script,
+    versionsHeight,
+    versionsVisible,
     code,
-    varControl,
+    codeLanguage,
     evColIds: _evColIds,
     paramSweepIds,
     paramSweepSectionId,

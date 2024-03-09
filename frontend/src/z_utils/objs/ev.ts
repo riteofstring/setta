@@ -31,7 +31,7 @@ function convertValueForSlider({ uiType, currValue }) {
   const x = _.toNumber(currValue);
   if (_.isFinite(x)) {
     return _.toString(
-      Math.min(Math.max(x, uiType.config.min), uiType.config.max)
+      Math.min(Math.max(x, uiType.config.min), uiType.config.max),
     );
   }
   return uiType.config.min;

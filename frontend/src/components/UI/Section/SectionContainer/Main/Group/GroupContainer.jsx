@@ -3,20 +3,23 @@ import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef, useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
-  const { noWheel, ref, setDidUpdate } = useNoWheel(sectionId);
+  const { overflow, ref, setDidUpdate } = useOverflow(sectionId);
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
   // border-b border-solid border-runcoder-100
   return (
-    <ScrollingArea
-      styles={`card-args-list py-1 ${noWheel} ${
-        hasVersions ? "last:[&>div]:mb-12" : ""
-      }`}
+    // <ScrollingArea
+    //   styles={`card-args-list py-1 ${noWheel} ${
+    //     hasVersions ? "last:[&>div]:mb-12" : ""
+    //   }`}
+    //   ref={ref}
+    // >
+    <div
+      className={`card-args-list py-1 ${overflow ? "nowheel overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""}`}
       ref={ref}
     >
       <GetParams
@@ -24,7 +27,8 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
         objInfoId={objInfoId}
         setDidUpdate={setDidUpdate}
       />
-    </ScrollingArea>
+    </div>
+    // </ScrollingArea>
   );
 }
 
@@ -46,18 +50,34 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function useNoWheel(sectionId) {
+function useOverflow(sectionId) {
   const ref = useRef();
-  const height = useSectionInfos((x) => x.x[sectionId].size.height);
+  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
   const [didUpdate, setDidUpdate] = useState(false);
-  const [noWheel, setNoWheel] = useState("");
+  const [overflow, setOverflow] = useState(false);
 
+  // Add overflow whenever resizing.
+  // Add the end of resizing, compare scrollHeight to clientHeight and remove overflow if scrollHeight <= clientHeight
   useEffect(() => {
-    setDidUpdate(false);
-    setNoWheel(
-      ref.current.scrollHeight > ref.current.clientHeight ? "nowheel" : ""
-    );
-  }, [didUpdate, height]);
+    if (resizeEvent === "start") {
+      setOverflow(true);
+    } else if (resizeEvent === "end") {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [resizeEvent]);
 
-  return { noWheel, ref, setDidUpdate };
+  // If params update (didUpdate goes from false->true), overflow may be needed. So set overflow to true
+  // Then set didUpdate to false.
+  // Then detect didUpdate going from true->false and check if overflow is actually needed
+  // TODO: find better way to do this?
+  useEffect(() => {
+    if (didUpdate) {
+      setOverflow(true);
+      setDidUpdate(false);
+    } else {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [didUpdate]);
+
+  return { overflow, ref, setDidUpdate };
 }
