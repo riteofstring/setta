@@ -42,11 +42,11 @@ function ShortcutSetting({ setting }) {
 
       event.preventDefault();
       const keys = [];
-      if (event.ctrlKey) keys.push("Ctrl");
-      if (event.shiftKey) keys.push("Shift");
-      if (event.altKey) keys.push("Alt");
+      if (event.ctrlKey) keys.push("ctrl");
+      if (event.shiftKey) keys.push("shift");
+      if (event.altKey) keys.push("alt");
       if (!["Control", "Shift", "Alt"].includes(event.key)) {
-        keys.push(event.key.toUpperCase());
+        keys.push(event.key.toLowerCase());
       }
 
       const shortcutString = keys.join("+");
