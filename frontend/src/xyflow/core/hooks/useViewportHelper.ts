@@ -75,7 +75,7 @@ export function fitBounds(bounds, options) {
   d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
 }
 
-export function screenToFlowPosition(position: XYPosition) {
+export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
   const { transform, snapToGrid, snapGrid, domNode } = useReactFlow.getState();
 
   if (!domNode) {
@@ -93,6 +93,7 @@ export function screenToFlowPosition(position: XYPosition) {
     transform,
     snapToGrid,
     snapGrid,
+    ignoreGrid,
   );
 }
 

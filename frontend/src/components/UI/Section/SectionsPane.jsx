@@ -17,7 +17,7 @@ function _SectionsPane() {
       maxZoom={10}
       style={reactFlowStyle}
       defaultViewport={REACT_FLOW_STORE.initialViewport}
-      // snapGrid={[32, 32]}
+      // snapGrid={[200,200]}
       // snapToGrid={true}
       nodeDragThreshold={0}
       className="rcbg-light dark:rcbg-dark"

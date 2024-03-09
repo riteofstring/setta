@@ -53,12 +53,13 @@ function useDrag({
     if (nodeRef?.current) {
       const selection = select(nodeRef.current);
 
-      const updateNodes = ({ x, y }: XYPosition) => {
+      const updateNodes = ({ x, y }: XYPosition, dragEnd = false) => {
         const {
           nodesSelectionDims,
           snapGrid,
           snapToGrid,
           shiftNodesSelection,
+          setNodesSelection,
         } = useReactFlow.getState();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
@@ -69,7 +70,7 @@ function useDrag({
         dragItems.current = dragItems.current.map((n) => {
           const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
 
-          if (snapToGrid) {
+          if (dragEnd && snapToGrid) {
             nextPosition.x =
               snapGrid[0] * Math.round(nextPosition.x / snapGrid[0]);
             nextPosition.y =
@@ -93,7 +94,11 @@ function useDrag({
 
         updateNodePositions(dragItems.current, true, true);
         if (nodesSelectionDims) {
-          shiftNodesSelection(delta);
+          if (dragEnd && snapToGrid) {
+            setNodesSelection(dragItems.current.length);
+          } else {
+            shiftNodesSelection(delta);
+          }
         }
         setDragging(true);
       };
@@ -212,6 +217,10 @@ function useDrag({
           .on("end", (event: UseDragEvent) => {
             if (!dragStarted.current) {
               return;
+            }
+
+            if (useReactFlow.getState().snapToGrid) {
+              updateNodes(lastPos.current, true);
             }
 
             setDragging(false);

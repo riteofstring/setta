@@ -8,11 +8,11 @@ import initialState from "./initialState";
 export const useReactFlow = createWithEqualityFn<ReactFlowState>(
   (set, get) => ({
     ...initialState,
-    setNodesSelection: (selectedNodesCount) => {
+    setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
       if (selectedNodesCount > 0) {
         const activeSectionIds = useActiveSection.getState().ids;
         const sections = activeSectionIds.map((sectionId) => {
-          const { x, y, width, height } = getSectionRect(sectionId);
+          const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
           return { position: { x, y }, width, height };
         });
         set({ nodesSelectionDims: getNodesBounds(sections) });
