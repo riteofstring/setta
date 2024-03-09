@@ -4,6 +4,7 @@ import json
 import platform
 import time
 from asyncio import CancelledError
+from collections import defaultdict
 
 import psutil
 from fastapi import WebSocketDisconnect
@@ -37,9 +38,6 @@ else:
     TERMINAL_NAME = ["zsh"]
 
 
-PTY_PIDS = {}
-
-
 def is_command_running_in_pty(pid):
     try:
         return has_child_processes(pid)
@@ -47,86 +45,91 @@ def is_command_running_in_pty(pid):
         return False
 
 
-def get_free_terminal(projectConfigId):
-    for k, v in PTY_PIDS.copy().items():
-        if (
-            v["projectConfigId"] == projectConfigId
-            and not is_command_running_in_pty(v["pid"])
-            and time.time() - v["start"] > 1
-        ):
-            return k
-    return None
+class TerminalWebsockets:
+    def __init__(self):
+        self.sockets = defaultdict(list)
+        self.PTY_PIDS = {}
+        self.loop = asyncio.get_event_loop()
 
+    async def connect(self, websocket, projectConfigId, id):
+        await websocket.accept()
+        self.sockets[id].append(websocket)
+        if id not in self.PTY_PIDS:
+            pty_process = PtyProcess.spawn(TERMINAL_NAME)
+            self.PTY_PIDS[id] = {
+                "pid": pty_process.pid,
+                "start": time.time(),
+                "projectConfigId": projectConfigId,
+                "process": pty_process,
+            }
 
-def set_terminal_start_time(id):
-    PTY_PIDS[id]["start"] = time.time()
+    def disconnect(self, websocket, id):
+        self.sockets[id].remove(websocket)
+        if not self.sockets[id]:
+            del self.sockets[id]
 
+    def delete_terminals(self, ids):
+        for id in ids:
+            if id in self.PTY_PIDS:
+                self.PTY_PIDS[id]["process"].terminate()
+                del self.PTY_PIDS[id]
 
-async def start_terminal(terminal_websockets, projectConfigId, id):
-    if id in PTY_PIDS:
-        return True
-
-    # Main event loop
-    loop = asyncio.get_event_loop()
-
-    # Start the WinPTY terminal
-    pty_process = PtyProcess.spawn(TERMINAL_NAME)
-    PTY_PIDS[id] = {
-        "pid": pty_process.pid,
-        "start": time.time(),
-        "projectConfigId": projectConfigId,
-    }
+    def delete_all_terminals(self):
+        for t in self.PTY_PIDS.values():
+            t["process"].terminate()
+        self.PTY_PIDS = {}
+        print("DELETED ALL TERMINALS", flush=True)
 
     # Function to read from the terminal
-    async def read_from_terminal():
-        while True:
-            output = await loop.run_in_executor(None, pty_process.read, 1024)
-            if not output:
-                break
-            # Send output to WebSocket
-            await terminal_websockets.send_text(output, id)
+    async def read_from_terminal(self, id):
+        pty_process = self.PTY_PIDS[id]["process"]
+        try:
+            while True:
+                output = await self.loop.run_in_executor(None, pty_process.read, 1024)
+                if not output:
+                    break
+                for ws in self.sockets[id]:
+                    await ws.send_text(output)
+        except (WebSocketDisconnect, CancelledError):
+            pass
 
     # Function to write to the terminal
-    async def write_to_terminal():
-        while True:
-            input_data = await terminal_websockets.receive_text(id)
-            try:
-                json_val = json.loads(input_data)
-                if isinstance(json_val, dict):
-                    if json_val["type"] == "resize":
-                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                    elif json_val["type"] == "runCode":
-                        runCode(json_val, pty_process.write)
-                        set_terminal_start_time(id)
-                    continue
-            except json.decoder.JSONDecodeError:
-                pass
-            if input_data is None:
-                break
-            # Write received data to the terminal
-            pty_process.write(input_data)
-            set_terminal_start_time(id)
+    async def write_to_terminal(self, websocket, id):
+        pty_process = self.PTY_PIDS[id]["process"]
+        try:
+            while True:
+                input_data = await websocket.receive_text()
+                try:
+                    json_val = json.loads(input_data)
+                    if isinstance(json_val, dict):
+                        if json_val["type"] == "resize":
+                            pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                        elif json_val["type"] == "runCode":
+                            runCode(json_val, pty_process.write)
+                            self.set_terminal_start_time(id)
+                        continue
+                except json.decoder.JSONDecodeError:
+                    pass
+                if input_data is None:
+                    break
+                # Write received data to the terminal
+                pty_process.write(input_data)
+                self.set_terminal_start_time(id)
+        except (WebSocketDisconnect, CancelledError):
+            pass
 
-    try:
-        # Start reading from and writing to the terminal
-        read_task = loop.create_task(read_from_terminal())
-        write_task = loop.create_task(write_to_terminal())
+    def set_terminal_start_time(self, id):
+        self.PTY_PIDS[id]["start"] = time.time()
 
-        # Wait for either task to complete
-        _, pending = await asyncio.wait(
-            [read_task, write_task], return_when=asyncio.FIRST_COMPLETED
-        )
-
-        # Cancel the remaining tasks
-        for task in pending:
-            task.cancel()
-            await task  # Ensure task is properly cancelled
-    finally:
-        # Cleanup
-        pty_process.terminate()
-        del PTY_PIDS[id]
-
-    return False
+    def get_free_terminal(self, projectConfigId):
+        for k, v in self.PTY_PIDS.copy().items():
+            if (
+                v["projectConfigId"] == projectConfigId
+                and not is_command_running_in_pty(v["pid"])
+                and time.time() - v["start"] > 1
+            ):
+                return k
+        return None
 
 
 def runCode(message, terminal_write_fn):

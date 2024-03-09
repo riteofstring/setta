@@ -6,3 +6,10 @@ export async function dbGetFreeTerminal(projectConfigId) {
     address: `/terminal/getFreeTerminal/${projectConfigId}`,
   });
 }
+
+export async function dbDeleteTerminals(ids) {
+  return await post({
+    body: { ids },
+    address: `/terminal/deleteTerminals`,
+  });
+}

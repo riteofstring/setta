@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -14,7 +15,7 @@ from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
-from runcoder.utils.terminals import get_free_terminal, start_terminal
+from runcoder.utils.terminals import TerminalWebsockets
 from runcoder.utils.utils import import_from_path
 
 from .db.codeInfo.save import save_code_info
@@ -37,8 +38,6 @@ from .db.uiTypes.load import load_base_uitypes
 from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
-from collections import defaultdict
-import asyncio
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -89,6 +88,7 @@ async def startup_event():
 def shutdown_event():
     print("shutdown_event", flush=True)
     killMyPyDaemon()
+    terminal_websockets.delete_all_terminals()
 
 
 app.add_middleware(
@@ -151,6 +151,9 @@ class SaveCodeInfoRequest(BaseModel):
 
 class SectionsMakeCopyRequest(BaseModel):
     sectionsAndOtherInfo: dict
+
+class DeleteTerminalsRequest(BaseModel):
+    ids: List[str]
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -217,58 +220,9 @@ class ConnectionManager:
             {"messageType": "allConnections", "connections": connections}
         )
 
-class TerminalWebsockets:
-    def __init__(self):
-        self.sockets = defaultdict(list)
-        self.events = {}  # Track events for signaling new websocket additions
-    
-    async def connect(self, websocket, id):
-        await websocket.accept()
-        self.sockets[id].append(websocket)
-        # Signal that a new websocket has been added
-        if id in self.events:
-            self.events[id].set()
-        else:
-            self.events[id] = asyncio.Event()
-
-    async def disconnect(self, websocket, id):
-        self.sockets[id].remove(websocket)
-        # Clean up if no more sockets are connected to this ID
-        if not self.sockets[id]:
-            del self.sockets[id]
-            del self.events[id]
-
-    async def send_text(self, msg, id):
-        for ws in self.sockets[id]:
-            await ws.send_text(msg)
-    
-    async def receive_text(self, id):
-        while True:
-            print("in receive_text", flush=True)
-            event = self.events.get(id, asyncio.Event())
-            receive_tasks = [asyncio.create_task(ws.receive_text()) for ws in self.sockets[id]]
-            done, pending = await asyncio.wait(
-                receive_tasks + [asyncio.create_task(event.wait())],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
-            # Reset the event if it's set
-            if event.is_set():
-                event.clear()
-                for task in pending:
-                    task.cancel()
-                continue  # Restart waiting due to new websocket addition
-            
-            for task in receive_tasks:
-                if task in done:
-                    for t in pending:  # Cancel all pending tasks
-                        t.cancel()
-                    return task.result()
-
 
 manager = ConnectionManager()
 terminal_websockets = TerminalWebsockets()
-
 
 
 @app.websocket("/")
@@ -288,11 +242,29 @@ async def websocket_endpoint(websocket: WebSocket):
 async def terminal_websocket_endpoint(
     websocket: WebSocket, projectConfigId: str, id: str
 ):
-    await terminal_websockets.connect(websocket, id)
-    existing_terminal = await start_terminal(terminal_websockets, projectConfigId, id)
-    if existing_terminal:
-        await asyncio.Event().wait()
-    
+    await terminal_websockets.connect(websocket, projectConfigId, id)
+    try:
+        # Start reading from and writing to the terminal
+        read_task = terminal_websockets.loop.create_task(
+            terminal_websockets.read_from_terminal(id)
+        )
+        write_task = terminal_websockets.loop.create_task(
+            terminal_websockets.write_to_terminal(websocket, id)
+        )
+
+        # Wait for either task to complete
+        _, pending = await asyncio.wait(
+            [read_task, write_task], return_when=asyncio.FIRST_COMPLETED
+        )
+
+        # Cancel the remaining tasks
+        for task in pending:
+            task.cancel()
+            await task  # Ensure task is properly cancelled
+    finally:
+        # Cleanup
+        terminal_websockets.disconnect(websocket, id)
+
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
@@ -308,6 +280,7 @@ def route_load_project(projectName, configName):
 
 @app.post("/projects/load/{projectName}")
 def route_load_full_project(projectName, body: LoadFullProjectRequest):
+    print("PTY_PIDS", terminal_websockets.PTY_PIDS, flush=True)
     with dbq.get() as db:
         return load_full_project(db, projectName, body.withBaseUITypes)
 
@@ -423,4 +396,9 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
 
 @app.post("/terminal/getFreeTerminal/{projectConfigId}")
 def route_terminal_get_free_terminal(projectConfigId):
-    return get_free_terminal(projectConfigId)
+    return terminal_websockets.get_free_terminal(projectConfigId)
+
+
+@app.post("/terminal/deleteTerminals")
+def route_terminal_get_free_terminal(x: DeleteTerminalsRequest):
+    terminal_websockets.delete_terminals(x.ids)
