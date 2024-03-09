@@ -4,10 +4,11 @@ import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
 import { RiLayoutFill } from "react-icons/ri";
-import { TbGrid4X4 } from "react-icons/tb";
+import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
 import { OVERVIEW } from "utils/constants";
 import { ControlButton, Controls } from "xyflow/controls";
 import "xyflow/controls/style.css";
+import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
 
 export function ResponsiveControls() {
   const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
@@ -52,6 +53,9 @@ export function ResponsiveControls() {
         onClick={() => useSettings.getState().toggleSetting("snapToGrid")}
       >
         <TbGrid4X4 />
+      </ControlButton>
+      <ControlButton onClick={resetZoom}>
+        <TbZoomReset />
       </ControlButton>
     </Controls>
   );

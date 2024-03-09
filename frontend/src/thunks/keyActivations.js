@@ -2,6 +2,7 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
+import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
 import { copy } from "./copy/copy";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";
@@ -20,7 +21,9 @@ function preventDefault(fn) {
 }
 
 function ctrlPlus(key) {
-  return preventDefault((e) => e.ctrlKey && e.key === key);
+  return preventDefault((e) => {
+    return e.ctrlKey && e.key === key;
+  });
 }
 
 function ctrlShiftPlus(key) {
@@ -50,6 +53,7 @@ export function attachKeyEventListeners() {
     [ctrlPlus("l"), openLoadModal],
     [ctrlShiftPlus("S"), openSaveAsModal],
     [ctrlPlus("k"), focusOnArgsFilter],
+    [ctrlPlus(","), resetZoom],
     ["copy", copy], // Builtin copy event (ctrl-c)
     ["paste", paste], // Builtin paste event (ctrl-v)
   ];

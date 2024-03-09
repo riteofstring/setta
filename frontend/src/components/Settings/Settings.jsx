@@ -1,22 +1,17 @@
-import { useState } from "react";
+import _ from "lodash";
+import { useSettings } from "models/settings";
+
+const settingNames = ["snapGrid"];
 
 export function Settings() {
-  const initialSettings = [
-    { name: "Setting1", value: "" },
-    { name: "Setting2", value: "" },
-    // Add more settings as needed
-  ];
-
-  const [settings, setSettings] = useState(initialSettings);
+  const settings = useSettings(
+    (x) => _.map(_.pick(x, settingNames), (v, k) => ({ name: k, value: v })),
+    _.isEqual,
+  );
 
   const handleInputChange = (index, newValue) => {
-    const newSettings = settings.map((setting, i) => {
-      if (i === index) {
-        return { ...setting, value: newValue };
-      }
-      return setting;
-    });
-    setSettings(newSettings);
+    const { name } = settings[index];
+    useSettings.setState({ [name]: processValue(name, newValue) });
   };
 
   return (
@@ -36,4 +31,10 @@ export function Settings() {
       </div>
     </div>
   );
+}
+
+function processValue(name, value) {
+  if (name === "snapGrid") {
+    return value.split(",");
+  }
 }

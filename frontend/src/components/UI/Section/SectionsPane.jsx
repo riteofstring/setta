@@ -13,6 +13,7 @@ const reactFlowStyle = {
 
 function _SectionsPane() {
   const snapToGrid = useSettings(x=>x.snapToGrid)
+  const snapGrid = useSettings(x=>x.snapGrid)
 
   return (
     <ReactFlow
@@ -20,7 +21,7 @@ function _SectionsPane() {
       maxZoom={10}
       style={reactFlowStyle}
       defaultViewport={REACT_FLOW_STORE.initialViewport}
-      // snapGrid={[200,200]}
+      snapGrid={snapGrid}
       snapToGrid={snapToGrid}
       nodeDragThreshold={0}
       className="rcbg-light dark:rcbg-dark"

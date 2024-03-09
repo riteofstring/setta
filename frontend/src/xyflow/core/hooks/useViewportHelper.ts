@@ -23,6 +23,10 @@ export function zoomTo(zoomLevel, options) {
   d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel);
 }
 
+export function resetZoom() {
+  zoomTo(1, { duration: 100 });
+}
+
 export function getZoom() {
   return useReactFlow.getState().transform[2];
 }
