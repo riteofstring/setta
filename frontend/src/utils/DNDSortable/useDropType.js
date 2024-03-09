@@ -34,7 +34,7 @@ export function onDragEnd() {
   useDndState.getState().reset();
 }
 
-function onDragMove({ active, over, collisions, isMovingFree }) {
+function onDragMove({ active, over, collisions, isMovingFree, delta }) {
   if (isMovingFree) {
     const shouldDrop = getShouldDrop(active, over, collisions);
     const overId = over ? over.id : null;
@@ -56,6 +56,7 @@ function onDragMove({ active, over, collisions, isMovingFree }) {
       });
     }
   }
+  useDndState.setState({ xDelta: delta.x });
 }
 
 function getLeftDistCondition(collisions) {

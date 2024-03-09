@@ -68,14 +68,9 @@ export function attachKeyEventListeners() {
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
     [
-      settings.sortingShortcut,
-      useDndState.getState().activateSortingMode,
-      useDndState.getState().deactivateSortingMode,
-    ],
-    [
-      settings.movingFreeShortcut,
-      useDndState.getState().activateMovingFreeMode,
-      useDndState.getState().deactivateMovingFreeMode,
+      settings.dndShortcut,
+      useDndState.getState().activateDnd,
+      useDndState.getState().deactivateDnd,
     ],
   ];
 

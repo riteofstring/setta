@@ -7,8 +7,8 @@ const initialState = {
   shouldDrop: false,
   centerYCondition: false,
   leftDistCondition: false,
-  isSorting: false,
-  isMovingFree: false,
+  dndMode: false,
+  xDelta: 0,
 };
 
 export const useDndState = createProjectState((set) => ({
@@ -16,10 +16,8 @@ export const useDndState = createProjectState((set) => ({
   setActive: ({ id, isTopLevel }) =>
     set({ activeId: id, activeIsTopLevel: isTopLevel }),
   setOver: (props) => set(props),
-  activateSortingMode: () => set({ isSorting: true }),
-  deactivateSortingMode: () => set({ isSorting: false }),
-  activateMovingFreeMode: () => set({ isMovingFree: true }),
-  deactivateMovingFreeMode: () => set({ isMovingFree: false }),
+  activateDnd: () => set({ dndMode: true }),
+  deactivateDnd: () => set({ dndMode: false }),
   reset: () =>
     set((state) => ({
       ...initialState,

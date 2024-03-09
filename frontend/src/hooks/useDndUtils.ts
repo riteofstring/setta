@@ -1,6 +1,6 @@
-import { useDndMonitor } from "@dnd-kit/core";
+import { useDndContext, useDndMonitor } from "@dnd-kit/core";
 import { useDndState } from "models/info/dndState";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
@@ -38,6 +38,7 @@ export function useHighlightDroppable(sectionId: string) {
 
 export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
+  const { active } = useDndContext();
   const [disabled, setDisabled] = useState({
     draggable: false,
     droppable: false,
@@ -71,15 +72,25 @@ export function useDisableSortable(sectionId: string) {
     // Sorting a child of different section
     else if (isSorting && containerId !== sectionId) {
       setDisabled({ draggable: true, droppable: true });
-    }
+    } 
+    // else {
+    //   setDisabled({ draggable: false, droppable: false });
+    // }
   }
 
   function onDragDone() {
     setDisabled({ draggable: false, droppable: false });
   }
 
+  // useEffect(() => {
+  //   if (active) {
+  //     disableSort({ active });
+  //   }
+  // }, [isSorting, isMovingFree]);
+
   useDndMonitor({
     onDragStart: disableSort,
+    // onDragOver: disableSort,
     onDragEnd: onDragDone,
     onDragCancel: onDragDone,
   });
@@ -94,18 +105,33 @@ export function useIsDraggingFreely() {
 }
 
 export function useDndMode() {
-  const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useDndState((x) => x.isSorting);
-  const isMovingFree = useDndState((x) => x.isMovingFree);
-  // only allow one of sorting or movingFree to be true
-  // if sorting, then active section must nested
-  if (
-    isMovingFree !== isSorting &&
-    (!isSorting || (isSorting && !activeIsTopLevel))
-  ) {
-    return { isSorting, isMovingFree };
-  }
-  return { isSorting: false, isMovingFree: false };
+  const isMovingFree = useDndState(
+    (x) =>
+      x.dndMode &&
+      x.activeId &&
+      (x.activeIsTopLevel || Math.abs(x.xDelta) > 100),
+  );
+  const isSorting = useDndState(
+    (x) =>
+      x.dndMode &&
+      x.activeId &&
+      !x.activeIsTopLevel &&
+      Math.abs(x.xDelta) <= 100,
+  );
+  // console.log(isMovingFree ? "isMovingFree" : isSorting ? "isSorting" : "");
+
+  // return { isMovingFree, isSorting };
+
+  const dndMode = useDndState((x) => x.dndMode);
+  return { isMovingFree: dndMode, isSorting: false };
+
+  // if (
+  //   isMovingFree !== isSorting &&
+  //   (!isSorting || (isSorting && !activeIsTopLevel))
+  // ) {
+  //   return { isSorting, isMovingFree };
+  // }
+  // return { isSorting: false, isMovingFree: false };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
