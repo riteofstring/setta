@@ -12,7 +12,6 @@ export function IdNameCombobox({
   outerDivClasses,
   inputCallback,
   onInputMouseDown,
-  isStandardSearch,
 }) {
   const {
     localOnSelectedItemChange,
@@ -56,7 +55,6 @@ export function IdNameCombobox({
         isOpen={isReallyOpen}
         small={small}
         onInputMouseDown={onInputMouseDown}
-        isStandardSearch={isStandardSearch}
       />
 
       <ComboboxList

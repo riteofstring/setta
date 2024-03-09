@@ -10,6 +10,7 @@ import { createProjectState } from "../utils";
 const initialState: ProjectConfigFrontendType = {
   id: "",
   name: "",
+  children: {},
   version: 0,
 };
 
@@ -19,10 +20,25 @@ export const useProjectConfig = createProjectState(
       ...initialState,
       resetAndSetAll: (payload) =>
         set((state) => ({ ...state, ...payload }), true),
+      addChildren: (payload) =>
+        set((state) => {
+          state.children = { ...state.children, ...payload };
+        }),
+      deleteChildren: (payload) =>
+        set((state) => {
+          state.children = _.omit(state.children, payload);
+        }),
+      updatePositions: (payload) =>
+        set((state) => {
+          _.forEach(
+            payload,
+            (v, k) => (state.children[k] = { ...state.children[k], ...v })
+          );
+        }),
       setName: (name) => set({ name }),
-      getAll: () => _.pick(get(), ["id", "name"]),
-    })),
-  ),
+      getAll: () => _.pick(get(), ["id", "name", "children"]),
+    }))
+  )
 );
 
 useProjectConfig.temporal.getState().pause();

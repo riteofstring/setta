@@ -5,12 +5,12 @@ import { useCallback, useState } from "react";
 export function useMatchSorterFilter<T, K extends keyof T>(
   completeList: T[],
   keys: K[],
-  delay = undefined,
+  delay = undefined
 ) {
   const [filter, setFilter] = useState("");
   const setFilterWithDelay = useCallback(
     _.debounce((x) => setFilter(x), delay),
-    [],
+    []
   );
 
   const filteredList = filter

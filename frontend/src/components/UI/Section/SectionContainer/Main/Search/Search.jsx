@@ -15,7 +15,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
   const _searchableItems = useGetAllCallables(sectionId);
   const searchableItems = mergeCompletionsAndHistory(
     completions,
-    _searchableItems,
+    _searchableItems
   );
   const groupedItems = groupedObjInfo(searchableItems);
   const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
@@ -40,7 +40,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
   }, [hasSearchableItems]);
 
   const isSearchResult = useProjectSearch((x) =>
-    x.codeInfo.includes(initialSelection),
+    x.codeInfo.includes(initialSelection)
   );
 
   return (
@@ -58,7 +58,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
 function mergeCompletionsAndHistory(completions, history) {
   const existingNames = new Set(history.map((x) => x.name));
   const filteredCompletions = completions.filter(
-    (x) => !existingNames.has(x.name),
+    (x) => !existingNames.has(x.name)
   );
   return [...filteredCompletions, ...history];
 }

@@ -66,7 +66,7 @@ export function ProjectName() {
 function ProjectNameCore({ name, setName, titleProps }) {
   const [localName, setLocalName, onBlur, onCancel] = useEditableOnSubmit(
     name,
-    setName,
+    setName
   );
 
   return (

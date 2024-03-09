@@ -30,5 +30,5 @@ export const useOutputGroups = createProjectState(
       }),
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
-  })),
+  }))
 );

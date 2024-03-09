@@ -12,7 +12,7 @@ export function useGetParamUIType(sectionId: string, paramInfoId: string) {
 function useUITypeCol<K extends keyof UITypeColType["codeInfoId"]>(
   sectionId: string,
   paramInfoId: string,
-  key: K,
+  key: K
 ) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   return useParamInfos((x) => x.y[uiTypeColId][paramInfoId][key]);
@@ -24,7 +24,7 @@ function useParamUITypeId(sectionId: string, paramInfoId: string) {
 
 export function useParamNonPresetUITypeIds(
   sectionId: string,
-  paramInfoId: string,
+  paramInfoId: string
 ) {
   return useUITypeCol(sectionId, paramInfoId, "nonPresetUITypeIds");
 }

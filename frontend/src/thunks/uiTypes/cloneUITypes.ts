@@ -22,7 +22,7 @@ export function maybeCloneUIType({
   if (shouldCloneUIType(currUIType, settingPreset)) {
     // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypeIds)
     const matches = _.filter(useUITypes.getState().x, (v) =>
-      isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, currUIType.type),
+      isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, currUIType.type)
     );
 
     // If there's no match, create a non-preset

@@ -169,8 +169,7 @@ def typeCheckRequest(message):
     code_json = export_selected(p)
     print("typeCheckRequest", flush=True)
     try:
-        templated_code = get_code(p)
-        code, _ = generate_code(code_json, templated_code)
+        code, _ = generate_code(code_json, p)
     except SyntaxError:
         print("typeCheckRequest SyntaxError", flush=True)
         return {"output": {}, "name": "typeCheck", "cache": None}

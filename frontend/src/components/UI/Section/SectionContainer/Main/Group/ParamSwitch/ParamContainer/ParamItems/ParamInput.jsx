@@ -37,7 +37,7 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
         });
       }
     }, 500),
-    [enteredValue],
+    [enteredValue]
   );
 
   useEffect(() => {

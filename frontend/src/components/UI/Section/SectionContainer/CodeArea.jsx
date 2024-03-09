@@ -33,19 +33,18 @@ const githubLightTheme = githubLightInit({
 
 const javascriptExtension = javascript();
 const pythonExtension = python();
-const codeLanguageToExtension = {
-  javascript: javascriptExtension,
-  python: pythonExtension,
-  bash: null,
+const codeTypeToExtension = {
+  varControl: javascriptExtension,
+  code: pythonExtension,
+  script: null,
 };
 
-function _CodeArea({ sectionId }) {
-  const value = useGetSectionInfo(sectionId, "code");
-  const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
+function _CodeArea({ sectionId, codeType }) {
+  const value = useGetSectionInfo(sectionId, codeType);
   function onChange(v) {
     setSectionInfoAttr({
       sectionId,
-      attr: "code",
+      attr: codeType,
       value: v,
     });
   }
@@ -56,7 +55,7 @@ function _CodeArea({ sectionId }) {
         sectionId={sectionId}
         value={value}
         onChange={onChange}
-        languageExtension={codeLanguageToExtension[codeLanguage]}
+        languageExtension={codeTypeToExtension[codeType]}
       />
     </article>
   );

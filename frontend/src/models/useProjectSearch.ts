@@ -20,7 +20,7 @@ export function updateSearch(value) {
     value,
     {
       keys: ["name"],
-    },
+    }
   );
 
   const codeInfo = matchSorter(Object.values(useCodeInfo.getState().x), value, {

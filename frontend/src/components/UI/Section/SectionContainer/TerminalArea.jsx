@@ -1,51 +1,44 @@
+import { AttachAddon } from "@xterm/addon-attach";
+import { FitAddon } from "@xterm/addon-fit";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
+import { useStore } from "reactflow";
 import { Terminal } from "xterm";
-import { AttachAddon } from "xterm-addon-attach";
-import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
-import { useReactFlow } from "xyflow/core/store";
 import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
+import { createNewId } from "z_utils/utils";
 import { theme } from "./Terminal/TerminalTheme";
-import { useProjectConfig } from "models/info/projectConfig";
 
 export const TERMINAL_WEBSOCKETS = {};
 export const INITIAL_MESSAGE = {};
 let pendingMsg = null;
 
 function newTerminalWebsocket(sectionId) {
-  let ws;
-  if (TERMINAL_WEBSOCKETS[sectionId]) {
-    ws = TERMINAL_WEBSOCKETS[sectionId];
-  } else {
-    const projectConfigId = useProjectConfig.getState().id
-    const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${projectConfigId}/${sectionId}`;
-    ws = new WebSocket(wsTerminalAddress);
-    ws.addEventListener("open", () => {
-      if (pendingMsg) {
-        ws.send(pendingMsg);
-        pendingMsg = null;
-      }
-      if (INITIAL_MESSAGE[sectionId]) {
-        ws.send(INITIAL_MESSAGE[sectionId]);
-        delete INITIAL_MESSAGE[sectionId];
-      }
-    });
-    ws.addEventListener("close", () => {
-      delete TERMINAL_WEBSOCKETS[sectionId];
-    });
-    ws.addEventListener("error", () => {
-      delete TERMINAL_WEBSOCKETS[sectionId];
-    });
+  const id = createNewId();
+  const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${id}`;
+  const ws = new WebSocket(wsTerminalAddress);
+  ws.addEventListener("open", () => {
+    if (pendingMsg) {
+      ws.send(pendingMsg);
+      pendingMsg = null;
+    }
+    if (INITIAL_MESSAGE[sectionId]) {
+      ws.send(INITIAL_MESSAGE[sectionId]);
+      delete INITIAL_MESSAGE[sectionId];
+    }
+  });
+  ws.addEventListener("close", () => {
+    delete TERMINAL_WEBSOCKETS[id];
+  });
+  ws.addEventListener("error", () => {
+    delete TERMINAL_WEBSOCKETS[id];
+  });
 
-    TERMINAL_WEBSOCKETS[sectionId] = ws;
-  }
+  TERMINAL_WEBSOCKETS[id] = ws;
 
   return {
     disposeWs: () => {
-      if (!(sectionId in useSectionInfos.getState().x)) {
-        ws.close();
-      }
+      ws.close();
     },
     ws,
   };
@@ -55,7 +48,7 @@ function _TerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
   const terminalRef = useTerminal({ sectionId, width, height });
 
-  window.reactFlowZoom = useReactFlow((x) => x.transform[2]);
+  window.reactFlowZoom = useStore((x) => x.transform[2]);
 
   return (
     <div

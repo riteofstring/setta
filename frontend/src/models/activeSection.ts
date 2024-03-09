@@ -18,7 +18,7 @@ export const useActiveSection = createProjectState(
     removeIds: (payload) =>
       set((state) => ({ ids: _.difference(state.ids, payload) })),
     clear: () => set({ ids: [] }),
-  })),
+  }))
 );
 
 useActiveSection.temporal.getState().pause();

@@ -10,13 +10,13 @@ import { useGetSectionInfo } from "./useSectionInfo";
 export function useRequiredUIEditorTabs(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const uiTypeType = useUITypes((x) => x.x[uiTypeId].type);
-  switch (uiTypeType) {
-    case INFO:
-      return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
-    case OUTPUT:
-    case SOCIAL:
-      return [SECTION_CONFIG_TAB];
-    default:
-      return [UI_CONFIG_TAB, SECTION_CONFIG_TAB];
+  if ([OUTPUT, INFO, SOCIAL].includes(uiTypeType)) {
+    return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
   }
+  return [
+    UI_CONFIG_TAB,
+    SECTION_CONFIG_TAB,
+    INFO_CONFIG_TAB,
+    // RUNTIME_CONFIG_TAB,
+  ];
 }

@@ -34,8 +34,8 @@ export const useUITypes = createProjectState(
         set((state) => {
           state.x = { ...state.x, ...payload };
         }),
-    })),
-  ),
+    }))
+  )
 );
 
 useUITypes.temporal.getState().pause();

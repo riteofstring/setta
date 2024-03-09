@@ -1,7 +1,5 @@
-import _ from "lodash";
 import { useStateVersion } from "models/stateVersion";
 import { stateDict, STATE_TYPES } from "models/utils";
-import { saveProject } from "./save";
 
 export function undoProjectState() {
   const pastStates = useStateVersion.temporal.getState().pastStates;
@@ -16,7 +14,6 @@ export function undoProjectState() {
       undoSetPastAndFutureStates(s);
     }
   }
-  autoSave();
 }
 
 function undoSetPastAndFutureStates(s) {
@@ -46,7 +43,6 @@ export function redoProjectState() {
       redoSetPastAndFutureStates(s);
     }
   }
-  autoSave();
 }
 
 function redoSetPastAndFutureStates(s) {
@@ -71,16 +67,8 @@ function resumeThenPauseTemporal(statePointer, callback) {
   statePointer.temporal.getState().pause();
 }
 
-export function maybeIncrementProjectStateVersion(
-  doIncrementVersion,
-  doAutoSave = true,
-) {
+export function maybeIncrementProjectStateVersion(doIncrementVersion) {
   if (doIncrementVersion) {
     incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE].statePointers);
-    if (doAutoSave) {
-      autoSave();
-    }
   }
 }
-
-const autoSave = _.debounce(saveProject, 1000);

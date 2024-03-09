@@ -13,10 +13,10 @@ function attachEventListeners(state) {
 
   for (const [attrName, cond] of Object.entries(conditions)) {
     document.addEventListener("keydown", (e) =>
-      state.getState().setActivation(attrName, cond(e)),
+      state.getState().setActivation(attrName, cond(e))
     );
     document.addEventListener("keyup", () =>
-      state.getState().setActivation(attrName, false),
+      state.getState().setActivation(attrName, false)
     );
   }
 

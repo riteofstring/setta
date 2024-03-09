@@ -15,12 +15,11 @@ export function PaneContainer({
   minimumWidth = 325,
 }) {
   const size = useWindowSize();
-  const { right, paneName } = paneProps;
+  const { right, paneName, initialWidth } = paneProps;
   const vis = usePanes((x) => x.vis[paneName]);
   const setVis = usePanes((x) => x.setVis);
-  const width = usePanes((x) => x.width[paneName]);
-  const setWidth = usePanes((x) => x.setWidth);
   const setTrueWidth = usePanes((x) => x.setTrueWidth);
+  const [width, setWidth] = useState(initialWidth);
   const [vMax, setVMax] = useState(50);
   const [vMin, setVMin] = useState(50);
   const [btnDir, setBtnDir] = useState(right ? vis : !vis);
@@ -38,7 +37,7 @@ export function PaneContainer({
   }
 
   function setNewWidth(newWidth) {
-    setWidth({ paneName, width: newWidth });
+    setWidth(newWidth);
     setTrueWidth({ paneName, trueWidth: vis ? newWidth : CLOSED_PANE_WIDTH });
   }
 

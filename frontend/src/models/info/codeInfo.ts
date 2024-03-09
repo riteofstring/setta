@@ -51,10 +51,10 @@ export const useCodeInfo = createProjectState(
         }),
       deleteInfo: ({ ids, parent }) =>
         set((state) => {
-          state.x = _.omit(state.x, ids);
+          state.x = _.omit(state.x, [id]);
           if (parent) {
             state.x[parent].children = state.x[parent].children.filter(
-              (y) => !ids.includes(y),
+              (y) => y !== id
             );
           }
         }),
@@ -62,8 +62,8 @@ export const useCodeInfo = createProjectState(
         set((state) => {
           state.x = { ...state.x, ...payload };
         }),
-    })),
-  ),
+    }))
+  )
 );
 
 useCodeInfo.temporal.getState().pause();

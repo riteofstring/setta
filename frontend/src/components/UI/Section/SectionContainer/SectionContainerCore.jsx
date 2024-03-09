@@ -1,8 +1,8 @@
+import { toggleSectionDescription } from "hooks/useSectionDescription";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
-import { toggleVersionsVisible } from "hooks/useSectionVersions";
 import { useActiveSection } from "models/activeSection";
-import { useSectionRefAndInit } from "models/sectionRefs";
+import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
 import { getParamInfos } from "thunks/sections/sectionContents";
@@ -16,13 +16,12 @@ function _SectionContainerCore({ sectionId }) {
   const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
 
   function onClick(e) {
     if (paramSelect(e)) {
       // depends on bubbling behavior (child div onclicks get executed first)
       const atLeastOneParamSelected = getParamInfos(sectionId).some(
-        (x) => x.isSelected,
+        (x) => x.isSelected
       );
       if (!isActiveSection && atLeastOneParamSelected) {
         useActiveSection.getState().addIds([sectionId]);
@@ -38,8 +37,8 @@ function _SectionContainerCore({ sectionId }) {
     } else {
       useActiveSection.getState().setIds([sectionId]);
     }
-    const highestAncestor = getHighestAncestor(sectionId);
-    setZIndices([highestAncestor], false);
+    const topMostAncestor = getHighestAncestor(sectionId);
+    setZIndices([useSectionInfos.getState().x[topMostAncestor]], false);
   }
 
   const boxShadow = isActiveSection
@@ -51,14 +50,13 @@ function _SectionContainerCore({ sectionId }) {
       className={`rounded-xl border border-white bg-white dark:border-runcoder-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
-      ref={refForPosition}
     >
       <SectionContainerCoreResizable
         sectionId={sectionId}
         isSeriesElement={isSeriesElement}
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
-        toggleDescVis={() => toggleVersionsVisible(sectionId)}
+        toggleDescVis={() => toggleSectionDescription(sectionId)}
         isWrongType={false} // TODO add the logic for this
       />
     </section>
@@ -66,5 +64,5 @@ function _SectionContainerCore({ sectionId }) {
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  () => true,
+  () => true
 );

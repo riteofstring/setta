@@ -32,13 +32,13 @@ export function initializeChildParams({
 export function initializeParam(
   sectionId: string,
   paramInfos: CodeInfoType[],
-  inputParamIdToUITypeId = {},
+  inputParamIdToUITypeId = {}
 ) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");
   const paramIdToUITypeId = initializeParamUIType(
     sectionId,
     paramInfosAsObj,
-    inputParamIdToUITypeId,
+    inputParamIdToUITypeId
   );
   initializeParamEnteredValue(sectionId, paramInfosAsObj, paramIdToUITypeId);
 }
@@ -46,7 +46,7 @@ export function initializeParam(
 function initializeParamEnteredValue(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
-  paramIdToUITypeId: { [id: string]: string },
+  paramIdToUITypeId: { [id: string]: string }
 ) {
   const { evColId } = getSectionInfo(sectionId);
   const evCol = useParamInfos.getState().x[evColId];
@@ -72,7 +72,7 @@ function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
   return {
     paramIdToUITypeId: _.mapValues(
       paramInfos,
-      (v) => uiTypeCol[v.id]?.uiTypeId,
+      (v) => uiTypeCol[v.id]?.uiTypeId
     ),
     uiTypeColId,
   };
@@ -82,7 +82,7 @@ function getDefaultUIType({ mapState, paramInfo, uiTypesState }) {
   // TODO, should paramInfo have "type"? Currently it doesn't.
   const defaultUITypeId = _.defaultTo(
     mapState.x[paramInfo.name]?.uiTypeId,
-    mapState.x[paramInfo.type]?.uiTypeId,
+    mapState.x[paramInfo.type]?.uiTypeId
   );
   return uiTypesState.x[defaultUITypeId];
 }
@@ -90,11 +90,11 @@ function getDefaultUIType({ mapState, paramInfo, uiTypesState }) {
 function initializeParamUIType(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
-  inputParamIdToUITypeId = {},
+  inputParamIdToUITypeId = {}
 ) {
   const { paramIdToUITypeId, uiTypeColId } = getParamUITypeIds(
     sectionId,
-    paramInfos,
+    paramInfos
   );
 
   const uiTypesState = useUITypes.getState();

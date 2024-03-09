@@ -6,18 +6,16 @@ import {
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
-import { usePanes } from "models/panes";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { xnor } from "utils/utils";
-import { getViewport } from "xyflow/core/hooks/useViewportHelper";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
 import { ManyUITypeType } from "z_utils/types/uiType";
@@ -26,16 +24,7 @@ import { isPreset } from "z_utils/uiTypeConstants";
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
   const projectConfig = useProjectConfig.getState().getAll();
-  projectConfig.viewport = getViewport();
-  const children = {};
-  for (const c of useNodeInternals.getState().x.values()) {
-    children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
-  }
-  projectConfig.children = children;
-  projectConfig.panes = {
-    vis: usePanes.getState().vis,
-    width: usePanes.getState().width,
-  };
+  projectConfig.viewport = REACT_FLOW_STORE.rf.getViewport();
 
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
@@ -49,7 +38,7 @@ export function getProjectData(): ProjectSaveType {
   const sectionInfosState = useSectionInfos.getState();
   const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
     sectionInfosState.x,
-    (x) => _.omit(x, ["parentId"]),
+    (x) => _.omit(x, ["parentId"])
   );
 
   const codeInfo = useCodeInfo.getState().x;
@@ -110,7 +99,7 @@ function assembleProject() {
 
 export function assembleUITypes(
   s: ManyUITypeType,
-  _isPreset: boolean,
+  _isPreset: boolean
 ): ManyUITypeType {
   return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
 }

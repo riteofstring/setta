@@ -145,7 +145,7 @@ const ProjectItem = forwardRef(
         </Link>
       </div>
     );
-  },
+  }
 );
 
 function ThumbnailArea({

@@ -10,8 +10,8 @@ import {
 import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
 import { LoadSectionModal } from "./PaneContextModal/LoadSectionModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
+import { CreateNewEnteredValuesModal } from "./SectionSaveButtonModal/CreateNewEnteredValuesModal";
 import { CreateNewParamSweepModal } from "./SectionSaveButtonModal/CreateNewParamSweepModal";
-import { CreateNewVersionModal } from "./SectionSaveButtonModal/CreateNewVersionModal";
 import { SaveCustomArgumentsModal } from "./SectionSaveButtonModal/SaveCustomArgumentsModal";
 import "./styles.css";
 
@@ -64,9 +64,9 @@ function ModalContent({ open }) {
       return <SaveUITypeConfigModal open={open} />;
     case "Custom Arguments":
       return <SaveCustomArgumentsModal open={open} />;
-    case "New Version":
-      return <CreateNewVersionModal />;
-    case "New Param Sweep":
+    case "Create New Entered Values":
+      return <CreateNewEnteredValuesModal />;
+    case "Create New Param Sweep":
       return <CreateNewParamSweepModal />;
     default:
       return null;

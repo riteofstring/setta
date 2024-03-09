@@ -26,7 +26,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonTypes>(
       children,
       ...theRest
     },
-    ref,
+    ref
   ) => {
     return (
       <Button
@@ -39,5 +39,5 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonTypes>(
         {children}
       </Button>
     );
-  },
+  }
 );

@@ -20,5 +20,5 @@ export const useProject = createProjectState<ProjectZustandType>(
     setAll: (payload) => set(payload),
     reset: () => set(initialState),
     getAll: () => _.pick(get(), ["id", "name", "defaultConfigId"]),
-  }),
+  })
 );

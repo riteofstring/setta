@@ -69,7 +69,7 @@ export async function sendMessage({ message, id, messageType }) {
         message,
         toWebsocketId: connectedTo,
         messageType,
-      }),
+      })
     );
   }
 }

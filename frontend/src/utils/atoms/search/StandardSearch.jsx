@@ -1,4 +1,5 @@
 import React from "react";
+import { AiOutlineSearch } from "react-icons/ai";
 
 export const StandardSearch = React.forwardRef(
   (
@@ -14,7 +15,7 @@ export const StandardSearch = React.forwardRef(
       onFormSubmit,
       ...props
     },
-    ref,
+    ref
   ) => {
     const classes = `w-full flex-grow outline-0 cursor-auto ${twClasses}`;
 
@@ -23,7 +24,9 @@ export const StandardSearch = React.forwardRef(
         <div
           className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
         >
-          {leftElement || <i className="gg-search" />}
+          {leftElement || (
+            <AiOutlineSearch className="h-[0.85rem] self-center text-runcoder-400" />
+          )}
         </div>
         <input
           className={inputStyles || classes}
@@ -36,7 +39,7 @@ export const StandardSearch = React.forwardRef(
         {rightElement}
       </MaybeForm>
     );
-  },
+  }
 );
 
 function MaybeForm({ onFormSubmit, children, outerClasses }) {

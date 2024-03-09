@@ -1,15 +1,18 @@
-import { useNodeInternals } from "models/info/nodeInternals";
 import { createSectionInfo } from "thunks/sections/createSectionInfo";
+import { REACT_FLOW_STORE } from "utils/constants";
+import { newSectionPosition } from "z_utils/objs/sectionPosition";
 
 export function creatAdjacentSection(sectionId, sectionProps) {
-  const { position: sectionPosition, width: sectionWidth } = useNodeInternals
+  const reactFlowStore = REACT_FLOW_STORE.store;
+  const { position: sectionPosition, width: sectionWidth } = reactFlowStore
     .getState()
-    .x.get(sectionId);
+    .nodeInternals.get(sectionId);
 
-  const position = {
-    x: sectionPosition.x + sectionWidth,
-    y: sectionPosition.y,
-  };
-
-  createSectionInfo({ sectionProps, position });
+  createSectionInfo({
+    sectionProps,
+    topLevelPosition: newSectionPosition({
+      x: sectionPosition.x + sectionWidth,
+      y: sectionPosition.y,
+    }),
+  });
 }

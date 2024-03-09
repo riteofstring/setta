@@ -10,6 +10,7 @@ import {
   INFO,
   OUTPUT,
   PARAM_SWEEP,
+  SCRIPT,
   SECTION,
   SOCIAL,
   TERMINAL,
@@ -20,8 +21,8 @@ import "./dndline.css";
 import { GlobalParamSweepArea } from "./GlobalParamSweepArea";
 import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
-import { InfoArea } from "./InfoArea";
 import { InputArea } from "./InputArea";
+import { SectionDescription } from "./Main/SectionDescription/SectionDescription";
 import { VersionList } from "./Main/VersionList/VersionList";
 import { OutputArea } from "./OutputArea";
 import { ParamSweepArea } from "./ParamSweepArea";
@@ -63,6 +64,7 @@ export function SectionContainerCoreResizable({
     }
     switch (sectionTypeName) {
       case VAR_CONTROL:
+      case SCRIPT:
       case CODE:
         return "bg-white dark:bg-runcoder-900";
       case TERMINAL:
@@ -93,27 +95,25 @@ export function SectionContainerCoreResizable({
         inputClasses={inputClasses}
         as="section"
       >
-        <>
-          <SectionHeader
-            sectionId={sectionId}
-            isSeriesElement={isSeriesElement}
-            isActiveSection={isActiveSection}
-            isGlobalVariables={isGlobalVariables}
-            isInfo={isInfo}
-            sectionTypeName={sectionTypeName}
-          />
-          <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
-          {hasVersions && (
-            <Button
-              grid={false}
-              twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-700 dark:text-runcoder-300 dark:bg-runcoder-900/40 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
-              onClick={toggleDescVis}
-            >
-              <TbVersions className="z-[3] h-4 w-4" />
-              Versions
-            </Button>
-          )}
-        </>
+        <SectionHeader
+          sectionId={sectionId}
+          isSeriesElement={isSeriesElement}
+          isActiveSection={isActiveSection}
+          isGlobalVariables={isGlobalVariables}
+          isInfo={isInfo}
+          sectionTypeName={sectionTypeName}
+        />
+        <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
+        {hasVersions && (
+          <Button
+            grid={false}
+            twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-runcoder-700 dark:text-runcoder-300 dark:bg-runcoder-900/40 hover:bg-white dark:hover:bg-runcoder-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-runcoder-800 text-xs bgruncoder-200/25 shadow-md hover:shadow-lg z-50"
+            onClick={toggleDescVis}
+          >
+            <TbVersions className="z-[3] h-4 w-4" />
+            Versions
+          </Button>
+        )}
       </CustomResizable>
       {hasVersions && (
         <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
@@ -131,12 +131,15 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
     case SOCIAL:
       return <SocialArea sectionId={sectionId} />;
     case INFO:
-      return <InfoArea sectionId={sectionId} />;
+      return <SectionDescription sectionId={sectionId} card={true} />;
     case GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} />;
+    case SCRIPT:
+      return <CodeArea sectionId={sectionId} codeType="script" />;
     case CODE:
+      return <CodeArea sectionId={sectionId} codeType="code" />;
     case VAR_CONTROL:
-      return <CodeArea sectionId={sectionId} />;
+      return <CodeArea sectionId={sectionId} codeType="varControl" />;
     case PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
     case TERMINAL:

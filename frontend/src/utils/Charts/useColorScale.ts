@@ -17,6 +17,6 @@ export function useColorScale(series) {
         domain: seriesNames,
         range: colors,
       }),
-    [JSON.stringify(seriesNames)],
+    [JSON.stringify(seriesNames)]
   );
 }

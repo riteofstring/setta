@@ -5,11 +5,13 @@ import {
 import { dbGetFreeTerminal } from "dbRequests/terminals";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { TERMINAL } from "z_utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
+import { getSectionInfo } from "./sections/getters";
 
 export function getProjectDataToGenerateCode() {
   const project = getProjectData();
@@ -22,9 +24,8 @@ export function getProjectDataToGenerateCode() {
 
 export async function runCode({ codeId }) {
   const project = getProjectDataToGenerateCode();
-  let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
+    const res = await dbGetFreeTerminal();
     if (res.status === 200) {
       const freeTerminalId = res.data;
       const message = JSON.stringify({
@@ -40,70 +41,43 @@ export async function runCode({ codeId }) {
         addSectionInEmptySpace({
           type: TERMINAL,
           inputSectionProps: { id },
-          positionOffset: { x: count * 100, y: 0 },
         });
       }
     }
-    count += 1;
   }
 }
 
 function* getProjectRuns(project) {
   if (_.size(project.runGroups) === 0) {
-    const variant = _.cloneDeep(project);
-    const keepParamSweeps = [];
-    for (const s of Object.values(project.sections)) {
-      if (s.paramSweepId && s.paramSweepSectionId) {
-        keepParamSweeps.push(s.paramSweepId);
-      }
-    }
-    variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
-    yield* getProjectVariants(variant);
+    yield* getProjectVariants(project);
   } else {
     for (const runGroup of Object.values(project.runGroups)) {
+      const variant = _.cloneDeep(project);
       if (!runGroup.selected || _.size(runGroup.sections) === 0) {
         continue;
       }
-      const sectionParamSweepPairs = [];
+      const keepSections = [];
+      const keepParamSweeps = [];
       for (const [sectionId, paramSweeps] of Object.entries(
-        runGroup.sections,
+        runGroup.sections
       )) {
-        const paramSweepIds = Object.keys(paramSweeps);
-        if (paramSweepIds.length === 0) {
-          sectionParamSweepPairs.push([{ sectionId, paramSweepId: null }]);
-        } else {
-          sectionParamSweepPairs.push(
-            paramSweepIds.map((paramSweepId) => ({
-              sectionId,
-              paramSweepId,
-            })),
-          );
-        }
+        keepSections.push(sectionId);
+        keepParamSweeps.push(...Object.keys(paramSweeps));
       }
 
-      for (const combo of cartesian(...sectionParamSweepPairs)) {
-        const variant = _.cloneDeep(project);
-        variant.projectConfig.children = _.pick(
-          variant.projectConfig.children,
-          combo.map((x) => x.sectionId),
-        );
-        variant.sections = _.pick(
-          variant.sections,
-          combo.map((x) => x.sectionId),
-        );
-        variant.paramSweeps = _.pick(
-          variant.paramSweeps,
-          combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
-        );
-        yield* getProjectVariants(variant);
-      }
+      variant.projectConfig.children = _.pick(
+        variant.projectConfig.children,
+        keepSections
+      );
+      variant.sections = _.pick(variant.sections, keepSections);
+      variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
+      yield* getProjectVariants(variant);
     }
   }
 }
 
 function* getProjectVariants(project) {
   const allSweeps = [];
-  const versions = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
     for (const sweep of details.sweep) {
       const curr = [];
@@ -115,8 +89,6 @@ function* getProjectVariants(project) {
             value,
           });
         }
-      } else {
-        versions.push({ paramSweepId, evColId: sweep.evColId });
       }
       if (curr.length > 0) {
         allSweeps.push(curr);
@@ -124,35 +96,22 @@ function* getProjectVariants(project) {
     }
   }
 
-  if (allSweeps.length > 0) {
+  if (allSweeps.length === 0) {
+    yield project;
+    return;
+  } else {
     for (const combo of cartesian(...allSweeps)) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
         const { paramSweepId, paramInfoId, value } = parts;
-        const forSectionId = Object.values(project.sections).find((x) =>
-          x.paramSweepIds.includes(paramSweepId),
+        const forSectionId = Object.values(useSectionInfos.getState().x).find(
+          (x) => x.paramSweepId === paramSweepId
         ).id;
-        const evCol = variant.evCols[project.sections[forSectionId].evColId];
+        const evCol = variant.evCols[getSectionInfo(forSectionId).evColId];
         evCol.values[paramInfoId] = value;
       }
       yield variant;
     }
-  }
-
-  if (versions.length > 0) {
-    for (const version of versions) {
-      const variant = _.cloneDeep(project);
-      const { paramSweepId, evColId } = version;
-      const forSectionId = Object.values(project.sections).find((x) =>
-        x.paramSweepIds.includes(paramSweepId),
-      ).id;
-      variant.sections[forSectionId].evColId = evColId;
-      yield variant;
-    }
-  }
-
-  if (allSweeps.length === 0 && versions.length === 0) {
-    yield project;
   }
 }
 

@@ -15,7 +15,7 @@ export function useCustomTooltip({ tooltipLineY: inputTooltipLineY }) {
 
   const showTooltip = useCallback(
     (newStateFn) => setTooltipState(newStateFn),
-    [setTooltipState],
+    [setTooltipState]
   );
 
   const hideTooltip = useCallback(
@@ -25,7 +25,7 @@ export function useCustomTooltip({ tooltipLineY: inputTooltipLineY }) {
         tooltipData: undefined,
         tooltipLocation: undefined,
       }),
-    [setTooltipState],
+    [setTooltipState]
   );
 
   return {

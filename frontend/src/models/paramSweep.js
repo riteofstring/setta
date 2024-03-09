@@ -9,7 +9,7 @@ const initialState = {
 
 export const useParamSweep = createProjectState(
   temporal(
-    immer((set, get) => ({
+    immer((set) => ({
       ...initialState,
       resetAndSetAll: (payload) => set({ x: payload }),
       initParamSweep: ({ id, name }) =>
@@ -26,22 +26,16 @@ export const useParamSweep = createProjectState(
         }),
       deleteValue: ({ paramSweepId, idx, valueIdx }) =>
         set((state) => {
-          const sweep = state.x[paramSweepId].sweep[idx];
-          sweep.values = sweep.values.filter((x, idx) => idx !== valueIdx);
-          if (sweep.values.length === 0) {
-            state.x[paramSweepId].sweep = state.x[paramSweepId].sweep.filter(
-              (x, i) => i !== idx,
-            );
-          }
+          state.x[paramSweepId].sweep[idx].values = state.x[paramSweepId].sweep[
+            idx
+          ].values.filter((x, idx) => idx !== valueIdx);
         }),
-      deleteLastValue: ({ paramSweepId, idx }) => {
-        const { deleteValue, x } = get();
-        deleteValue({
-          paramSweepId,
-          idx,
-          valueIdx: x[paramSweepId].sweep[idx].values.length - 1,
-        });
-      },
+      deleteLastValue: ({ paramSweepId, idx }) =>
+        set((state) => {
+          state.x[paramSweepId].sweep[idx].values = state.x[paramSweepId].sweep[
+            idx
+          ].values.slice(0, -1);
+        }),
       changeParamInfoId: ({ paramSweepId, idx, paramInfoId, evColId }) =>
         set((state) => {
           if (paramInfoId) {
@@ -58,8 +52,8 @@ export const useParamSweep = createProjectState(
             state.x[paramSweepId].sweep.push({ evColId });
           }
         }),
-    })),
-  ),
+    }))
+  )
 );
 
 useParamSweep.temporal.getState().pause();

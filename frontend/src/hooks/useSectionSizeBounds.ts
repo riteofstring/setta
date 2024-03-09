@@ -1,12 +1,6 @@
 import { SECTIONWIDTH } from "utils/constants";
-import { CODE, VAR_CONTROL } from "z_utils/constants";
 import { useGetAllCallables } from "./useSectionContents";
-import {
-  useIsOneOfType,
-  useIsOutput,
-  useIsRoot,
-  useIsTerminal,
-} from "./useSectionType";
+import { useIsOutput, useIsRoot } from "./useSectionType";
 import { useIsTwitter } from "./useSocialUtils";
 
 export function useMinSectionHeight(sectionId) {
@@ -28,21 +22,12 @@ export function useMinSectionHeight(sectionId) {
 
 export function useMinSectionWidth(sectionId) {
   const isTwitter = useIsTwitter(sectionId);
-  const isTerminal = useIsTerminal(sectionId);
-  const containsCode = useIsOneOfType(sectionId, [CODE, VAR_CONTROL]);
 
   if (isTwitter) {
     // 250 is min width of a tweet. Add 150 for margin
     // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
     return 400;
   }
-  if (isTerminal) {
-    return 700;
-  }
-  if (containsCode) {
-    return 500;
-  }
-
   return SECTIONWIDTH;
 }
 

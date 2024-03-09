@@ -21,10 +21,6 @@
           "x": 100,
           "y": -100,
           "zoom": 1
-        },
-        "panes": {
-          "vis": { "overview": true, "uiEditor": false },
-          "width": { "overview": 300, "uiEditor": 500 }
         }
       },
       "paramSweeps": {},
@@ -50,10 +46,6 @@
           "x": -61.56644983676915,
           "y": -110.21689914011779,
           "zoom": 1
-        },
-        "panes": {
-          "vis": { "overview": true, "uiEditor": false },
-          "width": { "overview": 300, "uiEditor": 500 }
         }
       },
       "evCols": {
@@ -210,12 +202,13 @@
           "social": null,
           "outputGroup": null,
           "description": "",
-          "versionsHeight": 100,
-          "versionsVisible": false,
+          "descriptionHeight": 100,
+          "descriptionVisible": false,
           "evColIds": ["93db7817-3553-49d8-986b-0600d6a64cc0"],
           "nonPresetUITypeIds": ["74da5a52-cf46-4f83-ad9c-00bf9be84510"],
+          "script": "",
           "code": "",
-          "codeLanguage": "",
+          "varControl": "",
           "isFrozen": false,
           "isSelected": false,
           "paramSweepId": null,
@@ -238,12 +231,13 @@
           "social": null,
           "outputGroup": null,
           "description": "",
-          "versionsHeight": 100,
-          "versionsVisible": false,
+          "descriptionHeight": 100,
+          "descriptionVisible": false,
           "evColIds": ["118d0bd8-993b-41a1-bae3-a8b33bc565cc"],
           "nonPresetUITypeIds": ["8aa7725c-9c27-42d8-beb1-ffe75b425224"],
+          "script": "",
           "code": "",
-          "codeLanguage": "",
+          "varControl": "",
           "isFrozen": false,
           "isSelected": false,
           "paramSweepId": null,

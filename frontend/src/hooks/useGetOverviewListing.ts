@@ -1,19 +1,19 @@
 import _ from "lodash";
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { getDepthListing } from "z_utils/childrenToDepth";
 import { useMatchSorterFilter } from "./useMatchSorterFilter";
 import { useSectionInfoNames } from "./useSectionInfo";
 import { useSectionTypeNames } from "./useSectionType";
 
-export function useGetOverviewListing(sectionTypeFilter = null) {
-  const topLevelSectionIds = useNodeInternals(
-    (x) => [...x.x.keys()],
-    _.isEqual,
+export function useGetOverviewListing(sectionTypeFilter=null) {
+  const topLevelSectionIds = useProjectConfig(
+    (x) => Object.keys(x.children),
+    _.isEqual
   );
   const sectionChildren = useSectionInfos(
     (x) => _.mapValues(x.x, (v) => v.children),
-    _.isEqual,
+    _.isEqual
   );
   const idNames = useSectionInfoNames();
   const sectionTypeNames = useSectionTypeNames();
@@ -23,7 +23,7 @@ export function useGetOverviewListing(sectionTypeFilter = null) {
     sectionChildren,
     idNames,
     sectionTypeNames,
-    sectionTypeFilter,
+    sectionTypeFilter
   );
 
   return useMatchSorterFilter(sectionList, ["name"]);

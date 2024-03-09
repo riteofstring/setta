@@ -19,15 +19,15 @@ import { UIConfig } from "./UIConfig/UIConfig";
 const paneProps = {
   right: true,
   paneName: UI_EDITOR,
+  initialWidth: 500,
 };
 
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const vis = usePanes((x) => x.vis[paneProps.paneName]);
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
-      {sectionIds.length === 1 && vis ? (
+      {sectionIds.length === 1 ? (
         <TabsVisible sectionId={sectionIds[0]} />
       ) : (
         <Placeholder />
@@ -37,6 +37,7 @@ export function UiEditor() {
 }
 
 function TabsVisible({ sectionId }) {
+  const vis = usePanes((x) => x.vis[paneProps.paneName]);
   const rawTab = useUIEditor((x) => x.tab);
   const setTab = useUIEditor((x) => x.setTab);
   const requiredTabs = useRequiredUIEditorTabs(sectionId);
@@ -45,7 +46,7 @@ function TabsVisible({ sectionId }) {
 
   return (
     <Tabs.Root
-      className="contents"
+      className={`contents ${vis ? "visible" : "invisible"}`}
       defaultValue={SECTION_CONFIG_TAB}
       value={tab}
       onValueChange={setTab}

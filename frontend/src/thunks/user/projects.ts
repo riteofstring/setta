@@ -10,11 +10,11 @@ export async function loadProject({ projectName, configName }) {
   });
   if (res.status === 200) {
     const projectConfig = res.data.configs.find(
-      (x) => x.projectConfig.name === configName,
+      (x) => x.projectConfig.name === configName
     ).projectConfig;
     const configsMerged = _.merge(
       {},
-      ...res.data.configs.map((x) => _.omit(x, ["projectConfig"])),
+      ...res.data.configs.map((x) => _.omit(x, ["projectConfig"]))
     );
     const projectState = {
       project: _.omit(res.data, ["configs"]),

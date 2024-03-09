@@ -18,7 +18,6 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
       position="absolute"
-      isStandardSearch={true}
     />
   );
 }
@@ -43,7 +42,7 @@ export function ParamConfigUITypeCombobox({
   const availableUITypes = useAvailableUITypesForParam(
     sectionId,
     paramInfoId,
-    selectedId,
+    selectedId
   );
   return (
     <UITypeCombobox

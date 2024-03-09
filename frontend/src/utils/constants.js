@@ -8,12 +8,8 @@ export const CLOSED_PANE_WIDTH = 40;
 export const INITIAL_CHART_SIZE = { width: SECTIONWIDTH, height: SECTIONWIDTH };
 
 export const REACT_FLOW_STORE = {
-  initialViewport: {},
+  store: null,
+  rf: null,
   lastPaneClickLocation: {},
-};
-
-export const SINGLETON_SECTIONS = {
-  globalVariables: null,
-  globalParamSweep: null,
-  varControl: null,
+  initialViewport: {},
 };

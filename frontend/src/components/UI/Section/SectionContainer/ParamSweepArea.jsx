@@ -11,7 +11,6 @@ import { IoClose } from "react-icons/io5";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
-import { ParamUI } from "./Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -91,7 +90,7 @@ function ArgItem({
     return (v) =>
       useParamSweep
         .getState()
-        .setValue({ paramSweepId, idx, valueIdx, value: _.toString(v) });
+        .setValue({ paramSweepId, idx, valueIdx, value: v });
   }
 
   function getOnDelete(valueIdx) {
@@ -144,8 +143,6 @@ function ArgItem({
       {paramInfoId ? (
         values.map((x, valueIdx) => (
           <Input
-            forSectionId={forSectionId}
-            paramInfoId={paramInfoId}
             key={valueIdx}
             onChange={getOnChange(valueIdx)}
             onDelete={getOnDelete(valueIdx)}
@@ -246,7 +243,7 @@ function ParamCombobox({
   }, _.isEqual);
 
   const evCols = useGetEVColNames(forSectionId).filter(
-    (x) => evColId === x.id || !alreadySelected.includes(x.id),
+    (x) => evColId === x.id || !alreadySelected.includes(x.id)
   );
 
   return (
@@ -257,12 +254,11 @@ function ParamCombobox({
       ]}
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
-      isStandardSearch={true}
     />
   );
 }
 
-function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
+function Input({ onChange, onDelete, value }) {
   return (
     <>
       <IconButton
@@ -274,13 +270,11 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
-        <ParamUI
-          sectionId={forSectionId}
-          paramInfoId={paramInfoId}
+      <article className="card-paramsweep-item -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1 hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25">
+        <input
+          className="nodrag font-code h-[calc(1.25rem-2px)] flex-1 cursor-auto border-0 border-b border-solid border-runcoder-300 font-mono text-xs focus-visible:border-blue-400 dark:border-runcoder-600 dark:text-runcoder-300 dark:focus-visible:border-blue-400"
           value={value}
-          onChange={onChange}
-          className="nodrag"
+          onChange={(e) => onChange(e.target.value)}
         />
       </article>
     </>

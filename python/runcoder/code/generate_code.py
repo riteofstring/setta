@@ -4,7 +4,7 @@ import copy
 from collections import defaultdict
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
-from .export_selected import get_code
+from .export_selected import get_code, get_script
 from .find_placeholders import double_braces, needs_python_argparse
 from .generate_argparse import generate_argparse
 from .utils import push_var_deep
@@ -173,11 +173,7 @@ def count_lines(string):
 
 
 def prepend_with_imports(
-    lines,
-    templated_code,
-    force_appear_var_name,
-    var_name_to_line_num,
-    replace_templated_code=True,
+    lines, templated_code, force_appear_var_name, var_name_to_line_num
 ):
     if force_appear_var_name:
         line_num = var_name_to_line_num[force_appear_var_name]
@@ -204,27 +200,16 @@ def prepend_with_imports(
         k: v + num_preceding_lines + num_imports + 1
         for k, v in var_name_to_line_num.items()
     }
-
-    generated_code = imports + "\n\n" + "\n".join(lines)
-    output = (
-        replace_keywords(templated_code, {"RUNCODER_GENERATED_CODE": generated_code})
-        if replace_templated_code
-        else generated_code
-    )
-
     return (
-        output,
+        replace_keywords(
+            templated_code,
+            {"RUNCODER_GENERATED_CODE": imports + "\n\n" + "\n".join(lines)},
+        ),
         new_var_name_to_line_num,
     )
 
 
-def generate_code(
-    selected,
-    templated_code,
-    push_var_name=None,
-    force_appear_var_name=None,
-    replace_templated_code=True,
-):
+def generate_code(selected, p, push_var_name=None, force_appear_var_name=None):
     (
         lines,
         var_name_to_line_num,
@@ -234,12 +219,13 @@ def generate_code(
         force_appear_var_name=force_appear_var_name,
     )
 
+    code = get_code(p)
+
     return prepend_with_imports(
         lines,
-        templated_code,
+        code,
         force_appear_var_name,
         var_name_to_line_num,
-        replace_templated_code,
     )
 
 
@@ -247,6 +233,20 @@ def replace_keywords(x, replacements):
     for key, value in replacements.items():
         x = x.replace(double_braces(key), value)
     return x
+
+
+def generate_script(p, selected, filepaths):
+    script = get_script(p)
+    replacements = {}
+    if needs_python_argparse(script):
+        argparse_args = generate_argparse(selected)
+        replacements["RUNCODER_PYTHON_ARGPARSE"] = argparse_args
+    for f in filepaths:
+        if f.endswith(".py"):
+            replacements["RUNCODER_PYTHON_FILE"] = f
+        if f.endswith(".yaml"):
+            replacements["RUNCODER_YAML_FILE"] = f
+    return replace_keywords(script, replacements)
 
 
 def get_line_from_string(input_string, line_number):

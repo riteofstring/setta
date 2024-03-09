@@ -6,5 +6,5 @@ export const ScrollingArea = React.forwardRef(
     <div className={` overflow-y-scroll ${styles}`} ref={ref}>
       {children}
     </div>
-  ),
+  )
 );

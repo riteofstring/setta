@@ -16,6 +16,10 @@
   background-size: cover;
 }
 
+.react-flow__attribution {
+  display:none;
+  visibility:hidden;
+}
 
 .card-grid {
   display: grid;

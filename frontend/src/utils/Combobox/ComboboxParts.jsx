@@ -1,4 +1,5 @@
 import React from "react";
+import { HiChevronDown, HiChevronUp } from "react-icons/hi";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { StandardSearchRightBtn } from "utils/atoms/search/StandardSearchRightBtn";
@@ -9,19 +10,8 @@ export function ComboboxInput({
   isOpen,
   small,
   onInputMouseDown,
-  isStandardSearch,
 }) {
-  const className =
-    "nodrag card-value font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400";
-
-  return !isStandardSearch ? (
-    <>
-      <input
-        className={className}
-        {...getInputProps({ onMouseDown: onInputMouseDown })}
-      />
-    </>
-  ) : (
+  return (
     <StandardSearch
       inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs text-runcoder-600 font-medium pl-9 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700 ${
         small ? "h-7" : "h-8"
@@ -31,13 +21,7 @@ export function ComboboxInput({
       rightElement={
         <StandardSearchRightBtn
           {...getToggleButtonProps()}
-          icon={
-            isOpen ? (
-              <i className="gg-chevron-up" />
-            ) : (
-              <i className="gg-chevron-down" />
-            )
-          }
+          icon={isOpen ? <HiChevronUp /> : <HiChevronDown />}
           size={small ? "w-7 h-7" : "w-8 h-8"}
         />
       }
@@ -135,11 +119,11 @@ export function ComboboxItems({
               />
             );
           })}
-        </dl>,
+        </dl>
       );
 
       return result;
     },
-    { groups: [], itemIndex: 0 },
+    { groups: [], itemIndex: 0 }
   ).groups;
 }

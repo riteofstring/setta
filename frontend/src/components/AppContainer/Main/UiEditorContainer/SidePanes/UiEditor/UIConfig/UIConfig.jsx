@@ -24,7 +24,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   const [filteredList, setFilter] = useMatchSorterFilter(
     paramInfos,
     ["name"],
-    500,
+    500
   );
 
   const inputStyles =

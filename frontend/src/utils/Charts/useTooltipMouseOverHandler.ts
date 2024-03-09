@@ -41,7 +41,7 @@ export function useTooltipMouseOverHandler({
       });
       showTooltip(() => tooltipInfo);
     },
-    [xScale, yScale, margin.top, margin.left, margin.right, margin.bottom],
+    [xScale, yScale, margin.top, margin.left, margin.right, margin.bottom]
   );
 }
 
@@ -64,7 +64,7 @@ function getDatapointFromX(name, values, x, xScale, yScale, margin) {
 function getTooltipFromMouseLocation({ x, y, series, xScale, yScale, margin }) {
   const x0 = xScale.invert(x - margin.left);
   const ds = series.map((s) =>
-    getDatapointFromX(s.name, s.values, x0, xScale, yScale, margin),
+    getDatapointFromX(s.name, s.values, x0, xScale, yScale, margin)
   );
   return {
     tooltipLineX: x,

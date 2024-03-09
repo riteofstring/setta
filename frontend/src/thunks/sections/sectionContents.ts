@@ -24,7 +24,7 @@ function computeAllParams(sectionId: string, objInfoId: string) {
   const { codeInfoId } = getSectionTypeConfig(sectionId);
   const paramCollections = findAllParametersOfCollections(
     useCodeInfo.getState().x,
-    [codeInfoId],
+    [codeInfoId]
   );
 
   return movePinnedToFront([...objParamInfos, ...paramCollections]);

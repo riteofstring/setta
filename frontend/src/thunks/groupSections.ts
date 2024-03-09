@@ -1,9 +1,10 @@
-import { useNodeInternals } from "models/info/nodeInternals";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { createDeck } from "./createSectionOrDeck";
 
 export function groupSections() {
-  const selectedNodes = [...useNodeInternals.getState().x].filter(
-    (x) => x[1].selected,
+  const store = REACT_FLOW_STORE.store;
+  const selectedNodes = [...store.getState().nodeInternals].filter(
+    (x) => x[1].selected
   );
   const numSelected = selectedNodes.length;
   if (numSelected > 0) {

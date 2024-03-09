@@ -4,11 +4,10 @@ import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { varControlUpdate } from "thunks/varControl";
 import { requestParameters } from "thunks/websocket";
-import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { RCType } from "z_utils/types/codeInfo";
 import { isUUID } from "z_utils/utils";
-import { getSectionInfo, getSectionTypeConfig } from "./getters";
+import { getSectionTypeConfig } from "./getters";
 import { updateCallables, updateParams } from "./sectionContents";
 
 export function setSelectedItem(sectionId, selectedItem, changedByUser) {
@@ -39,6 +38,10 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
       setSelectedItemChildren(sectionId, id, changedByUser);
     });
   }
+
+  if (changedByUser) {
+    varControlUpdate();
+  }
 }
 
 function createChildrenCodeInfo(parent, params) {
@@ -60,9 +63,6 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     codeInfoIds: [selectedItem],
   });
   updateParams(sectionId);
-  if (incrementVersion) {
-    varControlUpdate();
-  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -72,14 +72,6 @@ export function setSectionInfoAttr(props) {
 
 export function setSectionName(sectionId, name, incrementVersion) {
   setSectionInfoAttr({ sectionId, attr: "name", value: name });
-  const paramSweepSectionId = getSectionInfo(sectionId).paramSweepSectionId;
-  if (paramSweepSectionId) {
-    setSectionInfoAttr({
-      sectionId: paramSweepSectionId,
-      attr: "name",
-      value: getParamSweepSectionName(name),
-    });
-  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

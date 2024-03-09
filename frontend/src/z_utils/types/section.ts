@@ -17,14 +17,15 @@ export type SectionType = {
   social: string | null;
   outputGroup: string | null;
   description: string;
-  versionsHeight: number;
-  versionsVisible: boolean;
+  descriptionHeight: number;
+  descriptionVisible: boolean;
   evColIds: string[];
   paramSweepIds: string[];
   paramSweepSectionId: string | null;
   nonPresetUITypeIds: string[];
+  script: string;
   code: string;
-  codeLanguage: string;
+  varControl: string;
   isFrozen: boolean;
 };
 
@@ -44,7 +45,7 @@ export type SectionInfoActionType = {
   resetAndSetAll: (payload: { sections: ManySectionType }) => void;
 
   setSectionInfo: (
-    newStateFn: (currState: ManySectionType) => ManySectionType,
+    newStateFn: (currState: ManySectionType) => ManySectionType
   ) => void;
 
   setSectionInfoAttr: <K extends keyof SectionType>(payload: {

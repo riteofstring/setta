@@ -63,7 +63,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  useCodeInfo.getState().deleteInfo({ ids: [kwargId], parent: objInfoId });
+  useCodeInfo.getState().deleteInfo({ id: kwargId, parent: objInfoId });
   useParamInfos
     .getState()
     .deleteParamInfo({ evColId, uiTypeColId, ids: [kwargId] });

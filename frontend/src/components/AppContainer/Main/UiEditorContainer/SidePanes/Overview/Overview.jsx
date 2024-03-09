@@ -7,7 +7,6 @@ import {
   useCurrInfoView,
   useSetCurrInfoView,
 } from "models/info/infoView";
-import { usePanes } from "models/panes";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
 import { updateMapPosition } from "thunks/updateMapPosition";
@@ -21,23 +20,22 @@ import { SectionListItems } from "./SectionList/SectionListItems";
 const paneProps = {
   right: false,
   paneName: OVERVIEW,
+  initialWidth: 335,
 };
 
 export function Overview() {
-  const vis = usePanes((x) => x.vis[paneProps.paneName]);
-
   return (
     <PaneContainer
       paneProps={paneProps}
       paneTitle="Overview"
       onResizeStop={updateMapPosition}
     >
-      {vis && <TabsVisible />}
+      <TabsVisible />
     </PaneContainer>
   );
 }
 
-function TabsVisible() {
+function TabsVisible({ sectionId }) {
   return (
     <Tabs.Root
       // className={`contents ${vis ? "visible" : "invisible"}`}
@@ -94,7 +92,7 @@ const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
   const infoViewHandlers = useSetCurrInfoView(constInfoViews.OVERVIEW);
   const infoViewHandlersSearch = useSetCurrInfoView(
-    constInfoViews.OVERVIEW_SEARCH,
+    constInfoViews.OVERVIEW_SEARCH
   );
   return (
     <>

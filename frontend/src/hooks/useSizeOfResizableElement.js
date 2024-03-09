@@ -33,8 +33,8 @@ function useSizeOfResizableRef({ sizeRef, delay, callback }) {
           callback({ prev: size.current, curr: newSize });
         }
         size.current = newSize;
-      }, delay),
-    ),
+      }, delay)
+    )
   );
 
   useLayoutEffect(() => {

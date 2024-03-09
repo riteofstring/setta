@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
-import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
+import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { findAll } from "z_utils/getDescendants";
@@ -37,7 +37,7 @@ function getUITypes(sections) {
 function getCodeInfo(sections) {
   const sectionCodeInfoIds = _.map(
     sections,
-    (x) => getSectionTypeConfig(x.id).codeInfoId,
+    (x) => getSectionTypeConfig(x.id).codeInfoId
   );
   let output = [];
   for (const cid of sectionCodeInfoIds) {
@@ -49,8 +49,8 @@ function getCodeInfo(sections) {
             x.isSelected ||
             x.rcType === RCType.CALLABLE ||
             x.rcType === RCType.COLLECTION ||
-            sectionCodeInfoIds.includes(x.id),
-        ),
+            sectionCodeInfoIds.includes(x.id)
+        )
       );
     } else {
       output.push(...codeInfos);
@@ -77,30 +77,30 @@ function getEVCols(sections) {
 function getUITypeCols(sections) {
   return _.pick(
     useParamInfos.getState().y,
-    _.map(sections, (x) => x.uiTypeColId),
+    _.map(sections, (x) => x.uiTypeColId)
   );
 }
 
 function getRelativePositions(sections) {
   const positions = _.pick(
-    Object.fromEntries(useNodeInternals.getState().x),
-    _.map(sections, (x) => x.id),
+    useProjectConfig.getState().children,
+    _.map(sections, (x) => x.id)
   );
 
   let minX = Infinity;
   let minY = Infinity;
   for (const p of Object.values(positions)) {
-    if (p.position.x < minX) {
-      minX = p.position.x;
+    if (p.x < minX) {
+      minX = p.x;
     }
-    if (p.position.y < minY) {
-      minY = p.position.y;
+    if (p.y < minY) {
+      minY = p.y;
     }
   }
 
   return _.mapValues(positions, (v) => ({
-    x: v.position.x - minX,
-    y: v.position.y - minY,
+    x: v.x - minX,
+    y: v.y - minY,
     zIndex: v.zIndex,
   }));
 }

@@ -5,5 +5,5 @@ export const useOtherProjectConfigs = createProjectState(
   immer((set) => ({
     x: [],
     setOtherConfigs: (payload) => set({ x: payload }),
-  })),
+  }))
 );

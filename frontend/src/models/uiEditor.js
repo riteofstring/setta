@@ -12,8 +12,8 @@ export const tabNameToPretty = Object.freeze(
       [SECTION_CONFIG_TAB]: "Card",
       [INFO_CONFIG_TAB]: "Info",
       // [RUNTIME_CONFIG_TAB]: "Runtime",
-    }),
-  ),
+    })
+  )
 );
 
 export const useUIEditor = createProjectState((set) => ({

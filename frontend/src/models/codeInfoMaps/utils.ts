@@ -24,6 +24,6 @@ export function createCodeInfoMapState() {
         }),
       reset: () => set(initialState),
       exportForDb: () => get().x,
-    })),
+    }))
   );
 }

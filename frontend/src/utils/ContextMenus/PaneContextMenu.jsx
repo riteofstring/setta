@@ -1,31 +1,31 @@
 import _ from "lodash";
-import { useContextMenus } from "models/contextMenus";
 import { useModal } from "models/modal";
+import { useEffect, useState } from "react";
 import { onClickAddSection } from "thunks/createSectionOrDeck";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
-import { SINGLETON_SECTIONS } from "utils/constants";
 import {
   CODE,
   DECK,
-  DICT_ROOT,
   GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
-  INFO,
-  LIST_ROOT,
+  SCRIPT,
   SECTION,
   TERMINAL,
   VAR_CONTROL,
 } from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
-export function PaneContextMenu() {
-  const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
-  const closeContextMenu = () => useContextMenus.getState().closeAll();
+export function PaneContextMenu({ x, y, closeContextMenu, isOpen }) {
+  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    if (isOpen) {
+      setCoords({ x, y });
+    }
+  }, [isOpen]);
 
   const commonProps = {
-    x,
-    y,
+    ...coords,
     callbackBeforeExit: closeContextMenu,
     projectXY: true,
     incrementVersion: true,
@@ -51,76 +51,39 @@ export function PaneContextMenu() {
       >
         New Section
       </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: LIST_ROOT, ...commonProps })}
-      >
-        New List
-      </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: DICT_ROOT, ...commonProps })}
-      >
-        New Dict
-      </Item>
       <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
         New Group
       </Item>
-      <Item onClick={() => onClickAddSection({ type: INFO, ...commonProps })}>
-        New Info
-      </Item>
-      {!SINGLETON_SECTIONS.globalVariables && (
-        <Item
-          onClick={() =>
-            onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
-          }
-        >
-          New Global Variables
-        </Item>
-      )}
       <Item
         onClick={() =>
-          onClickAddSection({
-            type: CODE,
-            ...commonProps,
-            inputSectionProps: { codeLanguage: "python" },
-          })
+          onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
         }
       >
-        New Python Script
+        New Global Variables
+      </Item>
+      <Item onClick={() => onClickAddSection({ type: SCRIPT, ...commonProps })}>
+        New Script
+      </Item>
+      <Item onClick={() => onClickAddSection({ type: CODE, ...commonProps })}>
+        New Code
       </Item>
       <Item
-        onClick={() =>
-          onClickAddSection({
-            type: CODE,
-            ...commonProps,
-            inputSectionProps: { codeLanguage: "bash" },
-          })
-        }
+        onClick={() => onClickAddSection({ type: VAR_CONTROL, ...commonProps })}
       >
-        New Bash Script
+        New Variable Control
       </Item>
-      {!SINGLETON_SECTIONS.varControl && (
-        <Item
-          onClick={() =>
-            onClickAddSection({ type: VAR_CONTROL, ...commonProps })
-          }
-        >
-          New Variable Control
-        </Item>
-      )}
       <Item
         onClick={() => onClickAddSection({ type: TERMINAL, ...commonProps })}
       >
         New Terminal
       </Item>
-      {!SINGLETON_SECTIONS.globalParamSweep && (
-        <Item
-          onClick={() =>
-            onClickAddSection({ type: GLOBAL_PARAM_SWEEP, ...commonProps })
-          }
-        >
-          New Global Param Sweep
-        </Item>
-      )}
+      <Item
+        onClick={() =>
+          onClickAddSection({ type: GLOBAL_PARAM_SWEEP, ...commonProps })
+        }
+      >
+        New Global Param Sweep
+      </Item>
       <DialogDropdownTriggerItem
         onClick={() => openLoadModal("Create From Argparse")}
       >
