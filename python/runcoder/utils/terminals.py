@@ -54,7 +54,7 @@ class TerminalWebsockets:
     async def connect(self, websocket, projectConfigId, id):
         await websocket.accept()
         self.sockets[id].append(websocket)
-        if len(self.sockets[id]) == 1:
+        if id not in self.PTY_PIDS:
             pty_process = PtyProcess.spawn(TERMINAL_NAME)
             self.PTY_PIDS[id] = {
                 "pid": pty_process.pid,
@@ -66,9 +66,19 @@ class TerminalWebsockets:
     def disconnect(self, websocket, id):
         self.sockets[id].remove(websocket)
         if not self.sockets[id]:
-            self.PTY_PIDS[id]["process"].terminate()
-            del self.PTY_PIDS[id]
             del self.sockets[id]
+
+    def delete_terminals(self, ids):
+        for id in ids:
+            if id in self.PTY_PIDS:
+                self.PTY_PIDS[id]["process"].terminate()
+                del self.PTY_PIDS[id]
+
+    def delete_all_terminals(self):
+        for t in self.PTY_PIDS.values():
+            t["process"].terminate()
+        self.PTY_PIDS = {}
+        print("DELETED ALL TERMINALS", flush=True)
 
     # Function to read from the terminal
     async def read_from_terminal(self, id):
@@ -88,7 +98,6 @@ class TerminalWebsockets:
         pty_process = self.PTY_PIDS[id]["process"]
         try:
             while True:
-                print("now waiting to receive text", flush=True)
                 input_data = await websocket.receive_text()
                 try:
                     json_val = json.loads(input_data)

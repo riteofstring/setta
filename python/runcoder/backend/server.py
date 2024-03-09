@@ -88,6 +88,7 @@ async def startup_event():
 def shutdown_event():
     print("shutdown_event", flush=True)
     killMyPyDaemon()
+    terminal_websockets.delete_all_terminals()
 
 
 app.add_middleware(
@@ -150,6 +151,9 @@ class SaveCodeInfoRequest(BaseModel):
 
 class SectionsMakeCopyRequest(BaseModel):
     sectionsAndOtherInfo: dict
+
+class DeleteTerminalsRequest(BaseModel):
+    ids: List[str]
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -276,6 +280,7 @@ def route_load_project(projectName, configName):
 
 @app.post("/projects/load/{projectName}")
 def route_load_full_project(projectName, body: LoadFullProjectRequest):
+    print("PTY_PIDS", terminal_websockets.PTY_PIDS, flush=True)
     with dbq.get() as db:
         return load_full_project(db, projectName, body.withBaseUITypes)
 
@@ -392,3 +397,8 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
 @app.post("/terminal/getFreeTerminal/{projectConfigId}")
 def route_terminal_get_free_terminal(projectConfigId):
     return terminal_websockets.get_free_terminal(projectConfigId)
+
+
+@app.post("/terminal/deleteTerminals")
+def route_terminal_get_free_terminal(x: DeleteTerminalsRequest):
+    terminal_websockets.delete_terminals(x.ids)
