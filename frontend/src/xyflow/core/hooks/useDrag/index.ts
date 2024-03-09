@@ -111,13 +111,11 @@ function useDrag({
         if (xMovement !== 0 || yMovement !== 0) {
           const { transform, panBy } = useReactFlow.getState();
 
-          lastPos.current.x =
-            (lastPos.current.x ?? 0) - xMovement / transform[2];
-          lastPos.current.y =
-            (lastPos.current.y ?? 0) - yMovement / transform[2];
+          const newX = (lastPos.current.x ?? 0) - xMovement / transform[2];
+          const newY = (lastPos.current.y ?? 0) - yMovement / transform[2];
 
           if (panBy({ x: xMovement, y: yMovement })) {
-            updateNodes(lastPos.current as XYPosition);
+            updateNodes({ x: newX, y: newY } as XYPosition);
           }
         }
         autoPanId.current = requestAnimationFrame(autoPan);
