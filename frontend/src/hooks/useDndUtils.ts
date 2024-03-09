@@ -1,6 +1,5 @@
 import { useDndMonitor } from "@dnd-kit/core";
 import { useDndState } from "models/info/dndState";
-import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
@@ -96,8 +95,8 @@ export function useIsDraggingFreely() {
 
 export function useDndMode() {
   const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useKeyActivations((x) => x.isSorting);
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const isSorting = useDndState((x) => x.isSorting);
+  const isMovingFree = useDndState((x) => x.isMovingFree);
   // only allow one of sorting or movingFree to be true
   // if sorting, then active section must nested
   if (
