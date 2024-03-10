@@ -35,23 +35,32 @@ export function GlobalDndContext({ children }) {
   function onDragOver({ active, over }) {
     const oldParentId = active?.data.current.sortable?.containerId;
     const newParentId = over?.data.current.sortable?.containerId; // ?? over?.id
-    if (newParentId && oldParentId && newParentId !== oldParentId) {
+    if (newParentId && oldParentId) {
       const newParentChildren = useDndChildren.getState().x[newParentId];
-      const index = newParentChildren.indexOf(over.id);
-      useDndChildren.getState().setChildren({
-        sectionId: newParentId,
-        children: [
-          ...newParentChildren.slice(0, index),
-          active.id,
-          ...newParentChildren.slice(index),
-        ],
-      });
-      useDndChildren.getState().setChildren({
-        sectionId: oldParentId,
-        children: useDndChildren
-          .getState()
-          .x[oldParentId].filter((x) => x !== active.id),
-      });
+      if (newParentId !== oldParentId) {
+        const index = newParentChildren.indexOf(over.id);
+        useDndChildren.getState().setChildren({
+          sectionId: newParentId,
+          children: [
+            ...newParentChildren.slice(0, index),
+            active.id,
+            ...newParentChildren.slice(index),
+          ],
+        });
+        useDndChildren.getState().setChildren({
+          sectionId: oldParentId,
+          children: useDndChildren
+            .getState()
+            .x[oldParentId].filter((x) => x !== active.id),
+        });
+      } else {
+        const oldIndex = newParentChildren.indexOf(active.id);
+        const newIndex = newParentChildren.indexOf(over.id);
+        useDndChildren.getState().setChildren({
+          sectionId: oldParentId,
+          children: moveElement(newParentChildren, oldIndex, newIndex),
+        });
+      }
     }
   }
 
@@ -70,4 +79,19 @@ export function GlobalDndContext({ children }) {
       <DummyDragOverlay ref={dummyRef} />
     </DndContext>
   );
+}
+
+function moveElement(array, fromIndex, toIndex) {
+  if (
+    fromIndex < 0 ||
+    fromIndex >= array.length ||
+    toIndex < 0 ||
+    toIndex >= array.length
+  ) {
+    throw new Error("Index out of bounds");
+  }
+  const newArray = [...array];
+  const element = newArray.splice(fromIndex, 1)[0];
+  newArray.splice(toIndex, 0, element);
+  return newArray;
 }
