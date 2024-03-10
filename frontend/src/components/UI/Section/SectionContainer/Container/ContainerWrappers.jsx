@@ -1,6 +1,6 @@
-import { useDndMode, useHighlightDroppable } from "hooks/useDndUtils";
+import { useDndMode, useHighlightDroppable } from "utils/DNDSortable/useDndUtils";
 import _ from "lodash";
-import { useDndState } from "models/info/dndState";
+import { useDndState } from "utils/DNDSortable/dndState";
 import React from "react";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";

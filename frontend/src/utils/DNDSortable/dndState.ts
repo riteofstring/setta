@@ -1,4 +1,4 @@
-import { createProjectState } from "../utils";
+import { createProjectState } from "models/utils";
 
 const initialState = {
   activeId: null,

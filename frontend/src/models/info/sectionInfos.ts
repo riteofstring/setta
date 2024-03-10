@@ -15,7 +15,7 @@ import {
   SectionInfoZustandType,
 } from "z_utils/types/section";
 import { createProjectState } from "../utils";
-import { useDndChildren } from "./dndChildren";
+import { useDndChildren } from "utils/DNDSortable/dndChildren";
 
 const initialState: SectionInfoStateType = {
   x: {},

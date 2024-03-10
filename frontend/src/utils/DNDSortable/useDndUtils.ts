@@ -1,12 +1,12 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { useDndState } from "models/info/dndState";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { getDropType } from "utils/DNDSortable/useDropType";
-import { useHasNested } from "./useSectionChildren";
+import { useHasNested } from "../../hooks/useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);

@@ -1,5 +1,5 @@
 import { DragOverlay } from "@dnd-kit/core";
-import { useDndState } from "models/info/dndState";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { useTrueSectionSize } from "models/sectionRefs";
 import React from "react";
 import { createPortal } from "react-dom";

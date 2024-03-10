@@ -1,5 +1,5 @@
 import { immer } from "zustand/middleware/immer";
-import { createProjectState } from "../utils";
+import { createProjectState } from "models/utils";
 
 export const useDndChildren = createProjectState(
   immer((set) => ({
