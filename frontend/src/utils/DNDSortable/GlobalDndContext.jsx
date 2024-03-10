@@ -1,4 +1,5 @@
 import { DndContext } from "@dnd-kit/core";
+import { useDndChildren } from "models/info/dndChildren";
 import { DummyDragOverlay } from "./DummySection";
 import { useDNDSensors } from "./useDNDSensors";
 import {
@@ -31,6 +32,29 @@ export function GlobalDndContext({ children }) {
     onDragEndDropType(props);
   }
 
+  function onDragOver({ active, over }) {
+    const oldParentId = active?.data.current.sortable?.containerId;
+    const newParentId = over?.data.current.sortable?.containerId; // ?? over?.id
+    if (newParentId && oldParentId && newParentId !== oldParentId) {
+      const newParentChildren = useDndChildren.getState().x[newParentId];
+      const index = newParentChildren.indexOf(over.id);
+      useDndChildren.getState().setChildren({
+        sectionId: newParentId,
+        children: [
+          ...newParentChildren.slice(0, index),
+          active.id,
+          ...newParentChildren.slice(index),
+        ],
+      });
+      useDndChildren.getState().setChildren({
+        sectionId: oldParentId,
+        children: useDndChildren
+          .getState()
+          .x[oldParentId].filter((x) => x !== active.id),
+      });
+    }
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -38,8 +62,9 @@ export function GlobalDndContext({ children }) {
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
       modifiers={modifiers}
-      measuring={measuring}
+      // measuring={measuring}
     >
       {children}
       <DummyDragOverlay ref={dummyRef} />

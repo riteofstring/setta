@@ -20,7 +20,7 @@ export function useHighlightDroppable(sectionId: string) {
   });
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
-  const style = !shouldDrop
+  const style = !shouldDrop || !invalid
     ? {}
     : {
         borderRadius: "1.5rem",
@@ -65,10 +65,10 @@ export function useDisableSortable(sectionId: string) {
     ) {
       setDisabled({ draggable: true, droppable: true });
     }
-    // Freely moving a child of this section
-    else if (isMovingFree && containerId === sectionId) {
-      setDisabled({ draggable: true, droppable: false });
-    }
+    // // Freely moving a child of this section
+    // else if (isMovingFree && containerId === sectionId) {
+    //   setDisabled({ draggable: true, droppable: false });
+    // }
     // Sorting a child of different section
     else if (isSorting && containerId !== sectionId) {
       setDisabled({ draggable: true, droppable: true });

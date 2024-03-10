@@ -6,7 +6,8 @@ import { createPortal } from "react-dom";
 import { useReactFlow } from "xyflow/core/store";
 
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
-  const { width, height } = useTrueSectionSize(sectionId);
+  // const { width, height } = useTrueSectionSize(sectionId);
+  const [width, height] = [200, 200]
   const zoom = useReactFlow((x) => x.transform[2]);
   return (
     <div
