@@ -24,18 +24,17 @@ export function KwargsControls({ sectionId, objInfoId }) {
     "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-runcoder-600 text-runcoder-300";
 
   const buttonClass =
-    "focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent hover:bg-runcoder-100 dark:hover:bg-runcoder-600 text-runcoder-500 rounded-full py-1 px-1 w-3 h-3";
+    "focus-visible:ring-2 grid grid-cols-[1fr] grid-rows-[1fr] place-items-center nodrag cursor-pointer flex bg-transparent hover:bg-runcoder-100 dark:hover:bg-runcoder-950/50 text-runcoder-500 dark:hover:text-runcoder-300 rounded-full ";
 
-  // bg-gradient-to-t from-runcoder-50
   return (
     <>
       <section className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid border-white  px-6 pb-1 shadow-sm @container dark:border-runcoder-700 dark:from-transparent">
         <h3 className="pr-1  font-heading text-xs font-bold uppercase text-runcoder-600/70 before:content-['args'] @[16rem]:tracking-widest @[16rem]:before:content-['arguments'] dark:text-runcoder-400/70 "></h3>
         <button className={buttonClass} onClick={onClickDeleteKwarg}>
-          <i className="gg-math-minus" />
+          <i className="gg-math-minus col-start-1 row-start-1" />
         </button>
         <button className={buttonClass} onClick={onClickAddKwarg}>
-          <i className="gg-math-plus" />
+          <i className="gg-math-plus col-start-1 row-start-1" />
         </button>
         {/* <IconButton
           icon={<AiOutlineMinus />}

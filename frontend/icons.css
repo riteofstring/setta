@@ -2,40 +2,69 @@ main {
   --ggs: 0.5;
 }
 
-.gg-math-plus,
-.gg-math-plus::after {
+.gg-math-plus {
+  box-sizing: border-box;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  transform: scale(var(--ggs, 1));
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 40px;
+}
+
+.gg-math-plus::after,
+.gg-math-plus::before {
+  content: "";
+  grid-column: 1/2;
+  grid-row: 1/2;
   display: block;
   box-sizing: border-box;
-  background: currentColor;
-  border-radius: 10px;
-}
-
-.gg-math-plus {
-  margin-top: -2px;
-  position: relative;
-  transform: scale(var(--ggs, 1));
+  position: absolute;
   width: 16px;
   height: 2px;
+  background: currentColor;
+  /* transform: rotate(45deg); */
+  border-radius: 5px;
+  top: 8px;
+  left: 1px;
 }
 
 .gg-math-plus::after {
-  content: "";
-  position: absolute;
-  width: 2px;
-  height: 16px;
-  top: -7px;
-  left: 7px;
+  transform: rotate(90deg);
 }
 
 .gg-math-minus {
   box-sizing: border-box;
   position: relative;
-  display: block;
+  display: inline-grid;
+  place-items: center;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
   transform: scale(var(--ggs, 1));
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 40px;
+}
+
+.gg-math-minus::before {
+  content: "";
+  grid-column: 1/2;
+  grid-row: 1/2;
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
   width: 16px;
   height: 2px;
   background: currentColor;
-  border-radius: 10px;
+  /* transform: rotate(45deg); */
+  border-radius: 5px;
+  top: 8px;
+  left: 1px;
 }
 
 .gg-chevron-up {
@@ -151,7 +180,10 @@ main {
 .gg-close {
   box-sizing: border-box;
   position: relative;
-  display: block;
+  display: inline-grid;
+  place-items: center;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
   transform: scale(var(--ggs, 1));
   width: 22px;
   height: 22px;
@@ -162,6 +194,8 @@ main {
 .gg-close::after,
 .gg-close::before {
   content: "";
+  grid-column: 1/2;
+  grid-row: 1/2;
   display: block;
   box-sizing: border-box;
   position: absolute;
@@ -189,9 +223,9 @@ main {
   border-radius: 100px;
 }
 
-/* .gg-menu {
-  transform: scale(var(--ggs, 1));
-} */
+.gg-menu {
+  transform: scale(0.75);
+}
 .gg-menu,
 .gg-menu::after,
 .gg-menu::before {
