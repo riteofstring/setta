@@ -85,7 +85,7 @@ export const SectionHeader = React.memo(_SectionHeader);
 
 function getTitleStyles({ isActiveSection, isGlobalVariables }) {
   const editing =
-    "cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full font-semibold";
+    "cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full font-medium";
 
   const notEditing = `transition-colors font-heading cursor-pointer max-w-full truncate ${
     isActiveSection
@@ -93,7 +93,7 @@ function getTitleStyles({ isActiveSection, isGlobalVariables }) {
         ? "text-green-800 dark:text-green-200"
         : "text-blue-800 dark:text-blue-400"
       : "text-runcoder-700 dark:text-runcoder-300"
-  } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`;
+  } ${isGlobalVariables ? "uppercase font-bold" : "font-medium"}`;
 
   if (isGlobalVariables) {
     return { fixed: notEditing };

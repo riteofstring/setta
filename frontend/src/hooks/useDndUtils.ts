@@ -1,32 +1,34 @@
 import { useDndMonitor } from "@dnd-kit/core";
+import { useDndState } from "models/info/dndState";
+import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
-import { useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { getDropType } from "utils/DNDSortable/useDropType";
-import { useHasNested } from "../../hooks/useSectionChildren";
+import { useHasNested } from "./useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);
   const shouldDrop = useDndState((x) => x.shouldDrop && overIsSelf);
+  const centerYCondition = useDndState((x) => x.centerYCondition);
   const leftDistCondition = useDndState((x) => x.leftDistCondition);
   const { positionDropType, behaviorDropType } = getDropType({
+    centerYCondition,
     leftDistCondition,
     shouldDrop,
   });
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
-  const style =
-    !shouldDrop || !invalid
-      ? {}
-      : {
-          borderRadius: "1.5rem",
-          padding: "0.75rem",
-          margin: "-0.75rem",
-          transition: "background-color 0.2s",
-          backgroundColor: invalid ? colors.red[600] : colors.blue[500],
-        };
+  const style = !shouldDrop
+    ? {}
+    : {
+        borderRadius: "1.5rem",
+        padding: "0.75rem",
+        margin: "-0.75rem",
+        transition: "background-color 0.2s",
+        backgroundColor: invalid ? colors.red[600] : colors.blue[500],
+      };
 
   return {
     style,
@@ -63,10 +65,10 @@ export function useDisableSortable(sectionId: string) {
     ) {
       setDisabled({ draggable: true, droppable: true });
     }
-    // // Freely moving a child of this section
-    // else if (isMovingFree && containerId === sectionId) {
-    //   setDisabled({ draggable: true, droppable: false });
-    // }
+    // Freely moving a child of this section
+    else if (isMovingFree && containerId === sectionId) {
+      setDisabled({ draggable: true, droppable: false });
+    }
     // Sorting a child of different section
     else if (isSorting && containerId !== sectionId) {
       setDisabled({ draggable: true, droppable: true });
@@ -94,8 +96,8 @@ export function useIsDraggingFreely() {
 
 export function useDndMode() {
   const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useDndState((x) => x.isSorting);
-  const isMovingFree = useDndState((x) => x.isMovingFree);
+  const isSorting = useKeyActivations((x) => x.isSorting);
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   // only allow one of sorting or movingFree to be true
   // if sorting, then active section must nested
   if (

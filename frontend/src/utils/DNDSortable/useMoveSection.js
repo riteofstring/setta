@@ -1,6 +1,6 @@
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
+import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
-import { useDndState } from "utils/DNDSortable/dndState";
+import { useDndState } from "models/info/dndState";
 import { useRef } from "react";
 import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
@@ -39,6 +39,7 @@ function onFreeMoveEnd({ dummyRef }) {
     position = screenToFlowPosition({ x, y });
   } else if (overId) {
     const dropType = getDropType({
+      centerYCondition: dndState.centerYCondition,
       leftDistCondition: dndState.leftDistCondition,
       shouldDrop: dndState.shouldDrop,
     });
@@ -72,7 +73,6 @@ export function useOnDragEnd() {
         dummyRef,
       });
     }
-    useDndState.getState().reset();
   }
 
   return { dummyRef, onDragEnd };
