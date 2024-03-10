@@ -53,13 +53,12 @@ function useDrag({
     if (nodeRef?.current) {
       const selection = select(nodeRef.current);
 
-      const updateNodes = ({ x, y }: XYPosition, dragEnd = false) => {
+      const updateNodes = ({ x, y }: XYPosition) => {
         const {
           nodesSelectionDims,
           snapGrid,
           snapToGrid,
           shiftNodesSelection,
-          setNodesSelection,
         } = useReactFlow.getState();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
@@ -70,7 +69,7 @@ function useDrag({
         dragItems.current = dragItems.current.map((n) => {
           const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
 
-          if (dragEnd && snapToGrid) {
+          if (snapToGrid) {
             nextPosition.x =
               snapGrid[0] * Math.round(nextPosition.x / snapGrid[0]);
             nextPosition.y =
@@ -94,11 +93,7 @@ function useDrag({
 
         updateNodePositions(dragItems.current, true, true);
         if (nodesSelectionDims) {
-          if (dragEnd && snapToGrid) {
-            setNodesSelection(dragItems.current.length);
-          } else {
-            shiftNodesSelection(delta);
-          }
+          shiftNodesSelection(delta);
         }
         setDragging(true);
       };
@@ -116,11 +111,13 @@ function useDrag({
         if (xMovement !== 0 || yMovement !== 0) {
           const { transform, panBy } = useReactFlow.getState();
 
-          const newX = (lastPos.current.x ?? 0) - xMovement / transform[2];
-          const newY = (lastPos.current.y ?? 0) - yMovement / transform[2];
+          lastPos.current.x =
+            (lastPos.current.x ?? 0) - xMovement / transform[2];
+          lastPos.current.y =
+            (lastPos.current.y ?? 0) - yMovement / transform[2];
 
           if (panBy({ x: xMovement, y: yMovement })) {
-            updateNodes({ x: newX, y: newY } as XYPosition);
+            updateNodes(lastPos.current as XYPosition);
           }
         }
         autoPanId.current = requestAnimationFrame(autoPan);
@@ -217,10 +214,6 @@ function useDrag({
           .on("end", (event: UseDragEvent) => {
             if (!dragStarted.current) {
               return;
-            }
-
-            if (useReactFlow.getState().snapToGrid) {
-              updateNodes(lastPos.current, true);
             }
 
             setDragging(false);

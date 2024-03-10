@@ -3,17 +3,13 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { goToSection } from "thunks/goToSection";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
-import { useDndChildren } from "models/info/dndChildren";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
-  // const childIds = useSectionInfos((x) => x.x[sectionId].children);
-  const tempChildIds = useDndChildren((x) => x.x[sectionId]);
-  console.log("tempChildIds", tempChildIds)
-
+  const childIds = useSectionInfos((x) => x.x[sectionId].children);
   return (
-    <DNDSortable sectionId={sectionId} items={tempChildIds}>
+    <DNDSortable sectionId={sectionId} items={childIds}>
       <NestedSectionsWithMargin
-        childIds={tempChildIds}
+        childIds={childIds}
         sectionId={sectionId}
         isDeck={isDeck}
       />

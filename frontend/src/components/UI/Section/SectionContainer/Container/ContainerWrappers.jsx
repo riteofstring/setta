@@ -17,11 +17,11 @@ function _DndSlotAndDndWatcher({
   const { style, positionDropType, behaviorDropType } =
     useHighlightDroppable(sectionId);
   return (
-    // <DndSlot
-    //   positionDropType={positionDropType}
-    //   behaviorDropType={behaviorDropType}
-    //   isDeck={isDeck}
-    // >
+    <DndSlot
+      positionDropType={positionDropType}
+      behaviorDropType={behaviorDropType}
+      isDeck={isDeck}
+    >
       <DndWatcherAndContainer
         isDeck={isDeck}
         sectionId={sectionId}
@@ -33,7 +33,7 @@ function _DndSlotAndDndWatcher({
       >
         {children}
       </DndWatcherAndContainer>
-    // </DndSlot>
+    </DndSlot>
   );
 }
 

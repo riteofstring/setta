@@ -2,14 +2,30 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
-import { useSettings } from "models/settings";
-import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
 import { copy } from "./copy/copy";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";
 import { paste } from "./paste/paste";
 import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
+
+function preventDefault(fn) {
+  return (e) => {
+    const output = fn(e);
+    if (output) {
+      e.preventDefault();
+    }
+    return output;
+  };
+}
+
+function ctrlPlus(key) {
+  return preventDefault((e) => e.ctrlKey && e.key === key);
+}
+
+function ctrlShiftPlus(key) {
+  return preventDefault((e) => e.ctrlKey && e.shiftKey && e.key === key);
+}
 
 function attachKeyEventListener(action) {
   document.addEventListener("keydown", action);
@@ -25,58 +41,31 @@ function attachBuiltInListener(name, fn) {
   return () => document.removeEventListener(name, fn);
 }
 
-function parseShortcut(shortcutString) {
-  const parts = shortcutString
-    .toLowerCase()
-    .split("+")
-    .map((part) => part.trim());
-  return {
-    ctrl: parts.includes("ctrl"),
-    shift: parts.includes("shift"),
-    alt: parts.includes("alt"),
-    key: parts.find((part) => !["ctrl", "shift", "alt"].includes(part)),
-  };
-}
-
-function isShortcutPressed(event, shortcut) {
-  const { ctrl, shift, alt, key } = parseShortcut(shortcut);
-  return (
-    event.ctrlKey === ctrl &&
-    event.shiftKey === shift &&
-    event.altKey === alt &&
-    event.key.toLowerCase() === key
-  );
-}
-
 export function attachKeyEventListeners() {
-  const settings = useSettings.getState();
-
   const conditionAndAction = [
-    [settings.undoShortcut, undoProjectState],
-    [settings.redoShortcut, redoProjectState],
-    [settings.groupShortcut, groupSections],
-    [settings.saveShortcut, saveProject],
-    [settings.loadShortcut, openLoadModal],
-    [settings.saveAsShortcut, openSaveAsModal],
-    [settings.focusOnArgsFilterShortcut, focusOnArgsFilter],
-    [settings.resetZoomShortcut, resetZoom],
-    [settings.copyShortcut, copy],
-    [settings.pasteShortcut, paste],
+    [ctrlPlus("z"), undoProjectState],
+    [ctrlShiftPlus("Z"), redoProjectState], // has to be capital because of shift
+    [ctrlPlus("g"), groupSections],
+    [ctrlPlus("s"), saveProject],
+    [ctrlPlus("l"), openLoadModal],
+    [ctrlShiftPlus("S"), openSaveAsModal],
+    [ctrlPlus("k"), focusOnArgsFilter],
+    ["copy", copy], // Builtin copy event (ctrl-c)
+    ["paste", paste], // Builtin paste event (ctrl-v)
   ];
 
   const cleanup_functions = [];
-  for (const [keyCombo, action] of conditionAndAction) {
+  for (const [condition, action] of conditionAndAction) {
     let cleanup;
-    // if (typeof condition === "string") {
-    //   cleanup = attachBuiltInListener(condition, action);
-    // } else {
-    cleanup = attachKeyEventListener((e) => {
-      if (isShortcutPressed(e, keyCombo)) {
-        // e.preventDefault();
-        action();
-      }
-    });
-    // }
+    if (typeof condition === "string") {
+      cleanup = attachBuiltInListener(condition, action);
+    } else {
+      cleanup = attachKeyEventListener((e) => {
+        if (condition(e)) {
+          action();
+        }
+      });
+    }
     cleanup_functions.push(cleanup);
   }
 

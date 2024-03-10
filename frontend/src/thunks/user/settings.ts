@@ -2,7 +2,7 @@ import { dbLoadSettings, dbSetDarkMode } from "dbRequests/settings";
 import { useSettings } from "models/settings";
 
 export function toggleDarkMode() {
-  useSettings.getState().toggleSetting("darkMode");
+  useSettings.getState().toggleDarkMode();
   dbSetDarkMode(useSettings.getState().darkMode);
 }
 
