@@ -5,7 +5,6 @@ const initialState = {
   activeIsTopLevel: false,
   overId: null,
   shouldDrop: false,
-  centerYCondition: false,
   leftDistCondition: false,
 };
 
@@ -17,7 +16,6 @@ export const useDndState = createProjectState((set) => ({
   reset: () =>
     set((state) => ({
       ...initialState,
-      centerYCondition: state.centerYCondition,
       leftDistCondition: state.leftDistCondition,
     })),
 }));

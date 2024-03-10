@@ -39,7 +39,6 @@ function onFreeMoveEnd({ dummyRef }) {
     position = screenToFlowPosition({ x, y });
   } else if (overId) {
     const dropType = getDropType({
-      centerYCondition: dndState.centerYCondition,
       leftDistCondition: dndState.leftDistCondition,
       shouldDrop: dndState.shouldDrop,
     });
