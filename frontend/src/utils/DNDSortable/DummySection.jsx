@@ -20,11 +20,9 @@ const DummySection = React.forwardRef(({ sectionId }, ref) => {
 
 export const DummyDragOverlay = React.forwardRef((props, ref) => {
   const activeId = useDndState((x) => x.activeId);
-  const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
 
   return (
     activeId &&
-    !activeIsTopLevel &&
     createPortal(
       <DragOverlay dropAnimation={null}>
         <DummySection sectionId={activeId} ref={ref} />

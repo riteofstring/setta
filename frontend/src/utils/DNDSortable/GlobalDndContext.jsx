@@ -35,7 +35,7 @@ export function GlobalDndContext({ children }) {
   function onDragOver({ active, over }) {
     const oldParentId = active?.data.current.sortable?.containerId;
     const newParentId = over?.data.current.sortable?.containerId; // ?? over?.id
-    if (newParentId && oldParentId) {
+    if (newParentId) {
       const newParentChildren = useDndChildren.getState().x[newParentId];
       if (newParentId !== oldParentId) {
         const index = newParentChildren.indexOf(over.id);
@@ -47,12 +47,14 @@ export function GlobalDndContext({ children }) {
             ...newParentChildren.slice(index),
           ],
         });
-        useDndChildren.getState().setChildren({
-          sectionId: oldParentId,
-          children: useDndChildren
-            .getState()
-            .x[oldParentId].filter((x) => x !== active.id),
-        });
+        if (oldParentId) {
+          useDndChildren.getState().setChildren({
+            sectionId: oldParentId,
+            children: useDndChildren
+              .getState()
+              .x[oldParentId].filter((x) => x !== active.id),
+          });
+        }
       } else {
         const oldIndex = newParentChildren.indexOf(active.id);
         const newIndex = newParentChildren.indexOf(over.id);
