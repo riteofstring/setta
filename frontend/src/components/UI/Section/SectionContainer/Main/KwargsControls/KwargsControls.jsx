@@ -1,5 +1,6 @@
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
+import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 
 export function KwargsControls({ sectionId, objInfoId }) {
   const setParamFilter = useSectionParamFilter((x) => x.setFilter);
@@ -20,7 +21,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
   }
 
   const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-7 py-1";
+    "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-runcoder-600 text-runcoder-300";
 
   const buttonClass =
     "focus-visible:ring-2 inline-flex items-center nodrag cursor-pointer flex justify-center bg-transparent hover:bg-runcoder-100 dark:hover:bg-runcoder-600 text-runcoder-500 rounded-full py-1 px-1 w-3 h-3";
@@ -47,14 +48,18 @@ export function KwargsControls({ sectionId, objInfoId }) {
           type="add"
           aria-label="Add Kwarg"
         /> */}
-        {/* <VerticalLine inputStyles="ml-2 mr-3 self-stretch" /> */}
-        {/* <input
-          id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-          className={inputStyles}
-          placeholder="Filter"
-          tabIndex="0"
-          onChange={onSearchChange}
-        /> */}
+        <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
+        <search className="nodrag relative flex min-w-0 items-center">
+          <i className="gg-sort-az -mr-4 text-runcoder-300 dark:text-runcoder-600" />
+          <input
+            id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+            className={inputStyles}
+            placeholder="Filter"
+            tabIndex="0"
+            onChange={onSearchChange}
+          />
+        </search>
+
         {/* <StandardSearch
           id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
           leftElement={<BiFilter className="text-runcoder-400" />}

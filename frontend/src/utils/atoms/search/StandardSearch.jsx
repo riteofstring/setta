@@ -25,7 +25,7 @@ export const StandardSearch = React.forwardRef(
           <div
             className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
           >
-            {leftElement || <i className="gg-search" />}
+            {leftElement || <i className="gg-sort-az" />}
           </div>
         )}
         <input
