@@ -27,6 +27,7 @@ body {
   body {
     scrollbar-color: grey transparent;
     scrollbar-width: thin;
+    overflow: hidden;
   }
 
   body * {
