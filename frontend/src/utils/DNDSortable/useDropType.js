@@ -1,6 +1,3 @@
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
-import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import { useDndState } from "utils/DNDSortable/dndState";
 import { useSectionInfos } from "models/info/sectionInfos";
 import {
   getSectionCanHaveNested,
@@ -9,10 +6,13 @@ import {
   getSectionIsRoot,
   getSectionParentId,
 } from "thunks/sections/getters";
+import { useDndChildren } from "utils/DNDSortable/dndChildren";
+import { useDndState } from "utils/DNDSortable/dndState";
 import {
   BehaviorDropType,
   PositionDropType,
 } from "utils/DNDSortable/dropTypes";
+import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 
 export function useOnDragMove() {
@@ -55,7 +55,20 @@ function onDragMove({ active, over, collisions, isMovingFree }) {
   }
 }
 
-export function onDragOver({ active, over }) {
+export function useOnDragOver() {
+  const { isSorting } = useDndMode();
+  return (props) => {
+    onDragOver({
+      ...props,
+      isSorting,
+    });
+  };
+}
+
+function onDragOver({ active, over, isSorting }) {
+  if (isSorting) {
+    return;
+  }
   if (active.id === over.id) {
     return;
   }
