@@ -11,6 +11,8 @@ export const initialShortcuts = {
   resetZoomShortcut: "ctrl+,",
   copyShortcut: "ctrl+c",
   pasteShortcut: "ctrl+v",
+  sortingShortcut: "ctrl",
+  movingFreeShortcut: "alt",
 };
 
 const initialState = {
