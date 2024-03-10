@@ -16,7 +16,7 @@ function _SortableSectionContainer({ sectionId }) {
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ ...dndProps, animateLayoutChanges });
+  } = useSortable({ ...dndProps });
   return (
     <SortableCore
       sectionId={sectionId}

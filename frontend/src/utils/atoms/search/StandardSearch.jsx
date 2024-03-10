@@ -6,7 +6,6 @@ export const StandardSearch = React.forwardRef(
       placeholder = "Search",
       twClasses = "",
       outerClasses = "",
-      noLeftElement = false,
       leftElement = false,
       leftElementStyles,
       rightElement = false,
@@ -21,13 +20,11 @@ export const StandardSearch = React.forwardRef(
 
     return (
       <MaybeForm onFormSubmit={onFormSubmit} outerClasses={outerClasses}>
-        {!noLeftElement && (
-          <div
-            className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
-          >
-            {leftElement || <i className="gg-search" />}
-          </div>
-        )}
+        <div
+          className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
+        >
+          {leftElement || <i className="gg-search" />}
+        </div>
         <input
           className={inputStyles || classes}
           placeholder={placeholder}

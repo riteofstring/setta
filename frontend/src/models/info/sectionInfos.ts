@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { temporal } from "zundo";
@@ -14,6 +15,7 @@ import {
   SectionInfoZustandType,
 } from "z_utils/types/section";
 import { createProjectState } from "../utils";
+import { useDndChildren } from "./dndChildren";
 
 const initialState: SectionInfoStateType = {
   x: {},
@@ -155,3 +157,8 @@ useSectionInfos.subscribe(
 useSectionInfos.subscribe(getSingletonSubscriptionFn(VAR_CONTROL), (x) => {
   SINGLETON_SECTIONS.varControl = x;
 });
+
+useSectionInfos.subscribe(
+  (state) => _.mapValues(state.x, (v) => v.children),
+  (x) => useDndChildren.getState().reset(x),
+);

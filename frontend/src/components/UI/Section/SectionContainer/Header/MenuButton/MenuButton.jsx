@@ -23,8 +23,8 @@ function MenuButton({ sectionId }) {
       <MenuDropdown
         padding="p-1"
         rounded="rounded-full"
-        triggerStyle="ml-1 h-3 w-3 text-runcoder-600 hover:text-white"
-        trigger={<i class="gg-menu"></i>}
+        triggerStyle="ml-1"
+        trigger={<i className="gg-shape-circle" />}
       >
         {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
