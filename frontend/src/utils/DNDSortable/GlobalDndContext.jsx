@@ -33,6 +33,9 @@ export function GlobalDndContext({ children }) {
   }
 
   function onDragOver({ active, over }) {
+    if (active.id === over.id){
+      return
+    }
     const oldParentId = active?.data.current.sortable?.containerId;
     const newParentId = over?.data.current.sortable?.containerId; // ?? over?.id
     if (newParentId) {

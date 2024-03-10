@@ -6,9 +6,9 @@ import { SortableSectionContainer } from "../SectionContainer/SortableSectionCon
 import { useDndChildren } from "models/info/dndChildren";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
-  const childIds = useSectionInfos((x) => x.x[sectionId].children);
+  // const childIds = useSectionInfos((x) => x.x[sectionId].children);
   const tempChildIds = useDndChildren((x) => x.x[sectionId]);
-  // console.log("dndChildren", useDndChildren.getState())
+  console.log("tempChildIds", tempChildIds)
 
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>
