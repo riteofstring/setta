@@ -11,7 +11,6 @@ export const initialShortcuts = {
   resetZoomShortcut: "ctrl+,",
   copyShortcut: "ctrl+c",
   pasteShortcut: "ctrl+v",
-  dndShortcut: "alt",
 };
 
 const initialState = {

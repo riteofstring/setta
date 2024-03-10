@@ -2,7 +2,6 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
-import { useDndState } from "models/info/dndState";
 import { useSettings } from "models/settings";
 import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
 import { copy } from "./copy/copy";
@@ -12,7 +11,7 @@ import { paste } from "./paste/paste";
 import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 
-function attachKeyDownListener(action) {
+function attachKeyEventListener(action) {
   document.addEventListener("keydown", action);
 
   // Return a cleanup function
@@ -21,13 +20,9 @@ function attachKeyDownListener(action) {
   };
 }
 
-function attachKeyUpListener(action) {
-  document.addEventListener("keyup", action);
-
-  // Return a cleanup function
-  return () => {
-    document.removeEventListener("keyup", action);
-  };
+function attachBuiltInListener(name, fn) {
+  document.addEventListener(name, fn);
+  return () => document.removeEventListener(name, fn);
 }
 
 function parseShortcut(shortcutString) {
@@ -49,7 +44,7 @@ function isShortcutPressed(event, shortcut) {
     event.ctrlKey === ctrl &&
     event.shiftKey === shift &&
     event.altKey === alt &&
-    (key === undefined || event.key.toLowerCase() === key)
+    event.key.toLowerCase() === key
   );
 }
 
@@ -67,26 +62,18 @@ export function attachKeyEventListeners() {
     [settings.resetZoomShortcut, resetZoom],
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
-    [
-      settings.dndShortcut,
-      useDndState.getState().activateDnd,
-      useDndState.getState().deactivateDnd,
-    ],
   ];
 
   const cleanup_functions = [];
-  for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
+  for (const [keyCombo, action] of conditionAndAction) {
     let cleanup;
     // if (typeof condition === "string") {
     //   cleanup = attachBuiltInListener(condition, action);
     // } else {
-    cleanup = attachKeyDownListener((e) => {
+    cleanup = attachKeyEventListener((e) => {
       if (isShortcutPressed(e, keyCombo)) {
         // e.preventDefault();
         action();
-      }
-      if (keyUpAction) {
-        attachKeyUpListener(keyUpAction);
       }
     });
     // }

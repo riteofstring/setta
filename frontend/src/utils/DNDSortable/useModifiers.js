@@ -6,7 +6,7 @@ import { customCollisionDetectionSorting } from "./collisionDetectionSorting";
 export function useModifiers() {
   const { isSorting, isMovingFree } = useDndMode();
 
-  const modifiers = isSorting ? null : null;
+  const modifiers = isSorting ? [restrictToVerticalAxis] : null;
   const collisionDetection = isMovingFree
     ? customCollisionDetection
     : customCollisionDetectionSorting;
