@@ -23,7 +23,7 @@ export function GlobalDndContext({ children }) {
       sensors={sensors}
       collisionDetection={collisionDetection}
       onDragStart={onDragStartDropType}
-      // onDragMove={onDragMoveDropType}
+      onDragMove={onDragMoveDropType}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       modifiers={modifiers}

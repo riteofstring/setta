@@ -69,6 +69,18 @@ function onDragOver({ active, over, isSorting }) {
   if (isSorting) {
     return;
   }
+  if (!over) {
+    const oldParentId = active?.data.current.sortable?.containerId;
+    if (oldParentId) {
+      useDndChildren.getState().setChildren({
+        sectionId: oldParentId,
+        children: useDndChildren
+          .getState()
+          .x[oldParentId].filter((x) => x !== active.id),
+      });
+    }
+    return;
+  }
   if (active.id === over.id) {
     return;
   }
@@ -95,12 +107,12 @@ function onDragOver({ active, over, isSorting }) {
         });
       }
     } else {
-      const oldIndex = newParentChildren.indexOf(active.id);
-      const newIndex = newParentChildren.indexOf(over.id);
-      useDndChildren.getState().setChildren({
-        sectionId: oldParentId,
-        children: moveElement(newParentChildren, oldIndex, newIndex),
-      });
+      // const oldIndex = newParentChildren.indexOf(active.id);
+      // const newIndex = newParentChildren.indexOf(over.id);
+      // useDndChildren.getState().setChildren({
+      //   sectionId: oldParentId,
+      //   children: moveElement(newParentChildren, oldIndex, newIndex),
+      // });
     }
   }
 }
