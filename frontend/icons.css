@@ -189,9 +189,9 @@ main {
   border-radius: 100px;
 }
 
-.gg-menu {
+/* .gg-menu {
   transform: scale(var(--ggs, 1));
-}
+} */
 .gg-menu,
 .gg-menu::after,
 .gg-menu::before {
