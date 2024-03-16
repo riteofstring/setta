@@ -35,13 +35,3 @@ export const useDndState = createProjectState(
       }),
   })),
 );
-
-const dndIdSuffix = "-TempDND";
-
-export function getDndSectionId(sectionId) {
-  return `${sectionId}${dndIdSuffix}`;
-}
-
-export function isTempSection(sectionId) {
-  return sectionId.slice(-dndIdSuffix.length) === dndIdSuffix;
-}
