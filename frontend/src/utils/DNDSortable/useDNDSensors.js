@@ -4,7 +4,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { sortableKeyboardCoordinates } from "utils/DNDSortable/CustomSortable";
 
 export function useDNDSensors() {
   return useSensors(
