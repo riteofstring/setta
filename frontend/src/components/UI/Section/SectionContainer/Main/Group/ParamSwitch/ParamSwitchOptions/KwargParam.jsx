@@ -1,3 +1,4 @@
+import { IoClose } from "react-icons/io5";
 import { changeKwargName, deleteKwarg } from "thunks/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { ParamContainer } from "../ParamContainer/ParamContainer";
@@ -22,10 +23,10 @@ export function KwargParam(props) {
     <>
       <IconButton
         onClick={onClick}
-        icon={<i className="gg-close" />}
+        icon={<IoClose />}
         bg="bg-transparent"
-        color="text-runcoder-400 dark:text-runcoder-700 hover:text-runcoder-700 dark:hover:text-runcoder-200"
-        twClasses="card-close-arg-group place-self-center ml-1 z-20"
+        color="text-runcoder-400 hover:text-runcoder-600 dark:hover:text-runcoder-200"
+        twClasses="card-close-arg-group place-self-center ml-1"
         padding=""
         size="h-[.66rem] w-[.66rem]"
       />

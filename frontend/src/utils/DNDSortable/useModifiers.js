@@ -1,5 +1,5 @@
-import { restrictToVerticalAxis } from "@alissavrk/dnd-kit-modifiers";
-import { useDndMode } from "hooks/useDndUtils";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { customCollisionDetection } from "./collisionDetection";
 import { customCollisionDetectionSorting } from "./collisionDetectionSorting";
 

@@ -1,5 +1,5 @@
-import { MeasuringFrequency } from "@alissavrk/dnd-kit-core";
-import { useIsDraggingFreely } from "hooks/useDndUtils";
+import { MeasuringFrequency } from "@dnd-kit/core";
+import { useIsDraggingFreely } from "utils/DNDSortable/useDndUtils";
 
 export function useMeasuring() {
   const isDraggingFreely = useIsDraggingFreely();

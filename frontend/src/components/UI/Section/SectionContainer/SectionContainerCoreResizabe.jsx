@@ -48,10 +48,10 @@ export function SectionContainerCoreResizable({
       return "outline-red-600 dark:outline-red-400";
     }
     if (isActiveSection && isGlobalVariables) {
-      return "outline-green-600 dark:outline-turquoise-400";
+      return "outline-green-600 dark:outline-turquoise-800";
     }
     if (isActiveSection) {
-      return "outline-blue-600 dark:outline-blue-700";
+      return "outline-blue-600 dark:outline-blue-400";
     }
 
     return "outline-transparent active:outline-cyan-300";
@@ -72,7 +72,7 @@ export function SectionContainerCoreResizable({
       // case PARAM_SWEEP:
       //   return "bg-runcoder-50 dark:bg-runcoder-850";
       default:
-        return "bg-runcoder-50 dark:bg-runcoder-875";
+        return "bg-runcoder-50 dark:bg-runcoder-800";
     }
   };
 

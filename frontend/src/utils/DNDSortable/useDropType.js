@@ -1,17 +1,13 @@
-import { useDndMode } from "hooks/useDndUtils";
-import { useDndState } from "models/info/dndState";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import {
-  getSectionCanHaveNested,
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
   getSectionIsRoot,
-  getSectionParentId,
 } from "thunks/sections/getters";
-import {
-  BehaviorDropType,
-  PositionDropType,
-} from "utils/DNDSortable/dropTypes";
+import { useDndChildren } from "utils/DNDSortable/dndChildren";
+import { useDndState } from "utils/DNDSortable/dndState";
+import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
+import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 
 export function useOnDragMove() {
@@ -25,35 +21,110 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
+  console.log("onDragStart", active);
   useDndState
     .getState()
     .setActive({ id: active.id, isTopLevel: active.data.current.isTopLevel });
 }
 
-export function onDragEnd() {
-  useDndState.getState().reset();
-}
-
 function onDragMove({ active, over, collisions, isMovingFree }) {
   if (isMovingFree) {
-    const shouldDrop = getShouldDrop(active, over, collisions);
     const overId = over ? over.id : null;
-    const centerYCondition = collisions[0]?.data.centerYDist < 0;
     const leftDistCondition = getLeftDistCondition(collisions);
     const dndState = useDndState.getState();
 
     if (
       overId !== dndState.overId ||
-      shouldDrop !== dndState.shouldDrop ||
-      centerYCondition !== dndState.centerYCondition ||
       leftDistCondition !== dndState.leftDistCondition
     ) {
       dndState.setOver({
         overId,
-        shouldDrop,
-        centerYCondition,
         leftDistCondition,
       });
+    }
+  }
+}
+
+export function useOnDragOver() {
+  const { isSorting } = useDndMode();
+  return (props) => {
+    onDragOver({
+      ...props,
+      isSorting,
+    });
+  };
+}
+
+function onDragOver({ active, over, isSorting }) {
+  if (isSorting) {
+    useDndState.setState({ behaviorDropType: null });
+    return;
+  }
+  if (!over) {
+    const oldParentId = active.data.current.sortable?.containerId;
+    if (oldParentId) {
+      useDndChildren.getState().setChildren({
+        sectionId: oldParentId,
+        children: useDndChildren
+          .getState()
+          .x[oldParentId].filter((x) => x !== active.id),
+      });
+    }
+    useDndState.setState({ behaviorDropType: null });
+    console.log("active", active);
+    if (useDndState.getState().activeIsTopLevel) {
+      addNodes([
+        { id: active.id, position: { x: 0, y: 0 }, zIndex: 0, tempZIndex: 0 },
+      ]);
+    }
+    return;
+  }
+  if (active.id === over.id) {
+    useDndState.setState({ behaviorDropType: null });
+    return;
+  }
+  const oldParentId = active?.data.current.sortable?.containerId;
+  let newParentIsInsideSortable = true;
+  let newParentId = over?.data.current.sortable?.containerId;
+  if (!newParentId) {
+    newParentId = over.id;
+    newParentIsInsideSortable = false;
+  }
+  const behaviorDropType = getBehaviorDropType(active.id, newParentId);
+  if (behaviorDropType === BehaviorDropType.INVALID) {
+    useDndState.setState({ behaviorDropType });
+    return;
+  }
+  if (newParentId && newParentId !== active.id) {
+    const newParentChildren = useDndChildren.getState().x[newParentId];
+    if (newParentId !== oldParentId) {
+      deleteNodes([active.id]);
+      const index = newParentIsInsideSortable
+        ? newParentChildren.indexOf(over.id)
+        : 0;
+      useDndChildren.getState().setChildren({
+        sectionId: newParentId,
+        children: [
+          ...newParentChildren.slice(0, index),
+          active.id,
+          ...newParentChildren.slice(index),
+        ],
+      });
+      if (oldParentId) {
+        useDndChildren.getState().setChildren({
+          sectionId: oldParentId,
+          children: useDndChildren
+            .getState()
+            .x[oldParentId].filter((x) => x !== active.id),
+        });
+      }
+    } else {
+      // const oldIndex = newParentChildren.indexOf(active.id);
+      // const newIndex = newParentChildren.indexOf(over.id);
+      // useDndChildren.getState().setChildren({
+      //   sectionId: oldParentId,
+      //   children: moveElement(newParentChildren, oldIndex, newIndex),
+      // });
     }
   }
 }
@@ -67,98 +138,18 @@ function getLeftDistCondition(collisions) {
   );
 }
 
-function getShouldDrop(active, over, collisions) {
-  // Make sure collisions[0] agrees with over.id).
-  // Make sure active is not over
-  // Make sure over is a sortable or over has no children and can have children
-  return (
-    !!over &&
-    collisions[0]?.id === over.id &&
-    active.id !== over.id &&
-    (over.data.current.sortable || !over.data.current.hasNested)
-  );
-}
-
-// returns [dropType, newParentId, newIndex]
-function getPositionDropType({ centerYCondition, leftDistCondition }) {
-  const { activeId, overId } = useDndState.getState();
-  const s = useSectionInfos.getState();
-  const overParentId = getSectionParentId(overId);
-
-  // Drop into section if it is a sortable and leftOffset is large enough
-  // Or if it's not a sortable and has no children.
-  if ((overParentId && leftDistCondition) || !overParentId) {
-    return [PositionDropType.INTO, overId, 0];
+function getBehaviorDropType(activeId, newParentId) {
+  if (!newParentId) {
+    return null;
   }
-
-  const siblings = s.x[overParentId].children;
-  const overIndex = siblings.indexOf(overId);
-
-  // Is effectively sorting
-  if (overParentId === getSectionParentId(activeId)) {
-    const activeIndex = siblings.indexOf(activeId);
-    // Drop below the target if moving down the list
-    if (activeIndex < overIndex) {
-      return [PositionDropType.BELOW, overParentId, overIndex];
-    }
-    // Drop above the target if moving up the list
-    return [PositionDropType.ABOVE, overParentId, overIndex];
-  }
-
-  // Dropping into a list from outside
-  // If the target is anything other than the last element, then drop above it
-  if (overIndex < siblings.length - 1) {
-    return [PositionDropType.ABOVE, overParentId, overIndex];
-  }
-
-  // If the target is the last element
-  return centerYCondition
-    ? [PositionDropType.ABOVE, overParentId, overIndex]
-    : [PositionDropType.BELOW, overParentId, overIndex + 1];
-}
-
-// returns [dropType, newParentId, newIndex]
-function getBehaviorDropType({ newParentId }) {
-  const activeId = useDndState.getState().activeId;
   // invalid if parent can't have children
   // or if child can only be in deck and parent is not a deck
   if (
-    !getSectionCanHaveNested(newParentId) ||
+    !getSectionIsRoot(newParentId) ||
     (getSectionCanOnlyBeChildOfDeck(activeId) && !getSectionIsDeck(newParentId))
   ) {
     return BehaviorDropType.INVALID;
   }
 
-  if (getSectionIsRoot(newParentId)) {
-    // dropping withint same list
-    if (getSectionParentId(activeId) === newParentId) {
-      return BehaviorDropType.DROP_HERE;
-    }
-    return BehaviorDropType.NEW_LIST_ELEMENT;
-  }
-
-  return BehaviorDropType.INVALID;
-}
-
-export function getDropType({
-  shouldDrop,
-  centerYCondition,
-  leftDistCondition,
-}) {
-  if (!shouldDrop) {
-    return {
-      positionDropType: [null, null, null],
-      behaviorDropType: null,
-    };
-  }
-
-  const positionDropType = getPositionDropType({
-    centerYCondition,
-    leftDistCondition,
-  });
-  const behaviorDropType = getBehaviorDropType({
-    newParentId: positionDropType[1],
-  });
-
-  return { positionDropType, behaviorDropType };
+  return null;
 }

@@ -1,26 +1,18 @@
-import { useDndMonitor } from "@alissavrk/dnd-kit-core";
-import { useDndState } from "models/info/dndState";
-import { useKeyActivations } from "models/keyActivations";
-import { useState } from "react";
+import { useDndMonitor } from "@dnd-kit/core";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
-import { getDropType } from "utils/DNDSortable/useDropType";
-import { useHasNested } from "./useSectionChildren";
+import { useTempHasNested } from "../../hooks/useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);
-  const shouldDrop = useDndState((x) => x.shouldDrop && overIsSelf);
-  const centerYCondition = useDndState((x) => x.centerYCondition);
-  const leftDistCondition = useDndState((x) => x.leftDistCondition);
-  const { positionDropType, behaviorDropType } = getDropType({
-    centerYCondition,
-    leftDistCondition,
-    shouldDrop,
-  });
+  const behaviorDropType = useDndState((x) =>
+    overIsSelf ? x.behaviorDropType : null,
+  );
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
-  const style = !shouldDrop
+  const style = !invalid
     ? {}
     : {
         borderRadius: "1.5rem",
@@ -32,17 +24,14 @@ export function useHighlightDroppable(sectionId: string) {
 
   return {
     style,
-    positionDropType: positionDropType[0],
     behaviorDropType,
   };
 }
 
 export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
-  const [disabled, setDisabled] = useState({
-    draggable: false,
-    droppable: false,
-  });
+  const disabled = useDndState((x) => x.disabled[sectionId]);
+  const setDisabled = useDndState((x) => x.setDisabled);
 
   function activeIdInAncestorSet(activeId) {
     let parentId = getSectionParentId(sectionId);
@@ -63,20 +52,21 @@ export function useDisableSortable(sectionId: string) {
       isMovingFree &&
       (active.id === sectionId || activeIdInAncestorSet(active.id))
     ) {
-      setDisabled({ draggable: true, droppable: true });
+      setDisabled(sectionId, { draggable: true, droppable: true });
     }
     // Freely moving a child of this section
-    else if (isMovingFree && containerId === sectionId) {
-      setDisabled({ draggable: true, droppable: false });
-    }
+    // else if (isMovingFree && containerId === sectionId) {
+    //   console.log("disable", sectionId)
+    //   setDisabled({ draggable: true, droppable: true });
+    // }
     // Sorting a child of different section
     else if (isSorting && containerId !== sectionId) {
-      setDisabled({ draggable: true, droppable: true });
+      setDisabled(sectionId, { draggable: true, droppable: true });
     }
   }
 
   function onDragDone() {
-    setDisabled({ draggable: false, droppable: false });
+    setDisabled(sectionId, { draggable: false, droppable: false });
   }
 
   useDndMonitor({
@@ -85,7 +75,7 @@ export function useDisableSortable(sectionId: string) {
     onDragCancel: onDragDone,
   });
 
-  return disabled;
+  return disabled ?? { draggable: false, droppable: false };
 }
 
 export function useIsDraggingFreely() {
@@ -96,8 +86,8 @@ export function useIsDraggingFreely() {
 
 export function useDndMode() {
   const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useKeyActivations((x) => x.isSorting);
-  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
+  const isSorting = useDndState((x) => x.isSorting);
+  const isMovingFree = useDndState((x) => x.isMovingFree);
   // only allow one of sorting or movingFree to be true
   // if sorting, then active section must nested
   if (
@@ -110,7 +100,7 @@ export function useDndMode() {
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useHasNested(sectionId);
+  const hasNested = useTempHasNested(sectionId);
 
   return {
     id: sectionId,

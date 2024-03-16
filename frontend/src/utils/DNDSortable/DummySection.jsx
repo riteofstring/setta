@@ -1,17 +1,16 @@
-import { DragOverlay } from "@alissavrk/dnd-kit-core";
-import { useDndState } from "models/info/dndState";
-import { useTrueSectionSize } from "models/sectionRefs";
+import { DragOverlay } from "@dnd-kit/core";
 import React from "react";
-import { createPortal } from "react-dom";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { useReactFlow } from "xyflow/core/store";
 
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
-  const { width, height } = useTrueSectionSize(sectionId);
+  // const { width, height } = useTrueSectionSize(sectionId);
+  const [width, height] = [200, 200];
   const zoom = useReactFlow((x) => x.transform[2]);
   return (
     <div
       style={{ width: `${width * zoom}px`, height: `${height * zoom}px` }}
-      className="rounded-md bg-runcoder-50/75"
+      className="rounded-md bg-runcoder-50/25"
       ref={ref}
     />
   );
@@ -19,16 +18,12 @@ const DummySection = React.forwardRef(({ sectionId }, ref) => {
 
 export const DummyDragOverlay = React.forwardRef((props, ref) => {
   const activeId = useDndState((x) => x.activeId);
-  const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
 
   return (
-    activeId &&
-    !activeIsTopLevel &&
-    createPortal(
+    activeId && (
       <DragOverlay dropAnimation={null}>
         <DummySection sectionId={activeId} ref={ref} />
-      </DragOverlay>,
-      document.body,
+      </DragOverlay>
     )
   );
 });

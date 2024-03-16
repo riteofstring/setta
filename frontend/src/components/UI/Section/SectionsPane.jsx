@@ -3,6 +3,7 @@ import { REACT_FLOW_STORE } from "utils/constants";
 import { ReactFlow } from "xyflow/core";
 import "xyflow/core/styles/style.css";
 import "./react-flow-css.css";
+import { useSettings } from "models/settings";
 
 const reactFlowStyle = {
   // background: "#94a3b8",
@@ -11,14 +12,17 @@ const reactFlowStyle = {
 };
 
 function _SectionsPane() {
+  const snapToGrid = useSettings(x=>x.snapToGrid)
+  const snapGrid = useSettings(x=>x.snapGrid)
+
   return (
     <ReactFlow
       minZoom={0.1}
       maxZoom={10}
       style={reactFlowStyle}
       defaultViewport={REACT_FLOW_STORE.initialViewport}
-      // snapGrid={[32, 32]}
-      // snapToGrid={true}
+      snapGrid={snapGrid}
+      snapToGrid={snapToGrid}
       nodeDragThreshold={0}
       className="rcbg-light dark:rcbg-dark"
     />

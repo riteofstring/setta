@@ -30,10 +30,6 @@ export function getSectionTypeConfig(sectionId) {
   return getSectionType(sectionId).config as SectionUITypeConfigType;
 }
 
-export function getSectionCanHaveNested(sectionId) {
-  return ![OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
-}
-
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
   return [OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
 }
