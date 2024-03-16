@@ -107,6 +107,8 @@ function setChildrenAndParent({
   newIndex,
   position,
 }) {
+  console.log("oldParentId", oldParentId)
+  console.log("newParentId", newParentId)
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
@@ -116,6 +118,7 @@ function setChildrenAndParent({
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
+    console.log("adding!", sectionId, position)
     addNodes([{ id: sectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list

@@ -72,11 +72,6 @@ function onDragOver({ active, over, isSorting }) {
     }
     useDndState.setState({ behaviorDropType: null });
     console.log("active", active);
-    if (useDndState.getState().activeIsTopLevel) {
-      addNodes([
-        { id: active.id, position: { x: 0, y: 0 }, zIndex: 0, tempZIndex: 0 },
-      ]);
-    }
     return;
   }
   if (active.id === over.id) {

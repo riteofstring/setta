@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { addNodes } from "models/info/nodeInternals";
 import { useRef } from "react";
 import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
@@ -36,11 +37,18 @@ function onFreeMoveEnd({ active, dummyRef }) {
     newIndex = useDndChildren.getState().x[newParentId].indexOf(overId);
   }
   // dropping nested section onto pane
-  else if (oldParentId !== PANEID && !overId) {
+  else if (!overId) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
+    console.log("position", position)
+    if (oldParentId === PANEID) {
+      addNodes([
+        { id: active.id, position, zIndex: 0, tempZIndex: 0 },
+      ]);
+      return;
+    }
   }
 
   moveSection({
