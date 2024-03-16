@@ -4,7 +4,7 @@ import {
   getSectionIsRoot,
 } from "thunks/sections/getters";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import { useDndState } from "utils/DNDSortable/dndState";
+import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
@@ -63,6 +63,7 @@ function onDragOver({ active, over, isSorting }) {
     useDndState.setState({
       behaviorDropType: null,
       movingFreeInSortable: false,
+      setActivatorNodeRef: null,
     });
     return;
   }
@@ -71,6 +72,7 @@ function onDragOver({ active, over, isSorting }) {
     useDndState.setState({
       behaviorDropType: null,
       movingFreeInSortable: false,
+      setActivatorNodeRef: null,
     });
     return;
   }
@@ -88,13 +90,21 @@ function onDragOver({ active, over, isSorting }) {
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
     maybeRemoveFromOldTempParent(active);
-    useDndState.setState({ behaviorDropType, movingFreeInSortable: false });
+    useDndState.setState({
+      behaviorDropType,
+      movingFreeInSortable: false,
+      setActivatorNodeRef: null,
+    });
     return;
   }
   if (newParentId && newParentId !== active.id) {
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
-    if (newParentId !== oldParentId) {
+    if (
+      newParentId !== oldParentId &&
+      !newParentChildren.includes(getDndSectionId(active.id))
+    ) {
+      console.log("newParentId !== oldParentId", newParentId, oldParentId);
       const index = newParentIsInsideSortable
         ? newParentChildren.indexOf(over.id)
         : 0;
@@ -102,7 +112,7 @@ function onDragOver({ active, over, isSorting }) {
         sectionId: newParentId,
         children: [
           ...newParentChildren.slice(0, index),
-          active.id,
+          getDndSectionId(active.id),
           ...newParentChildren.slice(index),
         ],
       });
@@ -113,12 +123,14 @@ function onDragOver({ active, over, isSorting }) {
 
 function maybeRemoveFromOldTempParent(active) {
   const oldParentId = active?.data.current.sortable?.containerId;
+  console.log("maybeRemoveFromOldTempParent", oldParentId);
   if (oldParentId) {
+    const dndSectionId = getDndSectionId(active.id);
     useDndChildren.getState().setChildren({
       sectionId: oldParentId,
       children: useDndChildren
         .getState()
-        .x[oldParentId].filter((x) => x !== active.id),
+        .x[oldParentId].filter((x) => x !== dndSectionId),
     });
   }
 }
