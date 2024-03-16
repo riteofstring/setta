@@ -1,14 +1,13 @@
-import { useIsDraggingFreely } from "utils/DNDSortable/useDndUtils";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { goToSection } from "thunks/goToSection";
-import { DNDSortable } from "utils/DNDSortable/DNDSortable";
-import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
+import { DNDSortable } from "utils/DNDSortable/DNDSortable";
+import { useIsDraggingFreely } from "utils/DNDSortable/useDndUtils";
+import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
   // const childIds = useSectionInfos((x) => x.x[sectionId].children);
   const tempChildIds = useDndChildren((x) => x.x[sectionId]);
-  console.log("tempChildIds", tempChildIds)
+  console.log("tempChildIds", tempChildIds);
 
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>

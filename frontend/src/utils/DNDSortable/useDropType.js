@@ -25,6 +25,7 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
+  console.log("active.id", active.id)
   useDndState
     .getState()
     .setActive({ id: active.id, isTopLevel: active.data.current.isTopLevel });
@@ -83,7 +84,7 @@ function onDragOver({ active, over, isSorting }) {
   }
   const oldParentId = active?.data.current.sortable?.containerId;
   const newParentId = over?.data.current.sortable?.containerId; // ?? over?.id
-  if (newParentId) {
+  if (newParentId && newParentId !== active.id) {
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     if (newParentId !== oldParentId) {

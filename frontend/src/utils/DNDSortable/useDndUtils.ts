@@ -1,5 +1,4 @@
 import { useDndMonitor } from "@dnd-kit/core";
-import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
 import { useDndState } from "utils/DNDSortable/dndState";
@@ -15,7 +14,7 @@ export function useHighlightDroppable(sectionId: string) {
   const { positionDropType, behaviorDropType } = getDropType({
     leftDistCondition,
     shouldDrop,
-    movingFreeInSortable
+    movingFreeInSortable,
   });
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
@@ -39,10 +38,8 @@ export function useHighlightDroppable(sectionId: string) {
 
 export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
-  const [disabled, setDisabled] = useState({
-    draggable: false,
-    droppable: false,
-  });
+  const disabled = useDndState((x) => x.disabled[sectionId]);
+  const setDisabled = useDndState((x) => x.setDisabled);
 
   function activeIdInAncestorSet(activeId) {
     let parentId = getSectionParentId(sectionId);
@@ -63,20 +60,21 @@ export function useDisableSortable(sectionId: string) {
       isMovingFree &&
       (active.id === sectionId || activeIdInAncestorSet(active.id))
     ) {
-      setDisabled({ draggable: true, droppable: true });
+      setDisabled(sectionId, { draggable: true, droppable: true });
     }
-    // // Freely moving a child of this section
+    // Freely moving a child of this section
     // else if (isMovingFree && containerId === sectionId) {
-    //   setDisabled({ draggable: true, droppable: false });
+    //   console.log("disable", sectionId)
+    //   setDisabled({ draggable: true, droppable: true });
     // }
     // Sorting a child of different section
     else if (isSorting && containerId !== sectionId) {
-      setDisabled({ draggable: true, droppable: true });
+      setDisabled(sectionId, { draggable: true, droppable: true });
     }
   }
 
   function onDragDone() {
-    setDisabled({ draggable: false, droppable: false });
+    setDisabled(sectionId, { draggable: false, droppable: false });
   }
 
   useDndMonitor({
@@ -85,7 +83,7 @@ export function useDisableSortable(sectionId: string) {
     onDragCancel: onDragDone,
   });
 
-  return disabled;
+  return disabled ?? { draggable: false, droppable: false };
 }
 
 export function useIsDraggingFreely() {
