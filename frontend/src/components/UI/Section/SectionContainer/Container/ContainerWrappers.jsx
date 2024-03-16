@@ -51,8 +51,6 @@ function _DndWatcherAndContainer({
   style,
   children,
 }) {
-  console.log("_DndWatcherAndContainer", sectionId, droppableRef)
-
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const { isSorting, isMovingFree } = useDndMode();
   const isDraggingSortable = !isTopLevel && (isSorting || isMovingFree);
