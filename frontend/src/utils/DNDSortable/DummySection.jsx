@@ -1,4 +1,4 @@
-import { DragOverlay } from "@dnd-kit/core";
+import { DragOverlay } from "@alissavrk/dnd-kit-core";
 import { useDndState } from "models/info/dndState";
 import { useTrueSectionSize } from "models/sectionRefs";
 import React from "react";

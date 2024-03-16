@@ -1,4 +1,4 @@
-import { useDndMonitor } from "@dnd-kit/core";
+import { useDndMonitor } from "@alissavrk/dnd-kit-core";
 import { useDndState } from "models/info/dndState";
 import { useKeyActivations } from "models/keyActivations";
 import { useState } from "react";

@@ -1,5 +1,5 @@
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { useSortable } from "@alissavrk/dnd-kit-sortable";
+import { CSS } from "@alissavrk/dnd-kit-utilities";
 import { useDndMode, useDndProps, useOverIsSelf } from "hooks/useDndUtils";
 import React from "react";
 import { useReactFlow } from "xyflow/core/store";
