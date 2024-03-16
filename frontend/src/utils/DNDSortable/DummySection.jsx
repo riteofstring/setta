@@ -5,17 +5,24 @@ import { useDndState } from "utils/DNDSortable/dndState";
 import { useReactFlow } from "xyflow/core/store";
 import { useDndMode } from "./useDndUtils";
 
-const DummySection = React.forwardRef(({ sectionId }, ref) => {
+export const DummySection = React.forwardRef(({ forceShow }, ref) => {
+  const zoom = useReactFlow((x) => x.transform[2]);
   const { width, height } = useDndState((x) => ({
     width: x.width,
     height: x.height,
   }));
-  const zoom = useReactFlow((x) => x.transform[2]);
+
   const { isSorting } = useDndMode();
+
+  const displayWidth = forceShow ? width : width * zoom;
+  const displayHeight = forceShow ? height : height * zoom;
+
   return (
     <div
-      style={{ width: `${width * zoom}px`, height: `${height * zoom}px` }}
-      className={isSorting ? "rounded-md bg-runcoder-50/25" : "opacity-0"}
+      style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
+      className={
+        isSorting || forceShow ? "rounded-md bg-runcoder-50/25" : "opacity-0"
+      }
       ref={ref}
     />
   );
@@ -28,7 +35,7 @@ export const DummyDragOverlay = React.forwardRef((props, ref) => {
     activeId &&
     createPortal(
       <DragOverlay dropAnimation={null}>
-        <DummySection sectionId={activeId} ref={ref} />
+        <DummySection ref={ref} />
       </DragOverlay>,
       document.body,
     )

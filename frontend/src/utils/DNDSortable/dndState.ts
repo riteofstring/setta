@@ -8,6 +8,7 @@ const initialState = {
   leftDistCondition: false,
   isSorting: false,
   isMovingFree: false,
+  movingFreeInSortable: false,
   disabled: {},
   width: null,
   height: null,

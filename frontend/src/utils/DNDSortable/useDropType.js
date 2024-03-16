@@ -21,16 +21,13 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
-  console.log("active.id", active.id);
   const { width, height } = getSectionRectWithNested(active.id);
-  useDndState
-    .getState()
-    .setActive({
-      id: active.id,
-      isTopLevel: active.data.current.isTopLevel,
-      width,
-      height,
-    });
+  useDndState.getState().setActive({
+    id: active.id,
+    isTopLevel: active.data.current.isTopLevel,
+    width,
+    height,
+  });
 }
 
 function onDragMove({ active, over, collisions, isMovingFree }) {
@@ -63,7 +60,10 @@ export function useOnDragOver() {
 
 function onDragOver({ active, over, isSorting }) {
   if (isSorting) {
-    useDndState.setState({ behaviorDropType: null });
+    useDndState.setState({
+      behaviorDropType: null,
+      movingFreeInSortable: false,
+    });
     return;
   }
   if (!over) {
@@ -76,10 +76,14 @@ function onDragOver({ active, over, isSorting }) {
           .x[oldParentId].filter((x) => x !== active.id),
       });
     }
-    useDndState.setState({ behaviorDropType: null });
+    useDndState.setState({
+      behaviorDropType: null,
+      movingFreeInSortable: false,
+    });
     return;
   }
   if (active.id === over.id) {
+    console.log("active.id === over.id");
     useDndState.setState({ behaviorDropType: null });
     return;
   }
@@ -92,10 +96,11 @@ function onDragOver({ active, over, isSorting }) {
   }
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
-    useDndState.setState({ behaviorDropType });
+    useDndState.setState({ behaviorDropType, movingFreeInSortable: false });
     return;
   }
   if (newParentId && newParentId !== active.id) {
+    useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     if (newParentId !== oldParentId) {
       const index = newParentIsInsideSortable

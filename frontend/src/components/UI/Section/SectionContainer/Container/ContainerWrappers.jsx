@@ -19,7 +19,6 @@ function _DndSlotAndDndWatcher({
 }) {
   const { style, behaviorDropType } = useHighlightDroppable(sectionId);
 
-  console.log("behaviorDropType", behaviorDropType);
   return (
     <DndSlot behaviorDropType={behaviorDropType} isDeck={isDeck}>
       <DndWatcherAndContainer
