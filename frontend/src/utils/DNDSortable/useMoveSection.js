@@ -1,14 +1,15 @@
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import _ from "lodash";
-import { useDndState } from "utils/DNDSortable/dndState";
 import { useRef } from "react";
 import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
+import { useDndState } from "utils/DNDSortable/dndState";
+import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { updateWithArrayMove } from "utils/utils";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
+import { useDndChildren } from "./dndChildren";
 import { getDropType } from "./useDropType";
 
 function onSortEnd({ active, over }) {
@@ -22,7 +23,7 @@ function onSortEnd({ active, over }) {
   }
 }
 
-function onFreeMoveEnd({ dummyRef }) {
+function onFreeMoveEnd({ active, dummyRef }) {
   const dndState = useDndState.getState();
   const { activeId: sectionId, overId } = dndState;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
@@ -31,8 +32,12 @@ function onFreeMoveEnd({ dummyRef }) {
   let position = null;
   let behaviorDropType = null;
 
+  if (dndState.movingFreeInSortable) {
+    newParentId = active.data.current.sortable.containerId
+    newIndex = useDndChildren.getState().x[newParentId].indexOf(overId);
+  }
   // dropping nested section onto pane
-  if (oldParentId !== PANEID && !overId) {
+  else if (oldParentId !== PANEID && !overId) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
@@ -41,7 +46,7 @@ function onFreeMoveEnd({ dummyRef }) {
     const dropType = getDropType({
       leftDistCondition: dndState.leftDistCondition,
       shouldDrop: dndState.shouldDrop,
-      movingFreeInSortable: dndState.movingFreeInSortable
+      movingFreeInSortable: dndState.movingFreeInSortable,
     });
     behaviorDropType = dropType.behaviorDropType;
     [newParentId, newIndex] = dropType.positionDropType.slice(1);
