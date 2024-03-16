@@ -1,5 +1,4 @@
 import { useTempHasNested } from "hooks/useSectionChildren";
-import _ from "lodash";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
@@ -20,6 +19,11 @@ function _Container({
     refForPosition.current = e;
     droppableRef && droppableRef(e);
     draggableRef && draggableRef(e);
+  }
+  if (sectionId[0] === "5") {
+    console.log("droppableRef", droppableRef);
+    console.log("draggableRef", draggableRef);
+    console.log("trueDragListeners", trueDragListeners);
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
@@ -61,7 +65,7 @@ function _Container({
   // return React.cloneElement(children, commonProps);
 }
 
-export const Container = React.memo(_Container, _.isEqual);
+export const Container = React.memo(_Container, () => false);
 
 function DeckSectionTitle({ sectionId }) {
   const titleProps = {

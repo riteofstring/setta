@@ -11,10 +11,13 @@ function _SectionContainer({ sectionId, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
   const hasNested = useTempHasNested(sectionId);
   const dndActiveAndMovingInSortable = useDndState(
-    (x) => x.activeId === sectionId && x.movingFreeInSortable && !!dragListeners,
+    (x) =>
+      x.activeId === sectionId && x.movingFreeInSortable && !!dragListeners,
   );
 
-  console.log("_SectionContainer", sectionId, dndActiveAndMovingInSortable)
+  if (sectionId[0] === "5") {
+    console.log("_SectionContainer", sectionId, dndActiveAndMovingInSortable);
+  }
 
   return dndActiveAndMovingInSortable ? (
     <DummySection forceShow={true} />
