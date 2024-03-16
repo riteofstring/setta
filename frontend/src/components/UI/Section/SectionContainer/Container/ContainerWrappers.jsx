@@ -60,7 +60,7 @@ function _DndWatcherAndContainer({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = isDraggingSortable ? "nodrag" : "";
+  const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = activeIsSelf ? { ...style, opacity: 0.5 } : style;
 
   return (
