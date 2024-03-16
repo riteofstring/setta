@@ -11,7 +11,7 @@ import {
 } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
@@ -43,7 +43,10 @@ function CustomResizableCore({
   children,
   as,
 }) {
-  const { isSorting, isMovingFree } = useDndMode();
+  const { isSorting, isMovingFree } = useDndState((x) => ({
+    isSorting: x.isSorting,
+    isMovingFree: x.isMovingFree,
+  }));
   const sizeMode = useSizeMode(sectionId);
   const size = useSectionInfos((x) => x.x[sectionId].size);
   const aspectRatio = useAspectRatio(sectionId);

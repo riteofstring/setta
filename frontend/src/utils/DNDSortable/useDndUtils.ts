@@ -1,7 +1,7 @@
 import { useDndMonitor } from "@dnd-kit/core";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
-import { useDndState } from "utils/DNDSortable/dndState";
+import { useDndState, getDndSectionId } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useTempHasNested } from "../../hooks/useSectionChildren";
 
@@ -28,15 +28,19 @@ export function useHighlightDroppable(sectionId: string) {
   };
 }
 
-export function useDisableSortable(sectionId: string) {
-  const { isSorting, isMovingFree } = useDndMode();
-  const disabled = useDndState((x) => x.disabled[sectionId]);
+export function useDisableSortable(sectionId: string, dndSectionId: string) {
+  const { isSorting, isMovingFree } = useDndState((x) => ({
+    isSorting: x.isSorting,
+    isMovingFree: x.isMovingFree,
+  }));
+  const disabled = useDndState((x) => x.disabled[dndSectionId]);
   const setDisabled = useDndState((x) => x.setDisabled);
 
   function activeIdInAncestorSet(activeId) {
+    // use sectionId here instead of dndSectionId because we're referring to the non-temporary data structure.
     let parentId = getSectionParentId(sectionId);
     while (parentId) {
-      if (activeId === parentId) {
+      if (activeId === getDndSectionId(parentId)) {
         return true;
       }
       parentId = getSectionParentId(parentId);
@@ -50,9 +54,9 @@ export function useDisableSortable(sectionId: string) {
     // Freely moving this section or ancestor of this section
     if (
       isMovingFree &&
-      (active.id === sectionId || activeIdInAncestorSet(active.id))
+      (active.id === dndSectionId || activeIdInAncestorSet(active.id))
     ) {
-      setDisabled(sectionId, { draggable: true, droppable: true });
+      setDisabled(dndSectionId, { draggable: true, droppable: true });
     }
     // Freely moving a child of this section
     // else if (isMovingFree && containerId === sectionId) {
@@ -60,13 +64,13 @@ export function useDisableSortable(sectionId: string) {
     //   setDisabled({ draggable: true, droppable: true });
     // }
     // Sorting a child of different section
-    else if (isSorting && containerId !== sectionId) {
-      setDisabled(sectionId, { draggable: true, droppable: true });
+    else if (isSorting && containerId !== dndSectionId) {
+      setDisabled(dndSectionId, { draggable: true, droppable: true });
     }
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: false, droppable: false });
+    setDisabled(dndSectionId, { draggable: false, droppable: false });
   }
 
   useDndMonitor({
@@ -79,35 +83,34 @@ export function useDisableSortable(sectionId: string) {
 }
 
 export function useIsDraggingFreely() {
-  const { isMovingFree } = useDndMode();
+  const isMovingFree = useDndState((x) => x.isMovingFree);
   const activeIsTruthy = useDndState((x) => !!x.activeId);
   return isMovingFree && activeIsTruthy;
 }
 
-export function useDndMode() {
-  const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useDndState((x) => x.isSorting);
-  const isMovingFree = useDndState((x) => x.isMovingFree);
-  // only allow one of sorting or movingFree to be true
-  // if sorting, then active section must nested
-  if (
-    isMovingFree !== isSorting &&
-    (!isSorting || (isSorting && !activeIsTopLevel))
-  ) {
-    return { isSorting, isMovingFree };
-  }
-  return { isSorting: false, isMovingFree: false };
-}
-
 export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useTempHasNested(sectionId);
+  const dndSectionId = getDndSectionId(sectionId);
+  const hasNested = useTempHasNested(dndSectionId);
 
   return {
-    id: sectionId,
+    id: dndSectionId,
     data: { isTopLevel, hasNested },
   };
 }
 
+export function useActiveIsSelf(sectionId) {
+  return useDndState((x) => x.activeId === getDndSectionId(sectionId));
+}
+
 export function useOverIsSelf(sectionId) {
-  return useDndState((x) => x.overId === sectionId);
+  return useDndState((x) => x.overId === getDndSectionId(sectionId));
+}
+
+export function useDndActiveAndMovingFreeInSortable(sectionId, dragListeners) {
+  return useDndState(
+    (x) =>
+      x.activeId === getDndSectionId(sectionId) &&
+      x.movingFreeInSortable &&
+      !!dragListeners,
+  );
 }

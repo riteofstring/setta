@@ -3,13 +3,15 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import React from "react";
+import { getDndSectionId } from "utils/DNDSortable/dndState";
 import { useDisableSortable } from "utils/DNDSortable/useDndUtils";
 
 export function DNDSortable({ sectionId, items, children }) {
-  const disabled = useDisableSortable(sectionId);
+  const dndSectionId = getDndSectionId(sectionId);
+  const disabled = useDisableSortable(sectionId, dndSectionId);
   return (
     <SortableContext
-      id={sectionId}
+      id={dndSectionId}
       items={items}
       strategy={
         disabled.draggable || disabled.droppable
