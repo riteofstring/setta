@@ -11,9 +11,11 @@ export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);
   const shouldDrop = useDndState((x) => x.shouldDrop && overIsSelf);
   const leftDistCondition = useDndState((x) => x.leftDistCondition);
+  const movingFreeInSortable = useDndState((x) => x.movingFreeInSortable);
   const { positionDropType, behaviorDropType } = getDropType({
     leftDistCondition,
     shouldDrop,
+    movingFreeInSortable
   });
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 

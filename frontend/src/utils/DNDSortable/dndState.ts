@@ -8,6 +8,7 @@ const initialState = {
   leftDistCondition: false,
   isSorting: false,
   isMovingFree: false,
+  movingFreeInSortable: false,
 };
 
 export const useDndState = createProjectState((set) => ({

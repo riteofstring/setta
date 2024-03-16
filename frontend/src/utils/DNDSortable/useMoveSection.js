@@ -41,6 +41,7 @@ function onFreeMoveEnd({ dummyRef }) {
     const dropType = getDropType({
       leftDistCondition: dndState.leftDistCondition,
       shouldDrop: dndState.shouldDrop,
+      movingFreeInSortable: dndState.movingFreeInSortable
     });
     behaviorDropType = dropType.behaviorDropType;
     [newParentId, newIndex] = dropType.positionDropType.slice(1);

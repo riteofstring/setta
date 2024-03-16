@@ -37,8 +37,6 @@ function onDragMove({ active, over, collisions, isMovingFree }) {
     const leftDistCondition = getLeftDistCondition(collisions);
     const dndState = useDndState.getState();
 
-    console.log("active", active.id);
-    console.log("overId", overId);
     if (
       overId !== dndState.overId ||
       shouldDrop !== dndState.shouldDrop ||
@@ -77,6 +75,7 @@ function onDragOver({ active, over, isSorting }) {
           .x[oldParentId].filter((x) => x !== active.id),
       });
     }
+    useDndState.setState({ movingFreeInSortable: false });
     return;
   }
   if (active.id === over.id) {
@@ -85,6 +84,7 @@ function onDragOver({ active, over, isSorting }) {
   const oldParentId = active?.data.current.sortable?.containerId;
   const newParentId = over?.data.current.sortable?.containerId; // ?? over?.id
   if (newParentId) {
+    useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     if (newParentId !== oldParentId) {
       const index = newParentChildren.indexOf(over.id);
@@ -167,7 +167,6 @@ function getPositionDropType({ leftDistCondition }) {
 
 // returns [dropType, newParentId, newIndex]
 function getBehaviorDropType({ newParentId }) {
-  console.log("newParentId", newParentId);
   const activeId = useDndState.getState().activeId;
   // invalid if parent can't have children
   // or if child can only be in deck and parent is not a deck
@@ -185,8 +184,8 @@ function getBehaviorDropType({ newParentId }) {
   return BehaviorDropType.INVALID;
 }
 
-export function getDropType({ shouldDrop, leftDistCondition }) {
-  if (!shouldDrop) {
+export function getDropType({ shouldDrop, leftDistCondition, movingFreeInSortable }) {
+  if (!shouldDrop || movingFreeInSortable) {
     return {
       positionDropType: [null, null, null],
       behaviorDropType: null,
