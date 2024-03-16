@@ -1,4 +1,4 @@
-import { useDndMonitor } from "@dnd-kit/core";
+import { useDndMonitor } from "@alissavrk/dnd-kit-core";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
 import { useDndState } from "utils/DNDSortable/dndState";

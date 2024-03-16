@@ -1,4 +1,4 @@
-import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@alissavrk/dnd-kit-core";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { useDndProps } from "utils/DNDSortable/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";

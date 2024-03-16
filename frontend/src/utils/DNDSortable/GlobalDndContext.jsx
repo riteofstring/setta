@@ -1,4 +1,4 @@
-import { DndContext } from "@dnd-kit/core";
+import { DndContext } from "@alissavrk/dnd-kit-core";
 import { DummyDragOverlay } from "./DummySection";
 import { useDNDSensors } from "./useDNDSensors";
 import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType";

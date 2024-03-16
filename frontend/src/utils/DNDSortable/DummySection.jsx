@@ -1,4 +1,4 @@
-import { DragOverlay } from "@dnd-kit/core";
+import { DragOverlay } from "@alissavrk/dnd-kit-core";
 import React from "react";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { useReactFlow } from "xyflow/core/store";
