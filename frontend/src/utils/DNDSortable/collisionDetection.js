@@ -83,6 +83,7 @@ export const customCollisionDetection = ({
 }) => {
   let bestCollision = null;
   const left = collisionRect.left;
+  const centerY = collisionRect.top + collisionRect.height / 2;
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
@@ -96,6 +97,7 @@ export const customCollisionDetection = ({
     ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
+        const currCenterY = rect.top + rect.height / 2;
         const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
@@ -104,6 +106,7 @@ export const customCollisionDetection = ({
             absLeftDist: Math.abs(dist),
             leftDist: dist,
             intersectionRatio: ratio,
+            centerYDist: centerY - currCenterY,
           },
         });
       }

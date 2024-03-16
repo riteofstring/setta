@@ -1,16 +1,15 @@
+import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
-import { addNodes } from "models/info/nodeInternals";
+import { useDndState } from "models/info/dndState";
 import { useRef } from "react";
 import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
-import { useDndState } from "utils/DNDSortable/dndState";
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { updateWithArrayMove } from "utils/utils";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
-import { useDndChildren } from "./dndChildren";
+import { getDropType } from "./useDropType";
 
 function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
@@ -23,7 +22,7 @@ function onSortEnd({ active, over }) {
   }
 }
 
-function onFreeMoveEnd({ active, dummyRef }) {
+function onFreeMoveEnd({ dummyRef }) {
   const dndState = useDndState.getState();
   const { activeId: sectionId, overId } = dndState;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
@@ -32,23 +31,20 @@ function onFreeMoveEnd({ active, dummyRef }) {
   let position = null;
   let behaviorDropType = null;
 
-  if (active.data.current.sortable?.containerId) {
-    newParentId = active.data.current.sortable.containerId;
-    newIndex = useDndChildren.getState().x[newParentId].indexOf(overId);
-  }
   // dropping nested section onto pane
-  else if (!overId) {
+  if (oldParentId !== PANEID && !overId) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
-    console.log("position", position)
-    if (oldParentId === PANEID) {
-      addNodes([
-        { id: active.id, position, zIndex: 0, tempZIndex: 0 },
-      ]);
-      return;
-    }
+  } else if (overId) {
+    const dropType = getDropType({
+      centerYCondition: dndState.centerYCondition,
+      leftDistCondition: dndState.leftDistCondition,
+      shouldDrop: dndState.shouldDrop,
+    });
+    behaviorDropType = dropType.behaviorDropType;
+    [newParentId, newIndex] = dropType.positionDropType.slice(1);
   }
 
   moveSection({
@@ -77,7 +73,6 @@ export function useOnDragEnd() {
         dummyRef,
       });
     }
-    useDndState.getState().reset();
   }
 
   return { dummyRef, onDragEnd };

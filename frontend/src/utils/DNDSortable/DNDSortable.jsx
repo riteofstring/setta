@@ -2,7 +2,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useDisableSortable } from "utils/DNDSortable/useDndUtils";
+import { useDisableSortable } from "hooks/useDndUtils";
 import React from "react";
 
 export function DNDSortable({ sectionId, items, children }) {

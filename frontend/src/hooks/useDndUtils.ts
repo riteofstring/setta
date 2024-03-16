@@ -1,18 +1,26 @@
 import { useDndMonitor } from "@dnd-kit/core";
+import { useDndState } from "models/info/dndState";
+import { useKeyActivations } from "models/keyActivations";
+import { useState } from "react";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
-import { useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
-import { useTempHasNested } from "../../hooks/useSectionChildren";
+import { getDropType } from "utils/DNDSortable/useDropType";
+import { useHasNested } from "./useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);
-  const behaviorDropType = useDndState((x) =>
-    overIsSelf ? x.behaviorDropType : null,
-  );
+  const shouldDrop = useDndState((x) => x.shouldDrop && overIsSelf);
+  const centerYCondition = useDndState((x) => x.centerYCondition);
+  const leftDistCondition = useDndState((x) => x.leftDistCondition);
+  const { positionDropType, behaviorDropType } = getDropType({
+    centerYCondition,
+    leftDistCondition,
+    shouldDrop,
+  });
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
-  const style = !invalid
+  const style = !shouldDrop
     ? {}
     : {
         borderRadius: "1.5rem",
@@ -24,14 +32,17 @@ export function useHighlightDroppable(sectionId: string) {
 
   return {
     style,
+    positionDropType: positionDropType[0],
     behaviorDropType,
   };
 }
 
 export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
-  const disabled = useDndState((x) => x.disabled[sectionId]);
-  const setDisabled = useDndState((x) => x.setDisabled);
+  const [disabled, setDisabled] = useState({
+    draggable: false,
+    droppable: false,
+  });
 
   function activeIdInAncestorSet(activeId) {
     let parentId = getSectionParentId(sectionId);
@@ -52,21 +63,20 @@ export function useDisableSortable(sectionId: string) {
       isMovingFree &&
       (active.id === sectionId || activeIdInAncestorSet(active.id))
     ) {
-      setDisabled(sectionId, { draggable: true, droppable: true });
+      setDisabled({ draggable: true, droppable: true });
     }
     // Freely moving a child of this section
-    // else if (isMovingFree && containerId === sectionId) {
-    //   console.log("disable", sectionId)
-    //   setDisabled({ draggable: true, droppable: true });
-    // }
+    else if (isMovingFree && containerId === sectionId) {
+      setDisabled({ draggable: true, droppable: false });
+    }
     // Sorting a child of different section
     else if (isSorting && containerId !== sectionId) {
-      setDisabled(sectionId, { draggable: true, droppable: true });
+      setDisabled({ draggable: true, droppable: true });
     }
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: false, droppable: false });
+    setDisabled({ draggable: false, droppable: false });
   }
 
   useDndMonitor({
@@ -75,7 +85,7 @@ export function useDisableSortable(sectionId: string) {
     onDragCancel: onDragDone,
   });
 
-  return disabled ?? { draggable: false, droppable: false };
+  return disabled;
 }
 
 export function useIsDraggingFreely() {
@@ -86,8 +96,8 @@ export function useIsDraggingFreely() {
 
 export function useDndMode() {
   const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useDndState((x) => x.isSorting);
-  const isMovingFree = useDndState((x) => x.isMovingFree);
+  const isSorting = useKeyActivations((x) => x.isSorting);
+  const isMovingFree = useKeyActivations((x) => x.isMovingFree);
   // only allow one of sorting or movingFree to be true
   // if sorting, then active section must nested
   if (
@@ -100,7 +110,7 @@ export function useDndMode() {
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useTempHasNested(sectionId);
+  const hasNested = useHasNested(sectionId);
 
   return {
     id: sectionId,

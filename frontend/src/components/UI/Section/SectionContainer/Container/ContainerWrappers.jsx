@@ -1,10 +1,7 @@
+import { useDndMode, useHighlightDroppable } from "hooks/useDndUtils";
 import _ from "lodash";
+import { useDndState } from "models/info/dndState";
 import React from "react";
-import { useDndState } from "utils/DNDSortable/dndState";
-import {
-  useDndMode,
-  useHighlightDroppable,
-} from "utils/DNDSortable/useDndUtils";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
@@ -17,10 +14,14 @@ function _DndSlotAndDndWatcher({
   dragListeners,
   children,
 }) {
-  const { style, behaviorDropType } = useHighlightDroppable(sectionId);
-
+  const { style, positionDropType, behaviorDropType } =
+    useHighlightDroppable(sectionId);
   return (
-    <DndSlot behaviorDropType={behaviorDropType} isDeck={isDeck}>
+    <DndSlot
+      positionDropType={positionDropType}
+      behaviorDropType={behaviorDropType}
+      isDeck={isDeck}
+    >
       <DndWatcherAndContainer
         isDeck={isDeck}
         sectionId={sectionId}

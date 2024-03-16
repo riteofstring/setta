@@ -1,11 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useDndMode, useDndProps, useOverIsSelf } from "hooks/useDndUtils";
 import React from "react";
-import {
-  useDndMode,
-  useDndProps,
-  useOverIsSelf,
-} from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 import { SectionContainer } from "./SectionContainer";
 
@@ -20,7 +16,7 @@ function _SortableSectionContainer({ sectionId }) {
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ ...dndProps });
+  } = useSortable({ ...dndProps, animateLayoutChanges });
   return (
     <SortableCore
       sectionId={sectionId}
