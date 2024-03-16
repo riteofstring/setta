@@ -102,7 +102,8 @@ function onDragOver({ active, over, isSorting, ...props }) {
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     const oldParentId = getParentId(getDndSectionId(active.id));
-    if (newParentId !== oldParentId) {
+    const trueOldParentId = getParentId(active.id);
+    if (newParentId !== oldParentId && newParentId !== trueOldParentId) {
       console.log("setting!", oldParentId, newParentId);
 
       const index = newParentIsInsideSortable
