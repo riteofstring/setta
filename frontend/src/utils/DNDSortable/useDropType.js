@@ -4,7 +4,7 @@ import {
   getSectionIsRoot,
 } from "thunks/sections/getters";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import { useDndState } from "utils/DNDSortable/dndState";
+import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
@@ -58,7 +58,8 @@ export function useOnDragOver() {
   };
 }
 
-function onDragOver({ active, over, isSorting }) {
+function onDragOver({ active, over, isSorting, ...props }) {
+  console.log("props", props)
   if (isSorting) {
     useDndState.setState({
       behaviorDropType: null,
@@ -95,6 +96,7 @@ function onDragOver({ active, over, isSorting }) {
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     if (newParentId !== oldParentId) {
+      console.log("newParentId !== oldParentId", newParentId, oldParentId)
       const index = newParentIsInsideSortable
         ? newParentChildren.indexOf(over.id)
         : 0;
@@ -102,7 +104,7 @@ function onDragOver({ active, over, isSorting }) {
         sectionId: newParentId,
         children: [
           ...newParentChildren.slice(0, index),
-          active.id,
+          getDndSectionId(active.id),
           ...newParentChildren.slice(index),
         ],
       });
@@ -114,11 +116,12 @@ function onDragOver({ active, over, isSorting }) {
 function maybeRemoveFromOldTempParent(active) {
   const oldParentId = active?.data.current.sortable?.containerId;
   if (oldParentId) {
+    const dndSectionId = getDndSectionId(active.id);
     useDndChildren.getState().setChildren({
       sectionId: oldParentId,
       children: useDndChildren
         .getState()
-        .x[oldParentId].filter((x) => x !== active.id),
+        .x[oldParentId].filter((x) => x !== dndSectionId),
     });
   }
 }

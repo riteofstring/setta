@@ -55,7 +55,11 @@ function _SortableCore({
 
   return (
     <div className="relative first:mt-2" {...stackProps}>
-      <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+      {isTempSection(sectionId) ? (
+        <DummySection forceShow={true} />
+      ) : (
+        <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+      )}
     </div>
   );
 }
