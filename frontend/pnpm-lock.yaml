@@ -5,21 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
-  '@alissavrk/dnd-kit-accessibility':
-    specifier: 4.0.0
-    version: 4.0.0(react@18.2.0)
-  '@alissavrk/dnd-kit-core':
-    specifier: 7.0.0
-    version: 7.0.0(react-dom@18.2.0)(react@18.2.0)
-  '@alissavrk/dnd-kit-modifiers':
-    specifier: 7.0.0
-    version: 7.0.0(@alissavrk/dnd-kit-core@7.0.0)(react@18.2.0)
-  '@alissavrk/dnd-kit-sortable':
-    specifier: 8.0.0
-    version: 8.0.0(@alissavrk/dnd-kit-core@7.0.0)(react@18.2.0)
-  '@alissavrk/dnd-kit-utilities':
-    specifier: 4.0.0
-    version: 4.0.0(react@18.2.0)
   '@codemirror/lang-javascript':
     specifier: 6.2.1
     version: 6.2.1
@@ -29,6 +14,18 @@ dependencies:
   '@codemirror/view':
     specifier: 6.23.0
     version: 6.23.0
+  '@dnd-kit/core':
+    specifier: 6.0.5
+    version: 6.0.5(react-dom@18.2.0)(react@18.2.0)
+  '@dnd-kit/modifiers':
+    specifier: 6.0.0
+    version: 6.0.0(@dnd-kit/core@6.0.5)(react@18.2.0)
+  '@dnd-kit/sortable':
+    specifier: 7.0.1
+    version: 7.0.1(@dnd-kit/core@6.0.5)(react@18.2.0)
+  '@dnd-kit/utilities':
+    specifier: 3.2.2
+    version: 3.2.2(react@18.2.0)
   '@fontsource/cormorant-garamond':
     specifier: 4.5.10
     version: 4.5.10
@@ -283,9 +280,6 @@ devDependencies:
   jsdom:
     specifier: 20.0.1
     version: 20.0.1
-  json:
-    specifier: 11.0.0
-    version: 11.0.0
   knip:
     specifier: 3.8.4
     version: 3.8.4(@types/node@20.11.25)(typescript@4.7.4)
@@ -314,62 +308,6 @@ packages:
     resolution: {integrity: sha512-1Yjs2SvM8TflER/OD3cOjhWWOZb58A2t7wpE2S9XfBYTiIl+XFhQG2bjy4Pu1I+EAlCNUzRDYDdFwFYUKvXcIA==}
     engines: {node: '>=0.10.0'}
     dev: true
-
-  /@alissavrk/dnd-kit-accessibility@4.0.0(react@18.2.0):
-    resolution: {integrity: sha512-UIl8T3h9YGcib2hIfXtCimWEihPHorhB8PR9GzUSD5od9zhEjiTb7t1vqW+fqtK7q3X/bJ4CbqEz3KMkA1DUPw==}
-    peerDependencies:
-      react: '>=16.8.0'
-    dependencies:
-      react: 18.2.0
-      tslib: 2.6.2
-    dev: false
-
-  /@alissavrk/dnd-kit-core@7.0.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-/vv5DYFzErHqexnheecw7D+VOZv9cUsl+w5rY1UESz7+Z1O41zxtpXVjck3zsqxhSGwdDB2+GaEG4QPBWsGQvw==}
-    peerDependencies:
-      react: '>=16.8.0'
-      react-dom: '>=16.8.0'
-    dependencies:
-      '@alissavrk/dnd-kit-accessibility': 4.0.0(react@18.2.0)
-      '@alissavrk/dnd-kit-utilities': 4.0.0(react@18.2.0)
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      tslib: 2.6.2
-      use-sync-external-store: 1.2.0(react@18.2.0)
-    dev: false
-
-  /@alissavrk/dnd-kit-modifiers@7.0.0(@alissavrk/dnd-kit-core@7.0.0)(react@18.2.0):
-    resolution: {integrity: sha512-prR5wdk5erhicYMCD4wfjcEvzAawMmQ7xn58RuLs9GiwSSye8g30tP6VUhGby5saIwmT1geSOS/pLX8t5WXPsQ==}
-    peerDependencies:
-      '@alissavrk/dnd-kit-core': ^7.0.0
-      react: '>=16.8.0'
-    dependencies:
-      '@alissavrk/dnd-kit-core': 7.0.0(react-dom@18.2.0)(react@18.2.0)
-      '@alissavrk/dnd-kit-utilities': 4.0.0(react@18.2.0)
-      react: 18.2.0
-      tslib: 2.6.2
-    dev: false
-
-  /@alissavrk/dnd-kit-sortable@8.0.0(@alissavrk/dnd-kit-core@7.0.0)(react@18.2.0):
-    resolution: {integrity: sha512-xYXS82+/tNv18d57LBFMujO7k8JM798ZzwqZkVtiIdDKi5fdhlERSfpsPQkIJ35G+YXL+HufAI6b/9C74lUAZA==}
-    peerDependencies:
-      '@alissavrk/dnd-kit-core': ^7.0.0
-      react: '>=16.8.0'
-    dependencies:
-      '@alissavrk/dnd-kit-core': 7.0.0(react-dom@18.2.0)(react@18.2.0)
-      '@alissavrk/dnd-kit-utilities': 4.0.0(react@18.2.0)
-      react: 18.2.0
-      tslib: 2.6.2
-    dev: false
-
-  /@alissavrk/dnd-kit-utilities@4.0.0(react@18.2.0):
-    resolution: {integrity: sha512-KZhHoxYfpQvcnYAHv6obVpesWxddmH1Uk6uI5fbZSYVcKvHeQZP7lOoHPZpsa9TkpQ17Mg88rb1crWmgnEsawA==}
-    peerDependencies:
-      react: '>=16.8.0'
-    dependencies:
-      react: 18.2.0
-      tslib: 2.6.2
-    dev: false
 
   /@alloc/quick-lru@5.2.0:
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -700,6 +638,61 @@ packages:
       '@codemirror/state': 6.4.1
       style-mod: 4.1.2
       w3c-keyname: 2.2.8
+    dev: false
+
+  /@dnd-kit/accessibility@3.1.0(react@18.2.0):
+    resolution: {integrity: sha512-ea7IkhKvlJUv9iSHJOnxinBcoOI3ppGnnL+VDJ75O45Nss6HtZd8IdN8touXPDtASfeI2T2LImb8VOZcL47wjQ==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.2.0
+      tslib: 2.6.2
+    dev: false
+
+  /@dnd-kit/core@6.0.5(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-3nL+Zy5cT+1XwsWdlXIvGIFvbuocMyB4NBxTN74DeBaBqeWdH9JsnKwQv7buZQgAHmAH+eIENfS1ginkvW6bCw==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/accessibility': 3.1.0(react@18.2.0)
+      '@dnd-kit/utilities': 3.2.2(react@18.2.0)
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      tslib: 2.6.2
+    dev: false
+
+  /@dnd-kit/modifiers@6.0.0(@dnd-kit/core@6.0.5)(react@18.2.0):
+    resolution: {integrity: sha512-V3+JSo6/BTcgPRHiNUTSKgqVv/doKXg+T4Z0QvKiiXp+uIyJTUtPkQOBRQApUWi3ApBhnoWljyt/3xxY4fTd0Q==}
+    peerDependencies:
+      '@dnd-kit/core': ^6.0.0
+    dependencies:
+      '@dnd-kit/core': 6.0.5(react-dom@18.2.0)(react@18.2.0)
+      '@dnd-kit/utilities': 3.2.2(react@18.2.0)
+      tslib: 2.6.2
+    transitivePeerDependencies:
+      - react
+    dev: false
+
+  /@dnd-kit/sortable@7.0.1(@dnd-kit/core@6.0.5)(react@18.2.0):
+    resolution: {integrity: sha512-n77qAzJQtMMywu25sJzhz3gsHnDOUlEjTtnRl8A87rWIhnu32zuP+7zmFjwGgvqfXmRufqiHOSlH7JPC/tnJ8Q==}
+    peerDependencies:
+      '@dnd-kit/core': ^6.0.4
+      react: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/core': 6.0.5(react-dom@18.2.0)(react@18.2.0)
+      '@dnd-kit/utilities': 3.2.2(react@18.2.0)
+      react: 18.2.0
+      tslib: 2.6.2
+    dev: false
+
+  /@dnd-kit/utilities@3.2.2(react@18.2.0):
+    resolution: {integrity: sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg==}
+    peerDependencies:
+      react: '>=16.8.0'
+    dependencies:
+      react: 18.2.0
+      tslib: 2.6.2
     dev: false
 
   /@emotion/is-prop-valid@0.8.8:
@@ -5526,12 +5519,6 @@ packages:
     resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
     engines: {node: '>=6'}
     hasBin: true
-
-  /json@11.0.0:
-    resolution: {integrity: sha512-N/ITv3Yw9Za8cGxuQqSqrq6RHnlaHWZkAFavcfpH/R52522c26EbihMxnY7A1chxfXJ4d+cEFIsyTgfi9GihrA==}
-    engines: {node: '>=0.10.0'}
-    hasBin: true
-    dev: true
 
   /jsonc-parser@3.2.1:
     resolution: {integrity: sha512-AilxAyFOAcK5wA1+LeaySVBrHsGQvUFCDWXKpZjzaL0PqW+xfBOttn8GNtWKFWqneyMZj41MWF9Kl6iPWLwgOA==}

@@ -2,8 +2,8 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
-import { useSettings } from "models/settings";
 import { useDndState } from "utils/DNDSortable/dndState";
+import { useSettings } from "models/settings";
 import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
 import { copy } from "./copy/copy";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
@@ -90,16 +90,12 @@ export function attachKeyEventListeners() {
         // e.preventDefault();
         action();
       }
+      if (keyUpAction) {
+        attachKeyUpListener(keyUpAction);
+      }
     });
+    // }
     cleanup_functions.push(cleanup);
-
-    if (keyUpAction) {
-      cleanup = attachKeyUpListener((e) => {
-        e.preventDefault();
-        keyUpAction();
-      });
-      cleanup_functions.push(cleanup);
-    }
   }
 
   return () => {

@@ -1,14 +1,18 @@
-import { DndContext } from "@alissavrk/dnd-kit-core";
+import { DndContext } from "@dnd-kit/core";
 import { DummyDragOverlay } from "./DummySection";
 import { useDNDSensors } from "./useDNDSensors";
-import { onDragStart, useOnDragMove, useOnDragOver } from "./useDropType";
+import {
+  onDragStart as onDragStartDropType,
+  useOnDragMove as useOnDragMoveDropType,
+  useOnDragOver,
+} from "./useDropType";
 import { useMeasuring } from "./useMeasuring";
 import { useModifiers } from "./useModifiers";
 import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
 
 export function GlobalDndContext({ children }) {
   const { dummyRef, onDragEnd } = useOnDragEndMoveSection();
-  const onDragMove = useOnDragMove();
+  const onDragMoveDropType = useOnDragMoveDropType();
   const onDragOver = useOnDragOver();
   const { modifiers, collisionDetection } = useModifiers();
   const sensors = useDNDSensors();
@@ -18,8 +22,8 @@ export function GlobalDndContext({ children }) {
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
-      onDragStart={onDragStart}
-      onDragMove={onDragMove}
+      onDragStart={onDragStartDropType}
+      onDragMove={onDragMoveDropType}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       modifiers={modifiers}

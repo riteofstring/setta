@@ -83,5 +83,4 @@ export function maybeIncrementProjectStateVersion(
   }
 }
 
-// const autoSave = _.debounce(saveProject, 1000);
-const autoSave = ()=>{}
+const autoSave = _.debounce(saveProject, 1000);

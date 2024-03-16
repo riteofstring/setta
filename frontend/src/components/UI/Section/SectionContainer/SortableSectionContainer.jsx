@@ -1,5 +1,5 @@
-import { useSortable } from "@alissavrk/dnd-kit-sortable";
-import { CSS } from "@alissavrk/dnd-kit-utilities";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import React from "react";
 import {
   useDndMode,
@@ -49,7 +49,7 @@ function _SortableCore({
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
     transition,
-    // zIndex: overIsSelf ? 500 : undefined,
+    zIndex: overIsSelf ? 500 : undefined,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
