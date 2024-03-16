@@ -10,7 +10,6 @@ import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { updateWithArrayMove } from "utils/utils";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { useDndChildren } from "./dndChildren";
-import { getDropType } from "./useDropType";
 
 function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
@@ -32,8 +31,8 @@ function onFreeMoveEnd({ active, dummyRef }) {
   let position = null;
   let behaviorDropType = null;
 
-  if (dndState.movingFreeInSortable) {
-    newParentId = active.data.current.sortable.containerId
+  if (active.data.current.sortable?.containerId) {
+    newParentId = active.data.current.sortable.containerId;
     newIndex = useDndChildren.getState().x[newParentId].indexOf(overId);
   }
   // dropping nested section onto pane
@@ -42,14 +41,6 @@ function onFreeMoveEnd({ active, dummyRef }) {
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
-  } else if (overId) {
-    const dropType = getDropType({
-      leftDistCondition: dndState.leftDistCondition,
-      shouldDrop: dndState.shouldDrop,
-      movingFreeInSortable: dndState.movingFreeInSortable,
-    });
-    behaviorDropType = dropType.behaviorDropType;
-    [newParentId, newIndex] = dropType.positionDropType.slice(1);
   }
 
   moveSection({

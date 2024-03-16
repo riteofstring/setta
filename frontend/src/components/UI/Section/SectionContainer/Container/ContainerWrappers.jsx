@@ -17,11 +17,12 @@ function _DndSlotAndDndWatcher({
   dragListeners,
   children,
 }) {
-  const { style, positionDropType, behaviorDropType } =
+  const { style, behaviorDropType } =
     useHighlightDroppable(sectionId);
+
+  console.log("behaviorDropType", behaviorDropType)
   return (
     <DndSlot
-      positionDropType={positionDropType}
       behaviorDropType={behaviorDropType}
       isDeck={isDeck}
     >

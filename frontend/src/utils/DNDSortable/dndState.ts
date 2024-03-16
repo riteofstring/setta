@@ -5,11 +5,9 @@ const initialState = {
   activeId: null,
   activeIsTopLevel: false,
   overId: null,
-  shouldDrop: false,
   leftDistCondition: false,
   isSorting: false,
   isMovingFree: false,
-  movingFreeInSortable: false,
   disabled: {},
 };
 

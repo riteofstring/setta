@@ -3,35 +3,27 @@ import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
-import { getDropType } from "utils/DNDSortable/useDropType";
 import { useTempHasNested } from "../../hooks/useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);
-  const shouldDrop = useDndState((x) => x.shouldDrop && overIsSelf);
-  const leftDistCondition = useDndState((x) => x.leftDistCondition);
-  const movingFreeInSortable = useDndState((x) => x.movingFreeInSortable);
-  const { positionDropType, behaviorDropType } = getDropType({
-    leftDistCondition,
-    shouldDrop,
-    movingFreeInSortable,
-  });
+  const behaviorDropType = useDndState((x) =>
+    overIsSelf ? x.behaviorDropType : null,
+  );
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
-  const style =
-    !shouldDrop || !invalid
-      ? {}
-      : {
-          borderRadius: "1.5rem",
-          padding: "0.75rem",
-          margin: "-0.75rem",
-          transition: "background-color 0.2s",
-          backgroundColor: invalid ? colors.red[600] : colors.blue[500],
-        };
+  const style = !invalid
+    ? {}
+    : {
+        borderRadius: "1.5rem",
+        padding: "0.75rem",
+        margin: "-0.75rem",
+        transition: "background-color 0.2s",
+        backgroundColor: invalid ? colors.red[600] : colors.blue[500],
+      };
 
   return {
     style,
-    positionDropType: positionDropType[0],
     behaviorDropType,
   };
 }
