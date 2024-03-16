@@ -4,7 +4,7 @@ import { getSectionParentId } from "thunks/sections/getters";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { getDropType } from "utils/DNDSortable/useDropType";
-import { useHasNested } from "../../hooks/useSectionChildren";
+import { useTempHasNested } from "../../hooks/useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);
@@ -108,7 +108,7 @@ export function useDndMode() {
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
-  const hasNested = useHasNested(sectionId);
+  const hasNested = useTempHasNested(sectionId);
 
   return {
     id: sectionId,

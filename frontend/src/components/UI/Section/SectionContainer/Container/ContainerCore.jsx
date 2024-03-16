@@ -1,4 +1,4 @@
-import { useHasNested } from "hooks/useSectionChildren";
+import { useTempHasNested } from "hooks/useSectionChildren";
 import _ from "lodash";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
@@ -15,7 +15,7 @@ function _Container({
   children,
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
-  const hasNested = useHasNested(sectionId);
+  const hasNested = useTempHasNested(sectionId);
   function totalRef(e) {
     refForPosition.current = e;
     droppableRef && droppableRef(e);
