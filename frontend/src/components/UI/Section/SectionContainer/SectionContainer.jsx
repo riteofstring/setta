@@ -14,7 +14,7 @@ function _SectionContainer({ sectionId, dragListeners }) {
     (x) => x.activeId === sectionId && x.movingFreeInSortable && !!dragListeners,
   );
 
-  // console.log("_SectionContainer", sectionId, dndActiveAndMovingInSortable)
+  console.log("_SectionContainer", sectionId, dndActiveAndMovingInSortable)
 
   return dndActiveAndMovingInSortable ? (
     <DummySection forceShow={true} />
