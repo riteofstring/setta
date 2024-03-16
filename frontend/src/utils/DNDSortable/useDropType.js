@@ -59,6 +59,7 @@ export function useOnDragOver() {
 }
 
 function onDragOver({ active, over, isSorting }) {
+  console.log("over", over)
   if (isSorting) {
     useDndState.setState({
       behaviorDropType: null,
@@ -87,10 +88,12 @@ function onDragOver({ active, over, isSorting }) {
   }
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
+    console.log("invalid")
     maybeRemoveFromOldTempParent(active);
-    useDndState.setState({ behaviorDropType, movingFreeInSortable: false });
+    useDndState.setState({ behaviorDropType });
     return;
   }
+  console.log("oldParentId, newParentId", oldParentId, newParentId)
   if (newParentId && newParentId !== active.id) {
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
