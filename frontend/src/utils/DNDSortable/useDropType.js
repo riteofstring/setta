@@ -4,13 +4,14 @@ import {
   getSectionIsRoot,
 } from "thunks/sections/getters";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import { useDndState, getActualSectionId } from "utils/DNDSortable/dndState";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
+import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 import { getSectionRectWithNested } from "xyflow/core/utils/graph";
 
 export function useOnDragMove() {
-  const isMovingFree = useDndState((x) => x.isMovingFree);
+  const { isMovingFree } = useDndMode();
   return (props) => {
     onDragMove({
       ...props,
@@ -20,11 +21,9 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
-  const { width, height } = getSectionRectWithNested(
-    getActualSectionId(active.id),
-  );
+  const { width, height } = getSectionRectWithNested(active.id);
   useDndState.getState().setActive({
-    sectionId: active.id,
+    id: active.id,
     isTopLevel: active.data.current.isTopLevel,
     width,
     height,
@@ -50,7 +49,7 @@ function onDragMove({ active, over, collisions, isMovingFree }) {
 }
 
 export function useOnDragOver() {
-  const isSorting = useDndState((x) => x.isSorting);
+  const { isSorting } = useDndMode();
   return (props) => {
     onDragOver({
       ...props,
@@ -94,14 +93,13 @@ function onDragOver({ active, over, isSorting }) {
   }
   if (newParentId && newParentId !== active.id) {
     useDndState.setState({ movingFreeInSortable: true });
-    const actualNewParentId = getActualSectionId(newParentId);
-    const newParentChildren = useDndChildren.getState().x[actualNewParentId];
+    const newParentChildren = useDndChildren.getState().x[newParentId];
     if (newParentId !== oldParentId) {
       const index = newParentIsInsideSortable
         ? newParentChildren.indexOf(over.id)
         : 0;
       useDndChildren.getState().setChildren({
-        sectionId: actualNewParentId,
+        sectionId: newParentId,
         children: [
           ...newParentChildren.slice(0, index),
           active.id,
@@ -138,18 +136,14 @@ function getBehaviorDropType(activeId, newParentId) {
   if (!newParentId) {
     return null;
   }
-
-  const actualNewParentId = getActualSectionId(newParentId);
   // invalid if parent can't have children
   // or if child can only be in deck and parent is not a deck
   if (
-    !getSectionIsRoot(actualNewParentId) ||
-    (getSectionCanOnlyBeChildOfDeck(getActualSectionId(activeId)) &&
-      !getSectionIsDeck(actualNewParentId))
+    !getSectionIsRoot(newParentId) ||
+    (getSectionCanOnlyBeChildOfDeck(activeId) && !getSectionIsDeck(newParentId))
   ) {
     return BehaviorDropType.INVALID;
   }
 
   return null;
 }
-
