@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 
 import type { Node, NodeDragItem, NodeInternals } from "../../types";
+import { useActiveSection } from "models/activeSection";
 
 export function hasSelector(
   target: Element,
@@ -25,10 +26,11 @@ export function getDragItems(
   mousePos: XYPosition,
   nodeId?: string,
 ): NodeDragItem[] {
+  const activeSections = useActiveSection.getState().ids
   return Array.from(nodeInternals.values())
     .filter(
       (n) =>
-        (n.selected || n.id === nodeId) &&
+        (n.id === nodeId || activeSections.includes(n.id)) &&
         (n.draggable || (nodesDraggable && typeof n.draggable === "undefined")),
     )
     .map((n) => ({

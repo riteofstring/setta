@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useDndProps } from "hooks/useDndUtils";
+import { useDndProps } from "utils/DNDSortable/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
 export function TopLevelContainer({ isDeck, sectionId, children }) {

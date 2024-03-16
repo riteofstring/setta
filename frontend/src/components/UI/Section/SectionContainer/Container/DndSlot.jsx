@@ -15,9 +15,6 @@ export function DndSlot({
 
   return (
     <>
-      {positionDropType === PositionDropType.ABOVE && (
-        <DndSlotTop text={text} behaviorDropType={behaviorDropType} />
-      )}
       {positionDropType === PositionDropType.INTO && (
         <DndSlotMiddle
           text={text}
@@ -26,9 +23,6 @@ export function DndSlot({
         />
       )}
       {children}
-      {positionDropType === PositionDropType.BELOW && (
-        <DndSlotBottom text={text} behaviorDropType={behaviorDropType} />
-      )}
     </>
   );
 }
@@ -45,26 +39,6 @@ function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
         behaviorDropType={behaviorDropType}
         isDeck={isDeck}
       />
-    </div>
-  );
-}
-
-function DndSlotTop({ text, behaviorDropType }) {
-  return (
-    <div className="relative z-20 flex w-full justify-center">
-      <div className="absolute -bottom-5 flex justify-center">
-        <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
-      </div>
-    </div>
-  );
-}
-
-function DndSlotBottom({ text, behaviorDropType }) {
-  return (
-    <div className="relative z-20 flex w-full justify-center">
-      <div className="absolute -bottom-5 flex justify-center">
-        <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
-      </div>
     </div>
   );
 }
