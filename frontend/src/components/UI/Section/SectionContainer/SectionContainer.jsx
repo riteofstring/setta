@@ -1,8 +1,8 @@
 import { useTempHasNested } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
 import React from "react";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { DummySection } from "utils/DNDSortable/DummySection";
-import { useDndActiveAndMovingFreeInSortable } from "utils/DNDSortable/useDndUtils";
 import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./Container/ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
@@ -10,12 +10,11 @@ import { SectionContainerCore } from "./SectionContainerCore";
 function _SectionContainer({ sectionId, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
   const hasNested = useTempHasNested(sectionId);
-  const dndActiveAndMovingInSortable = useDndActiveAndMovingFreeInSortable(
-    sectionId,
-    dragListeners,
+  const dndActiveAndMovingInSortable = useDndState(
+    (x) => x.activeId === sectionId && x.movingFreeInSortable && !!dragListeners,
   );
 
-  console.log("_SectionContainer", sectionId, dndActiveAndMovingInSortable);
+  console.log("_SectionContainer", sectionId, dndActiveAndMovingInSortable)
 
   return dndActiveAndMovingInSortable ? (
     <DummySection forceShow={true} />

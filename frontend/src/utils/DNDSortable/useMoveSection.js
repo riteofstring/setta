@@ -6,6 +6,7 @@ import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { useDndState } from "utils/DNDSortable/dndState";
+import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { updateWithArrayMove } from "utils/utils";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { useDndChildren } from "./dndChildren";

@@ -1,8 +1,11 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { useDndState } from "utils/DNDSortable/dndState";
-import { useDndProps, useOverIsSelf } from "utils/DNDSortable/useDndUtils";
+import {
+  useDndMode,
+  useDndProps,
+  useOverIsSelf,
+} from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 import { SectionContainer } from "./SectionContainer";
 
