@@ -52,6 +52,10 @@ function onFreeMoveEnd({ active, dummyRef }) {
     behaviorDropType,
     incrementVersion: true,
   });
+
+  // useDndChildren
+  //   .getState()
+  //   .reset(_.mapValues(useSectionInfos.getState().x, (v) => v.children));
 }
 
 export function useOnDragEnd() {

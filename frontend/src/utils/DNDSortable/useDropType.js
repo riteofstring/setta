@@ -20,7 +20,7 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
-  console.log("active.id", active.id);
+  console.log("onDragStart", active)
   useDndState
     .getState()
     .setActive({ id: active.id, isTopLevel: active.data.current.isTopLevel });
