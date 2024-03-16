@@ -88,17 +88,15 @@ export function useDndMode() {
   const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
   const isSorting = useDndState((x) => x.isSorting);
   const isMovingFree = useDndState((x) => x.isMovingFree);
-  console.log("isMovingFree", isMovingFree)
-  return { isSorting, isMovingFree }
-  // // only allow one of sorting or movingFree to be true
-  // // if sorting, then active section must nested
-  // if (
-  //   isMovingFree !== isSorting &&
-  //   (!isSorting || (isSorting && !activeIsTopLevel))
-  // ) {
-  //   return { isSorting, isMovingFree };
-  // }
-  // return { isSorting: false, isMovingFree: false };
+  // only allow one of sorting or movingFree to be true
+  // if sorting, then active section must nested
+  if (
+    isMovingFree !== isSorting &&
+    (!isSorting || (isSorting && !activeIsTopLevel))
+  ) {
+    return { isSorting, isMovingFree };
+  }
+  return { isSorting: false, isMovingFree: false };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
