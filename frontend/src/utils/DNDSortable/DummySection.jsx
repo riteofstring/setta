@@ -3,15 +3,19 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { useReactFlow } from "xyflow/core/store";
+import { useDndMode } from "./useDndUtils";
 
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
-  // const { width, height } = useTrueSectionSize(sectionId);
-  const [width, height] = [200, 200];
+  const { width, height } = useDndState((x) => ({
+    width: x.width,
+    height: x.height,
+  }));
   const zoom = useReactFlow((x) => x.transform[2]);
+  const { isSorting } = useDndMode();
   return (
     <div
       style={{ width: `${width * zoom}px`, height: `${height * zoom}px` }}
-      className="rounded-md bg-runcoder-50/75"
+      className={isSorting ? "rounded-md bg-runcoder-50/25" : "opacity-0"}
       ref={ref}
     />
   );

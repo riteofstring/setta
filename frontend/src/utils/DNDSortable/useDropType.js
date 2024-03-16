@@ -8,6 +8,7 @@ import { useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
+import { getSectionRectWithNested } from "xyflow/core/utils/graph";
 
 export function useOnDragMove() {
   const { isMovingFree } = useDndMode();
@@ -21,9 +22,15 @@ export function useOnDragMove() {
 
 export function onDragStart({ active }) {
   console.log("active.id", active.id);
+  const { width, height } = getSectionRectWithNested(active.id);
   useDndState
     .getState()
-    .setActive({ id: active.id, isTopLevel: active.data.current.isTopLevel });
+    .setActive({
+      id: active.id,
+      isTopLevel: active.data.current.isTopLevel,
+      width,
+      height,
+    });
 }
 
 function onDragMove({ active, over, collisions, isMovingFree }) {

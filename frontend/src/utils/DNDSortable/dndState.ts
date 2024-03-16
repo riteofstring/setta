@@ -9,13 +9,15 @@ const initialState = {
   isSorting: false,
   isMovingFree: false,
   disabled: {},
+  width: null,
+  height: null,
 };
 
 export const useDndState = createProjectState(
   immer((set) => ({
     ...initialState,
-    setActive: ({ id, isTopLevel }) =>
-      set({ activeId: id, activeIsTopLevel: isTopLevel }),
+    setActive: ({ id, isTopLevel, width, height }) =>
+      set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
     setOver: (props) => set(props),
     activateSortingMode: () => set({ isSorting: true }),
     deactivateSortingMode: () => set({ isSorting: false }),
