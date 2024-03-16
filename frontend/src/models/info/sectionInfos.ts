@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -15,7 +16,6 @@ import {
   SectionInfoZustandType,
 } from "z_utils/types/section";
 import { createProjectState } from "../utils";
-import { useDndChildren } from "utils/DNDSortable/dndChildren";
 
 const initialState: SectionInfoStateType = {
   x: {},

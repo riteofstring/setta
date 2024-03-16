@@ -1,9 +1,9 @@
+import { useSettings } from "models/settings";
 import React from "react";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { ReactFlow } from "xyflow/core";
 import "xyflow/core/styles/style.css";
 import "./react-flow-css.css";
-import { useSettings } from "models/settings";
 
 const reactFlowStyle = {
   // background: "#94a3b8",
@@ -12,8 +12,8 @@ const reactFlowStyle = {
 };
 
 function _SectionsPane() {
-  const snapToGrid = useSettings(x=>x.snapToGrid)
-  const snapGrid = useSettings(x=>x.snapGrid)
+  const snapToGrid = useSettings((x) => x.snapToGrid);
+  const snapGrid = useSettings((x) => x.snapGrid);
 
   return (
     <ReactFlow

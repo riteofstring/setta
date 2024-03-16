@@ -2,8 +2,8 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useDisableSortable } from "utils/DNDSortable/useDndUtils";
 import React from "react";
+import { useDisableSortable } from "utils/DNDSortable/useDndUtils";
 
 export function DNDSortable({ sectionId, items, children }) {
   const disabled = useDisableSortable(sectionId);

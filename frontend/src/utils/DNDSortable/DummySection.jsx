@@ -1,13 +1,12 @@
 import { DragOverlay } from "@dnd-kit/core";
-import { useDndState } from "utils/DNDSortable/dndState";
-import { useTrueSectionSize } from "models/sectionRefs";
 import React from "react";
 import { createPortal } from "react-dom";
+import { useDndState } from "utils/DNDSortable/dndState";
 import { useReactFlow } from "xyflow/core/store";
 
 const DummySection = React.forwardRef(({ sectionId }, ref) => {
   // const { width, height } = useTrueSectionSize(sectionId);
-  const [width, height] = [200, 200]
+  const [width, height] = [200, 200];
   const zoom = useReactFlow((x) => x.transform[2]);
   return (
     <div

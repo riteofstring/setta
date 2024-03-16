@@ -146,15 +146,18 @@ export const getD3Transition = (
   return selection.transition().duration(duration);
 };
 
-export function getSectionRect(sectionId, ignoreGrid=false) {
+export function getSectionRect(sectionId, ignoreGrid = false) {
   const ref =
     useSectionRefs.getState().selfOnly[sectionId] ??
     useSectionRefs.getState().withNested[sectionId];
   const { clientWidth: width, clientHeight: height } = ref;
   const { x: _x, y: _y } = ref.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition({
-    x: _x,
-    y: _y,
-  }, ignoreGrid);
+  const { x, y } = screenToFlowPosition(
+    {
+      x: _x,
+      y: _y,
+    },
+    ignoreGrid,
+  );
   return { x, y, width, height };
 }
