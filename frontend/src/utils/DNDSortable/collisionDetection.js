@@ -50,11 +50,6 @@ function compareCollisions(a, b) {
     }
   }
   // for two non-sortables, use intersection area
-  // If the areas are similar, go with "larger" id (totally arbitrary, but keeps it deterministic)
-  if (Math.abs(rb - ra) < 0.1) {
-    console.log("abs condition");
-    return b.id > a.id ? b : a;
-  }
   return rb - ra > 0 ? b : a;
 }
 
