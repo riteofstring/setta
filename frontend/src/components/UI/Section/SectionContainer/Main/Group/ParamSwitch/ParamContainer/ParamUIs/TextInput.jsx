@@ -32,6 +32,7 @@ export function TextInput({
   className,
   classes,
   variants,
+  area = "card-value",
 }) {
   const [results, send] = useTextFieldCompletionWebsocketRoom(
     sectionId,
@@ -98,10 +99,8 @@ export function TextInput({
     }
   }
 
-  const defaultClasses =
-    "nodrag card-value font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400";
-  const defaultVariants =
-    "card-value card-value-display mt-[1px] h-5 min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300";
+  const defaultClasses = `nodrag ${area} font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400`;
+  const defaultVariants = `${area} card-value-display mt-[1px] h-5 min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300`;
 
   return (
     <>

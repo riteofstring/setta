@@ -281,6 +281,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
           value={value}
           onChange={onChange}
           className="nodrag"
+          area="card-value-full"
         />
       </article>
     </>

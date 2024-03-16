@@ -22,7 +22,7 @@ export function ComboboxInput({
     </>
   ) : (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900/50 rounded-full shadow-sm text-xs font-mono text-runcoder-600 font-medium px-4 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-200 dark:border-runcoder-700/50 ${
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs font-mono text-runcoder-600 font-medium px-4 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-100 dark:border-runcoder-800 ${
         small ? "h-6" : "h-7"
       }`}
       noLeftElement={true}
@@ -57,7 +57,7 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[150px] pb-2  ${display} ${position} z-20 mt-1 max-h-96  rounded-md border bg-white shadow-xl dark:border-runcoder-700/70 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
+      className={`nowheel nodrag relative w-full min-w-[40px] pb-2  ${display} ${position} z-20 mt-1 max-h-96  rounded-md border bg-white shadow-xl dark:border-runcoder-700/70 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
       {...getMenuProps()}
       style={{ width }}
     >

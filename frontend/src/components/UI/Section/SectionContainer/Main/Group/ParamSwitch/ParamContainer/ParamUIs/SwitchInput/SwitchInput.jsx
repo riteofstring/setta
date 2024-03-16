@@ -10,11 +10,14 @@ export function SwitchInput({
   onChange,
   isDisabled,
   className,
+  area = "card-value",
 }) {
   const valueBool = value === "true";
 
   return (
-    <div className="flex justify-end">
+    <div
+      className={`${area} flex ${area ? "place-self-center" : "justify-end"}`}
+    >
       <Toggle
         checked={valueBool}
         disabled={isDisabled}

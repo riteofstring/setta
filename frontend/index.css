@@ -25,14 +25,14 @@ body {
 
 @supports (-moz-appearance: none) {
   body {
-    scrollbar-color: grey transparent;
     scrollbar-width: thin;
+    scrollbar-color: #94a3b83a transparent;
     overflow: hidden;
   }
 
   body * {
     scrollbar-width: thin;
-    scrollbar-color: #94a3b8 transparent;
+    scrollbar-color: #94a3b83a transparent;
   }
 }
 
@@ -55,7 +55,7 @@ body {
 
   body::-webkit-scrollbar-track,
   body *::-webkit-scrollbar-track {
-    background: #94a3b8;
+    background: #94a3b83a;
   }
 
   body *::-webkit-scrollbar-track {
@@ -64,7 +64,7 @@ body {
 
   body::-webkit-scrollbar-thumb,
   body *::-webkit-scrollbar-thumb {
-    background-color: #94a3b880;
+    background-color: #94a3b83a;
     border: 1px solid transparent;
     border-radius: 0.5rem;
   }
@@ -225,6 +225,11 @@ body {
 
 .card-value {
   grid-column: 2 / 3;
+  grid-row-start: -1;
+}
+
+.card-value-full {
+  grid-column: 1 / 3;
   grid-row-start: -1;
 }
 
