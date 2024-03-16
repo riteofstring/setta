@@ -1,8 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { useEffect } from "react";
-import { isTempSection, useDndState } from "utils/DNDSortable/dndState";
-import { DummySection } from "utils/DNDSortable/DummySection";
+import React from "react";
 import {
   useDndMode,
   useDndProps,
@@ -22,16 +20,7 @@ function _SortableSectionContainer({ sectionId }) {
     setNodeRef,
     transform,
     transition,
-    setActivatorNodeRef,
   } = useSortable({ ...dndProps });
-
-  useEffect(() => {
-    if (isTempSection(sectionId)) {
-      console.log("setting setActivatorNodeRef", sectionId);
-      useDndState.setState({ setActivatorNodeRef });
-    }
-  }, [setActivatorNodeRef]);
-
   return (
     <SortableCore
       sectionId={sectionId}
@@ -66,11 +55,7 @@ function _SortableCore({
 
   return (
     <div className="relative first:mt-2" {...stackProps}>
-      {isTempSection(sectionId) ? (
-        <DummySection forceShow={true} />
-      ) : (
-        <SectionContainer sectionId={sectionId} dragListeners={listeners} />
-      )}
+      <SectionContainer sectionId={sectionId} dragListeners={listeners} />
     </div>
   );
 }

@@ -72,7 +72,6 @@ function _DndWatcherAndContainer({
       trueDragListeners={trueDragListeners}
       className={className}
       style={fullStyle}
-      activeIsSelf={activeIsSelf}
     >
       {children}
     </Container>

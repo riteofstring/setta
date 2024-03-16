@@ -2,7 +2,6 @@ import { useTempHasNested } from "hooks/useSectionChildren";
 import _ from "lodash";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
-import { useDndState } from "utils/DNDSortable/dndState";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 
 function _Container({
@@ -13,21 +12,14 @@ function _Container({
   className,
   style,
   trueDragListeners,
-  activeIsSelf,
   children,
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
   const hasNested = useTempHasNested(sectionId);
-  const setActivatorNodeRef = useDndState((x) => x.setActivatorNodeRef);
-
   function totalRef(e) {
     refForPosition.current = e;
     droppableRef && droppableRef(e);
     draggableRef && draggableRef(e);
-    if (activeIsSelf) {
-      console.log("setActivatorNodeRef", sectionId, setActivatorNodeRef);
-      setActivatorNodeRef?.(e);
-    }
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
