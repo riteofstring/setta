@@ -1,6 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
+import { isTempSection } from "utils/DNDSortable/dndState";
+import { DummySection } from "utils/DNDSortable/DummySection";
 import {
   useDndMode,
   useDndProps,
@@ -55,9 +57,23 @@ function _SortableCore({
 
   return (
     <div className="relative first:mt-2" {...stackProps}>
-      <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+      {isTempSection(sectionId) ? (
+        <DummySection forceShow={true} />
+      ) : (
+        <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+      )}
     </div>
   );
+
+  // return isTempSection(sectionId) ? (
+  //   <div className="relative first:mt-2">
+  //     <DummySection forceShow={true} />
+  //   </div>
+  // ) : (
+  //   <div className="relative first:mt-2" {...stackProps}>
+  //     <SectionContainer sectionId={sectionId} dragListeners={listeners} />
+  //   </div>
+  // );
 }
 
 const SortableCore = React.memo(

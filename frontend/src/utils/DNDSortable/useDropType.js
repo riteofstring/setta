@@ -4,7 +4,11 @@ import {
   getSectionIsRoot,
 } from "thunks/sections/getters";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import { useDndState } from "utils/DNDSortable/dndState";
+import {
+  getActualSectionId,
+  getDndSectionId,
+  useDndState,
+} from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
@@ -58,7 +62,7 @@ export function useOnDragOver() {
   };
 }
 
-function onDragOver({ active, over, isSorting }) {
+function onDragOver({ active, over, isSorting, ...props }) {
   if (isSorting) {
     useDndState.setState({
       behaviorDropType: null,
@@ -74,13 +78,12 @@ function onDragOver({ active, over, isSorting }) {
     });
     return;
   }
-  if (active.id === over.id) {
+  if (active.id === over.id || active.id === getActualSectionId(over.id)) {
     useDndState.setState({ behaviorDropType: null });
     return;
   }
-  const oldParentId = active?.data.current.sortable?.containerId;
   let newParentIsInsideSortable = true;
-  let newParentId = over?.data.current.sortable?.containerId;
+  let newParentId = getParentId(over.id);
   if (!newParentId) {
     newParentId = over.id;
     newParentIsInsideSortable = false;
@@ -91,36 +94,48 @@ function onDragOver({ active, over, isSorting }) {
     useDndState.setState({ behaviorDropType, movingFreeInSortable: false });
     return;
   }
-  if (newParentId && newParentId !== active.id) {
+  if (
+    newParentId &&
+    newParentId !== active.id &&
+    newParentId !== getDndSectionId(active.id)
+  ) {
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
+    const oldParentId = getParentId(getDndSectionId(active.id));
     if (newParentId !== oldParentId) {
+      console.log("setting!", oldParentId, newParentId);
+
       const index = newParentIsInsideSortable
         ? newParentChildren.indexOf(over.id)
         : 0;
-      useDndChildren.getState().setChildren({
-        sectionId: newParentId,
-        children: [
-          ...newParentChildren.slice(0, index),
-          active.id,
-          ...newParentChildren.slice(index),
-        ],
-      });
-      maybeRemoveFromOldTempParent(active);
+
+      const dndSectionId = getDndSectionId(active.id);
+
+      useDndChildren
+        .getState()
+        .addChild({ oldParentId, newParentId, childId: dndSectionId, index });
     }
   }
 }
 
 function maybeRemoveFromOldTempParent(active) {
-  const oldParentId = active?.data.current.sortable?.containerId;
+  const dndSectionId = getDndSectionId(active.id);
+  const oldParentId = getParentId(dndSectionId);
   if (oldParentId) {
     useDndChildren.getState().setChildren({
       sectionId: oldParentId,
       children: useDndChildren
         .getState()
-        .x[oldParentId].filter((x) => x !== active.id),
+        .x[oldParentId].filter((x) => x !== dndSectionId),
     });
+    useDndChildren
+      .getState()
+      .setParentId({ sectionId: dndSectionId, parentId: undefined });
   }
+}
+
+function getParentId(dndSectionId) {
+  return useDndChildren.getState().y[dndSectionId];
 }
 
 function getLeftDistCondition(collisions) {
