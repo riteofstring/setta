@@ -13,10 +13,6 @@ export function TopLevelContainer({ isDeck, sectionId, children }) {
   const { listeners: dragListeners, setNodeRef: draggableRef } =
     useDraggable(dndProps);
 
-  if (sectionId[0] === "5") {
-    console.log("activeIsSelf", sectionId, activeIsSelf);
-  }
-
   return (
     <DndSlotAndDndWatcher
       isDeck={isDeck}

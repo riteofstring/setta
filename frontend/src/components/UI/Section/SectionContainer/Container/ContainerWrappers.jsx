@@ -1,3 +1,4 @@
+import _ from "lodash";
 import React from "react";
 import { useDndState } from "utils/DNDSortable/dndState";
 import {
@@ -37,7 +38,7 @@ function _DndSlotAndDndWatcher({
 
 export const DndSlotAndDndWatcher = React.memo(
   _DndSlotAndDndWatcher,
-  (p, n) => false,
+  (p, n) => p.isDeck === n.isDeck && p.children === n.children,
 );
 
 function _DndWatcherAndContainer({
@@ -77,4 +78,4 @@ function _DndWatcherAndContainer({
   );
 }
 
-const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, () => false);
+const DndWatcherAndContainer = React.memo(_DndWatcherAndContainer, _.isEqual);
