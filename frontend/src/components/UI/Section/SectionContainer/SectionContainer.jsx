@@ -1,4 +1,4 @@
-import { useHasNested } from "hooks/useSectionChildren";
+import { useTempHasNested } from "hooks/useSectionChildren";
 import { useIsDeck } from "hooks/useSectionType";
 import React from "react";
 import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
@@ -7,7 +7,7 @@ import { SectionContainerCore } from "./SectionContainerCore";
 
 function _SectionContainer({ sectionId, dragListeners }) {
   const isDeck = useIsDeck(sectionId);
-  const hasNested = useHasNested(sectionId);
+  const hasNested = useTempHasNested(sectionId);
 
   return (
     <ContainerSwitch

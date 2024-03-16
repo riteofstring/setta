@@ -25,7 +25,7 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
-  console.log("active.id", active.id)
+  console.log("active.id", active.id);
   useDndState
     .getState()
     .setActive({ id: active.id, isTopLevel: active.data.current.isTopLevel });
@@ -83,12 +83,19 @@ function onDragOver({ active, over, isSorting }) {
     return;
   }
   const oldParentId = active?.data.current.sortable?.containerId;
-  const newParentId = over?.data.current.sortable?.containerId; // ?? over?.id
+  let newParentIsInsideSortable = true;
+  let newParentId = over?.data.current.sortable?.containerId;
+  if (!newParentId) {
+    newParentId = over.id;
+    newParentIsInsideSortable = false;
+  }
   if (newParentId && newParentId !== active.id) {
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     if (newParentId !== oldParentId) {
-      const index = newParentChildren.indexOf(over.id);
+      const index = newParentIsInsideSortable
+        ? newParentChildren.indexOf(over.id)
+        : 0;
       useDndChildren.getState().setChildren({
         sectionId: newParentId,
         children: [
@@ -154,14 +161,14 @@ function getShouldDrop(active, over, collisions) {
 
 // returns [dropType, newParentId, newIndex]
 function getPositionDropType({ leftDistCondition }) {
-  const { overId } = useDndState.getState();
-  const overParentId = getSectionParentId(overId);
+  // const { overId } = useDndState.getState();
+  // const overParentId = getSectionParentId(overId);
 
-  // Drop into section if it is a sortable and leftOffset is large enough
-  // Or if it's not a sortable and has no children.
-  if ((overParentId && leftDistCondition) || !overParentId) {
-    return [PositionDropType.INTO, overId, 0];
-  }
+  // // Drop into section if it is a sortable and leftOffset is large enough
+  // // Or if it's not a sortable and has no children.
+  // if ((overParentId && leftDistCondition) || !overParentId) {
+  //   return [PositionDropType.INTO, overId, 0];
+  // }
 
   return [null, null, null];
 }
@@ -185,7 +192,11 @@ function getBehaviorDropType({ newParentId }) {
   return BehaviorDropType.INVALID;
 }
 
-export function getDropType({ shouldDrop, leftDistCondition, movingFreeInSortable }) {
+export function getDropType({
+  shouldDrop,
+  leftDistCondition,
+  movingFreeInSortable,
+}) {
   if (!shouldDrop || movingFreeInSortable) {
     return {
       positionDropType: [null, null, null],
