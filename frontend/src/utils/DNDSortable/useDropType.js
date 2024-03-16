@@ -67,15 +67,7 @@ function onDragOver({ active, over, isSorting }) {
     return;
   }
   if (!over) {
-    const oldParentId = active?.data.current.sortable?.containerId;
-    if (oldParentId) {
-      useDndChildren.getState().setChildren({
-        sectionId: oldParentId,
-        children: useDndChildren
-          .getState()
-          .x[oldParentId].filter((x) => x !== active.id),
-      });
-    }
+    maybeRemoveFromOldTempParent(active);
     useDndState.setState({
       behaviorDropType: null,
       movingFreeInSortable: false,
@@ -83,7 +75,6 @@ function onDragOver({ active, over, isSorting }) {
     return;
   }
   if (active.id === over.id) {
-    console.log("active.id === over.id");
     useDndState.setState({ behaviorDropType: null });
     return;
   }
@@ -96,6 +87,7 @@ function onDragOver({ active, over, isSorting }) {
   }
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
+    maybeRemoveFromOldTempParent(active);
     useDndState.setState({ behaviorDropType, movingFreeInSortable: false });
     return;
   }
@@ -114,22 +106,20 @@ function onDragOver({ active, over, isSorting }) {
           ...newParentChildren.slice(index),
         ],
       });
-      if (oldParentId) {
-        useDndChildren.getState().setChildren({
-          sectionId: oldParentId,
-          children: useDndChildren
-            .getState()
-            .x[oldParentId].filter((x) => x !== active.id),
-        });
-      }
-    } else {
-      // const oldIndex = newParentChildren.indexOf(active.id);
-      // const newIndex = newParentChildren.indexOf(over.id);
-      // useDndChildren.getState().setChildren({
-      //   sectionId: oldParentId,
-      //   children: moveElement(newParentChildren, oldIndex, newIndex),
-      // });
+      maybeRemoveFromOldTempParent(active);
     }
+  }
+}
+
+function maybeRemoveFromOldTempParent(active) {
+  const oldParentId = active?.data.current.sortable?.containerId;
+  if (oldParentId) {
+    useDndChildren.getState().setChildren({
+      sectionId: oldParentId,
+      children: useDndChildren
+        .getState()
+        .x[oldParentId].filter((x) => x !== active.id),
+    });
   }
 }
 
