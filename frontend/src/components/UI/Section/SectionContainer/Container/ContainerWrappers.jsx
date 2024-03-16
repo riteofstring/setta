@@ -2,7 +2,7 @@ import _ from "lodash";
 import React from "react";
 import { useDndState } from "utils/DNDSortable/dndState";
 import {
-  useDndMode,
+  useActiveIsSelf,
   useHighlightDroppable,
 } from "utils/DNDSortable/useDndUtils";
 import { Container } from "./ContainerCore";
@@ -51,8 +51,11 @@ function _DndWatcherAndContainer({
   style,
   children,
 }) {
-  const activeIsSelf = useDndState((x) => x.activeId === sectionId);
-  const { isSorting, isMovingFree } = useDndMode();
+  const activeIsSelf = useActiveIsSelf(sectionId);
+  const { isSorting, isMovingFree } = useDndState((x) => ({
+    isSorting: x.isSorting,
+    isMovingFree: x.isMovingFree,
+  }));
   const isDraggingSortable = !isTopLevel && (isSorting || isMovingFree);
   const isDraggingTopLevel = isTopLevel && isMovingFree;
   const trueDragListeners =

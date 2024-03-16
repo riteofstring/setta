@@ -4,17 +4,20 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { useReactFlow } from "xyflow/core/store";
-import { useDndMode } from "./useDndUtils";
+import { getActualSectionId } from "./useDropType";
 
 export const DummySection = React.forwardRef(({ forceShow }, ref) => {
   const zoom = useReactFlow((x) => x.transform[2]);
-  const { width, height, sectionId } = useDndState((x) => ({
-    sectionId: x.activeId,
+  const { width, height, dndSectionId } = useDndState((x) => ({
+    dndSectionId: x.activeId,
     width: x.width,
     height: x.height,
   }));
-  const parentId = useGetSectionInfo(sectionId, "parentId");
-  const { isSorting } = useDndMode();
+  const parentId = useGetSectionInfo(
+    getActualSectionId(dndSectionId),
+    "parentId",
+  );
+  const isSorting = useDndState((x) => x.isSorting);
   const makeVisible = isSorting || forceShow || parentId;
 
   const displayWidth = forceShow ? width : width * zoom;

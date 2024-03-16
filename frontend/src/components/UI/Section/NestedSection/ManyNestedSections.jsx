@@ -2,6 +2,7 @@ import { goToSection } from "thunks/goToSection";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { useIsDraggingFreely } from "utils/DNDSortable/useDndUtils";
+import { getDndSectionId } from "utils/DNDSortable/useDropType";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
 export function ManyNestedSections({ sectionId, isDeck }) {

@@ -2,6 +2,7 @@ import { createProjectState } from "models/utils";
 import { immer } from "zustand/middleware/immer";
 
 const initialState = {
+  sectionId: null,
   activeId: null,
   activeIsTopLevel: false,
   overId: null,
@@ -17,12 +18,30 @@ const initialState = {
 export const useDndState = createProjectState(
   immer((set) => ({
     ...initialState,
-    setActive: ({ id, isTopLevel, width, height }) =>
-      set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
+    setActive: ({ sectionId, isTopLevel, width, height }) =>
+      set((state) => ({
+        sectionId,
+        activeId: state.isSorting ? sectionId : getDndSectionId(sectionId),
+        activeIsTopLevel: isTopLevel,
+        width,
+        height,
+      })),
     setOver: (props) => set(props),
-    activateSortingMode: () => set({ isSorting: true }),
+    activateSortingMode: () =>
+      set((state) => {
+        if (!state.isMovingFree && !state.activeIsTopLevel) {
+          return { isSorting: true };
+        }
+        return { isSorting: false };
+      }),
     deactivateSortingMode: () => set({ isSorting: false }),
-    activateMovingFreeMode: () => set({ isMovingFree: true }),
+    activateMovingFreeMode: () =>
+      set((state) => {
+        if (!state.isSorting) {
+          return { isMovingFree: true };
+        }
+        return { isMovingFree: false };
+      }),
     deactivateMovingFreeMode: () => set({ isMovingFree: false }),
     reset: () =>
       set((state) => ({
@@ -35,3 +54,13 @@ export const useDndState = createProjectState(
       }),
   })),
 );
+
+const dndIdSuffix = "-TempDND";
+
+export function getDndSectionId(sectionId) {
+  return `${sectionId}${dndIdSuffix}`;
+}
+
+export function getActualSectionId(dndSectionId) {
+  return dndSectionId.slice(0, -dndIdSuffix.length);
+}

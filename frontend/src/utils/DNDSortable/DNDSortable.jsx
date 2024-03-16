@@ -4,12 +4,14 @@ import {
 } from "@dnd-kit/sortable";
 import React from "react";
 import { useDisableSortable } from "utils/DNDSortable/useDndUtils";
+import { getDndSectionId } from "./useDropType";
 
 export function DNDSortable({ sectionId, items, children }) {
-  const disabled = useDisableSortable(sectionId);
+  const dndSectionId = getDndSectionId(sectionId)
+  const disabled = useDisableSortable(sectionId, dndSectionId);
   return (
     <SortableContext
-      id={sectionId}
+      id={dndSectionId}
       items={items}
       strategy={
         disabled.draggable || disabled.droppable
