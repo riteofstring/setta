@@ -141,7 +141,7 @@ export function onNodesChange(changes) {
         break;
       }
       case "position": {
-        if (typeof c.position !== "undefined") {
+        if (typeof c.position !== "undefined" && newNodes.has(c.id)) {
           newNodes.get(c.id).position = c.position;
         }
         break;

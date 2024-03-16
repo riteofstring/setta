@@ -1,3 +1,4 @@
+import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import {
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
@@ -20,7 +21,7 @@ export function useOnDragMove() {
 }
 
 export function onDragStart({ active }) {
-  console.log("active.id", active.id);
+  console.log("onDragStart", active);
   useDndState
     .getState()
     .setActive({ id: active.id, isTopLevel: active.data.current.isTopLevel });
@@ -60,7 +61,7 @@ function onDragOver({ active, over, isSorting }) {
     return;
   }
   if (!over) {
-    const oldParentId = active?.data.current.sortable?.containerId;
+    const oldParentId = active.data.current.sortable?.containerId;
     if (oldParentId) {
       useDndChildren.getState().setChildren({
         sectionId: oldParentId,
@@ -70,6 +71,12 @@ function onDragOver({ active, over, isSorting }) {
       });
     }
     useDndState.setState({ behaviorDropType: null });
+    console.log("active", active);
+    if (useDndState.getState().activeIsTopLevel) {
+      addNodes([
+        { id: active.id, position: { x: 0, y: 0 }, zIndex: 0, tempZIndex: 0 },
+      ]);
+    }
     return;
   }
   if (active.id === over.id) {
@@ -91,6 +98,7 @@ function onDragOver({ active, over, isSorting }) {
   if (newParentId && newParentId !== active.id) {
     const newParentChildren = useDndChildren.getState().x[newParentId];
     if (newParentId !== oldParentId) {
+      deleteNodes([active.id]);
       const index = newParentIsInsideSortable
         ? newParentChildren.indexOf(over.id)
         : 0;
