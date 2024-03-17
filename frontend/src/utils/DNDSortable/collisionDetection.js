@@ -1,5 +1,4 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
-import _ from "lodash"
 
 function compareCollisions(a, b) {
   if (!a) {
@@ -100,7 +99,6 @@ export const customCollisionDetection = ({
         const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
-          rect,
           data: {
             droppableContainer,
             absLeftDist: Math.abs(dist),
