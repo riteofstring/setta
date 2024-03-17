@@ -23,7 +23,7 @@ export function GlobalDndContext({ children }) {
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       modifiers={modifiers}
-      // measuring={measuring}
+      measuring={measuring}
     >
       {children}
       <DummyDragOverlay ref={dummyRef} />
