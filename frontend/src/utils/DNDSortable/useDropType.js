@@ -72,7 +72,6 @@ function onDragOver({ active, over, isSorting, collisions, ...props }) {
   if (isSorting) {
     useDndState.setState({
       behaviorDropType: null,
-      movingFreeInSortable: false,
       overId,
     });
     return;
@@ -87,7 +86,6 @@ function onDragOver({ active, over, isSorting, collisions, ...props }) {
     console.log("too soon!");
     useDndState.setState({
       behaviorDropType: null,
-      movingFreeInSortable: false,
       overId,
     });
     return;
@@ -97,7 +95,6 @@ function onDragOver({ active, over, isSorting, collisions, ...props }) {
     maybeRemoveFromOldTempParent(active);
     useDndState.setState({
       behaviorDropType: null,
-      movingFreeInSortable: false,
       overId,
     });
     return;
@@ -124,7 +121,6 @@ function onDragOver({ active, over, isSorting, collisions, ...props }) {
     maybeRemoveFromOldTempParent(active);
     useDndState.setState({
       behaviorDropType,
-      movingFreeInSortable: false,
       overId,
     });
     return;
@@ -136,7 +132,6 @@ function onDragOver({ active, over, isSorting, collisions, ...props }) {
     newParentId !== active.id &&
     newParentId !== getDndSectionId(active.id)
   ) {
-    useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     const oldParentId = getParentId(getDndSectionId(active.id));
     const trueOldParentId = getParentId(active.id);
