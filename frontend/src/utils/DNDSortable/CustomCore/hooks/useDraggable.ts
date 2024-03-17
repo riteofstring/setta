@@ -51,22 +51,19 @@ export function useDraggable({
     activators,
     activatorEvent,
     active,
+    activeNodeRect,
     ariaDescribedById,
     draggableNodes,
     over,
   } = useContext(InternalContext);
   const {
     role = defaultRole,
-    roleDescription = "draggable",
+    roleDescription = 'draggable',
     tabIndex = 0,
   } = attributes ?? {};
-
-  const isDragging = isTempSection(id)
-    ? getDndSectionId(active?.id) === id
-    : active?.id === id;
-
+  const isDragging = active?.id === id;
   const transform: Transform | null = useContext(
-    isDragging ? ActiveDraggableContext : NullContext,
+    isDragging ? ActiveDraggableContext : NullContext
   );
   const [node, setNodeRef] = useNodeRef();
   const [activatorNode, setActivatorNodeRef] = useNodeRef();
@@ -105,12 +102,13 @@ export function useDraggable({
       isDragging,
       roleDescription,
       ariaDescribedById.draggable,
-    ],
+    ]
   );
 
   return {
     active,
     activatorEvent,
+    activeNodeRect,
     attributes: memoizedAttributes,
     isDragging,
     listeners: disabled ? undefined : listeners,

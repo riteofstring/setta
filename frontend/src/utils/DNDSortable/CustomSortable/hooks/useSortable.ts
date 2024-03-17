@@ -88,6 +88,7 @@ export function useSortable({
   const {
     active,
     activatorEvent,
+    activeNodeRect,
     attributes,
     setNodeRef: setDraggableNodeRef,
     listeners,
@@ -119,6 +120,7 @@ export function useSortable({
     ? dragSourceDisplacement ??
       strategy({
         rects: sortedRects,
+        activeNodeRect,
         activeIndex,
         overIndex,
         index,
@@ -157,12 +159,6 @@ export function useSortable({
     node,
     rect,
   });
-
-  // if (derivedTransform){
-  //   console.log(id, derivedTransform)
-  // } else if (finalTransform){
-  //   console.log(id, finalTransform)
-  // }
 
   useEffect(() => {
     if (isSorting && previous.current.newIndex !== newIndex) {
