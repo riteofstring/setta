@@ -21,6 +21,7 @@ export function useDerivedTransform({disabled, index, node, rect}: Arguments) {
 
   useIsomorphicLayoutEffect(() => {
     if (!disabled && index !== previousIndex.current && node.current) {
+      console.log("new derived transform")
       const initial = rect.current;
 
       if (initial) {

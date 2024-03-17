@@ -1,16 +1,18 @@
-import {useContext, useEffect, useMemo, useRef} from 'react';
+import type { Data } from "@dnd-kit/core";
 import {
+  ActiveDraggableContext,
+  NullContext,
   useDraggable,
-  useDroppable,
   UseDraggableArguments,
+  useDroppable,
   UseDroppableArguments,
-} from '@dnd-kit/core';
-import type {Data} from '@dnd-kit/core';
-import {CSS, isKeyboardEvent, useCombinedRefs} from '@dnd-kit/utilities';
-
-import {Context} from '../components';
-import type {Disabled, SortableData, SortingStrategy} from '../types';
-import {isValidIndex} from '../utilities';
+} from "@dnd-kit/core";
+import { CSS, isKeyboardEvent, useCombinedRefs } from "@dnd-kit/utilities";
+import { useContext, useEffect, useMemo, useRef } from "react";
+import { getDndSectionId, isTempSection } from "utils/DNDSortable/dndState";
+import { Context } from "../components";
+import type { Disabled, SortableData, SortingStrategy } from "../types";
+import { isValidIndex } from "../utilities";
 import {
   defaultAnimateLayoutChanges,
   defaultAttributes,
@@ -88,14 +90,14 @@ export function useSortable({
   const {
     active,
     activatorEvent,
-    activeNodeRect,
+    activeNodeRect: _activeNodeRect,
     attributes,
     setNodeRef: setDraggableNodeRef,
     listeners,
-    isDragging,
+    // isDragging,
     over,
     setActivatorNodeRef,
-    transform,
+    // transform,
   } = useDraggable({
     id,
     data,
@@ -105,6 +107,18 @@ export function useSortable({
     },
     disabled: disabled.draggable,
   });
+  const isDragging = isTempSection(id)
+    ? getDndSectionId(active?.id) === id
+    : active?.id === id;
+
+  const activeNodeRect = isTempSection(id)
+    ? sortedRects[activeIndex]
+    : _activeNodeRect;
+
+  const transform = useContext(
+    isDragging ? ActiveDraggableContext : NullContext,
+  );
+
   const setNodeRef = useCombinedRefs(setDroppableNodeRef, setDraggableNodeRef);
   const isSorting = Boolean(active);
   const displaceItem =
@@ -115,6 +129,9 @@ export function useSortable({
   const shouldDisplaceDragSource = !useDragOverlay && isDragging;
   const dragSourceDisplacement =
     shouldDisplaceDragSource && displaceItem ? transform : null;
+  if (isDragging) {
+    console.log("isDragging", id);
+  }
   const strategy = localStrategy ?? globalStrategy;
   const finalTransform = displaceItem
     ? dragSourceDisplacement ??
@@ -159,6 +176,12 @@ export function useSortable({
     node,
     rect,
   });
+  // if (derivedTransform){
+  // console.log("derivedTransform", derivedTransform)
+  // }
+  // else {
+  //   console.log("finalTransform", finalTransform)
+  // }
 
   useEffect(() => {
     if (isSorting && previous.current.newIndex !== newIndex) {
