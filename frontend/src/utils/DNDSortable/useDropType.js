@@ -54,44 +54,37 @@ function onDragMove({ active, over, collisions, isMovingFree }) {
 
 export function useOnDragOver() {
   const { isSorting } = useDndMode();
-  return (props) => {
-    onDragOver({
-      ...props,
-      isSorting,
-    });
-  };
+  if (isSorting) {
+    return () => {};
+  }
+  return onDragOver;
 }
 
-function onDragOver({ active, over, isSorting, ...props }) {
-  if (isSorting) {
-    useDndState.setState({
-      behaviorDropType: null,
-      movingFreeInSortable: false,
-    });
-    return;
-  }
+function onDragOver({ active, over, collisions }) {
+  console.log("collisions.length", collisions.length);
   if (!over) {
+    console.log("!over");
     maybeRemoveFromOldTempParent(active);
-    useDndState.setState({
-      behaviorDropType: null,
-      movingFreeInSortable: false,
-    });
-    return;
-  }
-  if (active.id === over.id || active.id === getActualSectionId(over.id)) {
     useDndState.setState({ behaviorDropType: null });
     return;
   }
-  let newParentIsInsideSortable = true;
+  if (active.id === over.id) {
+    console.log("active.id === over.id");
+    useDndState.setState({ behaviorDropType: null });
+    return;
+  }
+  console.log("over", over)
+  let newParentHasChildren = true;
   let newParentId = getParentId(over.id);
   if (!newParentId) {
     newParentId = over.id;
-    newParentIsInsideSortable = false;
+    newParentHasChildren = false;
   }
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
+    console.log("behaviorDropType === BehaviorDropType.INVALID");
     maybeRemoveFromOldTempParent(active);
-    useDndState.setState({ behaviorDropType, movingFreeInSortable: false });
+    useDndState.setState({ behaviorDropType });
     return;
   }
   if (
@@ -99,14 +92,13 @@ function onDragOver({ active, over, isSorting, ...props }) {
     newParentId !== active.id &&
     newParentId !== getDndSectionId(active.id)
   ) {
-    useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     const oldParentId = getParentId(getDndSectionId(active.id));
     const trueOldParentId = getParentId(active.id);
     if (newParentId !== oldParentId && newParentId !== trueOldParentId) {
       console.log("setting!", oldParentId, newParentId);
 
-      const index = newParentIsInsideSortable
+      const index = newParentHasChildren
         ? newParentChildren.indexOf(over.id)
         : 0;
 
@@ -117,6 +109,7 @@ function onDragOver({ active, over, isSorting, ...props }) {
         .addChild({ oldParentId, newParentId, childId: dndSectionId, index });
     }
   }
+  useDndState.setState({ behaviorDropType: null });
 }
 
 function maybeRemoveFromOldTempParent(active) {
