@@ -1,7 +1,5 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
-import { getDndSectionId } from "./dndState";
-
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -85,7 +83,6 @@ export const customCollisionDetection = ({
 }) => {
   let bestCollision = null;
   const left = collisionRect.left;
-  const dndSectionid = getDndSectionId(active.id);
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
@@ -95,12 +92,10 @@ export const customCollisionDetection = ({
     // if in list, keep self (makes sorting experience better)
     if (
       rect &&
-      (active.data.current.sortable?.containerId ||
-        (active.id !== id && dndSectionid !== id))
+      (active.data.current.sortable?.containerId || active.id !== id)
     ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
-        console.log(id, ratio);
         const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
