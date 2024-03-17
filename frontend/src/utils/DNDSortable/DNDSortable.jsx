@@ -2,7 +2,6 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "utils/DNDSortable/CustomSortable";
-import React from "react";
 import { useDisableSortable } from "utils/DNDSortable/useDndUtils";
 
 export function DNDSortable({ sectionId, items, children }) {
@@ -18,7 +17,7 @@ export function DNDSortable({ sectionId, items, children }) {
       }
       disabled={disabled}
     >
-      {React.cloneElement(children, { droppableDisabled: disabled.droppable })}
+      {children}
     </SortableContext>
   );
 }

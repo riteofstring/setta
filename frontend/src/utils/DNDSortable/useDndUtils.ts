@@ -12,15 +12,15 @@ export function useHighlightDroppable(sectionId: string) {
   );
   const invalid = behaviorDropType === BehaviorDropType.INVALID;
 
-  const style = !invalid
-    ? {}
-    : {
+  const style = invalid
+    ? {
         borderRadius: "1.5rem",
         padding: "0.75rem",
         margin: "-0.75rem",
         transition: "background-color 0.2s",
         backgroundColor: invalid ? colors.red[600] : colors.blue[500],
-      };
+      }
+    : {};
 
   return {
     style,
@@ -30,7 +30,6 @@ export function useHighlightDroppable(sectionId: string) {
 
 export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
-  console.log("isSorting, isMovingFree", isSorting, isMovingFree)
   const disabled = useDndState((x) => x.disabled[sectionId]);
   const setDisabled = useDndState((x) => x.setDisabled);
 
@@ -77,12 +76,6 @@ export function useDisableSortable(sectionId: string) {
   });
 
   return disabled ?? { draggable: false, droppable: false };
-}
-
-export function useIsDraggingFreely() {
-  const isMovingFree = useDndState((x) => x.isMovingFree);
-  const activeIsTruthy = useDndState((x) => !!x.activeId);
-  return isMovingFree && activeIsTruthy;
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {
