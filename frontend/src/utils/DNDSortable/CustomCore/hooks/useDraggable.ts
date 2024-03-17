@@ -1,17 +1,16 @@
+import {createContext, useContext, useMemo} from 'react';
 import {
   Transform,
+  useNodeRef,
   useIsomorphicLayoutEffect,
   useLatestValue,
-  useNodeRef,
   useUniqueId,
-} from "@dnd-kit/utilities";
-import { createContext, useContext, useMemo } from "react";
+} from '@dnd-kit/utilities';
 
-import { getDndSectionId, isTempSection } from "utils/DNDSortable/dndState";
-import { ActiveDraggableContext } from "../components/DndContext";
-import { Data, InternalContext } from "../store";
-import type { UniqueIdentifier } from "../types";
-import { SyntheticListenerMap, useSyntheticListeners } from "./utilities";
+import {InternalContext, Data} from '../store';
+import type {UniqueIdentifier} from '../types';
+import {ActiveDraggableContext} from '../components/DndContext';
+import {useSyntheticListeners, SyntheticListenerMap} from './utilities';
 
 export interface UseDraggableArguments {
   id: UniqueIdentifier;
@@ -27,19 +26,19 @@ export interface UseDraggableArguments {
 export interface DraggableAttributes {
   role: string;
   tabIndex: number;
-  "aria-disabled": boolean;
-  "aria-pressed": boolean | undefined;
-  "aria-roledescription": string;
-  "aria-describedby": string;
+  'aria-disabled': boolean;
+  'aria-pressed': boolean | undefined;
+  'aria-roledescription': string;
+  'aria-describedby': string;
 }
 
 export type DraggableSyntheticListeners = SyntheticListenerMap | undefined;
 
 const NullContext = createContext<any>(null);
 
-const defaultRole = "button";
+const defaultRole = 'button';
 
-const ID_PREFIX = "Droppable";
+const ID_PREFIX = 'Droppable';
 
 export function useDraggable({
   id,
@@ -59,14 +58,12 @@ export function useDraggable({
   } = useContext(InternalContext);
   const {
     role = defaultRole,
-    roleDescription = "draggable",
+    roleDescription = 'draggable',
     tabIndex = 0,
   } = attributes ?? {};
-  const isDragging = isTempSection(id)
-    ? getDndSectionId(active?.id) === id
-    : active?.id === id;
+  const isDragging = active?.id === id;
   const transform: Transform | null = useContext(
-    isDragging ? ActiveDraggableContext : NullContext,
+    isDragging ? ActiveDraggableContext : NullContext
   );
   const [node, setNodeRef] = useNodeRef();
   const [activatorNode, setActivatorNodeRef] = useNodeRef();
@@ -75,7 +72,7 @@ export function useDraggable({
 
   useIsomorphicLayoutEffect(
     () => {
-      draggableNodes.set(id, { id, key, node, activatorNode, data: dataRef });
+      draggableNodes.set(id, {id, key, node, activatorNode, data: dataRef});
 
       return () => {
         const node = draggableNodes.get(id);
@@ -86,17 +83,17 @@ export function useDraggable({
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [draggableNodes, id],
+    [draggableNodes, id]
   );
 
   const memoizedAttributes: DraggableAttributes = useMemo(
     () => ({
       role,
       tabIndex,
-      "aria-disabled": disabled,
-      "aria-pressed": isDragging && role === defaultRole ? true : undefined,
-      "aria-roledescription": roleDescription,
-      "aria-describedby": ariaDescribedById.draggable,
+      'aria-disabled': disabled,
+      'aria-pressed': isDragging && role === defaultRole ? true : undefined,
+      'aria-roledescription': roleDescription,
+      'aria-describedby': ariaDescribedById.draggable,
     }),
     [
       disabled,
@@ -105,7 +102,7 @@ export function useDraggable({
       isDragging,
       roleDescription,
       ariaDescribedById.draggable,
-    ],
+    ]
   );
 
   return {

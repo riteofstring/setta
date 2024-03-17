@@ -1,8 +1,5 @@
 // Some functions borrowed from https://github.com/clauderic/dnd-kit/blob/master/packages/core/src/utilities/algorithms
 
-import { useDndChildren } from "./dndChildren";
-import { getDndSectionId } from "./dndState";
-
 function compareCollisions(a, b) {
   if (!a) {
     return b;
@@ -86,23 +83,16 @@ export const customCollisionDetection = ({
 }) => {
   let bestCollision = null;
   const left = collisionRect.left;
-  const dndSectionId = getDndSectionId(active.id);
-  const dndState = useDndChildren.getState();
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    // rect must exist.
-    // If active doesn't have a parent, then don't look for overlap with self.
-    // Don't look for overlap with a section that has children, unless it has a single child that is the temporary dnd id.
+    // if not in list, then ignore self
+    // if in list, keep self (makes sorting experience better)
     if (
       rect &&
-      (active.data.current.sortable?.containerId || active.id !== id) &&
-      (droppableContainer.data.current.isTopLevel
-        ? dndState.x[id]?.length === 0 ||
-          (dndState.x[id].length === 1 && dndState.x[id][0] === dndSectionId)
-        : true)
+      (active.data.current.sortable?.containerId || active.id !== id)
     ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
