@@ -4,11 +4,7 @@ import {
   getSectionIsRoot,
 } from "thunks/sections/getters";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import {
-  getActualSectionId,
-  getDndSectionId,
-  useDndState,
-} from "utils/DNDSortable/dndState";
+import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
@@ -16,12 +12,10 @@ import { getSectionRectWithNested } from "xyflow/core/utils/graph";
 
 export function useOnDragMove() {
   const { isMovingFree } = useDndMode();
-  return (props) => {
-    onDragMove({
-      ...props,
-      isMovingFree,
-    });
-  };
+  if (isMovingFree) {
+    return onDragMove;
+  }
+  return () => {};
 }
 
 export function onDragStart({ active }) {
@@ -34,48 +28,37 @@ export function onDragStart({ active }) {
   });
 }
 
-function onDragMove({ active, over, collisions, isMovingFree }) {
-  if (isMovingFree) {
-    const overId = over ? over.id : null;
-    const leftDistCondition = getLeftDistCondition(collisions);
-    const dndState = useDndState.getState();
+function onDragMove({ over, collisions }) {
+  const overId = over ? over.id : null;
+  const leftDistCondition = getLeftDistCondition(collisions);
+  const dndState = useDndState.getState();
 
-    if (
-      overId !== dndState.overId ||
-      leftDistCondition !== dndState.leftDistCondition
-    ) {
-      dndState.setOver({
-        overId,
-        leftDistCondition,
-      });
-    }
+  if (
+    overId !== dndState.overId ||
+    leftDistCondition !== dndState.leftDistCondition
+  ) {
+    dndState.setOver({
+      overId,
+      leftDistCondition,
+    });
   }
 }
 
 export function useOnDragOver() {
-  const { isSorting } = useDndMode();
-  return (props) => {
-    onDragOver({
-      ...props,
-      isSorting,
-    });
-  };
+  const { isMovingFree } = useDndMode();
+  if (isMovingFree) {
+    return onDragOver;
+  }
+  return () => {};
 }
 
-function onDragOver({ active, over, isSorting, collisions, ...props }) {
+function onDragOver({ active, over, collisions, ...props }) {
   console.log(
     "collisions",
     collisions?.[0]?.id,
     collisions?.[0]?.data.intersectionRatio,
   );
   const overId = over ? over.id : null;
-  if (isSorting) {
-    useDndState.setState({
-      behaviorDropType: null,
-      overId,
-    });
-    return;
-  }
 
   if (
     !useDndState.getState().times[overId] ||
@@ -105,7 +88,7 @@ function onDragOver({ active, over, isSorting, collisions, ...props }) {
     maybeRemoveFromOldTempParent(active);
     return;
   }
-  if (active.id === getActualSectionId(over.id)) {
+  if (getDndSectionId(active.id) === over.id) {
     useDndState.setState({ behaviorDropType: null });
     return;
   }
