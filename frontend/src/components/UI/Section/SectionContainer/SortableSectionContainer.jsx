@@ -1,6 +1,7 @@
-import { useSortable } from "utils/DNDSortable/CustomSortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
+import { useSortable } from "utils/DNDSortable/CustomSortable";
+import { useDummySortable } from "utils/DNDSortable/CustomSortable/hooks/useDummySortable";
 import { isTempSection } from "utils/DNDSortable/dndState";
 import { DummySection } from "utils/DNDSortable/DummySection";
 import {
@@ -14,6 +15,8 @@ import { SectionContainer } from "./SectionContainer";
 function _SortableSectionContainer({ sectionId }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
+  const isTemp = isTempSection(sectionId);
+  const sortableHook = isTemp ? useDummySortable : useSortable;
 
   // remove 'role' because we don't want sections to be "role=button"
   const {
@@ -22,7 +25,7 @@ function _SortableSectionContainer({ sectionId }) {
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ ...dndProps });
+  } = sortableHook({ ...dndProps });
   return (
     <SortableCore
       sectionId={sectionId}
@@ -31,6 +34,7 @@ function _SortableSectionContainer({ sectionId }) {
       setNodeRef={setNodeRef}
       transform={transform}
       transition={transition}
+      isTemp={isTemp}
     />
   );
 }
@@ -44,6 +48,7 @@ function _SortableCore({
   setNodeRef,
   transform,
   transition,
+  isTemp,
 }) {
   const overIsSelf = useOverIsSelf(sectionId);
   const scaledTransform = transformWithZoom(transform);
@@ -57,7 +62,7 @@ function _SortableCore({
 
   return (
     <div className="relative first:mt-2" {...stackProps}>
-      {isTempSection(sectionId) ? (
+      {isTemp ? (
         <DummySection forceShow={true} />
       ) : (
         <SectionContainer sectionId={sectionId} dragListeners={listeners} />
