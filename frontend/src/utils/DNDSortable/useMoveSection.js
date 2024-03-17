@@ -5,7 +5,7 @@ import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
-import { useDndState } from "utils/DNDSortable/dndState";
+import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { updateWithArrayMove } from "utils/utils";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
@@ -22,17 +22,21 @@ function onSortEnd({ active, over }) {
   }
 }
 
-function onFreeMoveEnd({ active, dummyRef }) {
+function onFreeMoveEnd({ active, over, dummyRef }) {
   const dndState = useDndState.getState();
   const { activeId: sectionId, overId } = dndState;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
-  let newParentId = null;
+  let newParentId =
+    useDndChildren.getState().y[getDndSectionId(active.id)] ||
+    (active.data.current.sortable?.containerId ===
+    over?.data.current.sortable?.containerId
+      ? active.data.current.sortable?.containerId
+      : null);
   let newIndex = null;
   let position = null;
   let behaviorDropType = null;
 
-  if (active.data.current.sortable?.containerId) {
-    newParentId = active.data.current.sortable.containerId;
+  if (newParentId) {
     newIndex = useDndChildren.getState().x[newParentId].indexOf(overId);
   }
   // dropping nested section onto pane
