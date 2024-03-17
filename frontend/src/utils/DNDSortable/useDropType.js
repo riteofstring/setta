@@ -27,7 +27,7 @@ export function useOnDragMove() {
   return () => {};
 }
 
-function onDragMove({ over, collisions }) {
+function onDragMove({ active, over, collisions }) {
   const overId = over ? over.id : null;
   const leftDistCondition = getLeftDistCondition(collisions);
   const dndState = useDndState.getState();
@@ -36,11 +36,12 @@ function onDragMove({ over, collisions }) {
     overId !== dndState.overId ||
     leftDistCondition !== dndState.leftDistCondition
   ) {
-    // console.log(overId, leftDistCondition)
     useDndState.setState({
       overId,
       leftDistCondition,
     });
+
+    onDragOver({ active, over });
   }
 }
 
@@ -74,6 +75,30 @@ function onDragOver({ active, over }) {
     return;
   }
 
+  if (dndState.leftDistCondition) {
+    console.log("leftDistCondition");
+    if (dndChildrenState.x[oldParentId]?.length > 1) {
+      dndChildrenState.removeChild(dndSectionId);
+    }
+    if (overId !== dndSectionId) {
+      maybeMoveToNewParent({
+        active,
+        overId,
+        dndSectionId,
+        oldParentId,
+        newParentId: overId,
+        dndChildrenState,
+      });
+    }
+    return;
+  }
+
+  // Dragging over the temporary section
+  if (dndSectionId === overId) {
+    setNullBehavior(overId);
+    return;
+  }
+
   // Dragging over self, which is possible when moving free in original sortable.
   if (active.id === overId) {
     // This would get triggered if dragging back into the original sortable.
@@ -84,15 +109,27 @@ function onDragOver({ active, over }) {
     return;
   }
 
-  // Dragging over the temporary section
-  if (dndSectionId === overId) {
-    setNullBehavior(overId);
-    return;
-  }
-
   // If overId doesn't have a parent, then set newParent to be overId
   const newParentId = getParentId(overId) ?? overId;
 
+  maybeMoveToNewParent({
+    active,
+    overId,
+    dndSectionId,
+    oldParentId,
+    newParentId,
+    dndChildrenState,
+  });
+}
+
+function maybeMoveToNewParent({
+  active,
+  overId,
+  dndSectionId,
+  oldParentId,
+  newParentId,
+  dndChildrenState,
+}) {
   // Check if section can actually be dropped onto newParentId
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
@@ -108,7 +145,7 @@ function onDragOver({ active, over }) {
     // If the active was from a sortable, and we're not in that sortable anymore.
     if (newParentId !== trueOldParentId) {
       const newParentChildren = dndChildrenState.x[newParentId];
-      const _index = newParentChildren.indexOf(over.id);
+      const _index = newParentChildren.indexOf(overId);
       const index = _index >= 0 ? _index : 0;
 
       dndChildrenState.addChild({
