@@ -34,20 +34,17 @@ export function onDragStart({ active }) {
   });
 }
 
-function onDragMove({ active, over, collisions, isMovingFree }) {
+function onDragMove({ active, collisions, isMovingFree }) {
   if (isMovingFree) {
-    const overId = over ? over.id : null;
-    const leftDistCondition = getLeftDistCondition(collisions);
-    const dndState = useDndState.getState();
-
-    if (
-      overId !== dndState.overId ||
-      leftDistCondition !== dndState.leftDistCondition
-    ) {
-      dndState.setOver({
-        overId,
-        leftDistCondition,
-      });
+    if (getLeftDistCondition(active, collisions)) {
+      // console.log("collisions[0]", collisions[0]);
+      if (collisions[0].id !== useDndState.getState().leftDistConditionId) {
+        // console.log("leftDistCondition!")
+        useDndState.setState({ leftDistConditionId: collisions[0].id });
+        maybeAddToNewTempParent(active, collisions[0], collisions[0].id, false);
+      }
+    } else {
+      useDndState.setState({ leftDistConditionId: null });
     }
   }
 }
@@ -88,6 +85,16 @@ function onDragOver({ active, over, isSorting, ...props }) {
     newParentId = over.id;
     newParentIsInsideSortable = false;
   }
+  maybeAddToNewTempParent(active, over, newParentId, newParentIsInsideSortable);
+}
+
+function maybeAddToNewTempParent(
+  active,
+  over,
+  newParentId,
+  newParentIsInsideSortable,
+) {
+  // console.log("newParentId", newParentId);
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
     maybeRemoveFromOldTempParent(active);
@@ -99,13 +106,13 @@ function onDragOver({ active, over, isSorting, ...props }) {
     newParentId !== active.id &&
     newParentId !== getDndSectionId(active.id)
   ) {
+    // console.log("in first if statement")
     useDndState.setState({ movingFreeInSortable: true });
     const newParentChildren = useDndChildren.getState().x[newParentId];
     const oldParentId = getParentId(getDndSectionId(active.id));
     const trueOldParentId = getParentId(active.id);
     if (newParentId !== oldParentId && newParentId !== trueOldParentId) {
-      console.log("setting!", oldParentId, newParentId);
-
+      // console.log("adding child")
       const index = newParentIsInsideSortable
         ? newParentChildren.indexOf(over.id)
         : 0;
@@ -139,10 +146,11 @@ function getParentId(dndSectionId) {
   return useDndChildren.getState().y[dndSectionId];
 }
 
-function getLeftDistCondition(collisions) {
+function getLeftDistCondition(active, collisions) {
   // true if section has not children
   // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
   return (
+    collisions[0]?.id !== getDndSectionId(active.id) &&
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
     collisions[0]?.data.leftDist > 200 * useReactFlow.getState().transform[2]
   );
