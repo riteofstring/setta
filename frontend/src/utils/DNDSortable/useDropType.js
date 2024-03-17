@@ -52,20 +52,16 @@ export function useOnDragOver() {
 }
 
 function onDragOver({ active, over, collisions, ...props }) {
-  console.log(
-    "collisions",
-    collisions?.[0]?.id,
-    collisions?.[0]?.data.intersectionRatio,
-  );
   const overId = over ? over.id : null;
 
   if (
-    !useDndState.getState().times[overId] ||
-    Date.now() - useDndState.getState().times[overId] > 100
+    !overId ||
+    (overId &&
+      (!useDndState.getState().times[overId] ||
+        Date.now() - useDndState.getState().times[overId] > 100))
   ) {
     useDndState.getState().setTime(overId);
   } else {
-    console.log("too soon!");
     useDndState.setState({
       behaviorDropType: null,
       overId,
@@ -99,7 +95,6 @@ function onDragOver({ active, over, collisions, ...props }) {
   }
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
-    console.log("INVALID");
     maybeRemoveFromOldTempParent(active);
     useDndState.setState({
       behaviorDropType,
@@ -119,8 +114,6 @@ function onDragOver({ active, over, collisions, ...props }) {
     const trueOldParentId = getParentId(active.id);
     if (newParentId !== oldParentId) {
       if (newParentId !== trueOldParentId) {
-        console.log("setting!", oldParentId, newParentId);
-
         const index = newParentIsInsideSortable
           ? newParentChildren.indexOf(over.id)
           : 0;
@@ -131,7 +124,6 @@ function onDragOver({ active, over, collisions, ...props }) {
           .getState()
           .addChild({ oldParentId, newParentId, childId: dndSectionId, index });
       } else {
-        console.log("newParentId === trueOldParentId");
         maybeRemoveFromOldTempParent(active);
       }
     }
