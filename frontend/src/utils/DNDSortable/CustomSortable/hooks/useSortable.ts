@@ -88,6 +88,7 @@ export function useSortable({
   const {
     active,
     activatorEvent,
+    activeNodeRect,
     attributes,
     setNodeRef: setDraggableNodeRef,
     listeners,
@@ -119,6 +120,7 @@ export function useSortable({
     ? dragSourceDisplacement ??
       strategy({
         rects: sortedRects,
+        activeNodeRect,
         activeIndex,
         overIndex,
         index,
