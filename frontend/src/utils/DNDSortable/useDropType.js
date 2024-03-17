@@ -36,6 +36,7 @@ function onDragMove({ over, collisions }) {
     overId !== dndState.overId ||
     leftDistCondition !== dndState.leftDistCondition
   ) {
+    // console.log(overId, leftDistCondition)
     useDndState.setState({
       overId,
       leftDistCondition,
@@ -56,6 +57,7 @@ function onDragOver({ active, over }) {
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
+  const oldParentId = getParentId(dndSectionId);
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
   if (overId && getTimeDiff(dndState, overId) < 100) {
@@ -72,9 +74,18 @@ function onDragOver({ active, over }) {
     return;
   }
 
+  // Dragging over self, which is possible when moving free in original sortable.
+  if (active.id === overId) {
+    // This would get triggered if dragging back into the original sortable.
+    if (oldParentId) {
+      dndChildrenState.removeChild(dndSectionId);
+    }
+    setNullBehavior(overId);
+    return;
+  }
+
   // Dragging over the temporary section
-  // Or dragging over self, which is possible when moving free in original sortable.
-  if (active.id === overId || dndSectionId === overId) {
+  if (dndSectionId === overId) {
     setNullBehavior(overId);
     return;
   }
@@ -91,7 +102,6 @@ function onDragOver({ active, over }) {
   }
 
   // Check if the temporary section has a new parent
-  const oldParentId = getParentId(dndSectionId);
   if (newParentId !== oldParentId) {
     // The "true" old parent is the parent of the non-temporary section.
     const trueOldParentId = getParentId(active.id);
