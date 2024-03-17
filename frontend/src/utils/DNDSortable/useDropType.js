@@ -79,7 +79,10 @@ function onDragOver({ active, over }) {
     return;
   }
 
+  // If overId doesn't have a parent, then set newParent to be overId
   const newParentId = getParentId(overId) ?? overId;
+
+  // Check if section can actually be dropped onto newParentId
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
     dndChildrenState.removeChild(dndSectionId);
@@ -87,9 +90,12 @@ function onDragOver({ active, over }) {
     return;
   }
 
+  // Check if the temporary section has a new parent
   const oldParentId = getParentId(dndSectionId);
   if (newParentId !== oldParentId) {
+    // The "true" old parent is the parent of the non-temporary section.
     const trueOldParentId = getParentId(active.id);
+    // If the active was from a sortable, and we're not in that sortable anymore.
     if (newParentId !== trueOldParentId) {
       const newParentChildren = dndChildrenState.x[newParentId];
       const _index = newParentChildren.indexOf(over.id);
@@ -102,6 +108,7 @@ function onDragOver({ active, over }) {
         index,
       });
     } else {
+      // If the active was from a sortable, but we're still in that sortable.
       dndChildrenState.removeChild(dndSectionId);
     }
   }
