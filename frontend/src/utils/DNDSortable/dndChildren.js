@@ -1,5 +1,6 @@
 import { createProjectState } from "models/utils";
 import { immer } from "zustand/middleware/immer";
+import { getDndSectionId } from "./dndState";
 
 export const useDndChildren = createProjectState(
   immer((set) => ({
@@ -29,6 +30,17 @@ export const useDndChildren = createProjectState(
             (x) => x !== childId,
           );
           state.y[childId] = undefined;
+        }
+      }),
+    replaceWithTemp: (id) =>
+      set((state) => {
+        const parentId = state.y[id];
+        if (parentId) {
+          const index = state.x[parentId].indexOf(id);
+          const tempId = getDndSectionId(id);
+          state.x[parentId][index] = tempId;
+          state.y[tempId] = parentId;
+          state.y[id] = undefined;
         }
       }),
     reset: (sectionIdsToChildren) =>

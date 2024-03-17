@@ -17,6 +17,7 @@ export function onDragStart({ active }) {
     width,
     height,
   });
+  useDndChildren.getState().replaceWithTemp(active.id);
 }
 
 export function useOnDragMove() {
@@ -76,7 +77,6 @@ function onDragOver({ active, over }) {
   }
 
   if (dndState.leftDistCondition) {
-    console.log("leftDistCondition");
     if (dndChildrenState.x[oldParentId]?.length > 1) {
       dndChildrenState.removeChild(dndSectionId);
     }
@@ -140,24 +140,17 @@ function maybeMoveToNewParent({
 
   // Check if the temporary section has a new parent
   if (newParentId !== oldParentId) {
-    // The "true" old parent is the parent of the non-temporary section.
-    const trueOldParentId = getParentId(active.id);
     // If the active was from a sortable, and we're not in that sortable anymore.
-    if (newParentId !== trueOldParentId) {
-      const newParentChildren = dndChildrenState.x[newParentId];
-      const _index = newParentChildren.indexOf(overId);
-      const index = _index >= 0 ? _index : 0;
+    const newParentChildren = dndChildrenState.x[newParentId];
+    const _index = newParentChildren.indexOf(overId);
+    const index = _index >= 0 ? _index : 0;
 
-      dndChildrenState.addChild({
-        oldParentId,
-        newParentId,
-        childId: dndSectionId,
-        index,
-      });
-    } else {
-      // If the active was from a sortable, but we're still in that sortable.
-      dndChildrenState.removeChild(dndSectionId);
-    }
+    dndChildrenState.addChild({
+      oldParentId,
+      newParentId,
+      childId: dndSectionId,
+      index,
+    });
   }
 
   setNullBehavior(overId);
