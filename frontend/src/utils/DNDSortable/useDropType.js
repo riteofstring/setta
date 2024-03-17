@@ -6,12 +6,11 @@ import {
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 import { getSectionRectWithNested } from "xyflow/core/utils/graph";
 
 export function useOnDragMove() {
-  const { isMovingFree } = useDndMode();
+  const isMovingFree = useDndState((x) => x.isMovingFree);
   if (isMovingFree) {
     return onDragMove;
   }
@@ -45,7 +44,7 @@ function onDragMove({ over, collisions }) {
 }
 
 export function useOnDragOver() {
-  const { isMovingFree } = useDndMode();
+  const isMovingFree = useDndState((x) => x.isMovingFree);
   if (isMovingFree) {
     return onDragOver;
   }

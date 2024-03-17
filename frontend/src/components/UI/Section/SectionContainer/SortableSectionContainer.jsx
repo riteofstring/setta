@@ -1,13 +1,9 @@
-import { useSortable } from "utils/DNDSortable/CustomSortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { isTempSection } from "utils/DNDSortable/dndState";
+import { useSortable } from "utils/DNDSortable/CustomSortable";
+import { isTempSection, useDndState } from "utils/DNDSortable/dndState";
 import { DummySection } from "utils/DNDSortable/DummySection";
-import {
-  useDndMode,
-  useDndProps,
-  useOverIsSelf,
-} from "utils/DNDSortable/useDndUtils";
+import { useDndProps, useOverIsSelf } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 import { SectionContainer } from "./SectionContainer";
 
@@ -97,6 +93,6 @@ function transformWithZoom(transform) {
 }
 
 function useAnimateLayoutChanges() {
-  const { isMovingFree } = useDndMode();
+  const isMovingFree = useDndState((x) => x.isMovingFree);
   return () => isMovingFree;
 }

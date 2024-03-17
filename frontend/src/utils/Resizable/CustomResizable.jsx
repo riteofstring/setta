@@ -11,7 +11,7 @@ import {
 } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
+import { useDndMode } from "utils/DNDSortable/dndState";
 import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";

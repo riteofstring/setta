@@ -1,7 +1,7 @@
-import { useDndMonitor } from "utils/DNDSortable/CustomCore";
 import colors from "tailwindcss/colors";
 import { getSectionParentId } from "thunks/sections/getters";
-import { useDndState } from "utils/DNDSortable/dndState";
+import { useDndMonitor } from "utils/DNDSortable/CustomCore";
+import { useDndMode, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useTempHasNested } from "../../hooks/useSectionChildren";
 
@@ -30,6 +30,7 @@ export function useHighlightDroppable(sectionId: string) {
 
 export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
+  console.log("isSorting, isMovingFree", isSorting, isMovingFree)
   const disabled = useDndState((x) => x.disabled[sectionId]);
   const setDisabled = useDndState((x) => x.setDisabled);
 
@@ -79,24 +80,9 @@ export function useDisableSortable(sectionId: string) {
 }
 
 export function useIsDraggingFreely() {
-  const { isMovingFree } = useDndMode();
+  const isMovingFree = useDndState((x) => x.isMovingFree);
   const activeIsTruthy = useDndState((x) => !!x.activeId);
   return isMovingFree && activeIsTruthy;
-}
-
-export function useDndMode() {
-  const activeIsTopLevel = useDndState((x) => x.activeIsTopLevel);
-  const isSorting = useDndState((x) => x.isSorting);
-  const isMovingFree = useDndState((x) => x.isMovingFree);
-  // only allow one of sorting or movingFree to be true
-  // if sorting, then active section must nested
-  if (
-    isMovingFree !== isSorting &&
-    (!isSorting || (isSorting && !activeIsTopLevel))
-  ) {
-    return { isSorting, isMovingFree };
-  }
-  return { isSorting: false, isMovingFree: false };
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {

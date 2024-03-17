@@ -6,7 +6,6 @@ import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
-import { useDndMode } from "utils/DNDSortable/useDndUtils";
 import { updateWithArrayMove } from "utils/utils";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { useDndChildren } from "./dndChildren";
@@ -59,13 +58,12 @@ function onFreeMoveEnd({ active, over, dummyRef }) {
 }
 
 export function useOnDragEnd() {
-  const { isSorting, isMovingFree } = useDndMode();
   const dummyRef = useRef(null);
 
   function onDragEnd({ active, over, collisions }) {
-    if (isSorting) {
+    if (useDndState.getState().isSorting) {
       onSortEnd({ active, over });
-    } else if (isMovingFree) {
+    } else if (useDndState.getState().isMovingFree) {
       onFreeMoveEnd({
         active,
         over,

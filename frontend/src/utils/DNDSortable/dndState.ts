@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { createProjectState } from "models/utils";
 import { immer } from "zustand/middleware/immer";
 
@@ -20,9 +21,9 @@ export const useDndState = createProjectState(
     setActive: ({ id, isTopLevel, width, height }) =>
       set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
     setOver: (props) => set(props),
-    activateSortingMode: () => set({ isSorting: true }),
+    activateSortingMode: () => set({ isSorting: true, isMovingFree: false }),
     deactivateSortingMode: () => set({ isSorting: false }),
-    activateMovingFreeMode: () => set({ isMovingFree: true }),
+    activateMovingFreeMode: () => set({ isMovingFree: true, isSorting: false }),
     deactivateMovingFreeMode: () => set({ isMovingFree: false }),
     reset: () =>
       set((state) => ({
@@ -46,7 +47,28 @@ export function getDndSectionId(sectionId) {
   return `${sectionId}${dndIdSuffix}`;
 }
 
-
 export function isTempSection(sectionId) {
   return sectionId.slice(-dndIdSuffix.length) === dndIdSuffix;
 }
+
+export function useDndMode() {
+  return useDndState(
+    (x) => ({
+      isSorting: x.isSorting,
+      isMovingFree: x.isMovingFree,
+    }),
+    _.isEqual,
+  );
+}
+
+// function dndMode(state, isSorting, isMovingFree) {
+//   // only allow one of sorting or movingFree to be true
+//   // if sorting, then active section must nested
+//   if (
+//     isMovingFree !== state.isSorting &&
+//     (!isSorting || (state.isSorting && !state.activeIsTopLevel))
+//   ) {
+//     return { isSorting, isMovingFree };
+//   }
+//   return { isSorting: false, isMovingFree: false };
+// }
