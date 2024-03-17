@@ -83,23 +83,16 @@ export const customCollisionDetection = ({
 }) => {
   let bestCollision = null;
   const left = collisionRect.left;
-  const dndSectionId = getDndSectionId(active.id);
-  const dndState = useDndChildren.getState();
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    // rect must exist.
-    // If active doesn't have a parent, then don't look for overlap with self.
-    // Don't look for overlap with a section that has children, unless it has a single child that is the temporary dnd id.
+    // if not in list, then ignore self
+    // if in list, keep self (makes sorting experience better)
     if (
       rect &&
-      (active.data.current.sortable?.containerId || active.id !== id) &&
-      (dndState.x[id]
-        ? dndState.x[id].length === 0 ||
-          (dndState.x[id].length === 1 && dndState.x[id][0] === dndSectionId)
-        : true)
+      (active.data.current.sortable?.containerId || active.id !== id)
     ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
@@ -119,5 +112,3 @@ export const customCollisionDetection = ({
 
   return bestCollision ? [bestCollision] : [];
 };
-
-function shouldConsiderRect(rect, active, dndSectionId) {}
