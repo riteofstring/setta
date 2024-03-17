@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {getClientRect, ClientRect} from '@dnd-kit/core';
+import {getClientRect, ClientRect} from 'utils/DNDSortable/CustomCore';
 import {Transform, useIsomorphicLayoutEffect} from '@dnd-kit/utilities';
 
 interface Arguments {

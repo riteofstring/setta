@@ -1,4 +1,4 @@
-import { DragOverlay } from "@dnd-kit/core";
+import { DragOverlay } from "utils/DNDSortable/CustomCore";
 import React from "react";
 import { createPortal } from "react-dom";
 import { useDndState } from "utils/DNDSortable/dndState";

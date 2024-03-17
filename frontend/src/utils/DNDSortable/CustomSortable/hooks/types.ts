@@ -1,4 +1,4 @@
-import type {Active, UniqueIdentifier} from '@dnd-kit/core';
+import type {Active, UniqueIdentifier} from 'utils/DNDSortable/CustomCore';
 import type {Transition} from '@dnd-kit/utilities';
 
 export type SortableTransition = Pick<Transition, 'easing' | 'duration'>;

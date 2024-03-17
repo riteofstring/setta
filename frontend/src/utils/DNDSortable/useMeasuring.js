@@ -1,4 +1,4 @@
-import { MeasuringFrequency } from "@dnd-kit/core";
+import { MeasuringFrequency } from "utils/DNDSortable/CustomCore";
 import { useIsDraggingFreely } from "utils/DNDSortable/useDndUtils";
 
 export function useMeasuring() {

@@ -4,7 +4,7 @@ import type {
   DroppableContainer,
   DraggableNode,
   Over,
-} from '@dnd-kit/core';
+} from 'utils/DNDSortable/CustomCore';
 
 import type {SortableData} from './data';
 

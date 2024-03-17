@@ -4,8 +4,8 @@ import {
   useDroppable,
   UseDraggableArguments,
   UseDroppableArguments,
-} from '@dnd-kit/core';
-import type {Data} from '@dnd-kit/core';
+} from 'utils/DNDSortable/CustomCore';
+import type {Data} from 'utils/DNDSortable/CustomCore';
 import {CSS, isKeyboardEvent, useCombinedRefs} from '@dnd-kit/utilities';
 
 import {Context} from '../components';

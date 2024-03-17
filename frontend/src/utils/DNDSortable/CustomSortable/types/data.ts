@@ -1,4 +1,4 @@
-import type {UniqueIdentifier} from '@dnd-kit/core';
+import type {UniqueIdentifier} from 'utils/DNDSortable/CustomCore';
 
 export type SortableData = {
   sortable: {
