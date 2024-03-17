@@ -1,11 +1,12 @@
-import type {ClientRect} from '../../types';
+import { useReactFlow } from "xyflow/core/store";
+import type { ClientRect } from "../../types";
 
-import {parseTransform} from './parseTransform';
+import { parseTransform } from "./parseTransform";
 
 export function inverseTransform(
   rect: ClientRect,
   transform: string,
-  transformOrigin: string
+  transformOrigin: string,
 ): ClientRect {
   const parsedTransform = parseTransform(transform);
 
@@ -13,14 +14,17 @@ export function inverseTransform(
     return rect;
   }
 
-  const {scaleX, scaleY, x: translateX, y: translateY} = parsedTransform;
+  const zoom = useReactFlow.getState().transform[2];
 
-  const x = rect.left - translateX - (1 - scaleX) * parseFloat(transformOrigin);
+  const { scaleX, scaleY, x: translateX, y: translateY } = parsedTransform;
+
+  const x =
+    rect.left - translateX * zoom - (1 - scaleX) * parseFloat(transformOrigin);
   const y =
     rect.top -
-    translateY -
+    translateY * zoom -
     (1 - scaleY) *
-      parseFloat(transformOrigin.slice(transformOrigin.indexOf(' ') + 1));
+      parseFloat(transformOrigin.slice(transformOrigin.indexOf(" ") + 1));
   const w = scaleX ? rect.width / scaleX : rect.width;
   const h = scaleY ? rect.height / scaleY : rect.height;
 

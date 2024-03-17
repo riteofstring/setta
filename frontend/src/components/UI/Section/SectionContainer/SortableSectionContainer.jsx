@@ -50,7 +50,7 @@ function _SortableCore({
 
   const style = {
     transform: CSS.Translate.toString(scaledTransform),
-    transition,
+    // transition,
     zIndex: overIsSelf ? 500 : undefined,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
