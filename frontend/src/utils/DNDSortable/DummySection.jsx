@@ -1,6 +1,5 @@
-import { DragOverlay } from "utils/DNDSortable/CustomCore";
 import React from "react";
-import { createPortal } from "react-dom";
+import { DragOverlay } from "utils/DNDSortable/CustomCore";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { useReactFlow } from "xyflow/core/store";
 
@@ -28,12 +27,10 @@ export const DummyDragOverlay = React.forwardRef((props, ref) => {
   const activeId = useDndState((x) => x.activeId);
 
   return (
-    activeId &&
-    createPortal(
+    activeId && (
       <DragOverlay dropAnimation={null}>
         <DummySection ref={ref} />
-      </DragOverlay>,
-      document.body,
+      </DragOverlay>
     )
   );
 });

@@ -9,14 +9,6 @@ import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useReactFlow } from "xyflow/core/store";
 import { getSectionRectWithNested } from "xyflow/core/utils/graph";
 
-export function useOnDragMove() {
-  const isMovingFree = useDndState((x) => x.isMovingFree);
-  if (isMovingFree) {
-    return onDragMove;
-  }
-  return () => {};
-}
-
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
   useDndState.getState().setActive({
@@ -25,6 +17,14 @@ export function onDragStart({ active }) {
     width,
     height,
   });
+}
+
+export function useOnDragMove() {
+  const isMovingFree = useDndState((x) => x.isMovingFree);
+  if (isMovingFree) {
+    return onDragMove;
+  }
+  return () => {};
 }
 
 function onDragMove({ over, collisions }) {

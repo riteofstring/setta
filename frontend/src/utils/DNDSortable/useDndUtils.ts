@@ -17,7 +17,7 @@ export function useHighlightDroppable(sectionId: string) {
         borderRadius: "1.5rem",
         padding: "0.75rem",
         margin: "-0.75rem",
-        transition: "background-color 0.2s",
+        // transition: "background-color 0.2s",
         backgroundColor: invalid ? colors.red[600] : colors.blue[500],
       }
     : {};
@@ -45,8 +45,6 @@ export function useDisableSortable(sectionId: string) {
   }
 
   function disableSort({ active }) {
-    const containerId = active.data.current.sortable?.containerId;
-
     // Freely moving this section or ancestor of this section
     if (
       isMovingFree &&
@@ -54,13 +52,11 @@ export function useDisableSortable(sectionId: string) {
     ) {
       setDisabled(sectionId, { draggable: true, droppable: true });
     }
-    // Freely moving a child of this section
-    // else if (isMovingFree && containerId === sectionId) {
-    //   console.log("disable", sectionId)
-    //   setDisabled({ draggable: true, droppable: true });
-    // }
     // Sorting a child of different section
-    else if (isSorting && containerId !== sectionId) {
+    else if (
+      isSorting &&
+      active.data.current.sortable?.containerId !== sectionId
+    ) {
       setDisabled(sectionId, { draggable: true, droppable: true });
     }
   }
