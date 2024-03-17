@@ -21,13 +21,15 @@ export const useDndChildren = createProjectState(
 
         state.y[childId] = newParentId;
       }),
-    setChildren: ({ sectionId, children }) =>
+    removeChild: (childId) =>
       set((state) => {
-        state.x[sectionId] = children;
-      }),
-    setParentId: ({ sectionId, parentId }) =>
-      set((state) => {
-        state.y[sectionId] = parentId;
+        const oldParentId = state.y[childId];
+        if (oldParentId) {
+          state.x[oldParentId] = state.x[oldParentId].filter(
+            (x) => x !== childId,
+          );
+          state.y[childId] = undefined;
+        }
       }),
     reset: (sectionIdsToChildren) =>
       set((state) => {

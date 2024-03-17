@@ -20,7 +20,6 @@ export const useDndState = createProjectState(
     ...initialState,
     setActive: ({ id, isTopLevel, width, height }) =>
       set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
-    setOver: (props) => set(props),
     activateSortingMode: () => set({ isSorting: true, isMovingFree: false }),
     deactivateSortingMode: () => set({ isSorting: false }),
     activateMovingFreeMode: () => set({ isMovingFree: true, isSorting: false }),

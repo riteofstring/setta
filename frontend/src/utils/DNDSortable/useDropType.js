@@ -36,7 +36,7 @@ function onDragMove({ over, collisions }) {
     overId !== dndState.overId ||
     leftDistCondition !== dndState.leftDistCondition
   ) {
-    dndState.setOver({
+    useDndState.setState({
       overId,
       leftDistCondition,
     });
@@ -51,99 +51,73 @@ export function useOnDragOver() {
   return () => {};
 }
 
-function onDragOver({ active, over, collisions, ...props }) {
+function onDragOver({ active, over }) {
   const overId = over ? over.id : null;
+  const dndState = useDndState.getState();
+  const dndChildrenState = useDndChildren.getState();
+  const dndSectionId = getDndSectionId(active.id);
 
-  if (
-    !overId ||
-    (overId &&
-      (!useDndState.getState().times[overId] ||
-        Date.now() - useDndState.getState().times[overId] > 100))
-  ) {
-    useDndState.getState().setTime(overId);
-  } else {
-    useDndState.setState({
-      behaviorDropType: null,
-      overId,
-    });
+  // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
+  if (overId && getTimeDiff(dndState, overId) < 100) {
+    setNullBehavior(overId);
     return;
   }
 
-  if (!over) {
-    maybeRemoveFromOldTempParent(active);
-    useDndState.setState({
-      behaviorDropType: null,
-      overId,
-    });
+  dndState.setTime(overId);
+
+  // Dragging onto the pane or over self.
+  if (!overId) {
+    dndChildrenState.removeChild(dndSectionId);
+    setNullBehavior(overId);
     return;
   }
 
-  if (active.id === over.id) {
-    useDndState.setState({ behaviorDropType: null });
-    maybeRemoveFromOldTempParent(active);
+  // Dragging over the temporary section
+  // Or dragging over self, which is possible when moving free in original sortable.
+  if (active.id === overId || dndSectionId === overId) {
+    setNullBehavior(overId);
     return;
   }
-  if (getDndSectionId(active.id) === over.id) {
-    useDndState.setState({ behaviorDropType: null });
-    return;
-  }
-  let newParentIsInsideSortable = true;
-  let newParentId = getParentId(over.id);
-  if (!newParentId) {
-    newParentId = over.id;
-    newParentIsInsideSortable = false;
-  }
+
+  const newParentId = getParentId(overId) ?? overId;
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
-    maybeRemoveFromOldTempParent(active);
-    useDndState.setState({
-      behaviorDropType,
-      overId,
-    });
+    dndChildrenState.removeChild(dndSectionId);
+    useDndState.setState({ behaviorDropType, overId });
     return;
-  } else {
-    useDndState.setState({ behaviorDropType: null, overId });
   }
-  if (
-    newParentId &&
-    newParentId !== active.id &&
-    newParentId !== getDndSectionId(active.id)
-  ) {
-    const newParentChildren = useDndChildren.getState().x[newParentId];
-    const oldParentId = getParentId(getDndSectionId(active.id));
+
+  const oldParentId = getParentId(dndSectionId);
+  if (newParentId !== oldParentId) {
     const trueOldParentId = getParentId(active.id);
-    if (newParentId !== oldParentId) {
-      if (newParentId !== trueOldParentId) {
-        const index = newParentIsInsideSortable
-          ? newParentChildren.indexOf(over.id)
-          : 0;
+    if (newParentId !== trueOldParentId) {
+      const newParentChildren = dndChildrenState.x[newParentId];
+      const _index = newParentChildren.indexOf(over.id);
+      const index = _index >= 0 ? _index : 0;
 
-        const dndSectionId = getDndSectionId(active.id);
-
-        useDndChildren
-          .getState()
-          .addChild({ oldParentId, newParentId, childId: dndSectionId, index });
-      } else {
-        maybeRemoveFromOldTempParent(active);
-      }
+      dndChildrenState.addChild({
+        oldParentId,
+        newParentId,
+        childId: dndSectionId,
+        index,
+      });
+    } else {
+      dndChildrenState.removeChild(dndSectionId);
     }
   }
+
+  setNullBehavior(overId);
 }
 
-function maybeRemoveFromOldTempParent(active) {
-  const dndSectionId = getDndSectionId(active.id);
-  const oldParentId = getParentId(dndSectionId);
-  if (oldParentId) {
-    useDndChildren.getState().setChildren({
-      sectionId: oldParentId,
-      children: useDndChildren
-        .getState()
-        .x[oldParentId].filter((x) => x !== dndSectionId),
-    });
-    useDndChildren
-      .getState()
-      .setParentId({ sectionId: dndSectionId, parentId: undefined });
-  }
+function setNullBehavior(overId) {
+  useDndState.setState({
+    behaviorDropType: null,
+    overId,
+  });
+}
+
+function getTimeDiff(state, sectionId) {
+  return Date.now() - (state.times[sectionId] ?? 0);
 }
 
 function getParentId(dndSectionId) {
@@ -160,9 +134,6 @@ function getLeftDistCondition(collisions) {
 }
 
 function getBehaviorDropType(activeId, newParentId) {
-  if (!newParentId) {
-    return null;
-  }
   // invalid if parent can't have children
   // or if child can only be in deck and parent is not a deck
   if (
