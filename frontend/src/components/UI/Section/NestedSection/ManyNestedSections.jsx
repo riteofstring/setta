@@ -52,5 +52,5 @@ function NestedSectionsWithMargin({
 
 function useRightMargin(droppableDisabled) {
   const isDraggingFreely = useIsDraggingFreely();
-  return isDraggingFreely && !droppableDisabled ? "mr-10" : "mr-2";
+  return isDraggingFreely && !droppableDisabled ? "mr-2" : "mr-2";
 }
