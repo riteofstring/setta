@@ -62,23 +62,53 @@ export function useOnDragOver() {
   };
 }
 
-function onDragOver({ active, over, isSorting, ...props }) {
+function onDragOver({ active, over, isSorting, collisions, ...props }) {
+  console.log(
+    "collisions",
+    collisions?.[0]?.id,
+    collisions?.[0]?.data.intersectionRatio,
+  );
+  const overId = over ? over.id : null;
   if (isSorting) {
     useDndState.setState({
       behaviorDropType: null,
       movingFreeInSortable: false,
+      overId,
     });
     return;
   }
+
+  if (
+    !useDndState.getState().times[overId] ||
+    Date.now() - useDndState.getState().times[overId] > 100
+  ) {
+    useDndState.getState().setTime(overId);
+  } else {
+    console.log("too soon!");
+    useDndState.setState({
+      behaviorDropType: null,
+      movingFreeInSortable: false,
+      overId,
+    });
+    return;
+  }
+
   if (!over) {
     maybeRemoveFromOldTempParent(active);
     useDndState.setState({
       behaviorDropType: null,
       movingFreeInSortable: false,
+      overId,
     });
     return;
   }
-  if (active.id === over.id || active.id === getActualSectionId(over.id)) {
+
+  if (active.id === over.id) {
+    useDndState.setState({ behaviorDropType: null });
+    maybeRemoveFromOldTempParent(active);
+    return;
+  }
+  if (active.id === getActualSectionId(over.id)) {
     useDndState.setState({ behaviorDropType: null });
     return;
   }
@@ -90,9 +120,16 @@ function onDragOver({ active, over, isSorting, ...props }) {
   }
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
+    console.log("INVALID");
     maybeRemoveFromOldTempParent(active);
-    useDndState.setState({ behaviorDropType, movingFreeInSortable: false });
+    useDndState.setState({
+      behaviorDropType,
+      movingFreeInSortable: false,
+      overId,
+    });
     return;
+  } else {
+    useDndState.setState({ behaviorDropType: null, overId });
   }
   if (
     newParentId &&
@@ -103,18 +140,23 @@ function onDragOver({ active, over, isSorting, ...props }) {
     const newParentChildren = useDndChildren.getState().x[newParentId];
     const oldParentId = getParentId(getDndSectionId(active.id));
     const trueOldParentId = getParentId(active.id);
-    if (newParentId !== oldParentId && newParentId !== trueOldParentId) {
-      console.log("setting!", oldParentId, newParentId);
+    if (newParentId !== oldParentId) {
+      if (newParentId !== trueOldParentId) {
+        console.log("setting!", oldParentId, newParentId);
 
-      const index = newParentIsInsideSortable
-        ? newParentChildren.indexOf(over.id)
-        : 0;
+        const index = newParentIsInsideSortable
+          ? newParentChildren.indexOf(over.id)
+          : 0;
 
-      const dndSectionId = getDndSectionId(active.id);
+        const dndSectionId = getDndSectionId(active.id);
 
-      useDndChildren
-        .getState()
-        .addChild({ oldParentId, newParentId, childId: dndSectionId, index });
+        useDndChildren
+          .getState()
+          .addChild({ oldParentId, newParentId, childId: dndSectionId, index });
+      } else {
+        console.log("newParentId === trueOldParentId");
+        maybeRemoveFromOldTempParent(active);
+      }
     }
   }
 }

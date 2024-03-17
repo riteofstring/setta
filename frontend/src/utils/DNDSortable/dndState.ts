@@ -12,6 +12,7 @@ const initialState = {
   disabled: {},
   width: null,
   height: null,
+  times: {},
 };
 
 export const useDndState = createProjectState(
@@ -32,6 +33,10 @@ export const useDndState = createProjectState(
     setDisabled: (sectionId, disabled) =>
       set((state) => {
         state.disabled[sectionId] = disabled;
+      }),
+    setTime: (sectionId) =>
+      set((state) => {
+        state.times[sectionId] = Date.now();
       }),
   })),
 );
