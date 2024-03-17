@@ -62,7 +62,8 @@ export function useOnDragOver() {
   };
 }
 
-function onDragOver({ active, over, isSorting, ...props }) {
+function onDragOver({ active, over, isSorting,collisions }) {
+  console.log(collisions[0]?.id, collisions[0]?.rect.bottom)
   if (isSorting) {
     useDndState.setState({
       behaviorDropType: null,

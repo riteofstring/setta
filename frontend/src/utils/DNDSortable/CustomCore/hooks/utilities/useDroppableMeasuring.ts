@@ -69,6 +69,7 @@ export function useDroppableMeasuring(
         containersRef.current !== containers ||
         queue != null
       ) {
+        console.log("getting droppableRect")
         const map: RectMap = new Map();
 
         for (let container of containers) {
