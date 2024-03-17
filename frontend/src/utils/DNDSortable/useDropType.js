@@ -11,13 +11,16 @@ import { getSectionRectWithNested } from "xyflow/core/utils/graph";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
-  useDndState.getState().setActive({
+  const dndState = useDndState.getState();
+  dndState.setActive({
     id: active.id,
     isTopLevel: active.data.current.isTopLevel,
     width,
     height,
   });
-  useDndChildren.getState().replaceWithTemp(active.id);
+  if (dndState.isMovingFree) {
+    useDndChildren.getState().replaceWithTemp(active.id);
+  }
 }
 
 export function useOnDragMove() {
@@ -77,9 +80,11 @@ function onDragOver({ active, over }) {
   }
 
   if (dndState.leftDistCondition) {
+    // Remove temporary section if it's not the only child.
     if (dndChildrenState.x[oldParentId]?.length > 1) {
       dndChildrenState.removeChild(dndSectionId);
     }
+    // Consider overId to be the new parent, if it's not the temp section.
     if (overId !== dndSectionId) {
       maybeMoveToNewParent({
         active,
@@ -95,16 +100,6 @@ function onDragOver({ active, over }) {
 
   // Dragging over the temporary section
   if (dndSectionId === overId) {
-    setNullBehavior(overId);
-    return;
-  }
-
-  // Dragging over self, which is possible when moving free in original sortable.
-  if (active.id === overId) {
-    // This would get triggered if dragging back into the original sortable.
-    if (oldParentId) {
-      dndChildrenState.removeChild(dndSectionId);
-    }
     setNullBehavior(overId);
     return;
   }
