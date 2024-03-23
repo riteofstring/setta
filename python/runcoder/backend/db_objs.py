@@ -153,5 +153,7 @@ class DBs:
             v.disconnect()
 
 
-    def __getitem__(self, key):
-        return self.dbs[key]
+    @contextmanager
+    def get(self, name):
+        with self.dbs[name].get() as db:
+            yield db
