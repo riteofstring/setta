@@ -1,5 +1,5 @@
-import type {ClientRect} from 'utils/DNDSortable/CustomCore';
-import type {SortingStrategy} from '../types';
+import type { ClientRect } from "utils/DNDSortable/CustomCore";
+import type { SortingStrategy } from "../types";
 
 // To-do: We should be calculating scale transformation
 const defaultScale = {

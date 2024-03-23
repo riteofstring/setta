@@ -1,7 +1,7 @@
-import type {Active, UniqueIdentifier} from 'utils/DNDSortable/CustomCore';
-import type {Transition} from '@dnd-kit/utilities';
+import type { Transition } from "@dnd-kit/utilities";
+import type { Active, UniqueIdentifier } from "utils/DNDSortable/CustomCore";
 
-export type SortableTransition = Pick<Transition, 'easing' | 'duration'>;
+export type SortableTransition = Pick<Transition, "easing" | "duration">;
 
 export type AnimateLayoutChanges = (args: {
   active: Active | null;

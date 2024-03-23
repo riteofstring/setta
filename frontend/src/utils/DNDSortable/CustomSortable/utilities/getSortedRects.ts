@@ -2,11 +2,11 @@ import type {
   ClientRect,
   UniqueIdentifier,
   UseDndContextReturnValue,
-} from 'utils/DNDSortable/CustomCore';
+} from "utils/DNDSortable/CustomCore";
 
 export function getSortedRects(
   items: UniqueIdentifier[],
-  rects: UseDndContextReturnValue['droppableRects']
+  rects: UseDndContextReturnValue["droppableRects"],
 ) {
   return items.reduce<ClientRect[]>((accumulator, id, index) => {
     const rect = rects.get(id);

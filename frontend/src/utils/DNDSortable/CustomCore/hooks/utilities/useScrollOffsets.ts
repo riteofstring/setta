@@ -1,21 +1,19 @@
-import {useState, useCallback, useMemo, useRef, useEffect} from 'react';
-import {add} from '@dnd-kit/utilities';
+import { add } from "@dnd-kit/utilities";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import type { Coordinates } from "../../types";
 import {
   defaultCoordinates,
   getScrollableElement,
   getScrollCoordinates,
   getScrollOffsets,
-} from '../../utilities';
-import type {Coordinates} from '../../types';
+} from "../../utilities";
 
 type ScrollCoordinates = Map<HTMLElement | Window, Coordinates>;
 
 export function useScrollOffsets(elements: Element[]): Coordinates {
-  const [
-    scrollCoordinates,
-    setScrollCoordinates,
-  ] = useState<ScrollCoordinates | null>(null);
+  const [scrollCoordinates, setScrollCoordinates] =
+    useState<ScrollCoordinates | null>(null);
   const prevElements = useRef(elements);
 
   // To-do: Throttle the handleScroll callback
@@ -33,7 +31,7 @@ export function useScrollOffsets(elements: Element[]): Coordinates {
 
       scrollCoordinates.set(
         scrollingElement,
-        getScrollCoordinates(scrollingElement)
+        getScrollCoordinates(scrollingElement),
       );
 
       return new Map(scrollCoordinates);
@@ -51,7 +49,7 @@ export function useScrollOffsets(elements: Element[]): Coordinates {
           const scrollableElement = getScrollableElement(element);
 
           if (scrollableElement) {
-            scrollableElement.addEventListener('scroll', handleScroll, {
+            scrollableElement.addEventListener("scroll", handleScroll, {
               passive: true,
             });
 
@@ -65,11 +63,11 @@ export function useScrollOffsets(elements: Element[]): Coordinates {
         })
         .filter(
           (
-            entry
+            entry,
           ): entry is [
             HTMLElement | (Window & typeof globalThis),
-            Coordinates
-          ] => entry != null
+            Coordinates,
+          ] => entry != null,
         );
 
       setScrollCoordinates(entries.length ? new Map(entries) : null);
@@ -86,7 +84,7 @@ export function useScrollOffsets(elements: Element[]): Coordinates {
       elements.forEach((element) => {
         const scrollableElement = getScrollableElement(element);
 
-        scrollableElement?.removeEventListener('scroll', handleScroll);
+        scrollableElement?.removeEventListener("scroll", handleScroll);
       });
     }
   }, [handleScroll, elements]);
@@ -96,7 +94,7 @@ export function useScrollOffsets(elements: Element[]): Coordinates {
       return scrollCoordinates
         ? Array.from(scrollCoordinates.values()).reduce(
             (acc, coordinates) => add(acc, coordinates),
-            defaultCoordinates
+            defaultCoordinates,
           )
         : getScrollOffsets(elements);
     }

@@ -1,18 +1,19 @@
-import {useContext, useEffect} from 'react';
 import {
   findFirstFocusableNode,
   isKeyboardEvent,
   usePrevious,
-} from '@dnd-kit/utilities';
+} from "@dnd-kit/utilities";
+import { useContext, useEffect } from "react";
 
-import {InternalContext} from '../../../store';
+import { InternalContext } from "../../../store";
 
 interface Props {
   disabled: boolean;
 }
 
-export function RestoreFocus({disabled}: Props) {
-  const {active, activatorEvent, draggableNodes} = useContext(InternalContext);
+export function RestoreFocus({ disabled }: Props) {
+  const { active, activatorEvent, draggableNodes } =
+    useContext(InternalContext);
   const previousActivatorEvent = usePrevious(activatorEvent);
   const previousActiveId = usePrevious(active?.id);
 
@@ -38,7 +39,7 @@ export function RestoreFocus({disabled}: Props) {
         return;
       }
 
-      const {activatorNode, node} = draggableNode;
+      const { activatorNode, node } = draggableNode;
 
       if (!activatorNode.current && !node.current) {
         return;

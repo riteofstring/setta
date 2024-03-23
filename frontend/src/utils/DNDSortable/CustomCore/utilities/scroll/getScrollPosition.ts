@@ -1,4 +1,4 @@
-import {isDocumentScrollingElement} from './documentScrollingElement';
+import { isDocumentScrollingElement } from "./documentScrollingElement";
 
 export function getScrollPosition(scrollingContainer: Element) {
   const minScroll = {

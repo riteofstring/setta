@@ -1,4 +1,4 @@
-import type {Announcements, ScreenReaderInstructions} from './types';
+import type { Announcements, ScreenReaderInstructions } from "./types";
 
 export const defaultScreenReaderInstructions: ScreenReaderInstructions = {
   draggable: `
@@ -9,24 +9,24 @@ export const defaultScreenReaderInstructions: ScreenReaderInstructions = {
 };
 
 export const defaultAnnouncements: Announcements = {
-  onDragStart({active}) {
+  onDragStart({ active }) {
     return `Picked up draggable item ${active.id}.`;
   },
-  onDragOver({active, over}) {
+  onDragOver({ active, over }) {
     if (over) {
       return `Draggable item ${active.id} was moved over droppable area ${over.id}.`;
     }
 
     return `Draggable item ${active.id} is no longer over a droppable area.`;
   },
-  onDragEnd({active, over}) {
+  onDragEnd({ active, over }) {
     if (over) {
       return `Draggable item ${active.id} was dropped over droppable area ${over.id}`;
     }
 
     return `Draggable item ${active.id} was dropped.`;
   },
-  onDragCancel({active}) {
+  onDragCancel({ active }) {
     return `Dragging was cancelled. Draggable item ${active.id} was dropped.`;
   },
 };

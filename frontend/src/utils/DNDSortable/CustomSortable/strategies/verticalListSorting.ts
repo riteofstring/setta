@@ -1,5 +1,5 @@
-import type {ClientRect} from 'utils/DNDSortable/CustomCore';
-import type {SortingStrategy} from '../types';
+import type { ClientRect } from "utils/DNDSortable/CustomCore";
+import type { SortingStrategy } from "../types";
 
 // To-do: We should be calculating scale transformation
 const defaultScale = {
@@ -67,7 +67,7 @@ export const verticalListSortingStrategy: SortingStrategy = ({
 function getItemGap(
   clientRects: ClientRect[],
   index: number,
-  activeIndex: number
+  activeIndex: number,
 ) {
   const currentRect: ClientRect | undefined = clientRects[index];
   const previousRect: ClientRect | undefined = clientRects[index - 1];
@@ -81,13 +81,13 @@ function getItemGap(
     return previousRect
       ? currentRect.top - (previousRect.top + previousRect.height)
       : nextRect
-      ? nextRect.top - (currentRect.top + currentRect.height)
-      : 0;
+        ? nextRect.top - (currentRect.top + currentRect.height)
+        : 0;
   }
 
   return nextRect
     ? nextRect.top - (currentRect.top + currentRect.height)
     : previousRect
-    ? currentRect.top - (previousRect.top + previousRect.height)
-    : 0;
+      ? currentRect.top - (previousRect.top + previousRect.height)
+      : 0;
 }

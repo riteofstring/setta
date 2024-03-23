@@ -1,5 +1,5 @@
-import {arrayMove} from '../utilities';
-import type {SortingStrategy} from '../types';
+import type { SortingStrategy } from "../types";
+import { arrayMove } from "../utilities";
 
 export const rectSortingStrategy: SortingStrategy = ({
   rects,

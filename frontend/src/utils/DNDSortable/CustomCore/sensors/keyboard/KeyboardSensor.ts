@@ -1,38 +1,38 @@
 import {
   add as getAdjustedCoordinates,
-  subtract as getCoordinatesDelta,
   getOwnerDocument,
   getWindow,
   isKeyboardEvent,
-} from '@dnd-kit/utilities';
+  subtract as getCoordinatesDelta,
+} from "@dnd-kit/utilities";
 
-import type {Coordinates} from '../../types';
+import type { Coordinates } from "../../types";
 import {
   defaultCoordinates,
-  getScrollPosition,
   getScrollElementRect,
-} from '../../utilities';
-import {scrollIntoViewIfNeeded} from '../../utilities/scroll';
-import {EventName} from '../events';
-import {Listeners} from '../utilities';
+  getScrollPosition,
+} from "../../utilities";
+import { scrollIntoViewIfNeeded } from "../../utilities/scroll";
+import { EventName } from "../events";
 import type {
   Activators,
   SensorInstance,
-  SensorProps,
   SensorOptions,
-} from '../types';
+  SensorProps,
+} from "../types";
+import { Listeners } from "../utilities";
 
-import {KeyboardCoordinateGetter, KeyboardCode, KeyboardCodes} from './types';
 import {
   defaultKeyboardCodes,
   defaultKeyboardCoordinateGetter,
-} from './defaults';
+} from "./defaults";
+import { KeyboardCode, KeyboardCodes, KeyboardCoordinateGetter } from "./types";
 
 export interface KeyboardSensorOptions extends SensorOptions {
   keyboardCodes?: KeyboardCodes;
   coordinateGetter?: KeyboardCoordinateGetter;
   scrollBehavior?: ScrollBehavior;
-  onActivation?({event}: {event: KeyboardEvent}): void;
+  onActivation?({ event }: { event: KeyboardEvent }): void;
 }
 
 export type KeyboardSensorProps = SensorProps<KeyboardSensorOptions>;
@@ -45,7 +45,7 @@ export class KeyboardSensor implements SensorInstance {
 
   constructor(private props: KeyboardSensorProps) {
     const {
-      event: {target},
+      event: { target },
     } = props;
 
     this.props = props;
@@ -67,7 +67,7 @@ export class KeyboardSensor implements SensorInstance {
   }
 
   private handleStart() {
-    const {activeNode, onStart} = this.props;
+    const { activeNode, onStart } = this.props;
     const node = activeNode.node.current;
 
     if (node) {
@@ -79,13 +79,13 @@ export class KeyboardSensor implements SensorInstance {
 
   private handleKeyDown(event: Event) {
     if (isKeyboardEvent(event)) {
-      const {active, context, options} = this.props;
+      const { active, context, options } = this.props;
       const {
         keyboardCodes = defaultKeyboardCodes,
         coordinateGetter = defaultKeyboardCoordinateGetter,
-        scrollBehavior = 'smooth',
+        scrollBehavior = "smooth",
       } = options;
-      const {code} = event;
+      const { code } = event;
 
       if (keyboardCodes.end.includes(code)) {
         this.handleEnd(event);
@@ -97,9 +97,9 @@ export class KeyboardSensor implements SensorInstance {
         return;
       }
 
-      const {collisionRect} = context.current;
+      const { collisionRect } = context.current;
       const currentCoordinates = collisionRect
-        ? {x: collisionRect.left, y: collisionRect.top}
+        ? { x: collisionRect.left, y: collisionRect.top }
         : defaultCoordinates;
 
       if (!this.referenceCoordinates) {
@@ -115,17 +115,17 @@ export class KeyboardSensor implements SensorInstance {
       if (newCoordinates) {
         const coordinatesDelta = getCoordinatesDelta(
           newCoordinates,
-          currentCoordinates
+          currentCoordinates,
         );
         const scrollDelta = {
           x: 0,
           y: 0,
         };
-        const {scrollableAncestors} = context.current;
+        const { scrollableAncestors } = context.current;
 
         for (const scrollContainer of scrollableAncestors) {
           const direction = event.code;
-          const {isTop, isRight, isLeft, isBottom, maxScroll, minScroll} =
+          const { isTop, isRight, isLeft, isBottom, maxScroll, minScroll } =
             getScrollPosition(scrollContainer);
           const scrollElementRect = getScrollElementRect(scrollContainer);
 
@@ -138,8 +138,8 @@ export class KeyboardSensor implements SensorInstance {
                 direction === KeyboardCode.Right
                   ? scrollElementRect.left
                   : scrollElementRect.left + scrollElementRect.width / 2,
-                newCoordinates.x
-              )
+                newCoordinates.x,
+              ),
             ),
             y: Math.min(
               direction === KeyboardCode.Down
@@ -149,8 +149,8 @@ export class KeyboardSensor implements SensorInstance {
                 direction === KeyboardCode.Down
                   ? scrollElementRect.top
                   : scrollElementRect.top + scrollElementRect.height / 2,
-                newCoordinates.y
-              )
+                newCoordinates.y,
+              ),
             ),
           };
 
@@ -239,22 +239,22 @@ export class KeyboardSensor implements SensorInstance {
           event,
           getAdjustedCoordinates(
             getCoordinatesDelta(newCoordinates, this.referenceCoordinates),
-            scrollDelta
-          )
+            scrollDelta,
+          ),
         );
       }
     }
   }
 
   private handleMove(event: Event, coordinates: Coordinates) {
-    const {onMove} = this.props;
+    const { onMove } = this.props;
 
     event.preventDefault();
     onMove(coordinates);
   }
 
   private handleEnd(event: Event) {
-    const {onEnd} = this.props;
+    const { onEnd } = this.props;
 
     event.preventDefault();
     this.detach();
@@ -262,7 +262,7 @@ export class KeyboardSensor implements SensorInstance {
   }
 
   private handleCancel(event: Event) {
-    const {onCancel} = this.props;
+    const { onCancel } = this.props;
 
     event.preventDefault();
     this.detach();
@@ -276,13 +276,13 @@ export class KeyboardSensor implements SensorInstance {
 
   static activators: Activators<KeyboardSensorOptions> = [
     {
-      eventName: 'onKeyDown' as const,
+      eventName: "onKeyDown" as const,
       handler: (
         event: React.KeyboardEvent,
-        {keyboardCodes = defaultKeyboardCodes, onActivation},
-        {active}
+        { keyboardCodes = defaultKeyboardCodes, onActivation },
+        { active },
       ) => {
-        const {code} = event.nativeEvent;
+        const { code } = event.nativeEvent;
 
         if (keyboardCodes.start.includes(code)) {
           const activator = active.activatorNode.current;
@@ -293,7 +293,7 @@ export class KeyboardSensor implements SensorInstance {
 
           event.preventDefault();
 
-          onActivation?.({event: event.nativeEvent});
+          onActivation?.({ event: event.nativeEvent });
 
           return true;
         }

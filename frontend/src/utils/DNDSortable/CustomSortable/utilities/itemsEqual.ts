@@ -1,4 +1,4 @@
-import type {UniqueIdentifier} from 'utils/DNDSortable/CustomCore';
+import type { UniqueIdentifier } from "utils/DNDSortable/CustomCore";
 
 export function itemsEqual(a: UniqueIdentifier[], b: UniqueIdentifier[]) {
   if (a === b) {

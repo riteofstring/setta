@@ -1,5 +1,5 @@
-import type {ClientRect} from '../../types';
-import type {DroppableMeasuring} from '../../hooks/utilities';
+import type { DroppableMeasuring } from "../../hooks/utilities";
+import type { ClientRect } from "../../types";
 
 export type MeasuringFunction = (node: HTMLElement) => ClientRect;
 

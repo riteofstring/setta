@@ -1,14 +1,14 @@
-import React, {forwardRef} from 'react';
-import {CSS, isKeyboardEvent} from '@dnd-kit/utilities';
+import { CSS, isKeyboardEvent } from "@dnd-kit/utilities";
+import React, { forwardRef } from "react";
 
-import type {Transform} from '@dnd-kit/utilities';
+import type { Transform } from "@dnd-kit/utilities";
 
-import {getRelativeTransformOrigin} from '../../../../utilities';
-import type {ClientRect, UniqueIdentifier} from '../../../../types';
+import type { ClientRect, UniqueIdentifier } from "../../../../types";
+import { getRelativeTransformOrigin } from "../../../../utilities";
 
 type TransitionGetter = (
-  activatorEvent: Event | null
-) => React.CSSProperties['transition'] | undefined;
+  activatorEvent: Event | null,
+) => React.CSSProperties["transition"] | undefined;
 
 export interface Props {
   as: keyof JSX.IntrinsicElements;
@@ -24,14 +24,14 @@ export interface Props {
 }
 
 const baseStyles: React.CSSProperties = {
-  position: 'fixed',
-  touchAction: 'none',
+  position: "fixed",
+  touchAction: "none",
 };
 
 const defaultTransition: TransitionGetter = (activatorEvent) => {
   const isKeyboardActivator = isKeyboardEvent(activatorEvent);
 
-  return isKeyboardActivator ? 'transform 250ms ease' : undefined;
+  return isKeyboardActivator ? "transform 250ms ease" : undefined;
 };
 
 export const PositionedOverlay = forwardRef<HTMLElement, Props>(
@@ -47,7 +47,7 @@ export const PositionedOverlay = forwardRef<HTMLElement, Props>(
       transform,
       transition = defaultTransition,
     },
-    ref
+    ref,
   ) => {
     if (!rect) {
       return null;
@@ -71,11 +71,11 @@ export const PositionedOverlay = forwardRef<HTMLElement, Props>(
         adjustScale && activatorEvent
           ? getRelativeTransformOrigin(
               activatorEvent as MouseEvent | KeyboardEvent | TouchEvent,
-              rect
+              rect,
             )
           : undefined,
       transition:
-        typeof transition === 'function'
+        typeof transition === "function"
           ? transition(activatorEvent)
           : transition,
       ...style,
@@ -88,7 +88,7 @@ export const PositionedOverlay = forwardRef<HTMLElement, Props>(
         style: styles,
         ref,
       },
-      children
+      children,
     );
-  }
+  },
 );

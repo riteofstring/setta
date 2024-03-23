@@ -1,16 +1,16 @@
-import {useContext, useEffect, useMemo, useRef} from 'react';
+import { CSS, isKeyboardEvent, useCombinedRefs } from "@dnd-kit/utilities";
+import { useContext, useEffect, useMemo, useRef } from "react";
+import type { Data } from "utils/DNDSortable/CustomCore";
 import {
   useDraggable,
-  useDroppable,
   UseDraggableArguments,
+  useDroppable,
   UseDroppableArguments,
-} from 'utils/DNDSortable/CustomCore';
-import type {Data} from 'utils/DNDSortable/CustomCore';
-import {CSS, isKeyboardEvent, useCombinedRefs} from '@dnd-kit/utilities';
+} from "utils/DNDSortable/CustomCore";
 
-import {Context} from '../components';
-import type {Disabled, SortableData, SortingStrategy} from '../types';
-import {isValidIndex} from '../utilities';
+import { Context } from "../components";
+import type { Disabled, SortableData, SortingStrategy } from "../types";
+import { isValidIndex } from "../utilities";
 import {
   defaultAnimateLayoutChanges,
   defaultAttributes,
@@ -18,17 +18,17 @@ import {
   defaultTransition,
   disabledTransition,
   transitionProperty,
-} from './defaults';
+} from "./defaults";
 import type {
   AnimateLayoutChanges,
   NewIndexGetter,
   SortableTransition,
-} from './types';
-import {useDerivedTransform} from './utilities';
+} from "./types";
+import { useDerivedTransform } from "./utilities";
 
 export interface Arguments
-  extends Omit<UseDraggableArguments, 'disabled'>,
-    Pick<UseDroppableArguments, 'resizeObserverConfig'> {
+  extends Omit<UseDraggableArguments, "disabled">,
+    Pick<UseDroppableArguments, "resizeObserverConfig"> {
   animateLayoutChanges?: AnimateLayoutChanges;
   disabled?: boolean | Disabled;
   getNewIndex?: NewIndexGetter;
@@ -60,16 +60,16 @@ export function useSortable({
   } = useContext(Context);
   const disabled: Disabled = normalizeLocalDisabled(
     localDisabled,
-    globalDisabled
+    globalDisabled,
   );
   const index = items.indexOf(id);
   const data = useMemo<SortableData & Data>(
-    () => ({sortable: {containerId, index, items}, ...customData}),
-    [containerId, customData, index, items]
+    () => ({ sortable: { containerId, index, items }, ...customData }),
+    [containerId, customData, index, items],
   );
   const itemsAfterCurrentSortable = useMemo(
     () => items.slice(items.indexOf(id)),
-    [items, id]
+    [items, id],
   );
   const {
     rect,
@@ -128,7 +128,7 @@ export function useSortable({
     : null;
   const newIndex =
     isValidIndex(activeIndex) && isValidIndex(overIndex)
-      ? getNewIndex({id, items, activeIndex, overIndex})
+      ? getNewIndex({ id, items, activeIndex, overIndex })
       : index;
   const activeId = active?.id;
   const previous = useRef({
@@ -244,10 +244,10 @@ export function useSortable({
 }
 
 function normalizeLocalDisabled(
-  localDisabled: Arguments['disabled'],
-  globalDisabled: Disabled
+  localDisabled: Arguments["disabled"],
+  globalDisabled: Disabled,
 ) {
-  if (typeof localDisabled === 'boolean') {
+  if (typeof localDisabled === "boolean") {
     return {
       draggable: localDisabled,
       // Backwards compatibility

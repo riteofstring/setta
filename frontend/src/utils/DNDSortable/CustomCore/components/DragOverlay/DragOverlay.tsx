@@ -1,24 +1,24 @@
-import React, {useContext} from 'react';
+import React, { useContext } from "react";
 
-import {applyModifiers, Modifiers} from '../../modifiers';
-import {ActiveDraggableContext} from '../DndContext';
-import {useDndContext} from '../../hooks';
-import {useInitialValue} from '../../hooks/utilities';
+import { useDndContext } from "../../hooks";
+import { useInitialValue } from "../../hooks/utilities";
+import { applyModifiers, Modifiers } from "../../modifiers";
+import { ActiveDraggableContext } from "../DndContext";
 
+import type { PositionedOverlayProps } from "./components";
 import {
   AnimationManager,
   NullifiedContextProvider,
   PositionedOverlay,
-} from './components';
-import type {PositionedOverlayProps} from './components';
+} from "./components";
 
-import {useDropAnimation, useKey} from './hooks';
-import type {DropAnimation} from './hooks';
+import type { DropAnimation } from "./hooks";
+import { useDropAnimation, useKey } from "./hooks";
 
 export interface Props
   extends Pick<
     PositionedOverlayProps,
-    'adjustScale' | 'children' | 'className' | 'style' | 'transition'
+    "adjustScale" | "children" | "className" | "style" | "transition"
   > {
   dropAnimation?: DropAnimation | null | undefined;
   modifiers?: Modifiers;
@@ -34,7 +34,7 @@ export const DragOverlay = React.memo(
     style,
     transition,
     modifiers,
-    wrapperElement = 'div',
+    wrapperElement = "div",
     className,
     zIndex = 999,
   }: Props) => {
@@ -104,5 +104,5 @@ export const DragOverlay = React.memo(
         </AnimationManager>
       </NullifiedContextProvider>
     );
-  }
+  },
 );

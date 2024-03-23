@@ -1,15 +1,19 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import {createPortal} from 'react-dom';
-import {useUniqueId} from '@dnd-kit/utilities';
-import {HiddenText, LiveRegion, useAnnouncement} from '@dnd-kit/accessibility';
+import {
+  HiddenText,
+  LiveRegion,
+  useAnnouncement,
+} from "@dnd-kit/accessibility";
+import { useUniqueId } from "@dnd-kit/utilities";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
-import {DndMonitorListener, useDndMonitor} from '../DndMonitor';
+import { DndMonitorListener, useDndMonitor } from "../DndMonitor";
 
-import type {Announcements, ScreenReaderInstructions} from './types';
 import {
   defaultAnnouncements,
   defaultScreenReaderInstructions,
-} from './defaults';
+} from "./defaults";
+import type { Announcements, ScreenReaderInstructions } from "./types";
 
 interface Props {
   announcements?: Announcements;
@@ -24,7 +28,7 @@ export function Accessibility({
   hiddenTextDescribedById,
   screenReaderInstructions = defaultScreenReaderInstructions,
 }: Props) {
-  const {announce, announcement} = useAnnouncement();
+  const { announce, announcement } = useAnnouncement();
   const liveRegionId = useUniqueId(`DndLiveRegion`);
   const [mounted, setMounted] = useState(false);
 
@@ -35,26 +39,26 @@ export function Accessibility({
   useDndMonitor(
     useMemo<DndMonitorListener>(
       () => ({
-        onDragStart({active}) {
-          announce(announcements.onDragStart({active}));
+        onDragStart({ active }) {
+          announce(announcements.onDragStart({ active }));
         },
-        onDragMove({active, over}) {
+        onDragMove({ active, over }) {
           if (announcements.onDragMove) {
-            announce(announcements.onDragMove({active, over}));
+            announce(announcements.onDragMove({ active, over }));
           }
         },
-        onDragOver({active, over}) {
-          announce(announcements.onDragOver({active, over}));
+        onDragOver({ active, over }) {
+          announce(announcements.onDragOver({ active, over }));
         },
-        onDragEnd({active, over}) {
-          announce(announcements.onDragEnd({active, over}));
+        onDragEnd({ active, over }) {
+          announce(announcements.onDragEnd({ active, over }));
         },
-        onDragCancel({active, over}) {
-          announce(announcements.onDragCancel({active, over}));
+        onDragCancel({ active, over }) {
+          announce(announcements.onDragCancel({ active, over }));
         },
       }),
-      [announce, announcements]
-    )
+      [announce, announcements],
+    ),
   );
 
   if (!mounted) {

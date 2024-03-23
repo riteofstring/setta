@@ -1,7 +1,7 @@
-import type {Active, Over} from '../store';
-import type {Collision} from '../utilities/algorithms';
+import type { Active, Over } from "../store";
+import type { Collision } from "../utilities/algorithms";
 
-import type {Translate} from './coordinates';
+import type { Translate } from "./coordinates";
 
 interface DragEvent {
   activatorEvent: Event;
@@ -11,7 +11,7 @@ interface DragEvent {
   over: Over | null;
 }
 
-export interface DragStartEvent extends Pick<DragEvent, 'active'> {}
+export interface DragStartEvent extends Pick<DragEvent, "active"> {}
 
 export interface DragMoveEvent extends DragEvent {}
 

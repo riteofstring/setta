@@ -1,25 +1,25 @@
-import type {MutableRefObject} from 'react';
+import type { MutableRefObject } from "react";
 import type {
   Active,
-  Over,
   DraggableNode,
   DraggableNodes,
   DroppableContainers,
+  Over,
   RectMap,
-} from '../store';
+} from "../store";
 import type {
+  ClientRect,
   Coordinates,
   SyntheticEventName,
   Translate,
   UniqueIdentifier,
-  ClientRect,
-} from '../types';
-import type {Collision} from '../utilities/algorithms';
+} from "../types";
+import type { Collision } from "../utilities/algorithms";
 
 export enum Response {
-  Start = 'start',
-  Move = 'move',
-  End = 'end',
+  Start = "start",
+  Move = "move",
+  End = "end",
 }
 
 export type SensorContext = {
@@ -61,7 +61,7 @@ export type SensorActivatorFunction<T> = (
   options: T,
   context: {
     active: DraggableNode;
-  }
+  },
 ) => boolean | undefined;
 
 export type Activator<T> = {
@@ -88,5 +88,5 @@ export type SensorDescriptor<T extends Object> = {
 
 export type SensorHandler = (
   event: React.SyntheticEvent,
-  active: UniqueIdentifier
+  active: UniqueIdentifier,
 ) => boolean | void;

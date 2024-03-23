@@ -1,5 +1,5 @@
-import type {ClientRect} from 'utils/DNDSortable/CustomCore';
-import type {Transform} from '@dnd-kit/utilities';
+import type { Transform } from "@dnd-kit/utilities";
+import type { ClientRect } from "utils/DNDSortable/CustomCore";
 
 export type SortingStrategy = (args: {
   activeNodeRect: ClientRect | null;

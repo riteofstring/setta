@@ -1,1 +1,1 @@
-export {RestoreFocus} from './RestoreFocus';
+export { RestoreFocus } from "./RestoreFocus";
