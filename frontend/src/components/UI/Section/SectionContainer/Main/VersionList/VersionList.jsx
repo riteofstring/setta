@@ -28,7 +28,7 @@ export function VersionList({ sectionId, sectionTypeName }) {
   return (
     <ResizableVersionsList sectionId={sectionId} numListings={numListings}>
       <section
-        className="version-section -my-4 flex-1 self-stretch pb-8 pt-6"
+        className="version-section -my-4 flex-1 self-stretch pb-8 pt-9"
         onMouseLeave={onMouseLeave}
       >
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">

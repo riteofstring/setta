@@ -1,4 +1,5 @@
 import { zoomIdentity } from "d3-zoom";
+import { useSettings } from "models/settings";
 import { useReactFlow } from "../store";
 import type { XYPosition } from "../types";
 import {
@@ -21,6 +22,10 @@ export function zoomOut(options) {
 export function zoomTo(zoomLevel, options) {
   const { d3Zoom, d3Selection } = useReactFlow.getState();
   d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel);
+}
+
+export function resetZoom() {
+  zoomTo(1, { duration: 100 });
 }
 
 export function getZoom() {
@@ -75,8 +80,9 @@ export function fitBounds(bounds, options) {
   d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
 }
 
-export function screenToFlowPosition(position: XYPosition) {
-  const { transform, snapToGrid, snapGrid, domNode } = useReactFlow.getState();
+export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
+  const { transform, domNode } = useReactFlow.getState();
+  const { snapToGrid, snapGrid } = useSettings.getState();
 
   if (!domNode) {
     return position;
@@ -93,6 +99,7 @@ export function screenToFlowPosition(position: XYPosition) {
     transform,
     snapToGrid,
     snapGrid,
+    ignoreGrid,
   );
 }
 
