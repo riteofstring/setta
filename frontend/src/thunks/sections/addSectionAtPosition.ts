@@ -1,5 +1,6 @@
 import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/MarkdownEditor/MarkdownEditor";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { CODE_SECTION_SIZE, TERMINAL_SECTION_SIZE } from "utils/constants";
 import {
   CODE,
   CODE_UI_TYPE_ID,
@@ -48,11 +49,14 @@ export function addSectionAtPosition({
   } else if (type === CODE) {
     sectionProps.name = "Code";
     sectionProps.uiTypeId = CODE_UI_TYPE_ID;
+    sectionProps.size = CODE_SECTION_SIZE;
   } else if (type === VAR_CONTROL) {
     sectionProps.name = "Var Control";
     sectionProps.uiTypeId = VAR_CONTROL_UI_TYPE_ID;
+    sectionProps.size = CODE_SECTION_SIZE;
   } else if (type === TERMINAL) {
     sectionProps.uiTypeId = TERMINAL_UI_TYPE_ID;
+    sectionProps.size = TERMINAL_SECTION_SIZE;
   } else if (type === GLOBAL_PARAM_SWEEP) {
     sectionProps.name = "Global Param Sweep";
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
