@@ -1,4 +1,3 @@
-import { dbDeleteTerminals } from "dbRequests/terminals";
 import { useActiveSection } from "models/activeSection";
 import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -16,6 +15,7 @@ import { setAllChildren } from "./children";
 import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
+import { dbDeleteTerminals } from "dbRequests/terminals";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];
@@ -26,7 +26,7 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
   useActiveSection.getState().removeIds(idsToDelete);
   useSectionInfos.getState().removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
-  dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections
+  dbDeleteTerminals(idsToDelete) // delete any terminals associated with the sections
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }

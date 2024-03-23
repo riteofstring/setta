@@ -153,7 +153,7 @@ function ArgItem({
           />
         ))
       ) : (
-        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col rounded-lg bg-runcoder-850 px-4 py-3">
+        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-runcoder-100 px-4 py-3 dark:bg-runcoder-850">
           <p className="col-start-1 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
             Name
           </p>
@@ -281,6 +281,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
           value={value}
           onChange={onChange}
           className="nodrag"
+          area="card-value-full"
         />
       </article>
     </>

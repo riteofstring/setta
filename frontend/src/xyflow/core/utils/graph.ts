@@ -19,14 +19,13 @@ export const pointToRendererPoint = (
   [tx, ty, tScale]: Transform,
   snapToGrid: boolean,
   [snapX, snapY]: [number, number],
-  ignoreGrid,
 ): XYPosition => {
   const position: XYPosition = {
     x: (x - tx) / tScale,
     y: (y - ty) / tScale,
   };
 
-  if (!ignoreGrid && snapToGrid) {
+  if (snapToGrid) {
     return {
       x: snapX * Math.round(position.x / snapX),
       y: snapY * Math.round(position.y / snapY),
@@ -146,24 +145,15 @@ export const getD3Transition = (
   return selection.transition().duration(duration);
 };
 
-export function getSectionRect(sectionId, ignoreGrid = false) {
+export function getSectionRect(sectionId) {
   const ref =
     useSectionRefs.getState().selfOnly[sectionId] ??
     useSectionRefs.getState().withNested[sectionId];
   const { clientWidth: width, clientHeight: height } = ref;
   const { x: _x, y: _y } = ref.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition(
-    {
-      x: _x,
-      y: _y,
-    },
-    ignoreGrid,
-  );
+  const { x, y } = screenToFlowPosition({
+    x: _x,
+    y: _y,
+  });
   return { x, y, width, height };
-}
-
-export function getSectionRectWithNested(sectionId) {
-  const ref = useSectionRefs.getState().withNested[sectionId];
-  const { clientWidth: width, clientHeight: height } = ref;
-  return { width, height };
 }

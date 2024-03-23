@@ -85,21 +85,22 @@ export const SectionHeader = React.memo(_SectionHeader);
 
 function getTitleStyles({ isActiveSection, isGlobalVariables }) {
   const editing =
-    "cursor-text nodrag h-6 font-heading px-2 py-0 -ml-2 bg-runcoder-200 rounded-full w-full font-semibold";
+    "cursor-text font-heading nodrag px-2 py-0 -ml-2 bg-runcoder-200 dark:bg-runcoder-900 rounded-full w-3/5 dark:text-white font-semibold text-xs";
 
-  const notEditing = `transition-colors font-heading cursor-pointer max-w-full truncate ${
+  const notEditing = `transition-colors font-heading tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
     isActiveSection
       ? isGlobalVariables
         ? "text-green-800 dark:text-green-200"
         : "text-blue-800 dark:text-blue-400"
       : "text-runcoder-700 dark:text-runcoder-300"
-  } ${isGlobalVariables ? "uppercase font-bold" : "font-semibold"}`;
+  } ${isGlobalVariables ? "uppercase font-bold" : "font-bold"}`;
 
   if (isGlobalVariables) {
     return { fixed: notEditing };
   }
 
-  const fixed = "select-none font-thin italic text-runcoder-400";
+  const fixed =
+    "select-none italic font-heading tracking-tighter text-xs text-runcoder-400";
 
   return { editing, notEditing, fixed };
 }

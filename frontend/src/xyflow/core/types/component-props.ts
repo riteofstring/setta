@@ -16,6 +16,8 @@ export type ReactFlowProps = {
   panActivationKeyCode?: KeyCode | null;
   multiSelectionKeyCode?: KeyCode | null;
   zoomActivationKeyCode?: KeyCode | null;
+  snapToGrid?: boolean;
+  snapGrid?: [number, number];
   nodesDraggable?: boolean;
   nodesFocusable?: boolean;
   elementsSelectable?: boolean;

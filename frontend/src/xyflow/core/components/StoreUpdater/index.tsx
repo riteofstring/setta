@@ -17,6 +17,8 @@ type StoreUpdaterProps = Pick<
   | "minZoom"
   | "maxZoom"
   | "elementsSelectable"
+  | "snapToGrid"
+  | "snapGrid"
   | "translateExtent"
   | "fitView"
   | "fitViewOptions"
@@ -62,6 +64,8 @@ const StoreUpdater = ({
   minZoom,
   maxZoom,
   elementsSelectable,
+  snapGrid,
+  snapToGrid,
   translateExtent,
   fitView,
   fitViewOptions,
@@ -95,6 +99,8 @@ const StoreUpdater = ({
     elementsSelectable,
     useReactFlow.setState,
   );
+  useDirectStoreUpdater("snapToGrid", snapToGrid, useReactFlow.setState);
+  useDirectStoreUpdater("snapGrid", snapGrid, useReactFlow.setState);
   useDirectStoreUpdater("fitViewOnInit", fitView, useReactFlow.setState);
   useDirectStoreUpdater(
     "fitViewOnInitOptions",
