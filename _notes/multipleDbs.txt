@@ -1,0 +1,35 @@
+Purpose of multiple dbs:
+
+1. Allow a global settings db to override project settings
+One approach is a CLI command like:
+
+runcoder --global_db <path>
+
+For greater convenience, the global db path could be saved in the runcoder db alias and path settings file, which is a json file stored in the default location determined by the click package.
+Then --global_db would be optional.
+
+Related thought: should runcoder be stored in json files rather than in db files?
+Then each project would have a runcoder.db and a runcoder.json.
+
+Another thought: an interesting demo would be to use runcoder to configure itself.
+So the project would consist of a section with runcoder settings. 
+Running the project would export the settings to the settings json file.
+
+
+2. Allow configs to be user-specific in team-based projects. 
+For example let's say a team is working on a git repo that uses abcde.
+One of the sections in the project has fields for some external username, api key, and also various local filepaths.
+It isn't ideal to store all of this information in a shared git repo.
+Plus even if they did, let's say user A pushes their changes with the their settings loaded.
+Then when user B loads the project they'll have to go to that section and select a different version.
+
+For a section, there could be a setting that let's you set the db name from which values should be grabbed.
+For example, let's say we have a section called API_Keys and we want to fill it in differently for each team member.
+In the right-side pane, there can be a "db sources" tab, where we enter the alias for a db we want to grab config values from.
+Let's say the team sets the alias to "api_keys".
+Then when starting runcoder at the command line, each team member would do:
+
+runcoder --api_keys <path>
+
+This could be done at the parameter level too. In the same "db sources" tab, there could be a db source per parameter (assuming the section-level one isn't set).
+
