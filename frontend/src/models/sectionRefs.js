@@ -32,9 +32,3 @@ export function useSectionRefAndInit(sectionId, type) {
 
   return ref;
 }
-
-export function useTrueSectionSize(sectionId) {
-  const height = useSectionRefs((x) => x.withNested[sectionId].clientHeight);
-  const width = useSectionRefs((x) => x.withNested[sectionId].clientWidth);
-  return { width, height };
-}
