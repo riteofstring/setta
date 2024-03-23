@@ -197,3 +197,7 @@ export function resetSelectedElements() {
     onNodesChange(nodesToUnselect);
   }
 }
+
+export function justMoveANode(id, position) {
+  onNodesChange([{ id, type: "position", position }]);
+}

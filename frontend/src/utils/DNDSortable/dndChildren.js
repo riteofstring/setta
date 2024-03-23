@@ -4,8 +4,8 @@ import { getDndSectionId } from "./dndState";
 
 export const useDndChildren = createProjectState(
   immer((set) => ({
-    x: {},
-    y: {},
+    x: {}, // parent id to list of children
+    y: {}, // child id to parent id
     addChild: ({ oldParentId, newParentId, childId, index }) =>
       set((state) => {
         if (oldParentId) {

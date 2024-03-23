@@ -55,15 +55,3 @@ export function useDndMode() {
     _.isEqual,
   );
 }
-
-// function dndMode(state, isSorting, isMovingFree) {
-//   // only allow one of sorting or movingFree to be true
-//   // if sorting, then active section must nested
-//   if (
-//     isMovingFree !== state.isSorting &&
-//     (!isSorting || (state.isSorting && !state.activeIsTopLevel))
-//   ) {
-//     return { isSorting, isMovingFree };
-//   }
-//   return { isSorting: false, isMovingFree: false };
-// }
