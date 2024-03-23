@@ -32,19 +32,20 @@ export function useOnDragMove() {
 }
 
 function onDragMove({ active, over, collisions }) {
+  const overId = over ? over.id : null;
   const leftDistCondition = getLeftDistCondition(collisions);
   const dndState = useDndState.getState();
-  console.log("onDragMove", over);
-  if (leftDistCondition && over?.id !== dndState.leftDistCondition) {
-    console.log("setting leftDistCondition to", over?.id)
-    useDndState.setState({ leftDistCondition: over?.id });
-    onDragOver({ active, over, triggeredByLeftDist: true });
-  } else if (dndState.leftDistCondition) {
-    console.log("setting leftDistCondition to null")
-    useDndState.setState({ leftDistCondition: null });
-    if (over) {
-      onDragOver({ active, over });
-    }
+
+  if (
+    overId !== dndState.overId ||
+    leftDistCondition !== dndState.leftDistCondition
+  ) {
+    useDndState.setState({
+      overId,
+      leftDistCondition,
+    });
+
+    onDragOver({ active, over });
   }
 }
 
@@ -56,27 +57,15 @@ export function useOnDragOver() {
   return () => {};
 }
 
-function onDragOver({ active, over, triggeredByLeftDist }) {
+function onDragOver({ active, over }) {
   const overId = over ? over.id : null;
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
   const oldParentId = getParentId(dndSectionId);
 
-  if (triggeredByLeftDist) {
-    leftDistBehavior({
-      active,
-      dndChildrenState,
-      oldParentId,
-      dndSectionId,
-      overId,
-    });
-    return;
-  }
-
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
   if (overId && getTimeDiff(dndState, overId) < 100) {
-    // console.log("too soon")
     setNullBehavior(overId);
     return;
   }
@@ -160,31 +149,6 @@ function maybeMoveToNewParent({
   }
 
   setNullBehavior(overId);
-}
-
-function leftDistBehavior({
-  active,
-  dndChildrenState,
-  oldParentId,
-  dndSectionId,
-  overId,
-}) {
-  // Remove temporary section if it's not the only child.
-  if (dndChildrenState.x[oldParentId]?.length > 1) {
-    dndChildrenState.removeChild(dndSectionId);
-  }
-  // Consider overId to be the new parent, if it's not the temp section.
-  if (overId !== dndSectionId) {
-    console.log("overId", overId);
-    maybeMoveToNewParent({
-      active,
-      overId,
-      dndSectionId,
-      oldParentId,
-      newParentId: overId,
-      dndChildrenState,
-    });
-  }
 }
 
 function setNullBehavior(overId) {
