@@ -32,20 +32,18 @@ export function useOnDragMove() {
 }
 
 function onDragMove({ active, over, collisions }) {
-  const overId = over ? over.id : null;
   const leftDistCondition = getLeftDistCondition(collisions);
   const dndState = useDndState.getState();
 
-  if (
-    overId !== dndState.overId ||
-    leftDistCondition !== dndState.leftDistCondition
-  ) {
-    useDndState.setState({
-      overId,
-      leftDistCondition,
-    });
-
-    onDragOver({ active, over });
+  if (leftDistCondition !== dndState.leftDistCondition) {
+    useDndState.setState({ leftDistCondition });
+    if (over && over.id === dndState.overId) {
+      if (leftDistCondition) {
+        onDragOver({ active, over, triggeredByLeftDist: true });
+      } else {
+        onDragOver({ active, over, triggeredByLeftDist: false });
+      }
+    }
   }
 }
 
@@ -57,12 +55,23 @@ export function useOnDragOver() {
   return () => {};
 }
 
-function onDragOver({ active, over }) {
+function onDragOver({ active, over, triggeredByLeftDist }) {
   const overId = over ? over.id : null;
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const dndSectionId = getDndSectionId(active.id);
   const oldParentId = getParentId(dndSectionId);
+
+  if (triggeredByLeftDist) {
+    leftDistBehavior({
+      active,
+      dndChildrenState,
+      oldParentId,
+      dndSectionId,
+      overId,
+    });
+    return;
+  }
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
   if (overId && getTimeDiff(dndState, overId) < 100) {
@@ -80,21 +89,13 @@ function onDragOver({ active, over }) {
   }
 
   if (dndState.leftDistCondition) {
-    // Remove temporary section if it's not the only child.
-    if (dndChildrenState.x[oldParentId]?.length > 1) {
-      dndChildrenState.removeChild(dndSectionId);
-    }
-    // Consider overId to be the new parent, if it's not the temp section.
-    if (overId !== dndSectionId) {
-      maybeMoveToNewParent({
-        active,
-        overId,
-        dndSectionId,
-        oldParentId,
-        newParentId: overId,
-        dndChildrenState,
-      });
-    }
+    leftDistBehavior({
+      active,
+      dndChildrenState,
+      oldParentId,
+      dndSectionId,
+      overId,
+    });
     return;
   }
 
@@ -151,6 +152,30 @@ function maybeMoveToNewParent({
   setNullBehavior(overId);
 }
 
+function leftDistBehavior({
+  active,
+  dndChildrenState,
+  oldParentId,
+  dndSectionId,
+  overId,
+}) {
+  // Remove temporary section if it's not the only child.
+  if (dndChildrenState.x[oldParentId]?.length > 1) {
+    dndChildrenState.removeChild(dndSectionId);
+  }
+  // Consider overId to be the new parent, if it's not the temp section.
+  if (overId !== dndSectionId) {
+    maybeMoveToNewParent({
+      active,
+      overId,
+      dndSectionId,
+      oldParentId,
+      newParentId: overId,
+      dndChildrenState,
+    });
+  }
+}
+
 function setNullBehavior(overId) {
   useDndState.setState({
     behaviorDropType: null,
@@ -167,9 +192,10 @@ function getParentId(dndSectionId) {
 }
 
 function getLeftDistCondition(collisions) {
-  // true if section has not children
+  // true if section is not top level and doesn't have children
   // and active section is to the right of this section by at least 200 pixels (adjusted by zoom)
   return (
+    !collisions[0]?.data.droppableContainer.data.current.isTopLevel &&
     !collisions[0]?.data.droppableContainer.data.current.hasNested &&
     collisions[0]?.data.leftDist > 200 * useReactFlow.getState().transform[2]
   );
