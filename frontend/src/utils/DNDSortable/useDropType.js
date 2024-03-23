@@ -62,7 +62,7 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
   const dndSectionId = getDndSectionId(active.id);
   const oldParentId = getParentId(dndSectionId);
 
-  if (triggeredByLeftDist) {
+  if (triggeredByLeftDist === true) {
     leftDistBehavior({
       active,
       dndChildrenState,
@@ -74,7 +74,11 @@ function onDragOver({ active, over, triggeredByLeftDist }) {
   }
 
   // Don't allow very recent overId to be revisited (hack to avoid infinite loops)
-  if (overId && getTimeDiff(dndState, overId) < 100) {
+  if (
+    triggeredByLeftDist === undefined &&
+    overId &&
+    getTimeDiff(dndState, overId) < 100
+  ) {
     setNullBehavior(overId);
     return;
   }
