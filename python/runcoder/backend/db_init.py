@@ -1,6 +1,5 @@
 import re
 
-from .db_objs import DBQueue
 from .seed import seed
 
 CREATE_TABLES_COMMANDS = [
@@ -309,8 +308,7 @@ def seed_data_exist(db, with_example_projects):
     return True
 
 
-def maybe_create_tables_and_seed(path, with_example_projects):
-    dbq = DBQueue(path)
+def maybe_create_tables_and_seed(dbq, with_example_projects=False):
     dbq.connect()
     with dbq.get() as db:
         if not tables_exist(db):

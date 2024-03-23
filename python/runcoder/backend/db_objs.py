@@ -2,7 +2,8 @@ import os
 import queue
 import sqlite3
 from contextlib import contextmanager
-from .db_path import get_db_path_from_config, validate_path, DEFAULT_DB_ALIAS, get_default_db_path
+from .db_path import get_db_path_from_config, validate_path, DEFAULT_DB_ALIAS
+from .db_init import maybe_create_tables_and_seed
 from .environ import get_cli_arg
 
 class DB:
@@ -14,7 +15,7 @@ class DB:
     def connect(self):
         if not self.conn:
             print("connect to", self.path, flush=True)
-            self.conn = sqlite3.connect(self.path, check_same_thread=False)
+            self.conn = sqlite3.connect(self.path, check_same_thread=False, )
             self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
         self.execute("PRAGMA foreign_keys = ON;")
@@ -110,19 +111,19 @@ class DBs:
     def __init__(self):
         db_specs = get_cli_arg("db_specs")
         names_to_paths = self.parse_dbs_arg(db_specs)
-        print("names_to_paths", names_to_paths)
         self.dbs = {}
         for name, path in names_to_paths.items():
             if path is None:
                 path = get_db_path_from_config(name)
             if path:
-                validate_path(path)
+                validate_path(path, get_cli_arg("create_if_not_exists"))
             else:
                 raise ValueError(f"{name} not found in config file")
             self.dbs[name] = DBQueue(path)
         
-        if DEFAULT_DB_ALIAS not in self.dbs:
-            self.dbs[DEFAULT_DB_ALIAS] = DBQueue(get_default_db_path())
+        for k,v in self.dbs.items():
+            with_example_projects = k == DEFAULT_DB_ALIAS and get_cli_arg("with_example_projects")
+            maybe_create_tables_and_seed(v, with_example_projects=with_example_projects)
     
 
     # Path example:
@@ -138,6 +139,8 @@ class DBs:
             else:
                 split_str = db.split("=")
                 output[split_str[0]] = "".join(split_str[1:])
+        if DEFAULT_DB_ALIAS not in output:
+            output[DEFAULT_DB_ALIAS] = get_db_path_from_config(DEFAULT_DB_ALIAS)
         return output
 
 

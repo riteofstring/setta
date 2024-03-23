@@ -35,20 +35,17 @@ def save_config(config):
         json.dump(config, file, indent=4)
 
 
-def validate_path(path):
-    foldername, filename = os.path.split(path)
+def validate_path(path, create_if_not_exists):
+    _, filename = os.path.split(path)
     if not filename.endswith(".db"):
         raise ValueError(f"filename is {filename} but needs to end in .db")
-    return foldername, filename
+    if not create_if_not_exists and not os.path.exists(path):
+        raise FileNotFoundError(f"{path} not found")
 
 
-def create_alias(name, path):
-    if name == DEFAULT_DB_ALIAS:
-        raise ValueError(
-            f"Alias cannot be '{DEFAULT_DB_ALIAS}' because that is a reserved name."
-        )
+def create_alias(name, path, create_if_not_exists):
     config = load_config()
-    validate_path(path)
+    validate_path(path, create_if_not_exists)
     config["databases"][name] = path
     save_config(config)
 
@@ -60,9 +57,9 @@ def delete_alias(name):
 
 
 def get_db_path_from_config(name):
-    if name == DEFAULT_DB_ALIAS:
-        return get_default_db_path()
     config = load_config()
+    if name == DEFAULT_DB_ALIAS and name not in config["databases"]:
+        return get_default_db_path()
     return config["databases"].get(name)
 
 
