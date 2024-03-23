@@ -162,3 +162,9 @@ useSectionInfos.subscribe(
   (state) => _.mapValues(state.x, (v) => v.children),
   (x) => useDndChildren.getState().reset(x),
 );
+
+export function manualDndChildrenReset() {
+  useDndChildren
+    .getState()
+    .reset(_.mapValues(useSectionInfos.getState().x, (v) => v.children));
+}

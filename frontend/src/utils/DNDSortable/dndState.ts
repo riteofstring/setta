@@ -24,11 +24,7 @@ export const useDndState = createProjectState(
     deactivateSortingMode: () => set({ isSorting: false }),
     activateMovingFreeMode: () => set({ isMovingFree: true, isSorting: false }),
     deactivateMovingFreeMode: () => set({ isMovingFree: false }),
-    reset: () =>
-      set((state) => ({
-        ...initialState,
-        leftDistCondition: state.leftDistCondition,
-      })),
+    reset: () => set({ ...initialState }),
     setDisabled: (sectionId, disabled) =>
       set((state) => {
         state.disabled[sectionId] = disabled;

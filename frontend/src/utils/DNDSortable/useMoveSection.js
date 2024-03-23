@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { manualDndChildrenReset } from "models/info/sectionInfos";
 import { useRef } from "react";
 import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
@@ -70,6 +71,8 @@ export function useOnDragEnd() {
         collisions,
         dummyRef,
       });
+    } else {
+      manualDndChildrenReset();
     }
     useDndState.getState().reset();
   }
