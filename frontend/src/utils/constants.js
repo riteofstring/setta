@@ -17,8 +17,3 @@ export const SINGLETON_SECTIONS = {
   globalParamSweep: null,
   varControl: null,
 };
-
-
-// initial section sizes
-export const CODE_SECTION_SIZE = {width: 500, height: "auto"}
-export const TERMINAL_SECTION_SIZE = {width: 700, height: "auto"}

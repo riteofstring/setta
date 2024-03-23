@@ -15,11 +15,22 @@ export const initialShortcuts = {
   movingFreeShortcut: "alt",
 };
 
+export const jsonSettings = {
+  defaultCodeSectionSize: { width: 500, height: "auto" },
+  defaultTerminalSectionSize: { width: 700, height: "auto" },
+  defaultSectionSize: { width: "auto", height: "auto" },
+};
+
+export const otherConfigurableSettings = {
+  snapToGrid: false,
+  snapGrid: [15, 15],
+};
+
 const initialState = {
   settingsLoaded: false,
   darkMode: false,
-  snapToGrid: false,
-  snapGrid: [15, 15],
+  ...jsonSettings,
+  ...otherConfigurableSettings,
   ...initialShortcuts,
 };
 
