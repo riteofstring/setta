@@ -17,8 +17,7 @@ from .backend.db_path import (
 )
 from .cli.run import run as _run
 from .cli.web import web as _web
-from .backend.global_vars import GLOBAL_VARS
-
+from .backend.environ import set_cli_args
 
 
 
@@ -102,9 +101,7 @@ def cli(ctx, reload, with_example_projects, db, i):
     if ctx.invoked_subcommand in ["version", "delete-db", "alias", "delete-alias"]:
         return
     if ctx.invoked_subcommand is None:
-        GLOBAL_VARS["with_example_projects"] = with_example_projects
-        GLOBAL_VARS["db_specs"] = db
-        GLOBAL_VARS["i_path"] = i
+        set_cli_args(with_example_projects=with_example_projects, db_specs=db, i_path=i)
             
         sys.path.append(str(Path(__file__).resolve().parent))
         uvicorn.run(

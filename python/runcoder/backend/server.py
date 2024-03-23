@@ -37,7 +37,7 @@ from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
 from .db_objs import DBs
 from .utils.utils import convert_to_backend_format, generate_memorable_string
-from .global_vars import GLOBAL_VARS
+from .environ import get_cli_arg
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -77,7 +77,7 @@ async def startup_event():
             return content
 
     startMyPyDaemon()
-    i_path = GLOBAL_VARS["i_path"]
+    i_path = get_cli_arg("i_path")
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
         processors.add_fn(i_args["project"], i_args["fn"])

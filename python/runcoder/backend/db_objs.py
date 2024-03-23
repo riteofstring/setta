@@ -3,7 +3,7 @@ import queue
 import sqlite3
 from contextlib import contextmanager
 from .db_path import get_db_path_from_config, validate_path, DEFAULT_DB_ALIAS, get_default_db_path
-from .global_vars import GLOBAL_VARS
+from .environ import get_cli_arg
 
 class DB:
     def __init__(self, path):
@@ -108,8 +108,9 @@ class CombinedContextManager:
 
 class DBs:
     def __init__(self):
-        db_specs = GLOBAL_VARS["db_specs"]
+        db_specs = get_cli_arg("db_specs")
         names_to_paths = self.parse_dbs_arg(db_specs)
+        print("names_to_paths", names_to_paths)
         self.dbs = {}
         for name, path in names_to_paths.items():
             if path is None:
