@@ -1,6 +1,6 @@
 import re
 
-from .schema import DBQueue
+from .db_objs import DBQueue
 from .seed import seed
 
 CREATE_TABLES_COMMANDS = [

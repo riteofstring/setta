@@ -2,7 +2,8 @@ import os
 import queue
 import sqlite3
 from contextlib import contextmanager
-
+from .db_path import get_db_path_from_config, validate_path, DEFAULT_DB_ALIAS, get_default_db_path
+from .global_vars import GLOBAL_VARS
 
 class DB:
     def __init__(self, path):
@@ -104,4 +105,49 @@ class CombinedContextManager:
             self.queue.put(self.db)
 
 
-dbs = {}
+
+class DBs:
+    def __init__(self):
+        db_specs = GLOBAL_VARS["db_specs"]
+        names_to_paths = self.parse_dbs_arg(db_specs)
+        self.dbs = {}
+        for name, path in names_to_paths.items():
+            if path is None:
+                path = get_db_path_from_config(name)
+            if path:
+                validate_path(path)
+            else:
+                raise ValueError(f"{name} not found in config file")
+            self.dbs[name] = DBQueue(path)
+        
+        if DEFAULT_DB_ALIAS not in self.dbs:
+            self.dbs[DEFAULT_DB_ALIAS] = DBQueue(get_default_db_path())
+    
+
+    # Path example:
+    # --d "api_keys=/path/to/some.db"
+    # Alias example:
+    # --d api_keys
+    def parse_dbs_arg(self, db_specs):
+        output = {}
+        for db in db_specs:
+            # it's an alias, so we'll get the path later
+            if "=" not in db:
+                output[db] = None
+            else:
+                split_str = db.split("=")
+                output[split_str[0]] = "".join(split_str[1:])
+        return output
+
+
+    def connect(self):
+        for v in self.dbs.values():
+            v.connect()
+
+    def disconnect(self):
+        for v in self.dbs.values():
+            v.disconnect()
+
+
+    def __getitem__(self, key):
+        return self.dbs[key]

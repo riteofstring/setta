@@ -35,8 +35,9 @@ from .db.sections.copy import copy_relative_positions, copy_sections_and_other_i
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
-from .schema import dbq
+from .db_objs import DBs
 from .utils.utils import convert_to_backend_format, generate_memorable_string
+from .global_vars import GLOBAL_VARS
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -50,11 +51,13 @@ app = FastAPI()
 tasks_obj = Tasks()
 cache = Cache()
 processors = Processors()
+dbs = DBs()
+dbq = dbs["default"]
 
 
 @app.on_event("startup")
 async def startup_event():
-    dbq.connect()
+    dbs.connect()
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
         dist_path = Path(__file__).resolve().parent / ".." / "frontend"
@@ -74,7 +77,7 @@ async def startup_event():
             return content
 
     startMyPyDaemon()
-    i_path = os.environ.get("RUNCODER_I_PATH")
+    i_path = GLOBAL_VARS["i_path"]
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
         processors.add_fn(i_args["project"], i_args["fn"])

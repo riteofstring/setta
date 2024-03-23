@@ -1,0 +1,1 @@
+GLOBAL_VARS = {"with_example_projects": False, "db_specs": [], "i_path": None}

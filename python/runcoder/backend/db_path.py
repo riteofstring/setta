@@ -9,17 +9,8 @@ DEFAULT_DB_ALIAS = "default"
 CONFIG_FOLDER = click.get_app_dir("runcoder")
 
 
-class DBPath:
-    FOLDER = DEFAULT_DB_FOLDER
-    NAME = DEFAULT_DB_NAME
-
-
 def get_default_db_path():
     return os.path.join(DEFAULT_DB_FOLDER, DEFAULT_DB_NAME)
-
-
-def get_db_path():
-    return os.path.join(DBPath.FOLDER, DBPath.NAME)
 
 
 def get_config_path():
@@ -75,11 +66,3 @@ def get_db_path_from_config(name):
     return config["databases"].get(name)
 
 
-def use_db(name):
-    path = get_db_path_from_config(name)
-    if path:
-        foldername, filename = validate_path(path)
-        DBPath.FOLDER = foldername
-        DBPath.NAME = filename
-    else:
-        raise ValueError(f"{name} not found in config file")

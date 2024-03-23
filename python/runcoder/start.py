@@ -14,11 +14,10 @@ from .backend.db_path import (
     get_db_path_from_config,
     get_default_db_path,
     load_config,
-    use_db,
 )
 from .cli.run import run as _run
 from .cli.web import web as _web
-
+from .backend.global_vars import GLOBAL_VARS
 
 
 
@@ -91,34 +90,22 @@ def delete_alias(name):
 
 
 
-def parse_dbs_arg(dbs):
-    output = {}
-    for db in dbs:
-        # it's an alias, so we'll get the path later
-        if "=" not in db:
-            output[db] = None
-        else:
-            split_str = db.split("=")
-            output[split_str[0]] = "".join(split_str[1:])
-    return output
-
-
-
-
 @click.group(invoke_without_command=True, context_settings=dict(
     ignore_unknown_options=True,
 ))
 @click.option("--reload", is_flag=True)
 @click.option("--with_example_projects", is_flag=True)
-@click.option("--dbs", "-d", type=str, multiple=True, default=[])
+@click.option("--db", "-d", type=str, multiple=True, default=[])
 @click.option("--i", type=str, default=None)
 @click.pass_context
-def cli(ctx, reload, with_example_projects, dbs, i):
+def cli(ctx, reload, with_example_projects, db, i):
     if ctx.invoked_subcommand in ["version", "delete-db", "alias", "delete-alias"]:
         return
     if ctx.invoked_subcommand is None:
-        if i:
-            os.environ["RUNCODER_I_PATH"] = i
+        GLOBAL_VARS["with_example_projects"] = with_example_projects
+        GLOBAL_VARS["db_specs"] = db
+        GLOBAL_VARS["i_path"] = i
+            
         sys.path.append(str(Path(__file__).resolve().parent))
         uvicorn.run(
             "backend.server:app",
