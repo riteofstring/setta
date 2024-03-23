@@ -2,9 +2,11 @@ import os
 import queue
 import sqlite3
 from contextlib import contextmanager
-from .db_path import get_db_path_from_config, validate_path, DEFAULT_DB_ALIAS
+
 from .db_init import maybe_create_tables_and_seed
+from .db_path import DEFAULT_DB_ALIAS, get_db_path_from_config, validate_path
 from .environ import get_cli_arg
+
 
 class DB:
     def __init__(self, path):
@@ -15,7 +17,10 @@ class DB:
     def connect(self):
         if not self.conn:
             print("connect to", self.path, flush=True)
-            self.conn = sqlite3.connect(self.path, check_same_thread=False, )
+            self.conn = sqlite3.connect(
+                self.path,
+                check_same_thread=False,
+            )
             self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
         self.execute("PRAGMA foreign_keys = ON;")
@@ -106,7 +111,6 @@ class CombinedContextManager:
             self.queue.put(self.db)
 
 
-
 class DBs:
     def __init__(self):
         db_specs = get_cli_arg("db_specs")
@@ -120,11 +124,12 @@ class DBs:
             else:
                 raise ValueError(f"{name} not found in config file")
             self.dbs[name] = DBQueue(path)
-        
-        for k,v in self.dbs.items():
-            with_example_projects = k == DEFAULT_DB_ALIAS and get_cli_arg("with_example_projects")
+
+        for k, v in self.dbs.items():
+            with_example_projects = k == DEFAULT_DB_ALIAS and get_cli_arg(
+                "with_example_projects"
+            )
             maybe_create_tables_and_seed(v, with_example_projects=with_example_projects)
-    
 
     # Path example:
     # --d "api_keys=/path/to/some.db"
@@ -143,7 +148,6 @@ class DBs:
             output[DEFAULT_DB_ALIAS] = get_db_path_from_config(DEFAULT_DB_ALIAS)
         return output
 
-
     def connect(self):
         for v in self.dbs.values():
             v.connect()
@@ -151,7 +155,6 @@ class DBs:
     def disconnect(self):
         for v in self.dbs.values():
             v.disconnect()
-
 
     @contextmanager
     def get(self, name):

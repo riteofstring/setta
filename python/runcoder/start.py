@@ -7,19 +7,14 @@ import click
 import uvicorn
 
 from . import __version__
-from .backend.db_objs import DBQueue
 from .backend.db_init import maybe_create_tables_and_seed
+from .backend.db_objs import DBQueue
 from .backend.db_path import DEFAULT_DB_ALIAS, create_alias
 from .backend.db_path import delete_alias as _delete_alias
-from .backend.db_path import (
-    get_db_path_from_config,
-    load_config,
-)
+from .backend.db_path import get_db_path_from_config, load_config
+from .backend.environ import set_cli_args
 from .cli.run import run as _run
 from .cli.web import web as _web
-from .backend.environ import set_cli_args
-
-
 
 
 @click.command()
@@ -40,12 +35,15 @@ def version():
 
 
 @click.command()
-@click.argument('path', type=click.Path(file_okay=True, dir_okay=False, writable=True), required=True)
+@click.argument(
+    "path",
+    type=click.Path(file_okay=True, dir_okay=False, writable=True),
+    required=True,
+)
 @click.option("--with_example_projects", is_flag=True)
 def init_db(path, with_example_projects):
     dbq = DBQueue(path)
     maybe_create_tables_and_seed(dbq, with_example_projects)
-
 
 
 @click.command()
@@ -89,10 +87,12 @@ def delete_alias(name):
     _delete_alias(name)
 
 
-
-@click.group(invoke_without_command=True, context_settings=dict(
-    ignore_unknown_options=True,
-))
+@click.group(
+    invoke_without_command=True,
+    context_settings=dict(
+        ignore_unknown_options=True,
+    ),
+)
 @click.option("--reload", is_flag=True)
 @click.option("--with_example_projects", is_flag=True)
 @click.option("--db", "-d", type=str, multiple=True, default=[])
@@ -100,11 +100,22 @@ def delete_alias(name):
 @click.option("--w", is_flag=True, help="create dbs it they don't exist")
 @click.pass_context
 def cli(ctx, reload, with_example_projects, db, i, w):
-    if ctx.invoked_subcommand in ["version", "init-db", "delete-db", "alias", "delete-alias"]:
+    if ctx.invoked_subcommand in [
+        "version",
+        "init-db",
+        "delete-db",
+        "alias",
+        "delete-alias",
+    ]:
         return
     if ctx.invoked_subcommand is None:
-        set_cli_args(with_example_projects=with_example_projects, db_specs=db, i_path=i, create_if_not_exists=w)
-            
+        set_cli_args(
+            with_example_projects=with_example_projects,
+            db_specs=db,
+            i_path=i,
+            create_if_not_exists=w,
+        )
+
         sys.path.append(str(Path(__file__).resolve().parent))
         uvicorn.run(
             "backend.server:app",

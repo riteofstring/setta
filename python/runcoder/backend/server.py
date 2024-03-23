@@ -36,9 +36,9 @@ from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
 from .db_objs import DBs
-from .utils.utils import convert_to_backend_format, generate_memorable_string
-from .environ import get_cli_arg
 from .db_path import DEFAULT_DB_ALIAS
+from .environ import get_cli_arg
+from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
@@ -101,6 +101,7 @@ app.add_middleware(
 class DBRequest(BaseModel):
     db: str = DEFAULT_DB_ALIAS
 
+
 class ProjectRequest(DBRequest):
     format: str
     projectId: Optional[str] = None
@@ -153,6 +154,7 @@ class SaveCodeInfoRequest(DBRequest):
 
 class SectionsMakeCopyRequest(BaseModel):
     sectionsAndOtherInfo: dict
+
 
 class DeleteTerminalsRequest(BaseModel):
     ids: List[str]
@@ -275,7 +277,7 @@ def route_projects(x: ProjectRequest):
 
 
 @app.post("/projects/load/{projectName}/{configName}")
-def route_load_project(projectName, configName, x:DBRequest):
+def route_load_project(projectName, configName, x: DBRequest):
     with dbs.get(x.db) as db:
         return load_project(db, projectName, configName)
 
@@ -402,5 +404,5 @@ def route_terminal_get_free_terminal(projectConfigId):
 
 
 @app.post("/terminal/deleteTerminals")
-def route_terminal_get_free_terminal(x: DeleteTerminalsRequest):
+def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
     terminal_websockets.delete_terminals(x.ids)

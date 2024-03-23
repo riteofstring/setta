@@ -61,5 +61,3 @@ def get_db_path_from_config(name):
     if name == DEFAULT_DB_ALIAS and name not in config["databases"]:
         return get_default_db_path()
     return config["databases"].get(name)
-
-
