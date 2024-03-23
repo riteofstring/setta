@@ -57,6 +57,7 @@ CREATE_TABLES_COMMANDS = [
         code TEXT,
         codeLanguage TEXT,
         isFrozen BOOLEAN,
+        dbSource TEXT,
         FOREIGN KEY (chainedFromId) REFERENCES Section(id),
         FOREIGN KEY (evColId) REFERENCES EVColId(id),
         FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id),
