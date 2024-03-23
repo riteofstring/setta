@@ -20,6 +20,10 @@ from .cli.run import run as _run
 from .cli.web import web as _web
 
 
+
+
+
+
 @click.command()
 @click.argument("code_id")
 def run(code_id):
@@ -35,6 +39,14 @@ def web(websocket_id):
 @click.command()
 def version():
     print(f"runcoder version {__version__}")
+
+
+@click.command()
+@click.argument('path', type=click.Path(file_okay=True, dir_okay=False, writable=True), required=True)
+@click.option("--with_example_projects", is_flag=True)
+def init_db(path, with_example_projects):
+    maybe_create_tables_and_seed(path, with_example_projects)
+
 
 
 @click.command()
@@ -78,20 +90,33 @@ def delete_alias(name):
     _delete_alias(name)
 
 
-@click.group(invoke_without_command=True)
+
+def parse_dbs_arg(dbs):
+    output = {}
+    for db in dbs:
+        # it's an alias, so we'll get the path later
+        if "=" not in db:
+            output[db] = None
+        else:
+            split_str = db.split("=")
+            output[split_str[0]] = "".join(split_str[1:])
+    return output
+
+
+
+
+@click.group(invoke_without_command=True, context_settings=dict(
+    ignore_unknown_options=True,
+))
 @click.option("--reload", is_flag=True)
 @click.option("--with_example_projects", is_flag=True)
-@click.option("--db", type=str, default=DEFAULT_DB_ALIAS)
+@click.option("--dbs", "-d", type=str, multiple=True, default=[])
 @click.option("--i", type=str, default=None)
 @click.pass_context
-def cli(ctx, reload, with_example_projects, db, i):
+def cli(ctx, reload, with_example_projects, dbs, i):
     if ctx.invoked_subcommand in ["version", "delete-db", "alias", "delete-alias"]:
         return
-    use_db(db)
-    maybe_create_tables_and_seed(with_example_projects)
     if ctx.invoked_subcommand is None:
-        if db:
-            os.environ["RUNCODER_DB_ALIAS"] = db
         if i:
             os.environ["RUNCODER_I_PATH"] = i
         sys.path.append(str(Path(__file__).resolve().parent))
@@ -107,6 +132,7 @@ def cli(ctx, reload, with_example_projects, db, i):
 cli.add_command(run)
 cli.add_command(web)
 cli.add_command(version)
+cli.add_command(init_db)
 cli.add_command(delete_db)
 cli.add_command(alias)
 cli.add_command(delete_alias)

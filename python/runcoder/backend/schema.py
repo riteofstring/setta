@@ -3,18 +3,17 @@ import queue
 import sqlite3
 from contextlib import contextmanager
 
-from .db_path import get_db_path
-
 
 class DB:
-    def __init__(self):
+    def __init__(self, path):
         self.conn = None
         self.cursor = None
+        self.path = path
 
     def connect(self):
         if not self.conn:
-            print("connect to", get_db_path(), flush=True)
-            self.conn = sqlite3.connect(get_db_path(), check_same_thread=False)
+            print("connect to", self.path, flush=True)
+            self.conn = sqlite3.connect(self.path, check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
         self.execute("PRAGMA foreign_keys = ON;")
@@ -27,9 +26,8 @@ class DB:
             self.conn = None
 
     def delete(self):
-        path = get_db_path()
-        if os.path.exists(path):
-            os.remove(path)
+        if os.path.exists(self.path):
+            os.remove(self.path)
         self.disconnect()
 
     def commit(self):
@@ -56,10 +54,10 @@ class DB:
 
 
 class DBQueue:
-    def __init__(self, n):
+    def __init__(self, path, n=1):
         self.queue = queue.Queue()
         for _ in range(n):
-            self.queue.put(DB())
+            self.queue.put(DB(path))
 
     @contextmanager
     def get(self):
@@ -106,4 +104,4 @@ class CombinedContextManager:
             self.queue.put(self.db)
 
 
-dbq = DBQueue(1)
+dbs = {}

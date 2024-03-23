@@ -35,7 +35,6 @@ from .db.sections.copy import copy_relative_positions, copy_sections_and_other_i
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
-from .db_path import use_db
 from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
@@ -55,9 +54,6 @@ processors = Processors()
 
 @app.on_event("startup")
 async def startup_event():
-    db_alias = os.environ.get("RUNCODER_DB_ALIAS")
-    if db_alias:
-        use_db(db_alias)
     dbq.connect()
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
