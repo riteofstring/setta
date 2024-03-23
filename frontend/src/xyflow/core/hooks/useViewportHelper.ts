@@ -1,4 +1,5 @@
 import { zoomIdentity } from "d3-zoom";
+import { useSettings } from "models/settings";
 import { useReactFlow } from "../store";
 import type { XYPosition } from "../types";
 import {
@@ -80,7 +81,8 @@ export function fitBounds(bounds, options) {
 }
 
 export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
-  const { transform, snapToGrid, snapGrid, domNode } = useReactFlow.getState();
+  const { transform, domNode } = useReactFlow.getState();
+  const { snapToGrid, snapGrid } = useSettings.getState();
 
   if (!domNode) {
     return position;

@@ -6,6 +6,7 @@ import {
   updateNodePositions,
   useNodeInternals,
 } from "models/info/nodeInternals";
+import { useSettings } from "models/settings";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { setZIndices } from "thunks/sections/sectionPositions";
@@ -54,13 +55,10 @@ function useDrag({
       const selection = select(nodeRef.current);
 
       const updateNodes = ({ x, y }: XYPosition, dragEnd = false) => {
-        const {
-          nodesSelectionDims,
-          snapGrid,
-          snapToGrid,
-          shiftNodesSelection,
-          setNodesSelection,
-        } = useReactFlow.getState();
+        const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
+          useReactFlow.getState();
+
+        const { snapGrid, snapToGrid } = useSettings.getState();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
         lastPos.current = { x, y };
@@ -219,7 +217,7 @@ function useDrag({
               return;
             }
 
-            if (useReactFlow.getState().snapToGrid) {
+            if (useSettings.getState().snapToGrid) {
               updateNodes(lastPos.current, true);
             }
 
