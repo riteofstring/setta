@@ -87,7 +87,11 @@ export function attachKeyEventListeners() {
     // } else {
     cleanup = attachKeyDownListener((e) => {
       if (isShortcutPressed(e, keyCombo)) {
-        // e.preventDefault();
+        // We don't want to prevent default if the shortcut is just Control or Alt
+        // because this would prevent things like Ctrl + R for refreshing the page.
+        if (!["ctrl", "alt"].includes(keyCombo)) {
+          e.preventDefault();
+        }
         action();
       }
     });
