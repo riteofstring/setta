@@ -110,6 +110,9 @@ export type ReactFlowStore = {
   userSelectionActive: boolean;
   userSelectionRect: SelectionRect | null;
 
+  snapToGrid: boolean;
+  snapGrid: SnapGrid;
+
   nodesDraggable: boolean;
   nodesFocusable: boolean;
   elementsSelectable: boolean;

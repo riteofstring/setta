@@ -1,15 +1,15 @@
+import { useIsDraggingFreely } from "hooks/useDndUtils";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { goToSection } from "thunks/goToSection";
-import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
-  const tempChildIds = useDndChildren((x) => x.x[sectionId]);
-
+  const childIds = useSectionInfos((x) => x.x[sectionId].children);
   return (
-    <DNDSortable sectionId={sectionId} items={tempChildIds}>
+    <DNDSortable sectionId={sectionId} items={childIds}>
       <NestedSectionsWithMargin
-        childIds={tempChildIds}
+        childIds={childIds}
         sectionId={sectionId}
         isDeck={isDeck}
       />
@@ -18,16 +18,23 @@ export function ManyNestedSections({ sectionId, isDeck }) {
 }
 
 // disabled is passed in by DNDSortable
-function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
+function NestedSectionsWithMargin({
+  childIds,
+  sectionId,
+  isDeck,
+  droppableDisabled,
+}) {
   const onClick = () => {
     goToSection(sectionId);
   };
+
+  const rightMargin = useRightMargin(droppableDisabled);
 
   return (
     <div className="flex items-stretch">
       {!isDeck && (
         <div
-          className={`mt-2 min-h-full w-[12px] rounded-full bg-white opacity-[.16] transition-all duration-75 hover:cursor-pointer hover:opacity-[.36] dark:bg-runcoder-700`}
+          className={`mt-2 transition-all duration-75 ${rightMargin} min-h-full w-[12px] rounded-full bg-white opacity-[.16] hover:cursor-pointer hover:opacity-[.36] dark:bg-runcoder-700`}
           onClick={onClick}
         />
       )}
@@ -38,4 +45,9 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
       </div>
     </div>
   );
+}
+
+function useRightMargin(droppableDisabled) {
+  const isDraggingFreely = useIsDraggingFreely();
+  return isDraggingFreely && !droppableDisabled ? "mr-10" : "mr-2";
 }

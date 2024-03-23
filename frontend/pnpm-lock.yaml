@@ -14,9 +14,15 @@ dependencies:
   '@codemirror/view':
     specifier: 6.23.0
     version: 6.23.0
+  '@dnd-kit/core':
+    specifier: 6.0.5
+    version: 6.0.5(react-dom@18.2.0)(react@18.2.0)
   '@dnd-kit/modifiers':
     specifier: 6.0.0
     version: 6.0.0(@dnd-kit/core@6.0.5)(react@18.2.0)
+  '@dnd-kit/sortable':
+    specifier: 7.0.1
+    version: 7.0.1(@dnd-kit/core@6.0.5)(react@18.2.0)
   '@dnd-kit/utilities':
     specifier: 3.2.2
     version: 3.2.2(react@18.2.0)
@@ -171,8 +177,8 @@ dependencies:
     specifier: 18.2.0
     version: 18.2.0(react@18.2.0)
   react-icons:
-    specifier: 5.0.1
-    version: 5.0.1(react@18.2.0)
+    specifier: 4.11.0
+    version: 4.11.0(react@18.2.0)
   react-markdown:
     specifier: 8.0.5
     version: 8.0.5(@types/react@18.2.64)(react@18.2.0)
@@ -666,6 +672,18 @@ packages:
       tslib: 2.6.2
     transitivePeerDependencies:
       - react
+    dev: false
+
+  /@dnd-kit/sortable@7.0.1(@dnd-kit/core@6.0.5)(react@18.2.0):
+    resolution: {integrity: sha512-n77qAzJQtMMywu25sJzhz3gsHnDOUlEjTtnRl8A87rWIhnu32zuP+7zmFjwGgvqfXmRufqiHOSlH7JPC/tnJ8Q==}
+    peerDependencies:
+      '@dnd-kit/core': ^6.0.4
+      react: '>=16.8.0'
+    dependencies:
+      '@dnd-kit/core': 6.0.5(react-dom@18.2.0)(react@18.2.0)
+      '@dnd-kit/utilities': 3.2.2(react@18.2.0)
+      react: 18.2.0
+      tslib: 2.6.2
     dev: false
 
   /@dnd-kit/utilities@3.2.2(react@18.2.0):
@@ -6832,8 +6850,8 @@ packages:
       react: 18.2.0
     dev: true
 
-  /react-icons@5.0.1(react@18.2.0):
-    resolution: {integrity: sha512-WqLZJ4bLzlhmsvme6iFdgO8gfZP17rfjYEJ2m9RsZjZ+cc4k1hTzknEz63YS1MeT50kVzoa1Nz36f4BEx+Wigw==}
+  /react-icons@4.11.0(react@18.2.0):
+    resolution: {integrity: sha512-V+4khzYcE5EBk/BvcuYRq6V/osf11ODUM2J8hg2FDSswRrGvqiYUYPRy4OdrWaQOBj4NcpJfmHZLNaD+VH0TyA==}
     peerDependencies:
       react: '*'
     dependencies:

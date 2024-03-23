@@ -1,4 +1,4 @@
-import { arrayMove } from "utils/DNDSortable/CustomSortable";
+import { arrayMove } from "@dnd-kit/sortable";
 
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));

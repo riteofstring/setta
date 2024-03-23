@@ -5,7 +5,6 @@ import { pointer, select } from "d3-selection";
 import type { D3ZoomEvent } from "d3-zoom";
 import { zoom, zoomIdentity } from "d3-zoom";
 import { useNodeInternals } from "models/info/nodeInternals";
-import { usePanes } from "models/panes";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import {
@@ -20,6 +19,7 @@ import { useReactFlow } from "xyflow/core/store";
 import { shallow } from "zustand/shallow";
 import MiniMapNodes from "./MiniMapNodes";
 import type { MiniMapProps } from "./types";
+import { usePanes } from "models/panes";
 
 const defaultWidth = 200;
 const defaultHeight = 150;
@@ -27,7 +27,7 @@ const defaultHeight = 150;
 function getSelector(nodes, overviewWidth) {
   return (s) => {
     const viewBB: Rect = {
-      x: (-s.transform[0] + overviewWidth) / s.transform[2],
+      x: (-s.transform[0]+ overviewWidth) / s.transform[2],
       y: -s.transform[1] / s.transform[2],
       width: s.width / s.transform[2],
       height: s.height / s.transform[2],
@@ -68,11 +68,8 @@ function MiniMap({
 }: MiniMapProps) {
   const svg = useRef<SVGSVGElement>(null);
   const nodes = useVisibleNodes();
-  const overviewWidth = usePanes((x) => x.trueWidth.overview);
-  const { boundingRect, viewBB } = useReactFlow(
-    getSelector(nodes, overviewWidth),
-    shallow,
-  );
+  const overviewWidth = usePanes(x=>x.trueWidth.overview)
+  const { boundingRect, viewBB } = useReactFlow(getSelector(nodes, overviewWidth), shallow);
   const elementWidth = (style?.width as number) ?? defaultWidth;
   const elementHeight = (style?.height as number) ?? defaultHeight;
 
