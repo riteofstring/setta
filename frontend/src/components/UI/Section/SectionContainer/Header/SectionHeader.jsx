@@ -99,7 +99,8 @@ function getTitleStyles({ isActiveSection, isGlobalVariables }) {
     return { fixed: notEditing };
   }
 
-  const fixed = "select-none italic font-heading text-xs text-runcoder-400";
+  const fixed =
+    "select-none italic font-heading tracking-tighter text-xs text-runcoder-400";
 
   return { editing, notEditing, fixed };
 }

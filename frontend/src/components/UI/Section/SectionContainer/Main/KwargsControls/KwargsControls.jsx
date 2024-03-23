@@ -28,37 +28,30 @@ export function KwargsControls({ sectionId, objInfoId }) {
 
   return (
     <>
-      <section className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid border-white  px-6 pb-1 shadow-sm @container dark:border-runcoder-700 dark:from-transparent">
-        <h3 className="pr-1  font-heading text-xs font-bold uppercase text-runcoder-600/70 before:content-['args'] @[16rem]:tracking-widest @[16rem]:before:content-['arguments'] dark:text-runcoder-400/70 "></h3>
-        <button className={buttonClass} onClick={onClickDeleteKwarg}>
-          <i className="gg-math-minus col-start-1 row-start-1" />
-        </button>
-        <button className={buttonClass} onClick={onClickAddKwarg}>
-          <i className="gg-math-plus col-start-1 row-start-1" />
-        </button>
-        {/* <IconButton
-          icon={<AiOutlineMinus />}
-          type="minus"
-          onClick={onClickDeleteKwarg}
-        />
-        <IconButton
-          icon={<AiOutlinePlus />}
-          onClick={onClickAddKwarg}
-          type="add"
-          aria-label="Add Kwarg"
-        /> */}
-        <VerticalLine inputStyles="ml-2 mr-3 self-stretch" />
-        <search className="nodrag relative flex min-w-0 items-center">
-          <i className="gg-sort-az -mr-4 text-runcoder-300 dark:text-runcoder-600" />
-          <input
-            id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-            className={inputStyles}
-            placeholder="Filter"
-            tabIndex="0"
-            onChange={onSearchChange}
-          />
-        </search>
+      <section className="card-args-control flex min-w-0  rounded-xl border-b border-solid border-white px-5  pb-1 shadow-sm @container dark:border-runcoder-700 dark:from-transparent">
+        <div className="flex flex-col @[10rem]:flex-row">
+          <article className="flex items-center">
+            <h3 className="pr-1  font-heading text-xs font-bold uppercase text-runcoder-600/70 before:content-['arguments'] @[10rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-runcoder-400/70 "></h3>
+            <button className={buttonClass} onClick={onClickDeleteKwarg}>
+              <i className="gg-math-minus col-start-1 row-start-1" />
+            </button>
+            <button className={buttonClass} onClick={onClickAddKwarg}>
+              <i className="gg-math-plus col-start-1 row-start-1" />
+            </button>
+            <VerticalLine inputStyles="ml-2 mr-3 self-stretch invisible @[10rem]:visible" />
+          </article>
 
+          <search className="nodrag relative flex w-full min-w-0 items-center">
+            <i className="gg-sort-az -mr-4 text-runcoder-300 dark:text-runcoder-600" />
+            <input
+              id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+              className={inputStyles}
+              placeholder="Filter"
+              tabIndex="0"
+              onChange={onSearchChange}
+            />
+          </search>
+        </div>
         {/* <StandardSearch
           id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
           leftElement={<BiFilter className="text-runcoder-400" />}
