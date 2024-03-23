@@ -22,29 +22,29 @@ function onSortEnd({ active, over }) {
   }
 }
 
-function onFreeMoveEnd({ dummyRef }) {
+function onFreeMoveEnd({ active, over, dummyRef }) {
   const dndState = useDndState.getState();
-  const dndChildrenState = useDndChildren.getState();
   const { activeId: sectionId, overId } = dndState;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
-  let newParentId = dndChildrenState.y[getDndSectionId(sectionId)] ?? null;
+  let newParentId =
+    useDndChildren.getState().y[getDndSectionId(active.id)] ||
+    (active.data.current.sortable?.containerId ===
+    over?.data.current.sortable?.containerId
+      ? active.data.current.sortable?.containerId
+      : null);
   let newIndex = null;
   let position = null;
+  let behaviorDropType = null;
 
   if (newParentId) {
-    newIndex = dndChildrenState.x[newParentId].indexOf(overId);
+    newIndex = useDndChildren.getState().x[newParentId].indexOf(overId);
   }
   // dropping nested section onto pane
-  else if (!overId) {
+  else if (oldParentId !== PANEID && !overId) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
-
-    if (oldParentId === PANEID) {
-      justMoveANode(sectionId, position);
-      return;
-    }
   }
 
   moveSection({
@@ -53,7 +53,7 @@ function onFreeMoveEnd({ dummyRef }) {
     sectionId,
     newIndex,
     position,
-    behaviorDropType: dndState.behaviorDropType,
+    behaviorDropType,
     incrementVersion: true,
   });
 }

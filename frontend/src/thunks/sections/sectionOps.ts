@@ -78,12 +78,7 @@ export function moveSection({
   behaviorDropType,
   incrementVersion = false,
 }) {
-  console.log("oldParentId", oldParentId)
-  console.log("newParentId", newParentId)
-  console.log("position", position)
-  console.log("behaviorDropType", behaviorDropType)
   if (!newParentId || behaviorDropType === BehaviorDropType.INVALID) {
-    console.log("returning")
     return;
   }
 
