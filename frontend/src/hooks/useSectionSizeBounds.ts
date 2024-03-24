@@ -1,12 +1,6 @@
 import { SECTIONWIDTH } from "utils/constants";
-import { CODE, VAR_CONTROL } from "z_utils/constants";
 import { useGetAllCallables } from "./useSectionContents";
-import {
-  useIsOneOfType,
-  useIsOutput,
-  useIsRoot,
-  useIsTerminal,
-} from "./useSectionType";
+import { useIsOutput, useIsRoot } from "./useSectionType";
 import { useIsTwitter } from "./useSocialUtils";
 
 export function useMinSectionHeight(sectionId) {
@@ -34,7 +28,6 @@ export function useMinSectionWidth(sectionId) {
     // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
     return 400;
   }
-
 
   return SECTIONWIDTH;
 }

@@ -10,7 +10,7 @@ import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
 import { UITypeType } from "z_utils/types/uiType";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { ManyOf } from "z_utils/types/utils";
-import { getSectionInfo } from "./sections/getters";
+import { getSectionDBSource, getSectionInfo } from "./sections/getters";
 
 export function initializeChildParams({
   sectionIds,
@@ -61,6 +61,7 @@ function initializeParamEnteredValue(
   }
 
   useParamInfos.getState().initManyEnteredValues({
+    dbSource: getSectionDBSource(sectionId),
     collectionId: evColId,
     paramIdsToUITypes,
   });

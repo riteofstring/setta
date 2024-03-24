@@ -111,15 +111,9 @@ def load_sections(dbs, ids):
     for k, dbq in dbs.items():
         print("loading values from", k, flush=True)
         curr_sections = sections_by_db_source[k]
-        evCols.update(
-            load_evcols(
-                dbq,
-                list(
-                    itertools.chain.from_iterable(
-                        [s["evColIds"] for s in curr_sections]
-                    )
-                ),
-            )
+        evCols[k] = load_evcols(
+            dbq,
+            list(itertools.chain.from_iterable([s["evColIds"] for s in curr_sections])),
         )
 
     print(evCols, flush=True)
