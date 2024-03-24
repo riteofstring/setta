@@ -1,4 +1,4 @@
-def save_ev_cols(dbs, ev_cols):
+def save_ev_cols(db, ev_cols):
     query = """
         INSERT INTO EVColId (id, name)
         VALUES (:id, :name)
