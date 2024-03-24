@@ -6,6 +6,7 @@ import click
 DEFAULT_DB_FOLDER = os.getcwd()
 DEFAULT_DB_NAME = "runcoder.db"
 DEFAULT_DB_ALIAS = "default"
+DEFAULT_SETTINGS_DB_ALIAS = "settings"
 CONFIG_FOLDER = click.get_app_dir("runcoder")
 
 
@@ -58,6 +59,9 @@ def delete_alias(name):
 
 def get_db_path_from_config(name):
     config = load_config()
-    if name == DEFAULT_DB_ALIAS and name not in config["databases"]:
+    if (
+        name in [DEFAULT_DB_ALIAS, DEFAULT_SETTINGS_DB_ALIAS]
+        and name not in config["databases"]
+    ):
         return get_default_db_path()
     return config["databases"].get(name)

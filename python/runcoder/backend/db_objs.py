@@ -2,7 +2,12 @@ import queue
 import sqlite3
 
 from .db_init import maybe_create_tables_and_seed
-from .db_path import DEFAULT_DB_ALIAS, get_db_path_from_config, validate_path
+from .db_path import (
+    DEFAULT_DB_ALIAS,
+    DEFAULT_SETTINGS_DB_ALIAS,
+    get_db_path_from_config,
+    validate_path,
+)
 from .environ import get_cli_arg
 
 
@@ -65,7 +70,6 @@ class DBQueue:
 
     def set_curr(self):
         self.curr = self.queue.get()
-        print("set_curr", self.curr)
         return self.curr
 
     def put_back_curr(self):
@@ -99,16 +103,9 @@ class DBQueue:
 
 class DBs:
     def __init__(self):
-        db_specs = get_cli_arg("db_specs")
-        names_to_paths = self.parse_dbs_arg(db_specs)
+        names_to_paths = self.parse_dbs_arg(get_cli_arg("db_specs"))
         self.dbs = {}
         for name, path in names_to_paths.items():
-            if path is None:
-                path = get_db_path_from_config(name)
-            if path:
-                validate_path(path, get_cli_arg("create_if_not_exists"))
-            else:
-                raise ValueError(f"{name} not found in config file")
             self.dbs[name] = DBQueue(path)
 
         self.connect()
@@ -128,16 +125,30 @@ class DBs:
     # --d api_keys
     def parse_dbs_arg(self, db_specs):
         output = {}
-        for db in db_specs:
-            # it's an alias, so we'll get the path later
-            if "=" not in db:
-                output[db] = None
-            else:
-                split_str = db.split("=")
-                output[split_str[0]] = "".join(split_str[1:])
-        if DEFAULT_DB_ALIAS not in output:
-            output[DEFAULT_DB_ALIAS] = get_db_path_from_config(DEFAULT_DB_ALIAS)
+        for db_spec in db_specs:
+            name, path = self.parse_one_arg(db_spec)
+            output[name] = path
+
+        for special_key in [DEFAULT_DB_ALIAS, DEFAULT_SETTINGS_DB_ALIAS]:
+            if special_key not in output:
+                output[special_key] = get_db_path_from_config(special_key)
+
         return output
+
+    def parse_one_arg(self, db_spec):
+        # it's an alias
+        if "=" not in db_spec:
+            name, path = db_spec, get_db_path_from_config(db_spec)
+        else:
+            split_str = db_spec.split("=")
+            name, path = split_str[0], "".join(split_str[1:])
+
+        if path:
+            validate_path(path, get_cli_arg("create_if_not_exists"))
+        else:
+            raise ValueError(f"{name} not found in config file")
+
+        return name, path
 
     def connect(self):
         for v in self.dbs.values():
@@ -170,3 +181,14 @@ class DBs:
 
         for v in self.dbs.values():
             v.put_back_curr()
+
+    def __getitem__(self, key):
+        return self.dbs[key].curr
+
+    @property
+    def default(self):
+        return self.dbs[DEFAULT_DB_ALIAS].curr
+
+    @property
+    def settings(self):
+        return self.dbs[DEFAULT_SETTINGS_DB_ALIAS].curr

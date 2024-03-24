@@ -36,7 +36,6 @@ from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
 from .db_objs import DBs
-from .db_path import DEFAULT_DB_ALIAS
 from .environ import get_cli_arg
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
@@ -98,57 +97,53 @@ app.add_middleware(
 )
 
 
-class DBRequest(BaseModel):
-    db: str = DEFAULT_DB_ALIAS
-
-
-class ProjectRequest(DBRequest):
+class ProjectRequest(BaseModel):
     format: str
     projectId: Optional[str] = None
 
 
-class ProjectSaveRequest(DBRequest):
+class ProjectSaveRequest(BaseModel):
     project: dict
 
 
-class LoadFullProjectRequest(DBRequest):
+class LoadFullProjectRequest(BaseModel):
     withBaseUITypes: bool
 
 
-class SaveAsNewProjectConfigRequest(DBRequest):
+class SaveAsNewProjectConfigRequest(BaseModel):
     project: dict
     newConfigName: str
 
 
-class SaveAsExistingProjectConfigRequest(DBRequest):
+class SaveAsExistingProjectConfigRequest(BaseModel):
     project: dict
     configName: str
 
 
-class CreateProjectRequest(DBRequest):
+class CreateProjectRequest(BaseModel):
     name: Optional[str] = None
 
 
-class DeleteProjectsRequest(DBRequest):
+class DeleteProjectsRequest(BaseModel):
     ids: List[str]
 
 
-class SetProjectNameRequest(DBRequest):
+class SetProjectNameRequest(BaseModel):
     currProjectName: str
     newProjectName: str
 
 
-class SetProjectConfigNameRequest(DBRequest):
+class SetProjectConfigNameRequest(BaseModel):
     projectId: str
     currProjectConfigName: str
     newProjectConfigName: str
 
 
-class SetDarkModeRequest(DBRequest):
+class SetDarkModeRequest(BaseModel):
     darkMode: bool
 
 
-class SaveCodeInfoRequest(DBRequest):
+class SaveCodeInfoRequest(BaseModel):
     codeInfo: dict
 
 
@@ -272,58 +267,58 @@ async def terminal_websocket_endpoint(
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
-    with dbs as db:
-        return load_all_projects(db, x.format, x.projectId)
+    with dbs:
+        return load_all_projects(dbs, x.format, x.projectId)
 
 
 @app.post("/projects/load/{projectName}/{configName}")
-def route_load_project(projectName, configName, x: DBRequest):
-    with dbs as db:
-        return load_project(db, projectName, configName)
+def route_load_project(projectName, configName):
+    with dbs:
+        return load_project(dbs, projectName, configName)
 
 
 @app.post("/projects/load/{projectName}")
 def route_load_full_project(projectName, body: LoadFullProjectRequest):
     print("PTY_PIDS", terminal_websockets.PTY_PIDS, flush=True)
-    with dbs as db:
-        return load_full_project(db, projectName, body.withBaseUITypes)
+    with dbs:
+        return load_full_project(dbs, projectName, body.withBaseUITypes)
 
 
 @app.post("/projects/save")
 def route_save_project(x: ProjectSaveRequest):
     formatted = convert_to_backend_format(x.project)
-    with dbs as db:
-        save_project_details(db, formatted)
+    with dbs:
+        save_project_details(dbs, formatted)
 
 
 @app.post("/projects/createProject")
 def route_create_project(x: CreateProjectRequest):
-    with dbs as db:
-        return create_project(db, x.name)
+    with dbs:
+        return create_project(dbs, x.name)
 
 
 @app.post("/projects/saveAsNewProjectConfig")
 def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
-    with dbs as db:
-        return save_as_new_project_config(db, x.project, x.newConfigName)
+    with dbs:
+        return save_as_new_project_config(dbs, x.project, x.newConfigName)
 
 
 @app.post("/projects/saveAsExistingProjectConfig")
 def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
-    with dbs as db:
-        return save_as_existing_project_config(db, x.project, x.configName)
+    with dbs:
+        return save_as_existing_project_config(dbs, x.project, x.configName)
 
 
 @app.post("/projects/deleteProjects")
 def route_delete_projects(x: DeleteProjectsRequest):
-    with dbs as db:
-        return delete_projects(db, x.ids)
+    with dbs:
+        return delete_projects(dbs, x.ids)
 
 
 @app.post("/uiTypes/getBaseUITypes")
 def route_get_base_uitypes():
-    with dbs as db:
-        return load_base_uitypes(db)
+    with dbs:
+        return load_base_uitypes(dbs)
 
 
 @app.post("/codeInfo/getCollectionsAndModules")
@@ -333,8 +328,8 @@ def route_get_collections_and_modules():
 
 @app.post("/codeInfo/save")
 def route_save_code_info(x: SaveCodeInfoRequest):
-    with dbs as db:
-        save_code_info(db, x.codeInfo)
+    with dbs:
+        save_code_info(dbs, x.codeInfo)
 
 
 @app.post("/codeInfo/getCollectionDetails")
@@ -354,28 +349,28 @@ def route_get_code():
 
 @app.post("/projects/setProjectName")
 def route_set_project_name(x: SetProjectNameRequest):
-    with dbs as db:
-        save_project_name(db, x.currProjectName, x.newProjectName)
+    with dbs:
+        save_project_name(dbs, x.currProjectName, x.newProjectName)
 
 
 @app.post("/projects/setProjectConfigName")
 def route_set_project_config_name(x: SetProjectConfigNameRequest):
-    with dbs as db:
+    with dbs:
         save_project_config_name(
-            db, x.projectId, x.currProjectConfigName, x.newProjectConfigName
+            dbs, x.projectId, x.currProjectConfigName, x.newProjectConfigName
         )
 
 
 @app.post("/settings")
 def route_load_settings():
-    with dbs as db:
-        return load_settings(db)
+    with dbs:
+        return load_settings(dbs)
 
 
 @app.post("/settings/setDarkMode")
 def route_set_dark_mode(x: SetDarkModeRequest):
-    with dbs as db:
-        save_dark_mode(db, x.darkMode)
+    with dbs:
+        save_dark_mode(dbs, x.darkMode)
 
 
 @app.post("/logging")

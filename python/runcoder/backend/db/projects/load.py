@@ -8,7 +8,7 @@ from ..uiTypes.load import load_base_uitypes
 from .utils import convert_to_file_menu_format
 
 
-def load_all_projects(db, format, input_project_id):
+def load_all_projects(dbs, format, input_project_id):
     query = """
         SELECT
             Project.id AS projectId,
@@ -24,7 +24,7 @@ def load_all_projects(db, format, input_project_id):
         ORDER BY
             Project.id;
     """
-
+    db = dbs.default
     db.execute(query)
 
     # Using a dictionary to collect configurations per project
