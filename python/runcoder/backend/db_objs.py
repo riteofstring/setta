@@ -64,6 +64,14 @@ class DBQueue:
         self.queue = queue.Queue()
         for _ in range(n):
             self.queue.put(DB(path))
+        self.curr = None
+
+    def set_curr(self):
+        self.curr = self.queue.get()
+
+    def put_back_curr(self):
+        self.queue.put(self.curr)
+        self.curr = None
 
     def process_conns(self, fn_name):
         all_dbs = []
@@ -86,21 +94,17 @@ class DBQueue:
     def disconnect(self):
         self.process_conns("disconnect")
 
-    def delete(self):
-        self.process_conns("delete")
-
 
 class DBs:
     def __init__(self, db_specs, create_if_not_exists):
         names_to_paths = self.parse_dbs_arg(db_specs, create_if_not_exists)
         self.dbs = {}
         self.names_to_paths = {}
+
         for name, path in names_to_paths:
             if path not in self.dbs:
                 self.dbs[path] = DBQueue(path)
             self.names_to_paths[name] = path
-
-        self.curr_dbs = {}
 
     # Path example:
     # --d "api_keys=/path/to/some.db"
@@ -112,13 +116,10 @@ class DBs:
             output.append(self.parse_one_arg(db_spec, create_if_not_exists))
 
         for special_key in [DEFAULT_DB_ALIAS, DEFAULT_SETTINGS_DB_ALIAS]:
-            if special_key not in output:
+            if special_key not in [x[0] for x in output]:
                 output.append((special_key, get_db_path_from_config(special_key)))
 
-        output = move_default_and_settings_to_beginning(output)
-        print(output, flush=True)
-
-        return output
+        return move_default_and_settings_to_beginning(output)
 
     def parse_one_arg(self, db_spec, create_if_not_exists):
         # it's an alias
@@ -144,48 +145,51 @@ class DBs:
             v.disconnect()
 
     def __enter__(self):
-        for k, v in self.dbs.items():
-            self.curr_dbs[k] = v.queue.get()
+        for v in self.dbs.values():
+            v.set_curr()
         return self
 
     def __exit__(self, exc_type, *_):
         if exc_type is None:
             # Attempt to commit both transactions if there were no exceptions
             try:
-                for v in self.curr_dbs.values():
-                    v.commit()
+                for v in self.dbs.values():
+                    v.curr.commit()
             except sqlite3.Error:
                 # If commit fails in either database, roll back both
-                for v in self.curr_dbs.values():
-                    v.rollback()
+                for v in self.dbs.values():
+                    v.curr.rollback()
                 raise  # Optionally re-raise the commit exception
         else:
             # Rollback both transactions if there were errors during processing
-            for v in self.curr_dbs.values():
-                v.rollback()
+            for v in self.dbs.values():
+                v.curr.rollback()
 
-        for k, v in self.curr_dbs.items():
-            self.dbs[k].queue.put(v)
+        for v in self.dbs.values():
+            v.put_back_curr()
 
     def __getitem__(self, key):
-        return self.curr_dbs[self.names_to_paths[key]]
+        return self.dbs[self.names_to_paths[key]].curr
 
     def __contains__(self, key):
-        return key in self.names_to_paths and self.curr_dbs[self.names_to_paths[key]]
+        return key in self.names_to_paths and self[key]
 
     def items(self):
         output = {}
         for k, v in self.names_to_paths.items():
-            output[k] = self.curr_dbs[v]
+            output[k] = self.dbs[v].curr
         return output.items()
+
+    def values(self):
+        return [x[1] for x in self.items()]
 
     @property
     def default(self):
-        return self.curr_dbs[self.names_to_paths[DEFAULT_DB_ALIAS]]
+        return self[DEFAULT_DB_ALIAS]
 
     @property
     def settings(self):
-        return self.curr_dbs[self.names_to_paths[DEFAULT_SETTINGS_DB_ALIAS]]
+        return self[DEFAULT_SETTINGS_DB_ALIAS]
 
 
 def move_default_and_settings_to_beginning(x):
