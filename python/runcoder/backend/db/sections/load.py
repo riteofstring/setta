@@ -1,4 +1,7 @@
 import itertools
+from collections import defaultdict
+
+from runcoder.backend.db_path import DEFAULT_DB_ALIAS
 
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols
@@ -6,7 +9,9 @@ from ..paramSweeps.load import load_param_sweeps
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
-def load_sections(db, ids):
+def load_sections(dbs, ids):
+    db = dbs.default
+
     query = """
         WITH RECURSIVE DESCENDANTS AS (
             SELECT parentId, childId, "order"
@@ -99,10 +104,26 @@ def load_sections(db, ids):
             if v["paramSweepIds"]
             else [],
         }
-    evCols = load_evcols(
-        db,
-        list(itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])),
-    )
+
+    sections_by_db_source, missing_dbs = get_sections_by_db_source(dbs, sections)
+    evCols = {}
+    # TODO: order of loading matters here
+    for k, dbq in dbs.items():
+        print("loading values from", k, flush=True)
+        curr_sections = sections_by_db_source[k]
+        evCols.update(
+            load_evcols(
+                dbq,
+                list(
+                    itertools.chain.from_iterable(
+                        [s["evColIds"] for s in curr_sections]
+                    )
+                ),
+            )
+        )
+
+    print(evCols, flush=True)
+
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
         db,
@@ -128,8 +149,25 @@ def load_sections(db, ids):
         "uiTypeCols": uiTypeCols,
         "paramSweeps": paramSweeps,
         "nonPresetUITypes": nonPresetUITypes,
+        "missing_dbs": missing_dbs,
     }
 
 
 def convert_size(x):
     return "auto" if x == -1 else x
+
+
+# maps db source to list of sections
+def get_sections_by_db_source(dbs, sections):
+    output = defaultdict(list)
+    missing_dbs = []
+    for v in sections.values():
+        dbSource = v["dbSource"]
+        if not dbSource:
+            output[DEFAULT_DB_ALIAS].append(v)
+        elif dbSource not in dbs:
+            output[DEFAULT_DB_ALIAS].append(v)
+            missing_dbs.append(dbSource)
+        else:
+            output[dbSource].append(v)
+    return output, missing_dbs

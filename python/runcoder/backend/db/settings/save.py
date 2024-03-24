@@ -1,4 +1,6 @@
-def save_settings(db, settings):
+def save_settings(dbs, settings):
+    db = dbs.settings
+
     query = """
         INSERT INTO Settings (profileName, darkMode)
         VALUES (:profileName, :darkMode)
@@ -8,7 +10,9 @@ def save_settings(db, settings):
     db.executemany(query, settings)
 
 
-def save_dark_mode(db, darkMode):
+def save_dark_mode(dbs, darkMode):
+    db = dbs.settings
+
     query = """
         UPDATE Settings
         SET darkMode = :darkMode

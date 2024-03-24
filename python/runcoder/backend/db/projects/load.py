@@ -53,7 +53,8 @@ def load_all_projects(dbs, format, input_project_id):
     return projects_with_configs
 
 
-def load_project_metadata(db, project_name):
+def load_project_metadata(dbs, project_name):
+    db = dbs.default
     query = """
         SELECT * FROM Project
         WHERE name = :name
@@ -63,7 +64,8 @@ def load_project_metadata(db, project_name):
     return dict(db.fetchone())
 
 
-def load_project_config_metadata(db, project_id, config_name):
+def load_project_config_metadata(dbs, project_id, config_name):
+    db = dbs.default
     query = """
         SELECT
             ProjectConfig.id,
@@ -126,18 +128,19 @@ def load_project_config_metadata(db, project_id, config_name):
     }
 
 
-def load_project(db, project_name, config_name):
-    project = load_project_metadata(db, project_name)
-    projectConfig = load_project_config_metadata(db, project["id"], config_name)
-    runGroups = load_run_groups(db, projectConfig["id"])
-    sections_data = load_sections(db, list(projectConfig["children"].keys()))
+def load_project(dbs, project_name, config_name):
+    project = load_project_metadata(dbs, project_name)
+    projectConfig = load_project_config_metadata(dbs, project["id"], config_name)
+    runGroups = load_run_groups(dbs, projectConfig["id"])
+    sections_data = load_sections(dbs, list(projectConfig["children"].keys()))
     sections = sections_data["sections"]
     evCols = sections_data["evCols"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
-    baseUITypes = load_base_uitypes(db)
+    missing_dbs = sections_data["missing_dbs"]
+    baseUITypes = load_base_uitypes(dbs)
     uiTypes = {**baseUITypes, **sections_data["nonPresetUITypes"]}
-    codeInfo = load_code_info_for_sections(db, uiTypes)
+    codeInfo = load_code_info_for_sections(dbs, uiTypes)
 
     return {
         "project": project,
@@ -149,6 +152,7 @@ def load_project(db, project_name, config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
+        "missing_dbs": missing_dbs,
         "userCodeInfoMaps": {},
         "projectConfigCodeInfoMaps": {},
         "outputGroups": {},
@@ -156,7 +160,7 @@ def load_project(db, project_name, config_name):
     }
 
 
-def load_full_project(db, project_name, with_base_uitypes=False):
+def load_full_project(dbs, project_name, with_base_uitypes=False):
     query = """
         SELECT
             ProjectConfig.name as configName
@@ -169,14 +173,14 @@ def load_full_project(db, project_name, with_base_uitypes=False):
         WHERE
             Project.name = :projectName
     """
-
+    db = dbs.default
     db.execute(query, {"projectName": project_name})
 
     config_names = [r[0] for r in db.fetchall()]
     configs = []
     project = None
     for c in config_names:
-        p = load_project(db, project_name, c)
+        p = load_project(dbs, project_name, c)
         project = p.pop("project")
         if not with_base_uitypes:
             p["uiTypes"] = {

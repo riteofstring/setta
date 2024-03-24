@@ -105,7 +105,7 @@ class DBs:
     def __init__(self):
         names_to_paths = self.parse_dbs_arg(get_cli_arg("db_specs"))
         self.dbs = {}
-        for name, path in names_to_paths.items():
+        for name, path in names_to_paths:
             self.dbs[name] = DBQueue(path)
 
         self.connect()
@@ -124,14 +124,16 @@ class DBs:
     # Alias example:
     # --d api_keys
     def parse_dbs_arg(self, db_specs):
-        output = {}
+        output = []
         for db_spec in db_specs:
-            name, path = self.parse_one_arg(db_spec)
-            output[name] = path
+            output.append(self.parse_one_arg(db_spec))
 
         for special_key in [DEFAULT_DB_ALIAS, DEFAULT_SETTINGS_DB_ALIAS]:
             if special_key not in output:
-                output[special_key] = get_db_path_from_config(special_key)
+                output.append((special_key, get_db_path_from_config(special_key)))
+
+        output = move_default_and_settings_to_beginning(output)
+        print(output, flush=True)
 
         return output
 
@@ -185,6 +187,12 @@ class DBs:
     def __getitem__(self, key):
         return self.dbs[key].curr
 
+    def __contains__(self, key):
+        return key in self.dbs and self.dbs[key].curr
+
+    def items(self):
+        return [(key, value.curr) for key, value in self.dbs.items()]
+
     @property
     def default(self):
         return self.dbs[DEFAULT_DB_ALIAS].curr
@@ -192,3 +200,15 @@ class DBs:
     @property
     def settings(self):
         return self.dbs[DEFAULT_SETTINGS_DB_ALIAS].curr
+
+
+def move_default_and_settings_to_beginning(x):
+    def custom_sort_key(item):
+        if item[0] == DEFAULT_DB_ALIAS:
+            return 0
+        elif item[0] == DEFAULT_SETTINGS_DB_ALIAS:
+            return 1
+        else:
+            return 2
+
+    return sorted(x, key=custom_sort_key)

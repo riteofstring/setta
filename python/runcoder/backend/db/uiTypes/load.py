@@ -1,7 +1,8 @@
 from runcoder.utils.constants import is_section_ui_type
 
 
-def load_base_uitypes(db):
+def load_base_uitypes(dbs):
+    db = dbs.default
     return load_uitypes_by_condition(db, preset_types=["BASE", "USER"])
 
 
