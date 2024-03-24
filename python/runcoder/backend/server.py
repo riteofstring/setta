@@ -272,57 +272,57 @@ async def terminal_websocket_endpoint(
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         return load_all_projects(db, x.format, x.projectId)
 
 
 @app.post("/projects/load/{projectName}/{configName}")
 def route_load_project(projectName, configName, x: DBRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         return load_project(db, projectName, configName)
 
 
 @app.post("/projects/load/{projectName}")
 def route_load_full_project(projectName, body: LoadFullProjectRequest):
     print("PTY_PIDS", terminal_websockets.PTY_PIDS, flush=True)
-    with dbs.get(body.db) as db:
+    with dbs as db:
         return load_full_project(db, projectName, body.withBaseUITypes)
 
 
 @app.post("/projects/save")
 def route_save_project(x: ProjectSaveRequest):
     formatted = convert_to_backend_format(x.project)
-    with dbs.get(x.db) as db:
+    with dbs as db:
         save_project_details(db, formatted)
 
 
 @app.post("/projects/createProject")
 def route_create_project(x: CreateProjectRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         return create_project(db, x.name)
 
 
 @app.post("/projects/saveAsNewProjectConfig")
 def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         return save_as_new_project_config(db, x.project, x.newConfigName)
 
 
 @app.post("/projects/saveAsExistingProjectConfig")
 def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         return save_as_existing_project_config(db, x.project, x.configName)
 
 
 @app.post("/projects/deleteProjects")
 def route_delete_projects(x: DeleteProjectsRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         return delete_projects(db, x.ids)
 
 
 @app.post("/uiTypes/getBaseUITypes")
 def route_get_base_uitypes():
-    with dbs.get(DEFAULT_DB_ALIAS) as db:
+    with dbs as db:
         return load_base_uitypes(db)
 
 
@@ -333,7 +333,7 @@ def route_get_collections_and_modules():
 
 @app.post("/codeInfo/save")
 def route_save_code_info(x: SaveCodeInfoRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         save_code_info(db, x.codeInfo)
 
 
@@ -354,13 +354,13 @@ def route_get_code():
 
 @app.post("/projects/setProjectName")
 def route_set_project_name(x: SetProjectNameRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         save_project_name(db, x.currProjectName, x.newProjectName)
 
 
 @app.post("/projects/setProjectConfigName")
 def route_set_project_config_name(x: SetProjectConfigNameRequest):
-    with dbs.get(x.db) as db:
+    with dbs as db:
         save_project_config_name(
             db, x.projectId, x.currProjectConfigName, x.newProjectConfigName
         )
@@ -368,13 +368,13 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest):
 
 @app.post("/settings")
 def route_load_settings():
-    with dbs.get(DEFAULT_DB_ALIAS) as db:
+    with dbs as db:
         return load_settings(db)
 
 
 @app.post("/settings/setDarkMode")
 def route_set_dark_mode(x: SetDarkModeRequest):
-    with dbs.get(DEFAULT_DB_ALIAS) as db:
+    with dbs as db:
         save_dark_mode(db, x.darkMode)
 
 

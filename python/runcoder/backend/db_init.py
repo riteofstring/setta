@@ -309,11 +309,8 @@ def seed_data_exist(db, with_example_projects):
     return True
 
 
-def maybe_create_tables_and_seed(dbq, with_example_projects=False):
-    dbq.connect()
-    with dbq.get() as db:
-        if not tables_exist(db):
-            create_tables(db)
-        if not seed_data_exist(db, with_example_projects):
-            seed(db, with_example_projects)
-    dbq.disconnect()
+def maybe_create_tables_and_seed(db, with_example_projects=False):
+    if not tables_exist(db):
+        create_tables(db)
+    if not seed_data_exist(db, with_example_projects):
+        seed(db, with_example_projects)

@@ -1,7 +1,5 @@
-import os
 import queue
 import sqlite3
-from contextlib import contextmanager
 
 from .db_init import maybe_create_tables_and_seed
 from .db_path import DEFAULT_DB_ALIAS, get_db_path_from_config, validate_path
@@ -32,13 +30,11 @@ class DB:
             self.cursor = None
             self.conn = None
 
-    def delete(self):
-        if os.path.exists(self.path):
-            os.remove(self.path)
-        self.disconnect()
-
     def commit(self):
         self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
 
     def execute(self, *args, **kwargs):
         self.cursor.execute(*args, **kwargs)
@@ -65,11 +61,16 @@ class DBQueue:
         self.queue = queue.Queue()
         for _ in range(n):
             self.queue.put(DB(path))
+        self.curr = None
 
-    @contextmanager
-    def get(self):
-        with CombinedContextManager(self.queue) as db:
-            yield db
+    def set_curr(self):
+        self.curr = self.queue.get()
+        print("set_curr", self.curr)
+        return self.curr
+
+    def put_back_curr(self):
+        if self.curr is not None:
+            self.queue.put(self.curr)
 
     def process_conns(self, fn_name):
         all_dbs = []
@@ -96,21 +97,6 @@ class DBQueue:
         self.process_conns("delete")
 
 
-class CombinedContextManager:
-    def __init__(self, queue):
-        self.queue = queue
-        self.db = None
-
-    def __enter__(self, *args, **kwargs):
-        self.db = self.queue.get()
-        return self.db.__enter__(*args, **kwargs)
-
-    def __exit__(self, *args, **kwargs):
-        if self.db is not None:
-            self.db.__exit__(*args, **kwargs)
-            self.queue.put(self.db)
-
-
 class DBs:
     def __init__(self):
         db_specs = get_cli_arg("db_specs")
@@ -125,11 +111,16 @@ class DBs:
                 raise ValueError(f"{name} not found in config file")
             self.dbs[name] = DBQueue(path)
 
-        for k, v in self.dbs.items():
-            with_example_projects = k == DEFAULT_DB_ALIAS and get_cli_arg(
-                "with_example_projects"
-            )
-            maybe_create_tables_and_seed(v, with_example_projects=with_example_projects)
+        self.connect()
+        with self:
+            for k, v in self.dbs.items():
+                with_example_projects = k == DEFAULT_DB_ALIAS and get_cli_arg(
+                    "with_example_projects"
+                )
+                maybe_create_tables_and_seed(
+                    v.curr, with_example_projects=with_example_projects
+                )
+        self.disconnect()
 
     # Path example:
     # --d "api_keys=/path/to/some.db"
@@ -156,7 +147,26 @@ class DBs:
         for v in self.dbs.values():
             v.disconnect()
 
-    @contextmanager
-    def get(self, name):
-        with self.dbs[name].get() as db:
-            yield db
+    def __enter__(self):
+        for v in self.dbs.values():
+            v.set_curr()
+        return self
+
+    def __exit__(self, exc_type, *_):
+        if exc_type is None:
+            # Attempt to commit both transactions if there were no exceptions
+            try:
+                for v in self.dbs.values():
+                    v.curr.commit()
+            except sqlite3.Error:
+                # If commit fails in either database, roll back both
+                for v in self.dbs.values():
+                    v.curr.rollback()
+                raise  # Optionally re-raise the commit exception
+        else:
+            # Rollback both transactions if there were errors during processing
+            for v in self.dbs.values():
+                v.curr.rollback()
+
+        for v in self.dbs.values():
+            v.put_back_curr()
