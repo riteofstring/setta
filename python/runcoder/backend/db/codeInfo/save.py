@@ -1,4 +1,5 @@
-def save_code_info(db, codeInfo):
+def save_code_info(dbs, codeInfo):
+    db = dbs.default
     query = """
         INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, isPinned, isFrozen, isSelected)
         VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :isPinned, :isFrozen, :isSelected)

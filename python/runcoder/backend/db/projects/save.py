@@ -7,20 +7,21 @@ from ..sections.save import save_sections
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
-def save_project_details(db, p):
-    save_code_info(db, merge_configs(p, "codeInfo"))
-    save_ev_cols(db, merge_configs(p, "evCols"))
-    save_ui_types(db, merge_configs(p, "uiTypes"))
-    save_ui_type_cols(db, merge_configs(p, "uiTypeCols"))
-    save_param_sweeps(db, merge_configs(p, "paramSweeps"))
-    save_sections(db, merge_configs(p, "sections"))
-    save_project(db, p)
-    save_project_configs(db, p["id"], p["configs"])
-    save_run_groups(db, merge_configs(p, "runGroups"))
-    update_default_project_config(db, p)
+def save_project_details(dbs, p):
+    save_code_info(dbs, merge_configs(p, "codeInfo"))
+    save_ev_cols(dbs, merge_configs(p, "evCols"))
+    save_ui_types(dbs, merge_configs(p, "uiTypes"))
+    save_ui_type_cols(dbs, merge_configs(p, "uiTypeCols"))
+    save_param_sweeps(dbs, merge_configs(p, "paramSweeps"))
+    save_sections(dbs, merge_configs(p, "sections"))
+    save_project(dbs, p)
+    save_project_configs(dbs, p["id"], p["configs"])
+    save_run_groups(dbs, merge_configs(p, "runGroups"))
+    update_default_project_config(dbs, p)
 
 
-def save_project(db, project):
+def save_project(dbs, project):
+    db = dbs.default
     query = """
         INSERT INTO Project (id, name)
         VALUES (:id, :name)
@@ -32,7 +33,8 @@ def save_project(db, project):
     db.execute(query, query_params)
 
 
-def save_project_configs(db, projectId, configs):
+def save_project_configs(dbs, projectId, configs):
+    db = dbs.default
     query = """
         INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom, overviewVis, uiEditorVis, overviewWidth, uiEditorWidth)
         VALUES (:id, :name, :projectId, :x, :y, :zoom, :overviewVis, :uiEditorVis, :overviewWidth, :uiEditorWidth)
@@ -98,7 +100,8 @@ def save_project_configs(db, projectId, configs):
     db.executemany(query, query_params)
 
 
-def update_default_project_config(db, p):
+def update_default_project_config(dbs, p):
+    db = dbs.default
     query = """
         UPDATE Project
         SET defaultConfigId = :defaultConfigId
@@ -109,7 +112,8 @@ def update_default_project_config(db, p):
     db.execute(query, query_params)
 
 
-def create_project(db, name):
+def create_project(dbs, name):
+    db = dbs.default
     query = """
         SELECT name
         FROM Project
@@ -173,7 +177,8 @@ def create_project(db, name):
     return out
 
 
-def save_project_name(db, curr_name, new_name):
+def save_project_name(dbs, curr_name, new_name):
+    db = dbs.default
     query = """
         UPDATE Project
         SET name = :new_name
@@ -183,7 +188,8 @@ def save_project_name(db, curr_name, new_name):
     db.execute(query, query_params)
 
 
-def save_project_config_name(db, project_id, curr_name, new_name):
+def save_project_config_name(dbs, project_id, curr_name, new_name):
+    db = dbs.default
     query = """
         UPDATE ProjectConfig
         SET name = :new_name

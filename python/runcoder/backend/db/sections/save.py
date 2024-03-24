@@ -1,4 +1,5 @@
-def save_sections(db, sections):
+def save_sections(dbs, sections):
+    db = dbs.default
     query = """
         INSERT INTO Section (
             id,
