@@ -1,10 +1,7 @@
 def save_ev_cols(dbs, ev_cols):
-    for dbSource,ev_cols_for_one_db in ev_cols.items():
+    for dbSource, ev_cols_for_one_db in ev_cols.items():
         print("save_ev_cols", dbSource, flush=True)
         save_ev_cols_to_one_db(dbs[dbSource], ev_cols_for_one_db)
-
-
-
 
 
 def save_ev_cols_to_one_db(db, ev_cols):

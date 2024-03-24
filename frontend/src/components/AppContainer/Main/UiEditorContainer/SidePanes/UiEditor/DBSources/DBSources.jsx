@@ -1,9 +1,9 @@
-import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useSectionDBSource } from "hooks/useSectionInfo";
 import { useState } from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 
 export function DBSources({ sectionId }) {
-  const dbSource = useGetSectionInfo(sectionId, "dbSource");
+  const dbSource = useSectionDBSource(sectionId);
   const [localVal, setLocalVal] = useState(dbSource ?? "");
 
   function onChange(e) {

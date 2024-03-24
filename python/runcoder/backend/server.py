@@ -35,6 +35,7 @@ from .db.sections.copy import copy_relative_positions, copy_sections_and_other_i
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
+from .db_init import maybe_create_tables_and_seed
 from .db_objs import DBs
 from .environ import get_cli_arg
 from .utils.utils import convert_to_backend_format, generate_memorable_string
@@ -51,7 +52,16 @@ app = FastAPI()
 tasks_obj = Tasks()
 cache = Cache()
 processors = Processors()
-dbs = DBs()
+dbs = DBs(
+    get_cli_arg("db_specs"),
+    get_cli_arg("create_if_not_exists"),
+)
+maybe_create_tables_and_seed(
+    dbs,
+    with_example_projects=get_cli_arg("with_example_projects"),
+    with_base_ui_types=True,
+    with_settings=True,
+)
 
 
 @app.on_event("startup")

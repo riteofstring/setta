@@ -1,14 +1,12 @@
 import queue
 import sqlite3
 
-from .db_init import maybe_create_tables_and_seed
 from .db_path import (
     DEFAULT_DB_ALIAS,
     DEFAULT_SETTINGS_DB_ALIAS,
     get_db_path_from_config,
     validate_path,
 )
-from .environ import get_cli_arg
 
 
 class DB:
@@ -66,15 +64,6 @@ class DBQueue:
         self.queue = queue.Queue()
         for _ in range(n):
             self.queue.put(DB(path))
-        self.curr = None
-
-    def set_curr(self):
-        self.curr = self.queue.get()
-        return self.curr
-
-    def put_back_curr(self):
-        if self.curr is not None:
-            self.queue.put(self.curr)
 
     def process_conns(self, fn_name):
         all_dbs = []
@@ -102,31 +91,25 @@ class DBQueue:
 
 
 class DBs:
-    def __init__(self):
-        names_to_paths = self.parse_dbs_arg(get_cli_arg("db_specs"))
+    def __init__(self, db_specs, create_if_not_exists):
+        names_to_paths = self.parse_dbs_arg(db_specs, create_if_not_exists)
         self.dbs = {}
+        self.names_to_paths = {}
         for name, path in names_to_paths:
-            self.dbs[name] = DBQueue(path)
+            if path not in self.dbs:
+                self.dbs[path] = DBQueue(path)
+            self.names_to_paths[name] = path
 
-        self.connect()
-        with self:
-            for k, v in self.dbs.items():
-                with_example_projects = k == DEFAULT_DB_ALIAS and get_cli_arg(
-                    "with_example_projects"
-                )
-                maybe_create_tables_and_seed(
-                    v.curr, with_example_projects=with_example_projects
-                )
-        self.disconnect()
+        self.curr_dbs = {}
 
     # Path example:
     # --d "api_keys=/path/to/some.db"
     # Alias example:
     # --d api_keys
-    def parse_dbs_arg(self, db_specs):
+    def parse_dbs_arg(self, db_specs, create_if_not_exists):
         output = []
         for db_spec in db_specs:
-            output.append(self.parse_one_arg(db_spec))
+            output.append(self.parse_one_arg(db_spec, create_if_not_exists))
 
         for special_key in [DEFAULT_DB_ALIAS, DEFAULT_SETTINGS_DB_ALIAS]:
             if special_key not in output:
@@ -137,7 +120,7 @@ class DBs:
 
         return output
 
-    def parse_one_arg(self, db_spec):
+    def parse_one_arg(self, db_spec, create_if_not_exists):
         # it's an alias
         if "=" not in db_spec:
             name, path = db_spec, get_db_path_from_config(db_spec)
@@ -146,7 +129,7 @@ class DBs:
             name, path = split_str[0], "".join(split_str[1:])
 
         if path:
-            validate_path(path, get_cli_arg("create_if_not_exists"))
+            validate_path(path, create_if_not_exists)
         else:
             raise ValueError(f"{name} not found in config file")
 
@@ -161,45 +144,48 @@ class DBs:
             v.disconnect()
 
     def __enter__(self):
-        for v in self.dbs.values():
-            v.set_curr()
+        for k, v in self.dbs.items():
+            self.curr_dbs[k] = v.queue.get()
         return self
 
     def __exit__(self, exc_type, *_):
         if exc_type is None:
             # Attempt to commit both transactions if there were no exceptions
             try:
-                for v in self.dbs.values():
-                    v.curr.commit()
+                for v in self.curr_dbs.values():
+                    v.commit()
             except sqlite3.Error:
                 # If commit fails in either database, roll back both
-                for v in self.dbs.values():
-                    v.curr.rollback()
+                for v in self.curr_dbs.values():
+                    v.rollback()
                 raise  # Optionally re-raise the commit exception
         else:
             # Rollback both transactions if there were errors during processing
-            for v in self.dbs.values():
-                v.curr.rollback()
+            for v in self.curr_dbs.values():
+                v.rollback()
 
-        for v in self.dbs.values():
-            v.put_back_curr()
+        for k, v in self.curr_dbs.items():
+            self.dbs[k].queue.put(v)
 
     def __getitem__(self, key):
-        return self.dbs[key].curr
+        return self.curr_dbs[self.names_to_paths[key]]
 
     def __contains__(self, key):
-        return key in self.dbs and self.dbs[key].curr
+        return key in self.names_to_paths and self.curr_dbs[self.names_to_paths[key]]
 
     def items(self):
-        return [(key, value.curr) for key, value in self.dbs.items()]
+        output = {}
+        for k, v in self.names_to_paths.items():
+            output[k] = self.curr_dbs[v]
+        return output.items()
 
     @property
     def default(self):
-        return self.dbs[DEFAULT_DB_ALIAS].curr
+        return self.curr_dbs[self.names_to_paths[DEFAULT_DB_ALIAS]]
 
     @property
     def settings(self):
-        return self.dbs[DEFAULT_SETTINGS_DB_ALIAS].curr
+        return self.curr_dbs[self.names_to_paths[DEFAULT_SETTINGS_DB_ALIAS]]
 
 
 def move_default_and_settings_to_beginning(x):

@@ -294,14 +294,11 @@ def tables_exist(db):
     return TABLE_NAMES.issubset(existing_tables)
 
 
-def seed_data_exist(db, with_example_projects):
-    to_check = ["Settings", "UIType"]
-    if with_example_projects:
-        to_check.append("Project")
-    if not all(table in TABLE_NAMES for table in to_check):
+def seed_data_exist(db, tablenames):
+    if not all(table in TABLE_NAMES for table in tablenames):
         raise ValueError("Invalid table name")
 
-    for table in to_check:
+    for table in tablenames:
         db.execute(f"SELECT COUNT(*) FROM {table};")
         count = db.fetchone()[0]
         if count == 0:
@@ -309,8 +306,27 @@ def seed_data_exist(db, with_example_projects):
     return True
 
 
-def maybe_create_tables_and_seed(db, with_example_projects=False):
-    if not tables_exist(db):
-        create_tables(db)
-    if not seed_data_exist(db, with_example_projects):
-        seed(db, with_example_projects)
+def maybe_create_tables_and_seed(
+    dbs, with_example_projects=False, with_base_ui_types=True, with_settings=True
+):
+    dbs.connect()
+    with dbs:
+        for db in dbs.values():
+            if not tables_exist(db):
+                create_tables(db)
+        do_seed_projects = with_example_projects and not seed_data_exist(
+            dbs.default, ["Project", "UIType"]
+        )
+        do_seed_base_ui_types = with_base_ui_types and not seed_data_exist(
+            dbs.default, ["UIType"]
+        )
+        do_seed_settings = with_settings and not seed_data_exist(
+            dbs.settings, ["Settings"]
+        )
+        seed(
+            dbs,
+            with_example_projects=do_seed_projects,
+            with_base_ui_types=do_seed_base_ui_types,
+            with_settings=do_seed_settings,
+        )
+    dbs.disconnect()
