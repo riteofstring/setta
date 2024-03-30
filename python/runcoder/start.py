@@ -13,7 +13,7 @@ from .backend.db_path import DEFAULT_DB_ALIAS, create_alias
 from .backend.db_path import delete_alias as _delete_alias
 from .backend.db_path import get_db_path_from_config, load_config
 from .backend.environ import set_cli_args
-from .backend.export_db import export_database
+from .backend.export_db.export_db import export_database
 from .backend.import_db import import_database
 from .cli.run import run as _run
 from .cli.web import web as _web
