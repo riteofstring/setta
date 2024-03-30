@@ -600,3 +600,14 @@
 # yaml_filepath = 'database.yaml'
 # new_database_path = 'new_database.db'
 # create_database_from_yaml(yaml_filepath, new_database_path)
+
+
+# import jedi
+
+# x = "x={'dog': 5, 'cat':3, 'zebra': 0}\nx["
+
+# print(x)
+
+# results = jedi.Script(x).complete()
+
+# print(results)

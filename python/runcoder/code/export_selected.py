@@ -129,7 +129,7 @@ class Exporter:
         for id in self.p["sections"].keys():
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
-                self.export_params(id, generate_var_name=False)
+                self.export_params(id, global_var=True)
             if section_type in [
                 GLOBAL_VARIABLES,
                 CODE,
@@ -182,34 +182,32 @@ class Exporter:
         elif type in [LIST_ROOT, DICT_ROOT, DECK]:
             return self.export_sections(self.p["sections"][id]["children"])
 
-    def export_params(self, section_id, generate_var_name=True):
+    def export_params(self, section_id, global_var=False):
         ids = get_param_ids(self.p, section_id)
-        var_names = [self.export_param(section_id, x, generate_var_name) for x in ids]
+        all_params = [self.export_param(section_id, x, global_var) for x in ids]
         params = []
         unused_params = []
-        for v in var_names:
-            if no_entered_value(self.output[v]["value"]):
-                unused_params.append(v)
+        for p in all_params:
+            if no_entered_value(p["value"]):
+                unused_params.append(p)
             else:
-                params.append(v)
+                params.append(p)
         return params, unused_params
 
-    def export_param(self, section_id, id, generate_var_name=True):
+    def export_param(self, section_id, id, global_var=False):
         value, deps = self.export_param_value(section_id, id)
-        if generate_var_name:
-            var_name = get_param_var_name(self.param_var_names)
-        else:
-            var_name = self.p["codeInfo"][id]["name"]
-        self.output[var_name] = {
+        var_name = self.p["codeInfo"][id]["name"]
+        info = {
             "paramInfoId": id,
             "sectionId": section_id,
-            "name": self.p["codeInfo"][id]["name"],
+            "name": var_name,
             "value": value,
             "deps": deps,
             "type": get_param_ui_type(self.p, section_id, id),
-            "var_name_generated": generate_var_name,
         }
-        return var_name
+        if global_var:
+            self.output[var_name] = info
+        return info
 
     def export_param_value(self, section_id, id):
         ev_col_id = self.p["sections"][section_id]["evColId"]
