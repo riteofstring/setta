@@ -22,6 +22,10 @@ const initialState: ReactFlowStore = {
   paneDragging: false,
   noPanClassName: "nopan",
   nodeDragThreshold: 0,
+
+  snapGrid: [15, 15],
+  snapToGrid: false,
+
   nodesDraggable: true,
   nodesFocusable: true,
   elementsSelectable: true,

@@ -12,7 +12,6 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { ParamUI } from "./Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
-import { useSectionDBSource } from "hooks/useSectionInfo";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -162,16 +161,15 @@ function ArgItem({
             Value
           </p>
 
-          <ShowEVCol forSectionId={forSectionId} objInfoId={objInfoId} evColId={evColId} />
+          <ShowEVCol objInfoId={objInfoId} evColId={evColId} />
         </div>
       )}
     </article>
   );
 }
 
-function ShowEVCol({ forSectionId, objInfoId, evColId }) {
-  const dbSource = useSectionDBSource(forSectionId);
-  const evCol = useParamInfos((x) => x.x[dbSource][evColId]);
+function ShowEVCol({ objInfoId, evColId }) {
+  const evCol = useParamInfos((x) => x.x[evColId]);
   const paramsWithValues = useCodeInfo((x) => {
     const output = [];
     for (const c of x.x[objInfoId].children) {

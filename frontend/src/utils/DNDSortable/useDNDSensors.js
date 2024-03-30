@@ -3,8 +3,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-} from "utils/DNDSortable/CustomCore";
-import { sortableKeyboardCoordinates } from "utils/DNDSortable/CustomSortable";
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
 export function useDNDSensors() {
   return useSensors(

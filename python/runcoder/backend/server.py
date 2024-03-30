@@ -35,9 +35,8 @@ from .db.sections.copy import copy_relative_positions, copy_sections_and_other_i
 from .db.settings.load import load_settings
 from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
-from .db_init import maybe_create_tables_and_seed
-from .db_objs import DBs
-from .environ import get_cli_arg
+from .db_path import use_db
+from .schema import dbq
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
@@ -52,21 +51,14 @@ app = FastAPI()
 tasks_obj = Tasks()
 cache = Cache()
 processors = Processors()
-dbs = DBs(
-    get_cli_arg("db_specs"),
-    get_cli_arg("create_if_not_exists"),
-)
-maybe_create_tables_and_seed(
-    dbs,
-    with_example_projects=get_cli_arg("with_example_projects"),
-    with_base_ui_types=True,
-    with_settings=True,
-)
 
 
 @app.on_event("startup")
 async def startup_event():
-    dbs.connect()
+    db_alias = os.environ.get("RUNCODER_DB_ALIAS")
+    if db_alias:
+        use_db(db_alias)
+    dbq.connect()
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
         dist_path = Path(__file__).resolve().parent / ".." / "frontend"
@@ -86,7 +78,7 @@ async def startup_event():
             return content
 
     startMyPyDaemon()
-    i_path = get_cli_arg("i_path")
+    i_path = os.environ.get("RUNCODER_I_PATH")
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
         processors.add_fn(i_args["project"], i_args["fn"])
@@ -159,7 +151,6 @@ class SaveCodeInfoRequest(BaseModel):
 
 class SectionsMakeCopyRequest(BaseModel):
     sectionsAndOtherInfo: dict
-
 
 class DeleteTerminalsRequest(BaseModel):
     ids: List[str]
@@ -277,58 +268,58 @@ async def terminal_websocket_endpoint(
 
 @app.post("/projects")
 def route_projects(x: ProjectRequest):
-    with dbs:
-        return load_all_projects(dbs, x.format, x.projectId)
+    with dbq.get() as db:
+        return load_all_projects(db, x.format, x.projectId)
 
 
 @app.post("/projects/load/{projectName}/{configName}")
 def route_load_project(projectName, configName):
-    with dbs:
-        return load_project(dbs, projectName, configName)
+    with dbq.get() as db:
+        return load_project(db, projectName, configName)
 
 
 @app.post("/projects/load/{projectName}")
 def route_load_full_project(projectName, body: LoadFullProjectRequest):
     print("PTY_PIDS", terminal_websockets.PTY_PIDS, flush=True)
-    with dbs:
-        return load_full_project(dbs, projectName, body.withBaseUITypes)
+    with dbq.get() as db:
+        return load_full_project(db, projectName, body.withBaseUITypes)
 
 
 @app.post("/projects/save")
 def route_save_project(x: ProjectSaveRequest):
     formatted = convert_to_backend_format(x.project)
-    with dbs:
-        save_project_details(dbs, formatted)
+    with dbq.get() as db:
+        save_project_details(db, formatted)
 
 
 @app.post("/projects/createProject")
 def route_create_project(x: CreateProjectRequest):
-    with dbs:
-        return create_project(dbs, x.name)
+    with dbq.get() as db:
+        return create_project(db, x.name)
 
 
 @app.post("/projects/saveAsNewProjectConfig")
 def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
-    with dbs:
-        return save_as_new_project_config(dbs, x.project, x.newConfigName)
+    with dbq.get() as db:
+        return save_as_new_project_config(db, x.project, x.newConfigName)
 
 
 @app.post("/projects/saveAsExistingProjectConfig")
 def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
-    with dbs:
-        return save_as_existing_project_config(dbs, x.project, x.configName)
+    with dbq.get() as db:
+        return save_as_existing_project_config(db, x.project, x.configName)
 
 
 @app.post("/projects/deleteProjects")
 def route_delete_projects(x: DeleteProjectsRequest):
-    with dbs:
-        return delete_projects(dbs, x.ids)
+    with dbq.get() as db:
+        return delete_projects(db, x.ids)
 
 
 @app.post("/uiTypes/getBaseUITypes")
 def route_get_base_uitypes():
-    with dbs:
-        return load_base_uitypes(dbs)
+    with dbq.get() as db:
+        return load_base_uitypes(db)
 
 
 @app.post("/codeInfo/getCollectionsAndModules")
@@ -338,8 +329,8 @@ def route_get_collections_and_modules():
 
 @app.post("/codeInfo/save")
 def route_save_code_info(x: SaveCodeInfoRequest):
-    with dbs:
-        save_code_info(dbs, x.codeInfo)
+    with dbq.get() as db:
+        save_code_info(db, x.codeInfo)
 
 
 @app.post("/codeInfo/getCollectionDetails")
@@ -359,28 +350,28 @@ def route_get_code():
 
 @app.post("/projects/setProjectName")
 def route_set_project_name(x: SetProjectNameRequest):
-    with dbs:
-        save_project_name(dbs, x.currProjectName, x.newProjectName)
+    with dbq.get() as db:
+        save_project_name(db, x.currProjectName, x.newProjectName)
 
 
 @app.post("/projects/setProjectConfigName")
 def route_set_project_config_name(x: SetProjectConfigNameRequest):
-    with dbs:
+    with dbq.get() as db:
         save_project_config_name(
-            dbs, x.projectId, x.currProjectConfigName, x.newProjectConfigName
+            db, x.projectId, x.currProjectConfigName, x.newProjectConfigName
         )
 
 
 @app.post("/settings")
 def route_load_settings():
-    with dbs:
-        return load_settings(dbs)
+    with dbq.get() as db:
+        return load_settings(db)
 
 
 @app.post("/settings/setDarkMode")
 def route_set_dark_mode(x: SetDarkModeRequest):
-    with dbs:
-        save_dark_mode(dbs, x.darkMode)
+    with dbq.get() as db:
+        save_dark_mode(db, x.darkMode)
 
 
 @app.post("/logging")
@@ -409,5 +400,5 @@ def route_terminal_get_free_terminal(projectConfigId):
 
 
 @app.post("/terminal/deleteTerminals")
-def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
+def route_terminal_get_free_terminal(x: DeleteTerminalsRequest):
     terminal_websockets.delete_terminals(x.ids)

@@ -1,9 +1,4 @@
-def save_ev_cols(dbs, ev_cols):
-    for dbSource, ev_cols_for_one_db in ev_cols.items():
-        save_ev_cols_to_one_db(dbs[dbSource], ev_cols_for_one_db)
-
-
-def save_ev_cols_to_one_db(db, ev_cols):
+def save_ev_cols(db, ev_cols):
     query = """
         INSERT INTO EVColId (id, name)
         VALUES (:id, :name)

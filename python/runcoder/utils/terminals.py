@@ -16,8 +16,12 @@ from runcoder.code.find_placeholders import (
     needs_python_argparse,
     needs_yaml,
 )
-from runcoder.code.generate_argparse import generate_argparse
-from runcoder.code.generate_code import generate_code, replace_keywords
+from runcoder.code.generate_code import (
+    generate_argparse,
+    generate_code,
+    replace_keywords,
+)
+from runcoder.code.generate_yaml import generate_yaml
 from runcoder.utils.constants import CODE
 
 if platform.system() == "Windows":
@@ -183,7 +187,7 @@ def runCode(message, terminal_write_fn):
         for sid in run_order:
             curr_section = code_sections[sid]
             bash_script += codeCallStr(folder_path, curr_section)
-        filepath = write_string_to_file(folder_path, "RUNCODER_ENTRY.sh", bash_script)
+        filepath = write_string_to_file(folder_path, f"RUNCODER_ENTRY.sh", bash_script)
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         terminal_write_fn(f"\x15bash {filepath}\n")
     else:

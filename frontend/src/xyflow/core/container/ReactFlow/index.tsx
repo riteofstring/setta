@@ -27,6 +27,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       panActivationKeyCode = "Space",
       multiSelectionKeyCode = isMacOs() ? "Meta" : "Control",
       zoomActivationKeyCode = isMacOs() ? "Meta" : "Control",
+      snapToGrid = false,
+      snapGrid = initSnapGrid,
       selectNodesOnDrag = true,
       nodesDraggable,
       nodesFocusable,
@@ -96,6 +98,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           elementsSelectable={elementsSelectable}
           minZoom={minZoom}
           maxZoom={maxZoom}
+          snapToGrid={snapToGrid}
+          snapGrid={snapGrid}
           translateExtent={translateExtent}
           fitView={fitView}
           fitViewOptions={fitViewOptions}

@@ -10,7 +10,6 @@ import { TERMINAL } from "z_utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
-import { getSectionDBSource } from "./sections/getters";
 
 export function getProjectDataToGenerateCode() {
   const project = getProjectData();
@@ -133,9 +132,7 @@ function* getProjectVariants(project) {
         const forSectionId = Object.values(project.sections).find((x) =>
           x.paramSweepIds.includes(paramSweepId),
         ).id;
-        const { evColId } = project.sections[forSectionId];
-        const dbSource = getSectionDBSource(forSectionId);
-        const evCol = variant.evCols[dbSource][evColId];
+        const evCol = variant.evCols[project.sections[forSectionId].evColId];
         evCol.values[paramInfoId] = value;
       }
       yield variant;

@@ -187,9 +187,7 @@ const Pane = memo(
         onClick(event);
       }
 
-      useReactFlow
-        .getState()
-        .setNodesSelection(prevSelectedNodesCount.current, true);
+      useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
       resetUserSelection();
     };
 

@@ -57,35 +57,33 @@
         }
       },
       "evCols": {
-        "default": {
-          "93db7817-3553-49d8-986b-0600d6a64cc0": {
-            "name": "blue_hippo",
-            "values": {
-              "78a78722-ed02-4f6a-8f51-6166c70832be": "Model.parameters()",
-              "10eefa5e-ac71-4de9-852c-af9f7d7e3463": "",
-              "2c5d27d6-dfee-4a38-a082-1141925ec3f1": "",
-              "7755c806-a1d5-4f17-a5a4-5f015ed74c0e": "",
-              "85b1bd26-f0fb-4381-a133-016375ee7be5": "",
-              "7f665711-86a0-4972-8137-06d5bc4baedb": "",
-              "e94d1330-1f66-4521-a76d-050f71e008a5": "",
-              "c22d8d77-455b-41af-b987-a8cfd833a021": "",
-              "0e6e32cb-56df-4f4c-98da-f8358b69f42a": "",
-              "58f4f580-0213-4ead-be4e-496a377e091e": "",
-              "f6a0fc62-18e0-4407-ad78-067996f0238c": ""
-            }
-          },
-          "118d0bd8-993b-41a1-bae3-a8b33bc565cc": {
-            "name": "golden_retriever",
-            "values": {
-              "fafa64ae-21c7-439f-8a29-a13b68992264": "",
-              "4317590f-3d0e-4c0b-9565-0e8add9f0606": "",
-              "46ee55a9-507a-4b34-9c2e-bced246c78bc": "",
-              "77d53ed7-de25-4b5e-bfd9-f0a02d811ddd": "",
-              "0aa49699-dfc1-4438-a030-c86a225d0079": "",
-              "ff2cbde5-0679-4dca-abb6-ba324e9dced3": "",
-              "d6a4f9fd-b723-495b-b06b-bc4c1c0c499f": "",
-              "82b91fe9-5fae-43d5-a976-4dae73c304b0": ""
-            }
+        "93db7817-3553-49d8-986b-0600d6a64cc0": {
+          "name": "blue_hippo",
+          "values": {
+            "78a78722-ed02-4f6a-8f51-6166c70832be": "Model.parameters()",
+            "10eefa5e-ac71-4de9-852c-af9f7d7e3463": "",
+            "2c5d27d6-dfee-4a38-a082-1141925ec3f1": "",
+            "7755c806-a1d5-4f17-a5a4-5f015ed74c0e": "",
+            "85b1bd26-f0fb-4381-a133-016375ee7be5": "",
+            "7f665711-86a0-4972-8137-06d5bc4baedb": "",
+            "e94d1330-1f66-4521-a76d-050f71e008a5": "",
+            "c22d8d77-455b-41af-b987-a8cfd833a021": "",
+            "0e6e32cb-56df-4f4c-98da-f8358b69f42a": "",
+            "58f4f580-0213-4ead-be4e-496a377e091e": "",
+            "f6a0fc62-18e0-4407-ad78-067996f0238c": ""
+          }
+        },
+        "118d0bd8-993b-41a1-bae3-a8b33bc565cc": {
+          "name": "golden_retriever",
+          "values": {
+            "fafa64ae-21c7-439f-8a29-a13b68992264": "",
+            "4317590f-3d0e-4c0b-9565-0e8add9f0606": "",
+            "46ee55a9-507a-4b34-9c2e-bced246c78bc": "",
+            "77d53ed7-de25-4b5e-bfd9-f0a02d811ddd": "",
+            "0aa49699-dfc1-4438-a030-c86a225d0079": "",
+            "ff2cbde5-0679-4dca-abb6-ba324e9dced3": "",
+            "d6a4f9fd-b723-495b-b06b-bc4c1c0c499f": "",
+            "82b91fe9-5fae-43d5-a976-4dae73c304b0": ""
           }
         }
       },

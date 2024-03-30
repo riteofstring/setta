@@ -62,13 +62,13 @@ function getIntersectionRatio(entry, target) {
   const height = bottom - top;
 
   if (left < right && top < bottom) {
-    // const targetArea = target.width * target.height;
-    // const entryArea = entry.width * entry.height;
+    const targetArea = target.width * target.height;
+    const entryArea = entry.width * entry.height;
     const intersectionArea = width * height;
-    // const intersectionRatio =
-    // intersectionArea / (targetArea + entryArea - intersectionArea);
+    const intersectionRatio =
+      intersectionArea / (targetArea + entryArea - intersectionArea);
 
-    return Number(intersectionArea.toFixed(4));
+    return Number(intersectionRatio.toFixed(4));
   }
 
   // Rectangles do not overlap, or overlap has an area of zero (edge/corner overlap)
@@ -83,19 +83,21 @@ export const customCollisionDetection = ({
 }) => {
   let bestCollision = null;
   const left = collisionRect.left;
+  const centerY = collisionRect.top + collisionRect.height / 2;
 
   for (const droppableContainer of droppableContainers) {
     const { id } = droppableContainer;
     const rect = droppableRects.get(id);
 
-    // rect must exist.
-    // If active doesn't have a parent, then don't look for overlap with self.
+    // if not in list, then ignore self
+    // if in list, keep self (makes sorting experience better)
     if (
       rect &&
       (active.data.current.sortable?.containerId || active.id !== id)
     ) {
       const ratio = getIntersectionRatio(rect, collisionRect);
       if (ratio) {
+        const currCenterY = rect.top + rect.height / 2;
         const dist = left - rect.left;
         bestCollision = compareCollisions(bestCollision, {
           id,
@@ -104,6 +106,7 @@ export const customCollisionDetection = ({
             absLeftDist: Math.abs(dist),
             leftDist: dist,
             intersectionRatio: ratio,
+            centerYDist: centerY - currCenterY,
           },
         });
       }

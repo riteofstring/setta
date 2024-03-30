@@ -4,7 +4,6 @@ import { useRequiredUIEditorTabs } from "hooks/useUITypes";
 import { useActiveSection } from "models/activeSection";
 import { usePanes } from "models/panes";
 import {
-  DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   tabNameToPretty,
@@ -13,7 +12,6 @@ import {
 } from "models/uiEditor";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
-import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { UIConfig } from "./UIConfig/UIConfig";
@@ -127,14 +125,6 @@ function InfoTab({ sectionId }) {
   );
 }
 
-function DBSourcesTab({ sectionId }) {
-  return (
-    <TabContent value={DB_SOURCES_TAB}>
-      <DBSources sectionId={sectionId} />
-    </TabContent>
-  );
-}
-
 // function RuntimeTab({ sectionId }) {
 //   return (
 //     <TabContent value={RUNTIME_CONFIG_TAB}>
@@ -150,8 +140,6 @@ function TabContentSelector({ sectionId, tabName }) {
     return <UIConfigTab sectionId={sectionId} />;
   } else if (tabName === INFO_CONFIG_TAB) {
     return <InfoTab sectionId={sectionId} />;
-  } else if (tabName === DB_SOURCES_TAB) {
-    return <DBSourcesTab sectionId={sectionId} />;
   }
   // else if (tabName === RUNTIME_CONFIG_TAB) {
   //   return <RuntimeTab sectionId={sectionId} />;

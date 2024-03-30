@@ -1,5 +1,4 @@
-def save_param_sweeps(dbs, param_sweeps):
-    db = dbs.default
+def save_param_sweeps(db, param_sweeps):
     query = """
         INSERT INTO ParamSweepId (id, name)
         VALUES (:id, :name)

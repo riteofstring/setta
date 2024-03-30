@@ -1,6 +1,4 @@
-def load_settings(dbs):
-    db = dbs.settings
-
+def load_settings(db):
     query = """
         SELECT *
         FROM Settings

@@ -6,9 +6,7 @@ from ..paramSweeps.load import load_param_sweeps
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
-def load_sections(dbs, ids):
-    db = dbs.default
-
+def load_sections(db, ids):
     query = """
         WITH RECURSIVE DESCENDANTS AS (
             SELECT parentId, childId, "order"
@@ -101,14 +99,10 @@ def load_sections(dbs, ids):
             if v["paramSweepIds"]
             else [],
         }
-
-    evColIds = list(
-        itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])
+    evCols = load_evcols(
+        db,
+        list(itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])),
     )
-    evCols = {}
-    for k, dbq in dbs.items():
-        evCols[k] = load_evcols(dbq, evColIds)
-
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
         db,
@@ -139,15 +133,3 @@ def load_sections(dbs, ids):
 
 def convert_size(x):
     return "auto" if x == -1 else x
-
-
-# # maps db source to list of sections
-# def get_sections_by_db_source(dbs, sections):
-#     output = defaultdict(list)
-#     for v in sections.values():
-#         dbSource = v["dbSource"]
-#         if not dbSource:
-#             output[DEFAULT_DB_ALIAS].append(v)
-#         else:
-#             output[dbSource].append(v)
-#     return output

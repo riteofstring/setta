@@ -1,19 +1,4 @@
-def save_code_info(dbs, codeInfo, ev_cols):
-    already_saved = set()
-    for dbSource, ev_cols_for_one_db in ev_cols.items():
-        codeInfoIds = set().union(*[x["values"] for x in ev_cols_for_one_db.values()])
-        save_code_info_to_one_db(
-            dbs[dbSource],
-            {k: v for k, v in codeInfo.items() if k in codeInfoIds},
-        )
-        already_saved = already_saved.union(codeInfoIds)
-
-    save_code_info_to_one_db(
-        dbs.default, {k: v for k, v in codeInfo.items() if k not in already_saved}
-    )
-
-
-def save_code_info_to_one_db(db, codeInfo):
+def save_code_info(db, codeInfo):
     query = """
         INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, isPinned, isFrozen, isSelected)
         VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :isPinned, :isFrozen, :isSelected)
