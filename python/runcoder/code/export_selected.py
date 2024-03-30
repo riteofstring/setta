@@ -116,12 +116,10 @@ class Exporter:
         self.p = copy.deepcopy(p)
         self.param_var_names = set()
         self.top_level_section_names = set()
-        self._top_level_section_names = set()
         self.section_name_to_id = {}
 
     def export(self):
-        self.top_level_section_names = get_top_level_section_names(self.p, False)
-        self._top_level_section_names = get_top_level_section_names(self.p, True)
+        self.top_level_section_names = get_top_level_section_names(self.p)
         self.section_name_to_id = get_section_name_to_id(self.p)
         self.export_global_variables_and_remove_script()
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
@@ -149,16 +147,8 @@ class Exporter:
     def export_sections(self, ids):
         return [self.export_section(x) for x in ids]
 
-    def export_section(self, id, args_only=False):
+    def export_section(self, id):
         var_name = self.p["sections"][id]["name"]
-        args_var_name = f"{ARGS_PREFIX}{var_name}"
-        if args_var_name not in self.output:
-            self.output[args_var_name] = {
-                "sectionId": id,
-                "name": args_var_name,
-                "value": self.export_section_args_value(id),
-                "type": get_section_type(self.p, id),
-            }
         if var_name not in self.output:
             self.output[var_name] = {
                 "sectionId": id,
@@ -168,23 +158,14 @@ class Exporter:
             }
         return var_name
 
-    def export_section_args_value(self, id):
+    def export_section_value(self, id):
         type = get_section_type(self.p, id)
         if type == SECTION:
             params, unused_params = self.export_params(id)
             return {
+                "callable": get_selected_item(self.p, id),
                 "params": params,
                 "unusedParams": unused_params,
-            }
-        elif type in [LIST_ROOT, DICT_ROOT, DECK]:
-            return self.export_sections(self.p["sections"][id]["children"])
-
-
-    def export_section_value(self, id):
-        type = get_section_type(self.p, id)
-        if type == SECTION:
-            return {
-                "callable": get_selected_item(self.p, id),
             }
         # elif type == FN:
         #     chained_from_var_name = self.export_section(
