@@ -29,14 +29,6 @@ def export_readable(dbs, filename, data):
     for project in full_projects:
         export_project(root_folder, project)
 
-    # for k,v in data.items():
-    #     if k == "Settings":
-    #         export_settings_table(root_folder, v)
-    #     elif k == "Project":
-    #         export_projects(root_folder, v)
-    #     elif k == "ProjectConfig":
-    #         print(v)
-
 
 def export_settings_table(folder, settings_table):
     sub_folder = Path(folder) / "settings"
@@ -80,6 +72,9 @@ def export_section(folder, config, section):
             config["evCols"][DEFAULT_DB_ALIAS][evColId],
         )
 
+    if section["code"]:
+        export_code(section_folder, section["code"], section["codeLanguage"])
+
     for c in section["children"]:
         export_section(section_folder, config, config["sections"][c])
 
@@ -103,3 +98,10 @@ def get_parameter_parent(id, codeInfo):
         if id in c["children"] and c["rcType"] == CALLABLE:
             return c
     return None
+
+
+def export_code(folder, code, codeLanguage):
+    filename = folder / "code"
+    extension = {"javascript": "js", "python": "py", "bash": "sh"}[codeLanguage]
+    with open(f"{filename}.{extension}", "w") as file:
+        file.write(code)

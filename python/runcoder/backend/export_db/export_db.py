@@ -30,7 +30,7 @@ def _export_database(dbs, filename):
     """Export the entire database to JSON and YAML, including schema."""
     schema = fetch_schema(dbs.default)
     data = fetch_all_data(dbs.default)
-    # export_raw(filename, data, schema)
+    export_raw(filename, data, schema)
     export_readable(dbs, filename, data)
 
 
