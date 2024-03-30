@@ -1,7 +1,15 @@
-import sqlite3
 import json
-import yaml
 import os
+import sqlite3
+
+import yaml
+
+
+def fetch_column_defaults(cursor, table_name):
+    """Fetch the default values for all columns in a table."""
+    cursor.execute(f"PRAGMA table_info('{table_name}')")
+    return {row[1]: row[4] for row in cursor.fetchall() if row[4] is not None}
+
 
 def fetch_schema(cursor):
     """Fetch the schema of all tables in the database."""
@@ -9,39 +17,60 @@ def fetch_schema(cursor):
     schema = {}
     for type, name, sql in cursor.fetchall():
         if name not in schema:
-            schema[name] = {'type': type, 'sql': sql}
+            schema[name] = {"type": type, "sql": sql}
     return schema
+
+
+def fetch_table_data_with_defaults(cursor, table_name):
+    """Fetch data from a table, omitting columns with default values."""
+    column_defaults = fetch_column_defaults(cursor, table_name)
+    cursor.execute(f"SELECT * FROM {table_name}")
+    columns = [description[0] for description in cursor.description]
+    rows = cursor.fetchall()
+
+    filtered_rows = []
+    for row in rows:
+        filtered_row = {}
+        for index, value in enumerate(row):
+            col = columns[index]
+            default_value = column_defaults.get(col)
+            # Handle default value comparison, considering SQL to Python conversion as necessary
+            if value == default_value:
+                continue
+            filtered_row[col] = value
+        filtered_rows.append(filtered_row)
+    return filtered_rows
+
 
 def fetch_all_data(cursor):
     """Fetch all data from the database."""
     data = {}
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    for table_name, in cursor.fetchall():
-        cursor.execute(f"SELECT * FROM {table_name}")
-        columns = [description[0] for description in cursor.description]
-        data[table_name] = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    for (table_name,) in cursor.fetchall():
+        data[table_name] = fetch_table_data_with_defaults(cursor, table_name)
     return data
+
 
 def _export_database(cursor, filename):
     """Export the entire database to JSON and YAML, including schema."""
     schema = fetch_schema(cursor)
     data = fetch_all_data(cursor)
-    
+
     # Combined schema and data for JSON export
-    database_export = {'schema': schema, 'data': data}
+    database_export = {"schema": schema, "data": data}
     # with open(f"{filename}_export.json", 'w') as file:
     #     json.dump(database_export, file, indent=4)
 
     # Customize the YAML dump to use literal style for SQL
     def literal_presenter(dumper, data):
-        if '\n' in data:
-            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
-    
+        if "\n" in data:
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
     yaml.add_representer(str, literal_presenter)
-    
+
     # For YAML export, PyYAML is used; ensure it's installed
-    with open(f"{filename}_export.yaml", 'w') as file:
+    with open(f"{filename}_export.yaml", "w") as file:
         yaml.dump(database_export, file, allow_unicode=True)
 
 

@@ -7,8 +7,10 @@ def save_code_info(dbs, codeInfo, ev_cols):
             {k: v for k, v in codeInfo.items() if k in codeInfoIds},
         )
         already_saved = already_saved.union(codeInfoIds)
-    
-    save_code_info_to_one_db(dbs.default, {k: v for k, v in codeInfo.items() if k not in already_saved})
+
+    save_code_info_to_one_db(
+        dbs.default, {k: v for k, v in codeInfo.items() if k not in already_saved}
+    )
 
 
 def save_code_info_to_one_db(db, codeInfo):
