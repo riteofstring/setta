@@ -51,6 +51,10 @@ class DB:
     def fetchone(self, *args, **kwargs):
         return self.cursor.fetchone(*args, **kwargs)
 
+    @property
+    def description(self):
+        return self.cursor.description
+
     def __enter__(self, *args, **kwargs):
         self.conn.__enter__(*args, **kwargs)
         return self
@@ -202,3 +206,7 @@ def move_default_and_settings_to_beginning(x):
             return 2
 
     return sorted(x, key=custom_sort_key)
+
+
+def create_dbs_with_input_as_default(path, create_if_not_exists):
+    return DBs([f"default={path}", f"settings={path}"], create_if_not_exists)

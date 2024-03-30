@@ -8,7 +8,7 @@ import uvicorn
 
 from . import __version__
 from .backend.db_init import maybe_create_tables_and_seed
-from .backend.db_objs import DBs
+from .backend.db_objs import create_dbs_with_input_as_default
 from .backend.db_path import DEFAULT_DB_ALIAS, create_alias
 from .backend.db_path import delete_alias as _delete_alias
 from .backend.db_path import get_db_path_from_config, load_config
@@ -44,7 +44,7 @@ def version():
 )
 @click.option("--with_example_projects", is_flag=True)
 def init_db(path, with_example_projects):
-    dbs = DBs([f"default={path}", f"settings={path}"], True)
+    dbs = create_dbs_with_input_as_default(path, True)
     maybe_create_tables_and_seed(dbs, with_example_projects)
 
 

@@ -1,5 +1,6 @@
 import os
-import sqlite3
+
+from ..db_objs import create_dbs_with_input_as_default
 from .export_raw import export_raw
 from .export_readable import export_readable
 
@@ -25,24 +26,19 @@ def fetch_all_data(cursor):
     return data
 
 
-def _export_database(cursor, filename):
+def _export_database(dbs, filename):
     """Export the entire database to JSON and YAML, including schema."""
-    schema = fetch_schema(cursor)
-    data = fetch_all_data(cursor)
-    # export_raw(filename, data, schema)
-    export_readable(filename, data)
+    schema = fetch_schema(dbs.default)
+    data = fetch_all_data(dbs.default)
+    export_raw(filename, data, schema)
+    # export_readable(cursor, filename, data)
 
 
 def export_database(path):
-    if os.path.exists(path):
-        # Connect to the SQLite database
-        conn = sqlite3.connect(path)
-        cursor = conn.cursor()
-
+    # Connect to the SQLite database
+    dbs = create_dbs_with_input_as_default(path, False)
+    dbs.connect()
+    with dbs:
         # Export the database, including schema and data, to JSON and YAML
-        _export_database(cursor, os.path.splitext(os.path.basename(path))[0])
-
-        # Close the database connection
-        conn.close()
-    else:
-        raise FileNotFoundError
+        _export_database(dbs, os.path.splitext(os.path.basename(path))[0])
+    dbs.disconnect()
