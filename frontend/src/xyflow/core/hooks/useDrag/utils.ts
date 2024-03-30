@@ -26,11 +26,13 @@ export function getDragItems(
   mousePos: XYPosition,
   nodeId?: string,
 ): NodeDragItem[] {
-  const activeSections = useActiveSection.getState().ids;
+  const { ids: activeSections } = useActiveSection.getState();
+  const draggedNodeIsActive = activeSections.includes(nodeId);
   return Array.from(nodeInternals.values())
     .filter(
       (n) =>
-        (n.id === nodeId || activeSections.includes(n.id)) &&
+        ((draggedNodeIsActive && activeSections.includes(n.id)) ||
+          (!draggedNodeIsActive && n.id === nodeId)) &&
         (n.draggable || (nodesDraggable && typeof n.draggable === "undefined")),
     )
     .map((n) => ({
