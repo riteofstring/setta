@@ -106,12 +106,8 @@ def load_sections(dbs, ids):
         itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])
     )
     evCols = {}
-    # TODO: order of loading matters here
     for k, dbq in dbs.items():
-        print("loading values from", k, flush=True)
         evCols[k] = load_evcols(dbq, evColIds)
-
-    print(evCols, flush=True)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
