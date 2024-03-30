@@ -1,22 +1,26 @@
 import os
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 import yaml
+from yaml.representer import Representer
 
 from runcoder.backend.db.projects.load import load_full_project
 from runcoder.backend.db_path import DEFAULT_DB_ALIAS
+from runcoder.utils.constants import CALLABLE
 
-from pprint import pprint
 
 def export_readable(dbs, filename, data):
+    # export defaultdict the same way as dict
+    yaml.add_representer(defaultdict, Representer.represent_dict)
+
     all_used_data = defaultdict(dict)
     full_projects = []
     for p in data["Project"]:
         full_project = load_full_project(dbs, p["name"], with_base_uitypes=False)
         full_projects.append(full_project)
         for c in full_project["configs"]:
-            for k,v in c.items():
+            for k, v in c.items():
                 all_used_data[k].update(v)
 
     root_folder = f"{filename}_export"
@@ -24,7 +28,6 @@ def export_readable(dbs, filename, data):
 
     for project in full_projects:
         export_project(root_folder, project)
-
 
     # for k,v in data.items():
     #     if k == "Settings":
@@ -51,35 +54,52 @@ def export_project(folder, project):
     for config in project["configs"]:
         export_config(project_folder, config)
 
+
 def export_config(folder, config):
     config_folder = folder / config["projectConfig"]["name"]
     os.makedirs(config_folder, exist_ok=True)
-    for k,v in config.items():
+    for k, v in config.items():
         if k == "sections":
             export_sections(config_folder, config, v)
- 
+
+
 def export_sections(folder, config, sections):
-    for k,v in sections.items():
+    for k, v in sections.items():
         if k in config["projectConfig"]["children"].keys():
             export_section(folder, config, v)
+
 
 def export_section(folder, config, section):
     section_folder = folder / section["name"]
     os.makedirs(section_folder, exist_ok=True)
     for evColId in section["evColIds"]:
-        export_evCol(section_folder, config, config["evCols"][DEFAULT_DB_ALIAS][evColId])
+        export_evCol(
+            section_folder,
+            config,
+            section["selectedItem"],
+            config["evCols"][DEFAULT_DB_ALIAS][evColId],
+        )
 
     for c in section["children"]:
         export_section(section_folder, config, config["sections"][c])
-        
 
 
-def export_evCol(folder, config, evCol):
+def export_evCol(folder, config, selectedItem, evCol):
     filename = folder / evCol["name"]
     codeInfo = config["codeInfo"]
-    output = {}
+    output = defaultdict(dict)
     for codeInfoId, value in evCol["values"].items():
-        output[codeInfo[codeInfoId]["name"]] = value
+        parent = get_parameter_parent(codeInfoId, codeInfo)
+        parentName = parent["name"] if parent else None
+        output[parentName][codeInfo[codeInfoId]["name"]] = value
 
-    with open(f"{filename}.yaml", "w") as file:
-        yaml.dump(output, file, allow_unicode=True)
+    if output:
+        with open(f"{filename}.yaml", "w") as file:
+            yaml.dump(output, file, allow_unicode=True)
+
+
+def get_parameter_parent(id, codeInfo):
+    for c in codeInfo.values():
+        if id in c["children"] and c["rcType"] == CALLABLE:
+            return c
+    return None
