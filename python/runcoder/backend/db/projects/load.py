@@ -137,7 +137,6 @@ def load_project(dbs, project_name, config_name):
     evCols = sections_data["evCols"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
-    missing_dbs = sections_data["missing_dbs"]
     baseUITypes = load_base_uitypes(dbs)
     uiTypes = {**baseUITypes, **sections_data["nonPresetUITypes"]}
     codeInfo = load_code_info_for_sections(dbs, uiTypes)
@@ -152,7 +151,6 @@ def load_project(dbs, project_name, config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
-        "missing_dbs": missing_dbs,
         "userCodeInfoMaps": {},
         "projectConfigCodeInfoMaps": {},
         "outputGroups": {},
