@@ -28,15 +28,24 @@ def fetch_table_data_with_defaults(cursor, table_name):
     columns = [description[0] for description in cursor.description]
     rows = cursor.fetchall()
 
+    # Filter out columns with their default value
     filtered_rows = []
     for row in rows:
         filtered_row = {}
-        for index, value in enumerate(row):
-            col = columns[index]
+        for col, value in zip(columns, row):
             default_value = column_defaults.get(col)
-            # Handle default value comparison, considering SQL to Python conversion as necessary
+            # Convert SQL default value to Python type for comparison
+            if default_value is not None:
+                try:
+                    # Attempt to evaluate the default value if it's not 'NULL'
+                    default_value = (
+                        eval(default_value) if default_value.lower() != "null" else None
+                    )
+                except NameError:
+                    # Handle unquoted strings (e.g., CURRENT_TIMESTAMP)
+                    pass
             if value == default_value:
-                continue
+                continue  # Skip this column
             filtered_row[col] = value
         filtered_rows.append(filtered_row)
     return filtered_rows
