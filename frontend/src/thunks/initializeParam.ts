@@ -23,6 +23,7 @@ export function initializeChildParams({
   childFinder: any;
   inputParamIdToUITypeId: any;
 }) {
+  console.log("initializeChildParams");
   const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
     initializeParam(s, params, inputParamIdToUITypeId);
@@ -49,7 +50,8 @@ function initializeParamEnteredValue(
   paramIdToUITypeId: { [id: string]: string },
 ) {
   const { evColId } = getSectionInfo(sectionId);
-  const evCol = useParamInfos.getState().x[evColId];
+  const dbSource = getSectionDBSource(sectionId);
+  const evCol = useParamInfos.getState().x[dbSource][evColId];
   const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
 
   const uiTypeState = useUITypes.getState();

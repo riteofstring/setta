@@ -10,9 +10,9 @@ export function useGetParamEnteredValue(
   const evColId = useGetSectionInfo(sectionId, "evColId");
   const previewEVColId = useGetSectionInfo(sectionId, "previewEVColId");
 
-  console.log("dbSource", dbSource);
-  console.log("evColId", evColId);
-  console.log("previewEVColId", previewEVColId);
+  // console.log("dbSource", dbSource);
+  // console.log("evColId", evColId);
+  // console.log("previewEVColId", previewEVColId);
 
   return useParamInfos((x) => {
     if (dbSource in x.x) {

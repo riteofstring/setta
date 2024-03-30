@@ -1,7 +1,4 @@
 import itertools
-from collections import defaultdict
-
-from runcoder.backend.db_path import DEFAULT_DB_ALIAS
 
 from ...utils.utils import get_children_recursively
 from ..enteredValues.load import load_evcols
@@ -105,18 +102,14 @@ def load_sections(dbs, ids):
             else [],
         }
 
-    sections_by_db_source = get_sections_by_db_source(dbs, sections)
+    evColIds = list(
+        itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])
+    )
     evCols = {}
     # TODO: order of loading matters here
     for k, dbq in dbs.items():
-        curr_sections = sections_by_db_source[k]
-        if len(curr_sections) == 0:
-            continue
         print("loading values from", k, flush=True)
-        evCols[k] = load_evcols(
-            dbq,
-            list(itertools.chain.from_iterable([s["evColIds"] for s in curr_sections])),
-        )
+        evCols[k] = load_evcols(dbq, evColIds)
 
     print(evCols, flush=True)
 
@@ -152,13 +145,13 @@ def convert_size(x):
     return "auto" if x == -1 else x
 
 
-# maps db source to list of sections
-def get_sections_by_db_source(dbs, sections):
-    output = defaultdict(list)
-    for v in sections.values():
-        dbSource = v["dbSource"]
-        if not dbSource:
-            output[DEFAULT_DB_ALIAS].append(v)
-        else:
-            output[dbSource].append(v)
-    return output
+# # maps db source to list of sections
+# def get_sections_by_db_source(dbs, sections):
+#     output = defaultdict(list)
+#     for v in sections.values():
+#         dbSource = v["dbSource"]
+#         if not dbSource:
+#             output[DEFAULT_DB_ALIAS].append(v)
+#         else:
+#             output[dbSource].append(v)
+#     return output

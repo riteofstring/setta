@@ -8,7 +8,7 @@ from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(dbs, p):
-    save_code_info(dbs, merge_configs(p, "codeInfo"))
+    save_code_info(dbs, merge_configs(p, "codeInfo"), merge_configs(p, "evCols"))
     save_ev_cols(dbs, merge_configs(p, "evCols"))
     save_ui_types(dbs, merge_configs(p, "uiTypes"))
     save_ui_type_cols(dbs, merge_configs(p, "uiTypeCols"))

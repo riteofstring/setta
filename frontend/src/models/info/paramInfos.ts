@@ -25,6 +25,19 @@ export const useParamInfos = createProjectState(
           dbSlice[newId] = _.cloneDeep(dbSlice[id]);
           dbSlice[newId].name = newName;
         }),
+      duplicateDbSource: ({ oldDbSource, newDbSource }) =>
+        set((state) => {
+          if (!(newDbSource in state.x)) {
+            return;
+          }
+          const oldDb = state.x[oldDbSource];
+          const newDb = state.x[newDbSource];
+          for (const evColId of Object.keys(oldDb)) {
+            if (!(evColId in newDb)) {
+              newDb[evColId] = _.cloneDeep(oldDb[evColId]);
+            }
+          }
+        }),
       initManyEvColIds: ({ dbSource, collectionIds }) =>
         set((state) => {
           _.forEach(collectionIds, (id) => {

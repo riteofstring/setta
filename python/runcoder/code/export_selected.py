@@ -1,6 +1,8 @@
 import ast
 import copy
 
+from runcoder.backend.db_path import DEFAULT_DB_ALIAS
+
 from ..utils.constants import (
     CODE,
     DECK,
@@ -15,7 +17,6 @@ from ..utils.constants import (
     VAR_CONTROL,
 )
 from .find_placeholders import double_braces, needs_generated_python
-from runcoder.backend.db_path import DEFAULT_DB_ALIAS
 
 
 def get_section_config(p, id):
