@@ -80,6 +80,7 @@ export function attachKeyEventListeners() {
   ];
 
   const cleanup_functions = [];
+  const keyUpActions = [];
   for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
     let cleanup;
     // if (typeof condition === "string") {
@@ -103,8 +104,15 @@ export function attachKeyEventListeners() {
         keyUpAction();
       });
       cleanup_functions.push(cleanup);
+      keyUpActions.push(keyUpAction);
     }
   }
+
+  window.addEventListener("blur", () => {
+    for (const x of keyUpActions) {
+      x();
+    }
+  });
 
   return () => {
     cleanup_functions.forEach((x) => x());
