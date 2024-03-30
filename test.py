@@ -623,7 +623,7 @@ for v in config["sections"].values():
         v["dbSource"] = ""
 
 e = export_selected(config)
-# pprint(e)
+print(e.keys())
 templated_code = get_code(config)
 
 print(generate_code(e, templated_code)[0])
