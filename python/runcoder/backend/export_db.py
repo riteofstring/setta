@@ -5,12 +5,6 @@ import sqlite3
 import yaml
 
 
-def fetch_column_defaults(cursor, table_name):
-    """Fetch the default values for all columns in a table."""
-    cursor.execute(f"PRAGMA table_info('{table_name}')")
-    return {row[1]: row[4] for row in cursor.fetchall() if row[4] is not None}
-
-
 def fetch_schema(cursor):
     """Fetch the schema of all tables in the database."""
     cursor.execute("SELECT type, name, sql FROM sqlite_master WHERE sql NOT NULL;")
@@ -21,42 +15,14 @@ def fetch_schema(cursor):
     return schema
 
 
-def fetch_table_data_with_defaults(cursor, table_name):
-    """Fetch data from a table, omitting columns with default values."""
-    column_defaults = fetch_column_defaults(cursor, table_name)
-    cursor.execute(f"SELECT * FROM {table_name}")
-    columns = [description[0] for description in cursor.description]
-    rows = cursor.fetchall()
-
-    # Filter out columns with their default value
-    filtered_rows = []
-    for row in rows:
-        filtered_row = {}
-        for col, value in zip(columns, row):
-            default_value = column_defaults.get(col)
-            # Convert SQL default value to Python type for comparison
-            if default_value is not None:
-                try:
-                    # Attempt to evaluate the default value if it's not 'NULL'
-                    default_value = (
-                        eval(default_value) if default_value.lower() != "null" else None
-                    )
-                except NameError:
-                    # Handle unquoted strings (e.g., CURRENT_TIMESTAMP)
-                    pass
-            if value == default_value:
-                continue  # Skip this column
-            filtered_row[col] = value
-        filtered_rows.append(filtered_row)
-    return filtered_rows
-
-
 def fetch_all_data(cursor):
     """Fetch all data from the database."""
     data = {}
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     for (table_name,) in cursor.fetchall():
-        data[table_name] = fetch_table_data_with_defaults(cursor, table_name)
+        cursor.execute(f"SELECT * FROM {table_name}")
+        columns = [description[0] for description in cursor.description]
+        data[table_name] = [dict(zip(columns, row)) for row in cursor.fetchall()]
     return data
 
 
