@@ -6,6 +6,7 @@ import {
   updateNodePositions,
   useNodeInternals,
 } from "models/info/nodeInternals";
+import { useSettings } from "models/settings";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { setZIndices } from "thunks/sections/sectionPositions";
@@ -53,13 +54,11 @@ function useDrag({
     if (nodeRef?.current) {
       const selection = select(nodeRef.current);
 
-      const updateNodes = ({ x, y }: XYPosition) => {
-        const {
-          nodesSelectionDims,
-          snapGrid,
-          snapToGrid,
-          shiftNodesSelection,
-        } = useReactFlow.getState();
+      const updateNodes = ({ x, y }: XYPosition, dragEnd = false) => {
+        const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
+          useReactFlow.getState();
+
+        const { snapGrid, snapToGrid } = useSettings.getState();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
         lastPos.current = { x, y };
@@ -69,7 +68,7 @@ function useDrag({
         dragItems.current = dragItems.current.map((n) => {
           const nextPosition = { x: x - n.distance.x, y: y - n.distance.y };
 
-          if (snapToGrid) {
+          if (dragEnd && snapToGrid) {
             nextPosition.x =
               snapGrid[0] * Math.round(nextPosition.x / snapGrid[0]);
             nextPosition.y =
@@ -93,7 +92,11 @@ function useDrag({
 
         updateNodePositions(dragItems.current, true, true);
         if (nodesSelectionDims) {
-          shiftNodesSelection(delta);
+          if (dragEnd && snapToGrid) {
+            setNodesSelection(dragItems.current.length);
+          } else {
+            shiftNodesSelection(delta);
+          }
         }
         setDragging(true);
       };
@@ -111,13 +114,11 @@ function useDrag({
         if (xMovement !== 0 || yMovement !== 0) {
           const { transform, panBy } = useReactFlow.getState();
 
-          lastPos.current.x =
-            (lastPos.current.x ?? 0) - xMovement / transform[2];
-          lastPos.current.y =
-            (lastPos.current.y ?? 0) - yMovement / transform[2];
+          const newX = (lastPos.current.x ?? 0) - xMovement / transform[2];
+          const newY = (lastPos.current.y ?? 0) - yMovement / transform[2];
 
           if (panBy({ x: xMovement, y: yMovement })) {
-            updateNodes(lastPos.current as XYPosition);
+            updateNodes({ x: newX, y: newY } as XYPosition);
           }
         }
         autoPanId.current = requestAnimationFrame(autoPan);
@@ -214,6 +215,10 @@ function useDrag({
           .on("end", (event: UseDragEvent) => {
             if (!dragStarted.current) {
               return;
+            }
+
+            if (useSettings.getState().snapToGrid) {
+              updateNodes(lastPos.current, true);
             }
 
             setDragging(false);

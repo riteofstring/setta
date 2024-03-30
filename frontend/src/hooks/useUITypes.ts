@@ -1,5 +1,6 @@
 import { useUITypes } from "models/info/uiTypes";
 import {
+  DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
@@ -17,6 +18,6 @@ export function useRequiredUIEditorTabs(sectionId) {
     case SOCIAL:
       return [SECTION_CONFIG_TAB];
     default:
-      return [UI_CONFIG_TAB, SECTION_CONFIG_TAB];
+      return [UI_CONFIG_TAB, SECTION_CONFIG_TAB, DB_SOURCES_TAB];
   }
 }

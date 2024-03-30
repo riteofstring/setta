@@ -88,15 +88,17 @@
         }
       },
       "evCols": {
-        "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
-          "name": "acceptable_purple",
-          "values": {
-            "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
+        "default": {
+          "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
+            "name": "acceptable_purple",
+            "values": {
+              "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
+            }
+          },
+          "0723f95a-e74c-4c1e-9aea-2eacad673293": {
+            "name": "intensive_ivory",
+            "values": {}
           }
-        },
-        "0723f95a-e74c-4c1e-9aea-2eacad673293": {
-          "name": "intensive_ivory",
-          "values": {}
         }
       },
       "uiTypes": {

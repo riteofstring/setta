@@ -1,6 +1,8 @@
 import ast
 import copy
 
+from runcoder.backend.db_path import DEFAULT_DB_ALIAS
+
 from ..utils.constants import (
     CODE,
     DECK,
@@ -211,7 +213,9 @@ class Exporter:
 
     def export_param_value(self, section_id, id):
         ev_col_id = self.p["sections"][section_id]["evColId"]
-        value = self.p["evCols"][ev_col_id]["values"][id]
+        dbSource = self.p["sections"][section_id]["dbSource"]
+        dbSource = dbSource if dbSource else DEFAULT_DB_ALIAS
+        value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
         # original_type = get_original_param_ui_type(self.p, section_id, id)
         if value:
             deps = []

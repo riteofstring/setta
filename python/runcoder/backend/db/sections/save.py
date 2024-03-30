@@ -1,4 +1,5 @@
-def save_sections(db, sections):
+def save_sections(dbs, sections):
+    db = dbs.default
     query = """
         INSERT INTO Section (
             id,
@@ -18,7 +19,8 @@ def save_sections(db, sections):
             code,
             codeLanguage,
             isFrozen,
-            paramSweepId
+            paramSweepId,
+            dbSource
         )
         VALUES (
             :id,
@@ -38,7 +40,8 @@ def save_sections(db, sections):
             :code,
             :codeLanguage,
             :isFrozen,
-            :paramSweepId
+            :paramSweepId,
+            :dbSource
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -58,7 +61,8 @@ def save_sections(db, sections):
             code = :code,
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
-            paramSweepId = :paramSweepId
+            paramSweepId = :paramSweepId,
+            dbSource = :dbSource
     """
 
     query_params = [
@@ -81,6 +85,7 @@ def save_sections(db, sections):
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "paramSweepId": s["paramSweepId"],
+            "dbSource": s.get("dbSource"),
         }
         for s in sections.values()
     ]

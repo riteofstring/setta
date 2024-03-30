@@ -14,6 +14,7 @@ export function CustomCloseButton({ isInfo, onClick, ...props }) {
       size="w-auto h-auto"
       padding="p-0"
       twClasses={twClasses}
+      onClick={onClick}
     />
   );
   // return <button onClick={onClick} className="gg-close" />;

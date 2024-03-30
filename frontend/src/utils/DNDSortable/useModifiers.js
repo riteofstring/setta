@@ -1,15 +1,15 @@
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { useDndMode } from "hooks/useDndUtils";
 import { customCollisionDetection } from "./collisionDetection";
 import { customCollisionDetectionSorting } from "./collisionDetectionSorting";
+import { useDndState } from "./dndState";
 
 export function useModifiers() {
-  const { isSorting, isMovingFree } = useDndMode();
+  const isSorting = useDndState((x) => x.isSorting);
 
   const modifiers = isSorting ? [restrictToVerticalAxis] : null;
-  const collisionDetection = isMovingFree
-    ? customCollisionDetection
-    : customCollisionDetectionSorting;
+  const collisionDetection = isSorting
+    ? customCollisionDetectionSorting
+    : customCollisionDetection;
 
   return { modifiers, collisionDetection };
 }

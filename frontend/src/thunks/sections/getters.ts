@@ -2,7 +2,14 @@ import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
+import {
+  DECK,
+  DEFAULT_DB_ALIAS,
+  INFO,
+  isRoot,
+  OUTPUT,
+  SOCIAL,
+} from "z_utils/constants";
 import { SectionUITypeConfigType } from "z_utils/types/uiType";
 
 export function getSectionInfo(sectionId) {
@@ -28,10 +35,6 @@ export function getSectionIsRoot(sectionId) {
 
 export function getSectionTypeConfig(sectionId) {
   return getSectionType(sectionId).config as SectionUITypeConfigType;
-}
-
-export function getSectionCanHaveNested(sectionId) {
-  return ![OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
 }
 
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
@@ -68,4 +71,9 @@ export function getSectionSiblingNames(sectionId: string) {
 
 export function getSectionByName(name: string) {
   return _.find(useSectionInfos.getState().x, (x) => x.name === name);
+}
+
+export function getSectionDBSource(sectionId: string) {
+  const { dbSource } = getSectionInfo(sectionId);
+  return dbSource ? dbSource : DEFAULT_DB_ALIAS;
 }

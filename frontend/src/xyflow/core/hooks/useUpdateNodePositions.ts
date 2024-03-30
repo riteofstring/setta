@@ -1,13 +1,14 @@
 import { useCallback } from "react";
 
 import { useNodeInternals } from "models/info/nodeInternals";
+import { useSettings } from "models/settings";
 import { useReactFlow } from "../store";
 
 function useUpdateNodePositions() {
   const updatePositions = useCallback(
     (params: { x: number; y: number; isShiftPressed: boolean }) => {
-      const { updateNodePositions, snapToGrid, snapGrid, nodesDraggable } =
-        useReactFlow.getState();
+      const { updateNodePositions, nodesDraggable } = useReactFlow.getState();
+      const { snapToGrid, snapGrid } = useSettings.getState();
       const selectedNodes = useNodeInternals
         .getState()
         .getNodes()

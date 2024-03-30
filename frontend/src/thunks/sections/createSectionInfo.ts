@@ -6,6 +6,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { DEFAULT_DB_ALIAS } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { RCType } from "z_utils/types/codeInfo";
@@ -50,6 +51,7 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
   useParamInfos.getState().initManyEvColIds({
+    dbSource: DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.evColId),
   });
 

@@ -450,32 +450,32 @@
 
 # main()
 
-def topological_sort(objects):
-    graph = {id: refs for id, refs in objects.items()}
-    visiting, visited = set(), set()
-    order = []
+# def topological_sort(objects):
+#     graph = {id: refs for id, refs in objects.items()}
+#     visiting, visited = set(), set()
+#     order = []
 
-    def dfs(node):
-        if node in visiting:
-            raise ValueError("Circular reference detected")
-        if node not in visited:
-            visiting.add(node)
-            for neighbour in graph[node]:
-                dfs(neighbour)
-            visiting.remove(node)
-            visited.add(node)
-            order.append(node)
+#     def dfs(node):
+#         if node in visiting:
+#             raise ValueError("Circular reference detected")
+#         if node not in visited:
+#             visiting.add(node)
+#             for neighbour in graph[node]:
+#                 dfs(neighbour)
+#             visiting.remove(node)
+#             visited.add(node)
+#             order.append(node)
 
-    for id in objects.keys():
-        if id not in visited:
-            dfs(id)
+#     for id in objects.keys():
+#         if id not in visited:
+#             dfs(id)
 
-    return order[::-1]
+#     return order[::-1]
 
-# Example usage
-objects = {"A": [], "B": ["A"]}
-sorted_objects = topological_sort(objects)
-print(sorted_objects)
+# # Example usage
+# objects = {"A": [], "B": ["A"]}
+# sorted_objects = topological_sort(objects)
+# print(sorted_objects)
 
 
 # import os
@@ -498,3 +498,105 @@ print(sorted_objects)
 #     return folder_path
 
 # create_timestamped_folder(".runcoder_code", "")
+
+
+# import sqlite3
+# import json
+# import yaml
+
+# def fetch_schema(cursor):
+#     """Fetch the schema of all tables in the database."""
+#     cursor.execute("SELECT type, name, sql FROM sqlite_master WHERE sql NOT NULL;")
+#     schema = {}
+#     for type, name, sql in cursor.fetchall():
+#         if name not in schema:
+#             schema[name] = {'type': type, 'sql': sql}
+#     return schema
+
+# def fetch_all_data(cursor):
+#     """Fetch all data from the database."""
+#     data = {}
+#     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+#     for table_name, in cursor.fetchall():
+#         cursor.execute(f"SELECT * FROM {table_name}")
+#         columns = [description[0] for description in cursor.description]
+#         data[table_name] = [dict(zip(columns, row)) for row in cursor.fetchall()]
+#     return data
+
+# def export_database(cursor, json_filepath='database.json', yaml_filepath='database.yaml'):
+#     """Export the entire database to JSON and YAML, including schema."""
+#     schema = fetch_schema(cursor)
+#     data = fetch_all_data(cursor)
+    
+#     # Combined schema and data for JSON export
+#     database_export = {'schema': schema, 'data': data}
+#     with open(json_filepath, 'w') as file:
+#         json.dump(database_export, file, indent=4)
+
+#     # Customize the YAML dump to use literal style for SQL
+#     def literal_presenter(dumper, data):
+#         if '\n' in data:
+#             return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+#         return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+    
+#     yaml.add_representer(str, literal_presenter)
+    
+#     # For YAML export, PyYAML is used; ensure it's installed
+#     with open(yaml_filepath, 'w') as file:
+#         yaml.dump(database_export, file, allow_unicode=True)
+
+# # Replace 'your_database.db' with the path to your SQLite database
+# database_path = 'runcoder.db'
+
+# # Connect to the SQLite database
+# conn = sqlite3.connect(database_path)
+# cursor = conn.cursor()
+
+# # Export the database, including schema and data, to JSON and YAML
+# export_database(cursor)
+
+# # Close the database connection
+# conn.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+# import sqlite3
+# import yaml
+
+# def create_database_from_yaml(yaml_filepath, new_database_path):
+#     with open(yaml_filepath, 'r') as file:
+#         database_content = yaml.safe_load(file)
+    
+#     conn = sqlite3.connect(new_database_path)
+#     cursor = conn.cursor()
+    
+#     for table_name, table_info in database_content['schema'].items():
+#         sql = table_info['sql']
+#         cursor.execute(sql)
+    
+#     for table_name, rows in database_content['data'].items():
+#         if not rows:
+#             continue
+#         # Quote column names to handle reserved keywords
+#         columns = ['"' + column + '"' for column in rows[0].keys()]
+#         placeholders = ', '.join(['?'] * len(columns))
+#         sql = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES ({placeholders})"
+#         for row in rows:
+#             cursor.execute(sql, list(row.values()))
+    
+#     conn.commit()
+#     conn.close()
+
+# yaml_filepath = 'database.yaml'
+# new_database_path = 'new_database.db'
+# create_database_from_yaml(yaml_filepath, new_database_path)
