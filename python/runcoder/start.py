@@ -13,6 +13,7 @@ from .backend.db_path import DEFAULT_DB_ALIAS, create_alias
 from .backend.db_path import delete_alias as _delete_alias
 from .backend.db_path import get_db_path_from_config, load_config
 from .backend.environ import set_cli_args
+from .backend.export import export_database
 from .cli.run import run as _run
 from .cli.web import web as _web
 
@@ -65,6 +66,13 @@ def delete_db(db):
             print("File not found. No action taken.")
     else:
         print("Operation cancelled.")
+
+
+@click.command()
+@click.argument("db", default=DEFAULT_DB_ALIAS, required=False)
+def export_db(db):
+    path = get_db_path_from_config(db)
+    export_database(path)
 
 
 @click.command()
@@ -131,5 +139,6 @@ cli.add_command(web)
 cli.add_command(version)
 cli.add_command(init_db)
 cli.add_command(delete_db)
+cli.add_command(export_db)
 cli.add_command(alias)
 cli.add_command(delete_alias)
