@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { DEFAULT_DB_ALIAS } from "z_utils/constants";
 import { SectionType } from "z_utils/types/section";
@@ -27,5 +28,10 @@ export function useSectionHasMultipleEVCols(sectionId) {
 }
 
 export function useSectionDBSource(sectionId) {
-  return useSectionInfos((x) => x.x[sectionId].dbSource ?? DEFAULT_DB_ALIAS);
+  return useSectionInfos((x) => x.x[sectionId].dbSource || DEFAULT_DB_ALIAS);
+}
+
+export function useSectionDBSourceIsAvailable(sectionId) {
+  const dbSource = useSectionDBSource(sectionId);
+  return useParamInfos((x) => dbSource in x.x);
 }

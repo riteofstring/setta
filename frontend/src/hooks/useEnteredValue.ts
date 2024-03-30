@@ -14,16 +14,21 @@ export function useGetParamEnteredValue(
   console.log("evColId", evColId);
   console.log("previewEVColId", previewEVColId);
 
-  return useParamInfos(
-    (x) => x.x[dbSource][previewEVColId ?? evColId].values[paramInfoId],
-  );
+  return useParamInfos((x) => {
+    if (dbSource in x.x) {
+      return x.x[dbSource][previewEVColId ?? evColId].values[paramInfoId];
+    }
+    return "";
+  });
 }
 
 export function useGetEVColNames(sectionId: string) {
   const dbSource = useSectionDBSource(sectionId);
   const evColIds = useGetSectionInfo(sectionId, "evColIds");
-  return useParamInfos(
-    (x) => evColIds.map((e) => ({ id: e, name: x.x[dbSource][e].name })),
-    _.isEqual,
-  );
+  return useParamInfos((x) => {
+    if (dbSource in x.x) {
+      return evColIds.map((e) => ({ id: e, name: x.x[dbSource][e].name }));
+    }
+    return [];
+  }, _.isEqual);
 }

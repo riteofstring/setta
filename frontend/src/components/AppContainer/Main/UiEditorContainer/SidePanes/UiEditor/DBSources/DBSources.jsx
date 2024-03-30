@@ -4,7 +4,7 @@ import { setSectionInfoAttr } from "thunks/sections/setters";
 
 export function DBSources({ sectionId }) {
   const dbSource = useSectionDBSource(sectionId);
-  const [localVal, setLocalVal] = useState(dbSource ?? "");
+  const [localVal, setLocalVal] = useState(dbSource);
 
   function onChange(e) {
     setLocalVal(e.target.value);
