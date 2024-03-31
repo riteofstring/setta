@@ -1,5 +1,6 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
 import { useParamSweepInfo } from "hooks/useParamSweepInfo";
+import { useSectionDBSource } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -12,7 +13,6 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { ParamUI } from "./Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
-import { useSectionDBSource } from "hooks/useSectionInfo";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -162,7 +162,11 @@ function ArgItem({
             Value
           </p>
 
-          <ShowEVCol forSectionId={forSectionId} objInfoId={objInfoId} evColId={evColId} />
+          <ShowEVCol
+            forSectionId={forSectionId}
+            objInfoId={objInfoId}
+            evColId={evColId}
+          />
         </div>
       )}
     </article>

@@ -17,7 +17,10 @@ export function DBSources({ sectionId }) {
     // update evCol dbsource params if necessary
     useParamInfos
       .getState()
-      .duplicateDbSource({ oldDbSource: DEFAULT_DB_ALIAS, newDbSource: localVal });
+      .duplicateDbSource({
+        oldDbSource: DEFAULT_DB_ALIAS,
+        newDbSource: localVal,
+      });
   }
 
   return (
