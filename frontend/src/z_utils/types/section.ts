@@ -8,7 +8,6 @@ export type SectionType = {
   children: string[];
   size: SizeType;
   parentId: string | null;
-  chainedFrom: string | null;
   uiTypeId: string;
   evColId: string;
   uiTypeColId: string;
