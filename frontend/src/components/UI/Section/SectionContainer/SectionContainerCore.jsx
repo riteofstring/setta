@@ -1,7 +1,4 @@
-import {
-  useGetSectionInfo,
-  useSectionDBSourceIsAvailable,
-} from "hooks/useSectionInfo";
+import { useGetSectionInfo, useSectionDBSourceIsAvailable } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { toggleVersionsVisible } from "hooks/useSectionVersions";
 import { useActiveSection } from "models/activeSection";
@@ -20,7 +17,7 @@ function _SectionContainerCore({ sectionId }) {
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const dbSourceIsAvailable = useSectionDBSourceIsAvailable(sectionId);
+  const dbSourceIsAvailable = useSectionDBSourceIsAvailable(sectionId)
 
   function onClick(e) {
     if (paramSelect(e)) {

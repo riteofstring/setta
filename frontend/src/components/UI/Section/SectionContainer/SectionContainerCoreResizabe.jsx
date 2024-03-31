@@ -45,7 +45,7 @@ export function SectionContainerCoreResizable({
     (sectionTypeName === PARAM_SWEEP && hasParamSweepVersions) || hasEVVersions;
 
   const getOutlineColor = () => {
-    if (!dbSourceIsAvailable) {
+    if (!dbSourceIsAvailable){
       return "outline-orange-600 dark:outline-orange-400";
     }
     if (isWrongType) {

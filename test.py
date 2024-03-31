@@ -600,3 +600,30 @@
 # yaml_filepath = 'database.yaml'
 # new_database_path = 'new_database.db'
 # create_database_from_yaml(yaml_filepath, new_database_path)
+
+
+
+
+from runcoder.code.export_selected import export_selected, get_code
+from runcoder.code.generate_code import generate_code
+import json
+from pprint import pprint
+
+with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
+    p = json.load(f)
+
+with open("seed/BaseUITypes.json") as f:
+    u = json.load(f)
+
+config = p.pop("configs")[1]
+config["uiTypes"].update(u)
+config["project"] = {"id": p["id"]}
+for v in config["sections"].values():
+    if "dbSource" not in v:
+        v["dbSource"] = ""
+
+e = export_selected(config)
+print(e.keys())
+templated_code = get_code(config)
+
+print(generate_code(e, templated_code)[0])

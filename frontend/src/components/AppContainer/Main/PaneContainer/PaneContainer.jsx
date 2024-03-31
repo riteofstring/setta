@@ -21,8 +21,8 @@ export function PaneContainer({
   const width = usePanes((x) => x.width[paneName]);
   const setWidth = usePanes((x) => x.setWidth);
   const setTrueWidth = usePanes((x) => x.setTrueWidth);
-  const [vMax, setVMax] = useState(Infinity);
-  const [vMin, setVMin] = useState(minimumWidth);
+  const [vMax, setVMax] = useState(50);
+  const [vMin, setVMin] = useState(50);
   const [btnDir, setBtnDir] = useState(right ? vis : !vis);
   const height = "100%";
 
