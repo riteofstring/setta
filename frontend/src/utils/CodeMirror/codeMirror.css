@@ -1,0 +1,4 @@
+.cm-tooltip, .cm-tooltip-autocomplete, .cm-tooltip-below { 
+    z-index:10000 !important;
+    /* position:relative !important; */
+}

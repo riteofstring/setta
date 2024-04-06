@@ -1,25 +1,39 @@
+import { autocompletion } from "@codemirror/autocomplete";
+import { python } from "@codemirror/lang-python";
+import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { useCombobox } from "downshift";
-import { useSizeOfResizableElement } from "hooks/useSizeOfResizableElement";
-import {
-  textFieldInitializeCode,
-  useTextFieldCompletionWebsocketRoom,
-} from "hooks/useWebsocket";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { goToSection } from "thunks/goToSection";
-import { variableClick } from "thunks/keyActivations";
 import { getParamInfos } from "thunks/sections/sectionContents";
-import {
-  ComboboxItems,
-  ComboboxTextFieldList,
-} from "utils/Combobox/ComboboxParts";
+import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
 import { flattenedItems } from "utils/Combobox/utils";
 import { SINGLETON_SECTIONS } from "utils/constants";
 
 export function TextInputConfig() {
   return null;
+}
+
+// Our list of completions (can be static, since the editor
+/// will do filtering based on context).
+const completions = [
+  { label: "panic", type: "keyword" },
+  { label: "park", type: "constant", info: "Test completion" },
+  { label: "password", type: "variable" },
+];
+
+function myCompletions(context) {
+  let before = context.matchBefore(/\w+/);
+  // If completion wasn't explicitly started and there
+  // is no word before the cursor, don't open completions.
+  if (!context.explicit && !before) return null;
+  return {
+    from: before ? before.from : context.pos,
+    options: completions,
+    validFor: /^\w*$/,
+  };
 }
 
 export function TextInput({
@@ -34,108 +48,123 @@ export function TextInput({
   variants,
   area = "card-value",
 }) {
-  const [results, send] = useTextFieldCompletionWebsocketRoom(
-    sectionId,
-    paramInfoId,
-  );
+  // const [results, send] = useTextFieldCompletionWebsocketRoom(
+  //   sectionId,
+  //   paramInfoId,
+  // );
 
-  const [isFocused, setIsFocused] = useState(false);
+  // const [isFocused, setIsFocused] = useState(false);
 
-  const handleFocus = () => {
-    setIsFocused(true);
-  };
+  // const handleFocus = () => {
+  //   setIsFocused(true);
+  // };
 
-  const handleBlur = () => {
-    setIsFocused(false);
-  };
+  // const handleBlur = () => {
+  //   setIsFocused(false);
+  // };
 
-  const allItems = [{ group: "search results", items: results }];
+  // const allItems = [{ group: "search results", items: results }];
 
-  function updateValue(newVal, requestCompletions = false) {
-    if (value === newVal) {
-      return;
-    }
-    onChange(newVal);
-    if (requestCompletions) {
-      send(newVal);
-    }
-  }
+  // function updateValue(newVal, requestCompletions = false) {
+  //   if (value === newVal) {
+  //     return;
+  //   }
+  //   onChange(newVal);
+  //   if (requestCompletions) {
+  //     send(newVal);
+  //   }
+  // }
 
-  const {
-    isOpen,
-    getMenuProps,
-    getInputProps,
-    highlightedIndex,
-    getItemProps,
-  } = useTextFieldCombobox({ allItems, value, updateValue });
+  // const {
+  //   isOpen,
+  //   getMenuProps,
+  //   getInputProps,
+  //   highlightedIndex,
+  //   getItemProps,
+  // } = useTextFieldCombobox({ allItems, value, updateValue });
 
-  function onClick(e) {
-    if (variableClick(e)) {
-      ctrlClick(e);
-    } else {
-      textFieldInitializeCode(sectionId, paramInfoId);
-    }
-  }
+  // function onClick(e) {
+  //   if (variableClick(e)) {
+  //     ctrlClick(e);
+  //   } else {
+  //     textFieldInitializeCode(sectionId, paramInfoId);
+  //   }
+  // }
 
-  const {
-    sizeRef: inputRef,
-    size: { width },
-  } = useSizeOfResizableElement({ delay: 200 });
-  const preRef = useRef(null);
+  // const {
+  //   sizeRef: inputRef,
+  //   size: { width },
+  // } = useSizeOfResizableElement({ delay: 200 });
+  // const preRef = useRef(null);
 
-  // Exclude downshift's value because we don't need it.
-  const inputProps = getInputProps({
-    onChange: (e) => updateValue(e.target.value, true),
-    onFocus: handleFocus,
-    onBlur: handleBlur,
-    onClick,
-    ref: inputRef,
-  });
+  // // Exclude downshift's value because we don't need it.
+  // const inputProps = getInputProps({
+  //   onChange: (e) => updateValue(e.target.value, true),
+  //   onFocus: handleFocus,
+  //   onBlur: handleBlur,
+  //   onClick,
+  //   ref: inputRef,
+  // });
 
-  function syncScroll() {
-    if (preRef.current && inputRef.current) {
-      preRef.current.scrollTop = inputRef.current.scrollTop;
-      preRef.current.scrollLeft = inputRef.current.scrollLeft;
-    }
-  }
+  // function syncScroll() {
+  //   if (preRef.current && inputRef.current) {
+  //     preRef.current.scrollTop = inputRef.current.scrollTop;
+  //     preRef.current.scrollLeft = inputRef.current.scrollLeft;
+  //   }
+  // }
 
-  const defaultClasses = `nodrag ${area} font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400`;
-  const defaultVariants = `${area} card-value-display mt-[1px] h-5 min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300`;
+  // const defaultClasses = `nodrag ${area} font-code z-[1] row-span-1 h-[calc(1.25rem-2px)] min-w-0 cursor-auto border-x-0 border-b border-t-0 border-solid border-runcoder-300 p-0 font-mono text-xs font-normal leading-normal text-transparent caret-black outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-600 dark:caret-white dark:focus-visible:border-blue-400`;
+  // const defaultVariants = `${area} card-value-display mt-[1px] h-5 min-w-0 overflow-hidden text-xs font-normal leading-normal dark:text-runcoder-300`;
+
+  // return (
+  //   <>
+  //     <input
+  //       className={classes ? classes : defaultClasses}
+  //       spellCheck={false}
+  //       onScroll={syncScroll}
+  //       placeholder={defaultVal}
+  //       {...inputProps}
+  //     />
+  //     <pre
+  //       ref={preRef}
+  //       className={`${
+  //         isFocused ? "" : "truncate"
+  //       } ${variants ? variants : defaultVariants}`}
+  //     >
+  //       <code>
+  //         <StyledText value={value} />
+  //       </code>
+  //     </pre>
+  //     <div className="card-value-combobox relative">
+  //       <ComboboxTextFieldList
+  //         isOpen={isOpen}
+  //         getMenuProps={getMenuProps}
+  //         width={width}
+  //         variants=""
+  //       >
+  //         <ComboboxItems
+  //           filteredItems={allItems}
+  //           getItemProps={getItemProps}
+  //           highlightedIndex={highlightedIndex}
+  //         />
+  //       </ComboboxTextFieldList>
+  //     </div>
+  //   </>
+  // );
+
+  const { theme } = useCodeMirrorStyle();
 
   return (
-    <>
-      <input
-        className={classes ? classes : defaultClasses}
-        spellCheck={false}
-        onScroll={syncScroll}
-        placeholder={defaultVal}
-        {...inputProps}
+    <div className="nodrag nowheel card-code mb-2 cursor-auto overflow-clip">
+      <CodeMirror
+        theme={theme}
+        extensions={[
+          python(),
+          autocompletion({ override: [myCompletions] }),
+          EditorView.lineWrapping,
+        ]}
       />
-      <pre
-        ref={preRef}
-        className={`${
-          isFocused ? "" : "truncate"
-        } ${variants ? variants : defaultVariants}`}
-      >
-        <code>
-          <StyledText value={value} />
-        </code>
-      </pre>
-      <div className="card-value-combobox relative">
-        <ComboboxTextFieldList
-          isOpen={isOpen}
-          getMenuProps={getMenuProps}
-          width={width}
-          variants=""
-        >
-          <ComboboxItems
-            filteredItems={allItems}
-            getItemProps={getItemProps}
-            highlightedIndex={highlightedIndex}
-          />
-        </ComboboxTextFieldList>
-      </div>
-    </>
+    </div>
   );
 }
 
