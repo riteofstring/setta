@@ -157,6 +157,10 @@ export function TextInput({
   return (
     <div className="nodrag nowheel card-code mb-2 cursor-auto overflow-clip">
       <CodeMirror
+        basicSetup={{
+          lineNumbers: false,
+          foldGutter: false,
+        }}
         theme={theme}
         extensions={[
           python(),
