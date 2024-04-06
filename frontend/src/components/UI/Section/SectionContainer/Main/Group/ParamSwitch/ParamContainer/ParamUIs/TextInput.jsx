@@ -1,5 +1,7 @@
 import { autocompletion } from "@codemirror/autocomplete";
 import { python } from "@codemirror/lang-python";
+import { RangeSetBuilder } from "@codemirror/state";
+import { Decoration, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { useCombobox } from "downshift";
 import _ from "lodash";
@@ -11,6 +13,49 @@ import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { useComboboxStateReducer } from "utils/Combobox/ComboboxStateReducer";
 import { flattenedItems } from "utils/Combobox/utils";
 import { SINGLETON_SECTIONS } from "utils/constants";
+
+// Step 1: Define the Decoration
+const italicStyle = Decoration.mark({ class: "italic" });
+const italicKeywords = ["function", "return"]; // Example keywords to italicize
+
+// Step 2: Define the Extension
+const italicizeKeywords = ViewPlugin.fromClass(
+  class {
+    decorations;
+
+    constructor(view) {
+      this.decorations = this.buildDecorations(view);
+    }
+
+    update(update) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = this.buildDecorations(update.view);
+      }
+    }
+
+    buildDecorations(view) {
+      const builder = new RangeSetBuilder();
+      for (let { from, to } of view.visibleRanges) {
+        const text = view.state.doc.sliceString(from, to);
+        console.log("text", text);
+        italicKeywords.forEach((keyword) => {
+          let regex = new RegExp(`\\b${keyword}\\b`, "g");
+          let match;
+          while ((match = regex.exec(text))) {
+            const startPos = from + match.index;
+            const endPos = startPos + match[0].length;
+            console.log(startPos, endPos);
+            builder.add(startPos, endPos, italicStyle);
+          }
+        });
+      }
+      return builder.finish();
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  },
+);
 
 export function TextInputConfig() {
   return null;
@@ -155,18 +200,21 @@ export function TextInput({
   const { theme } = useCodeMirrorStyle();
 
   return (
-    <CodeMirror
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-      }}
-      theme={theme}
-      extensions={[
-        python(),
-        autocompletion({ override: [myCompletions] }),
-        EditorView.lineWrapping,
-      ]}
-    />
+    <div className="nodrag">
+      <CodeMirror
+        basicSetup={{
+          lineNumbers: false,
+          foldGutter: false,
+        }}
+        theme={theme}
+        extensions={[
+          python(),
+          autocompletion({ override: [myCompletions] }),
+          italicizeKeywords,
+          EditorView.lineWrapping,
+        ]}
+      />
+    </div>
   );
 }
 
