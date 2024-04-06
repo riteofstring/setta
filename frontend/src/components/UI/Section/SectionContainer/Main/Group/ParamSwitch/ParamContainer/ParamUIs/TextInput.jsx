@@ -155,20 +155,18 @@ export function TextInput({
   const { theme } = useCodeMirrorStyle();
 
   return (
-    <div className="nodrag nowheel card-code mb-2 cursor-auto overflow-clip">
-      <CodeMirror
-        basicSetup={{
-          lineNumbers: false,
-          foldGutter: false,
-        }}
-        theme={theme}
-        extensions={[
-          python(),
-          autocompletion({ override: [myCompletions] }),
-          EditorView.lineWrapping,
-        ]}
-      />
-    </div>
+    <CodeMirror
+      basicSetup={{
+        lineNumbers: false,
+        foldGutter: false,
+      }}
+      theme={theme}
+      extensions={[
+        python(),
+        autocompletion({ override: [myCompletions] }),
+        EditorView.lineWrapping,
+      ]}
+    />
   );
 }
 
