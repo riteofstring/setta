@@ -9,10 +9,10 @@ const PATH = "settings";
 function SettingsWrapper() {
   return (
     <>
-      {/* <HeaderContainer path={PATH} /> */}
-      {/* <GridContainer> */}
+      <HeaderContainer path={PATH} />
+      <GridContainer>
         <Settings />
-      {/* </GridContainer> */}
+      </GridContainer>
     </>
   );
 }
