@@ -57,6 +57,31 @@ const italicizeKeywords = ViewPlugin.fromClass(
   },
 );
 
+function getContentDomEventListener(editor) {
+  return (event) => {
+    // Convert click coordinates to a position in the editor
+    const pos = editor.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (pos == null) return;
+
+    // Get the token at the clicked position
+    const line = editor.state.doc.lineAt(pos);
+    const lineText = line.text;
+    const tokens = lineText.split(/\s+/); // This splits the line into tokens based on whitespace. You might need a more sophisticated tokenizer.
+
+    // Simple example to identify if a clicked word is a specific keyword
+    tokens.forEach((token) => {
+      // if (token === "exampleKeyword") {
+      console.log(token);
+      // Trigger your desired action here
+      // }
+    });
+  };
+}
+
+function onCreateEditor(view) {
+  view.contentDOM.addEventListener("click", getContentDomEventListener(view));
+}
+
 export function TextInputConfig() {
   return null;
 }
@@ -206,6 +231,7 @@ export function TextInput({
           lineNumbers: false,
           foldGutter: false,
         }}
+        onCreateEditor={onCreateEditor}
         theme={theme}
         extensions={[
           python(),
