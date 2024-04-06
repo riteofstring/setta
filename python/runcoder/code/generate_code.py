@@ -83,24 +83,29 @@ def get_import_text(code):
     return "\n".join(imports), len(imports)
 
 
-def get_mappings(var_names, selected, operator):
-    mappings = [var_declaration(selected[v]["name"], v, operator) for v in var_names]
+def get_mappings(var_names, selected, is_dict):
+    mappings = [var_declaration(selected[v]["name"], v, is_dict) for v in var_names]
     return ", ".join(mappings)
 
 
 def get_dict_contents(var_names, selected):
-    return get_mappings([f"{v}" for v in var_names], selected, ":")
+    return get_mappings(var_names, selected, is_dict=True)
 
 
 def get_callable_params(var_names, selected):
-    return get_mappings(var_names, selected, "=")
+    return get_mappings(var_names, selected, is_dict=False)
 
 
 def get_boolean(value):
     return "True" if value == "true" else "False"
 
 
-def var_declaration(var_name, value, operator="="):
+def var_declaration(var_name, value, is_dict=False):
+    if is_dict:
+        operator = ":"
+        var_name = f'"{var_name}"'
+    else:
+        operator = "="
     return f"{var_name}{operator}{value}"
 
 
@@ -114,7 +119,7 @@ def get_value(x, selected):
         if not x["value"]["callable"]:
             return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:
-            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
+            return f"{x['value']['callable']}(**{x['value']['args']})"
     elif type_value == LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
     elif type_value == DICT_ROOT:

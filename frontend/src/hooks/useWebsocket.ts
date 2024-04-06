@@ -1,10 +1,12 @@
 import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useWebsocketRooms } from "models/websocket";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
+import { getSectionInfo } from "thunks/sections/getters";
 import { createNewId } from "z_utils/utils";
 
 export function useOpenCloseWebsocket() {
@@ -52,7 +54,16 @@ export function useCodeCompletionWebsocketRoom(sectionId) {
   const _send = useCallback(
     _.debounce((value) => {
       const projectConfigId = useProjectConfig.getState().id;
-      send({ projectConfigId, sectionId, paramInfoId: null, value });
+      let _value = value;
+      const { chainedFrom } = getSectionInfo(sectionId);
+      if (chainedFrom) {
+        const { selectedItem } = getSectionInfo(chainedFrom);
+        if (selectedItem) {
+          const { name } = useCodeInfo.getState().x[selectedItem];
+          _value = `${name}().${_value}`;
+        }
+      }
+      send({ projectConfigId, sectionId, paramInfoId: null, value: _value });
     }, 100),
     [send],
   );

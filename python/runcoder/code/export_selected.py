@@ -18,6 +18,8 @@ from ..utils.constants import (
 )
 from .find_placeholders import double_braces, needs_generated_python
 
+ARGS_PREFIX = "_"
+
 
 def get_section_config(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
@@ -33,6 +35,14 @@ def get_selected_item(p, id):
     selected_item = p["sections"][id]["selectedItem"]
     if selected_item:
         return p["codeInfo"][selected_item]["name"]
+    return None
+
+
+def get_chained_selected_item(p, chained_from_var_name, id):
+    selected_item = p["sections"][id]["selectedItem"]
+    if selected_item:
+        name = p["codeInfo"][selected_item]["name"]
+        return f"{chained_from_var_name}.{name}"
     return None
 
 
@@ -76,9 +86,10 @@ def get_var_names_from_value(value):
     return {node.id for node in ast.walk(root) if isinstance(node, ast.Name)}
 
 
-def get_top_level_section_names(p):
+def get_top_level_section_names(p, args_of_section):
     top_level = p["projectConfig"]["children"]
-    return {p["sections"][x]["name"] for x in top_level.keys()}
+    prefix = ARGS_PREFIX if args_of_section else ""
+    return {f'{prefix}{p["sections"][x]["name"]}' for x in top_level.keys()}
 
 
 def get_section_name_to_id(p):
@@ -108,12 +119,14 @@ class Exporter:
         self.p = copy.deepcopy(p)
         self.param_var_names = set()
         self.top_level_section_names = set()
+        self._top_level_section_names = set()
         self.section_name_to_id = {}
 
     def export(self):
-        self.top_level_section_names = get_top_level_section_names(self.p)
         self.section_name_to_id = get_section_name_to_id(self.p)
         self.export_global_variables_and_remove_script()
+        self.top_level_section_names = get_top_level_section_names(self.p, False)
+        self._top_level_section_names = get_top_level_section_names(self.p, True)
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
 
     def export_global_variables_and_remove_script(self):
@@ -153,9 +166,34 @@ class Exporter:
     def export_section_value(self, id):
         type = get_section_type(self.p, id)
         if type == SECTION:
-            params, unused_params = self.export_params(id)
             return {
                 "callable": get_selected_item(self.p, id),
+                "args": self.export_section_args(id),
+                "params": [],
+                "unusedParams": [],
+            }
+        elif type in [LIST_ROOT, DICT_ROOT, DECK]:
+            return self.export_sections(self.p["sections"][id]["children"])
+
+    def export_section_args(self, id):
+        var_name = self.p["sections"][id]["name"]
+        args_var_name = f"{ARGS_PREFIX}{var_name}"
+        if args_var_name not in self.output:
+            self.output[args_var_name] = {
+                "sectionId": id,
+                "name": args_var_name,
+                "value": self.export_section_args_value(id),
+                "type": get_section_type(self.p, id),
+            }
+        return args_var_name
+
+    def export_section_args_value(self, id):
+        type = get_section_type(self.p, id)
+        if type == SECTION:
+            params, unused_params = self.export_params(id)
+            return {
+                "callable": None,
+                "args": None,
                 "params": params,
                 "unusedParams": unused_params,
             }
@@ -201,6 +239,9 @@ class Exporter:
             deps = []
             var_names = get_var_names_from_value(value)
             for v in var_names.intersection(self.top_level_section_names):
+                self.export_section(self.section_name_to_id[v])
+                deps.append(v)
+            for v in var_names.intersection(self._top_level_section_names):
                 self.export_section(self.section_name_to_id[v])
                 deps.append(v)
             return value, deps

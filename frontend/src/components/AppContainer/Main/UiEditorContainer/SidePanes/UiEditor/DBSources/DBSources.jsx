@@ -15,10 +15,9 @@ export function DBSources({ sectionId }) {
   function onBlur() {
     setSectionInfoAttr({ sectionId, attr: "dbSource", value: localVal });
     // update evCol dbsource params if necessary
-    useParamInfos.getState().duplicateDbSource({
-      oldDbSource: DEFAULT_DB_ALIAS,
-      newDbSource: localVal,
-    });
+    useParamInfos
+      .getState()
+      .duplicateDbSource({ oldDbSource: DEFAULT_DB_ALIAS, newDbSource: localVal });
   }
 
   return (
