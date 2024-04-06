@@ -79,13 +79,11 @@ def load_sections(dbs, ids):
         v = dict(v)
         width = v.pop("width")
         height = v.pop("height")
-        chainedFrom = v.pop("chainedFromId")
         selectedItem = v.pop("selectedItemId")
         outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
             "parentId": child_to_parent.get(v["id"], None),
-            "chainedFrom": chainedFrom,
             "selectedItem": selectedItem,
             "outputGroup": outputGroup,
             "children": parent_to_children[v["id"]],

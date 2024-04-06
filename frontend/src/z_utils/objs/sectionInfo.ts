@@ -13,7 +13,6 @@ export function newSectionInfo({
   position,
   zIndex = 0,
   parentId = null,
-  chainedFrom = null,
   uiTypeId = DEFAULT_SECTION_UI_TYPE_ID,
   evColId,
   uiTypeColId,
@@ -31,7 +30,6 @@ export function newSectionInfo({
   code = "",
   codeLanguage = "",
   isFrozen = false,
-  dbSource = "",
 }: Partial<SectionType> & {
   size: SizeType;
 }): SectionType {
@@ -47,7 +45,6 @@ export function newSectionInfo({
     position,
     zIndex,
     parentId,
-    chainedFrom,
     uiTypeId: maybeNewId(uiTypeId),
     evColId: _evColId,
     uiTypeColId: maybeNewId(uiTypeColId),
@@ -65,6 +62,5 @@ export function newSectionInfo({
     paramSweepSectionId,
     nonPresetUITypeIds,
     isFrozen,
-    dbSource,
   };
 }
