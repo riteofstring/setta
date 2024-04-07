@@ -10,6 +10,7 @@ import {
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { useCallback } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
@@ -97,7 +98,7 @@ export function TextInputConfig() {
 
 function getCompletionsFn(sectionId, paramInfoId) {
   return async (context) => {
-    const fullText = context.state.doc.toString()
+    const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
     const before = context.matchBefore(/([^.=\\(]*)$/);
     const res = await dbTextFieldCompletion({
@@ -115,7 +116,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
           label: x.completion,
           type: x.type,
         })),
-        // validFor: /[^\s]+$/,
+        // validFor: /([^.=\\(]*)$/,
       };
     }
     return null;
@@ -161,6 +162,11 @@ export function TextInput({
   const { theme } = useCodeMirrorStyle();
   const keywordStylizer = getKeywordStylizer(pattern, colorMap);
 
+  const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
+    sectionId,
+    paramInfoId,
+  ]);
+
   return (
     <CodeMirror
       className="nodrag"
@@ -175,7 +181,7 @@ export function TextInput({
       extensions={[
         python(),
         autocompletion({
-          override: [getCompletionsFn(sectionId, paramInfoId)],
+          override: [completionsFn],
         }),
         keywordStylizer,
         EditorView.lineWrapping,
