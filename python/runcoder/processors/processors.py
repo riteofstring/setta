@@ -17,7 +17,8 @@ from ..code.generate_code import (
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
 from .utils import withTempFiles
-
+import builtins
+BUILT_INS = set(dir(builtins))
 
 class Processors:
     def __init__(self):
@@ -104,13 +105,25 @@ def textFieldCompletion(message):
 
 def textFieldCompletionFn(return_types):
     def fn(message, code, var_name_to_line_num, var_name, column):
-        output = []
+        params = []
+        variables = []
+        builtins = []
+        the_rest = []
         column = column + len(var_declaration(var_name, "", "="))
         for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1, column=column):
             if return_types and c.type not in return_types:
                 continue
-            output.append(f"{message['beforeText']}{c.complete}")
-        return output
+            completion = f"{message['beforeText']}{c.complete}"
+            to_append = {"completion": completion, "type": c.type}
+            if c.type == "param":
+                params.append(to_append)
+            elif completion in BUILT_INS:
+                builtins.append(to_append)
+            elif c.type == "statement":
+                variables.append(to_append)
+            else:
+                the_rest.append(to_append)
+        return params + variables + the_rest + builtins
 
     return fn
 

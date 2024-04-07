@@ -97,20 +97,24 @@ export function TextInputConfig() {
 
 function getCompletionsFn(sectionId, paramInfoId) {
   return async (context) => {
-    const before = context.matchBefore(/[^\s]+$/);
-    console.log("before", before);
-    if (!context.explicit && !before) return null;
+    const fullText = context.state.doc.toString()
+    if (!fullText.trim()) return null;
+    const before = context.matchBefore(/([^.=\\(]*)$/);
     const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
+      fullText,
       beforeText: before.text,
-      fullText: context.state.doc.toString(),
       position: context.pos,
     });
     if (res.status === 200) {
       return {
+        filter: false,
         from: before ? before.from : context.pos,
-        options: res.data.map((x) => ({ label: x })),
+        options: res.data.map((x) => ({
+          label: x.completion,
+          type: x.type,
+        })),
         // validFor: /[^\s]+$/,
       };
     }

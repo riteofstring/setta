@@ -44,8 +44,8 @@ export async function dbTypeCheckRequest() {
 export async function dbTextFieldCompletion({
   sectionId,
   paramInfoId,
-  beforeText,
   fullText,
+  beforeText,
   position,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
@@ -54,8 +54,8 @@ export async function dbTextFieldCompletion({
       projectConfigId,
       sectionId,
       paramInfoId,
-      beforeText,
       fullText,
+      beforeText,
       position,
     },
     address: "/textFieldCompletion",
