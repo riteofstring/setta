@@ -9,16 +9,14 @@ from ..code.extract_args_from_help import extract_args_from_help
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
-    append_to_line,
+    get_line_from_string,
     prepend_with_imports,
     set_line,
-    var_declaration,
 )
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
 from .utils import withTempFiles
-import builtins
-BUILT_INS = set(dir(builtins))
+
 
 class Processors:
     def __init__(self):
@@ -91,7 +89,7 @@ def textFieldInitializeCode(message):
         force_appear_var_name=push_var_name,
     )
     print("textFieldInitializeCode", flush=True)
-    print("to_cache", to_cache, flush=True)
+    print(to_cache, flush=True)
     return {
         "output": None,
         "name": "textFieldInitializeCode",
@@ -103,33 +101,14 @@ def textFieldCompletion(message):
     return completionHelper(message, "textFieldCompletion", textFieldCompletionFn(None))
 
 
-def jedi_complete(code, var_name_to_line_num, var_name, column):
-    column = column + len(var_declaration(var_name, "", "="))
-    line = var_name_to_line_num[var_name] + 1
-    return jedi.Script(code).complete(line=line, column=column), line
-
-
 def textFieldCompletionFn(return_types):
-    def fn(message, code, var_name_to_line_num, var_name, column):
-        params = []
-        variables = []
-        builtins = []
-        the_rest = []
-        results, _ = jedi_complete(code, var_name_to_line_num, var_name, column)
-        for c in results:
+    def fn(message, code, var_name_to_line_num, var_name):
+        output = []
+        for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1):
             if return_types and c.type not in return_types:
                 continue
-            completion = f"{message['beforeText']}{c.complete}"
-            to_append = {"completion": completion, "type": c.type}
-            if c.type == "param":
-                params.append(to_append)
-            elif completion in BUILT_INS:
-                builtins.append(to_append)
-            elif c.type == "statement":
-                variables.append(to_append)
-            else:
-                the_rest.append(to_append)
-        return params + variables + the_rest + builtins
+            output.append(f"{message['value']}{c.complete}")
+        return output
 
     return fn
 
@@ -141,23 +120,24 @@ def completionHelper(message, return_name, fn):
         return {"output": [], "name": return_name, "cache": None}
     lines, var_name_to_line_num, codeJson, templatedCode = cached
     var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
-    set_line(lines, var_name_to_line_num, var_name, message["fullText"])
+    set_line(lines, var_name_to_line_num, var_name, message["value"])
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
     print("completionHelper", flush=True)
-    print(code, flush=True)
-    output = fn(message, code, var_name_to_line_num, var_name, message["position"])
+    output = fn(message, code, var_name_to_line_num, var_name)
     return {"output": output, "name": return_name, "cache": None}
 
 
-def parametersRequestFn(message, code, var_name_to_line_num, var_name, column):
+def parametersRequestFn(message, code, var_name_to_line_num, var_name):
     print("parametersRequest", flush=True)
-    results, line = jedi_complete(code, var_name_to_line_num, var_name, column)
-    parsed = docstring_parser.parse(results[0].docstring(raw=True))
+    line = var_name_to_line_num[var_name] + 1
+    results = jedi.Script(code).complete(
+        line=line, column=len(get_line_from_string(code, line)) - 2
+    )[0]
+    parsed = docstring_parser.parse(results.docstring(raw=True))
     descriptions = {v.arg_name: v.description for v in parsed.params}
 
-    code = append_to_line(code, line, "(")
     signatures = jedi.Script(code).get_signatures(line=line)
     output = []
     if signatures:

@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from runcoder.cli.web import getConsumerMessage, getConsumerMessageAndSend
+from runcoder.cli.web import getConsumerMessageAndSend
 from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
@@ -163,33 +163,6 @@ class SectionsMakeCopyRequest(BaseModel):
 
 class DeleteTerminalsRequest(BaseModel):
     ids: List[str]
-
-
-class ParametersRequestRequest(BaseModel):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str | None
-    beforeText: str
-    fullText: str
-    position: int
-
-
-class TextFieldInitializeCode(BaseModel):
-    project: dict
-    sectionId: str
-    paramInfoId: str | None
-
-
-class TypeCheckRequestRequest(BaseModel):
-    project: dict
-
-class TextFieldCompletionRequest(BaseModel):
-    projectConfigId: str
-    sectionId: str
-    paramInfoId: str | None
-    beforeText: str
-    fullText: str
-    position: int
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -438,48 +411,3 @@ def route_terminal_get_free_terminal(projectConfigId):
 @app.post("/terminal/deleteTerminals")
 def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
     terminal_websockets.delete_terminals(x.ids)
-
-
-@app.post("/parametersRequest")
-async def route_parameters_request(x: ParametersRequestRequest):
-    result = await getConsumerMessage(
-        {"messageType": "parametersRequest", "message": x.dict()},
-        tasks_obj,
-        cache,
-        processors,
-    )
-    return result["output"]
-
-
-@app.post("/textFieldInitializeCode")
-async def route_text_field_initialize_code(x: TextFieldInitializeCode):
-    result = await getConsumerMessage(
-        {"messageType": "textFieldInitializeCode", "message": x.dict()},
-        tasks_obj,
-        cache,
-        processors,
-    )
-    return result["output"]
-
-
-@app.post("/typeCheckRequest")
-async def route_type_check_request(x: TypeCheckRequestRequest):
-    result = await getConsumerMessage(
-        {"messageType": "typeCheckRequest", "message": x.project},
-        tasks_obj,
-        cache,
-        processors,
-    )
-    return result["output"]
-
-
-@app.post("/textFieldCompletion")
-async def route_text_field_completion(x: TextFieldCompletionRequest):
-    result = await getConsumerMessage(
-        {"messageType": "textFieldCompletion", "message": x.dict()},
-        tasks_obj,
-        cache,
-        processors,
-    )
-    print("textFieldCompletion", result["output"], flush=True)
-    return result["output"]

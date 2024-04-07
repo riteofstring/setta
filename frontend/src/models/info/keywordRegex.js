@@ -32,10 +32,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
     }
   }
 
-  const pattern = new RegExp(
-    `(?<![."'])\\b(${names.join("|")})\\b(?!["'])`,
-    "g",
-  );
+  const pattern = new RegExp(`\\b(${names.join("|")})\\b`, "g");
 
   return { pattern, colorMap };
 }

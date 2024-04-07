@@ -250,8 +250,3 @@ def replace_keywords(x, replacements):
 def get_line_from_string(input_string, line_number):
     lines = input_string.split("\n")
     return lines[line_number - 1]
-
-def append_to_line(input_string, line_number, append):
-    lines = input_string.split("\n")
-    lines[line_number - 1] += append
-    return "\n".join(lines)

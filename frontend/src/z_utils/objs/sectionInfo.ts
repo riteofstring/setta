@@ -30,7 +30,6 @@ export function newSectionInfo({
   code = "",
   codeLanguage = "",
   isFrozen = false,
-  dbSource = "",
 }: Partial<SectionType> & {
   size: SizeType;
 }): SectionType {
@@ -63,6 +62,5 @@ export function newSectionInfo({
     paramSweepSectionId,
     nonPresetUITypeIds,
     isFrozen,
-    dbSource,
   };
 }
