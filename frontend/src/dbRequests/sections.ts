@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { SECTIONS } from "z_utils/routes";
@@ -40,3 +41,18 @@ export async function dbTypeCheckRequest() {
     address: "/typeCheckRequest",
   });
 }
+
+export async function dbTextFieldCompletion({ sectionId, paramInfoId, value }) {
+  const projectConfigId = useProjectConfig.getState().id;
+  return await post({
+    body: { projectConfigId, sectionId, paramInfoId, value },
+    address: "/textFieldCompletion",
+  });
+}
+
+// export const dbTextFieldCompletion = _.debounce(
+//   ({ sectionId, paramInfoId, value }) => {
+//     return _dbTextFieldCompletion({ sectionId, paramInfoId, value });
+//   },
+//   100,
+// );

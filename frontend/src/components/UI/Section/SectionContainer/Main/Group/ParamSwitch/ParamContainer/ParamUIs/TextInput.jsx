@@ -3,8 +3,10 @@ import { python } from "@codemirror/lang-python";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
-import { dbTextFieldInitializeCode } from "dbRequests/sections";
-import { useTextFieldCompletionWebsocketRoom } from "hooks/useWebsocket";
+import {
+  dbTextFieldCompletion,
+  dbTextFieldInitializeCode,
+} from "dbRequests/sections";
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -96,18 +98,25 @@ const completions = [
   { label: "password", type: "variable" },
 ];
 
-function getCompletionsFn() {
-  return (context) => {
+function getCompletionsFn(sectionId, paramInfoId) {
+  return async (context) => {
     let before = context.matchBefore(/\w+/);
     // If completion wasn't explicitly started and there
     // is no word before the cursor, don't open completions.
     if (!context.explicit && !before) return null;
-    console.log("context", context);
-    return {
-      from: before ? before.from : context.pos,
-      options: completions,
-      validFor: /^\w*$/,
-    };
+    const res = await dbTextFieldCompletion({
+      sectionId,
+      paramInfoId,
+      value: context.state.doc.text[0],
+    });
+    if (res.status === 200) {
+      return {
+        from: before ? before.from : context.pos,
+        options: res.data.map((x) => ({ label: x })),
+        validFor: /^\w*$/,
+      };
+    }
+    return null;
   };
 }
 
@@ -123,11 +132,6 @@ export function TextInput({
   variants,
   area = "card-value",
 }) {
-  const [results, send] = useTextFieldCompletionWebsocketRoom(
-    sectionId,
-    paramInfoId,
-  );
-
   function localOnChange(newVal) {
     if (value === newVal) {
       return;
@@ -160,7 +164,9 @@ export function TextInput({
       theme={theme}
       extensions={[
         python(),
-        autocompletion({ override: [getCompletionsFn()] }),
+        autocompletion({
+          override: [getCompletionsFn(sectionId, paramInfoId)],
+        }),
         keywordStylizer,
         EditorView.lineWrapping,
       ]}

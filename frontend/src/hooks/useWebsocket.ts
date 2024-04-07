@@ -58,18 +58,3 @@ export function useCodeCompletionWebsocketRoom(sectionId) {
 
   return [searchResults, _send];
 }
-
-export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
-  const [message, send] = useWebsocketRoom("textFieldCompletion");
-  const searchResults = message || [];
-
-  const _send = useCallback(
-    _.debounce((value) => {
-      const projectConfigId = useProjectConfig.getState().id;
-      send({ projectConfigId, sectionId, paramInfoId, value });
-    }, 100),
-    [send],
-  );
-
-  return [searchResults, _send];
-}

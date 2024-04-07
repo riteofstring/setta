@@ -181,6 +181,12 @@ class TextFieldInitializeCode(BaseModel):
 class TypeCheckRequestRequest(BaseModel):
     project: dict
 
+class TextFieldCompletionRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    paramInfoId: str
+    value: str
+
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
@@ -460,4 +466,16 @@ async def route_type_check_request(x: TypeCheckRequestRequest):
         cache,
         processors,
     )
+    return result["output"]
+
+
+@app.post("/textFieldCompletion")
+async def route_text_field_completion(x: TextFieldCompletionRequest):
+    result = await getConsumerMessage(
+        {"messageType": "textFieldCompletion", "message": x.dict()},
+        tasks_obj,
+        cache,
+        processors,
+    )
+    print("textFieldCompletion", result["output"], flush=True)
     return result["output"]
