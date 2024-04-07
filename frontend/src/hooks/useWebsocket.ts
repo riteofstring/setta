@@ -4,7 +4,6 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useWebsocketRooms } from "models/websocket";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { createNewId } from "z_utils/utils";
 
 export function useOpenCloseWebsocket() {
@@ -58,16 +57,6 @@ export function useCodeCompletionWebsocketRoom(sectionId) {
   );
 
   return [searchResults, _send];
-}
-
-export function textFieldInitializeCode(sectionId, paramInfoId) {
-  const id = createNewId();
-  const project = getProjectDataToGenerateCode();
-  sendMessage({
-    id,
-    messageType: "textFieldInitializeCode",
-    message: { project, sectionId, paramInfoId },
-  });
 }
 
 export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {

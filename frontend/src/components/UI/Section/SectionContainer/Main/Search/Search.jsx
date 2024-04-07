@@ -1,8 +1,6 @@
+import { dbTextFieldInitializeCode } from "dbRequests/sections";
 import { useGetAllCallables } from "hooks/useSectionContents";
-import {
-  textFieldInitializeCode,
-  useCodeCompletionWebsocketRoom,
-} from "hooks/useWebsocket";
+import { useCodeCompletionWebsocketRoom } from "hooks/useWebsocket";
 import { useProjectSearch } from "models/useProjectSearch";
 import { useEffect } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
@@ -29,7 +27,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
   }
 
   function onInputMouseDown() {
-    textFieldInitializeCode(sectionId, null);
+    dbTextFieldInitializeCode({ sectionId, paramInfoId: null });
   }
 
   // searchableItems becomes empty, then set the selected item to null

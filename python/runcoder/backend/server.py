@@ -171,6 +171,11 @@ class ParametersRequestRequest(BaseModel):
     paramInfoId: str | None
     value: str
 
+class TextFieldInitializeCode(BaseModel):
+    project: dict
+    sectionId: str
+    paramInfoId: str | None
+
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class ConnectionManager:
@@ -424,6 +429,17 @@ def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
 async def route_parameters_request(x: ParametersRequestRequest):
     result = await getConsumerMessage(
         {"messageType": "parametersRequest", "message": x.dict()},
+        tasks_obj,
+        cache,
+        processors,
+    )
+    return result["output"]
+
+
+@app.post("/textFieldInitializeCode")
+async def route_text_field_initialize_code(x: TextFieldInitializeCode):
+    result = await getConsumerMessage(
+        {"messageType": "textFieldInitializeCode", "message": x.dict()},
         tasks_obj,
         cache,
         processors,

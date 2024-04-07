@@ -3,10 +3,8 @@ import { python } from "@codemirror/lang-python";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
-import {
-  textFieldInitializeCode,
-  useTextFieldCompletionWebsocketRoom,
-} from "hooks/useWebsocket";
+import { dbTextFieldInitializeCode } from "dbRequests/sections";
+import { useTextFieldCompletionWebsocketRoom } from "hooks/useWebsocket";
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -141,7 +139,7 @@ export function TextInput({
     // if (variableClick(e)) {
     //   ctrlClick(e);
     // } else {
-    textFieldInitializeCode(sectionId, paramInfoId);
+    dbTextFieldInitializeCode({ sectionId, paramInfoId });
     // }
   }
 
