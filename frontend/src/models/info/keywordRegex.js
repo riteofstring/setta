@@ -6,8 +6,11 @@ export const useKeywordRegex = create((set) => ({
   pattern: "",
   colorMap: {},
   update: (sectionIdsToNames) => set(getRegexAndColorMap(sectionIdsToNames)),
-  updateGlobalVariables: (globalVariableId) =>
-    set(getRegexAndColorMap({ [globalVariableId]: null })),
+  updateGlobalVariables: (globalVariableId) => {
+    if (globalVariableId) {
+      set(getRegexAndColorMap({ [globalVariableId]: null }));
+    }
+  },
 }));
 
 function getRegexAndColorMap(sectionIdsToNames) {
