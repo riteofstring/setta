@@ -16,6 +16,7 @@ import {
   SectionInfoZustandType,
 } from "z_utils/types/section";
 import { createProjectState } from "../utils";
+import { useKeywordRegex } from "./keywordRegex";
 
 const initialState: SectionInfoStateType = {
   x: {},
@@ -145,6 +146,7 @@ function getSingletonSubscriptionFn(type) {
 
 useSectionInfos.subscribe(getSingletonSubscriptionFn(GLOBAL_VARIABLES), (x) => {
   SINGLETON_SECTIONS.globalVariables = x;
+  useKeywordRegex.getState().updateGlobalVariables(x);
 });
 
 useSectionInfos.subscribe(
@@ -161,6 +163,11 @@ useSectionInfos.subscribe(getSingletonSubscriptionFn(VAR_CONTROL), (x) => {
 useSectionInfos.subscribe(
   (state) => _.mapValues(state.x, (v) => v.children),
   (x) => useDndChildren.getState().reset(x),
+);
+
+useSectionInfos.subscribe(
+  (state) => _.mapValues(state.x, (v) => v.name),
+  (x) => useKeywordRegex.getState().update(x),
 );
 
 export function manualDndChildrenReset() {
