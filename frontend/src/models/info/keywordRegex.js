@@ -33,7 +33,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   }
 
   const pattern = new RegExp(
-    `(?<![\'\"])\\b${names.join("|")}\\b(?!["\'])`,
+    `(?<![."'])\\b(${names.join("|")})\\b(?!["'])`,
     "g",
   );
 
