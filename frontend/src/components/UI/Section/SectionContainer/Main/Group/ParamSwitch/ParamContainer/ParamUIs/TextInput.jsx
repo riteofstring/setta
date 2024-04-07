@@ -7,6 +7,7 @@ import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { goToSection } from "thunks/goToSection";
+import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { SINGLETON_SECTIONS } from "utils/constants";
 
@@ -52,6 +53,12 @@ function getKeywordStylizer(pattern, colorMap) {
 
 function getContentDomEventListener(editor) {
   return (event) => {
+    if (!variableClick(event)) {
+      return;
+    }
+
+    event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+
     // Convert click coordinates to a position in the editor
     const pos = editor.posAtCoords({ x: event.clientX, y: event.clientY });
     if (pos === null) {
@@ -60,11 +67,14 @@ function getContentDomEventListener(editor) {
 
     // Get the token at the clicked position
     const range = editor.state.wordAt(pos);
-    console.log("range", range);
     if (range === null) {
       return;
     }
     const word = editor.state.doc.toString().substring(range.from, range.to);
+    let match;
+    while ((match = useKeywordRegex.getState().pattern.exec(word))) {
+      goToSectionOnNameClick(event, match[0]);
+    }
   };
 }
 
@@ -196,37 +206,18 @@ function ctrlClick(e) {
   elementBelow.dispatchEvent(simulatedEvent);
 }
 
-function StyledText({ value }) {
-  // Split text into segments
-  const segments = value.split(pattern);
-  return segments.map((segment, index) => {
-    const color = colorMap[segment];
-    return (
-      <span
-        key={index}
-        style={{ color }}
-        onClick={getOnTextInputVariableClick(color, segment)}
-      >
-        {segment}
-      </span>
-    );
-  });
-}
-
-function getOnTextInputVariableClick(color, variable) {
-  if (color) {
-    return (e) => {
-      const section =
-        color === "green"
-          ? useSectionInfos.getState().x[SINGLETON_SECTIONS.globalVariables]
-          : _.find(useSectionInfos.getState().x, (s) => s.name === variable);
-      const id = section?.id;
-      if (id) {
-        e.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-        e.relatedTarget.blur(); //blur the input field we just clicked on
-        goToSection(id);
-      }
-    };
+function goToSectionOnNameClick(event, variable) {
+  let section = _.find(
+    useSectionInfos.getState().x,
+    (s) => s.name === variable,
+  );
+  if (!section) {
+    section = useSectionInfos.getState().x[SINGLETON_SECTIONS.globalVariables];
   }
-  return undefined;
+  const id = section?.id;
+  if (id) {
+    event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
+    // event.relatedTarget.blur(); //blur the input field we just clicked on
+    goToSection(id);
+  }
 }
