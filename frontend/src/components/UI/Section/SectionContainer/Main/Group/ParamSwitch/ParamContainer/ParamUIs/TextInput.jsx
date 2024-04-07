@@ -153,6 +153,7 @@ export function TextInput({
     <div className="nodrag">
       <CodeMirror
         value={value}
+        placeholder={defaultVal}
         basicSetup={{
           lineNumbers: false,
           foldGutter: false,
