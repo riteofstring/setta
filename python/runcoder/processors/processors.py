@@ -12,6 +12,7 @@ from ..code.generate_code import (
     get_line_from_string,
     prepend_with_imports,
     set_line,
+    var_declaration,
 )
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
@@ -89,7 +90,7 @@ def textFieldInitializeCode(message):
         force_appear_var_name=push_var_name,
     )
     print("textFieldInitializeCode", flush=True)
-    print(to_cache, flush=True)
+    print("to_cache", to_cache, flush=True)
     return {
         "output": None,
         "name": "textFieldInitializeCode",
@@ -102,12 +103,13 @@ def textFieldCompletion(message):
 
 
 def textFieldCompletionFn(return_types):
-    def fn(message, code, var_name_to_line_num, var_name):
+    def fn(message, code, var_name_to_line_num, var_name, column):
         output = []
-        for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1):
+        column = column + len(var_declaration(var_name, "", "="))
+        for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1, column=column):
             if return_types and c.type not in return_types:
                 continue
-            output.append(f"{message['value']}{c.complete}")
+            output.append(f"{message['beforeText']}{c.complete}")
         return output
 
     return fn
@@ -120,12 +122,13 @@ def completionHelper(message, return_name, fn):
         return {"output": [], "name": return_name, "cache": None}
     lines, var_name_to_line_num, codeJson, templatedCode = cached
     var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
-    set_line(lines, var_name_to_line_num, var_name, message["value"])
+    set_line(lines, var_name_to_line_num, var_name, message["fullText"])
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
     print("completionHelper", flush=True)
-    output = fn(message, code, var_name_to_line_num, var_name)
+    print(code, flush=True)
+    output = fn(message, code, var_name_to_line_num, var_name, message["position"])
     return {"output": output, "name": return_name, "cache": None}
 
 

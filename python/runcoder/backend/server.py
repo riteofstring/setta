@@ -185,7 +185,9 @@ class TextFieldCompletionRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     paramInfoId: str
-    value: str
+    beforeText: str
+    fullText: str
+    position: int
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients

@@ -41,10 +41,23 @@ export async function dbTypeCheckRequest() {
   });
 }
 
-export async function dbTextFieldCompletion({ sectionId, paramInfoId, value }) {
+export async function dbTextFieldCompletion({
+  sectionId,
+  paramInfoId,
+  beforeText,
+  fullText,
+  position,
+}) {
   const projectConfigId = useProjectConfig.getState().id;
   return await post({
-    body: { projectConfigId, sectionId, paramInfoId, value },
+    body: {
+      projectConfigId,
+      sectionId,
+      paramInfoId,
+      beforeText,
+      fullText,
+      position,
+    },
     address: "/textFieldCompletion",
   });
 }

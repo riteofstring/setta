@@ -97,20 +97,21 @@ export function TextInputConfig() {
 
 function getCompletionsFn(sectionId, paramInfoId) {
   return async (context) => {
-    let before = context.matchBefore(/\w+/);
-    // If completion wasn't explicitly started and there
-    // is no word before the cursor, don't open completions.
+    const before = context.matchBefore(/[^\s]+$/);
+    console.log("before", before);
     if (!context.explicit && !before) return null;
     const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
-      value: context.state.doc.text[0],
+      beforeText: before.text,
+      fullText: context.state.doc.toString(),
+      position: context.pos,
     });
     if (res.status === 200) {
       return {
         from: before ? before.from : context.pos,
         options: res.data.map((x) => ({ label: x })),
-        validFor: /^\w*$/,
+        // validFor: /[^\s]+$/,
       };
     }
     return null;
