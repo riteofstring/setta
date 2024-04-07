@@ -32,3 +32,11 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
     address: "/textFieldInitializeCode",
   });
 }
+
+export async function dbTypeCheckRequest() {
+  const project = getProjectDataToGenerateCode();
+  return await post({
+    body: { project },
+    address: "/typeCheckRequest",
+  });
+}

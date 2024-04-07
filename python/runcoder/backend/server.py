@@ -171,10 +171,15 @@ class ParametersRequestRequest(BaseModel):
     paramInfoId: str | None
     value: str
 
+
 class TextFieldInitializeCode(BaseModel):
     project: dict
     sectionId: str
     paramInfoId: str | None
+
+
+class TypeCheckRequestRequest(BaseModel):
+    project: dict
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -440,6 +445,17 @@ async def route_parameters_request(x: ParametersRequestRequest):
 async def route_text_field_initialize_code(x: TextFieldInitializeCode):
     result = await getConsumerMessage(
         {"messageType": "textFieldInitializeCode", "message": x.dict()},
+        tasks_obj,
+        cache,
+        processors,
+    )
+    return result["output"]
+
+
+@app.post("/typeCheckRequest")
+async def route_type_check_request(x: TypeCheckRequestRequest):
+    result = await getConsumerMessage(
+        {"messageType": "typeCheckRequest", "message": x.project},
         tasks_obj,
         cache,
         processors,
