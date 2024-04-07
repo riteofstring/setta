@@ -169,7 +169,9 @@ class ParametersRequestRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     paramInfoId: str | None
-    value: str
+    beforeText: str
+    fullText: str
+    position: int
 
 
 class TextFieldInitializeCode(BaseModel):
@@ -184,7 +186,7 @@ class TypeCheckRequestRequest(BaseModel):
 class TextFieldCompletionRequest(BaseModel):
     projectConfigId: str
     sectionId: str
-    paramInfoId: str
+    paramInfoId: str | None
     beforeText: str
     fullText: str
     position: int

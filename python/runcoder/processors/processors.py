@@ -9,7 +9,7 @@ from ..code.extract_args_from_help import extract_args_from_help
 from ..code.generate_code import (
     generate_code,
     generate_lines_of_code_without_imports,
-    get_line_from_string,
+    append_to_line,
     prepend_with_imports,
     set_line,
     var_declaration,
@@ -103,14 +103,20 @@ def textFieldCompletion(message):
     return completionHelper(message, "textFieldCompletion", textFieldCompletionFn(None))
 
 
+def jedi_complete(code, var_name_to_line_num, var_name, column):
+    column = column + len(var_declaration(var_name, "", "="))
+    line = var_name_to_line_num[var_name] + 1
+    return jedi.Script(code).complete(line=line, column=column), line
+
+
 def textFieldCompletionFn(return_types):
     def fn(message, code, var_name_to_line_num, var_name, column):
         params = []
         variables = []
         builtins = []
         the_rest = []
-        column = column + len(var_declaration(var_name, "", "="))
-        for c in jedi.Script(code).complete(line=var_name_to_line_num[var_name] + 1, column=column):
+        results, _ = jedi_complete(code, var_name_to_line_num, var_name, column)
+        for c in results:
             if return_types and c.type not in return_types:
                 continue
             completion = f"{message['beforeText']}{c.complete}"
@@ -145,15 +151,13 @@ def completionHelper(message, return_name, fn):
     return {"output": output, "name": return_name, "cache": None}
 
 
-def parametersRequestFn(message, code, var_name_to_line_num, var_name):
+def parametersRequestFn(message, code, var_name_to_line_num, var_name, column):
     print("parametersRequest", flush=True)
-    line = var_name_to_line_num[var_name] + 1
-    results = jedi.Script(code).complete(
-        line=line, column=len(get_line_from_string(code, line)) - 2
-    )[0]
-    parsed = docstring_parser.parse(results.docstring(raw=True))
+    results, line = jedi_complete(code, var_name_to_line_num, var_name, column)
+    parsed = docstring_parser.parse(results[0].docstring(raw=True))
     descriptions = {v.arg_name: v.description for v in parsed.params}
 
+    code = append_to_line(code, line, "(")
     signatures = jedi.Script(code).get_signatures(line=line)
     output = []
     if signatures:

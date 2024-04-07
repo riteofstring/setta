@@ -36,7 +36,9 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   } else {
     const res = await dbParametersRequest({
       sectionId,
-      value: `${selectedItem}(`,
+      fullText: selectedItem,
+      beforeText: "",
+      position: selectedItem.length,
     });
     if (res.status === 200) {
       createChildrenCodeInfo(id, res.data);

@@ -17,10 +17,22 @@ export async function dbLoadSection({ sectionId }) {
   });
 }
 
-export async function dbParametersRequest({ sectionId, value }) {
+export async function dbParametersRequest({
+  sectionId,
+  fullText,
+  beforeText,
+  position,
+}) {
   const projectConfigId = useProjectConfig.getState().id;
   return await post({
-    body: { projectConfigId, sectionId, paramInfoId: null, value },
+    body: {
+      projectConfigId,
+      sectionId,
+      paramInfoId: null,
+      fullText,
+      beforeText,
+      position,
+    },
     address: "/parametersRequest",
   });
 }

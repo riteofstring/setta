@@ -1,6 +1,4 @@
 import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
-import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useWebsocketRooms } from "models/websocket";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -42,19 +40,4 @@ function useWebsocketRoom(messageType) {
   }, []);
 
   return [received, send];
-}
-
-export function useCodeCompletionWebsocketRoom(sectionId) {
-  const [message, send] = useWebsocketRoom("codeCompletionRequest");
-  const searchResults = message ? message.map((x) => ({ id: x, name: x })) : [];
-
-  const _send = useCallback(
-    _.debounce((value) => {
-      const projectConfigId = useProjectConfig.getState().id;
-      send({ projectConfigId, sectionId, paramInfoId: null, value });
-    }, 100),
-    [send],
-  );
-
-  return [searchResults, _send];
 }
