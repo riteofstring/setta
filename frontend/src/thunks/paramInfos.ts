@@ -1,9 +1,9 @@
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { getSectionDBSource, getSectionInfo } from "./sections/getters";
+import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { varControlUpdate } from "./varControl";
-import { debouncedRequestTypeCheck } from "./websocket";
 
 export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);

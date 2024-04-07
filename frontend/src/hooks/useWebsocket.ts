@@ -1,10 +1,7 @@
 import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
-import _ from "lodash";
-import { useProjectConfig } from "models/info/projectConfig";
 import { useWebsocketRooms } from "models/websocket";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { createNewId } from "z_utils/utils";
 
 export function useOpenCloseWebsocket() {
@@ -43,44 +40,4 @@ function useWebsocketRoom(messageType) {
   }, []);
 
   return [received, send];
-}
-
-export function useCodeCompletionWebsocketRoom(sectionId) {
-  const [message, send] = useWebsocketRoom("codeCompletionRequest");
-  const searchResults = message ? message.map((x) => ({ id: x, name: x })) : [];
-
-  const _send = useCallback(
-    _.debounce((value) => {
-      const projectConfigId = useProjectConfig.getState().id;
-      send({ projectConfigId, sectionId, paramInfoId: null, value });
-    }, 100),
-    [send],
-  );
-
-  return [searchResults, _send];
-}
-
-export function textFieldInitializeCode(sectionId, paramInfoId) {
-  const id = createNewId();
-  const project = getProjectDataToGenerateCode();
-  sendMessage({
-    id,
-    messageType: "textFieldInitializeCode",
-    message: { project, sectionId, paramInfoId },
-  });
-}
-
-export function useTextFieldCompletionWebsocketRoom(sectionId, paramInfoId) {
-  const [message, send] = useWebsocketRoom("textFieldCompletion");
-  const searchResults = message || [];
-
-  const _send = useCallback(
-    _.debounce((value) => {
-      const projectConfigId = useProjectConfig.getState().id;
-      send({ projectConfigId, sectionId, paramInfoId, value });
-    }, 100),
-    [send],
-  );
-
-  return [searchResults, _send];
 }

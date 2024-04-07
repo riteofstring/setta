@@ -1,9 +1,9 @@
+import { dbParametersRequest } from "dbRequests/sections";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { varControlUpdate } from "thunks/varControl";
-import { requestParameters } from "thunks/websocket";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { RCType } from "z_utils/types/codeInfo";
@@ -11,7 +11,7 @@ import { isUUID } from "z_utils/utils";
 import { getSectionInfo, getSectionTypeConfig } from "./getters";
 import { updateCallables, updateParams } from "./sectionContents";
 
-export function setSelectedItem(sectionId, selectedItem, changedByUser) {
+export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   let id = selectedItem;
   if (!isUUID(id)) {
     const info = newCodeInfo({
@@ -34,10 +34,16 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
   if (isUUID(selectedItem)) {
     setSelectedItemChildren(sectionId, id, changedByUser);
   } else {
-    requestParameters(sectionId, `${selectedItem}(`, (x) => {
-      createChildrenCodeInfo(id, x);
-      setSelectedItemChildren(sectionId, id, changedByUser);
+    const res = await dbParametersRequest({
+      sectionId,
+      fullText: selectedItem,
+      beforeText: "",
+      position: selectedItem.length,
     });
+    if (res.status === 200) {
+      createChildrenCodeInfo(id, res.data);
+      setSelectedItemChildren(sectionId, id, changedByUser);
+    }
   }
 }
 
