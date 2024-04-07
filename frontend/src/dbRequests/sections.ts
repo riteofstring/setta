@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { SECTIONS } from "z_utils/routes";
