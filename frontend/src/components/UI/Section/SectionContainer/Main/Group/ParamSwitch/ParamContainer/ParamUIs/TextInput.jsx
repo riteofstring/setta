@@ -3,6 +3,7 @@ import { python } from "@codemirror/lang-python";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import { textFieldInitializeCode } from "hooks/useWebsocket";
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -135,39 +136,32 @@ export function TextInput({
 
   // const allItems = [{ group: "search results", items: results }];
 
-  // function updateValue(newVal, requestCompletions = false) {
-  //   if (value === newVal) {
-  //     return;
-  //   }
-  //   onChange(newVal);
-  //   if (requestCompletions) {
-  //     send(newVal);
-  //   }
-  // }
+  function onChange(newVal) {
+    if (value === newVal) {
+      return;
+    }
+    onChange(newVal);
+    if (requestCompletions) {
+      send(newVal);
+    }
+  }
 
-  // const {
-  //   isOpen,
-  //   getMenuProps,
-  //   getInputProps,
-  //   highlightedIndex,
-  //   getItemProps,
-  // } = useTextFieldCombobox({ allItems, value, updateValue });
+  function onClick(e) {
+    // if (variableClick(e)) {
+    //   ctrlClick(e);
+    // } else {
+    textFieldInitializeCode(sectionId, paramInfoId);
+    // }
+  }
 
-  // function onClick(e) {
-  //   if (variableClick(e)) {
-  //     ctrlClick(e);
-  //   } else {
-  //     textFieldInitializeCode(sectionId, paramInfoId);
-  //   }
-  // }
-
-  const { pattern, colorMap } = useKeywordRegex((x) => x);
+  const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
   const { theme } = useCodeMirrorStyle();
   const keywordStylizer = getKeywordStylizer(pattern, colorMap);
 
   return (
     <div className="nodrag">
       <CodeMirror
+        value={value}
         basicSetup={{
           lineNumbers: false,
           foldGutter: false,
@@ -180,6 +174,8 @@ export function TextInput({
           keywordStylizer,
           EditorView.lineWrapping,
         ]}
+        onClick={onClick}
+        onChange={onChange}
       />
     </div>
   );
