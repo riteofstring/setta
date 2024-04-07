@@ -3,7 +3,10 @@ import { python } from "@codemirror/lang-python";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
-import { textFieldInitializeCode } from "hooks/useWebsocket";
+import {
+  textFieldInitializeCode,
+  useTextFieldCompletionWebsocketRoom,
+} from "hooks/useWebsocket";
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -95,15 +98,18 @@ const completions = [
   { label: "password", type: "variable" },
 ];
 
-function myCompletions(context) {
-  let before = context.matchBefore(/\w+/);
-  // If completion wasn't explicitly started and there
-  // is no word before the cursor, don't open completions.
-  if (!context.explicit && !before) return null;
-  return {
-    from: before ? before.from : context.pos,
-    options: completions,
-    validFor: /^\w*$/,
+function getCompletionsFn() {
+  return (context) => {
+    let before = context.matchBefore(/\w+/);
+    // If completion wasn't explicitly started and there
+    // is no word before the cursor, don't open completions.
+    if (!context.explicit && !before) return null;
+    console.log("context", context);
+    return {
+      from: before ? before.from : context.pos,
+      options: completions,
+      validFor: /^\w*$/,
+    };
   };
 }
 
@@ -119,31 +125,16 @@ export function TextInput({
   variants,
   area = "card-value",
 }) {
-  // const [results, send] = useTextFieldCompletionWebsocketRoom(
-  //   sectionId,
-  //   paramInfoId,
-  // );
+  const [results, send] = useTextFieldCompletionWebsocketRoom(
+    sectionId,
+    paramInfoId,
+  );
 
-  // const [isFocused, setIsFocused] = useState(false);
-
-  // const handleFocus = () => {
-  //   setIsFocused(true);
-  // };
-
-  // const handleBlur = () => {
-  //   setIsFocused(false);
-  // };
-
-  // const allItems = [{ group: "search results", items: results }];
-
-  function onChange(newVal) {
+  function localOnChange(newVal) {
     if (value === newVal) {
       return;
     }
     onChange(newVal);
-    if (requestCompletions) {
-      send(newVal);
-    }
   }
 
   function onClick(e) {
@@ -170,12 +161,12 @@ export function TextInput({
         theme={theme}
         extensions={[
           python(),
-          autocompletion({ override: [myCompletions] }),
+          autocompletion({ override: [getCompletionsFn()] }),
           keywordStylizer,
           EditorView.lineWrapping,
         ]}
         onClick={onClick}
-        onChange={onChange}
+        onChange={localOnChange}
       />
     </div>
   );
