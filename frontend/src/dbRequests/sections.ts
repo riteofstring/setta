@@ -1,3 +1,4 @@
+import { useProjectConfig } from "models/info/projectConfig";
 import { SECTIONS } from "z_utils/routes";
 import { post } from "./utils";
 
@@ -12,5 +13,13 @@ export async function dbLoadSection({ sectionId }) {
   return await post({
     body: { sectionId },
     address: SECTIONS,
+  });
+}
+
+export async function dbParametersRequest({ sectionId, value }) {
+  const projectConfigId = useProjectConfig.getState().id;
+  return await post({
+    body: { projectConfigId, sectionId, paramInfoId: null, value },
+    address: "/parametersRequest",
   });
 }
