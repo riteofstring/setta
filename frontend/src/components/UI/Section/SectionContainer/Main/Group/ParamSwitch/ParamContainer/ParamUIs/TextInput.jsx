@@ -148,26 +148,25 @@ export function TextInput({
   const keywordStylizer = getKeywordStylizer(pattern, colorMap);
 
   return (
-    <div className="nodrag">
-      <CodeMirror
-        value={value}
-        placeholder={defaultVal}
-        basicSetup={{
-          lineNumbers: false,
-          foldGutter: false,
-        }}
-        onCreateEditor={onCreateEditor}
-        theme={theme}
-        extensions={[
-          python(),
-          autocompletion({ override: [getCompletionsFn()] }),
-          keywordStylizer,
-          EditorView.lineWrapping,
-        ]}
-        onClick={onClick}
-        onChange={localOnChange}
-      />
-    </div>
+    <CodeMirror
+      className="nodrag"
+      value={value}
+      placeholder={defaultVal}
+      basicSetup={{
+        lineNumbers: false,
+        foldGutter: false,
+      }}
+      onCreateEditor={onCreateEditor}
+      theme={theme}
+      extensions={[
+        python(),
+        autocompletion({ override: [getCompletionsFn()] }),
+        keywordStylizer,
+        EditorView.lineWrapping,
+      ]}
+      onClick={onClick}
+      onChange={localOnChange}
+    />
   );
 }
 
