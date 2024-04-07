@@ -1,3 +1,4 @@
+import { useCodeInfo } from "models/info/codeInfo";
 import { useState } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
 import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
@@ -48,9 +49,11 @@ export function SectionSearch({ sectionId, initialSelection }) {
   //   />
   // );
 
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(
+    initialSelection ? useCodeInfo.getState().x[initialSelection].name : "",
+  );
 
-  function onEnter(){
+  function onEnter() {
     setSelectedItem(sectionId, value, true);
   }
 
