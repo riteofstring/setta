@@ -5,11 +5,23 @@ import { highlightTree } from "@lezer/highlight";
 
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
-export function DummyCodeMirror({ code, theme, onMouseDown, className }) {
+export function DummyCodeMirror({
+  code,
+  theme,
+  onMouseDown,
+  className,
+  keywordRegex,
+}) {
   const tree = pythonLanguage.parser.parse(code);
   const highlightStyle = theme[1][2].value;
   const markCache = {};
   const builder = new RangeSetBuilder();
+
+  let match;
+  const matchedIndices = new Set();
+  while ((match = keywordRegex.exec(code))) {
+    matchedIndices.add(match.index);
+  }
 
   highlightTree(tree, highlightStyle, (from, to, style) => {
     builder.add(
@@ -39,7 +51,9 @@ export function DummyCodeMirror({ code, theme, onMouseDown, className }) {
         outputDivs.push(text.sliceString(pos, cursor.from));
       }
       outputDivs.push(
-        <span className={cursor.value.spec.class}>
+        <span
+          className={`${cursor.value.spec.class} ${matchedIndices.has(cursor.from) ? "italic" : ""}`}
+        >
           {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
         </span>,
       );

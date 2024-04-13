@@ -159,6 +159,7 @@ export function TextInputCodeMirror({
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
+  const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
 
   function onBlur() {
     setActivationEvent(null);
@@ -179,6 +180,7 @@ export function TextInputCodeMirror({
           onMouseDown={onMouseDown}
           className="card-value nodrag cursor-text select-text font-mono"
           theme={theme}
+          keywordRegex={pattern}
         />
       )}
       {activationEvent && (
@@ -196,6 +198,8 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
+          keywordRegex={pattern}
+          keywordColorMap={colorMap}
         />
       )}
     </>
@@ -216,6 +220,8 @@ function CoreCodeMirror({
   realIsInitialized,
   setRealIsInitialized,
   theme,
+  keywordRegex,
+  keywordColorMap,
 }) {
   function localOnChange(newVal) {
     if (value === newVal) {
@@ -224,8 +230,7 @@ function CoreCodeMirror({
     onChange(newVal);
   }
 
-  const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
-  const keywordStylizer = getKeywordStylizer(pattern, colorMap);
+  const keywordStylizer = getKeywordStylizer(keywordRegex, keywordColorMap);
 
   const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
     sectionId,
