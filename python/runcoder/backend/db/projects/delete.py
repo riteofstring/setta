@@ -1,5 +1,4 @@
-def delete_projects(dbs, ids):
-    db = dbs.default
+def delete_projects(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
         DELETE FROM Project
