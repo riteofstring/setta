@@ -25,24 +25,37 @@ export function renderString({ code, theme }) {
   let str = "";
   let pos = 0; // keep track of pos
 
+  // loop through each line of code we need to tokenize
   for (let i = 1; i <= text.lines; i++) {
-    let line = text.line(i),
-      pos = line.from,
-      cursor = decorationRangeSet.iter(line.from),
-      lineInnerHtml = "";
+    const line = text.line(i);
+    str += '<div class="cm-line">';
 
-    while (cursor.value && cursor.from < line.to) {
-      if (cursor.from > pos) {
-        lineInnerHtml += `${text.sliceString(pos, cursor.from)}`;
+    // reset cursor position to beginning of current line
+    pos = line.from;
+
+    // iterate through the current line only
+    const curs = decorationRangeSet.iter(line.from);
+    pos = line.from; // always start at beginning of the line
+
+    // as long as the iterator has a value, and we haven't reached the end of the current line, keep working
+    while (curs.value && curs.from < line.to) {
+      //if the next token is after the current position, add the non-tokenized text to the string
+      if (curs.from > pos) {
+        str += `${text.sliceString(pos, curs.from)}`;
       }
-      lineInnerHtml += `<span class="${cursor.value.spec.class}">${text.sliceString(cursor.from, Math.min(line.to, cursor.to))}</span>`;
-      pos = cursor.to;
-      cursor.next();
+
+      // get token value from the current cursorPos to end of token (BUT NOT to extend the end of the current line)
+      const codeVal = text.sliceString(curs.from, Math.min(curs.to, line.to));
+      str += `<${curs.value.tagName} class="${curs.value.class}">${codeVal}</${curs.value.tagName}>`;
+      pos = curs.to;
+
+      curs.next();
     }
-    if (pos < line.to) {
-      lineInnerHtml += `${text.sliceString(pos, line.to)}`;
-    }
-    str += `<div class="cm-line">${lineInnerHtml || "<br/>"}</div>`;
+
+    // catch up to end of line
+    str += `${text.sliceString(pos, line.to)}`;
+    pos = line.to; // set pos to end of line...
+    str += "</div>"; // closing cm-line div
   }
 
   const highlightStyles = extractCSSRulesFromThemeHighlightStyle(
@@ -53,7 +66,7 @@ export function renderString({ code, theme }) {
   // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
   // ${highlightStyles.scopeClassName}
   return {
-    code: `<pre class="${highlightStyles.scopeClassName}">${str}</pre>`,
+    code: `<div class="cm-editor"><div class="cm-scroller"><div class="cm-content">${str}</div></div></div>`,
     cssRules: highlightStyles.rules,
   };
 }
