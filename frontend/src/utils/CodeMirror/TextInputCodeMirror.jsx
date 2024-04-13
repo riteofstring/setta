@@ -172,12 +172,14 @@ export function TextInputCodeMirror({
   const { theme } = useCodeMirrorStyle();
 
   return (
-    <FakeCodeMirror
-      value={value ? value : "x"}
-      onMouseDown={onMouseDown}
-      theme={theme}
-      realIsInitialized={realIsInitialized}
-    >
+    <>
+      {!realIsInitialized && (
+        <FakeCodeMirror
+          value={value ? value : "x"}
+          onMouseDown={onMouseDown}
+          theme={theme}
+        />
+      )}
       {activationEvent && (
         <CoreCodeMirror
           sectionId={sectionId}
@@ -195,29 +197,18 @@ export function TextInputCodeMirror({
           theme={theme}
         />
       )}
-    </FakeCodeMirror>
+    </>
   );
 }
 
-function FakeCodeMirror({
-  value,
-  theme,
-  onMouseDown,
-  realIsInitialized,
-  children,
-}) {
+function FakeCodeMirror({ value, theme, onMouseDown }) {
   const { code } = renderString({ code: value, theme });
   return (
-    <>
-      {!realIsInitialized && (
-        <div
-          onMouseDown={onMouseDown}
-          className="cm-theme card-value nodrag cursor-text select-text font-mono"
-          dangerouslySetInnerHTML={{ __html: code }}
-        />
-      )}
-      {children}
-    </>
+    <div
+      onMouseDown={onMouseDown}
+      className="cm-theme card-value nodrag cursor-text select-text font-mono"
+      dangerouslySetInnerHTML={{ __html: code }}
+    />
   );
 }
 
