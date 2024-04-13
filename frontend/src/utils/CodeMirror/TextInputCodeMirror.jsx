@@ -85,7 +85,12 @@ function getContentDomEventListener(editor, sectionId, paramInfoId) {
   };
 }
 
-function getOnCreateEditor({ sectionId, paramInfoId, initialEvent }) {
+function getOnCreateEditor({
+  sectionId,
+  paramInfoId,
+  initialEvent,
+  setRealIsInitialized,
+}) {
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
@@ -95,6 +100,7 @@ function getOnCreateEditor({ sectionId, paramInfoId, initialEvent }) {
     const { clientX, clientY } = initialEvent;
     const pos = view.posAtCoords({ x: clientX, y: clientY });
     view.dispatch({ selection: { anchor: pos, head: pos } });
+    setRealIsInitialized(true);
   };
 }
 
@@ -152,9 +158,11 @@ export function TextInputCodeMirror({
   onEnter,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
+  const [realIsInitialized, setRealIsInitialized] = useState(false);
 
   function onBlur() {
     setActivationEvent(null);
+    setRealIsInitialized(false);
   }
 
   function onMouseDown(event) {
@@ -163,37 +171,53 @@ export function TextInputCodeMirror({
 
   const { theme } = useCodeMirrorStyle();
 
-  return activationEvent ? (
-    <CoreCodeMirror
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      value={value}
-      defaultVal={defaultVal}
-      onChange={onChange}
-      className={className}
-      singleLine={singleLine}
-      onEnter={onEnter}
-      onBlur={onBlur}
-      initialEvent={activationEvent}
-      theme={theme}
-    />
-  ) : (
+  return (
     <FakeCodeMirror
       value={value ? value : "x"}
       onMouseDown={onMouseDown}
       theme={theme}
-    />
+      realIsInitialized={realIsInitialized}
+    >
+      {activationEvent && (
+        <CoreCodeMirror
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          className={className}
+          singleLine={singleLine}
+          onEnter={onEnter}
+          onBlur={onBlur}
+          initialEvent={activationEvent}
+          realIsInitialized={realIsInitialized}
+          setRealIsInitialized={setRealIsInitialized}
+          theme={theme}
+        />
+      )}
+    </FakeCodeMirror>
   );
 }
 
-function FakeCodeMirror({ value, theme, onMouseDown }) {
+function FakeCodeMirror({
+  value,
+  theme,
+  onMouseDown,
+  realIsInitialized,
+  children,
+}) {
   const { code } = renderString({ code: value, theme });
   return (
-    <div
-      onMouseDown={onMouseDown}
-      className="cm-theme nodrag cursor-text select-text font-mono"
-      dangerouslySetInnerHTML={{ __html: code }}
-    />
+    <>
+      {!realIsInitialized && (
+        <div
+          onMouseDown={onMouseDown}
+          className="cm-theme card-value nodrag cursor-text select-text font-mono"
+          dangerouslySetInnerHTML={{ __html: code }}
+        />
+      )}
+      {children}
+    </>
   );
 }
 
@@ -208,6 +232,8 @@ function CoreCodeMirror({
   onEnter,
   onBlur,
   initialEvent,
+  realIsInitialized,
+  setRealIsInitialized,
   theme,
 }) {
   function localOnChange(newVal) {
@@ -253,7 +279,7 @@ function CoreCodeMirror({
 
   return (
     <CodeMirror
-      className={className}
+      className={`card-value ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{
@@ -264,6 +290,7 @@ function CoreCodeMirror({
         sectionId,
         paramInfoId,
         initialEvent,
+        setRealIsInitialized,
       })}
       theme={theme}
       extensions={extensions}
