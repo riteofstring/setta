@@ -174,7 +174,7 @@ export function TextInputCodeMirror({
     }
   }
 
-  const { theme } = useCodeMirrorStyle();
+  const theme = useCodeMirrorStyle();
 
   return (
     <>
@@ -182,7 +182,7 @@ export function TextInputCodeMirror({
         <DummyCodeMirror
           code={value ? value : "x"}
           onMouseDown={onMouseDown}
-          className="card-value nodrag cursor-text select-text font-mono"
+          className={`${className} nodrag cursor-text select-text font-mono`}
           theme={theme}
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}
@@ -270,7 +270,7 @@ function CoreCodeMirror({
 
   return (
     <CodeMirror
-      className={`nodrag card-value ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`nodrag ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{

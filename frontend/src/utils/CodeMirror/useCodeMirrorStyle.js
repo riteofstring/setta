@@ -23,14 +23,15 @@ const githubLightTheme = githubLightInit({
   },
 });
 
-console.log("githubDarkTheme", githubDarkTheme[1][2].value);
-
-const sheet = new CSSStyleSheet();
-sheet.replaceSync(githubDarkTheme[1][2].value.module.rules.join("\n"));
-document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+// make styles available for DummyCodeMirror
+for (const theme of [githubDarkTheme, githubLightTheme]) {
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(theme[1][2].value.module.rules.join("\n"));
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+}
 
 export function useCodeMirrorStyle() {
   const darkMode = useSettings((x) => x.darkMode);
 
-  return { theme: darkMode ? githubDarkTheme : githubLightTheme };
+  return darkMode ? githubDarkTheme : githubLightTheme;
 }
