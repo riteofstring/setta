@@ -180,7 +180,7 @@ export function TextInputCodeMirror({
     <>
       {!realIsInitialized && (
         <DummyCodeMirror
-          code={value ? value : "x"}
+          code={value}
           onMouseDown={onMouseDown}
           className={`${className} nodrag cursor-text select-text font-mono`}
           theme={theme}
