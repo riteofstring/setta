@@ -42,7 +42,7 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function Editor({ sectionId, value, onChange, languageExtension }) {
-  const theme = useCodeMirrorStyle();
+  const { theme } = useCodeMirrorStyle();
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
 
   return (
