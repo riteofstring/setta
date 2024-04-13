@@ -49,7 +49,7 @@ export function renderString({ code, theme }) {
 
   // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
   // ${highlightStyles.scopeClassName}
-  const scopeClassName = theme[0]?.value || "";
+  const scopeClassName = theme[0][0]?.value || "";
   return {
     code: `<div class="${scopeClassName}">${str}</div>`,
   };
