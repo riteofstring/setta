@@ -1,194 +1,43 @@
-// Assign every ~V, ~O, and ~P to a global variable namespace
-// When creating a variable, create its children variables and keep track of those variables, i.e. make a tree of the variables
-// The code starts with all necessary imports, and then creates variable assignments doing a bottom-up traversal of the tree
+#input
+model = torchvision.models.resnet101(pretrained=True, download=True)
 
-// if it's a string, number, boolean, or null, then the var has no children
-// if it's an object, then the number of children is the number of keys in the object
-// if it's an array, then the number of children i
-
-
-Cases:
-
-#1 Empty object
-
-JSON:
-"V~Model": {}
-Python:
-Model = {}
-
-JSON:
-"P~Model": {}
-Python:
-abc = {}
-
-JSON:
-"O~Model": {}
-Python:
-abc = Model()
+#generated
+_model = {}
+_model["pretrained"] = True
+_model["download"] = True
+model = torchvision.models.resnet101(**model)
 
 
-#2 null
-
-JSON:
-"V~Model": null
-Python:
-Model = None
-
-JSON:
-"P~Model": null
-Python:
-abc = None
-
-JSON:
-"O~Model": null
-Python:
-NOT POSSIBLE
-
-#3 Number
-
-JSON:
-"V~Model": 5
-Python:
-Model = 5
-
-JSON:
-"P~Model": 5
-Python:
-abc = 5
-
-JSON:
-"O~Model": 5
-Python:
-NOT POSSIBLE
+#input
+models = [torchvision.models.resnet101(pretrained=True, download=True), torchvision.models.resnet101(pretrained=True, download=True), torchvision.models.resnet101(pretrained=True, download=True)]
 
 
-#4 String
-
-JSON:
-"V~Model": "dog"
-Python:
-Model = "dog"
-
-JSON:
-"P~Model": "dog"
-Python:
-abc = "dog"
-
-JSON:
-"O~Model": "dog"
-Python:
-NOT POSSIBLE
+#generated
+_models = []
+_models[0] = {}
+_models[0]["pretrained"] = True
+...
+models = [torchvision.models.resnet101(**_models[0]), torchvision.models.resnet101(**_models[1]), torchvision.models.resnet101(**_models[2])]
 
 
-#5 Boolean
 
-JSON:
-"V~Model": true
-Python:
-Model = True
-
-JSON:
-"P~Model": true
-Python:
-abc = True
-
-JSON:
-"O~Model": true
-Python:
-NOT POSSIBLE
+Exporting a section (e.g. "model")
+- Export its arguments as a dict ("_model")
+- Create the object (model = obj(**_model))
 
 
-#6 Object
-
-JSON:
-"V~Model": {"P~dog": "fluffy", "P~apple": 9}
-Python:
-abc = "fluffy"
-def = 9
-Model = {"dog": abc, "apple": def}
-
-During codegen, Model has 2 children, abc and def, and we store the knowledge that Model is a dict.
-
-JSON:
-"P~Model": {"P~dog": "fluffy", "P~apple": 9}
-Python:
-abc = "fluffy"
-def = 9
-ghi = {"dog": abc, "apple": def}
-
-During codegen, ghi has 2 children, abc and def, and we store the knowledge that ghi is a dict.
-
-JSON:
-"O~Model": {"P~dog": "fluffy", "P~apple": 9}
-Python:
-abc = "fluffy"
-def = 9
-ghi = Model(dog=abc, apple=def)
-
-During codegen, ghi has 2 children, abc and def, and we store the knowledge that ghi is a callable.
-
-or 
-
-abc = "fluffy"
-def = 9
-ghi = {"dog": abc, "apple": def}
-jkl = Model(**ghi)
-
-During codegen, ghi has 2 children, abc and def, and we store the knowledge that ghi is a dict.
-During codegen, jkl has 1 child, ghi, and we store the knowledge that ghi is a callable.
+Exporting a list of sections (e.g. "models")
+- Export a list of dicts which hold the arguments ("_models")
 
 
-#6 Empty array
 
-JSON:
-"V~Model": []
-Python:
-Model = []
+import torch.optim
+import torchvision.models
 
-JSON:
-"P~Model": []
-Python:
-abc = []
-
-JSON:
-"O~Model": []
-Python:
-NOT POSSIBLE
+Model = torchvision.models.resnet101()
+p8 = Model.parameters()
+Optimizer_params = Model.parameters()
+Optimizer = torch.optim.Adam(params=Optimizer_params)
 
 
-#7 Array
 
-JSON:
-"V~Model": [[], [1,2,3], 567]
-Python:
-a = []
-b = 1
-c = 2
-d = 3
-e = [b,c,d]
-f = 567
-Model = [a, e, f]
-
-During codegen, e has 3 children, b, c, and d, and we store the knowledge that e is a list.
-During codegen, Model has 3 children, a, e, and f, and we store the knowledge that Model is a list.
-
-
-JSON:
-"P~Model": [[], [1,2,3], 567]
-Python:
-a = []
-b = 1
-c = 2
-d = 3
-e = [b,c,d]
-f = 567
-g = [a, e, f]
-
-During codegen, e has 3 children, b, c, and d, and we store the knowledge that e is a list.
-During codegen, g has 3 children, a, e, and f, and we store the knowledge that g is a list.
-
-
-JSON:
-"O~Model": [[], [1,2,3], 567]
-Python:
-NOT POSSIBLE

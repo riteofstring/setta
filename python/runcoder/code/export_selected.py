@@ -15,9 +15,13 @@ from ..utils.constants import (
     SECTION,
     TERMINAL,
     VAR_CONTROL,
+    TEXT
 )
 from .find_placeholders import double_braces, needs_generated_python
 
+
+def get_args_var_name(var_name):
+    return f"_{var_name}"
 
 def get_section_config(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
@@ -61,10 +65,8 @@ def get_original_param_ui_type(p, section_id, id):
     return p["uiTypes"][ui_type_id]["type"]
 
 
-def get_param_var_name(param_var_names):
-    name = f"p{len(param_var_names)}"
-    param_var_names.add(name)
-    return name
+def get_param_var_name(section_name, param_name):
+    return f'{get_args_var_name(section_name)}["{param_name}"]'
 
 
 def no_entered_value(value):
@@ -121,7 +123,7 @@ class Exporter:
         for id in self.p["sections"].keys():
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
-                self.export_params(id, generate_var_name=False)
+                self.export_params(id, is_global=True)
             if section_type in [
                 GLOBAL_VARIABLES,
                 CODE,
@@ -162,9 +164,9 @@ class Exporter:
         elif type in [LIST_ROOT, DICT_ROOT, DECK]:
             return self.export_sections(self.p["sections"][id]["children"])
 
-    def export_params(self, section_id, generate_var_name=True):
+    def export_params(self, section_id, is_global=False):
         ids = get_param_ids(self.p, section_id)
-        var_names = [self.export_param(section_id, x, generate_var_name) for x in ids]
+        var_names = [self.export_param(section_id, x, is_global) for x in ids]
         params = []
         unused_params = []
         for v in var_names:
@@ -174,26 +176,32 @@ class Exporter:
                 params.append(v)
         return params, unused_params
 
-    def export_param(self, section_id, id, generate_var_name=True):
+    def export_param(self, section_id, id, is_global=False):
         value, deps = self.export_param_value(section_id, id)
-        if generate_var_name:
-            var_name = get_param_var_name(self.param_var_names)
+        param_name = self.p["codeInfo"][id]["name"]
+        if not is_global:
+            if value:
+                self.export_args_var(section_id)
+            section_name = self.p["sections"][section_id]["name"]
+            var_name = get_param_var_name(section_name, param_name)
         else:
-            var_name = self.p["codeInfo"][id]["name"]
+            var_name = param_name
+
         self.output[var_name] = {
             "paramInfoId": id,
             "sectionId": section_id,
-            "name": self.p["codeInfo"][id]["name"],
+            "name": param_name,
             "value": value,
             "deps": deps,
             "type": get_param_ui_type(self.p, section_id, id),
-            "var_name_generated": generate_var_name,
+            "var_name_generated": is_global,
         }
         return var_name
 
     def export_param_value(self, section_id, id):
-        ev_col_id = self.p["sections"][section_id]["evColId"]
-        dbSource = self.p["sections"][section_id]["dbSource"]
+        section = self.p["sections"][section_id]
+        ev_col_id = section["evColId"]
+        dbSource = section["dbSource"]
         dbSource = dbSource if dbSource else DEFAULT_DB_ALIAS
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
         # original_type = get_original_param_ui_type(self.p, section_id, id)
@@ -205,3 +213,13 @@ class Exporter:
                 deps.append(v)
             return value, deps
         return value, []
+
+    def export_args_var(self, section_id):
+        section_name = self.p["sections"][section_id]["name"]
+        args_var_name = get_args_var_name(section_name)
+        if args_var_name not in self.output:
+            self.output[args_var_name] = {
+                "sectionId": id,
+                "value": "{}",
+                "type": TEXT,
+            }

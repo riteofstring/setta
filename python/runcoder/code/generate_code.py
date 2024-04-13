@@ -6,7 +6,7 @@ from collections import defaultdict
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
 from .find_placeholders import double_braces
 from .utils import push_var_deep
-
+from .export_selected import get_args_var_name
 
 def get_location_str(node):
     return f"{node.lineno}_{node.col_offset}"
@@ -110,11 +110,11 @@ def get_value(x, selected):
         return str(x["value"])
     elif type_value == SWITCH:
         return str(get_boolean(x["value"]))
-    elif type_value in [SECTION]:  # , FN]:
+    elif type_value in [SECTION]:
         if not x["value"]["callable"]:
             return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:
-            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
+            return f"{x['value']['callable']}(**{get_args_var_name(x['name'])})"
     elif type_value == LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
     elif type_value == DICT_ROOT:
