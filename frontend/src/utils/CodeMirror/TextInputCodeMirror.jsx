@@ -84,12 +84,16 @@ function getContentDomEventListener(editor, sectionId, paramInfoId) {
   };
 }
 
-function getOnCreateEditor({ sectionId, paramInfoId }) {
+function getOnCreateEditor({ sectionId, paramInfoId, initialEvent }) {
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
       getContentDomEventListener(view, sectionId, paramInfoId),
     );
+    view.focus();
+    const { clientX, clientY } = initialEvent;
+    const pos = view.posAtCoords({ x: clientX, y: clientY });
+    view.dispatch({ selection: { anchor: pos, head: pos } });
   };
 }
 
@@ -146,17 +150,17 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
 }) {
-  const [isActive, setIsActive] = useState(false);
+  const [activationEvent, setActivationEvent] = useState(null);
 
   function onBlur() {
-    setIsActive(false);
+    setActivationEvent(null);
   }
 
-  function onClick() {
-    setIsActive(true);
+  function onMouseDown(event) {
+    setActivationEvent(event);
   }
 
-  return isActive ? (
+  return activationEvent ? (
     <CoreCodeMirror
       sectionId={sectionId}
       paramInfoId={paramInfoId}
@@ -167,9 +171,12 @@ export function TextInputCodeMirror({
       singleLine={singleLine}
       onEnter={onEnter}
       onBlur={onBlur}
+      initialEvent={activationEvent}
     />
   ) : (
-    <code onClick={onClick}>{value}</code>
+    <code className="nodrag cursor-text select-text" onMouseDown={onMouseDown}>
+      {value}
+    </code>
   );
 }
 
@@ -183,6 +190,7 @@ function CoreCodeMirror({
   singleLine,
   onEnter,
   onBlur,
+  initialEvent,
 }) {
   function localOnChange(newVal) {
     if (value === newVal) {
@@ -235,7 +243,11 @@ function CoreCodeMirror({
         lineNumbers: false,
         foldGutter: false,
       }}
-      onCreateEditor={getOnCreateEditor({ sectionId, paramInfoId })}
+      onCreateEditor={getOnCreateEditor({
+        sectionId,
+        paramInfoId,
+        initialEvent,
+      })}
       theme={theme}
       extensions={extensions}
       onChange={localOnChange}
