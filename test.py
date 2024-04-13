@@ -612,6 +612,8 @@
 from runcoder.code.export_selected import export_selected, get_code
 from runcoder.code.generate_code import generate_code
 import json
+import black
+import isort
 from pprint import pprint
 
 with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
@@ -631,4 +633,7 @@ e = export_selected(config)
 print(e.keys())
 templated_code = get_code(config)
 
-print(generate_code(e, templated_code)[0])
+code = generate_code(e, templated_code)[0]
+code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
+code = isort.code(code, profile="black")
+print(code)
