@@ -10,7 +10,7 @@ import {
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
@@ -161,6 +161,8 @@ export function TextInputCodeMirror({
     setActivationEvent(event);
   }
 
+  const { theme } = useCodeMirrorStyle();
+
   return activationEvent ? (
     <CoreCodeMirror
       sectionId={sectionId}
@@ -173,33 +175,23 @@ export function TextInputCodeMirror({
       onEnter={onEnter}
       onBlur={onBlur}
       initialEvent={activationEvent}
+      theme={theme}
     />
   ) : (
-    <FakeCodeMirror value={value} onMouseDown={onMouseDown} />
+    <FakeCodeMirror
+      value={value ? value : "x"}
+      onMouseDown={onMouseDown}
+      theme={theme}
+    />
   );
 }
 
-function FakeCodeMirror({ value, onMouseDown }) {
-  const [code, setCode] = useState("");
-  useEffect(() => {
-    const sheet = new CSSStyleSheet();
-    const { code: _code, cssRules } = renderString({ code: value });
-    setCode(_code);
-    sheet.replaceSync(cssRules);
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-
-    // Optional: Clean up when the component unmounts
-    return () => {
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-        (s) => s !== sheet,
-      );
-    };
-  }, []); // Empty dependency array to run only once on mount
-
+function FakeCodeMirror({ value, theme, onMouseDown }) {
+  const { code } = renderString({ code: value, theme });
   return (
     <div
       onMouseDown={onMouseDown}
-      className="cm-theme nodrag cursor-text select-text"
+      className="cm-theme nodrag cursor-text select-text font-mono"
       dangerouslySetInnerHTML={{ __html: code }}
     />
   );
@@ -216,6 +208,7 @@ function CoreCodeMirror({
   onEnter,
   onBlur,
   initialEvent,
+  theme,
 }) {
   function localOnChange(newVal) {
     if (value === newVal) {
@@ -225,7 +218,6 @@ function CoreCodeMirror({
   }
 
   const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
-  const { theme } = useCodeMirrorStyle();
   const keywordStylizer = getKeywordStylizer(pattern, colorMap);
 
   const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
@@ -280,3 +272,52 @@ function CoreCodeMirror({
     />
   );
 }
+
+// <div class="cm-theme nodrag" onMouseDown={onMouseDown}>
+// <div class="cm-editor ͼ1 ͼ3 ͼ4 ͼ10s ͼ21">
+//   <div class="cm-announced" aria-live="polite"></div>
+//   <div tabindex="-1" class="cm-scroller">
+//     <div
+//       spellcheck="false"
+//       autocorrect="off"
+//       autocapitalize="off"
+//       translate="no"
+//       contenteditable="true"
+//       style={{ tabSize: 4 }}
+//       class="cm-content cm-lineWrapping"
+//       role="textbox"
+//       aria-multiline="true"
+//       data-language="python"
+//       aria-autocomplete="list"
+//     >
+//       <div class="cm-activeLine cm-line">
+//         <span class="ͼ25">Kevin</span>
+//       </div>
+//     </div>
+//     <div
+//       class="cm-layer cm-layer-above cm-cursorLayer"
+//       aria-hidden="true"
+//       style={{
+//         zIndex: 150,
+//         animationDuration: "1200ms",
+//         transform: "scale(1.51907, 1.50454)",
+//         animationName: "cm-blink",
+//       }}
+//     >
+//       <div
+//         class="cm-cursor cm-cursor-primary"
+//         style={{
+//           left: "18.0995px",
+//           top: "3.43622px",
+//           height: "9.99625px",
+//         }}
+//       ></div>
+//     </div>
+//     <div
+//       class="cm-layer cm-selectionLayer"
+//       aria-hidden="true"
+//       style={{ zIndex: -2, transform: "scale(1.51907, 1.50454)" }}
+//     ></div>
+//   </div>
+// </div>
+// </div>

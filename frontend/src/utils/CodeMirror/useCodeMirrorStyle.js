@@ -23,6 +23,13 @@ const githubLightTheme = githubLightInit({
   },
 });
 
+console.log("githubDarkTheme", githubDarkTheme[1][2].value);
+
+const sheet = new CSSStyleSheet();
+// const { code: _code, cssRules } = renderString({ code: value });
+sheet.replaceSync(githubDarkTheme[1][2].value.module.rules.join("\n"));
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+
 export function useCodeMirrorStyle() {
   const darkMode = useSettings((x) => x.darkMode);
 

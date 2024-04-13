@@ -1,52 +1,11 @@
 import { pythonLanguage } from "@codemirror/lang-python";
-import { HighlightStyle } from "@codemirror/language";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
-import { highlightTree, tags as t } from "@lezer/highlight";
-import { githubDarkInit } from "@uiw/codemirror-theme-github";
+import { highlightTree } from "@lezer/highlight";
 
-const styles = [
-  { tag: [t.standard(t.tagName), t.tagName], color: "#7ee787" },
-  { tag: [t.comment, t.bracket], color: "#8b949e" },
-  { tag: [t.className, t.propertyName], color: "#d2a8ff" },
-  {
-    tag: [t.variableName, t.attributeName, t.number, t.operator],
-    color: "#79c0ff",
-  },
-  {
-    tag: [t.keyword, t.typeName, t.typeOperator, t.typeName],
-    color: "#ff7b72",
-  },
-  { tag: [t.string, t.meta, t.regexp], color: "#a5d6ff" },
-  { tag: [t.name, t.quote], color: "#7ee787" },
-  { tag: [t.heading, t.strong], color: "#d2a8ff", fontWeight: "bold" },
-  { tag: [t.emphasis], color: "#d2a8ff", fontStyle: "italic" },
-  { tag: [t.deleted], color: "#ffdcd7", backgroundColor: "ffeef0" },
-  { tag: [t.atom, t.bool, t.special(t.variableName)], color: "#ffab70" },
-  { tag: t.link, textDecoration: "underline" },
-  { tag: t.strikethrough, textDecoration: "line-through" },
-  { tag: t.invalid, color: "#f97583" },
-];
-
-const githubDarkTheme = githubDarkInit({
-  settings: {
-    background: "#ffffff00",
-    gutterBackground: "#FFFFFF00",
-    // fontFamily:
-    //   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;",
-    // gutterForeground: "#4D4D4C00",
-    gutterBorder: "#dddddd00",
-  },
-});
-
-export function renderString({
-  code,
-  //   highlightStyle,
-  //   theme,
-  cfg = {},
-}) {
+export function renderString({ code, theme }) {
   const tree = pythonLanguage.parser.parse(code);
-  const highlightStyle = HighlightStyle.define(styles);
+  const highlightStyle = theme[1][2].value;
   const markCache = {};
   const builder = new RangeSetBuilder();
 
@@ -101,13 +60,13 @@ export function renderString({
 
   const highlightStyles = extractCSSRulesFromThemeHighlightStyle(
     highlightStyle,
-    githubDarkTheme[0],
+    theme[0],
   );
 
   // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
   // ${highlightStyles.scopeClassName}
   return {
-    code: `<div class="cm-editor ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"><div class="cm-scroller"><div class="cm-content">${str}</div></div></div>`,
+    code: `<div class="cm-editor"><div class="cm-scroller"><div class="cm-content">${str}</div></div></div>`,
     cssRules: highlightStyles.rules,
   };
 }
