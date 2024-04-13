@@ -100,7 +100,8 @@ function SectionList({ runGroupId, runGroup }) {
 }
 
 function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
-  const variants = "flex flex-col gap-2";
+  const variants =
+    "-m-0 flex flex-col gap-2 rounded-lg p-2 hover:bg-runcoder-500/10";
   return (
     <div className={variants}>
       <ParamSweepVersionsList
@@ -161,7 +162,7 @@ const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
 function CheckboxGroup({ children, checked, onChange }) {
   return (
-    <label className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded text-sm text-runcoder-700 dark:text-runcoder-200">
+    <label className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-runcoder-700 hover:bg-white hover:shadow-md dark:text-runcoder-200 dark:hover:bg-runcoder-700">
       <input
         type="checkbox"
         className="h-4 w-4 rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"

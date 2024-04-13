@@ -172,9 +172,7 @@
             "name": "config1",
             "values": {
               "03b6a0ad-0815-4697-af57-167d2accc06a": "31",
-              "20fe3b32-be65-4b59-9f32-013435901dcc": "",
-              "61948f59-832b-4a29-9dac-facf187f8fc3": "Kevin",
-              "af82bade-133f-4878-9688-91672f8fa2ee": "Musgrave",
+              "20fe3b32-be65-4b59-9f32-013435901dcc": "Kevin",
               "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": "false",
               "b1318655-3495-4d2d-8fef-89a138386641": "1000"
             }
@@ -240,14 +238,6 @@
             "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
             "nonPresetUITypeIds": []
           },
-          "61948f59-832b-4a29-9dac-facf187f8fc3": {
-            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-            "nonPresetUITypeIds": []
-          },
-          "af82bade-133f-4878-9688-91672f8fa2ee": {
-            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-            "nonPresetUITypeIds": []
-          },
           "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": {
             "uiTypeId": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
             "nonPresetUITypeIds": []
@@ -295,33 +285,6 @@
         "20fe3b32-be65-4b59-9f32-013435901dcc": {
           "id": "20fe3b32-be65-4b59-9f32-013435901dcc",
           "name": "name",
-          "editable": 1,
-          "rcType": "parameter",
-          "defaultVal": null,
-          "description": "",
-          "isPinned": 0,
-          "isFrozen": 0,
-          "isSelected": 0,
-          "children": [
-            "61948f59-832b-4a29-9dac-facf187f8fc3",
-            "af82bade-133f-4878-9688-91672f8fa2ee"
-          ]
-        },
-        "61948f59-832b-4a29-9dac-facf187f8fc3": {
-          "id": "61948f59-832b-4a29-9dac-facf187f8fc3",
-          "name": "first_name",
-          "editable": 1,
-          "rcType": "parameter",
-          "defaultVal": null,
-          "description": "",
-          "isPinned": 0,
-          "isFrozen": 0,
-          "isSelected": 0,
-          "children": []
-        },
-        "af82bade-133f-4878-9688-91672f8fa2ee": {
-          "id": "af82bade-133f-4878-9688-91672f8fa2ee",
-          "name": "last_name",
           "editable": 1,
           "rcType": "parameter",
           "defaultVal": null,
