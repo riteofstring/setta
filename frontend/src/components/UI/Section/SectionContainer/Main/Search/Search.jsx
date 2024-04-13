@@ -63,7 +63,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
       paramInfoId={null}
       value={value}
       onChange={setValue}
-      className={`nodrag card-search flex h-8 w-full flex-col items-stretch overflow-visible`}
+      className="card-search" //flex h-8 w-full flex-col items-stretch overflow-visible
       singleLine={true}
       onEnter={onEnter}
     />
