@@ -61,7 +61,11 @@ export function DummyCodeMirror({
         : () => {};
 
       outputDivs.push(
-        <span className={className} onClick={onClick}>
+        <span
+          key={`${i}-${cursor.from}`}
+          className={className}
+          onClick={onClick}
+        >
           {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
         </span>,
       );
