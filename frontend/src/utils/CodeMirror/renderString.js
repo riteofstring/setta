@@ -44,7 +44,7 @@ export function renderString({ code, theme }) {
     if (pos < line.to) {
       lineInnerHtml += `${text.sliceString(pos, line.to)}`;
     }
-    str += `<div class="cm-line">${lineInnerHtml || "<br/>"}</div>`;
+    str += lineInnerHtml || "<br/>";
   }
 
   // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"

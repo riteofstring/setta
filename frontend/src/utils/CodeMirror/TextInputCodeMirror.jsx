@@ -206,7 +206,7 @@ function FakeCodeMirror({ value, theme, onMouseDown }) {
   return (
     <div
       onMouseDown={onMouseDown}
-      className="cm-theme card-value nodrag cursor-text select-text font-mono"
+      className="card-value nodrag cursor-text select-text font-mono"
       dangerouslySetInnerHTML={{ __html: code }}
     />
   );
@@ -270,7 +270,7 @@ function CoreCodeMirror({
 
   return (
     <CodeMirror
-      className={`card-value ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`nodrag card-value ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{
