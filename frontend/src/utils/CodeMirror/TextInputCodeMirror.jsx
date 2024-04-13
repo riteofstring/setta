@@ -10,11 +10,12 @@ import {
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { renderString } from "./renderString";
 
 // Step 1: Define the Decoration
 const italicStyle = Decoration.mark({ class: "italic" });
@@ -174,9 +175,33 @@ export function TextInputCodeMirror({
       initialEvent={activationEvent}
     />
   ) : (
-    <code className="nodrag cursor-text select-text" onMouseDown={onMouseDown}>
-      {value}
-    </code>
+    <FakeCodeMirror value={value} onMouseDown={onMouseDown} />
+  );
+}
+
+function FakeCodeMirror({ value, onMouseDown }) {
+  const [code, setCode] = useState("");
+  useEffect(() => {
+    const sheet = new CSSStyleSheet();
+    const { code: _code, cssRules } = renderString({ code: value });
+    setCode(_code);
+    sheet.replaceSync(cssRules);
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+
+    // Optional: Clean up when the component unmounts
+    return () => {
+      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+        (s) => s !== sheet,
+      );
+    };
+  }, []); // Empty dependency array to run only once on mount
+
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="cm-theme nodrag cursor-text select-text"
+      dangerouslySetInnerHTML={{ __html: code }}
+    />
   );
 }
 
