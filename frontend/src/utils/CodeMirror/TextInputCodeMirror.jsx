@@ -1,4 +1,8 @@
-import { autocompletion } from "@codemirror/autocomplete";
+import {
+  acceptCompletion,
+  autocompletion,
+  completionStatus,
+} from "@codemirror/autocomplete";
 import { python } from "@codemirror/lang-python";
 import { EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, keymap, ViewPlugin } from "@codemirror/view";
@@ -10,11 +14,12 @@ import {
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { DummyCodeMirror } from "./DummyCodeMirror";
 
 // Step 1: Define the Decoration
 const italicStyle = Decoration.mark({ class: "italic" });
@@ -59,7 +64,6 @@ function getKeywordStylizer(pattern, colorMap) {
 function getContentDomEventListener(editor, sectionId, paramInfoId) {
   return (event) => {
     if (!variableClick(event)) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
       return;
     }
 
@@ -79,17 +83,27 @@ function getContentDomEventListener(editor, sectionId, paramInfoId) {
     const word = editor.state.doc.toString().substring(range.from, range.to);
     let match;
     while ((match = useKeywordRegex.getState().pattern.exec(word))) {
-      goToSectionOnNameClick(editor, event, match[0]);
+      goToSectionOnNameClick({ editor, event, variable: match[0] });
     }
   };
 }
 
-function getOnCreateEditor({ sectionId, paramInfoId }) {
+function getOnCreateEditor({
+  sectionId,
+  paramInfoId,
+  initialEvent,
+  setRealIsInitialized,
+}) {
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
       getContentDomEventListener(view, sectionId, paramInfoId),
     );
+    view.focus();
+    const { clientX, clientY } = initialEvent;
+    const pos = view.posAtCoords({ x: clientX, y: clientY });
+    view.dispatch({ selection: { anchor: pos, head: pos } });
+    setRealIsInitialized(true);
   };
 }
 
@@ -120,7 +134,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
   };
 }
 
-function goToSectionOnNameClick(editor, event, variable) {
+function goToSectionOnNameClick({ editor, event, variable }) {
   let section = _.find(
     useSectionInfos.getState().x,
     (s) => s.name === variable,
@@ -131,7 +145,9 @@ function goToSectionOnNameClick(editor, event, variable) {
   const id = section?.id;
   if (id) {
     event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-    editor.contentDOM.blur(); //blur the input field we just clicked on
+    if (editor) {
+      editor.contentDOM.blur(); //blur the input field we just clicked on
+    }
     goToSection(id);
   }
 }
@@ -146,6 +162,76 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
 }) {
+  const [activationEvent, setActivationEvent] = useState(null);
+  const [realIsInitialized, setRealIsInitialized] = useState(false);
+  const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
+
+  function onBlur() {
+    setActivationEvent(null);
+    setRealIsInitialized(false);
+  }
+
+  function onMouseDown(event) {
+    if (!variableClick(event)) {
+      dbTextFieldInitializeCode({ sectionId, paramInfoId });
+      setActivationEvent(event);
+    }
+  }
+
+  const theme = useCodeMirrorStyle();
+
+  return (
+    <>
+      {!realIsInitialized && (
+        <DummyCodeMirror
+          code={value}
+          onMouseDown={onMouseDown}
+          className={`${className} nodrag cursor-text select-text font-mono`}
+          theme={theme}
+          keywordRegex={pattern}
+          goToSectionOnNameClick={goToSectionOnNameClick}
+        />
+      )}
+      {activationEvent && (
+        <CoreCodeMirror
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          className={className}
+          singleLine={singleLine}
+          onEnter={onEnter}
+          onBlur={onBlur}
+          initialEvent={activationEvent}
+          realIsInitialized={realIsInitialized}
+          setRealIsInitialized={setRealIsInitialized}
+          theme={theme}
+          keywordRegex={pattern}
+          keywordColorMap={colorMap}
+        />
+      )}
+    </>
+  );
+}
+
+function CoreCodeMirror({
+  sectionId,
+  paramInfoId,
+  value,
+  defaultVal,
+  onChange,
+  className,
+  singleLine,
+  onEnter,
+  onBlur,
+  initialEvent,
+  realIsInitialized,
+  setRealIsInitialized,
+  theme,
+  keywordRegex,
+  keywordColorMap,
+}) {
   function localOnChange(newVal) {
     if (value === newVal) {
       return;
@@ -153,9 +239,7 @@ export function TextInputCodeMirror({
     onChange(newVal);
   }
 
-  const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
-  const { theme } = useCodeMirrorStyle();
-  const keywordStylizer = getKeywordStylizer(pattern, colorMap);
+  const keywordStylizer = getKeywordStylizer(keywordRegex, keywordColorMap);
 
   const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
     sectionId,
@@ -176,6 +260,20 @@ export function TextInputCodeMirror({
     );
   }
 
+  const tabToAutocomplete = keymap.of([
+    {
+      key: "Tab",
+      preventDefault: true,
+      // shift: indentLess,
+      run: (e) => {
+        if (completionStatus(e.state)) {
+          return acceptCompletion(e);
+        }
+      },
+    },
+  ]);
+  extensions.push(tabToAutocomplete);
+
   if (onEnter) {
     const keyBinding = Prec.highest(
       keymap.of([
@@ -190,17 +288,73 @@ export function TextInputCodeMirror({
 
   return (
     <CodeMirror
-      className={className}
+      className={`nodrag ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{
         lineNumbers: false,
         foldGutter: false,
       }}
-      onCreateEditor={getOnCreateEditor({ sectionId, paramInfoId })}
+      onCreateEditor={getOnCreateEditor({
+        sectionId,
+        paramInfoId,
+        initialEvent,
+        setRealIsInitialized,
+      })}
       theme={theme}
       extensions={extensions}
       onChange={localOnChange}
+      onBlur={onBlur}
+      indentWithTab={false}
     />
   );
 }
+
+// <div class="cm-theme nodrag" onMouseDown={onMouseDown}>
+// <div class="cm-editor ͼ1 ͼ3 ͼ4 ͼ10s ͼ21">
+//   <div class="cm-announced" aria-live="polite"></div>
+//   <div tabindex="-1" class="cm-scroller">
+//     <div
+//       spellcheck="false"
+//       autocorrect="off"
+//       autocapitalize="off"
+//       translate="no"
+//       contenteditable="true"
+//       style={{ tabSize: 4 }}
+//       class="cm-content cm-lineWrapping"
+//       role="textbox"
+//       aria-multiline="true"
+//       data-language="python"
+//       aria-autocomplete="list"
+//     >
+//       <div class="cm-activeLine cm-line">
+//         <span class="ͼ25">Kevin</span>
+//       </div>
+//     </div>
+//     <div
+//       class="cm-layer cm-layer-above cm-cursorLayer"
+//       aria-hidden="true"
+//       style={{
+//         zIndex: 150,
+//         animationDuration: "1200ms",
+//         transform: "scale(1.51907, 1.50454)",
+//         animationName: "cm-blink",
+//       }}
+//     >
+//       <div
+//         class="cm-cursor cm-cursor-primary"
+//         style={{
+//           left: "18.0995px",
+//           top: "3.43622px",
+//           height: "9.99625px",
+//         }}
+//       ></div>
+//     </div>
+//     <div
+//       class="cm-layer cm-selectionLayer"
+//       aria-hidden="true"
+//       style={{ zIndex: -2, transform: "scale(1.51907, 1.50454)" }}
+//     ></div>
+//   </div>
+// </div>
+// </div>

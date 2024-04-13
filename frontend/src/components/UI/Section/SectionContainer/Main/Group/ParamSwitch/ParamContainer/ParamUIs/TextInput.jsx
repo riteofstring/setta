@@ -23,7 +23,7 @@ export function TextInput({
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
-      className={"nodrag"}
+      className="card-value"
     />
   );
 }

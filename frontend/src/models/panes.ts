@@ -37,13 +37,13 @@ export const usePanes = createProjectState(
     setAll: ({ vis, width }) =>
       set((state) => {
         state.vis = vis;
-        state.width = width;
-        state.trueWidth.overview = vis.overview
-          ? width.overview
-          : CLOSED_PANE_WIDTH;
-        state.trueWidth.uiEditor = vis.uiEditor
-          ? width.uiEditor
-          : CLOSED_PANE_WIDTH;
+
+        for (const k of [OVERVIEW, UI_EDITOR]) {
+          if (width[k]) {
+            state.width[k] = width[k];
+          }
+          state.trueWidth[k] = vis[k] ? width[k] : CLOSED_PANE_WIDTH;
+        }
       }),
   })),
 );
