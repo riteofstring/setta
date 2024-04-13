@@ -71,12 +71,6 @@ def get_original_param_ui_type(p, section_id, id):
     return p["uiTypes"][ui_type_id]["type"]
 
 
-def get_param_var_name(param_var_names):
-    name = f"p{len(param_var_names)}"
-    param_var_names.add(name)
-    return name
-
-
 def no_entered_value(value):
     return value is None or value == ""
 
@@ -117,7 +111,6 @@ class Exporter:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.param_var_names = set()
         self.top_level_section_names = set()
         self._top_level_section_names = set()
         self.section_name_to_id = {}
@@ -212,22 +205,21 @@ class Exporter:
                 params.append(v)
         return params, unused_params
 
-    def export_param(self, section_id, id, generate_var_name=True):
+    def export_param(self, section_id, id, is_global=False):
         value, deps = self.export_param_value(section_id, id)
-        if generate_var_name:
-            var_name = get_param_var_name(self.param_var_names)
-        else:
-            var_name = self.p["codeInfo"][id]["name"]
-        self.output[var_name] = {
+        var_name = self.p["codeInfo"][id]["name"]
+        info = {
             "paramInfoId": id,
             "sectionId": section_id,
             "name": self.p["codeInfo"][id]["name"],
             "value": value,
             "deps": deps,
             "type": get_param_ui_type(self.p, section_id, id),
-            "var_name_generated": generate_var_name,
         }
-        return var_name
+        if is_global:
+            self.output[var_name] = info
+        else:
+            return info
 
     def export_param_value(self, section_id, id):
         ev_col_id = self.p["sections"][section_id]["evColId"]
