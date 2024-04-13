@@ -10,7 +10,7 @@ import {
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
@@ -146,6 +146,44 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
 }) {
+  const [isActive, setIsActive] = useState(false);
+
+  function onBlur() {
+    setIsActive(false);
+  }
+
+  function onClick() {
+    setIsActive(true);
+  }
+
+  return isActive ? (
+    <CoreCodeMirror
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      className={className}
+      singleLine={singleLine}
+      onEnter={onEnter}
+      onBlur={onBlur}
+    />
+  ) : (
+    <code onClick={onClick}>{value}</code>
+  );
+}
+
+function CoreCodeMirror({
+  sectionId,
+  paramInfoId,
+  value,
+  defaultVal,
+  onChange,
+  className,
+  singleLine,
+  onEnter,
+  onBlur,
+}) {
   function localOnChange(newVal) {
     if (value === newVal) {
       return;
@@ -201,6 +239,7 @@ export function TextInputCodeMirror({
       theme={theme}
       extensions={extensions}
       onChange={localOnChange}
+      onBlur={onBlur}
     />
   );
 }
