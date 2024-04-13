@@ -2,7 +2,7 @@ import { autocompletion } from "@codemirror/autocomplete";
 import { python } from "@codemirror/lang-python";
 import { EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, keymap, ViewPlugin } from "@codemirror/view";
-import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import { EditorView } from "@uiw/react-codemirror";
 import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
@@ -15,6 +15,7 @@ import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { renderString } from "./renderString";
 
 // Step 1: Define the Decoration
 const italicStyle = Decoration.mark({ class: "italic" });
@@ -59,6 +60,11 @@ function getKeywordStylizer(pattern, colorMap) {
 function getContentDomEventListener(editor, sectionId, paramInfoId) {
   return (event) => {
     if (!variableClick(event)) {
+      // const divContent = document.getElementById(
+      //   `${sectionId}-${paramInfoId}-codeMirror`,
+      // ).innerHTML;
+      // console.log(divContent);
+
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
       return;
     }
@@ -146,6 +152,8 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
 }) {
+  // const [active, setActive] = useState(false)
+
   function localOnChange(newVal) {
     if (value === newVal) {
       return;
@@ -188,19 +196,96 @@ export function TextInputCodeMirror({
     extensions.push(keyBinding);
   }
 
-  return (
-    <CodeMirror
-      className={className}
-      value={value}
-      placeholder={defaultVal}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-      }}
-      onCreateEditor={getOnCreateEditor({ sectionId, paramInfoId })}
-      theme={theme}
-      extensions={extensions}
-      onChange={localOnChange}
-    />
-  );
+  console.log("theme", theme)
+
+  const { code, css, codeLinesOnly } = renderString({
+    code: value,
+    theme,
+  });
+
+  console.log("code", code);
+  return <div dangerouslySetInnerHTML={{ __html: code }} />;
 }
+
+// return (
+//   <CodeMirror
+//     id={`${sectionId}-${paramInfoId}-codeMirror`}
+//     className={className}
+//     value={value}
+//     placeholder={defaultVal}
+//     basicSetup={{
+//       lineNumbers: false,
+//       foldGutter: false,
+//     }}
+//     onCreateEditor={getOnCreateEditor({ sectionId, paramInfoId })}
+//     theme={theme}
+//     extensions={extensions}
+//     onChange={localOnChange}
+//   />
+// );
+
+//   return (
+//     <div
+//       class="cm-theme nodrag"
+//       id="d96cb110-6f72-435a-b745-2d55e277f983-0aa0f46a-e923-4528-a411-500cbda6e77b-codeMirror"
+//     >
+//       <div class="cm-editor ͼ1 ͼ3 ͼ4 ͼ6b ͼ21">
+//         <div class="cm-announced" aria-live="polite"></div>
+//         <div tabindex="-1" class="cm-scroller">
+//           <div
+//             spellcheck="false"
+//             autocorrect="off"
+//             autocapitalize="off"
+//             translate="no"
+//             contenteditable="true"
+//             style={{ tabSize: 4 }}
+//             class="cm-content cm-lineWrapping  select-text"
+//             role="textbox"
+//             aria-multiline="true"
+//             data-language="python"
+//             aria-autocomplete="list"
+//           >
+//             <div class="cm-activeLine cm-line">
+//               <span class="italic">
+//                 <span class="ͼ25">n_samples</span>
+//               </span>
+//             </div>
+//           </div>
+//           <div
+//             class="cm-layer cm-layer-above cm-cursorLayer"
+//             aria-hidden="true"
+//             style={{
+//               zIndex: 150,
+//               animationDuration: "1200ms",
+//               animationName: "cm-blink",
+//             }}
+//           >
+//             <div
+//               class="cm-cursor cm-cursor-primary"
+//               style={{
+//                 left: "20.2841px",
+//                 top: "5.20831px",
+//                 height: "15.1516px",
+//               }}
+//             ></div>
+//           </div>
+//           <div
+//             class="cm-layer cm-selectionLayer"
+//             aria-hidden="true"
+//             style={{ zIndex: -2 }}
+//           ></div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+// return (
+//   <pre class="nodrag select-text">
+//     <code>
+//       <span class="italic">
+//         <span class="ͼ25">{value}</span>
+//       </span>
+//     </code>
+//   </pre>
+// );
