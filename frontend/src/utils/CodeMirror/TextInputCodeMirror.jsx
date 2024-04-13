@@ -15,7 +15,7 @@ import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { renderString } from "./renderString";
+import { DummyCodeMirror } from "./DummyCodeMirror";
 
 // Step 1: Define the Decoration
 const italicStyle = Decoration.mark({ class: "italic" });
@@ -174,9 +174,10 @@ export function TextInputCodeMirror({
   return (
     <>
       {!realIsInitialized && (
-        <FakeCodeMirror
-          value={value ? value : "x"}
+        <DummyCodeMirror
+          code={value ? value : "x"}
           onMouseDown={onMouseDown}
+          className="card-value nodrag cursor-text select-text font-mono"
           theme={theme}
         />
       )}
@@ -198,17 +199,6 @@ export function TextInputCodeMirror({
         />
       )}
     </>
-  );
-}
-
-function FakeCodeMirror({ value, theme, onMouseDown }) {
-  const { code } = renderString({ code: value, theme });
-  return (
-    <div
-      onMouseDown={onMouseDown}
-      className="card-value nodrag cursor-text select-text font-mono"
-      dangerouslySetInnerHTML={{ __html: code }}
-    />
   );
 }
 

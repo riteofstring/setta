@@ -5,7 +5,7 @@ import { highlightTree } from "@lezer/highlight";
 
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
-export function renderString({ code, theme }) {
+export function DummyCodeMirror({ code, theme, onMouseDown, className }) {
   const tree = pythonLanguage.parser.parse(code);
   const highlightStyle = theme[1][2].value;
   const markCache = {};
@@ -24,33 +24,43 @@ export function renderString({ code, theme }) {
   const decorationRangeSet = builder.finish();
   // just the code content. MUST be array of lines
   const text = Text.of(code.split("\n"));
-  let str = "";
-  let pos, lineInnerHtml;
+  const outputDivs = [];
+  let pos, isJustLineBreak;
 
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);
     const cursor = decorationRangeSet.iter(line.from);
+    isJustLineBreak = true;
     pos = line.from;
-    lineInnerHtml = "";
 
     while (cursor.value && cursor.from < line.to) {
+      isJustLineBreak = false;
       if (cursor.from > pos) {
-        lineInnerHtml += `${text.sliceString(pos, cursor.from)}`;
+        outputDivs.push(text.sliceString(pos, cursor.from));
       }
-      lineInnerHtml += `<span class="${cursor.value.spec.class}">${text.sliceString(cursor.from, Math.min(line.to, cursor.to))}</span>`;
+      outputDivs.push(
+        <span className={cursor.value.spec.class}>
+          {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
+        </span>,
+      );
       pos = cursor.to;
       cursor.next();
     }
     if (pos < line.to) {
-      lineInnerHtml += `${text.sliceString(pos, line.to)}`;
+      isJustLineBreak = false;
+      outputDivs.push(text.sliceString(pos, line.to));
     }
-    str += lineInnerHtml || "<br/>";
+    if (isJustLineBreak) {
+      outputDivs.push(<br />);
+    }
   }
 
   // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
   // ${highlightStyles.scopeClassName}
   const scopeClassName = theme[0][0]?.value || "";
-  return {
-    code: `<div class="${scopeClassName}">${str}</div>`,
-  };
+  return (
+    <div className={`${className} ${scopeClassName}`} onMouseDown={onMouseDown}>
+      {outputDivs}
+    </div>
+  );
 }
