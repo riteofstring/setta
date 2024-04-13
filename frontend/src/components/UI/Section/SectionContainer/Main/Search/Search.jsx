@@ -57,17 +57,17 @@ export function SectionSearch({ sectionId, initialSelection }) {
     setSelectedItem(sectionId, value, true);
   }
 
-  // return (
-  //   <TextInputCodeMirror
-  //     sectionId={sectionId}
-  //     paramInfoId={null}
-  //     value={value}
-  //     onChange={setValue}
-  //     className={`nodrag card-search flex h-8 w-full flex-col items-stretch overflow-visible`}
-  //     singleLine={true}
-  //     onEnter={onEnter}
-  //   />
-  // );
+  return (
+    <TextInputCodeMirror
+      sectionId={sectionId}
+      paramInfoId={null}
+      value={value}
+      onChange={setValue}
+      className={`nodrag card-search flex h-8 w-full flex-col items-stretch overflow-visible`}
+      singleLine={true}
+      onEnter={onEnter}
+    />
+  );
 }
 
 function mergeCompletionsAndHistory(completions, history) {
