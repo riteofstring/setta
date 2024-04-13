@@ -1,4 +1,8 @@
-import { autocompletion } from "@codemirror/autocomplete";
+import {
+  acceptCompletion,
+  autocompletion,
+  completionStatus,
+} from "@codemirror/autocomplete";
 import { python } from "@codemirror/lang-python";
 import { EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, keymap, ViewPlugin } from "@codemirror/view";
@@ -256,6 +260,20 @@ function CoreCodeMirror({
     );
   }
 
+  const tabToAutocomplete = keymap.of([
+    {
+      key: "Tab",
+      preventDefault: true,
+      // shift: indentLess,
+      run: (e) => {
+        if (completionStatus(e.state)) {
+          return acceptCompletion(e);
+        }
+      },
+    },
+  ]);
+  extensions.push(tabToAutocomplete);
+
   if (onEnter) {
     const keyBinding = Prec.highest(
       keymap.of([
@@ -287,6 +305,7 @@ function CoreCodeMirror({
       extensions={extensions}
       onChange={localOnChange}
       onBlur={onBlur}
+      indentWithTab={false}
     />
   );
 }
