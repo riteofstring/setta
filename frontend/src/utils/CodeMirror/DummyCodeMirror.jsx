@@ -11,6 +11,7 @@ export function DummyCodeMirror({
   onMouseDown,
   className,
   keywordRegex,
+  goToSectionOnNameClick,
 }) {
   const tree = pythonLanguage.parser.parse(code);
   const highlightStyle = theme[1][2].value;
@@ -18,9 +19,12 @@ export function DummyCodeMirror({
   const builder = new RangeSetBuilder();
 
   let match;
-  const matchedIndices = new Set();
+  const matchedIndices = {};
   while ((match = keywordRegex.exec(code))) {
-    matchedIndices.add(match.index);
+    matchedIndices[match.index] = code.substring(
+      match.index,
+      match.index + match[0].length,
+    );
   }
 
   highlightTree(tree, highlightStyle, (from, to, style) => {
@@ -50,10 +54,14 @@ export function DummyCodeMirror({
       if (cursor.from > pos) {
         outputDivs.push(text.sliceString(pos, cursor.from));
       }
+      const keyword = matchedIndices[cursor.from];
+      const className = `${cursor.value.spec.class} ${keyword ? "italic" : ""}`;
+      const onClick = keyword
+        ? (event) => goToSectionOnNameClick({ event, variable: keyword })
+        : () => {};
+
       outputDivs.push(
-        <span
-          className={`${cursor.value.spec.class} ${matchedIndices.has(cursor.from) ? "italic" : ""}`}
-        >
+        <span className={className} onClick={onClick}>
           {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
         </span>,
       );
@@ -73,7 +81,16 @@ export function DummyCodeMirror({
   // ${highlightStyles.scopeClassName}
   const scopeClassName = theme[0][0]?.value || "";
   return (
-    <div className={`${className} ${scopeClassName}`} onMouseDown={onMouseDown}>
+    <div
+      className={`${className} ${scopeClassName}`}
+      style={{
+        whiteSpace: "break-spaces",
+        wordBreak: "break-word",
+        overflowWrap: "anywhere",
+        flexShrink: 1,
+      }}
+      onMouseDown={onMouseDown}
+    >
       {outputDivs}
     </div>
   );

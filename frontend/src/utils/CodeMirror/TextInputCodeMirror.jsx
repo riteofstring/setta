@@ -60,7 +60,6 @@ function getKeywordStylizer(pattern, colorMap) {
 function getContentDomEventListener(editor, sectionId, paramInfoId) {
   return (event) => {
     if (!variableClick(event)) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
       return;
     }
 
@@ -80,7 +79,7 @@ function getContentDomEventListener(editor, sectionId, paramInfoId) {
     const word = editor.state.doc.toString().substring(range.from, range.to);
     let match;
     while ((match = useKeywordRegex.getState().pattern.exec(word))) {
-      goToSectionOnNameClick(editor, event, match[0]);
+      goToSectionOnNameClick({ editor, event, variable: match[0] });
     }
   };
 }
@@ -131,7 +130,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
   };
 }
 
-function goToSectionOnNameClick(editor, event, variable) {
+function goToSectionOnNameClick({ editor, event, variable }) {
   let section = _.find(
     useSectionInfos.getState().x,
     (s) => s.name === variable,
@@ -142,7 +141,9 @@ function goToSectionOnNameClick(editor, event, variable) {
   const id = section?.id;
   if (id) {
     event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-    editor.contentDOM.blur(); //blur the input field we just clicked on
+    if (editor) {
+      editor.contentDOM.blur(); //blur the input field we just clicked on
+    }
     goToSection(id);
   }
 }
@@ -167,7 +168,10 @@ export function TextInputCodeMirror({
   }
 
   function onMouseDown(event) {
-    setActivationEvent(event);
+    if (!variableClick(event)) {
+      dbTextFieldInitializeCode({ sectionId, paramInfoId });
+      setActivationEvent(event);
+    }
   }
 
   const { theme } = useCodeMirrorStyle();
@@ -181,6 +185,7 @@ export function TextInputCodeMirror({
           className="card-value nodrag cursor-text select-text font-mono"
           theme={theme}
           keywordRegex={pattern}
+          goToSectionOnNameClick={goToSectionOnNameClick}
         />
       )}
       {activationEvent && (
