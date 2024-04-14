@@ -116,7 +116,7 @@ def get_value(x, selected):
         if not x["value"]["callable"]:
             return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:
-            return f"{x['value']['callable']}(**{get_args_var_name(x['name'])})"
+            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
     elif type_value == LIST_ROOT:
         return str(x["value"])
     # elif type_value == DICT_ROOT:

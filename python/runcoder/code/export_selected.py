@@ -68,7 +68,7 @@ def get_original_param_ui_type(p, section_id, id):
     return p["uiTypes"][ui_type_id]["type"]
 
 
-def get_param_var_name(section_name, param_name):
+def get_param_var_name_for_autocomplete(section_name, param_name):
     return f'{get_args_var_name(section_name)}["{param_name}"]'
 
 
@@ -101,6 +101,12 @@ def get_section_name_to_id(p):
 def get_var_name(p, section_id, curr_var_name):
     section_name = p["sections"][section_id]["name"]
     return section_name if curr_var_name == "" else curr_var_name
+
+
+def get_param_var_name(param_var_names):
+    name = f"__p{len(param_var_names)}"
+    param_var_names.add(name)
+    return name
 
 
 def export_selected(p):
@@ -200,23 +206,26 @@ class Exporter:
     def export_param(self, section_id, id, curr_var_name, is_global=False):
         value, deps = self.export_param_value(section_id, id)
         param_name = self.p["codeInfo"][id]["name"]
-        if not is_global:
-            self.export_args_var(section_id, curr_var_name)
-            var_name = get_param_var_name(
-                get_var_name(self.p, section_id, curr_var_name), param_name
-            )
-        else:
-            var_name = param_name
-
-        self.output[var_name] = {
+        info = {
             "paramInfoId": id,
             "sectionId": section_id,
             "name": param_name,
-            "value": value,
             "deps": deps,
             "type": get_param_ui_type(self.p, section_id, id),
             "is_global": is_global,
         }
+
+        if not is_global:
+            self.export_args_var(section_id, curr_var_name)
+            var_name = get_param_var_name(self.param_var_names)
+            var_name_for_autocomplete = get_param_var_name_for_autocomplete(
+                get_var_name(self.p, section_id, curr_var_name), param_name
+            )
+            self.output[var_name] = {**info, "value": value}
+            self.output[var_name_for_autocomplete] = {**info, "value": var_name if value else value}
+        else:
+            var_name = param_name
+
         return var_name
 
     def export_param_value(self, section_id, id):
