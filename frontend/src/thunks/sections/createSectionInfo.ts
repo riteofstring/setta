@@ -4,27 +4,25 @@ import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
-import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { DEFAULT_DB_ALIAS } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { RCType } from "z_utils/types/codeInfo";
 import { ManySectionType } from "z_utils/types/section";
-import { getSectionType, getSectionTypeConfig } from "./getters";
+import { getSectionTypeConfig } from "./getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
-  const { name: parentName } = useSectionInfos.getState().x[parentId];
-  const parentUIType = getSectionType(parentId);
-  const uiType = getChildUIType(parentUIType, parentId);
-  const nonPresetUITypeIds = !uiType.presetType ? [uiType.id] : [];
+  // const { name: parentName } = useSectionInfos.getState().x[parentId];
+  // const parentUIType = getSectionType(parentId);
+  // const uiType = getChildUIType(parentUIType, parentId);
+  // const nonPresetUITypeIds = !uiType.presetType ? [uiType.id] : [];
 
   return createSectionInfo({
     sectionProps: {
       parentId,
-      parentName,
-      uiTypeId: uiType.id,
-      nonPresetUITypeIds,
+      // uiTypeId: uiType.id,
+      // nonPresetUITypeIds,
     },
     numSections: numChildren,
   });
