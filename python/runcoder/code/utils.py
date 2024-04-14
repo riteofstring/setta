@@ -3,7 +3,9 @@ def push_var_deep(objects, target_var_name):
         """Retrieve dependencies from either 'deps' or 'params' within 'value'."""
         if "deps" in obj:
             return obj["deps"]
-        return obj["value"]["params"]
+        if "params" in obj["value"]:
+            return obj["value"]["params"]
+        return obj["value"]
 
     def find_dependents(obj_list, var_name):
         """Find all objects that directly or indirectly depend on the given object."""

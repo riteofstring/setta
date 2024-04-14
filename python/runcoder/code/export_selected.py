@@ -142,17 +142,24 @@ class Exporter:
     def export_sections(self, ids):
         return [self.export_section(x) for x in ids]
 
-    def export_section(self, id, curr_var_name="", hidden=False):
+    def export_section(self, id, curr_var_name=""):
         section_name = self.p["sections"][id]["name"]
         var_name = section_name if curr_var_name == "" else curr_var_name
         if var_name not in self.output:
-            self.output[var_name] = {
+            type = get_section_type(self.p, id)
+            info = {
                 "sectionId": id,
                 "name": var_name,
-                "value": self.export_section_value(id, curr_var_name),
                 "type": get_section_type(self.p, id),
-                "hidden": hidden
             }
+            if type == SECTION:
+                info["value"] = self.export_section_value(id, curr_var_name)
+                self.output[var_name] = info
+            elif type == LIST_ROOT:
+                children = self.p["sections"][id]["children"]
+                info["value"] = f"[None for _ in range({len(children)})]"
+                self.output[var_name] = info
+                self.export_section_value(id, curr_var_name)
         return var_name
 
     def export_section_value(self, id, curr_var_name):
@@ -168,10 +175,8 @@ class Exporter:
             children = self.p["sections"][id]["children"]
             self.export_args_var(id, curr_var_name, type, list_len=len(children))
             section_name = self.p["sections"][id]["name"]
-            return [
-                self.export_section(sid, curr_var_name=f"{section_name}[{idx}]", hidden=True)
-                for idx, sid in enumerate(children)
-            ]
+            for idx, sid in enumerate(children):
+                self.export_section(sid, curr_var_name=f"{section_name}[{idx}]")
         # elif type in [DICT_ROOT, DECK]:
         # return self.export_sections(self.p["sections"][id]["children"])
 
