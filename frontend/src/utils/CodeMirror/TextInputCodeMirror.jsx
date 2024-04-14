@@ -201,7 +201,7 @@ export function TextInputCodeMirror({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          className={`card-value cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 first:[&_.cm-line>*]:mt-[3px]  ${className}`}
+          className={`cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 first:[&_.cm-line>*]:mt-[3px]  ${className}`}
           singleLine={singleLine}
           onEnter={onEnter}
           onBlur={onBlur}
