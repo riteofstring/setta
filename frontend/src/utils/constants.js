@@ -17,3 +17,18 @@ export const SINGLETON_SECTIONS = {
   globalParamSweep: null,
   varControl: null,
 };
+
+// If multiple db sources map to the same db, then this holds that mapping.
+// For example, if "settings" points to the same db as "default"
+// the mapping would be {settings: "default", default: "default"}
+export const DB_SOURCE_MAPPING = {};
+
+export function setDbSourceMapping(newMapping) {
+  const keys = Object.keys(DB_SOURCE_MAPPING);
+  for (const k of keys) {
+    delete DB_SOURCE_MAPPING[k];
+  }
+  for (const [k, v] of Object.entries(newMapping)) {
+    DB_SOURCE_MAPPING[k] = v;
+  }
+}

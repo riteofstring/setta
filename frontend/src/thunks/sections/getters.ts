@@ -2,6 +2,7 @@ import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { DB_SOURCE_MAPPING } from "utils/constants";
 import {
   DECK,
   DEFAULT_DB_ALIAS,
@@ -76,4 +77,8 @@ export function getSectionByName(name: string) {
 export function getSectionDBSource(sectionId: string) {
   const { dbSource } = getSectionInfo(sectionId);
   return dbSource ? dbSource : DEFAULT_DB_ALIAS;
+}
+
+export function getMappedSectionDBSource(sectionId: string) {
+  return DB_SOURCE_MAPPING[getSectionDBSource(sectionId)];
 }

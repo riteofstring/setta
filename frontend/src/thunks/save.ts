@@ -16,6 +16,7 @@ import { useNotification } from "models/notification";
 import { usePanes } from "models/panes";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
+import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
@@ -69,6 +70,7 @@ export function getProjectData(): ProjectSaveType {
     sections,
     codeInfo,
     projectConfigCodeInfoMaps,
+    dbSourceMapping: DB_SOURCE_MAPPING,
   };
   // console.log(output);
 

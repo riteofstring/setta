@@ -3,7 +3,7 @@ import { useNodeInternals } from "models/info/nodeInternals";
 import { usePanes } from "models/panes";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
-import { REACT_FLOW_STORE } from "utils/constants";
+import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
@@ -32,7 +32,9 @@ export function loadProjectState({
   runGroups,
   outputs,
   outputGroups,
+  dbSourceMapping,
 }: ProjectLoadType) {
+  setDbSourceMapping(dbSourceMapping);
   useCodeInfo.getState().resetAndSetAll(codeInfo);
   if (project) {
     useProject.getState().resetAndSetAll(project);

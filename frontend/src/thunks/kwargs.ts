@@ -7,7 +7,7 @@ import { RCType } from "z_utils/types/codeInfo";
 import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
 import {
-  getSectionDBSource,
+  getMappedSectionDBSource,
   getSectionInfo,
   getSectionTypeConfig,
 } from "./sections/getters";
@@ -57,7 +57,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
   } = payload;
   let { kwargId = "" } = payload;
   const { evColId, uiTypeColId } = getSectionInfo(sectionId);
-  const dbSource = getSectionDBSource(sectionId);
+  const dbSource = getMappedSectionDBSource(sectionId);
   objInfoId = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
   if (deleteLast) {
     const kwargIds = getKwargIds(objInfoId);

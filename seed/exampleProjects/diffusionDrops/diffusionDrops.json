@@ -26,8 +26,7 @@
       },
       "sections": {},
       "evCols": {
-        "default": {},
-        "settings": {}
+        "default": {}
       },
       "uiTypes": {},
       "uiTypeCols": {},
@@ -37,16 +36,20 @@
       "userCodeInfoMaps": {},
       "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
-      "outputs": {}
+      "outputs": {},
+      "dbSourceMapping": {
+        "default": "default",
+        "settings": "default"
+      }
     },
     {
       "projectConfig": {
         "id": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
         "name": "diffusionConfig2",
         "viewport": {
-          "x": 263.13310698232596,
-          "y": 115.14394490916993,
-          "zoom": 0.5325205641147798
+          "x": 159.63180190987677,
+          "y": -11.133101700710313,
+          "zoom": 0.6851755073328257
         },
         "panes": {
           "vis": {
@@ -102,35 +105,7 @@
           "evColIds": ["02a773d6-04d1-4282-b7df-47e8913f91a5"],
           "paramSweepIds": [],
           "parentId": "a67c098d-7193-43f7-b3fd-19d124cd7997",
-          "selectedItem": null,
-          "outputGroup": null,
-          "children": [],
-          "size": {
-            "width": 369,
-            "height": "auto"
-          }
-        },
-        "3c550d2c-e736-4504-8c69-251c7f185eba": {
-          "id": "3c550d2c-e736-4504-8c69-251c7f185eba",
-          "name": "[1]",
-          "evColId": "88bc6fd8-292c-4bb6-98d7-c327e9600a00",
-          "paramSweepId": null,
-          "paramSweepSectionId": null,
-          "uiTypeId": "e7c5f042-8392-40a4-ab88-3ec8939aa6cd",
-          "uiTypeColId": "f54a435e-c3e0-4aaf-b1f8-97fd076716fd",
-          "social": null,
-          "description": "",
-          "versionsHeight": "auto",
-          "versionsVisible": 0,
-          "code": "",
-          "codeLanguage": "",
-          "isFrozen": 0,
-          "dbSource": "",
-          "nonPresetUITypeIds": [],
-          "evColIds": ["88bc6fd8-292c-4bb6-98d7-c327e9600a00"],
-          "paramSweepIds": [],
-          "parentId": "a67c098d-7193-43f7-b3fd-19d124cd7997",
-          "selectedItem": null,
+          "selectedItem": "07aada28-f0d8-404f-8496-fa469adfc26f",
           "outputGroup": null,
           "children": [],
           "size": {
@@ -188,10 +163,7 @@
           "parentId": null,
           "selectedItem": null,
           "outputGroup": null,
-          "children": [
-            "167b2767-fd14-4240-870e-5849e3171c69",
-            "3c550d2c-e736-4504-8c69-251c7f185eba"
-          ],
+          "children": ["167b2767-fd14-4240-870e-5849e3171c69"],
           "size": {
             "width": 369,
             "height": "auto"
@@ -258,7 +230,9 @@
         "default": {
           "02a773d6-04d1-4282-b7df-47e8913f91a5": {
             "name": "cooing_cyan",
-            "values": {}
+            "values": {
+              "a920f338-6b8d-449c-a472-e1f58e8e051a": "224"
+            }
           },
           "118d0bd8-993b-41a1-bae3-a8b33bc565cc": {
             "name": "golden_retriever",
@@ -281,59 +255,6 @@
           },
           "43eff2f2-77f7-4fcd-ad89-f54641e6553e": {
             "name": "visiting_beige",
-            "values": {}
-          },
-          "88bc6fd8-292c-4bb6-98d7-c327e9600a00": {
-            "name": "weekly_lime",
-            "values": {}
-          },
-          "93db7817-3553-49d8-986b-0600d6a64cc0": {
-            "name": "blue_hippo",
-            "values": {
-              "0e6e32cb-56df-4f4c-98da-f8358b69f42a": "",
-              "10eefa5e-ac71-4de9-852c-af9f7d7e3463": "",
-              "2c5d27d6-dfee-4a38-a082-1141925ec3f1": "",
-              "58f4f580-0213-4ead-be4e-496a377e091e": "",
-              "7755c806-a1d5-4f17-a5a4-5f015ed74c0e": "",
-              "78a78722-ed02-4f6a-8f51-6166c70832be": "Model.parameters()",
-              "7f665711-86a0-4972-8137-06d5bc4baedb": "",
-              "85b1bd26-f0fb-4381-a133-016375ee7be5": "",
-              "c22d8d77-455b-41af-b987-a8cfd833a021": "",
-              "e94d1330-1f66-4521-a76d-050f71e008a5": "",
-              "f6a0fc62-18e0-4407-ad78-067996f0238c": ""
-            }
-          }
-        },
-        "settings": {
-          "02a773d6-04d1-4282-b7df-47e8913f91a5": {
-            "name": "cooing_cyan",
-            "values": {}
-          },
-          "118d0bd8-993b-41a1-bae3-a8b33bc565cc": {
-            "name": "golden_retriever",
-            "values": {
-              "0aa49699-dfc1-4438-a030-c86a225d0079": "",
-              "4317590f-3d0e-4c0b-9565-0e8add9f0606": "",
-              "46ee55a9-507a-4b34-9c2e-bced246c78bc": "",
-              "77d53ed7-de25-4b5e-bfd9-f0a02d811ddd": "",
-              "82b91fe9-5fae-43d5-a976-4dae73c304b0": "",
-              "d6a4f9fd-b723-495b-b06b-bc4c1c0c499f": "",
-              "fafa64ae-21c7-439f-8a29-a13b68992264": "",
-              "ff2cbde5-0679-4dca-abb6-ba324e9dced3": ""
-            }
-          },
-          "327e0dd5-e91e-41f8-8e13-0bed8658f2d0": {
-            "name": "fine_fuchsia",
-            "values": {
-              "ab4a3993-6606-4518-9f29-71527dd14492": "economic_coffee"
-            }
-          },
-          "43eff2f2-77f7-4fcd-ad89-f54641e6553e": {
-            "name": "visiting_beige",
-            "values": {}
-          },
-          "88bc6fd8-292c-4bb6-98d7-c327e9600a00": {
-            "name": "weekly_lime",
             "values": {}
           },
           "93db7817-3553-49d8-986b-0600d6a64cc0": {
@@ -498,13 +419,29 @@
             "nonPresetUITypeIds": []
           }
         },
-        "72018a5c-a493-4f11-b990-a16722ba240a": {},
-        "d9315258-a483-4a3a-9760-34e35163c5e0": {},
-        "f54a435e-c3e0-4aaf-b1f8-97fd076716fd": {}
+        "72018a5c-a493-4f11-b990-a16722ba240a": {
+          "a920f338-6b8d-449c-a472-e1f58e8e051a": {
+            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+            "nonPresetUITypeIds": []
+          }
+        },
+        "d9315258-a483-4a3a-9760-34e35163c5e0": {}
       },
       "paramSweeps": {},
       "runGroups": {},
       "codeInfo": {
+        "07aada28-f0d8-404f-8496-fa469adfc26f": {
+          "id": "07aada28-f0d8-404f-8496-fa469adfc26f",
+          "name": "torchvision.transforms.CenterCrop",
+          "editable": 0,
+          "rcType": "callable",
+          "defaultVal": null,
+          "description": "",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": ["a920f338-6b8d-449c-a472-e1f58e8e051a"]
+        },
         "0aa49699-dfc1-4438-a030-c86a225d0079": {
           "id": "0aa49699-dfc1-4438-a030-c86a225d0079",
           "name": "groups",
@@ -551,7 +488,7 @@
           "isPinned": 0,
           "isFrozen": 0,
           "isSelected": 0,
-          "children": []
+          "children": ["07aada28-f0d8-404f-8496-fa469adfc26f"]
         },
         "2c5d27d6-dfee-4a38-a082-1141925ec3f1": {
           "id": "2c5d27d6-dfee-4a38-a082-1141925ec3f1",
@@ -730,6 +667,18 @@
           "isSelected": 0,
           "children": ["82b68450-739b-40c5-940f-dd50d65e91b7"]
         },
+        "a920f338-6b8d-449c-a472-e1f58e8e051a": {
+          "id": "a920f338-6b8d-449c-a472-e1f58e8e051a",
+          "name": "size",
+          "editable": 0,
+          "rcType": "parameter",
+          "defaultVal": null,
+          "description": "Desired output size of the crop. If size is an\nint instead of sequence like (h, w), a square crop (size, size) is\nmade. If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": []
+        },
         "ab4a3993-6606-4518-9f29-71527dd14492": {
           "id": "ab4a3993-6606-4518-9f29-71527dd14492",
           "name": "transforms",
@@ -866,7 +815,11 @@
       "userCodeInfoMaps": {},
       "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
-      "outputs": {}
+      "outputs": {},
+      "dbSourceMapping": {
+        "default": "default",
+        "settings": "default"
+      }
     }
   ]
 }

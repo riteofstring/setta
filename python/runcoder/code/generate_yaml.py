@@ -16,7 +16,7 @@ def generate_yaml(e):
                     param_value = e[param_value]["value"]
                 param_dict[e[param]["name"]] = param_value
             transformed_dict[key] = {callable_value: param_dict}
-        elif not value["var_name_generated"]:
+        elif not value["is_global"]:
             # Directly use top-level keys and values
             transformed_dict[key] = value["value"]
 

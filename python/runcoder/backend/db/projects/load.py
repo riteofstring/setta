@@ -155,6 +155,7 @@ def load_project(dbs, project_name, config_name):
         "projectConfigCodeInfoMaps": {},
         "outputGroups": {},
         "outputs": {},
+        "dbSourceMapping": dbs.db_source_mapping
     }
 
 

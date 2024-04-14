@@ -10,7 +10,7 @@ import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
 import { UITypeType } from "z_utils/types/uiType";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { ManyOf } from "z_utils/types/utils";
-import { getSectionDBSource, getSectionInfo } from "./sections/getters";
+import { getMappedSectionDBSource, getSectionInfo } from "./sections/getters";
 
 export function initializeChildParams({
   sectionIds,
@@ -50,7 +50,7 @@ function initializeParamEnteredValue(
   paramIdToUITypeId: { [id: string]: string },
 ) {
   const { evColId } = getSectionInfo(sectionId);
-  const dbSource = getSectionDBSource(sectionId);
+  const dbSource = getMappedSectionDBSource(sectionId);
   const evCol = useParamInfos.getState().x[dbSource][evColId];
   const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
 
@@ -63,7 +63,7 @@ function initializeParamEnteredValue(
   }
 
   useParamInfos.getState().initManyEnteredValues({
-    dbSource: getSectionDBSource(sectionId),
+    dbSource: getMappedSectionDBSource(sectionId),
     collectionId: evColId,
     paramIdsToUITypes,
   });

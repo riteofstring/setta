@@ -1,6 +1,6 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
 import { useParamSweepInfo } from "hooks/useParamSweepInfo";
-import { useSectionDBSource } from "hooks/useSectionInfo";
+import { useMappedSectionDBSource } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -174,7 +174,7 @@ function ArgItem({
 }
 
 function ShowEVCol({ forSectionId, objInfoId, evColId }) {
-  const dbSource = useSectionDBSource(forSectionId);
+  const dbSource = useMappedSectionDBSource(forSectionId);
   const evCol = useParamInfos((x) => x.x[dbSource][evColId]);
   const paramsWithValues = useCodeInfo((x) => {
     const output = [];

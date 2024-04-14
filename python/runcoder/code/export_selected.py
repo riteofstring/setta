@@ -150,20 +150,19 @@ class Exporter:
             info = {
                 "sectionId": id,
                 "name": var_name,
-                "type": get_section_type(self.p, id),
+                "type": type,
             }
             if type == SECTION:
-                info["value"] = self.export_section_value(id, curr_var_name)
+                info["value"] = self.export_section_value(id, curr_var_name, type)
                 self.output[var_name] = info
             elif type == LIST_ROOT:
                 children = self.p["sections"][id]["children"]
                 info["value"] = f"[None for _ in range({len(children)})]"
                 self.output[var_name] = info
-                self.export_section_value(id, curr_var_name)
+                self.export_section_value(id, curr_var_name, type)
         return var_name
 
-    def export_section_value(self, id, curr_var_name):
-        type = get_section_type(self.p, id)
+    def export_section_value(self, id, curr_var_name, type):
         if type == SECTION:
             params, unused_params = self.export_params(id, curr_var_name)
             return {
@@ -211,7 +210,7 @@ class Exporter:
             "value": value,
             "deps": deps,
             "type": get_param_ui_type(self.p, section_id, id),
-            "var_name_generated": is_global,
+            "is_global": is_global,
         }
         return var_name
 
@@ -220,6 +219,7 @@ class Exporter:
         ev_col_id = section["evColId"]
         dbSource = section["dbSource"]
         dbSource = dbSource if dbSource else DEFAULT_DB_ALIAS
+        dbSource = self.p["dbSourceMapping"][dbSource]
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
         # original_type = get_original_param_ui_type(self.p, section_id, id)
         if value:

@@ -1,12 +1,12 @@
 import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
-import { useGetSectionInfo, useSectionDBSource } from "./useSectionInfo";
+import { useGetSectionInfo, useMappedSectionDBSource } from "./useSectionInfo";
 
 export function useGetParamEnteredValue(
   sectionId: string,
   paramInfoId: string,
 ) {
-  const dbSource = useSectionDBSource(sectionId);
+  const dbSource = useMappedSectionDBSource(sectionId);
   const evColId = useGetSectionInfo(sectionId, "evColId");
   const previewEVColId = useGetSectionInfo(sectionId, "previewEVColId");
 
@@ -23,7 +23,7 @@ export function useGetParamEnteredValue(
 }
 
 export function useGetEVColNames(sectionId: string) {
-  const dbSource = useSectionDBSource(sectionId);
+  const dbSource = useMappedSectionDBSource(sectionId);
   const evColIds = useGetSectionInfo(sectionId, "evColIds");
   return useParamInfos((x) => {
     if (dbSource in x.x) {

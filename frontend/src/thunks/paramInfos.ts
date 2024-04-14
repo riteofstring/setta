@@ -1,6 +1,6 @@
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionDBSource, getSectionInfo } from "./sections/getters";
+import { getMappedSectionDBSource, getSectionInfo } from "./sections/getters";
 import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { varControlUpdate } from "./varControl";
@@ -27,7 +27,7 @@ export function setParamEnteredValue({
   incrementVersion = false,
 }) {
   const { evColId } = getSectionInfo(sectionId);
-  const dbSource = getSectionDBSource(sectionId);
+  const dbSource = getMappedSectionDBSource(sectionId);
   useParamInfos
     .getState()
     .setEnteredValue({ dbSource, collectionId: evColId, paramInfoId, value });

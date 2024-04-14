@@ -2,7 +2,10 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionDBSource, getSectionInfo } from "thunks/sections/getters";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "thunks/sections/getters";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { SLIDER } from "z_utils/constants";
 import { getValueForUIType } from "z_utils/objs/ev";
@@ -93,7 +96,7 @@ function _updateEVs(uiType) {
 
     for (const s of Object.values(useSectionInfos.getState().x)) {
       if (s.uiTypeColId === colId) {
-        const dbSource = getSectionDBSource(s.id);
+        const dbSource = getMappedSectionDBSource(s.id);
         for (const [pid, currValue] of Object.entries(
           pState.x[s.evColId].values,
         )) {

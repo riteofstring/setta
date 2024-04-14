@@ -104,11 +104,23 @@ class DBs:
         names_to_paths = self.parse_dbs_arg(db_specs, create_if_not_exists)
         self.dbs = {}
         self.names_to_paths = {}
+        self.db_source_mapping = {}
 
         for name, path in names_to_paths:
             if path not in self.dbs:
                 self.dbs[path] = DBQueue(path)
-            self.names_to_paths[name] = path
+                self.names_to_paths[name] = path
+                self.db_source_mapping[name] = name
+            else:
+                existing_alias = None
+                for k,v in self.names_to_paths.items():
+                    if v == path:
+                        existing_alias = k
+                        break
+                if not existing_alias:
+                    raise ValueError
+                self.db_source_mapping[name] = existing_alias
+            
 
     # Path example:
     # --d "api_keys=/path/to/some.db"
@@ -173,10 +185,11 @@ class DBs:
             v.put_back_curr()
 
     def __getitem__(self, key):
-        return self.dbs[self.names_to_paths[key]].curr
+        mapped_source = self.db_source_mapping[key]
+        return self.dbs[self.names_to_paths[mapped_source]].curr
 
     def __contains__(self, key):
-        return key in self.names_to_paths and self[key]
+        return key in self.db_source_mapping
 
     def items(self):
         output = {}
