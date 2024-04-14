@@ -167,12 +167,13 @@ export function TextInputCodeMirror({
   const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
 
   function onBlur() {
-    // setActivationEvent(null);
-    // setRealIsInitialized(false);
+    setActivationEvent(null);
+    setRealIsInitialized(false);
   }
 
   function onMouseDown(event) {
-    if (!variableClick(event)) {
+    // if (!variableClick(event)) {
+    if (!variableClick(event) && event.button === 0) {
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
       setActivationEvent(event);
     }
@@ -186,7 +187,7 @@ export function TextInputCodeMirror({
         <DummyCodeMirror
           code={value}
           onMouseDown={onMouseDown}
-          className={`${className} nodrag min-h-6 cursor-text select-text py-[3px] pl-[6px] pr-[2px] font-mono text-[.8rem] `}
+          className={`${className} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-[13px] leading-[1.4] [tab-size:4] [word-break:break-word] `}
           theme={theme}
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}
@@ -200,7 +201,7 @@ export function TextInputCodeMirror({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          className={`self-center [&_.cm-activeLine]:overflow-hidden [&_.cm-activeLine]:rounded-xl [&_.cm-content]:!py-0  ${className}`}
+          className={`card-value cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 first:[&_.cm-line>*]:mt-[3px]  ${className}`}
           singleLine={singleLine}
           onEnter={onEnter}
           onBlur={onBlur}
