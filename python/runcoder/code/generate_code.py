@@ -41,6 +41,7 @@ def infer_imports(code_str):
                 id not in assigned_vars
                 and id not in dir(builtins)
                 and id not in imported_modules
+                and id != "_"
             ):
                 imports[get_location_str(node)].append(id)
 
