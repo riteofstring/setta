@@ -289,6 +289,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
           className="nodrag"
           area="card-value-full"
         />
+        <span className="card-value-full border-box self-end border-b border-runcoder-300 dark:border-runcoder-800" />
       </article>
     </>
   );

@@ -24,6 +24,10 @@ export function TextInput({
       defaultVal={defaultVal}
       onChange={onChange}
       className="card-value"
+      // variants="bg-white dark:bg-transparent"
+      classes={classes}
+      area={area}
     />
   );
 }
+// bg-white/50 dark:bg-runcoder-900 rounded-md

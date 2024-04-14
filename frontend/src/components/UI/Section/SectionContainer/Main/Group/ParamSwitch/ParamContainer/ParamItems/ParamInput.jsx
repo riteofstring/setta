@@ -47,14 +47,18 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
   }, [enteredValue]);
 
   return (
-    <ParamUI
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      value={value}
-      defaultVal={defaultVal}
-      onChange={onChange}
-      isDisabled={isDisabled}
-      className="nodrag"
-    />
+    <>
+      <ParamUI
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        value={value}
+        defaultVal={defaultVal}
+        onChange={onChange}
+        isDisabled={isDisabled}
+        className="nodrag"
+        area="card-value"
+      />
+      <span className="card-value border-box self-end border-b border-runcoder-300 dark:border-runcoder-800" />
+    </>
   );
 }
