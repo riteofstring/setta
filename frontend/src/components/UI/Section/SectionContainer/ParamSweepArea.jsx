@@ -121,7 +121,7 @@ function ArgItem({
   }
 
   return (
-    <article className="nodrag nowheel card-sweep-group  py-1">
+    <article className="nodrag nowheel card-sweep-group py-1">
       <div className="col-start-2 col-end-6 flex min-w-0 items-center">
         <ParamCombobox
           objInfoId={objInfoId}

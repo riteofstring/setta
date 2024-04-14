@@ -62,16 +62,18 @@ function _ParamContainer({
     </article>
   ) : (
     <article
-      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
+      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1  ${bg} ${border}`}
       {...infoViewHandlers}
       onClick={(e) => onClick(e, sectionId, paramInfo.id)}
     >
       {children}
-      <GetParamSwitch
-        sectionId={sectionId}
-        objInfoId={objInfoId}
-        infos={paramChildren}
-      />
+      <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">
+        <GetParamSwitch
+          sectionId={sectionId}
+          objInfoId={objInfoId}
+          infos={paramChildren}
+        />
+      </div>
     </article>
   );
 }
