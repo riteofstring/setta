@@ -82,7 +82,7 @@ def import_str(x):
 
 def get_import_text(code):
     imports = [import_str(x) for x in infer_imports(code)]
-    return "\n".join(imports), len(imports)
+    return "\n".join(imports)
 
 
 def get_mappings(var_names, selected, operator):
@@ -192,20 +192,20 @@ def prepend_with_imports(
     code_to_infer = replace_keywords(
         templated_code, {"RUNCODER_GENERATED_CODE": "\n".join(lines)}
     )
-    imports, num_imports = get_import_text(code_to_infer)
+    imports = get_import_text(code_to_infer)
+    imports = imports + "\n\n"
 
     if force_appear_var_name:
         lines[line_num] = original_force_appear_var_str
 
     num_preceding_lines = count_lines(
-        templated_code.split(double_braces("RUNCODER_GENERATED_CODE"))[0]
+        templated_code.split(double_braces("RUNCODER_GENERATED_CODE"))[0] + imports
     )
     new_var_name_to_line_num = {
-        k: v + num_preceding_lines + num_imports + 1
-        for k, v in var_name_to_line_num.items()
+        k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
     }
 
-    generated_code = imports + "\n\n" + "\n".join(lines)
+    generated_code = imports + "\n".join(lines)
     output = (
         replace_keywords(templated_code, {"RUNCODER_GENERATED_CODE": generated_code})
         if replace_templated_code
