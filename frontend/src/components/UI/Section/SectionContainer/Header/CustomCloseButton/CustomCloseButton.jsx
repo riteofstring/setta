@@ -2,9 +2,7 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 
 // absolute top-1 right-1
 export function CustomCloseButton({ isInfo, onClick, ...props }) {
-  const twClasses = isInfo
-    ? "absolute right-4 top-5 z-10"
-    : "absolute right-4 z-10";
+  // const twClasses =
   return (
     <IconButton
       {...props}
@@ -13,7 +11,7 @@ export function CustomCloseButton({ isInfo, onClick, ...props }) {
       bg="bg-transparent hover:bg-red-500"
       size="w-auto h-auto"
       padding="p-0"
-      twClasses={twClasses}
+      // twClasses={twClasses}
       onClick={onClick}
     />
   );
