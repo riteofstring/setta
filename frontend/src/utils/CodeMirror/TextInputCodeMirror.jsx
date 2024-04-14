@@ -167,8 +167,8 @@ export function TextInputCodeMirror({
   const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
 
   function onBlur() {
-    setActivationEvent(null);
-    setRealIsInitialized(false);
+    // setActivationEvent(null);
+    // setRealIsInitialized(false);
   }
 
   function onMouseDown(event) {
@@ -186,7 +186,7 @@ export function TextInputCodeMirror({
         <DummyCodeMirror
           code={value}
           onMouseDown={onMouseDown}
-          className={`${className} nodrag cursor-text select-text font-mono`}
+          className={`${className} nodrag min-h-6 cursor-text select-text py-[3px] pl-[6px] pr-[2px] font-mono text-[.8rem] `}
           theme={theme}
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}
@@ -200,7 +200,7 @@ export function TextInputCodeMirror({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          className={className}
+          className={`self-center [&_.cm-activeLine]:overflow-hidden [&_.cm-activeLine]:rounded-xl [&_.cm-content]:!py-0  ${className}`}
           singleLine={singleLine}
           onEnter={onEnter}
           onBlur={onBlur}
@@ -289,7 +289,7 @@ function CoreCodeMirror({
 
   return (
     <CodeMirror
-      className={`nodrag ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`nodrag [&_*]:!outline-0 ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{
