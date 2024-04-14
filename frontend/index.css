@@ -160,7 +160,7 @@ body {
   display: grid;
   grid-template-columns: [c1] 0 [c2] 0.5rem [c3] 1fr [c4] 1fr [c5];
   grid-auto-rows: minmax(1rem, min-content);
-  gap: 0.5rem 0.25rem;
+  gap: 0.5rem 0.35rem;
 }
 
 @supports (-moz-appearance: none) {
@@ -278,6 +278,11 @@ body {
 
 .card-pin-btn {
   grid-column: 1/2;
+  grid-row: -1 / span 1;
+}
+
+.card-param-options-btn {
+  grid-column: 2/3;
   grid-row: -1 / span 1;
 }
 

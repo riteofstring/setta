@@ -9,6 +9,7 @@ import { paramSelect } from "thunks/keyActivations";
 import { updateParams } from "thunks/sections/sectionContents";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
+import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({
@@ -59,6 +60,7 @@ function _ParamContainer({
         paramInfoId={paramInfo.id}
         variants="justify-self-end self-center"
       />
+      <ParamOptionsButton />
     </article>
   ) : (
     <article
