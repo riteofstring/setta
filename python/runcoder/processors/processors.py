@@ -104,7 +104,7 @@ def textFieldCompletion(message):
 
 
 def jedi_complete(code, var_name_to_line_num, var_name, column):
-    column = column + len(var_declaration(var_name, "", "="))
+    column = column + len(var_declaration(var_name, ""))
     line = var_name_to_line_num[var_name] + 1
     return jedi.Script(code).complete(line=line, column=column), line
 
