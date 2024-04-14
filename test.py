@@ -611,8 +611,7 @@
 
 
 from runcoder.code.export_selected import export_selected, get_code
-from runcoder.code.generate_code import generate_code, generate_lines_of_code_without_imports
-from runcoder.code.infer_imports import infer_imports
+from runcoder.code.generate_code import generate_code
 import json
 import black
 import isort
@@ -639,8 +638,7 @@ e = export_selected(config)
 templated_code = get_code(config)
 
 code = generate_code(e, templated_code)[0]
-# code = "\n".join(code)
 code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
 code = isort.code(code, profile="black")
 print(code)
-# print(infer_imports(code))
+
