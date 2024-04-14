@@ -3,9 +3,56 @@ import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 
+const lineWrapStyle = {
+  whiteSpace: "break-spaces",
+  wordBreak: "break-word",
+  overflowWrap: "anywhere",
+  flexShrink: 1,
+};
+
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
 export function DummyCodeMirror({
+  code,
+  theme,
+  onMouseDown,
+  className,
+  keywordRegex,
+  goToSectionOnNameClick,
+  placeholder,
+}) {
+  return code ? (
+    <HighlightedCode
+      code={code}
+      theme={theme}
+      onMouseDown={onMouseDown}
+      className={className}
+      keywordRegex={keywordRegex}
+      goToSectionOnNameClick={goToSectionOnNameClick}
+    />
+  ) : (
+    <PlaceholderCode
+      className={className}
+      placeholder={placeholder}
+      onMouseDown={onMouseDown}
+    />
+  );
+}
+
+function PlaceholderCode({ className, placeholder, onMouseDown }) {
+  // returns <br/> if no placeholder, so that the div takes up space
+  return (
+    <span
+      className={`${className} text-gray-600`}
+      style={lineWrapStyle}
+      onMouseDown={onMouseDown}
+    >
+      {placeholder ? placeholder : <br />}
+    </span>
+  );
+}
+
+function HighlightedCode({
   code,
   theme,
   onMouseDown,
@@ -77,7 +124,7 @@ export function DummyCodeMirror({
       outputDivs.push(text.sliceString(pos, line.to));
     }
     if (isJustLineBreak) {
-      outputDivs.push(<br key={`br-${i}`}/>);
+      outputDivs.push(<br key={`br-${i}`} />);
     }
   }
 
@@ -89,12 +136,7 @@ export function DummyCodeMirror({
   return (
     <div
       className={`${className} ${scopeClassName}`}
-      style={{
-        whiteSpace: "break-spaces",
-        wordBreak: "break-word",
-        overflowWrap: "anywhere",
-        flexShrink: 1,
-      }}
+      style={lineWrapStyle}
       onMouseDown={onMouseDown}
     >
       {outputDivs}

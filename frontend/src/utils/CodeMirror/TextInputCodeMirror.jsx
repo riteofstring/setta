@@ -190,6 +190,7 @@ export function TextInputCodeMirror({
           theme={theme}
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}
+          placeholder={defaultVal}
         />
       )}
       {activationEvent && (
