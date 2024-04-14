@@ -4,9 +4,10 @@ import copy
 from collections import defaultdict
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
+from .export_selected import get_args_var_name
 from .find_placeholders import double_braces
 from .utils import push_var_deep
-from .export_selected import get_args_var_name
+
 
 def get_location_str(node):
     return f"{node.lineno}_{node.col_offset}"
@@ -116,7 +117,7 @@ def get_value(x, selected):
         else:
             return f"{x['value']['callable']}(**{get_args_var_name(x['name'])})"
     elif type_value == LIST_ROOT:
-        return f"[{', '.join(map(str, x['value']))}]"
+        return f"[{', '.join([get_value(selected[child], selected) for child in x['value']])}]"
     elif type_value == DICT_ROOT:
         return "{" + get_dict_contents(x["value"], selected) + "}"
     else:
@@ -148,6 +149,8 @@ def generate_lines_of_code_without_imports(
         selected = {v.pop("var_name"): v for v in selected}
     for var_name, x in selected.items():
         force_appear = force_appear_var_name == var_name
+        if x.get("hidden"):
+            continue
         var_str = create_line(var_name, x, selected, force_appear=force_appear)
         if var_str:
             var_name_to_line_num[var_name] = len(lines)
@@ -250,6 +253,7 @@ def replace_keywords(x, replacements):
 def get_line_from_string(input_string, line_number):
     lines = input_string.split("\n")
     return lines[line_number - 1]
+
 
 def append_to_line(input_string, line_number, append):
     lines = input_string.split("\n")

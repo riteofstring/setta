@@ -183,6 +183,7 @@ class TextFieldInitializeCode(BaseModel):
 class TypeCheckRequestRequest(BaseModel):
     project: dict
 
+
 class TextFieldCompletionRequest(BaseModel):
     projectConfigId: str
     sectionId: str

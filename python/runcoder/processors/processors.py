@@ -1,3 +1,4 @@
+import builtins
 import subprocess
 from pprint import pprint
 
@@ -7,9 +8,9 @@ import jedi
 from ..code.export_selected import export_selected, get_code
 from ..code.extract_args_from_help import extract_args_from_help
 from ..code.generate_code import (
+    append_to_line,
     generate_code,
     generate_lines_of_code_without_imports,
-    append_to_line,
     prepend_with_imports,
     set_line,
     var_declaration,
@@ -17,8 +18,9 @@ from ..code.generate_code import (
 from ..code.type_checker import parse_and_type_check
 from ..code.utils import get_var_name
 from .utils import withTempFiles
-import builtins
+
 BUILT_INS = set(dir(builtins))
+
 
 class Processors:
     def __init__(self):

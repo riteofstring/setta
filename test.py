@@ -603,10 +603,11 @@
 
 # import jedi
 
-# x = "_x=[[{'dog':5}]]\n_x[0][0]["
+# x = "models = [{'pretrained': True}]\nmodels[0]["
 # print(x)
 # results = jedi.Script(x).complete()
-# print(results)
+# for c in results:
+#     print(c)
 
 
 from runcoder.code.export_selected import export_selected, get_code
@@ -616,13 +617,13 @@ import black
 import isort
 from pprint import pprint
 
-with open("seed/exampleProjects/sklearn_example/sklearn_example.json") as f:
+with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
     p = json.load(f)
 
 with open("seed/BaseUITypes.json") as f:
     u = json.load(f)
 
-config = p.pop("configs")[0]
+config = p.pop("configs")[1]
 config["uiTypes"].update(u)
 config["project"] = {"id": p["id"]}
 for v in config["sections"].values():
@@ -630,7 +631,10 @@ for v in config["sections"].values():
         v["dbSource"] = ""
 
 e = export_selected(config)
-# print(e)
+for k,v in e.items():
+    print(k)
+    pprint(v)
+    print("\n\n")
 templated_code = get_code(config)
 
 code = generate_code(e, templated_code)[0]

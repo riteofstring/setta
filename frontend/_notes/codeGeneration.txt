@@ -13,10 +13,11 @@ models = [torchvision.models.resnet101(pretrained=True, download=True), torchvis
 
 
 #generated
-_models = []
+_models = [None for _ in range(3)]
 _models[0] = {}
 _models[0]["pretrained"] = True
 ...
+
 models = [torchvision.models.resnet101(**_models[0]), torchvision.models.resnet101(**_models[1]), torchvision.models.resnet101(**_models[2])]
 
 
