@@ -58,7 +58,7 @@ function _SectionHeader({
 
       <div
         className={
-          isInfo ? "absolute right-2 top-5 z-10" : "absolute right-2 z-10"
+          isInfo ? "absolute right-2 top-[.3rem] z-10" : "absolute right-2 z-10"
         }
       >
         <MinimizeButton />
