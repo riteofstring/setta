@@ -109,6 +109,22 @@ def get_param_var_name(param_var_names):
     return name
 
 
+def get_list_or_dict_value(p, children, type):
+    if type == LIST_ROOT:
+        return f"[None for _ in range({len(children)})]"
+    elif type == DICT_ROOT:
+        children_names = [p["sections"][id] for id in children]
+        return f"{{k:None for k in {children_names}}}"
+
+
+def construct_curr_var_name(p, idx, curr_section_id, var_name, type):
+    if type == LIST_ROOT:
+        return f"{var_name}[{idx}]"
+    elif type == DICT_ROOT:
+        section_name = p["sections"][curr_section_id]["name"]
+        return f"{var_name}['{section_name}']"
+
+
 def export_selected(p):
     e = Exporter(p)
     e.export()
@@ -180,12 +196,14 @@ class Exporter:
                     "unusedParams": unused_params,
                 }
                 self.output[var_name] = info
-            elif type == LIST_ROOT:
+            elif type in [LIST_ROOT, DICT_ROOT]:
                 children = self.p["sections"][id]["children"]
-                self.export_args_var(id, curr_var_name, type, list_len=len(children))
-                info["value"] = f"[None for _ in range({len(children)})]"
+                self.export_args_var(id, curr_var_name, type, children)
+                info["value"] = get_list_or_dict_value(self.p, children, type)
                 self.output[var_name] = info
                 for idx, sid in enumerate(children):
+                    # curr_var_name = construct_curr_var_name(self.p, idx, sid, var_name, type)
+                    # print
                     self.export_section(sid, curr_var_name=f"{var_name}[{idx}]")
         return var_name
 
@@ -222,7 +240,10 @@ class Exporter:
                 get_var_name(self.p, section_id, curr_var_name), param_name
             )
             self.output[var_name] = {**info, "value": value}
-            self.output[var_name_for_autocomplete] = {**info, "value": var_name if value else value}
+            self.output[var_name_for_autocomplete] = {
+                **info,
+                "value": var_name if value else value,
+            }
         else:
             var_name = param_name
 
@@ -250,15 +271,18 @@ class Exporter:
             return value, deps
         return value, []
 
-    def export_args_var(self, section_id, curr_var_name, type=DICT_ROOT, list_len=0):
+    def export_args_var(self, section_id, curr_var_name, type=SECTION, children=[]):
         args_var_name = get_args_var_name(
             get_var_name(self.p, section_id, curr_var_name)
         )
         if args_var_name not in self.output:
+            if type == SECTION:
+                return "{}"
             if type == DICT_ROOT:
-                value = "{}"
+                children_names = [self.p["sections"][id] for id in children]
+                return f"{{k:{{}} for k in {children_names}}}"
             elif type == LIST_ROOT:
-                value = f"[{{}} for _ in range({list_len})]"
+                value = f"[{{}} for _ in range({len(children)})]"
             else:
                 raise ValueError
             self.output[args_var_name] = {
