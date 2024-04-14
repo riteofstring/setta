@@ -87,4 +87,3 @@ def infer_imports(code):
         )
     }
     return set(list(filtered_modules))
-
