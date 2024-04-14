@@ -192,6 +192,7 @@ def prepend_with_imports(
     code_to_infer = replace_keywords(
         templated_code, {"RUNCODER_GENERATED_CODE": "\n".join(lines)}
     )
+    print(code_to_infer)
     imports, num_imports = get_import_text(code_to_infer)
 
     if force_appear_var_name:
