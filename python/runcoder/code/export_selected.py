@@ -19,9 +19,11 @@ from ..utils.constants import (
 )
 from .find_placeholders import double_braces, needs_generated_python
 
+ARG_PREFIX = "_"
+
 
 def get_args_var_name(var_name):
-    return f"_{var_name}"
+    return f"{ARG_PREFIX}{var_name}"
 
 
 def get_section_config(p, id):
@@ -81,7 +83,15 @@ def get_var_names_from_value(value):
 
 def get_top_level_section_names(p):
     top_level = p["projectConfig"]["children"]
-    return {p["sections"][x]["name"] for x in top_level.keys()}
+    output = set()
+    for x in top_level.keys():
+        section_name = p["sections"][x]["name"]
+        output.add(section_name)
+        output.add(get_args_var_name(section_name))
+    return output
+
+def is_top_level_arg_var_name(var_name):
+    return var_name.startswith(ARG_PREFIX)
 
 
 def get_section_name_to_id(p):
@@ -221,7 +231,10 @@ class Exporter:
             deps = []
             var_names = get_var_names_from_value(value)
             for v in var_names.intersection(self.top_level_section_names):
-                self.export_section(self.section_name_to_id[v])
+                if is_top_level_arg_var_name(v):
+                    self.export_section(self.section_name_to_id[v.lstrip(ARG_PREFIX)])
+                else:
+                    self.export_section(self.section_name_to_id[v])
                 deps.append(v)
             return value, deps
         return value, []
