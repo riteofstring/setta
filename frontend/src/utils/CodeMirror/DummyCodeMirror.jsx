@@ -62,7 +62,7 @@ export function DummyCodeMirror({
 
       outputDivs.push(
         <span
-          key={`${i}-${cursor.from}`}
+          key={`span-${i}-${cursor.from}`}
           className={className}
           onClick={onClick}
         >
@@ -77,7 +77,7 @@ export function DummyCodeMirror({
       outputDivs.push(text.sliceString(pos, line.to));
     }
     if (isJustLineBreak) {
-      outputDivs.push(<br />);
+      outputDivs.push(<br key={`br-${i}`}/>);
     }
   }
 
