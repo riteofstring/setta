@@ -7,10 +7,17 @@ import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { paramSelect } from "thunks/keyActivations";
 import { updateParams } from "thunks/sections/sectionContents";
+import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
-function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
+function _ParamContainer({
+  sectionId,
+  objInfoId,
+  paramInfo,
+  isKwarg,
+  children,
+}) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
@@ -29,7 +36,12 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     ? "bg-runcoder-300/20 dark:bg-runcoder-950/50"
     : "hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25";
 
-  return (
+  const paramChildren = useCodeInfo(
+    (x) => paramInfo.children.map((c) => x.x[c]),
+    _.isEqual,
+  );
+
+  return paramChildren.length === 0 ? (
     <article
       className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
       {...infoViewHandlers}
@@ -46,6 +58,19 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
         sectionId={sectionId}
         paramInfoId={paramInfo.id}
         variants="justify-self-end self-center"
+      />
+    </article>
+  ) : (
+    <article
+      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
+      {...infoViewHandlers}
+      onClick={(e) => onClick(e, sectionId, paramInfo.id)}
+    >
+      {children}
+      <GetParamSwitch
+        sectionId={sectionId}
+        objInfoId={objInfoId}
+        infos={paramChildren}
       />
     </article>
   );
