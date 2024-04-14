@@ -113,14 +113,13 @@ class DBs:
                 self.db_source_mapping[name] = name
             else:
                 existing_alias = None
-                for k,v in self.names_to_paths.items():
+                for k, v in self.names_to_paths.items():
                     if v == path:
                         existing_alias = k
                         break
                 if not existing_alias:
                     raise ValueError
                 self.db_source_mapping[name] = existing_alias
-            
 
     # Path example:
     # --d "api_keys=/path/to/some.db"
