@@ -7,15 +7,10 @@ from ..utils.constants import (
     CODE,
     DECK,
     DICT_ROOT,
-    GLOBAL_PARAM_SWEEP,
     GLOBAL_VARIABLES,
-    INFO,
     LIST_ROOT,
-    PARAM_SWEEP,
     SECTION,
-    TERMINAL,
     TEXT,
-    VAR_CONTROL,
 )
 from .find_placeholders import double_braces, needs_generated_python
 
@@ -58,8 +53,6 @@ def get_param_ui_type_id(p, section_id, id):
 def get_param_ui_type(p, section_id, id):
     ui_type_id = get_param_ui_type_id(p, section_id, id)
     ui_type = p["uiTypes"][ui_type_id]
-    # if is_section_ui_type(ui_type):
-    #     return REF
     return ui_type["type"]
 
 
@@ -90,6 +83,7 @@ def get_top_level_section_names(p):
         output.add(get_args_var_name(section_name))
     return output
 
+
 def is_top_level_arg_var_name(var_name):
     return var_name.startswith(ARG_PREFIX)
 
@@ -107,6 +101,22 @@ def get_param_var_name(param_var_names):
     name = f"__p{len(param_var_names)}"
     param_var_names.add(name)
     return name
+
+
+def get_list_or_dict_value(p, children, type):
+    if type == LIST_ROOT:
+        return f"[None for _ in range({len(children)})]"
+    elif type == DICT_ROOT:
+        children_names = [p["sections"][id]["name"] for id in children]
+        return f"{{k:None for k in {children_names}}}"
+
+
+def construct_curr_var_name(p, idx, curr_section_id, var_name, type):
+    if type == LIST_ROOT:
+        return f"{var_name}[{idx}]"
+    elif type == DICT_ROOT:
+        section_name = p["sections"][curr_section_id]["name"]
+        return f"{var_name}['{section_name}']"
 
 
 def export_selected(p):
@@ -133,6 +143,7 @@ class Exporter:
         self.param_var_names = set()
         self.top_level_section_names = set()
         self.section_name_to_id = {}
+        self.var_name_mapping = {}
 
     def export(self):
         self.top_level_section_names = get_top_level_section_names(self.p)
@@ -146,15 +157,7 @@ class Exporter:
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
                 self.export_params(id, curr_var_name="", is_global=True)
-            if section_type in [
-                GLOBAL_VARIABLES,
-                CODE,
-                VAR_CONTROL,
-                INFO,
-                PARAM_SWEEP,
-                TERMINAL,
-                GLOBAL_PARAM_SWEEP,
-            ]:
+            if section_type not in [SECTION, LIST_ROOT, DICT_ROOT, DECK]:
                 to_pop.append(id)
         for id in to_pop:
             self.p["sections"].pop(id)
@@ -180,13 +183,16 @@ class Exporter:
                     "unusedParams": unused_params,
                 }
                 self.output[var_name] = info
-            elif type == LIST_ROOT:
+            elif type in [LIST_ROOT, DICT_ROOT]:
                 children = self.p["sections"][id]["children"]
-                self.export_args_var(id, curr_var_name, type, list_len=len(children))
-                info["value"] = f"[None for _ in range({len(children)})]"
+                self.export_args_var(id, curr_var_name, type, children)
+                info["value"] = get_list_or_dict_value(self.p, children, type)
                 self.output[var_name] = info
                 for idx, sid in enumerate(children):
-                    self.export_section(sid, curr_var_name=f"{var_name}[{idx}]")
+                    curr_var_name = construct_curr_var_name(
+                        self.p, idx, sid, var_name, type
+                    )
+                    self.export_section(sid, curr_var_name=curr_var_name)
         return var_name
 
     def export_params(self, section_id, curr_var_name, is_global=False):
@@ -217,12 +223,19 @@ class Exporter:
 
         if not is_global:
             self.export_args_var(section_id, curr_var_name)
-            var_name = get_param_var_name(self.param_var_names)
             var_name_for_autocomplete = get_param_var_name_for_autocomplete(
                 get_var_name(self.p, section_id, curr_var_name), param_name
             )
-            self.output[var_name] = {**info, "value": value}
-            self.output[var_name_for_autocomplete] = {**info, "value": var_name if value else value}
+            var_name = self.var_name_mapping.get(var_name_for_autocomplete)
+            if not var_name:
+                var_name = get_param_var_name(self.param_var_names)
+                self.var_name_mapping[var_name_for_autocomplete] = var_name
+            if var_name not in self.output:
+                self.output[var_name] = {**info, "value": value}
+                self.output[var_name_for_autocomplete] = {
+                    **info,
+                    "value": var_name if value else value,
+                }
         else:
             var_name = param_name
 
@@ -235,7 +248,6 @@ class Exporter:
         dbSource = dbSource if dbSource else DEFAULT_DB_ALIAS
         dbSource = self.p["dbSourceMapping"][dbSource]
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
-        # original_type = get_original_param_ui_type(self.p, section_id, id)
         if value:
             deps = []
             var_names = get_var_names_from_value(value)
@@ -250,15 +262,18 @@ class Exporter:
             return value, deps
         return value, []
 
-    def export_args_var(self, section_id, curr_var_name, type=DICT_ROOT, list_len=0):
+    def export_args_var(self, section_id, curr_var_name, type=SECTION, children=[]):
         args_var_name = get_args_var_name(
             get_var_name(self.p, section_id, curr_var_name)
         )
         if args_var_name not in self.output:
-            if type == DICT_ROOT:
+            if type == SECTION:
                 value = "{}"
+            elif type == DICT_ROOT:
+                children_names = [self.p["sections"][id]["name"] for id in children]
+                value = f"{{k:{{}} for k in {children_names}}}"
             elif type == LIST_ROOT:
-                value = f"[{{}} for _ in range({list_len})]"
+                value = f"[{{}} for _ in range({len(children)})]"
             else:
                 raise ValueError
             self.output[args_var_name] = {
@@ -267,4 +282,3 @@ class Exporter:
                 "deps": [],
                 "type": TEXT,
             }
-        return args_var_name

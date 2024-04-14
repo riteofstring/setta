@@ -1,3 +1,5 @@
+import builtins
+
 DOMAIN = "127.0.0.1"
 BACKEND_PORT = 8000
 BACKEND = f"http://{DOMAIN}:{BACKEND_PORT}"
@@ -21,6 +23,8 @@ INFO = "INFO"
 PARAM_SWEEP = "PARAM_SWEEP"
 TERMINAL = "TERMINAL"
 GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP"
+
+BUILT_INS = set(dir(builtins))
 
 
 def is_section_ui_type(x):
