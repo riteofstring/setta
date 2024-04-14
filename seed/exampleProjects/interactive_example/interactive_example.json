@@ -186,7 +186,11 @@
       "outputGroups": {},
       "outputs": {},
       "paramSweeps": {},
-      "runGroups": {}
+      "runGroups": {},
+      "dbSourceMapping": {
+        "default": "default",
+        "settings": "default"
+      }
     }
   ]
 }

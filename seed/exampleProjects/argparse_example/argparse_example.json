@@ -375,7 +375,11 @@
       "userCodeInfoMaps": {},
       "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
-      "outputs": {}
+      "outputs": {},
+      "dbSourceMapping": {
+        "default": "default",
+        "settings": "default"
+      }
     }
   ]
 }

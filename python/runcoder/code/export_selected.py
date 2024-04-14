@@ -232,7 +232,9 @@ class Exporter:
             var_names = get_var_names_from_value(value)
             for v in var_names.intersection(self.top_level_section_names):
                 if is_top_level_arg_var_name(v):
-                    self.export_section(self.section_name_to_id[v.lstrip(ARG_PREFIX)])
+                    section_name = v.lstrip(ARG_PREFIX)
+                    section_id = self.section_name_to_id[section_name]
+                    self.export_params(section_id, section_name)
                 else:
                     self.export_section(self.section_name_to_id[v])
                 deps.append(v)

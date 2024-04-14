@@ -641,3 +641,4 @@ code = generate_code(e, templated_code)[0]
 code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
 code = isort.code(code, profile="black")
 print(code)
+
