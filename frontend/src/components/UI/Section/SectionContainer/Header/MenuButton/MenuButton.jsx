@@ -17,7 +17,7 @@ function MenuButton({ sectionId }) {
       <MenuDropdown
         padding="p-1"
         rounded="rounded-full"
-        triggerStyle="ml-2 h-3 w-3 text-runcoder-600 hover:text-white"
+        triggerStyle="ml-1 h-3 w-3 text-runcoder-600 hover:text-white"
         trigger={
           <i className="gg-menu text-runcoder-300 dark:text-runcoder-500"></i>
         }

@@ -17,7 +17,7 @@ export const StandardSearch = React.forwardRef(
     },
     ref,
   ) => {
-    const classes = ` flex-grow outline-0 cursor-auto min-w-0 ${twClasses}`;
+    const classes = `w-full flex-grow outline-0 cursor-auto ${twClasses}`;
 
     return (
       <MaybeForm onFormSubmit={onFormSubmit} outerClasses={outerClasses}>

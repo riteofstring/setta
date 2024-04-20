@@ -9,7 +9,7 @@ export function IdNameCombobox({
   onSelectedItemChange,
   small,
   position,
-  outerDivClasses = "",
+  outerDivClasses,
   inputCallback,
   onInputMouseDown,
   isStandardSearch,
@@ -48,7 +48,7 @@ export function IdNameCombobox({
     <search
       className={`card-search flex ${
         small ? "h-7" : "h-8"
-      } w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
+      } w-full flex-col items-stretch overflow-visible ${outerDivClasses}`}
     >
       <ComboboxInput
         getInputProps={getInputProps}

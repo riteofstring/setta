@@ -1,12 +1,10 @@
 import { sendMessage } from "dbRequests/websocket";
 import { useGetParamEnteredValue } from "hooks/useEnteredValue";
-import { useGetParamUIType } from "hooks/useParamUIType";
 import _ from "lodash";
 import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
-import { TEXT } from "z_utils/constants";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
@@ -42,9 +40,6 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
     [enteredValue],
   );
 
-  const paramUIType = useGetParamUIType(sectionId, paramInfoId);
-  const isText = paramUIType.type === TEXT;
-
   useEffect(() => {
     if (value !== enteredValue) {
       setValue(enteredValue);
@@ -63,9 +58,7 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
         className="nodrag"
         area="card-value"
       />
-      {isText && (
-        <span className="card-value border-box self-end border-b border-runcoder-300 dark:border-runcoder-700" />
-      )}
+      <span className="card-value border-box self-end border-b border-runcoder-300 dark:border-runcoder-800" />
     </>
   );
 }

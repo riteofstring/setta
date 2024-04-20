@@ -22,7 +22,7 @@ export function ComboboxInput({
     </>
   ) : (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs font-mono text-runcoder-600 font-medium px-3 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-100 dark:border-runcoder-800 min-w-0 ${
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs font-mono text-runcoder-600 font-medium px-3 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-100 dark:border-runcoder-800 ${
         small ? "h-6" : "h-7"
       }`}
       noLeftElement={true}

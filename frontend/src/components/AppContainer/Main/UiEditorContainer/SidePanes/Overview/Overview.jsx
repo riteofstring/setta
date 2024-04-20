@@ -45,7 +45,7 @@ function TabsVisible() {
       // defaultValue={SECTION_CONFIG_TAB}
       // value={tab}
       // onValueChange={setTab}
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex flex-1 flex-col"
     >
       <Tabs.List>
         <nav className="flex gap-4">
@@ -112,8 +112,8 @@ const ProjectOverview = React.forwardRef(() => {
         {...infoViewHandlersSearch}
       />
 
-      <ScrollingArea styles="flex-grow -mx-2 px-2 overflow-hidden min-h-0">
-        <ul className="min-h-0 flex-grow" {...infoViewHandlers}>
+      <ScrollingArea styles="flex-1 -mx-2 px-2">
+        <ul className="flex-grow" {...infoViewHandlers}>
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </ScrollingArea>

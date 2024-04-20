@@ -26,24 +26,21 @@ export function SimpleSettings() {
   };
 
   return (
-    <>
-      {settings.map((setting, index) => (
-        <div
-          key={index}
-          className="-mx-3 flex items-center justify-between rounded-lg px-3 py-1 hover:bg-runcoder-200/25 dark:hover:bg-runcoder-800/50"
-        >
-          <label className="mr-2 break-all text-runcoder-700 dark:text-runcoder-100">
-            {setting.name}
-          </label>
-          <input
-            type="text"
-            value={setting.value}
-            onChange={(e) => handleInputChange(index, e.target.value)}
-            className="rounded-xl bg-runcoder-200 px-2 py-1 dark:bg-runcoder-800  dark:text-runcoder-50"
-          />
-        </div>
-      ))}
-    </>
+    <div className="mt-10 flex justify-center">
+      <div>
+        {settings.map((setting, index) => (
+          <div key={index} className="mb-4 flex items-center">
+            <label className="mr-2 text-white">{setting.name}</label>
+            <input
+              type="text"
+              value={setting.value}
+              onChange={(e) => handleInputChange(index, e.target.value)}
+              className="rounded bg-gray-800 p-2 text-white"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
