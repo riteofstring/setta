@@ -96,10 +96,11 @@ function HighlightedCode({
     isJustLineBreak = true;
     pos = line.from;
 
+    const currLineDivs = [];
     while (cursor.value && cursor.from < line.to) {
       isJustLineBreak = false;
       if (cursor.from > pos) {
-        outputDivs.push(text.sliceString(pos, cursor.from));
+        currLineDivs.push(text.sliceString(pos, cursor.from));
       }
       const keyword = matchedIndices[cursor.from];
       const className = `${cursor.value.spec.class} ${keyword ? "italic" : ""}`;
@@ -107,9 +108,9 @@ function HighlightedCode({
         ? (event) => goToSectionOnNameClick({ event, variable: keyword })
         : () => {};
 
-      outputDivs.push(
+      currLineDivs.push(
         <span
-          key={`span-${i}-${cursor.from}`}
+          key={`line-${i}-${cursor.from}`}
           className={className}
           onClick={onClick}
         >
@@ -119,13 +120,15 @@ function HighlightedCode({
       pos = cursor.to;
       cursor.next();
     }
-    if (pos < line.to) {
-      isJustLineBreak = false;
-      outputDivs.push(text.sliceString(pos, line.to));
-    }
+    currLineDivs.push(text.sliceString(pos, line.to));
     if (isJustLineBreak) {
-      outputDivs.push(<br key={`br-${i}`} />);
+      currLineDivs.push(<br key={`br-${i}`} />);
     }
+    outputDivs.push(
+      <div key={`line-${i}`} className="cm-line">
+        {currLineDivs}
+      </div>,
+    );
   }
 
   // "ͼ1 ͼ3 ͼ4 ͼ1ng ͼ21"
