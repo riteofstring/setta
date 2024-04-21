@@ -136,6 +136,32 @@ def get_code(p):
     return double_braces("RUNCODER_GENERATED_CODE")
 
 
+def flatten_groups(p):
+    for sid, section in p["sections"].items():
+        if get_section_type(p, sid) != DECK:
+            continue
+
+        children = section["children"]
+        if sid in p["projectConfig"]["children"]:
+            for c in children:
+                p["projectConfig"]["children"][c] = {}
+        else:
+            parentId = None
+            for possible_parent in p["sections"].values():
+                parent_idx = possible_parent["children"].index(sid)
+                if parent_idx != -1:
+                    parentId = possible_parent["id"]
+                    break
+            if parentId is None:
+                raise ValueError
+            parentSection = p["sections"][parentId]
+            parentSection["children"] = (
+                parentSection["children"][:parent_idx]
+                + children
+                + parentSection["children"][parent_idx:]
+            )
+
+
 class Exporter:
     def __init__(self, p):
         self.output = {}
@@ -146,6 +172,7 @@ class Exporter:
         self.var_name_mapping = {}
 
     def export(self):
+        flatten_groups(self.p)
         self.top_level_section_names = get_top_level_section_names(self.p)
         self.section_name_to_id = get_section_name_to_id(self.p)
         self.export_global_variables_and_remove_script()
@@ -157,7 +184,7 @@ class Exporter:
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
                 self.export_params(id, curr_var_name="", is_global=True)
-            if section_type not in [SECTION, LIST_ROOT, DICT_ROOT, DECK]:
+            if section_type not in [SECTION, LIST_ROOT, DICT_ROOT]:
                 to_pop.append(id)
         for id in to_pop:
             self.p["sections"].pop(id)
@@ -193,6 +220,8 @@ class Exporter:
                         self.p, idx, sid, var_name, type
                     )
                     self.export_section(sid, curr_var_name=curr_var_name)
+            else:
+                raise ValueError
         return var_name
 
     def export_params(self, section_id, curr_var_name, is_global=False):
