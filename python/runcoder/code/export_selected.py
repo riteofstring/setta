@@ -14,7 +14,7 @@ from ..utils.constants import (
 )
 from .find_placeholders import double_braces, needs_generated_python
 
-ARG_PREFIX = "_"
+ARG_PREFIX = "__"
 
 
 def get_args_var_name(var_name):
