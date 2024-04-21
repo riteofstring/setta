@@ -14,7 +14,7 @@ from ..utils.constants import (
 )
 from .find_placeholders import double_braces, needs_generated_python
 
-ARG_PREFIX = "_"
+ARG_PREFIX = "__"
 
 
 def get_section_config(p, id):
@@ -144,7 +144,6 @@ class Exporter:
 
     def export_section(self, id):
         var_name = get_section_var_name(self.p, self.existing_var_names, id)
-        print(var_name)
         if var_name not in self.output:
             type = get_section_type(self.p, id)
             info = {
@@ -189,24 +188,12 @@ class Exporter:
             "is_global": is_global,
         }
 
-        if not is_global:
-            # self.export_args_var(section_id, curr_var_name)
-            # var_name_for_autocomplete = get_param_var_name_for_autocomplete(
-            #     get_var_name(self.p, section_id, curr_var_name), param_name
-            # )
-            # var_name = self.var_name_mapping.get(var_name_for_autocomplete)
-            var_name = None
-            if not var_name:
-                var_name = get_param_var_name(self.existing_var_names)
-                # self.var_name_mapping[var_name_for_autocomplete] = var_name
-            if var_name not in self.output:
-                self.output[var_name] = {**info, "value": value}
-                # self.output[var_name_for_autocomplete] = {
-                #     **info,
-                #     "value": var_name if value else value,
-                # }
-        else:
-            var_name = param_name
+        var_name = (
+            param_name if is_global else get_param_var_name(self.existing_var_names)
+        )
+
+        if var_name not in self.output:
+            self.output[var_name] = {**info, "value": value}
 
         return var_name
 
@@ -217,16 +204,14 @@ class Exporter:
         dbSource = dbSource if dbSource else DEFAULT_DB_ALIAS
         dbSource = self.p["dbSourceMapping"][dbSource]
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
-        if value:
-            deps = []
+        deps = []
+        if not value:
+            return value, deps
+        if isinstance(value, str):
             var_names = get_var_names_from_value(value)
             for v in var_names.intersection(self.top_level_section_names):
-                if is_top_level_arg_var_name(v):
-                    section_name = v.lstrip(ARG_PREFIX)
-                    section_id = self.section_name_to_id[section_name]
-                    self.export_params(section_id, section_name)
-                else:
-                    self.export_section(self.section_name_to_id[v])
+                self.export_section(self.section_name_to_id[v])
                 deps.append(v)
-            return value, deps
-        return value, []
+        elif isinstance(value, dict):
+            pass
+        return value, deps
