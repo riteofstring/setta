@@ -66,27 +66,6 @@ export function ComboboxList({
   );
 }
 
-export function ComboboxTextFieldList({
-  isOpen,
-  children,
-  getMenuProps,
-  width,
-  position = "fixed",
-  variants,
-}) {
-  const display = isOpen ? "flex" : "hidden";
-
-  return (
-    <div
-      className={`nowheel nodrag ${display} ${position} z-20 mt-6 max-h-96 w-full min-w-[150px] rounded-lg border bg-white px-1 pb-2 pt-1 shadow-sm dark:border-runcoder-500/20 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-md dark:shadow-runcoder-900/75 ${variants}`}
-      {...getMenuProps()}
-      style={{ width }}
-    >
-      <ScrollingArea styles="w-full">{children}</ScrollingArea>
-    </div>
-  );
-}
-
 function _ComboboxItem({
   getItemProps,
   item,
