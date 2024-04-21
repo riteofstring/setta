@@ -2,6 +2,7 @@ import ast
 import copy
 
 from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
+from .export_selected import get_args_var_name
 from .find_placeholders import double_braces
 from .infer_imports import infer_imports
 from .utils import push_var_deep
@@ -58,9 +59,9 @@ def get_value(x, selected):
         else:
             return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
     elif type_value == LIST_ROOT:
-        return f"[{', '.join(map(str, x['value']))}]"
+        return str(x["value"])
     elif type_value == DICT_ROOT:
-        return "{" + get_dict_contents(x["value"], selected) + "}"
+        return str(x["value"])
     else:
         return None
 

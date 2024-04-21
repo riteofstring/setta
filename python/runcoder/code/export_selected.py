@@ -14,7 +14,11 @@ from ..utils.constants import (
 )
 from .find_placeholders import double_braces, needs_generated_python
 
-ARG_PREFIX = "__"
+ARG_PREFIX = "_"
+
+
+def get_args_var_name(var_name):
+    return f"{ARG_PREFIX}{var_name}"
 
 
 def get_section_config(p, id):
@@ -52,6 +56,15 @@ def get_param_ui_type(p, section_id, id):
     return ui_type["type"]
 
 
+def get_original_param_ui_type(p, section_id, id):
+    ui_type_id = get_param_ui_type_id(p, section_id, id)
+    return p["uiTypes"][ui_type_id]["type"]
+
+
+def get_param_var_name_for_autocomplete(section_name, param_name):
+    return f'{get_args_var_name(section_name)}["{param_name}"]'
+
+
 def no_entered_value(value):
     return value is None or value == ""
 
@@ -67,6 +80,7 @@ def get_top_level_section_names(p):
     for x in top_level.keys():
         section_name = p["sections"][x]["name"]
         output.add(section_name)
+        output.add(get_args_var_name(section_name))
     return output
 
 
@@ -78,21 +92,31 @@ def get_section_name_to_id(p):
     return {v["name"]: k for k, v in p["sections"].items()}
 
 
-def get_section_var_name(p, existing_var_names, section_id):
-    if section_id in p["projectConfig"]["children"]:
-        section_name = p["sections"][section_id]["name"]
-        return section_name
-    return create_var_name(existing_var_names)
+def get_var_name(p, section_id, curr_var_name):
+    section_name = p["sections"][section_id]["name"]
+    return section_name if curr_var_name == "" else curr_var_name
 
 
-def get_param_var_name(existing_var_names):
-    return create_var_name(existing_var_names)
-
-
-def create_var_name(existing_var_names):
-    name = f"__x{len(existing_var_names)}"
-    existing_var_names.add(name)
+def get_param_var_name(param_var_names):
+    name = f"__p{len(param_var_names)}"
+    param_var_names.add(name)
     return name
+
+
+def get_list_or_dict_value(p, children, type):
+    if type == LIST_ROOT:
+        return f"[None for _ in range({len(children)})]"
+    elif type == DICT_ROOT:
+        children_names = [p["sections"][id]["name"] for id in children]
+        return f"{{k:None for k in {children_names}}}"
+
+
+def construct_curr_var_name(p, idx, curr_section_id, var_name, type):
+    if type == LIST_ROOT:
+        return f"{var_name}[{idx}]"
+    elif type == DICT_ROOT:
+        section_name = p["sections"][curr_section_id]["name"]
+        return f"{var_name}['{section_name}']"
 
 
 def export_selected(p):
@@ -116,7 +140,7 @@ class Exporter:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.existing_var_names = set()
+        self.param_var_names = set()
         self.top_level_section_names = set()
         self.section_name_to_id = {}
         self.var_name_mapping = {}
@@ -132,7 +156,7 @@ class Exporter:
         for id in self.p["sections"].keys():
             section_type = get_section_type(self.p, id)
             if section_type == GLOBAL_VARIABLES:
-                self.export_params(id, is_global=True)
+                self.export_params(id, curr_var_name="", is_global=True)
             if section_type not in [SECTION, LIST_ROOT, DICT_ROOT, DECK]:
                 to_pop.append(id)
         for id in to_pop:
@@ -142,17 +166,17 @@ class Exporter:
     def export_sections(self, ids):
         return [self.export_section(x) for x in ids]
 
-    def export_section(self, id):
-        var_name = get_section_var_name(self.p, self.existing_var_names, id)
+    def export_section(self, id, curr_var_name=""):
+        var_name = get_var_name(self.p, id, curr_var_name)
         if var_name not in self.output:
             type = get_section_type(self.p, id)
             info = {
                 "sectionId": id,
-                "name": self.p["sections"][id]["name"],
+                "name": var_name,
                 "type": type,
             }
             if type == SECTION:
-                params, unused_params = self.export_params(id)
+                params, unused_params = self.export_params(id, curr_var_name)
                 info["value"] = {
                     "callable": get_selected_item(self.p, id),
                     "params": params,
@@ -160,13 +184,22 @@ class Exporter:
                 }
                 self.output[var_name] = info
             elif type in [LIST_ROOT, DICT_ROOT]:
-                info["value"] = self.export_sections(self.p["sections"][id]["children"])
+                children = self.p["sections"][id]["children"]
+                self.export_args_var(id, curr_var_name, type, children)
+                info["value"] = get_list_or_dict_value(self.p, children, type)
                 self.output[var_name] = info
+                for idx, sid in enumerate(children):
+                    curr_var_name = construct_curr_var_name(
+                        self.p, idx, sid, var_name, type
+                    )
+                    self.export_section(sid, curr_var_name=curr_var_name)
         return var_name
 
-    def export_params(self, section_id, is_global=False):
+    def export_params(self, section_id, curr_var_name, is_global=False):
         ids = get_param_ids(self.p, section_id)
-        var_names = [self.export_param(section_id, x, is_global) for x in ids]
+        var_names = [
+            self.export_param(section_id, x, curr_var_name, is_global) for x in ids
+        ]
         params = []
         unused_params = []
         for v in var_names:
@@ -176,7 +209,7 @@ class Exporter:
                 params.append(v)
         return params, unused_params
 
-    def export_param(self, section_id, id, is_global=False):
+    def export_param(self, section_id, id, curr_var_name, is_global=False):
         value, deps = self.export_param_value(section_id, id)
         param_name = self.p["codeInfo"][id]["name"]
         info = {
@@ -188,12 +221,23 @@ class Exporter:
             "is_global": is_global,
         }
 
-        var_name = (
-            param_name if is_global else get_param_var_name(self.existing_var_names)
-        )
-
-        if var_name not in self.output:
-            self.output[var_name] = {**info, "value": value}
+        if not is_global:
+            self.export_args_var(section_id, curr_var_name)
+            var_name_for_autocomplete = get_param_var_name_for_autocomplete(
+                get_var_name(self.p, section_id, curr_var_name), param_name
+            )
+            var_name = self.var_name_mapping.get(var_name_for_autocomplete)
+            if not var_name:
+                var_name = get_param_var_name(self.param_var_names)
+                self.var_name_mapping[var_name_for_autocomplete] = var_name
+            if var_name not in self.output:
+                self.output[var_name] = {**info, "value": value}
+                self.output[var_name_for_autocomplete] = {
+                    **info,
+                    "value": var_name if value else value,
+                }
+        else:
+            var_name = param_name
 
         return var_name
 
@@ -204,14 +248,37 @@ class Exporter:
         dbSource = dbSource if dbSource else DEFAULT_DB_ALIAS
         dbSource = self.p["dbSourceMapping"][dbSource]
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
-        deps = []
-        if not value:
-            return value, deps
-        if isinstance(value, str):
+        if value:
+            deps = []
             var_names = get_var_names_from_value(value)
             for v in var_names.intersection(self.top_level_section_names):
-                self.export_section(self.section_name_to_id[v])
+                if is_top_level_arg_var_name(v):
+                    section_name = v.lstrip(ARG_PREFIX)
+                    section_id = self.section_name_to_id[section_name]
+                    self.export_params(section_id, section_name)
+                else:
+                    self.export_section(self.section_name_to_id[v])
                 deps.append(v)
-        elif isinstance(value, dict):
-            pass
-        return value, deps
+            return value, deps
+        return value, []
+
+    def export_args_var(self, section_id, curr_var_name, type=SECTION, children=[]):
+        args_var_name = get_args_var_name(
+            get_var_name(self.p, section_id, curr_var_name)
+        )
+        if args_var_name not in self.output:
+            if type == SECTION:
+                value = "{}"
+            elif type == DICT_ROOT:
+                children_names = [self.p["sections"][id]["name"] for id in children]
+                value = f"{{k:{{}} for k in {children_names}}}"
+            elif type == LIST_ROOT:
+                value = f"[{{}} for _ in range({len(children)})]"
+            else:
+                raise ValueError
+            self.output[args_var_name] = {
+                "sectionId": None,
+                "value": value,
+                "deps": [],
+                "type": TEXT,
+            }
