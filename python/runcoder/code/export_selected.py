@@ -17,8 +17,6 @@ from .find_placeholders import double_braces, needs_generated_python
 ARG_PREFIX = "_"
 
 
-
-
 def get_section_config(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
     return p["uiTypes"][ui_type_id]["config"]
@@ -54,12 +52,6 @@ def get_param_ui_type(p, section_id, id):
     return ui_type["type"]
 
 
-def get_original_param_ui_type(p, section_id, id):
-    ui_type_id = get_param_ui_type_id(p, section_id, id)
-    return p["uiTypes"][ui_type_id]["type"]
-
-
-
 def no_entered_value(value):
     return value is None or value == ""
 
@@ -86,29 +78,21 @@ def get_section_name_to_id(p):
     return {v["name"]: k for k, v in p["sections"].items()}
 
 
-def get_section_var_name(p, section_var_names, section_id):
+def get_section_var_name(p, existing_var_names, section_id):
     if section_id in p["projectConfig"]["children"]:
         section_name = p["sections"][section_id]["name"]
         return section_name
-    name = f"__s{len(section_var_names)}"
-    section_var_names.add(name)
+    return create_var_name(existing_var_names)
+
+
+def get_param_var_name(existing_var_names):
+    return create_var_name(existing_var_names)
+
+
+def create_var_name(existing_var_names):
+    name = f"__x{len(existing_var_names)}"
+    existing_var_names.add(name)
     return name
-        
-
-
-def get_param_var_name(param_var_names):
-    name = f"__p{len(param_var_names)}"
-    param_var_names.add(name)
-    return name
-
-
-
-def construct_curr_var_name(p, idx, curr_section_id, var_name, type):
-    if type == LIST_ROOT:
-        return f"{var_name}[{idx}]"
-    elif type == DICT_ROOT:
-        section_name = p["sections"][curr_section_id]["name"]
-        return f"{var_name}['{section_name}']"
 
 
 def export_selected(p):
@@ -132,8 +116,7 @@ class Exporter:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.section_var_names = set()
-        self.param_var_names = set()
+        self.existing_var_names = set()
         self.top_level_section_names = set()
         self.section_name_to_id = {}
         self.var_name_mapping = {}
@@ -160,7 +143,7 @@ class Exporter:
         return [self.export_section(x) for x in ids]
 
     def export_section(self, id):
-        var_name = get_section_var_name(self.p, self.section_var_names, id)
+        var_name = get_section_var_name(self.p, self.existing_var_names, id)
         print(var_name)
         if var_name not in self.output:
             type = get_section_type(self.p, id)
@@ -184,9 +167,7 @@ class Exporter:
 
     def export_params(self, section_id, is_global=False):
         ids = get_param_ids(self.p, section_id)
-        var_names = [
-            self.export_param(section_id, x, is_global) for x in ids
-        ]
+        var_names = [self.export_param(section_id, x, is_global) for x in ids]
         params = []
         unused_params = []
         for v in var_names:
@@ -216,7 +197,7 @@ class Exporter:
             # var_name = self.var_name_mapping.get(var_name_for_autocomplete)
             var_name = None
             if not var_name:
-                var_name = get_param_var_name(self.param_var_names)
+                var_name = get_param_var_name(self.existing_var_names)
                 # self.var_name_mapping[var_name_for_autocomplete] = var_name
             if var_name not in self.output:
                 self.output[var_name] = {**info, "value": value}
