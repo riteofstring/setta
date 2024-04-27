@@ -632,15 +632,16 @@ for v in config["sections"].values():
         v["dbSource"] = ""
 
 e = export_selected(config)
-# for k,v in e.items():
-#     print(k)
-#     pprint(v)
-#     print("\n\n")
+for k,v in e.items():
+    print(k)
+    pprint(v)
+    print("\n\n")
 templated_code = get_code(config)
 
+# code = generate_code(e, templated_code, push_var_name="__p3", force_appear_var_name="__p3")[0]
 code = generate_code(e, templated_code)[0]
-# code = "\n".join(code)
-code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
-code = isort.code(code, profile="black")
 print(code)
+# code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
+# code = isort.code(code, profile="black")
+# print(code)
 # print(infer_imports(code))

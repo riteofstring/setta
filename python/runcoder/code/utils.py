@@ -5,7 +5,7 @@ def push_var_deep(objects, target_var_name):
             return obj["deps"]
         if "params" in obj["value"]:
             return obj["value"]["params"]
-        return obj["value"]
+        return []
 
     def find_dependents(obj_list, var_name):
         """Find all objects that directly or indirectly depend on the given object."""
