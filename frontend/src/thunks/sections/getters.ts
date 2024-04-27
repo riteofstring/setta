@@ -82,3 +82,11 @@ export function getSectionDBSource(sectionId: string) {
 export function getMappedSectionDBSource(sectionId: string) {
   return DB_SOURCE_MAPPING[getSectionDBSource(sectionId)];
 }
+
+export function hasParentInFlattenedStructure(sectionId: string) {
+  let parentId = getSectionParentId(sectionId);
+  while (parentId && getSectionIsDeck(parentId)) {
+    parentId = getSectionParentId(parentId);
+  }
+  return parentId !== null;
+}

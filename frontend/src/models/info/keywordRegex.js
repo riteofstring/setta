@@ -1,6 +1,9 @@
+import { hasParentInFlattenedStructure } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { create } from "../utils";
+
+const ARGS_PREFIX = "__";
 
 export const useKeywordRegex = create((set) => ({
   pattern: "",
@@ -25,10 +28,13 @@ function getRegexAndColorMap(sectionIdsToNames) {
           return curr;
         }),
       );
-    } else {
+    } else if (!hasParentInFlattenedStructure(sid)) {
       const curr = escapeRegExp(sName);
       colorMap[curr] = "red";
       names.push(curr);
+      const argsVar = `${ARGS_PREFIX}${curr}`;
+      colorMap[argsVar] = "red";
+      names.push(argsVar);
     }
   }
 
@@ -42,4 +48,13 @@ function getRegexAndColorMap(sectionIdsToNames) {
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+
+export function isArgsVar(x){
+  return x.startsWith(ARGS_PREFIX)
+}
+
+export function withoutArgsPrefix(x){
+  return x.slice(ARGS_PREFIX.length)
 }

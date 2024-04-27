@@ -12,7 +12,7 @@ import {
   dbTextFieldInitializeCode,
 } from "dbRequests/sections";
 import _ from "lodash";
-import { useKeywordRegex } from "models/info/keywordRegex";
+import { isArgsVar, useKeywordRegex, withoutArgsPrefix } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useCallback, useState } from "react";
 import { goToSection } from "thunks/goToSection";
@@ -83,7 +83,10 @@ function getContentDomEventListener(editor, sectionId, paramInfoId) {
     const word = editor.state.doc.toString().substring(range.from, range.to);
     let match;
     while ((match = useKeywordRegex.getState().pattern.exec(word))) {
-      goToSectionOnNameClick({ editor, event, variable: match[0] });
+      const variable = isArgsVar(match[0])
+        ? withoutArgsPrefix(match[0])
+        : match[0];
+      goToSectionOnNameClick({ editor, event, variable });
     }
   };
 }
