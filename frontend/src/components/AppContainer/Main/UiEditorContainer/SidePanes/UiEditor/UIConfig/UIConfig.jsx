@@ -41,7 +41,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <ScrollingArea styles="mt-4 -mx-2 px-2 flex flex-col gap-4">
+      <ScrollingArea styles="mt-4 -mx-2 px-2 flex flex-col gap-2">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -86,7 +86,7 @@ function _UIElement({ sectionId, paramInfo }) {
       className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-runcoder-200"
       data-testid={`UIElement ${paramName}`}
     >
-      <div className="mb-2 grid grid-cols-1 grid-rows-1 items-center">
+      <div className="grid grid-cols-1 grid-rows-1 items-center">
         <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-runcoder-500">
           {paramName}
         </p>

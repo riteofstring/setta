@@ -25,12 +25,16 @@ export function KwargParam(props) {
         icon={<i className="gg-close" />}
         bg="bg-transparent"
         color="text-runcoder-400 dark:text-runcoder-700 hover:text-runcoder-700 dark:hover:text-runcoder-200"
-        twClasses="card-close-arg-group place-self-center ml-1 z-20"
+        twClasses={`card-close-arg-group ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[.15rem]" : "place-self-center"} ml-1 z-20`}
         padding=""
         size="h-[.66rem] w-[.66rem]"
       />
       <ParamContainer {...props} isKwarg={true}>
-        <ParamNameInput value={kwargInfo.name} onBlur={onBlur} />
+        <ParamNameInput
+          value={kwargInfo.name}
+          hasChildren={kwargInfo.children.length > 0}
+          onBlur={onBlur}
+        />
       </ParamContainer>
     </>
   );

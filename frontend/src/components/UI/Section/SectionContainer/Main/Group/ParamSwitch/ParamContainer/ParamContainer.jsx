@@ -9,6 +9,7 @@ import { paramSelect } from "thunks/keyActivations";
 import { updateParams } from "thunks/sections/sectionContents";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
+import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({
@@ -59,19 +60,22 @@ function _ParamContainer({
         paramInfoId={paramInfo.id}
         variants="justify-self-end self-center"
       />
+      <ParamOptionsButton />
     </article>
   ) : (
     <article
-      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
+      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1  ${bg} ${border}`}
       {...infoViewHandlers}
       onClick={(e) => onClick(e, sectionId, paramInfo.id)}
     >
       {children}
-      <GetParamSwitch
-        sectionId={sectionId}
-        objInfoId={objInfoId}
-        infos={paramChildren}
-      />
+      <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">
+        <GetParamSwitch
+          sectionId={sectionId}
+          objInfoId={objInfoId}
+          infos={paramChildren}
+        />
+      </div>
     </article>
   );
 }
