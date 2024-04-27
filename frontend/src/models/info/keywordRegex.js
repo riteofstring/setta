@@ -1,7 +1,12 @@
-import { hasParentInFlattenedStructure } from "thunks/sections/getters";
+import {
+  getSectionType,
+  hasParentInFlattenedStructure,
+} from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { LIST } from "z_utils/constants";
 import { create } from "../utils";
+import { useSectionInfos } from "./sectionInfos";
 
 const ARGS_PREFIX = "__";
 
@@ -17,9 +22,13 @@ export const useKeywordRegex = create((set) => ({
 }));
 
 function getRegexAndColorMap(sectionIdsToNames) {
+  const topLevelIds = Object.keys(sectionIdsToNames).filter(
+    (x) => !hasParentInFlattenedStructure(x),
+  );
   const names = [];
   const colorMap = {};
-  for (const [sid, sName] of Object.entries(sectionIdsToNames)) {
+  const sectionState = useSectionInfos.getState().x;
+  for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
       names.push(
         ...getParamInfos(sid).map((x) => {
@@ -28,18 +37,20 @@ function getRegexAndColorMap(sectionIdsToNames) {
           return curr;
         }),
       );
-    } else if (!hasParentInFlattenedStructure(sid)) {
-      const curr = escapeRegExp(sName);
-      colorMap[curr] = "red";
-      names.push(curr);
-      const argsVar = `${ARGS_PREFIX}${curr}`;
-      colorMap[argsVar] = "red";
-      names.push(argsVar);
+    } else {
+      const currName = sectionIdsToNames[sid];
+      const childrenNames = getFullChildrenNamesForRegex(
+        sectionState,
+        sectionIdsToNames,
+        sid,
+        currName,
+      );
+      names.push(...childrenNames);
     }
   }
 
   const pattern = new RegExp(
-    `(?<![."'])\\b(${names.join("|")})\\b(?!["'])`,
+    `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`,
     "g",
   );
 
@@ -50,11 +61,38 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-
-export function isArgsVar(x){
-  return x.startsWith(ARGS_PREFIX)
+export function isArgsVar(x) {
+  return x.startsWith(ARGS_PREFIX);
 }
 
-export function withoutArgsPrefix(x){
-  return x.slice(ARGS_PREFIX.length)
+export function withoutArgsPrefix(x) {
+  return x.slice(ARGS_PREFIX.length);
+}
+
+function getFullChildrenNamesForRegex(
+  sectionState,
+  sectionIdsToNames,
+  sectionId,
+  parentName,
+) {
+  const output = [];
+  for (const c of sectionState[sectionId].children) {
+    const subType = getSectionType(c).config.subType;
+    const name = sectionIdsToNames[c];
+    const currFullName =
+      subType === LIST ? `${parentName}${name}` : `${parentName}["${name}"]`;
+    output.push(
+      ...getFullChildrenNamesForRegex(
+        sectionState,
+        sectionIdsToNames,
+        c,
+        currFullName,
+      ),
+    );
+  }
+  output.push(
+    escapeRegExp(parentName),
+    escapeRegExp(`${ARGS_PREFIX}${parentName}`),
+  );
+  return output;
 }

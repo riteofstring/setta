@@ -168,6 +168,7 @@ useSectionInfos.subscribe(
 useSectionInfos.subscribe(
   (state) => _.mapValues(state.x, (v) => v.name),
   (x) => useKeywordRegex.getState().update(x),
+  { equalityFn: _.isEqual },
 );
 
 export function manualDndChildrenReset() {

@@ -484,7 +484,7 @@
           "type": "SECTION",
           "presetType": null,
           "config": {
-            "subType": null,
+            "subType": "LIST",
             "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134",
             "childUITypeId": null
           }
@@ -517,7 +517,7 @@
           "type": "SECTION",
           "presetType": null,
           "config": {
-            "subType": null,
+            "subType": "LIST",
             "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c",
             "childUITypeId": null
           }
