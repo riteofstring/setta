@@ -12,17 +12,11 @@ import {
   dbTextFieldInitializeCode,
 } from "dbRequests/sections";
 import _ from "lodash";
-import {
-  isArgsVar,
-  useKeywordRegex,
-  withoutArgsPrefix,
-} from "models/info/keywordRegex";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { useKeywordRegex } from "models/info/keywordRegex";
 import { useCallback, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
-import { SINGLETON_SECTIONS } from "utils/constants";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 
 // Step 1: Define the Decoration
@@ -87,10 +81,7 @@ function getContentDomEventListener(editor, sectionId, paramInfoId) {
     const word = editor.state.doc.toString().substring(range.from, range.to);
     let match;
     while ((match = useKeywordRegex.getState().pattern.exec(word))) {
-      const variable = isArgsVar(match[0])
-        ? withoutArgsPrefix(match[0])
-        : match[0];
-      goToSectionOnNameClick({ editor, event, variable });
+      goToSectionOnNameClick({ editor, event, variable: match[0] });
     }
   };
 }
@@ -142,14 +133,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
 }
 
 function goToSectionOnNameClick({ editor, event, variable }) {
-  let section = _.find(
-    useSectionInfos.getState().x,
-    (s) => s.name === variable,
-  );
-  if (!section) {
-    section = useSectionInfos.getState().x[SINGLETON_SECTIONS.globalVariables];
-  }
-  const id = section?.id;
+  const id = useKeywordRegex.getState().fullNameToId[variable];
   if (id) {
     event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
     if (editor) {
