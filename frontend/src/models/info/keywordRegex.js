@@ -12,7 +12,6 @@ const ARGS_PREFIX = "__";
 
 export const useKeywordRegex = create((set) => ({
   pattern: "",
-  colorMap: {},
   update: (sectionIdsToNames) => set(getRegexAndColorMap(sectionIdsToNames)),
   updateGlobalVariables: (globalVariableId) => {
     if (globalVariableId) {
@@ -26,14 +25,12 @@ function getRegexAndColorMap(sectionIdsToNames) {
     (x) => !hasParentInFlattenedStructure(x),
   );
   const names = [];
-  const colorMap = {};
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
       names.push(
         ...getParamInfos(sid).map((x) => {
           const curr = escapeRegExp(x.name);
-          colorMap[curr] = "green";
           return curr;
         }),
       );
@@ -54,7 +51,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
     "g",
   );
 
-  return { pattern, colorMap };
+  return { pattern };
 }
 
 function escapeRegExp(string) {

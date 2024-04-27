@@ -12,7 +12,11 @@ import {
   dbTextFieldInitializeCode,
 } from "dbRequests/sections";
 import _ from "lodash";
-import { isArgsVar, useKeywordRegex, withoutArgsPrefix } from "models/info/keywordRegex";
+import {
+  isArgsVar,
+  useKeywordRegex,
+  withoutArgsPrefix,
+} from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useCallback, useState } from "react";
 import { goToSection } from "thunks/goToSection";
@@ -26,7 +30,7 @@ const italicStyle = Decoration.mark({ class: "italic" });
 
 // Step 2: Define the Extension
 
-function getKeywordStylizer(pattern, colorMap) {
+function getKeywordStylizer(pattern) {
   return ViewPlugin.fromClass(
     class {
       decorations;
@@ -170,7 +174,7 @@ export function TextInputCodeMirror({
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
-  const { pattern, colorMap } = useKeywordRegex((x) => x, _.isEqual);
+  const pattern = useKeywordRegex((x) => x.pattern, _.isEqual);
 
   function onBlur() {
     setActivationEvent(null);
@@ -216,7 +220,6 @@ export function TextInputCodeMirror({
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
           keywordRegex={pattern}
-          keywordColorMap={colorMap}
         />
       )}
     </>
