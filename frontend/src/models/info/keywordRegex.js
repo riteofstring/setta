@@ -4,7 +4,13 @@ import {
 } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { LIST } from "z_utils/constants";
+import {
+  DICT_ROOT,
+  GLOBAL_VARIABLES,
+  LIST,
+  LIST_ROOT,
+  SECTION,
+} from "z_utils/constants";
 import { create } from "../utils";
 import { useSectionInfos } from "./sectionInfos";
 
@@ -23,23 +29,18 @@ export const useKeywordRegex = create((set) => ({
 
 function getRegexAndColorMap(sectionIdsToNames) {
   const topLevelIds = Object.keys(sectionIdsToNames).filter(
-    (x) => !hasParentInFlattenedStructure(x),
+    (x) =>
+      !hasParentInFlattenedStructure(x) &&
+      [GLOBAL_VARIABLES, SECTION, LIST_ROOT, DICT_ROOT].includes(
+        getSectionType(x).type,
+      ),
   );
   const names = [];
   const fullNameToInfo = {};
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
-      for (const p of getParamInfos(sid)) {
-        if (!p.name) {
-          continue;
-        }
-        names.push(escapeRegExp(p.name));
-        fullNameToInfo[p.name] = {
-          sectionId: sid,
-          componentIndices: [p.name.length],
-        };
-      }
+      setFullParamRegex(sid, names, fullNameToInfo, "", [], true);
     } else {
       const currName = sectionIdsToNames[sid];
       setFullChildrenNamesForRegex(
@@ -105,9 +106,14 @@ function setFullChildrenNamesForRegex(
     argsParentLengths,
   );
   allNames.push(escapeRegExp(fullName), escapeRegExp(argsFullName));
-  fullNameToInfo[fullName] = { sectionId, componentIndices: parentLengths };
+  fullNameToInfo[fullName] = {
+    sectionId,
+    paramInfoId: null,
+    componentIndices: parentLengths,
+  };
   fullNameToInfo[argsFullName] = {
     sectionId,
+    paramInfoId: null,
     componentIndices: argsParentLengths,
   };
 }
@@ -118,16 +124,18 @@ function setFullParamRegex(
   fullNameToInfo,
   parentName,
   parentLengths,
+  isGlobalVar = false,
 ) {
   for (const p of getParamInfos(sectionId)) {
     if (!p.name) {
       continue;
     }
-    const fullName = `${parentName}["${p.name}"]`;
+    const fullName = isGlobalVar ? p.name : `${parentName}["${p.name}"]`;
     allNames.push(escapeRegExp(fullName));
     fullNameToInfo[fullName] = {
       sectionId,
-      componentIndices: parentLengths,
+      paramInfoId: p.id,
+      componentIndices: [...parentLengths, fullName.length],
     };
   }
 }
