@@ -33,8 +33,13 @@ function getRegexAndColorMap(sectionIdsToNames) {
   for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
       for (const p of getParamInfos(sid)) {
-        names.push(escapeRegExp(p.name));
-        fullNameToId[p.name] = sid;
+        if (!p.name) {
+          continue;
+        }
+        const escaped = escapeRegExp(p.name);
+        names.push(escaped);
+        fullNameToId[escaped] = sid;
+        fullNameToComponentIdx[escaped] = [escaped.length];
       }
     } else {
       const currName = sectionIdsToNames[sid];
