@@ -38,7 +38,7 @@ export async function dbParametersRequest({
 }
 
 export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
-  const project = getProjectDataToGenerateCode();
+  const project = getProjectDataToGenerateCode({});
   return await post({
     body: { project, sectionId, paramInfoId },
     address: "/textFieldInitializeCode",
@@ -46,7 +46,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
 }
 
 export async function dbTypeCheckRequest() {
-  const project = getProjectDataToGenerateCode();
+  const project = getProjectDataToGenerateCode({});
   return await post({
     body: { project },
     address: "/typeCheckRequest",

@@ -6,25 +6,30 @@ import { dbGetFreeTerminal } from "dbRequests/terminals";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
+import { computeEVReferences } from "utils/CodeMirror/utils";
 import { TERMINAL } from "z_utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
 import { getMappedSectionDBSource } from "./sections/getters";
 
-export function getProjectDataToGenerateCode() {
+export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   const project = getProjectData();
   project.codeInfo = useCodeInfo.getState().x;
   const presetUITypes = assembleUITypes(useUITypes.getState().x, true);
   project.uiTypes = { ...project.uiTypes, ...presetUITypes };
   delete project.project.defaultConfigId;
+  if (includeEVReferences) {
+    computeEVReferences(project);
+  }
   return project;
 }
 
 export async function runCode({ codeId }) {
-  const project = getProjectDataToGenerateCode();
+  const project = getProjectDataToGenerateCode({ includeEVReferences: false });
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
+    computeEVReferences(projectVariant);
     const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
     if (res.status === 200) {
       const freeTerminalId = res.data;
