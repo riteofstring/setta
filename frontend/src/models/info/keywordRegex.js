@@ -13,6 +13,7 @@ const ARGS_PREFIX = "__";
 export const useKeywordRegex = create((set) => ({
   pattern: "",
   fullNameToId: {},
+  fullNameToComponentIdx: {},
   update: (sectionIdsToNames) => set(getRegexAndColorMap(sectionIdsToNames)),
   updateGlobalVariables: (globalVariableId) => {
     if (globalVariableId) {
@@ -27,6 +28,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   );
   const names = [];
   const fullNameToId = {};
+  const fullNameToComponentIdx = {};
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
@@ -40,8 +42,10 @@ function getRegexAndColorMap(sectionIdsToNames) {
         sectionState,
         sectionIdsToNames,
         fullNameToId,
+        fullNameToComponentIdx,
         sid,
         currName,
+        [currName.length],
       );
       names.push(...childrenNames);
     }
@@ -52,7 +56,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
     "g",
   );
 
-  return { pattern, fullNameToId };
+  return { pattern, fullNameToId, fullNameToComponentIdx };
 }
 
 function escapeRegExp(string) {
@@ -67,22 +71,26 @@ function getFullChildrenNamesForRegex(
   sectionState,
   sectionIdsToNames,
   fullNameToId,
+  fullNameToComponentIdx,
   sectionId,
   parentName,
+  parentLengths,
 ) {
   const output = [];
   for (const c of sectionState[sectionId].children) {
     const subType = getSectionType(c).config.subType;
     const name = sectionIdsToNames[c];
-    const currFullName =
-      subType === LIST ? `${parentName}${name}` : `${parentName}["${name}"]`;
+    const currComponentName = subType === LIST ? name : `["${name}"]`;
+    const currFullName = `${parentName}${currComponentName}`;
     output.push(
       ...getFullChildrenNamesForRegex(
         sectionState,
         sectionIdsToNames,
         fullNameToId,
+        fullNameToComponentIdx,
         c,
         currFullName,
+        [...parentLengths, currFullName.length],
       ),
     );
   }
@@ -91,5 +99,9 @@ function getFullChildrenNamesForRegex(
   output.push(escapeRegExp(fullName), escapeRegExp(argsFullName));
   fullNameToId[fullName] = sectionId;
   fullNameToId[argsFullName] = sectionId;
+  fullNameToComponentIdx[fullName] = parentLengths;
+  fullNameToComponentIdx[argsFullName] = parentLengths.map(
+    (x) => x + ARGS_PREFIX.length,
+  );
   return output;
 }

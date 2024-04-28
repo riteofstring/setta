@@ -2,6 +2,7 @@ import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
+import { useKeywordRegex } from "models/info/keywordRegex";
 
 const lineWrapStyle = {
   whiteSpace: "break-spaces",
@@ -68,10 +69,12 @@ function HighlightedCode({
   let match;
   const matchedIndices = {};
   while ((match = keywordRegex.exec(code))) {
-    matchedIndices[match.index] = code.substring(
-      match.index,
-      match.index + match[0].length,
-    );
+    const [from, to] = [match.index, match.index + match[0].length];
+    matchedIndices[match.index] = {
+      keywordStartIdx: from,
+      keywordEndIdx: to,
+      keyword: code.substring(from, to),
+    };
   }
 
   highlightTree(tree, highlightStyle, (from, to, style) => {
@@ -89,6 +92,14 @@ function HighlightedCode({
   const text = Text.of(code.split("\n"));
   const outputDivs = [];
   let pos, isJustLineBreak;
+  let [
+    currKeyword,
+    currKeywordStartIdx,
+    currKeywordEndIdx,
+    currComponentIndices,
+  ] = [null, null, null, null];
+  const fullNameToComponentIdx =
+    useKeywordRegex.getState().fullNameToComponentIdx;
 
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);
@@ -97,15 +108,35 @@ function HighlightedCode({
     pos = line.from;
 
     const currLineDivs = [];
+
     while (cursor.value && cursor.from < line.to) {
       isJustLineBreak = false;
       if (cursor.from > pos) {
         currLineDivs.push(text.sliceString(pos, cursor.from));
       }
-      const keyword = matchedIndices[cursor.from];
-      const className = `${cursor.value.spec.class} ${keyword ? "italic" : ""}`;
-      const onClick = keyword
-        ? (event) => goToSectionOnNameClick({ event, variable: keyword })
+
+      if (currKeyword === null && cursor.from in matchedIndices) {
+        const { keyword, keywordStartIdx, keywordEndIdx } =
+          matchedIndices[cursor.from];
+        currKeyword = keyword;
+        currKeywordStartIdx = keywordStartIdx;
+        currKeywordEndIdx = keywordEndIdx;
+        currComponentIndices = fullNameToComponentIdx[currKeyword];
+      }
+
+      const className = `${cursor.value.spec.class} ${currKeyword ? "italic" : ""}`;
+      const slicedKeyword = currKeyword
+        ? currKeyword.slice(
+            0,
+            roundUpIdx(currComponentIndices, cursor.to - currKeywordStartIdx),
+          )
+        : null;
+      const onClick = currKeyword
+        ? (event) =>
+            goToSectionOnNameClick({
+              event,
+              variable: slicedKeyword,
+            })
         : () => {};
 
       currLineDivs.push(
@@ -118,6 +149,12 @@ function HighlightedCode({
         </span>,
       );
       pos = cursor.to;
+      if (pos >= currKeywordEndIdx) {
+        currKeyword = null;
+        currKeywordStartIdx = null;
+        currKeywordEndIdx = null;
+        currComponentIndices = null;
+      }
       cursor.next();
     }
     currLineDivs.push(text.sliceString(pos, line.to));
@@ -145,4 +182,21 @@ function HighlightedCode({
       {outputDivs}
     </div>
   );
+}
+
+function roundUpIdx(numList, x) {
+  let closest = undefined;
+
+  // Loop through each number in the list
+  for (let num of numList) {
+    if (num >= x) {
+      // Check if the number is larger than x
+      // If closest is not set or current number is closer to x than the current closest
+      if (closest === undefined || num - x < closest - x) {
+        closest = num;
+      }
+    }
+  }
+
+  return closest;
 }
