@@ -89,7 +89,7 @@ function getContentDomEventListener(keywordLocations, editor) {
     if (keywordInfo) {
       const { startPos, keyword } = keywordInfo;
       const endIdx = roundUpIdx(
-        useKeywordRegex.getState().fullNameToComponentIdx[keyword],
+        useKeywordRegex.getState().fullNameToInfo[keyword].componentIndices,
         pos - startPos,
       );
       goToSectionOnNameClick({
@@ -147,7 +147,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
 }
 
 function goToSectionOnNameClick({ editor, event, variable }) {
-  const id = useKeywordRegex.getState().fullNameToId[variable];
+  const { id } = useKeywordRegex.getState().fullNameToInfo[variable];
   if (id) {
     event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
     if (editor) {

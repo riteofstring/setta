@@ -99,8 +99,7 @@ function HighlightedCode({
     currKeywordEndIdx,
     currComponentIndices,
   ] = [null, null, null, null];
-  const fullNameToComponentIdx =
-    useKeywordRegex.getState().fullNameToComponentIdx;
+  const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);
@@ -122,7 +121,7 @@ function HighlightedCode({
         currKeyword = keyword;
         currKeywordStartIdx = keywordStartIdx;
         currKeywordEndIdx = keywordEndIdx;
-        currComponentIndices = fullNameToComponentIdx[currKeyword];
+        currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
       }
 
       const className = `${cursor.value.spec.class} ${currKeyword ? "italic" : ""}`;

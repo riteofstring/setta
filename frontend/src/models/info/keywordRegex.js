@@ -12,8 +12,7 @@ const ARGS_PREFIX = "__";
 
 export const useKeywordRegex = create((set) => ({
   pattern: "",
-  fullNameToId: {},
-  fullNameToComponentIdx: {},
+  fullNameToInfo: {},
   update: (sectionIdsToNames) => set(getRegexAndColorMap(sectionIdsToNames)),
   updateGlobalVariables: (globalVariableId) => {
     if (globalVariableId) {
@@ -27,8 +26,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
     (x) => !hasParentInFlattenedStructure(x),
   );
   const names = [];
-  const fullNameToId = {};
-  const fullNameToComponentIdx = {};
+  const fullNameToInfo = {};
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
@@ -38,21 +36,22 @@ function getRegexAndColorMap(sectionIdsToNames) {
         }
         const escaped = escapeRegExp(p.name);
         names.push(escaped);
-        fullNameToId[escaped] = sid;
-        fullNameToComponentIdx[escaped] = [escaped.length];
+        fullNameToInfo[escaped] = {
+          id: sid,
+          componentIndices: [escaped.length],
+        };
       }
     } else {
       const currName = sectionIdsToNames[sid];
-      const childrenNames = getFullChildrenNamesForRegex(
+      setFullChildrenNamesForRegex(
         sectionState,
         sectionIdsToNames,
-        fullNameToId,
-        fullNameToComponentIdx,
+        names,
+        fullNameToInfo,
         sid,
         currName,
         [currName.length],
       );
-      names.push(...childrenNames);
     }
   }
 
@@ -61,7 +60,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
     "g",
   );
 
-  return { pattern, fullNameToId, fullNameToComponentIdx };
+  return { pattern, fullNameToInfo };
 }
 
 function escapeRegExp(string) {
@@ -72,41 +71,56 @@ export function isArgsVar(x) {
   return x.startsWith(ARGS_PREFIX);
 }
 
-function getFullChildrenNamesForRegex(
+function setFullChildrenNamesForRegex(
   sectionState,
   sectionIdsToNames,
-  fullNameToId,
-  fullNameToComponentIdx,
+  allNames,
+  fullNameToInfo,
   sectionId,
   parentName,
   parentLengths,
 ) {
-  const output = [];
   for (const c of sectionState[sectionId].children) {
     const subType = getSectionType(c).config.subType;
     const name = sectionIdsToNames[c];
     const currComponentName = subType === LIST ? name : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
-    output.push(
-      ...getFullChildrenNamesForRegex(
-        sectionState,
-        sectionIdsToNames,
-        fullNameToId,
-        fullNameToComponentIdx,
-        c,
-        currFullName,
-        [...parentLengths, currFullName.length],
-      ),
+    setFullChildrenNamesForRegex(
+      sectionState,
+      sectionIdsToNames,
+      allNames,
+      fullNameToInfo,
+      c,
+      currFullName,
+      [...parentLengths, currFullName.length],
     );
   }
   const fullName = parentName;
   const argsFullName = `${ARGS_PREFIX}${parentName}`;
-  output.push(escapeRegExp(fullName), escapeRegExp(argsFullName));
-  fullNameToId[fullName] = sectionId;
-  fullNameToId[argsFullName] = sectionId;
-  fullNameToComponentIdx[fullName] = parentLengths;
-  fullNameToComponentIdx[argsFullName] = parentLengths.map(
-    (x) => x + ARGS_PREFIX.length,
-  );
-  return output;
+  allNames.push(escapeRegExp(fullName), escapeRegExp(argsFullName));
+  fullNameToInfo[fullName] = { id: sectionId, componentIndices: parentLengths };
+  fullNameToInfo[argsFullName] = {
+    id: sectionId,
+    componentIndices: parentLengths.map((x) => x + ARGS_PREFIX.length),
+  };
 }
+
+// function getFullParamRegex(
+//   sectionId,
+//   fullNameToId,
+//   fullNameToComponentIdx,
+//   parentName,
+//   parentLengths,
+// ) {
+//   const output = [];
+//   for (const p of getParamInfos(sectionId)) {
+//     if (!p.name) {
+//       continue;
+//     }
+//     const fullName = `${parentName}["${p.name}"]`;
+//     const escaped = escapeRegExp(fullName);
+//     output.push(escaped);
+//     fullNameToId[escaped] = sid;
+//     fullNameToComponentIdx[fullName] = parentLengths;
+//   }
+// }
