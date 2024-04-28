@@ -243,10 +243,13 @@ class Exporter:
             ref_section_id = ref["sectionId"]
             ref_param_info_id = ref["paramInfoId"]
             if ref_param_info_id:
-                self.export_param(ref_section_id, ref_param_info_id, is_global=False)
+                ref_var_name = self.export_param(ref_section_id, ref_param_info_id, is_global=False)
             elif ref_section_id:
-                self.export_section(ref_section_id)
+                ref_var_name = self.export_section(ref_section_id)
             else:
                 raise ValueError
+            startPos = ref["startPos"]
+            endPos = ref["endPos"]
+            value = value[:startPos] + ref_var_name + value[endPos:]
             # deps.append(v)
         return value, deps
