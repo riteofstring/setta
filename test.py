@@ -610,6 +610,118 @@
 #     print(c)
 
 
+evRefs = {
+    "default": {
+        "4253da34-9a1a-43eb-b80f-c6708e339024": {
+            "name": "substantial_brown",
+            "values": {
+                "0a8a909f-4821-4880-81ac-373b1ce09084": [],
+                "3ab421e7-1f82-4baa-a0bc-44875bf13adc": [],
+                "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": [],
+                "944abf2e-f5ec-47c7-9286-370faa75c3bf": [],
+                "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": [],
+                "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": [],
+                "e5a2037f-60a7-4052-bb72-0763319f6000": [],
+                "ffeb5e40-5c66-4e31-a47a-6eac10385294": []
+            }
+        },
+        "756e7bb0-ac13-4790-a05c-f10425d508e9": {
+            "name": "secure_jade",
+            "values": {
+                "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": [],
+                "7a9b411c-e319-4813-8bf2-f341cf05df4a": [
+                    {
+                        "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
+                        "paramInfoId": None
+                    }
+                ],
+                "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": []
+            }
+        },
+        "8481e81d-f417-4914-b5d8-2797202392ab": {
+            "name": "fast_gray",
+            "values": {}
+        },
+        "9083beca-25c9-4a31-885a-fb19064efd3d": {
+            "name": "yeasty_magenta",
+            "values": {
+                "0a62f48a-54e6-4871-afa6-95c09bc49d61": [
+                    {
+                        "sectionId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
+                        "paramInfoId": None
+                    }
+                ]
+            }
+        },
+        "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
+            "name": "central_amethyst",
+            "values": {}
+        },
+        "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
+            "name": "vivid_moccasin",
+            "values": {
+                "17f3f1d8-4459-4d8b-a132-ab42df1bf241": [],
+                "2acbcb71-f180-42b0-94bf-46edfe809de3": [],
+                "5fda1f62-0834-41de-a58e-2fe7f0e97558": [],
+                "681f4df7-ddd9-4a84-979f-ff0d243cdbff": [],
+                "6b52f167-e867-41c6-a398-4253147c5672": [],
+                "83f732ba-1244-40aa-b189-c324d1cbbccb": [],
+                "aa45a0fa-bc33-420a-9b1b-88792303e0a7": [],
+                "f2098038-2341-47cc-95d1-c4653b1ba1d3": []
+            }
+        },
+        "c1873fea-a24d-4367-97b1-88614045a575": {
+            "name": "wet_teal",
+            "values": {
+                "1642efb6-c5cd-41e1-b346-cacb44d43c87": [],
+                "197c09ec-176b-4b63-99d5-94522b8fc6f3": [],
+                "47377fe6-a365-4540-bf8a-468788f754e0": [],
+                "5efb2418-747c-4bba-b1b6-0d53cac2ab40": [],
+                "810b3251-8d80-42f2-b01a-e36ec47928f8": [],
+                "b8036ace-03dd-4dc3-88c5-069957276d1d": [],
+                "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": [],
+                "fc3182cc-369b-4a19-811f-b5e8c6d182c3": []
+            }
+        },
+        "c58d323d-382a-47b2-919f-a7f06bcac760": {
+            "name": "secure_tan",
+            "values": {
+                "3fdec365-9d3f-4f5b-94fe-75adbb767d08": []
+            }
+        },
+        "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
+            "name": "horizontal_green",
+            "values": {
+                "0472a28a-cc7b-42e7-8628-173a7b953214": [],
+                "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": [],
+                "31d94ca2-5b68-41f5-8380-ad62348ef1b0": [],
+                "44a300eb-c969-41fc-95e4-dcf3a5716d6e": [],
+                "4cc2b16e-0946-44de-85e6-131ccc8dec41": [],
+                "62bd6021-0834-4317-87f4-3961d8f2e890": [],
+                "6553f807-4fc6-40d2-9df1-990bf1b094f5": [],
+                "6c3fae29-caa1-4650-a2c4-7a1b1a816929": [],
+                "bbb754a2-06e5-4b57-8e5d-308865f81a94": [],
+                "d9a35253-835b-425d-abdf-2a678ddc1924": [],
+                "f807b59d-a434-41b6-a54c-9b35ffb61c8d": [
+                    {
+                        "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
+                        "paramInfoId": None
+                    }
+                ]
+            }
+        },
+        "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
+            "name": "marginal_coral",
+            "values": {}
+        }
+    }
+}
+
+
+
+
+
+
 from runcoder.code.export_selected import export_selected, get_code
 from runcoder.code.generate_code import generate_code, generate_lines_of_code_without_imports
 from runcoder.code.infer_imports import infer_imports
@@ -630,6 +742,7 @@ config["project"] = {"id": p["id"]}
 for v in config["sections"].values():
     if "dbSource" not in v:
         v["dbSource"] = ""
+config["evRefs"] = evRefs
 
 e = export_selected(config)
 # for k,v in e.items():
