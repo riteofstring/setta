@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 
 export function roundUpIdx(numList, x) {
@@ -42,7 +41,15 @@ function findRefs(keywordRegex, fullNameToInfo, value) {
   let match;
   const output = [];
   while ((match = keywordRegex.exec(value))) {
-    output.push(_.pick(fullNameToInfo[match[0]], ["sectionId", "paramInfoId"]));
+    const startPos = match.index;
+    const endPos = startPos + match[0].length;
+    const info = fullNameToInfo[match[0]];
+    output.push({
+      sectionId: info["sectionId"],
+      paramInfoId: info["paramInfoId"],
+      startPos,
+      endPos,
+    });
   }
   return output;
 }
