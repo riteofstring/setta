@@ -59,9 +59,9 @@ def get_value(x, selected):
         else:
             return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
     elif type_value == LIST_ROOT:
-        return str(x["value"])
+        return f"[{', '.join(map(str, x['value']))}]"
     elif type_value == DICT_ROOT:
-        return str(x["value"])
+        return "{" + get_dict_contents(x["value"], selected) + "}"
     else:
         return None
 

@@ -179,7 +179,7 @@ class Exporter:
             type = get_section_type(self.p, id)
             info = {
                 "sectionId": id,
-                "name": var_name,
+                "name": self.p["sections"][id]["name"],
                 "type": type,
             }
             if type == SECTION:
