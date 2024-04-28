@@ -610,6 +610,38 @@
 #     print(c)
 
 
+
+fullNameToId = {
+    "other_models[\"retail_olive\"]": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
+    "__other_models[\"retail_olive\"]": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
+    "other_models[\"unpleasant_jade\"]": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
+    "__other_models[\"unpleasant_jade\"]": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
+    "other_models": "04a2d718-6476-446f-bda7-4b7fc22f8972",
+    "__other_models": "04a2d718-6476-446f-bda7-4b7fc22f8972",
+    "transform": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
+    "__transform": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
+    "list_of_transforms[0]": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
+    "__list_of_transforms[0]": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
+    "list_of_transforms[1]": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
+    "__list_of_transforms[1]": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
+    "list_of_transforms": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
+    "__list_of_transforms": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
+    "optimizer": "93b410c0-33e9-4d66-95be-37d223d99c0a",
+    "__optimizer": "93b410c0-33e9-4d66-95be-37d223d99c0a",
+    "premier_blue[\"other_models\"][\"retail_olive\"]": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
+    "__premier_blue[\"other_models\"][\"retail_olive\"]": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
+    "premier_blue[\"other_models\"][\"unpleasant_jade\"]": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
+    "__premier_blue[\"other_models\"][\"unpleasant_jade\"]": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
+    "premier_blue[\"other_models\"]": "04a2d718-6476-446f-bda7-4b7fc22f8972",
+    "__premier_blue[\"other_models\"]": "04a2d718-6476-446f-bda7-4b7fc22f8972",
+    "premier_blue[\"optimizer\"]": "93b410c0-33e9-4d66-95be-37d223d99c0a",
+    "__premier_blue[\"optimizer\"]": "93b410c0-33e9-4d66-95be-37d223d99c0a",
+    "premier_blue": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
+    "__premier_blue": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
+    "model": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
+    "__model": "fa8f5823-fd6b-43f0-a2df-a47e821de0de"
+}
+
 from runcoder.code.export_selected import export_selected, get_code
 from runcoder.code.generate_code import generate_code, generate_lines_of_code_without_imports
 from runcoder.code.infer_imports import infer_imports
@@ -631,6 +663,8 @@ for v in config["sections"].values():
     if "dbSource" not in v:
         v["dbSource"] = ""
 
+config["fullNameToId"] = fullNameToId
+
 e = export_selected(config)
 # for k,v in e.items():
 #     print(k)
@@ -639,8 +673,47 @@ e = export_selected(config)
 templated_code = get_code(config)
 
 code = generate_code(e, templated_code)[0]
-# code = "\n".join(code)
-code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
-code = isort.code(code, profile="black")
+# code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
+# code = isort.code(code, profile="black")
 print(code)
-# print(infer_imports(code))
+
+
+
+import ast
+
+def get_var_names_from_value(value):
+    root = ast.parse(value)
+    names = set()
+    for node in ast.walk(root):
+        if isinstance(node, ast.Name):
+            names.add(node.id)
+        elif isinstance(node, ast.Subscript):
+            if isinstance(node.value, ast.Name):
+                # Handling subscript notation more appropriately
+                index = format_subscript(node.slice)
+                if index is not None:
+                    subscript_expr = f"{node.value.id}[{index}]"
+                    names.add(subscript_expr)
+    return names
+
+def format_subscript(slice_node):
+    """Format the subscript's slice part into a more readable string."""
+    if isinstance(slice_node, ast.Index):
+        return repr(eval(ast.unparse(slice_node.value)))
+    elif isinstance(slice_node, ast.Slice):
+        # Handle slice with start, stop, and step
+        parts = []
+        if slice_node.lower:
+            parts.append(ast.unparse(slice_node.lower))
+        parts.append(':')
+        if slice_node.upper:
+            parts.append(ast.unparse(slice_node.upper))
+        if slice_node.step:
+            parts.append(':')
+            parts.append(ast.unparse(slice_node.step))
+        return ''.join(parts)
+    return None
+
+# Example usage
+code = "a = 10; b = a + 1; c = a[0]; d = a[1:3]; print(b)"
+print(get_var_names_from_value(code))  # Output: {'a', 'b', 'print', 'a[0]', 'a[1:3]'}

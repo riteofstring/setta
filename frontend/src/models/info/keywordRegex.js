@@ -61,6 +61,8 @@ function getRegexAndColorMap(sectionIdsToNames) {
     "g",
   );
 
+  console.log(fullNameToId)
+
   return { pattern, fullNameToId, fullNameToComponentIdx };
 }
 
