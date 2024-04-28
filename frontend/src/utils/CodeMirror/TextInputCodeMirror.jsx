@@ -13,18 +13,19 @@ import {
 } from "dbRequests/sections";
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { DummyCodeMirror } from "./DummyCodeMirror";
+import { roundUpIdx } from "./utils";
 
 // Step 1: Define the Decoration
 const italicStyle = Decoration.mark({ class: "italic" });
 
 // Step 2: Define the Extension
 
-function getKeywordStylizer(pattern) {
+function getKeywordStylizer(keywordLocations, pattern) {
   return ViewPlugin.fromClass(
     class {
       decorations;
@@ -41,15 +42,18 @@ function getKeywordStylizer(pattern) {
 
       buildDecorations(view) {
         const builder = new RangeSetBuilder();
+        const newKeywordLocations = [];
         for (const { from, to } of view.visibleRanges) {
           const text = view.state.doc.sliceString(from, to);
           let match;
           while ((match = pattern.exec(text))) {
             const startPos = from + match.index;
             const endPos = startPos + match[0].length;
+            newKeywordLocations.push({ startPos, endPos, keyword: match[0] });
             builder.add(startPos, endPos, italicStyle);
           }
         }
+        keywordLocations.current = newKeywordLocations;
         return builder.finish();
       }
     },
@@ -59,7 +63,7 @@ function getKeywordStylizer(pattern) {
   );
 }
 
-function getContentDomEventListener(editor, sectionId, paramInfoId) {
+function getContentDomEventListener(keywordLocations, editor) {
   return (event) => {
     if (!variableClick(event)) {
       return;
@@ -73,29 +77,39 @@ function getContentDomEventListener(editor, sectionId, paramInfoId) {
       return;
     }
 
-    // Get the token at the clicked position
-    const range = editor.state.wordAt(pos);
-    if (range === null) {
-      return;
+    let keywordInfo = null;
+
+    for (const k of keywordLocations.current) {
+      if (pos >= k.startPos && pos < k.endPos) {
+        keywordInfo = k;
+        break;
+      }
     }
-    const word = editor.state.doc.toString().substring(range.from, range.to);
-    let match;
-    while ((match = useKeywordRegex.getState().pattern.exec(word))) {
-      goToSectionOnNameClick({ editor, event, variable: match[0] });
+
+    if (keywordInfo) {
+      const { startPos, keyword } = keywordInfo;
+      const endIdx = roundUpIdx(
+        useKeywordRegex.getState().fullNameToComponentIdx[keyword],
+        pos - startPos,
+      );
+      goToSectionOnNameClick({
+        editor,
+        event,
+        variable: keyword.slice(0, endIdx),
+      });
     }
   };
 }
 
 function getOnCreateEditor({
-  sectionId,
-  paramInfoId,
+  keywordLocations,
   initialEvent,
   setRealIsInitialized,
 }) {
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
-      getContentDomEventListener(view, sectionId, paramInfoId),
+      getContentDomEventListener(keywordLocations, view),
     );
     view.focus();
     const { clientX, clientY } = initialEvent;
@@ -234,7 +248,8 @@ function CoreCodeMirror({
     onChange(newVal);
   }
 
-  const keywordStylizer = getKeywordStylizer(keywordRegex, keywordColorMap);
+  const keywordLocations = useRef([]);
+  const keywordStylizer = getKeywordStylizer(keywordLocations, keywordRegex);
 
   const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
     sectionId,
@@ -291,8 +306,7 @@ function CoreCodeMirror({
         foldGutter: false,
       }}
       onCreateEditor={getOnCreateEditor({
-        sectionId,
-        paramInfoId,
+        keywordLocations,
         initialEvent,
         setRealIsInitialized,
       })}
