@@ -23,7 +23,6 @@ export const useKeywordRegex = create((set) => ({
 }));
 
 function getRegexAndColorMap(sectionIdsToNames) {
-  console.log("getRegexAndColorMap")
   const topLevelIds = Object.keys(sectionIdsToNames).filter(
     (x) => !hasParentInFlattenedStructure(x),
   );
@@ -34,10 +33,8 @@ function getRegexAndColorMap(sectionIdsToNames) {
   for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
       for (const p of getParamInfos(sid)) {
-        const escaped = escapeRegExp(p.name);
-        names.push(escaped);
-        fullNameToId[escaped] = sid;
-        fullNameToComponentIdx[escaped] = [escaped.length];
+        names.push(escapeRegExp(p.name));
+        fullNameToId[p.name] = sid;
       }
     } else {
       const currName = sectionIdsToNames[sid];
