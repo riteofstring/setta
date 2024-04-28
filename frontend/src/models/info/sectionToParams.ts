@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { SINGLETON_SECTIONS } from "utils/constants";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -32,8 +31,9 @@ export const useSectionToParams = createProjectState(
 
 useSectionToParams.temporal.getState().pause();
 
+// TODO make this more efficient. It gets called too many times in a row.
 useSectionToParams.subscribe(
-  (state) => state.params[SINGLETON_SECTIONS.globalVariables],
+  (state) => state.params,
   () =>
     useKeywordRegex
       .getState()

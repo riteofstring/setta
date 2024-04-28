@@ -34,11 +34,10 @@ function getRegexAndColorMap(sectionIdsToNames) {
         if (!p.name) {
           continue;
         }
-        const escaped = escapeRegExp(p.name);
-        names.push(escaped);
-        fullNameToInfo[escaped] = {
-          id: sid,
-          componentIndices: [escaped.length],
+        names.push(escapeRegExp(p.name));
+        fullNameToInfo[p.name] = {
+          sectionId: sid,
+          componentIndices: [p.name.length],
         };
       }
     } else {
@@ -97,30 +96,38 @@ function setFullChildrenNamesForRegex(
   }
   const fullName = parentName;
   const argsFullName = `${ARGS_PREFIX}${parentName}`;
+  const argsParentLengths = parentLengths.map((x) => x + ARGS_PREFIX.length);
+  setFullParamRegex(
+    sectionId,
+    allNames,
+    fullNameToInfo,
+    argsFullName,
+    argsParentLengths,
+  );
   allNames.push(escapeRegExp(fullName), escapeRegExp(argsFullName));
-  fullNameToInfo[fullName] = { id: sectionId, componentIndices: parentLengths };
+  fullNameToInfo[fullName] = { sectionId, componentIndices: parentLengths };
   fullNameToInfo[argsFullName] = {
-    id: sectionId,
-    componentIndices: parentLengths.map((x) => x + ARGS_PREFIX.length),
+    sectionId,
+    componentIndices: argsParentLengths,
   };
 }
 
-// function getFullParamRegex(
-//   sectionId,
-//   fullNameToId,
-//   fullNameToComponentIdx,
-//   parentName,
-//   parentLengths,
-// ) {
-//   const output = [];
-//   for (const p of getParamInfos(sectionId)) {
-//     if (!p.name) {
-//       continue;
-//     }
-//     const fullName = `${parentName}["${p.name}"]`;
-//     const escaped = escapeRegExp(fullName);
-//     output.push(escaped);
-//     fullNameToId[escaped] = sid;
-//     fullNameToComponentIdx[fullName] = parentLengths;
-//   }
-// }
+function setFullParamRegex(
+  sectionId,
+  allNames,
+  fullNameToInfo,
+  parentName,
+  parentLengths,
+) {
+  for (const p of getParamInfos(sectionId)) {
+    if (!p.name) {
+      continue;
+    }
+    const fullName = `${parentName}["${p.name}"]`;
+    allNames.push(escapeRegExp(fullName));
+    fullNameToInfo[fullName] = {
+      sectionId,
+      componentIndices: parentLengths,
+    };
+  }
+}

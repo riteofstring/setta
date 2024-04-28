@@ -147,13 +147,13 @@ function getCompletionsFn(sectionId, paramInfoId) {
 }
 
 function goToSectionOnNameClick({ editor, event, variable }) {
-  const { id } = useKeywordRegex.getState().fullNameToInfo[variable];
-  if (id) {
+  const { sectionId } = useKeywordRegex.getState().fullNameToInfo[variable];
+  if (sectionId) {
     event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
     if (editor) {
       editor.contentDOM.blur(); //blur the input field we just clicked on
     }
-    goToSection(id);
+    goToSection(sectionId);
   }
 }
 
