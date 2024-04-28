@@ -212,6 +212,7 @@ class Exporter:
                 self.output[var_name] = info
             elif type in [LIST_ROOT, DICT_ROOT]:
                 children = self.p["sections"][id]["children"]
+                self.export_args_var(id, curr_var_name, type, children)
                 info["value"] = get_list_or_dict_value(self.p, children, type)
                 self.output[var_name] = info
                 for idx, sid in enumerate(children):
@@ -250,6 +251,7 @@ class Exporter:
         }
 
         if not is_global:
+            self.export_args_var(section_id, curr_var_name)
             var_name_for_autocomplete = get_param_var_name_for_autocomplete(
                 get_var_name(self.p, section_id, curr_var_name), param_name
             )
@@ -259,6 +261,10 @@ class Exporter:
                 self.var_name_mapping[var_name_for_autocomplete] = var_name
             if var_name not in self.output:
                 self.output[var_name] = {**info, "value": value}
+                self.output[var_name_for_autocomplete] = {
+                    **info,
+                    "value": var_name if value else value,
+                }
         else:
             var_name = param_name
 
@@ -274,7 +280,6 @@ class Exporter:
         if value:
             deps = []
             var_names = get_var_names_from_value(value)
-            print("var_names", var_names)
             for v in var_names.intersection(self.top_level_section_names):
                 if is_top_level_arg_var_name(v):
                     section_name = v.lstrip(ARG_PREFIX)
@@ -286,3 +291,23 @@ class Exporter:
             return value, deps
         return value, []
 
+    def export_args_var(self, section_id, curr_var_name, type=SECTION, children=[]):
+        args_var_name = get_args_var_name(
+            get_var_name(self.p, section_id, curr_var_name)
+        )
+        if args_var_name not in self.output:
+            if type == SECTION:
+                value = "{}"
+            elif type == DICT_ROOT:
+                children_names = [self.p["sections"][id]["name"] for id in children]
+                value = f"{{k:{{}} for k in {children_names}}}"
+            elif type == LIST_ROOT:
+                value = f"[{{}} for _ in range({len(children)})]"
+            else:
+                raise ValueError
+            self.output[args_var_name] = {
+                "sectionId": None,
+                "value": value,
+                "deps": [],
+                "type": TEXT,
+            }
