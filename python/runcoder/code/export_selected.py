@@ -1,4 +1,3 @@
-import ast
 import copy
 
 from runcoder.backend.db_path import DEFAULT_DB_ALIAS
@@ -10,7 +9,6 @@ from ..utils.constants import (
     GLOBAL_VARIABLES,
     LIST_ROOT,
     SECTION,
-    TEXT,
 )
 from .find_placeholders import double_braces, needs_generated_python
 
@@ -89,9 +87,10 @@ def maybe_create_var_name(
     var_names,
     var_name_mapping,
     var_name_reverse_mapping,
-    is_global,
+    is_global=False,
+    is_args_obj=False,
 ):
-    mapping_key = (section_id, param_info_id)
+    mapping_key = (section_id, param_info_id, is_args_obj)
     var_name = var_name_mapping.get(mapping_key)
     if not var_name:
         var_name = param_name if is_global else get_var_name(var_names)
@@ -187,7 +186,6 @@ class Exporter:
             self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
-            False,
         )
         if var_name not in self.output:
             type = get_section_type(self.p, id)
@@ -212,6 +210,31 @@ class Exporter:
                 raise ValueError
         return var_name
 
+    def export_args_obj(self, id):
+        var_name = maybe_create_var_name(
+            id,
+            None,
+            None,
+            self.var_names,
+            self.var_name_mapping,
+            self.var_name_reverse_mapping,
+            is_args_obj=True,
+        )
+        if var_name not in self.output:
+            params, unused_params = self.export_params(id)
+            info = {
+                "sectionId": id,
+                "name": self.p["sections"][id]["name"],
+                "type": SECTION,
+                "value": {
+                    "callable": None,
+                    "params": params,
+                    "unusedParams": unused_params,
+                },
+            }
+            self.output[var_name] = info
+        return var_name
+
     def export_params(self, section_id, is_global=False):
         ids = get_param_ids(self.p, section_id)
         var_names = [self.export_param(section_id, x, is_global) for x in ids]
@@ -233,7 +256,7 @@ class Exporter:
             self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
-            is_global,
+            is_global=is_global,
         )
 
         if var_name not in self.output:
@@ -262,7 +285,10 @@ class Exporter:
         for ref in refs:
             ref_section_id = ref["sectionId"]
             ref_param_info_id = ref["paramInfoId"]
-            if ref_param_info_id:
+            ref_is_args_obj = ref["isArgsObj"]
+            if ref_is_args_obj:
+                ref_var_name = self.export_args_obj(ref_section_id)
+            elif ref_param_info_id:
                 ref_var_name = self.export_param(
                     ref_section_id, ref_param_info_id, is_global=False
                 )

@@ -85,7 +85,7 @@ def textFieldInitializeCode(message):
     templatedCode = get_code(project)
     sectionId = message["sectionId"]
     paramInfoId = message["paramInfoId"]
-    push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId)]
+    push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
     lines, var_name_to_line_num = generate_lines_of_code_without_imports(
         codeJson,
         push_var_name=push_var_name,
@@ -173,7 +173,7 @@ def completionHelper(message, return_name, fn):
         exporter_obj,
     ) = cached
     var_name = exporter_obj.var_name_mapping[
-        (message["sectionId"], message["paramInfoId"])
+        (message["sectionId"], message["paramInfoId"], False)
     ]
     set_line(lines, var_name_to_line_num, var_name, message["fullText"])
     code, var_name_to_line_num = prepend_with_imports(

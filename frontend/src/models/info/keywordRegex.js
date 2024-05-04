@@ -67,10 +67,6 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function isArgsVar(x) {
-  return x.startsWith(ARGS_PREFIX);
-}
-
 function setFullChildrenNamesForRegex(
   sectionState,
   sectionIdsToNames,
@@ -110,11 +106,13 @@ function setFullChildrenNamesForRegex(
     sectionId,
     paramInfoId: null,
     componentIndices: parentLengths,
+    isArgsObj: false,
   };
   fullNameToInfo[argsFullName] = {
     sectionId,
     paramInfoId: null,
     componentIndices: argsParentLengths,
+    isArgsObj: true,
   };
 }
 
@@ -136,6 +134,7 @@ function setFullParamRegex(
       sectionId,
       paramInfoId: p.id,
       componentIndices: [...parentLengths, fullName.length],
+      isArgsObj: false,
     };
   }
 }

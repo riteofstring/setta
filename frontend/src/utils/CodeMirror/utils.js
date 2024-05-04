@@ -47,6 +47,7 @@ function findRefs(keywordRegex, fullNameToInfo, value) {
     output.push({
       sectionId: info["sectionId"],
       paramInfoId: info["paramInfoId"],
+      isArgsObj: info["isArgsObj"],
       startPos,
       endPos,
     });
@@ -54,10 +55,12 @@ function findRefs(keywordRegex, fullNameToInfo, value) {
   return output;
 }
 
-export function computeInfoToFullName(project){
-  const output = {}
-  for (const [k,v] of Object.entries(useKeywordRegex.getState().fullNameToInfo)){
-    output[JSON.stringify([v.sectionId, v.paramInfoId])] = k
+export function computeInfoToFullName(project) {
+  const output = {};
+  for (const [k, v] of Object.entries(
+    useKeywordRegex.getState().fullNameToInfo,
+  )) {
+    output[JSON.stringify([v.sectionId, v.paramInfoId, v.isArgsObj])] = k;
   }
-  project["infoToFullName"] = output
+  project["infoToFullName"] = output;
 }

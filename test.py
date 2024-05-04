@@ -632,9 +632,10 @@ evRefs = {
                 "7a9b411c-e319-4813-8bf2-f341cf05df4a": [
                     {
                         "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
-                        "paramInfoId": "6c3fae29-caa1-4650-a2c4-7a1b1a816929",
-                        "startPos": 5,
-                        "endPos": 22
+                        "paramInfoId": None,
+                        "isArgsObj": True,
+                        "startPos": 8,
+                        "endPos": 19
                     }
                 ],
                 "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": []
@@ -651,6 +652,7 @@ evRefs = {
                     {
                         "sectionId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
                         "paramInfoId": None,
+                        "isArgsObj": False,
                         "startPos": 0,
                         "endPos": 18
                     }
@@ -710,6 +712,7 @@ evRefs = {
                     {
                         "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
                         "paramInfoId": None,
+                        "isArgsObj": False,
                         "startPos": 0,
                         "endPos": 5
                     }
