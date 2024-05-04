@@ -130,7 +130,8 @@ class TerminalWebsockets:
 
 def runCode(message, terminal_write_fn):
     p = message["message"]
-    selected = export_selected(p)
+    exporter_obj = export_selected(p)
+    selected = exporter_obj.output
     folder_path = create_timestamped_folder(".runcoder_code")
 
     code_sections = {

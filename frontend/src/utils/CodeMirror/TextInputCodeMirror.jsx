@@ -131,6 +131,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
       beforeText: before.text,
       position: context.pos,
     });
+    console.log(res.data)
     if (res.status === 200) {
       return {
         filter: false,

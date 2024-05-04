@@ -53,3 +53,11 @@ function findRefs(keywordRegex, fullNameToInfo, value) {
   }
   return output;
 }
+
+export function computeInfoToFullName(project){
+  const output = {}
+  for (const [k,v] of Object.entries(useKeywordRegex.getState().fullNameToInfo)){
+    output[JSON.stringify([v.sectionId, v.paramInfoId])] = k
+  }
+  project["infoToFullName"] = output
+}

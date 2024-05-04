@@ -83,13 +83,20 @@ def get_var_name(var_names):
 
 
 def maybe_create_var_name(
-    section_id, param_info_id, param_name, var_names, var_name_mapping, is_global
+    section_id,
+    param_info_id,
+    param_name,
+    var_names,
+    var_name_mapping,
+    var_name_reverse_mapping,
+    is_global,
 ):
     mapping_key = (section_id, param_info_id)
     var_name = var_name_mapping.get(mapping_key)
     if not var_name:
         var_name = param_name if is_global else get_var_name(var_names)
         var_name_mapping[mapping_key] = var_name
+        var_name_reverse_mapping[var_name] = mapping_key
     return var_name
 
 
@@ -104,7 +111,7 @@ def get_list_or_dict_value(p, children, type):
 def export_selected(p):
     e = Exporter(p)
     e.export()
-    return e.output
+    return e
 
 
 def get_code(p):
@@ -150,6 +157,7 @@ class Exporter:
         self.p = copy.deepcopy(p)
         self.var_names = set()
         self.var_name_mapping = {}
+        self.var_name_reverse_mapping = {}
 
     def export(self):
         flatten_groups(self.p)
@@ -173,7 +181,13 @@ class Exporter:
 
     def export_section(self, id):
         var_name = maybe_create_var_name(
-            id, None, None, self.var_names, self.var_name_mapping, False
+            id,
+            None,
+            None,
+            self.var_names,
+            self.var_name_mapping,
+            self.var_name_reverse_mapping,
+            False,
         )
         if var_name not in self.output:
             type = get_section_type(self.p, id)
@@ -213,7 +227,13 @@ class Exporter:
     def export_param(self, section_id, id, is_global=False):
         param_name = self.p["codeInfo"][id]["name"]
         var_name = maybe_create_var_name(
-            section_id, id, param_name, self.var_names, self.var_name_mapping, is_global
+            section_id,
+            id,
+            param_name,
+            self.var_names,
+            self.var_name_mapping,
+            self.var_name_reverse_mapping,
+            is_global,
         )
 
         if var_name not in self.output:
@@ -243,7 +263,9 @@ class Exporter:
             ref_section_id = ref["sectionId"]
             ref_param_info_id = ref["paramInfoId"]
             if ref_param_info_id:
-                ref_var_name = self.export_param(ref_section_id, ref_param_info_id, is_global=False)
+                ref_var_name = self.export_param(
+                    ref_section_id, ref_param_info_id, is_global=False
+                )
             elif ref_section_id:
                 ref_var_name = self.export_section(ref_section_id)
             else:

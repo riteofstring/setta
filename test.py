@@ -872,6 +872,7 @@ for v in config["sections"].values():
 config["evRefs"] = evRefs
 
 e = export_selected(config)
+e = e.output
 # for k,v in e.items():
 #     print(k)
 #     pprint(v)

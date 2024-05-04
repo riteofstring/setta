@@ -26,10 +26,3 @@ def push_var_deep(objects, target_var_name):
             target_and_dependents.append(obj)
 
     return everything_else + target_and_dependents
-
-
-def get_var_name(codeJson, sectionId, paramInfoId=None):
-    for k, v in codeJson.items():
-        if v["sectionId"] == sectionId and v.get("paramInfoId", None) == paramInfoId:
-            return k
-    return None
