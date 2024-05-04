@@ -1,5 +1,7 @@
+import { useKeywordRegex } from "models/info/keywordRegex";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
+import { findRefs } from "utils/CodeMirror/utils";
 import { SECTIONS } from "z_utils/routes";
 import { post } from "./utils";
 
@@ -23,16 +25,12 @@ export async function dbParametersRequest({
   beforeText,
   position,
 }) {
-  const projectConfigId = useProjectConfig.getState().id;
-  return await post({
-    body: {
-      projectConfigId,
-      sectionId,
-      paramInfoId: null,
-      fullText,
-      beforeText,
-      position,
-    },
+  return await dbTextFieldCompletion({
+    sectionId,
+    paramInfoId: null,
+    fullText,
+    beforeText,
+    position,
     address: "/parametersRequest",
   });
 }
@@ -59,9 +57,11 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
-  evRefs,
+  address = "/textFieldCompletion",
 }) {
   const projectConfigId = useProjectConfig.getState().id;
+  const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
+  const evRefs = findRefs(keywordRegex, fullNameToInfo, fullText);
   return await post({
     body: {
       projectConfigId,
@@ -72,13 +72,6 @@ export async function dbTextFieldCompletion({
       position,
       evRefs,
     },
-    address: "/textFieldCompletion",
+    address,
   });
 }
-
-// export const dbTextFieldCompletion = _.debounce(
-//   ({ sectionId, paramInfoId, value }) => {
-//     return _dbTextFieldCompletion({ sectionId, paramInfoId, value });
-//   },
-//   100,
-// );

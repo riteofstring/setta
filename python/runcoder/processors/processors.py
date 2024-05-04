@@ -199,7 +199,9 @@ def completionHelper(message, return_name, fn):
     return {"output": output, "name": return_name, "cache": None}
 
 
-def parametersRequestFn(message, code, var_name_to_line_num, var_name, column):
+def parametersRequestFn(
+    beforeText, code, var_name_to_line_num, var_name, referencable_var_names, column
+):
     print("parametersRequest", flush=True)
     results, line = jedi_complete(code, var_name_to_line_num, var_name, column)
     parsed = docstring_parser.parse(results[0].docstring(raw=True))

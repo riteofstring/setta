@@ -172,6 +172,7 @@ class ParametersRequestRequest(BaseModel):
     beforeText: str
     fullText: str
     position: int
+    evRefs: list
 
 
 class TextFieldInitializeCode(BaseModel):
