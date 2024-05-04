@@ -394,7 +394,7 @@
             "name": "secure_jade",
             "values": {
               "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": "[0.2,0.2,0.2]",
-              "7a9b411c-e319-4813-8bf2-f341cf05df4a": "\"lr\" in __optimizer",
+              "7a9b411c-e319-4813-8bf2-f341cf05df4a": "bool(__optimizer[\"lr\"])",
               "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": "[0.5,0.5,0.5]"
             }
           },
