@@ -16,6 +16,7 @@ from ..code.generate_code import (
     var_declaration,
 )
 from ..code.type_checker import parse_and_type_check
+from ..code.utils import process_refs
 from ..utils.constants import BUILT_INS
 from .utils import withTempFiles
 
@@ -127,7 +128,7 @@ def jedi_complete(code, var_name_to_line_num, var_name, column):
 
 def textFieldCompletionFn(return_types):
     def fn(
-        message, code, var_name_to_line_num, var_name, referencable_var_names, column
+        beforeText, code, var_name_to_line_num, var_name, referencable_var_names, column
     ):
         params = []
         variables = []
@@ -137,10 +138,10 @@ def textFieldCompletionFn(return_types):
         for c in results:
             if return_types and c.type not in return_types:
                 continue
-            completion = f"{message['beforeText']}{c.complete}"
+            completion = f"{beforeText}{c.complete}"
             if completion in var_name_to_line_num:
                 continue
-            to_append = {"completion": completion, "type": c.type}
+            to_append = {"label": completion, "type": c.type}
             if c.type == "param":
                 params.append(to_append)
             elif completion in BUILT_INS:
@@ -154,7 +155,7 @@ def textFieldCompletionFn(return_types):
             + variables
             + the_rest
             + builtins
-            + [{"completion": x, "type": None} for x in referencable_var_names]
+            + [{"label": x, "type": None, "boost": 10} for x in referencable_var_names]
         )
 
     return fn
@@ -175,19 +176,25 @@ def completionHelper(message, return_name, fn):
     var_name = exporter_obj.var_name_mapping[
         (message["sectionId"], message["paramInfoId"], False)
     ]
-    set_line(lines, var_name_to_line_num, var_name, message["fullText"])
+    fullText, position = process_refs(
+        message["fullText"],
+        message["evRefs"],
+        exporter_obj.get_ref_var_name,
+        message["position"],
+    )
+    set_line(lines, var_name_to_line_num, var_name, fullText)
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
     print("completionHelper", flush=True)
     print(code, flush=True)
     output = fn(
-        message,
+        message["beforeText"],
         code,
         var_name_to_line_num,
         var_name,
         referencable_var_names,
-        message["position"],
+        position,
     )
     return {"output": output, "name": return_name, "cache": None}
 

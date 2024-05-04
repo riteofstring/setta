@@ -37,7 +37,7 @@ export function computeEVReferences(project) {
   project["evRefs"] = evRefs;
 }
 
-function findRefs(keywordRegex, fullNameToInfo, value) {
+export function findRefs(keywordRegex, fullNameToInfo, value) {
   let match;
   const output = [];
   while ((match = keywordRegex.exec(value))) {

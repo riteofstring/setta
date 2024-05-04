@@ -59,6 +59,7 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
+  evRefs,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
   return await post({
@@ -69,6 +70,7 @@ export async function dbTextFieldCompletion({
       fullText,
       beforeText,
       position,
+      evRefs,
     },
     address: "/textFieldCompletion",
   });

@@ -855,6 +855,7 @@ evRefs = {
 from runcoder.code.export_selected import export_selected, get_code
 from runcoder.code.generate_code import generate_code, generate_lines_of_code_without_imports
 from runcoder.code.infer_imports import infer_imports
+from runcoder.code.utils import process_refs
 import json
 import black
 import isort
@@ -875,16 +876,34 @@ for v in config["sections"].values():
 config["evRefs"] = evRefs
 
 e = export_selected(config)
-e = e.output
 # for k,v in e.items():
 #     print(k)
 #     pprint(v)
 #     print("\n\n")
 templated_code = get_code(config)
 
-code = generate_code(e, templated_code)[0]
+code = generate_code(e.output, templated_code)[0]
 # code = "\n".join(code)
 code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
 code = isort.code(code, profile="black")
 print(code)
 # print(infer_imports(code))
+
+
+
+# print(process_refs("2+list_of_transforms+3 + model", [
+#                     {
+#                         "sectionId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
+#                         "paramInfoId": None,
+#                         "isArgsObj": False,
+#                         "startPos": 2,
+#                         "endPos": 20
+#                     },
+#                     {
+#                         "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
+#                         "paramInfoId": None,
+#                         "isArgsObj": False,
+#                         "startPos": 25,
+#                         "endPos": 30
+#                     }
+#                 ], e.get_ref_var_name, position=30))

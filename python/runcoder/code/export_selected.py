@@ -11,6 +11,7 @@ from ..utils.constants import (
     SECTION,
 )
 from .find_placeholders import double_braces, needs_generated_python
+from .utils import process_refs
 
 ARG_PREFIX = "__"
 
@@ -282,22 +283,22 @@ class Exporter:
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
         refs = self.p["evRefs"][dbSource][ev_col_id]["values"][id]
         deps = []
-        for ref in refs:
-            ref_section_id = ref["sectionId"]
-            ref_param_info_id = ref["paramInfoId"]
-            ref_is_args_obj = ref["isArgsObj"]
-            if ref_is_args_obj:
-                ref_var_name = self.export_args_obj(ref_section_id)
-            elif ref_param_info_id:
-                ref_var_name = self.export_param(
-                    ref_section_id, ref_param_info_id, is_global=False
-                )
-            elif ref_section_id:
-                ref_var_name = self.export_section(ref_section_id)
-            else:
-                raise ValueError
-            startPos = ref["startPos"]
-            endPos = ref["endPos"]
-            value = value[:startPos] + ref_var_name + value[endPos:]
-            # deps.append(v)
+        value = process_refs(value, refs, self.maybe_create_ref_var_name)
         return value, deps
+
+    def maybe_create_ref_var_name(
+        self, ref_section_id, ref_param_info_id, ref_is_args_obj
+    ):
+        if ref_is_args_obj:
+            return self.export_args_obj(ref_section_id)
+        elif ref_param_info_id:
+            return self.export_param(ref_section_id, ref_param_info_id, is_global=False)
+        elif ref_section_id:
+            return self.export_section(ref_section_id)
+        else:
+            raise ValueError
+
+    def get_ref_var_name(self, ref_section_id, ref_param_info_id, ref_is_args_obj):
+        return self.var_name_mapping[
+            (ref_section_id, ref_param_info_id, ref_is_args_obj)
+        ]

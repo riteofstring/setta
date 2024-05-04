@@ -26,3 +26,34 @@ def push_var_deep(objects, target_var_name):
             target_and_dependents.append(obj)
 
     return everything_else + target_and_dependents
+
+
+def process_refs(value, refs, get_var_name, position=None):
+    shift = 0
+    refs = sorted(refs, key=lambda x: x["startPos"], reverse=True)
+    for ref in refs:
+        ref_section_id = ref["sectionId"]
+        ref_param_info_id = ref["paramInfoId"]
+        ref_is_args_obj = ref["isArgsObj"]
+        ref_var_name = get_var_name(ref_section_id, ref_param_info_id, ref_is_args_obj)
+        startPos = ref["startPos"]
+        endPos = ref["endPos"]
+
+        if position is not None:
+            # Calculate current replacement's length difference
+            length_diff = len(ref_var_name) - (endPos - startPos)
+
+            # Update position if replacement occurs before the initial position
+            if endPos <= position:
+                # All changes before the position affect its offset
+                shift += length_diff
+            elif startPos < position < endPos:
+                position = startPos + len(
+                    ref_var_name
+                )  # Reset position to after the new substring
+
+        value = value[:startPos] + ref_var_name + value[endPos:]
+
+    if position is not None:
+        return value, position + shift
+    return value

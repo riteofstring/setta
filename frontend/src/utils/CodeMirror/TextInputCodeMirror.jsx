@@ -18,7 +18,7 @@ import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { DummyCodeMirror } from "./DummyCodeMirror";
-import { roundUpIdx } from "./utils";
+import { findRefs, roundUpIdx } from "./utils";
 
 // Step 1: Define the Decoration
 const italicStyle = Decoration.mark({ class: "italic" });
@@ -123,23 +123,23 @@ function getCompletionsFn(sectionId, paramInfoId) {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
-    const before = context.matchBefore(/([^.=\\(]*)$/);
+    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
+    const { pattern: keywordRegex, fullNameToInfo } =
+      useKeywordRegex.getState();
+    const evRefs = findRefs(keywordRegex, fullNameToInfo, fullText);
     const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
       fullText,
       beforeText: before.text,
       position: context.pos,
+      evRefs,
     });
-    console.log(res.data)
     if (res.status === 200) {
       return {
-        filter: false,
+        filter: true,
         from: before ? before.from : context.pos,
-        options: res.data.map((x) => ({
-          label: x.completion,
-          type: x.type,
-        })),
+        options: res.data,
         // validFor: /([^.=\\(]*)$/,
       };
     }
