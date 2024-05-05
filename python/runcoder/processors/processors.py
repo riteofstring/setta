@@ -1,3 +1,4 @@
+import asyncio
 import json
 import subprocess
 from pprint import pprint
@@ -279,3 +280,12 @@ def extractArgparseArgs(message):
     script_path = message["message"]
     output = extract_args_from_help(script_path)
     return {"output": output, "name": "extractArgparseArgs", "cache": None}
+
+
+async def getProcessorOutput(message, tasks_obj, cache, processors):
+    try:
+        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
+        return await processors(message, tasks_obj, cache)
+    except asyncio.CancelledError:
+        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
+        return {"output": None, "name": None}

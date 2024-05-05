@@ -10,8 +10,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from runcoder.cli.web import getConsumerMessage, getConsumerMessageAndSend
-from runcoder.processors.processors import Processors
+from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.processors.processors import Processors, getProcessorOutput
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
@@ -444,7 +444,7 @@ def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
 
 @app.post("/parametersRequest")
 async def route_parameters_request(x: ParametersRequestRequest):
-    result = await getConsumerMessage(
+    result = await getProcessorOutput(
         {"messageType": "parametersRequest", "message": x.dict()},
         tasks_obj,
         cache,
@@ -455,7 +455,7 @@ async def route_parameters_request(x: ParametersRequestRequest):
 
 @app.post("/textFieldInitializeCode")
 async def route_text_field_initialize_code(x: TextFieldInitializeCode):
-    result = await getConsumerMessage(
+    result = await getProcessorOutput(
         {"messageType": "textFieldInitializeCode", "message": x.dict()},
         tasks_obj,
         cache,
@@ -466,7 +466,7 @@ async def route_text_field_initialize_code(x: TextFieldInitializeCode):
 
 @app.post("/typeCheckRequest")
 async def route_type_check_request(x: TypeCheckRequestRequest):
-    result = await getConsumerMessage(
+    result = await getProcessorOutput(
         {"messageType": "typeCheckRequest", "message": x.project},
         tasks_obj,
         cache,
@@ -477,7 +477,7 @@ async def route_type_check_request(x: TypeCheckRequestRequest):
 
 @app.post("/textFieldCompletion")
 async def route_text_field_completion(x: TextFieldCompletionRequest):
-    result = await getConsumerMessage(
+    result = await getProcessorOutput(
         {"messageType": "textFieldCompletion", "message": x.dict()},
         tasks_obj,
         cache,
