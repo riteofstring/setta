@@ -4,7 +4,7 @@ import json
 import platform
 import time
 from asyncio import CancelledError
-from collections import defaultdict
+from collections import defaultdict, deque
 
 import psutil
 from fastapi import WebSocketDisconnect
@@ -57,7 +57,7 @@ class TerminalWebsockets:
                 "start": time.time(),
                 "projectConfigId": projectConfigId,
                 "process": pty_process,
-                "history": [],
+                "history": deque(maxlen=1000),
                 "wasJustResized": False,
             }
         else:
