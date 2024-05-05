@@ -1,3 +1,4 @@
+import _ from "lodash";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
@@ -137,4 +138,10 @@ function setFullParamRegex(
       isArgsObj: false,
     };
   }
+}
+
+export function updateKeywordRegex() {
+  useKeywordRegex
+    .getState()
+    .update(_.mapValues(useSectionInfos.getState().x, (v) => v.name));
 }
