@@ -138,18 +138,6 @@ class TerminalWebsockets:
             ):
                 return k
         return None
-    
-
-    def add_to_history(self, history, output):
-        lines = output.split('\n')
-        for i, line in enumerate(lines):
-            if '\r' in line:
-                line = line[line.rindex('\r')+1:]  # Take everything after the last '\r'
-            if i == 0 and history:
-                history[-1] = line  # Replace the last line if it's the start of new output
-            else:
-                history.append(line)
-
 
 
 def runCode(message, terminal_write_fn):
