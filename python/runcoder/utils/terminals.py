@@ -51,7 +51,6 @@ class TerminalWebsockets:
         await websocket.accept()
         self.sockets[id].append(websocket)
         if id not in self.PTY_PIDS:
-            print("creating terminal", id, flush=True)
             pty_process = PtyProcess.spawn(TERMINAL_NAME)
             self.PTY_PIDS[id] = {
                 "pid": pty_process.pid,
@@ -59,9 +58,6 @@ class TerminalWebsockets:
                 "projectConfigId": projectConfigId,
                 "process": pty_process,
             }
-        # else:
-            # print("pty_process.read", self.PTY_PIDS[id]["process"].read(), flush=True)
-        print("connected!", flush=True)
 
     def disconnect(self, websocket, id):
         self.sockets[id].remove(websocket)
@@ -89,7 +85,6 @@ class TerminalWebsockets:
                 if not output:
                     break
                 for ws in self.sockets[id]:
-                    print(f"sending output to {id}", flush=True)
                     await ws.send_text(output)
         except (WebSocketDisconnect, CancelledError):
             pass
@@ -104,7 +99,6 @@ class TerminalWebsockets:
                     json_val = json.loads(input_data)
                     if isinstance(json_val, dict):
                         if json_val["type"] == "resize":
-                            print("resize", json_val["rows"], json_val["cols"], flush=True)
                             pty_process.setwinsize(json_val["rows"], json_val["cols"])
                         elif json_val["type"] == "runCode":
                             runCode(json_val, pty_process.write)
