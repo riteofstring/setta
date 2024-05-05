@@ -10,8 +10,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from runcoder.cli.listen import getConsumerMessageAndSend
-from runcoder.processors.processors import Processors, getProcessorOutput
+from runcoder.cli.web import getConsumerMessage, getConsumerMessageAndSend
+from runcoder.processors.processors import Processors
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
 from runcoder.utils.tasks import Tasks
