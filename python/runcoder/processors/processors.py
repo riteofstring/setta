@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pprint import pprint
 
@@ -15,7 +16,7 @@ from ..code.generate_code import (
     var_declaration,
 )
 from ..code.type_checker import parse_and_type_check
-from ..code.utils import get_var_name
+from ..code.utils import process_refs
 from ..utils.constants import BUILT_INS
 from .utils import withTempFiles
 
@@ -80,22 +81,38 @@ def codeCompletion(message):
 def textFieldInitializeCode(message):
     message = message["message"]
     project = message["project"]
-    codeJson = export_selected(project)
+    exporter_obj = export_selected(project)
+    codeJson = exporter_obj.output
     templatedCode = get_code(project)
     sectionId = message["sectionId"]
     paramInfoId = message["paramInfoId"]
-    push_var_name = get_var_name(codeJson, sectionId, paramInfoId)
-    to_cache = generate_lines_of_code_without_imports(
+    push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
+    lines, var_name_to_line_num = generate_lines_of_code_without_imports(
         codeJson,
         push_var_name=push_var_name,
         force_appear_var_name=push_var_name,
     )
+    infoToFullName = {
+        tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
+    }
+    pushed_var_name_line_num = var_name_to_line_num[push_var_name]
+    referencable_var_names = [
+        infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
+        for v, line_num in var_name_to_line_num.items()
+        if line_num < pushed_var_name_line_num
+    ]
     print("textFieldInitializeCode", flush=True)
-    print("to_cache", to_cache, flush=True)
+    print(referencable_var_names, flush=True)
     return {
         "output": None,
         "name": "textFieldInitializeCode",
-        "cache": [*to_cache, codeJson, templatedCode],
+        "cache": [
+            lines,
+            var_name_to_line_num,
+            referencable_var_names,
+            templatedCode,
+            exporter_obj,
+        ],
     }
 
 
@@ -110,7 +127,9 @@ def jedi_complete(code, var_name_to_line_num, var_name, column):
 
 
 def textFieldCompletionFn(return_types):
-    def fn(message, code, var_name_to_line_num, var_name, column):
+    def fn(
+        beforeText, code, var_name_to_line_num, var_name, referencable_var_names, column
+    ):
         params = []
         variables = []
         builtins = []
@@ -119,8 +138,10 @@ def textFieldCompletionFn(return_types):
         for c in results:
             if return_types and c.type not in return_types:
                 continue
-            completion = f"{message['beforeText']}{c.complete}"
-            to_append = {"completion": completion, "type": c.type}
+            completion = f"{beforeText}{c.complete}"
+            if completion in var_name_to_line_num:
+                continue
+            to_append = {"label": completion, "type": c.type}
             if c.type == "param":
                 params.append(to_append)
             elif completion in BUILT_INS:
@@ -129,7 +150,13 @@ def textFieldCompletionFn(return_types):
                 variables.append(to_append)
             else:
                 the_rest.append(to_append)
-        return params + variables + the_rest + builtins
+        return (
+            params
+            + variables
+            + the_rest
+            + builtins
+            + [{"label": x, "type": None, "boost": 10} for x in referencable_var_names]
+        )
 
     return fn
 
@@ -139,19 +166,42 @@ def completionHelper(message, return_name, fn):
     cached = message.pop("cached")
     if cached is None:
         return {"output": [], "name": return_name, "cache": None}
-    lines, var_name_to_line_num, codeJson, templatedCode = cached
-    var_name = get_var_name(codeJson, message["sectionId"], message["paramInfoId"])
-    set_line(lines, var_name_to_line_num, var_name, message["fullText"])
+    (
+        lines,
+        var_name_to_line_num,
+        referencable_var_names,
+        templatedCode,
+        exporter_obj,
+    ) = cached
+    var_name = exporter_obj.var_name_mapping[
+        (message["sectionId"], message["paramInfoId"], False)
+    ]
+    fullText, position = process_refs(
+        message["fullText"],
+        message["evRefs"],
+        exporter_obj.get_ref_var_name,
+        message["position"],
+    )
+    set_line(lines, var_name_to_line_num, var_name, fullText)
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
     print("completionHelper", flush=True)
     print(code, flush=True)
-    output = fn(message, code, var_name_to_line_num, var_name, message["position"])
+    output = fn(
+        message["beforeText"],
+        code,
+        var_name_to_line_num,
+        var_name,
+        referencable_var_names,
+        position,
+    )
     return {"output": output, "name": return_name, "cache": None}
 
 
-def parametersRequestFn(message, code, var_name_to_line_num, var_name, column):
+def parametersRequestFn(
+    beforeText, code, var_name_to_line_num, var_name, referencable_var_names, column
+):
     print("parametersRequest", flush=True)
     results, line = jedi_complete(code, var_name_to_line_num, var_name, column)
     parsed = docstring_parser.parse(results[0].docstring(raw=True))
@@ -186,7 +236,8 @@ def parametersRequest(message):
 
 def typeCheckRequest(message):
     p = message["message"]
-    code_json = export_selected(p)
+    exporter_obj = export_selected(p)
+    code_json = exporter_obj.output
     print("typeCheckRequest", flush=True)
     try:
         templated_code = get_code(p)

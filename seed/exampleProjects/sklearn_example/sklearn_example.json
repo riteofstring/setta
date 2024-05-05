@@ -244,7 +244,7 @@
           "description": "",
           "versionsHeight": 100,
           "versionsVisible": 0,
-          "code": "source activate abcde_env\ncat {{ RUNCODER_PYTHON_FILE }}\npython {{ RUNCODER_PYTHON_FILE }}\necho \"Done\"",
+          "code": "source activate abcde_env\ncat {{ Code }}\npython {{ Code }}\necho \"Done\"",
           "codeLanguage": "bash",
           "isFrozen": 0,
           "nonPresetUITypeIds": ["25add466-bd0e-48f7-b497-cbcab96b7b1d"],

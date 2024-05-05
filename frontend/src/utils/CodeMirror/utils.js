@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
 
 export function roundUpIdx(numList, x) {
@@ -38,11 +37,30 @@ export function computeEVReferences(project) {
   project["evRefs"] = evRefs;
 }
 
-function findRefs(keywordRegex, fullNameToInfo, value) {
+export function findRefs(keywordRegex, fullNameToInfo, value) {
   let match;
   const output = [];
   while ((match = keywordRegex.exec(value))) {
-    output.push(_.pick(fullNameToInfo[match[0]], ["sectionId", "paramInfoId"]));
+    const startPos = match.index;
+    const endPos = startPos + match[0].length;
+    const info = fullNameToInfo[match[0]];
+    output.push({
+      sectionId: info["sectionId"],
+      paramInfoId: info["paramInfoId"],
+      isArgsObj: info["isArgsObj"],
+      startPos,
+      endPos,
+    });
   }
   return output;
+}
+
+export function computeInfoToFullName(project) {
+  const output = {};
+  for (const [k, v] of Object.entries(
+    useKeywordRegex.getState().fullNameToInfo,
+  )) {
+    output[JSON.stringify([v.sectionId, v.paramInfoId, v.isArgsObj])] = k;
+  }
+  project["infoToFullName"] = output;
 }

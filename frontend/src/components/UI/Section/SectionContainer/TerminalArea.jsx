@@ -11,7 +11,7 @@ import { theme } from "./Terminal/TerminalTheme";
 
 export const TERMINAL_WEBSOCKETS = {};
 export const INITIAL_MESSAGE = {};
-let pendingMsg = null;
+const PENDING_MSG = {};
 
 function newTerminalWebsocket(sectionId) {
   let ws;
@@ -22,9 +22,9 @@ function newTerminalWebsocket(sectionId) {
     const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${projectConfigId}/${sectionId}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
-      if (pendingMsg) {
-        ws.send(pendingMsg);
-        pendingMsg = null;
+      if (PENDING_MSG[sectionId]) {
+        ws.send(PENDING_MSG[sectionId]);
+        PENDING_MSG[sectionId] = null;
       }
       if (INITIAL_MESSAGE[sectionId]) {
         ws.send(INITIAL_MESSAGE[sectionId]);
@@ -107,7 +107,7 @@ function useTerminal({ sectionId, width, height }) {
       if (ws.readyState === 1) {
         ws.send(message);
       } else {
-        pendingMsg = message;
+        PENDING_MSG[sectionId] = message;
       }
     });
 

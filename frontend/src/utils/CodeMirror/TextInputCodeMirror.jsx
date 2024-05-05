@@ -123,7 +123,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
-    const before = context.matchBefore(/([^.=\\(]*)$/);
+    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
     const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
@@ -133,12 +133,9 @@ function getCompletionsFn(sectionId, paramInfoId) {
     });
     if (res.status === 200) {
       return {
-        filter: false,
+        filter: true,
         from: before ? before.from : context.pos,
-        options: res.data.map((x) => ({
-          label: x.completion,
-          type: x.type,
-        })),
+        options: res.data,
         // validFor: /([^.=\\(]*)$/,
       };
     }
