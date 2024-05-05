@@ -11,22 +11,28 @@ import { theme } from "./Terminal/TerminalTheme";
 
 export const TERMINAL_WEBSOCKETS = {};
 export const INITIAL_MESSAGE = {};
-let pendingMsg = null;
+const PENDING_MSG = {};
 
 function newTerminalWebsocket(sectionId) {
   let ws;
   if (TERMINAL_WEBSOCKETS[sectionId]) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
+    console.log("using existing websocket");
   } else {
     const projectConfigId = useProjectConfig.getState().id;
     const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${projectConfigId}/${sectionId}`;
+    console.log("new websocket", wsTerminalAddress);
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
-      if (pendingMsg) {
-        ws.send(pendingMsg);
-        pendingMsg = null;
+      console.log("ws is open!");
+      console.log("ws.readyState", ws.readyState);
+      if (PENDING_MSG[sectionId]) {
+        console.log("SENDING pendingMsg", PENDING_MSG[sectionId]);
+        ws.send(PENDING_MSG[sectionId]);
+        PENDING_MSG[sectionId] = null;
       }
       if (INITIAL_MESSAGE[sectionId]) {
+        console.log("SENDING Initial message");
         ws.send(INITIAL_MESSAGE[sectionId]);
         delete INITIAL_MESSAGE[sectionId];
       }
@@ -98,6 +104,7 @@ function useTerminal({ sectionId, width, height }) {
     terminal.loadAddon(attachAddon);
 
     terminal.onResize((size) => {
+      console.log("terminal onResize");
       // Send the new size to the backend
       const message = JSON.stringify({
         type: "resize",
@@ -105,21 +112,25 @@ function useTerminal({ sectionId, width, height }) {
         rows: size.rows,
       });
       if (ws.readyState === 1) {
+        console.log("terminal ready! sending onResize");
         ws.send(message);
       } else {
-        pendingMsg = message;
+        console.log("terminal not ready! setting pendingMsg to", message);
+        PENDING_MSG[sectionId] = message;
       }
     });
 
     return () => {
       // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
       // https://github.com/xtermjs/xterm.js/issues/4775
+      console.log("disposeWs()");
       disposeWs();
       terminal.dispose();
     };
   }, []);
 
   useEffect(() => {
+    console.log("useEffect, calling fitAddon.fit()");
     fitAddon.fit();
   }, [width, height]);
 
