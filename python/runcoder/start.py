@@ -16,7 +16,7 @@ from .backend.environ import set_cli_args
 from .backend.export_db.export_db import export_database
 from .backend.import_db import import_database
 from .cli.run import run as _run
-from .cli.web import web as _web
+from .cli.listen import listen as _listen
 
 
 @click.command()
@@ -27,8 +27,8 @@ def run(code_id):
 
 @click.command()
 @click.argument("websocket_id", required=False)
-def web(websocket_id):
-    _web(websocket_id)
+def listen(websocket_id):
+    _listen(websocket_id)
 
 
 @click.command()
@@ -143,7 +143,7 @@ def cli(ctx, reload, with_example_projects, db, i, w):
 
 
 cli.add_command(run)
-cli.add_command(web)
+cli.add_command(listen)
 cli.add_command(version)
 cli.add_command(init_db)
 cli.add_command(delete_db)
