@@ -3,9 +3,11 @@ import {
   TERMINAL_WEBSOCKETS,
 } from "components/UI/Section/SectionContainer/TerminalArea";
 import { dbGetFreeTerminal } from "dbRequests/terminals";
+import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
+import { useWebsocketConnectionList } from "models/websocket";
 import {
   computeEVReferences,
   computeInfoToFullName,
@@ -36,14 +38,23 @@ export async function runCode({ codeId }) {
   for (const projectVariant of getProjectRuns(project)) {
     computeEVReferences(projectVariant);
     computeInfoToFullName(projectVariant);
+    const message = JSON.stringify({
+      id: codeId,
+      type: "runCode",
+      message: projectVariant,
+    });
+    if (useWebsocketConnectionList.getState().connectedTo !== "main") {
+      // TODO unify the sendMessage format with the above message format
+      sendMessage({
+        message: projectVariant,
+        id: codeId,
+        messageType: "runCode",
+      });
+      continue;
+    }
     const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
     if (res.status === 200) {
       const freeTerminalId = res.data;
-      const message = JSON.stringify({
-        id: codeId,
-        type: "runCode",
-        message: projectVariant,
-      });
       if (freeTerminalId) {
         TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
       } else {

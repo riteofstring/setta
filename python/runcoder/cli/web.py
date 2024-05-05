@@ -2,13 +2,14 @@ import asyncio
 import json
 
 import websockets
+import subprocess
 
 from ..processors.processors import Processors, getProcessorOutput
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.cache import Cache
 from ..utils.constants import WEBSOCKET
 from ..utils.tasks import Tasks
-
+from ..utils.terminals import runCode
 
 def web(websocket_id):
     try:
@@ -25,9 +26,6 @@ async def connect(websocket_id=None):
             extra_headers=extra_headers,
         ) as websocket:
             await consumer_handler(websocket)
-    except websockets.InvalidStatusCode as e:
-        if e.status_code == 401:
-            print("Unauthorized")
     except websockets.ConnectionClosedError:
         print("Connection closed unexpectedly")
     except ConnectionRefusedError:
@@ -41,14 +39,17 @@ async def consumer_handler(websocket):
     processors = Processors()
     async for message in websocket:
         message = json.loads(message)
-        print(message)
-        # create_task so that we don't have to await consumer message
-        await task_obj.create_task(
-            message.get("id", None),
-            getConsumerMessageAndSend(
-                message, websocket.send, task_obj, cache, processors
-            ),
-        )
+        if message["messageType"] == "runCode":
+            runCode(message, command_callback=run_code_as_subprocess)
+
+
+        # # create_task so that we don't have to await consumer message
+        # await task_obj.create_task(
+        #     message.get("id", None),
+        #     getConsumerMessageAndSend(
+        #         message, websocket.send, task_obj, cache, processors
+        #     ),
+        # )
 
 
 async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache, processors):
@@ -65,3 +66,7 @@ async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache, processo
                 }
             )
         )
+
+
+def run_code_as_subprocess(command):
+    subprocess.run(command, shell=True)

@@ -112,7 +112,7 @@ class TerminalWebsockets:
                         if doResize:
                             pty_process.setwinsize(json_val["rows"], json_val["cols"])
                         elif json_val["type"] == "runCode":
-                            runCode(json_val, pty_process.write)
+                            runCode(json_val, terminal_write_fn=pty_process.write)
                             self.set_terminal_start_time(id)
                         pty_info["wasJustResized"] = doResize
                         continue
@@ -140,7 +140,7 @@ class TerminalWebsockets:
         return None
 
 
-def runCode(message, terminal_write_fn):
+def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["message"]
     exporter_obj = export_selected(p)
     selected = exporter_obj.output
@@ -198,12 +198,17 @@ def runCode(message, terminal_write_fn):
             bash_script += codeCallStr(folder_path, curr_section)
         filepath = write_string_to_file(folder_path, "RUNCODER_ENTRY.sh", bash_script)
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
-        terminal_write_fn(f"\x15bash {filepath}\n")
+        command = f"bash {filepath}"
     else:
         sid = run_order[0]
         filepath = id_to_filepath[sid]
         callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
-        terminal_write_fn(f"\x15{callingProgram} {filepath}\n")
+        command = f"{callingProgram} {filepath}"
+    
+    if terminal_write_fn:
+        terminal_write_fn(f"\x15{command}\n")
+    elif command_callback:
+        command_callback(command)
 
 
 def languageToExtension(x):
