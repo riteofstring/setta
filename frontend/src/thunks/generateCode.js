@@ -6,10 +6,7 @@ import { dbGetFreeTerminal } from "dbRequests/terminals";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
-import {
-  computeEVReferences,
-  computeInfoToFullName,
-} from "utils/CodeMirror/utils";
+import { computeEVReferences } from "utils/CodeMirror/utils";
 import { TERMINAL } from "z_utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
@@ -24,9 +21,7 @@ export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   delete project.project.defaultConfigId;
   if (includeEVReferences) {
     computeEVReferences(project);
-    computeInfoToFullName(project);
   }
-  console.log(project);
   return project;
 }
 
@@ -35,7 +30,6 @@ export async function runCode({ codeId }) {
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
     computeEVReferences(projectVariant);
-    computeInfoToFullName(projectVariant);
     const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
     if (res.status === 200) {
       const freeTerminalId = res.data;

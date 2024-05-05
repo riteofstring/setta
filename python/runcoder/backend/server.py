@@ -172,7 +172,6 @@ class ParametersRequestRequest(BaseModel):
     beforeText: str
     fullText: str
     position: int
-    evRefs: list
 
 
 class TextFieldInitializeCode(BaseModel):
@@ -192,7 +191,6 @@ class TextFieldCompletionRequest(BaseModel):
     beforeText: str
     fullText: str
     position: int
-    evRefs: list
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -319,6 +317,7 @@ def route_load_project(projectName, configName):
 
 @app.post("/projects/load/{projectName}")
 def route_load_full_project(projectName, body: LoadFullProjectRequest):
+    print("PTY_PIDS", terminal_websockets.PTY_PIDS, flush=True)
     with dbs:
         return load_full_project(dbs, projectName, body.withBaseUITypes)
 
