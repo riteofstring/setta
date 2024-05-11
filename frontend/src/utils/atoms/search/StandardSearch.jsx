@@ -25,7 +25,9 @@ export const StandardSearch = React.forwardRef(
           <div
             className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
           >
-            {leftElement || <i className="gg-sort-az" />}
+            {leftElement || (
+              <i className="gg-sort-az ml-[.4rem] !scale-75 text-runcoder-300 dark:text-runcoder-600" />
+            )}
           </div>
         )}
         <input

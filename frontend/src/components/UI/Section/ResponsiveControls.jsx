@@ -3,6 +3,7 @@ import { useNodeInternals } from "models/info/nodeInternals";
 import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
+import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
 import { OVERVIEW } from "utils/constants";
@@ -56,6 +57,9 @@ export function ResponsiveControls() {
       </ControlButton>
       <ControlButton onClick={resetZoom}>
         <TbZoomReset />
+      </ControlButton>
+      <ControlButton>
+        <IoMapOutline />
       </ControlButton>
     </Controls>
   );

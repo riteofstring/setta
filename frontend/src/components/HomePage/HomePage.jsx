@@ -8,7 +8,7 @@ import { useHomePageSearch } from "models/useHomePageSearch";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
-import { IoClose } from "react-icons/io5";
+import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { Badge } from "utils/atoms/badges/badge";
 import { IconButton } from "utils/atoms/buttons/IconButton";
@@ -61,22 +61,28 @@ function RightColumn({ projects, setDoRefresh }) {
     }
   }
 
-  const stdbtnStyles =
-    "py-2 px-4 rounded-full font-bold font-heading text-white bg-runcoder-600  hover:bg-blue-500 gap-2";
-
-  const closebtnStyles =
-    "py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-red-500 hover:text-white gap-2";
-
   return (
     <div className="overflow-y-auto px-10 py-8">
-      <div className="flex gap-4">
-        <StandardButton twClasses={stdbtnStyles} onClick={onClick}>
-          <BiPlus />
-          New Project
-        </StandardButton>
-        <StandardButton twClasses={closebtnStyles} onClick={onClickDelete}>
-          <IoClose />
-          Delete
+      <div className="flex justify-between gap-4">
+        <div className="flex gap-4">
+          <StandardButton
+            twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-runcoder-600  hover:bg-blue-500 gap-2"
+            onClick={onClick}
+          >
+            <BiPlus />
+            New Project
+          </StandardButton>
+          <StandardButton
+            twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-red-500 hover:text-white gap-2"
+            onClick={onClickDelete}
+          >
+            <IoClose />
+            Delete
+          </StandardButton>
+        </div>
+        <StandardButton twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-blue-500 hover:text-white gap-2">
+          <IoSettingsOutline />
+          Settings
         </StandardButton>
       </div>
       <ProjectItems
