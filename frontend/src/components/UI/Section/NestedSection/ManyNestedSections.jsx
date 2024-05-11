@@ -23,6 +23,7 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
     goToSection(sectionId);
   };
 
+  const direction = false;
   return (
     <div className="flex items-stretch">
       {!isDeck && (
@@ -31,9 +32,15 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
           onClick={onClick}
         />
       )}
-      <div className="flex flex-col items-start gap-2 ">
+      <div
+        className={`flex ${direction ? "flex-col" : "mt-2 flex-row"} items-start gap-2`}
+      >
         {childIds.map((e) => (
-          <SortableSectionContainer sectionId={e} key={`Nested-Sec-${e}`} />
+          <SortableSectionContainer
+            sectionId={e}
+            key={`Nested-Sec-${e}`}
+            direction={direction}
+          />
         ))}
       </div>
     </div>

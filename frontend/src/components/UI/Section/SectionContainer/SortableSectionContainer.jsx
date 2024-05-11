@@ -40,6 +40,7 @@ function _SortableCore({
   setNodeRef,
   transform,
   transition,
+  direction,
 }) {
   const overIsSelf = useOverIsSelf(sectionId);
   const scaledTransform = transformWithZoom(transform);
@@ -52,7 +53,10 @@ function _SortableCore({
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="relative first:mt-2" {...stackProps}>
+    <div
+      className={`relative ${direction ? "first:mt-2" : ""}`}
+      {...stackProps}
+    >
       {isTempSection(sectionId) ? (
         <DummySection forceShow={true} />
       ) : (

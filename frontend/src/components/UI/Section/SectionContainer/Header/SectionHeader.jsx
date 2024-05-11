@@ -2,7 +2,6 @@ import React from "react";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
-import CodeLanguageSelection from "./CodeLanguageSelection/CodeLanguageSelection";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import { HeaderIcon } from "./HeaderIcon/HeaderIcon";
 import MenuButton from "./MenuButton/MenuButton";
@@ -46,10 +45,10 @@ function _SectionHeader({
             isGlobalVariables={isGlobalVariables}
           />
 
-          <CodeLanguageSelection
+          {/* <CodeLanguageSelection
             sectionId={sectionId}
             sectionTypeName={sectionTypeName}
-          />
+          /> */}
         </>
       )}
       {(isSeriesElement || _isRoot) && (
@@ -92,7 +91,7 @@ export const SectionHeader = React.memo(_SectionHeader);
 
 function getTitleStyles({ isActiveSection, isGlobalVariables }) {
   const editing =
-    "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-runcoder-200 dark:bg-runcoder-900 rounded-full w-3/5 dark:text-white font-semibold text-xs";
+    "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-runcoder-200 dark:bg-runcoder-900 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
 
   const notEditing = `transition-colors font-heading leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
     isActiveSection
