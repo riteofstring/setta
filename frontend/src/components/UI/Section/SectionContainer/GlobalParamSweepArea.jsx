@@ -36,7 +36,7 @@ export function GlobalParamSweepArea() {
           <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
         </article>
         {runGroups[toShow] && (
-          <article className="flex flex-1 flex-col gap-2">
+          <article className="flex flex-1 flex-col gap-2 overflow-x-hidden ">
             <FilterSection />
             <SectionList runGroupId={toShow} runGroup={runGroups[toShow]} />
           </article>
@@ -53,7 +53,7 @@ function RunGroupList({
   setPreviewRunGroup,
 }) {
   return (
-    <div className="noscroll nowheel flex flex-grow flex-col gap-2 overflow-y-scroll">
+    <ul className="noscroll nowheel flex flex-grow flex-col">
       {Object.entries(runGroups).map(([id, x], idx) => (
         <CheckboxNextToLabel
           key={idx}
@@ -69,7 +69,7 @@ function RunGroupList({
           {x.name}
         </CheckboxNextToLabel>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -87,7 +87,7 @@ function SectionList({ runGroupId, runGroup }) {
   )[0];
 
   return (
-    <div className="noscroll nowheel -ml-2 -mt-2 flex flex-grow flex-col gap-2 overflow-y-scroll rounded-lg bg-runcoder-50/40 px-2 pt-2 dark:bg-runcoder-875">
+    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col gap-2 overflow-y-scroll rounded-lg bg-runcoder-50/40 px-3 pt-2 dark:bg-runcoder-875">
       {allSections.map((x, idx) => (
         <SectionItem
           key={idx}
@@ -96,25 +96,22 @@ function SectionList({ runGroupId, runGroup }) {
           runGroupSection={runGroup.sections[x.id]}
         />
       ))}
-    </div>
+    </ul>
   );
 }
 
 function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
-  const variants = "flex flex-col gap-2";
+  // const variants = "flex flex-col gap-2";
   return (
-    <div className={variants}>
-      <ParamSweepVersionsList
-        sectionInfo={sectionInfo}
-        runGroupId={runGroupId}
-        runGroupSection={runGroupSection}
-      />
-    </div>
+    <ParamSweepVersionsList
+      sectionInfo={sectionInfo}
+      runGroupId={runGroupId}
+      runGroupSection={runGroupSection}
+    />
   );
 }
 
 function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
-  const variants = "text-xs text-runcoder-500 dark:text-runcoder-300";
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
 
   function onSectionCheckboxChange() {
@@ -133,17 +130,20 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   }
 
   return (
-    <ul className="">
-      <li>
-        <CheckboxGroup
-          checked={!_.isNil(runGroupSection)}
-          onChange={onSectionCheckboxChange}
-        >
-          {sectionInfo.name}
-        </CheckboxGroup>
+    <li className="flex flex-col">
+      <CheckboxGroup
+        checked={!_.isNil(runGroupSection)}
+        onChange={onSectionCheckboxChange}
+      >
+        {sectionInfo.name}
+      </CheckboxGroup>
+      {allParamSweeps.length > 0 && (
         <ul className="pl-4">
           {allParamSweeps.map((e, idx) => (
-            <li key={idx} className={variants}>
+            <li
+              key={idx}
+              className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
+            >
               <CheckboxGroup
                 checked={!!runGroupSection?.[e.id]}
                 onChange={getOnParamSweepCheckboxChange(e.id)}
@@ -153,8 +153,8 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
             </li>
           ))}
         </ul>
-      </li>
-    </ul>
+      )}
+    </li>
   );
 }
 
@@ -162,14 +162,14 @@ const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
 
 function CheckboxGroup({ children, checked, onChange }) {
   return (
-    <label className="dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded text-sm text-runcoder-700 dark:text-runcoder-200">
+    <label className="flex min-h-6 cursor-pointer items-center gap-2 text-xs text-runcoder-500 dark:text-runcoder-300">
       <input
         type="checkbox"
-        className="h-4 w-4 !cursor-pointer rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
+        className="h-4 w-4 min-w-4 rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
         checked={checked}
         onChange={onChange}
       />
-      {children}
+      <p className="truncate">{children}</p>
     </label>
   );
 }
@@ -186,21 +186,22 @@ function CheckboxNextToLabel({
   const font = shown ? "font-bold" : "";
 
   return (
-    <div className="flex items-center" onMouseLeave={onMouseLeave}>
-      <input
-        type="checkbox"
-        className="h-4 w-4 rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
-        checked={checked}
-        onChange={onChange}
-      />
+    <li onMouseLeave={onMouseLeave}>
       <label
-        className={`${font} dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-runcoder-700 dark:text-runcoder-200 `}
+        className={`${font} dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-runcoder-700 dark:text-runcoder-200 `}
         onMouseOver={onMouseOver}
         onClick={onClick}
       >
-        {children}
+        <input
+          type="checkbox"
+          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-runcoder-500/10 checked:bg-blue-500 hover:bg-runcoder-500/30 hover:checked:bg-blue-500"
+          checked={checked}
+          onChange={onChange}
+        />
+
+        <p className="truncate">{children}</p>
       </label>
-    </div>
+    </li>
   );
 }
 

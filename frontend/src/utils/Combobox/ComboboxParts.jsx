@@ -9,9 +9,10 @@ export function ComboboxInput({
   small,
   onInputMouseDown,
   isStandardSearch,
+  placeholder,
 }) {
   const className =
-    "nodrag card-value font-code z-[1] row-span-1 h-[calc(2rem-2px)] min-w-0 cursor-auto border border-solid rounded-full bg-runcoder-900/50 border-runcoder-300 px-4 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-runcoder-300/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-800 dark:caret-white dark:focus-visible:border-blue-400";
+    "nodrag card-value font-code z-[1] row-span-1 h-[calc(2rem-2px)] min-w-0 cursor-auto border border-solid rounded-full bg-runcoder-900/50 border-runcoder-300 px-4 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-runcoder-300/25 dark:placeholder:text-runcoder-400/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-800 dark:caret-white dark:focus-visible:border-blue-400";
 
   return !isStandardSearch ? (
     <>
@@ -22,10 +23,11 @@ export function ComboboxInput({
     </>
   ) : (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs font-mono text-runcoder-600 font-medium px-3 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-100 dark:border-runcoder-800 min-w-0 ${
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-runcoder-900 rounded-full shadow-sm text-xs font-mono text-runcoder-600 font-medium px-3 focus-visible:border-white dark:text-runcoder-300 dark:focus-visible:border-runcoder-900 focus-visible:ring-2 border border-solid border-runcoder-100 dark:border-runcoder-800 placeholder:text-runcoder-200 dark:placeholder:text-runcoder-700 min-w-0 ${
         small ? "h-6" : "h-7"
       }`}
       noLeftElement={true}
+      placeholder={placeholder}
       // leftElementStyles="pl-3"
       {...getInputProps({ onMouseDown: onInputMouseDown })}
       // rightElement={
