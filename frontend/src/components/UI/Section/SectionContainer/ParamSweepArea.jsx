@@ -281,7 +281,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
+      <article className="card-arg-group group/arg-group group/textinput -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
         <ParamUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}
@@ -290,7 +290,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
           className="nodrag"
           area="card-value-full"
         />
-        <span className="card-value-full border-box self-end border-b border-runcoder-300 dark:border-runcoder-800" />
+        <span className="card-value-full border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-800" />
       </article>
     </>
   );

@@ -52,7 +52,7 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
   }, [enteredValue]);
 
   return (
-    <>
+    <div className="group/textinput contents">
       <ParamUI
         sectionId={sectionId}
         paramInfoId={paramInfoId}
@@ -64,8 +64,8 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
         area="card-value"
       />
       {isText && (
-        <span className="card-value border-box self-end border-b border-runcoder-300 dark:border-runcoder-700" />
+        <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
       )}
-    </>
+    </div>
   );
 }
