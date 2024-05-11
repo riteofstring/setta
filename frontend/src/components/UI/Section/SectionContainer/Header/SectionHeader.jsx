@@ -3,7 +3,6 @@ import { deleteSections } from "thunks/sections/sectionOps";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
-import { HeaderIcon } from "./HeaderIcon/HeaderIcon";
 import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton/MinimizeButton";
 import { SectionTitle } from "./Title/SectionTitle";
@@ -24,8 +23,6 @@ function _SectionHeader({
   };
 
   const _isRoot = isRoot(sectionTypeName);
-  const classes =
-    "text-runcoder-400/50 dark:text-runcoder-400/50 mr-[.35rem] ml-[.1rem]";
 
   // DOM: maybe get rid of the extra div under header?
 
@@ -33,12 +30,8 @@ function _SectionHeader({
     <header className="card-title flex flex-row items-center">
       {!isInfo && (
         <>
-          <MenuButton sectionId={sectionId} />
-          <HeaderIcon
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            classes={classes}
-          />
+          <MenuButton sectionId={sectionId} sectionTypeName={sectionTypeName} />
+
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}

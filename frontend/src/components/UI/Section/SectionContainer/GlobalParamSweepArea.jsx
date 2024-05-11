@@ -53,7 +53,7 @@ function RunGroupList({
   setPreviewRunGroup,
 }) {
   return (
-    <ul className="noscroll nowheel flex flex-grow flex-col">
+    <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
       {Object.entries(runGroups).map(([id, x], idx) => (
         <CheckboxNextToLabel
           key={idx}

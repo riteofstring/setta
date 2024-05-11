@@ -59,7 +59,7 @@ export function ComboboxList({
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
   return (
     <div
-      className={`nowheel nodrag relative w-full min-w-[40px] pb-2  ${display} ${position} z-20 mt-1 max-h-96  rounded-md border bg-white shadow-xl dark:border-runcoder-700/70 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
+      className={`nowheel nodrag absolute w-full min-w-[40px] pb-2  ${display} ${position} z-20 mt-8 max-h-96  rounded-md border bg-white shadow-xl dark:border-runcoder-700/70 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
       {...getMenuProps()}
       style={{ width }}
     >
