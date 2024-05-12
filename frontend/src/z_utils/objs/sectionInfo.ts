@@ -31,6 +31,7 @@ export function newSectionInfo({
   codeLanguage = "",
   isFrozen = false,
   dbSource = "",
+  isHorizontalOrientation = false,
 }: Partial<SectionType> & {
   size: SizeType;
 }): SectionType {
@@ -64,5 +65,6 @@ export function newSectionInfo({
     nonPresetUITypeIds,
     isFrozen,
     dbSource,
+    isHorizontalOrientation,
   };
 }

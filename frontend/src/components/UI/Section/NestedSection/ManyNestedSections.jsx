@@ -1,3 +1,4 @@
+import { useSectionInfos } from "models/info/sectionInfos";
 import { goToSection } from "thunks/goToSection";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
@@ -23,7 +24,10 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
     goToSection(sectionId);
   };
 
-  const direction = true;
+  const isHorizontalOrientation = useSectionInfos(
+    (x) => x.x[sectionId].isHorizontalOrientation,
+  );
+
   return (
     <div className="flex items-stretch">
       {!isDeck && (
@@ -33,13 +37,13 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
         />
       )}
       <div
-        className={`flex ${direction ? "mt-2 flex-col" : " flex-row"} items-start gap-2`}
+        className={`flex ${isHorizontalOrientation ? " flex-row" : "mt-2 flex-col"} items-start gap-2`}
       >
         {childIds.map((e) => (
           <SortableSectionContainer
             sectionId={e}
             key={`Nested-Sec-${e}`}
-            direction={direction}
+            isHorizontalOrientation={isHorizontalOrientation}
           />
         ))}
       </div>

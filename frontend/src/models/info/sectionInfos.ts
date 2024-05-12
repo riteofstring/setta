@@ -118,6 +118,11 @@ export const useSectionInfos = createProjectState(
           set((state) => {
             state.x[sectionId].resizeEvent = resizeEvent;
           }),
+        toggleOrientation: ({ sectionId }) =>
+          set((state) => {
+            state.x[sectionId].isHorizontalOrientation =
+              !state.x[sectionId].isHorizontalOrientation;
+          }),
       })),
     ),
   ),

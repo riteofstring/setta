@@ -7,7 +7,7 @@ import { useDndProps, useOverIsSelf } from "utils/DNDSortable/useDndUtils";
 import { useReactFlow } from "xyflow/core/store";
 import { SectionContainer } from "./SectionContainer";
 
-function _SortableSectionContainer({ sectionId }) {
+function _SortableSectionContainer({ sectionId, isHorizontalOrientation }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -27,6 +27,7 @@ function _SortableSectionContainer({ sectionId }) {
       setNodeRef={setNodeRef}
       transform={transform}
       transition={transition}
+      isHorizontalOrientation={isHorizontalOrientation}
     />
   );
 }
@@ -40,7 +41,7 @@ function _SortableCore({
   setNodeRef,
   transform,
   transition,
-  direction,
+  isHorizontalOrientation,
 }) {
   const overIsSelf = useOverIsSelf(sectionId);
   const scaledTransform = transformWithZoom(transform);
@@ -54,7 +55,7 @@ function _SortableCore({
 
   return (
     <div
-      className={`relative ${direction ? "first:mt-2" : ""}`}
+      className={`relative ${isHorizontalOrientation ? "" : "first:mt-2"}`}
       {...stackProps}
     >
       {isTempSection(sectionId) ? (
