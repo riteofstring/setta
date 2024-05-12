@@ -17,7 +17,6 @@ export function IdNameComboboxFloating({
   outerDivClasses = "",
   inputCallback,
   onInputMouseDown,
-  isStandardSearch,
   placeholder,
 }) {
   const {
@@ -70,7 +69,6 @@ export function IdNameComboboxFloating({
         small={small}
         onInputMouseDown={onInputMouseDown}
         onInputClick={onInputClick}
-        isStandardSearch={isStandardSearch}
         placeholder={placeholder}
       />
 

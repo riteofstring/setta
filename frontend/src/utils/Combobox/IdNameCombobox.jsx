@@ -12,7 +12,6 @@ export function IdNameCombobox({
   outerDivClasses = "",
   inputCallback,
   onInputMouseDown,
-  isStandardSearch,
   placeholder,
 }) {
   const {
@@ -57,7 +56,6 @@ export function IdNameCombobox({
         isOpen={isReallyOpen}
         small={small}
         onInputMouseDown={onInputMouseDown}
-        isStandardSearch={isStandardSearch}
         placeholder={placeholder}
       />
 
