@@ -16,10 +16,12 @@ function MenuButton({ sectionId, sectionTypeName }) {
   return (
     <Menubar.Root>
       <MenuDropdown
-        padding={sectionTypeName === CODE || TERMINAL ? "p-1 mx-1" : "p-1"}
+        padding={
+          [CODE, TERMINAL].includes(sectionTypeName) ? "p-1 mx-1" : "p-1"
+        }
         rounded="rounded-full"
         triggerStyle={
-          sectionTypeName === CODE || TERMINAL
+          [CODE, TERMINAL].includes(sectionTypeName)
             ? ""
             : "ml-2 h-3 w-3 text-runcoder-600 hover:text-white"
         }
@@ -27,7 +29,7 @@ function MenuButton({ sectionId, sectionTypeName }) {
         //   <i className="gg-menu text-runcoder-300 dark:text-runcoder-500" />
         // }
         trigger={
-          sectionTypeName === CODE || TERMINAL ? (
+          [CODE, TERMINAL].includes(sectionTypeName) ? (
             <HeaderIcon
               sectionId={sectionId}
               sectionTypeName={sectionTypeName}

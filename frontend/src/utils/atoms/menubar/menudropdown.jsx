@@ -19,7 +19,7 @@ export function MenuDropdown({
   return (
     <Menubar.Menu>
       <Menubar.Trigger
-        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 ${rounded} ${padding} text-xs font-semibold leading-none text-runcoder-700 outline-none transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-200 dark:hover:bg-runcoder-900 ${triggerStyle}`}
+        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 ${rounded} ${padding} text-xs font-semibold leading-none text-runcoder-700 outline-none transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-200 dark:hover:bg-runcoder-800 ${triggerStyle}`}
       >
         {trigger}
       </Menubar.Trigger>

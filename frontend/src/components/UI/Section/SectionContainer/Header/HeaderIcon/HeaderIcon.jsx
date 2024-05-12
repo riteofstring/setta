@@ -1,7 +1,7 @@
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
-import { SiPython } from "react-icons/si";
+import { SiGnubash, SiPython } from "react-icons/si";
 import { CODE, TERMINAL, VAR_CONTROL } from "z_utils/constants";
 
 export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
@@ -24,6 +24,8 @@ function CodeLanguageIcon({ codeLanguage, classes }) {
       return <SiPython className={classes} />;
     case "javascript":
       return <IoLogoJavascript className={classes} />;
+    case "bash":
+      return <SiGnubash className={classes} />;
     default:
       return null;
   }
