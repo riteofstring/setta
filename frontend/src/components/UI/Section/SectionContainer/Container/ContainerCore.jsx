@@ -1,5 +1,6 @@
 import { useTempHasNested } from "hooks/useSectionChildren";
 import _ from "lodash";
+import { useContextMenus } from "models/contextMenus";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
@@ -30,6 +31,7 @@ function _Container({
       <div
         className={`flex min-w-[298px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
         {...commonProps}
+        onContextMenu={(e) => useContextMenus.getState().openDeck(e, sectionId)}
       >
         <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-runcoder-700 dark:bg-[#06070a8e]" />
         <div className="relative z-10 flex h-7 items-center justify-between">
