@@ -1,14 +1,19 @@
+import { useNavigate } from "react-router-dom";
 import { ShortcutSettings } from "./ShortcutSettings";
 import { SimpleSettings } from "./SimpleSettings";
 
 export function Settings() {
+  const goBackOrToHome = useGoBackOrToHome();
   return (
     <section className="col flex w-[clamp(200px,_50vw,_800px)] flex-col justify-self-center">
       <header className="flex justify-between pb-4 pt-4">
         <h1 className=" font-heading text-3xl font-bold text-runcoder-700 dark:text-runcoder-600">
           Settings
         </h1>
-        <button className="flex-start flex cursor-pointer items-center rounded-xl border border-solid border-runcoder-400 border-transparent py-1 pl-1 pr-4 text-runcoder-600 hover:bg-runcoder-200 dark:border-runcoder-800 dark:text-runcoder-300 dark:hover:bg-runcoder-700">
+        <button
+          onClick={goBackOrToHome}
+          className="flex-start flex cursor-pointer items-center rounded-xl border border-solid border-runcoder-400 border-transparent py-1 pl-1 pr-4 text-runcoder-600 hover:bg-runcoder-200 dark:border-runcoder-800 dark:text-runcoder-300 dark:hover:bg-runcoder-700"
+        >
           <i className="gg-arrow-left" />
           <p className="text-lg font-bold">Back</p>
         </button>
@@ -24,4 +29,15 @@ export function Settings() {
       <ShortcutSettings />
     </section>
   );
+}
+
+function useGoBackOrToHome() {
+  const navigate = useNavigate();
+  return () => {
+    if (window.history?.length && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
 }

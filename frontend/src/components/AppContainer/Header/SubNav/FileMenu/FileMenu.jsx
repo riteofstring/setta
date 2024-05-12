@@ -41,7 +41,7 @@ export function FileMenu() {
         {/* <BiExport /> */}
         Export Full JSON
       </MenuItem>
-      <Link to="settings">
+      <Link to="/settings">
         <MenuItem>Settings</MenuItem>
       </Link>
     </MenuDropdown>
