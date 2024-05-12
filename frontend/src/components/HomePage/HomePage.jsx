@@ -80,10 +80,12 @@ function RightColumn({ projects, setDoRefresh }) {
             Delete
           </StandardButton>
         </div>
-        <StandardButton twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-blue-500 hover:text-white gap-2">
-          <IoSettingsOutline />
-          Settings
-        </StandardButton>
+        <Link to="settings">
+          <StandardButton twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-blue-500 hover:text-white gap-2">
+            <IoSettingsOutline />
+            Settings
+          </StandardButton>
+        </Link>
       </div>
       <ProjectItems
         projects={projects}
