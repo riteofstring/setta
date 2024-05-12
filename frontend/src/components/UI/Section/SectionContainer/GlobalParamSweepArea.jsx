@@ -188,7 +188,7 @@ function CheckboxNextToLabel({
   return (
     <li onMouseLeave={onMouseLeave}>
       <label
-        className={`${font} dark:text-rx-300 flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-runcoder-700 dark:text-runcoder-200 `}
+        className={`${font} flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-runcoder-700 dark:text-runcoder-200 `}
         onMouseOver={onMouseOver}
         onClick={onClick}
       >
