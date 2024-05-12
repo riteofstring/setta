@@ -50,11 +50,11 @@ export function IdNameComboboxFloating({
     onArrowUpOrDown,
   });
 
-  const [listLocation, setListLocation] = useState({ x: 0, y: 0 });
+  const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
 
   function onInputClick(e) {
     const rect = e.target.getBoundingClientRect();
-    setListLocation({ x: rect.left, y: rect.top });
+    setListDims({ x: rect.left, y: rect.top, width: rect.width });
   }
 
   return (
@@ -78,7 +78,7 @@ export function IdNameComboboxFloating({
         isOpen={isReallyOpen}
         getMenuProps={getMenuProps}
         position={position}
-        listLocation={listLocation}
+        listDims={listDims}
       >
         <ComboboxItemsFloating
           filteredItems={filteredItems}

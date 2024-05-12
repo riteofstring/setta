@@ -56,12 +56,10 @@ export function ComboboxListFloating({
   isOpen,
   children,
   getMenuProps,
-  width,
-  listLocation,
+  listDims,
 }) {
   const display = isOpen ? "flex" : "hidden";
-  const { x, y } = listLocation;
-  console.log({ x, y });
+  const { x, y, width } = listDims;
 
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
 
