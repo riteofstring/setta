@@ -25,7 +25,6 @@ import { roundUpIdx } from "./utils";
 const italicStyle = Decoration.mark({ class: "italic" });
 
 // Step 2: Define the Extension
-
 function getKeywordStylizer(keywordLocations, pattern) {
   return ViewPlugin.fromClass(
     class {
@@ -102,6 +101,17 @@ function getContentDomEventListener(keywordLocations, editor) {
   };
 }
 
+function fixPlaceholderCursor(divId, value, defaultVal) {
+  // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
+  // This is a hacky solution to that problem.
+  if (!value && defaultVal) {
+    const divs = document.querySelectorAll(`#${divId} .cm-cursor`);
+    divs.forEach((div) => {
+      div.style.height = `${14 * useReactFlow.getState().transform[2]}px`;
+    });
+  }
+}
+
 function getOnCreateEditor({
   keywordLocations,
   initialEvent,
@@ -120,15 +130,7 @@ function getOnCreateEditor({
     const pos = view.posAtCoords({ x: clientX, y: clientY });
     view.dispatch({ selection: { anchor: pos, head: pos } });
 
-    // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
-    // This is a hacky solution to that problem.
-    if (!value && defaultVal) {
-      const divs = document.querySelectorAll(`#${divId} .cm-cursor`);
-      divs.forEach((div) => {
-        div.style.height = `${14 * useReactFlow.getState().transform[2]}px`;
-      });
-    }
-
+    fixPlaceholderCursor(divId, value, defaultVal);
     setRealIsInitialized(true);
   };
 }
@@ -309,6 +311,10 @@ function CoreCodeMirror({
 
   const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
 
+  function onClick() {
+    fixPlaceholderCursor(divId, value, defaultVal);
+  }
+
   return (
     <CodeMirror
       id={divId}
@@ -331,6 +337,7 @@ function CoreCodeMirror({
       extensions={extensions}
       onChange={localOnChange}
       onBlur={onBlur}
+      onClick={onClick}
       indentWithTab={false}
     />
   );
