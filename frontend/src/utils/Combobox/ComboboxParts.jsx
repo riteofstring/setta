@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 
@@ -8,6 +9,7 @@ export function ComboboxInput({
   isOpen,
   small,
   onInputMouseDown,
+  onInputClick,
   placeholder,
 }) {
   const className =
@@ -21,7 +23,10 @@ export function ComboboxInput({
       noLeftElement={true}
       placeholder={placeholder}
       // leftElementStyles="pl-3"
-      {...getInputProps({ onMouseDown: onInputMouseDown })}
+      {...getInputProps({
+        onMouseDown: onInputMouseDown,
+        onClick: onInputClick,
+      })}
       // rightElement={
       //   <StandardSearchRightBtn
       //     {...getToggleButtonProps()}
@@ -39,24 +44,21 @@ export function ComboboxInput({
   );
 }
 
-export function ComboboxList({
-  isOpen,
-  children,
-  getMenuProps,
-  width,
-  position = "fixed",
-}) {
+export function ComboboxList({ isOpen, children, getMenuProps, listDims }) {
   const display = isOpen ? "flex" : "hidden";
+  const { x, y, width } = listDims;
 
   // overflow-x-hidden overflow-y-scroll flex flex-col flex-1 items-stretch !overflow-visible
-  return (
+
+  return createPortal(
     <div
-      className={`nowheel nodrag absolute w-full min-w-[40px] pb-2  ${display} ${position} z-20 mt-8 max-h-96  rounded-md border bg-white shadow-xl dark:border-runcoder-700/70 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
+      className={`nowheel nodrag absolute w-full min-w-[40px] pb-2 ${display} z-20 mt-8 max-h-96  rounded-md border bg-white shadow-xl dark:border-runcoder-700/70 dark:bg-runcoder-800 dark:text-runcoder-200 dark:shadow-runcoder-900/50`}
       {...getMenuProps()}
-      style={{ width }}
+      style={{ width, left: `${x}px`, top: `${y}px` }}
     >
       <ScrollingArea styles="w-full">{children}</ScrollingArea>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
