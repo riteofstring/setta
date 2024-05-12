@@ -263,6 +263,7 @@ function ParamCombobox({
       ]}
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
+      isStandardSearch={true}
       placeholder="Filter & Add Sweep"
     />
   );

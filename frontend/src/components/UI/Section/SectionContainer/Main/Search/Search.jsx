@@ -45,6 +45,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
   //     outerDivClasses={`${isSearchResult ? "outline outline-green-400" : ""}`}
   //     inputCallback={sendCompletionRequest}
   //     onInputMouseDown={onInputMouseDown}
+  //     isStandardSearch={true}
   //   />
   // );
 
