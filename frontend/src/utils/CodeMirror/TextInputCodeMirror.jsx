@@ -17,6 +17,7 @@ import { useCallback, useRef, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
+import { useReactFlow } from "xyflow/core/store";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { roundUpIdx } from "./utils";
 
@@ -105,6 +106,9 @@ function getOnCreateEditor({
   keywordLocations,
   initialEvent,
   setRealIsInitialized,
+  divId,
+  value,
+  defaultVal,
 }) {
   return (view) => {
     view.contentDOM.addEventListener(
@@ -115,6 +119,16 @@ function getOnCreateEditor({
     const { clientX, clientY } = initialEvent;
     const pos = view.posAtCoords({ x: clientX, y: clientY });
     view.dispatch({ selection: { anchor: pos, head: pos } });
+
+    // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
+    // This is a hacky solution to that problem.
+    if (!value && defaultVal) {
+      const divs = document.querySelectorAll(`#${divId} .cm-cursor`);
+      divs.forEach((div) => {
+        div.style.height = `${14 * useReactFlow.getState().transform[2]}px`;
+      });
+    }
+
     setRealIsInitialized(true);
   };
 }
@@ -293,8 +307,11 @@ function CoreCodeMirror({
     extensions.push(keyBinding);
   }
 
+  const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
+
   return (
     <CodeMirror
+      id={divId}
       className={`nodrag [&_*]:!outline-0 ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
@@ -306,6 +323,9 @@ function CoreCodeMirror({
         keywordLocations,
         initialEvent,
         setRealIsInitialized,
+        divId,
+        value,
+        defaultVal,
       })}
       theme={theme}
       extensions={extensions}
