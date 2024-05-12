@@ -6,6 +6,11 @@ export function toggleDarkMode() {
   dbSetDarkMode(useSettings.getState().darkMode);
 }
 
+export function toggleMiniMap() {
+  useSettings.getState().toggleSetting("showMiniMap");
+  // dbSetDarkMode(useSettings.getState().darkMode);
+}
+
 export async function loadSettings() {
   const res = await dbLoadSettings();
   if (res.status === 200) {

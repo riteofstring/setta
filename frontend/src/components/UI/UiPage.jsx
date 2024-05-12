@@ -1,15 +1,17 @@
+import { useSettings } from "models/settings";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "thunks/keyActivations";
+import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { ResponsiveControls } from "./Section/ResponsiveControls";
 import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
 import { SectionsPane } from "./Section/SectionsPane";
-import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
+  const showMiniMap = useSettings((x) => x.showMiniMap);
 
   return (
     <GlobalDndContext>
@@ -17,7 +19,7 @@ export function UIPage() {
       <PaneContextMenu />
       <SelectionContextMenu />
       <DeckContextMenu />
-      <ResponsiveMiniMap />
+      {showMiniMap && <ResponsiveMiniMap />}
       <ResponsiveControls />
     </GlobalDndContext>
   );

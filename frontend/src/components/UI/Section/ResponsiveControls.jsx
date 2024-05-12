@@ -6,6 +6,7 @@ import potpack from "potpack";
 import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
+import { toggleMiniMap } from "thunks/user/settings";
 import { OVERVIEW } from "utils/constants";
 import { ControlButton, Controls } from "xyflow/controls";
 import "xyflow/controls/style.css";
@@ -58,7 +59,7 @@ export function ResponsiveControls() {
       <ControlButton onClick={resetZoom}>
         <TbZoomReset />
       </ControlButton>
-      <ControlButton>
+      <ControlButton onClick={toggleMiniMap}>
         <IoMapOutline />
       </ControlButton>
     </Controls>
