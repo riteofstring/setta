@@ -49,7 +49,8 @@ export function IdNameCombobox({
 
   function onInputClick(e) {
     const rect = e.target.getBoundingClientRect();
-    setListDims({ x: rect.left, y: rect.top, width: rect.width });
+    const yMargin = -30;
+    setListDims({ x: rect.left, y: rect.bottom + yMargin, width: rect.width });
   }
 
   return (
