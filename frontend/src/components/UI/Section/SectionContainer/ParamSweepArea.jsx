@@ -11,7 +11,7 @@ import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { IdNameComboboxFloating } from "utils/Combobox/IdNameComboboxFloating";
 import { ParamUI } from "./Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 function _ParamSweepArea({ sectionId }) {
@@ -256,7 +256,7 @@ function ParamCombobox({
   );
 
   return (
-    <IdNameCombobox
+    <IdNameComboboxFloating
       allItems={[
         { group: "Args", items: objParams },
         { group: "Versions", items: evCols },
