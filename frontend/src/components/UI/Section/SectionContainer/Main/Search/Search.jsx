@@ -69,7 +69,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
         singleLine={true}
         onEnter={onEnter}
       />
-      <i className="card-value gg-spinner self-center justify-self-end text-blue-500/50" />
+      <i className="card-search gg-spinner mr-2 self-center justify-self-end text-blue-500/50" />
     </>
   );
 }
