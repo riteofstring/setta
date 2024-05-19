@@ -150,7 +150,7 @@ def cli(ctx, reload, with_example_projects, db, i, w, host, port):
 
         sys.path.append(str(Path(__file__).resolve().parent))
         uvicorn.run(
-            "backend.server:app",
+            "server:app",
             host=host,
             port=port,
             log_level="info",

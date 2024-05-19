@@ -9,6 +9,36 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from runcoder.backend.db.codeInfo.save import save_code_info
+from runcoder.backend.db.projects.delete import delete_projects
+from runcoder.backend.db.projects.load import (
+    load_all_projects,
+    load_full_project,
+    load_project,
+)
+from runcoder.backend.db.projects.save import (
+    create_project,
+    save_project_config_name,
+    save_project_details,
+    save_project_name,
+)
+from runcoder.backend.db.projects.saveAs import (
+    save_as_existing_project_config,
+    save_as_new_project_config,
+)
+from runcoder.backend.db.sections.copy import (
+    copy_relative_positions,
+    copy_sections_and_other_info,
+)
+from runcoder.backend.db.settings.load import load_settings
+from runcoder.backend.db.uiTypes.load import load_base_uitypes
+from runcoder.backend.db_init import maybe_create_tables_and_seed
+from runcoder.backend.db_objs import DBs
+from runcoder.backend.environ import get_cli_args
+from runcoder.backend.utils.utils import (
+    convert_to_backend_format,
+    generate_memorable_string,
+)
 from runcoder.cli.web import getConsumerMessageAndSend
 from runcoder.processors.processors import Processors, getProcessorOutput
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
@@ -22,27 +52,6 @@ from runcoder.utils.utils import (
     is_dev_mode,
     obj_to_dict,
 )
-
-from .db.codeInfo.save import save_code_info
-from .db.projects.delete import delete_projects
-from .db.projects.load import load_all_projects, load_full_project, load_project
-from .db.projects.save import (
-    create_project,
-    save_project_config_name,
-    save_project_details,
-    save_project_name,
-)
-from .db.projects.saveAs import (
-    save_as_existing_project_config,
-    save_as_new_project_config,
-)
-from .db.sections.copy import copy_relative_positions, copy_sections_and_other_info
-from .db.settings.load import load_settings
-from .db.uiTypes.load import load_base_uitypes
-from .db_init import maybe_create_tables_and_seed
-from .db_objs import DBs
-from .environ import get_cli_args
-from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 set_constants(**get_cli_args())
 
@@ -68,7 +77,7 @@ async def startup_event():
     dbs.connect()
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
-        frontend_folder = Path("../static/frontend")
+        frontend_folder = Path("static/frontend")
         dist_path = get_absolute_path(__file__, frontend_folder)
         app.mount(
             "/static",
