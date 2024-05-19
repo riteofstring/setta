@@ -9,33 +9,33 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from runcoder.backend.db.codeInfo.save import save_code_info
-from runcoder.backend.db.projects.delete import delete_projects
-from runcoder.backend.db.projects.load import (
+from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.database.db.codeInfo.save import save_code_info
+from runcoder.database.db.projects.delete import delete_projects
+from runcoder.database.db.projects.load import (
     load_all_projects,
     load_full_project,
     load_project,
 )
-from runcoder.backend.db.projects.save import (
+from runcoder.database.db.projects.save import (
     create_project,
     save_project_config_name,
     save_project_details,
     save_project_name,
 )
-from runcoder.backend.db.projects.saveAs import (
+from runcoder.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from runcoder.backend.db.sections.copy import (
+from runcoder.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
-from runcoder.backend.db.settings.load import load_settings
-from runcoder.backend.db.uiTypes.load import load_base_uitypes
-from runcoder.backend.db_init import maybe_create_tables_and_seed
-from runcoder.backend.db_objs import DBs
-from runcoder.backend.utils import convert_to_backend_format, generate_memorable_string
-from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.database.db.settings.load import load_settings
+from runcoder.database.db.uiTypes.load import load_base_uitypes
+from runcoder.database.db_init import maybe_create_tables_and_seed
+from runcoder.database.db_objs import DBs
+from runcoder.database.utils import convert_to_backend_format, generate_memorable_string
 from runcoder.environ import get_cli_args
 from runcoder.processors.processors import Processors, getProcessorOutput
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
