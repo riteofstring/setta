@@ -37,3 +37,7 @@ def obj_to_dict(obj):
         if isinstance(value, property)
     }
     return {**attributes, **properties}
+
+
+def is_dev_mode():
+    return os.environ.get("RUNCODER_DEV_MODE")

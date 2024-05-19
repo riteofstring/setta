@@ -1,2 +1,3 @@
-recursive-include python/runcoder/frontend *
-recursive-include python/runcoder/seed *
+recursive-include python/runcoder/static/frontend *
+recursive-include python/runcoder/static/seed *
+recursive-include python/runcoder/static/constants *

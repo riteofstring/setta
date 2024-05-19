@@ -3,14 +3,14 @@ import json
 import os
 from pathlib import Path
 
-from runcoder.utils.utils import get_absolute_path
+from runcoder.utils.constants import C
+from runcoder.utils.utils import get_absolute_path, is_dev_mode
 
 from .db.projects.save import save_project_details
 from .db.settings.save import save_settings
 from .db.uiTypes.save import save_ui_types
 
-dev_mode = os.environ.get("RUNCODER_DEV_MODE")
-seed_folder = Path("../../../seed") if dev_mode else Path("../seed")
+seed_folder = Path("../../../seed") if is_dev_mode() else Path("../static/seed")
 
 
 def seed_base_ui_types(dbs):

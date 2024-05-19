@@ -18,18 +18,23 @@ from .backend.export_db.export_db import export_database
 from .backend.import_db import import_database
 from .cli.run import run as _run
 from .cli.web import web as _web
-from .utils.constants import set_constants, C
-from .utils.utils import get_absolute_path
+from .utils.constants import C, set_constants
+from .utils.utils import get_absolute_path, is_dev_mode
+
 
 def load_constants():
-    constants_folder = Path("../../constants")
+    constants_folder = (
+        Path("../../constants") if is_dev_mode() else Path("static/constants")
+    )
     with open(
         get_absolute_path(__file__, constants_folder / "constants.json"), "r"
     ) as f:
         constants = json.load(f)
     set_constants(**constants)
 
+
 load_constants()
+
 
 @click.command()
 @click.argument("code_id")

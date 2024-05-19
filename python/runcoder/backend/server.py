@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -17,7 +16,7 @@ from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C, set_constants
 from runcoder.utils.tasks import Tasks
 from runcoder.utils.terminals import TerminalWebsockets
-from runcoder.utils.utils import import_from_path, obj_to_dict
+from runcoder.utils.utils import import_from_path, is_dev_mode, obj_to_dict, get_absolute_path
 
 from .db.codeInfo.save import save_code_info
 from .db.projects.delete import delete_projects
@@ -42,7 +41,7 @@ from .environ import get_cli_args
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 set_constants(**get_cli_args())
-dev_mode = os.environ.get("RUNCODER_DEV_MODE")
+dev_mode = is_dev_mode()
 
 origins = (
     ["http://127.0.0.1:3000", "http://localhost:3000"]
@@ -71,7 +70,8 @@ async def startup_event():
     dbs.connect()
     if not dev_mode:
         # Mount the 'frontend/dist' directory at '/static'
-        dist_path = Path(__file__).resolve().parent / ".." / "frontend"
+        frontend_folder = Path("../static/frontend")
+        dist_path = get_absolute_path(__file__, frontend_folder)
         app.mount(
             "/static",
             StaticFiles(directory=dist_path, html=True),
