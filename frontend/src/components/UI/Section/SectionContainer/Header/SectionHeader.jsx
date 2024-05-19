@@ -7,7 +7,6 @@ import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
-import { MinimizeButton } from "./MinimizeButton/MinimizeButton";
 import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
@@ -77,7 +76,7 @@ function _SectionHeader({
             header={"Description for Infoview"}
           />
         )}
-        <MinimizeButton />
+        {/* <MinimizeButton /> */}
         <CustomCloseButton
           onClick={onCustomCloseButtonClick}
           aria-label="Delete self"

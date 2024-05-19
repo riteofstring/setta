@@ -18,17 +18,18 @@ export const ProjectConfigs = React.forwardRef(() => {
       });
     }
   }
+  const currConfigName = useProjectConfig((x) => x.name);
 
   return (
     <>
       <p className="text-xs text-runcoder-600 dark:text-runcoder-300">
         Hover over an item to preview another version of your project
       </p>
-      <div className="mt-4 flex gap-1">
+      <div className="mt-4 flex flex-col gap-1">
         {configNames.map((name, idx) => (
           <p
             key={idx}
-            className="-mx-2 min-w-full flex-1 cursor-pointer rounded-xl px-2 py-1 text-runcoder-600 hover:bg-runcoder-100 dark:text-runcoder-400 dark:hover:bg-runcoder-800"
+            className={`${currConfigName === name ? "font-bold" : ""} -mx-2 min-w-full flex-1 cursor-pointer rounded-xl px-2 py-1 text-runcoder-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-runcoder-900 dark:text-runcoder-400 dark:hover:bg-blue-900/50 dark:hover:text-runcoder-100`}
             onMouseOver={() => onMouseOver(idx)}
           >
             {name}
