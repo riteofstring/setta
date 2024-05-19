@@ -307,7 +307,7 @@ async def terminal_websocket_endpoint(
         terminal_websockets.disconnect(websocket, id)
 
 
-@app.post("/projects")
+@app.post(C.ROUTE_PROJECTS)
 def route_projects(x: ProjectRequest):
     with dbs:
         return load_all_projects(dbs, x.format, x.projectId)
@@ -325,26 +325,26 @@ def route_load_full_project(projectName, body: LoadFullProjectRequest):
         return load_full_project(dbs, projectName, body.withBaseUITypes)
 
 
-@app.post("/projects/save")
+@app.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest):
     formatted = convert_to_backend_format(x.project)
     with dbs:
         save_project_details(dbs, formatted)
 
 
-@app.post("/projects/createProject")
+@app.post(C.ROUTE_CREATE_PROJECT)
 def route_create_project(x: CreateProjectRequest):
     with dbs:
         return create_project(dbs, x.name)
 
 
-@app.post("/projects/saveAsNewProjectConfig")
+@app.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)
 def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
     with dbs:
         return save_as_new_project_config(dbs, x.project, x.newConfigName)
 
 
-@app.post("/projects/saveAsExistingProjectConfig")
+@app.post(C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG)
 def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
     with dbs:
         return save_as_existing_project_config(dbs, x.project, x.configName)
@@ -362,7 +362,7 @@ def route_get_base_uitypes():
         return load_base_uitypes(dbs)
 
 
-@app.post("/codeInfo/getCollectionsAndModules")
+@app.post(C.ROUTE_GET_COLLECTIONS_AND_MODULES)
 def route_get_collections_and_modules():
     pass
 
@@ -373,28 +373,19 @@ def route_save_code_info(x: SaveCodeInfoRequest):
         save_code_info(dbs, x.codeInfo)
 
 
-@app.post("/codeInfo/getCollectionDetails")
+@app.post(C.ROUTE_GET_COLLECTION_DETAILS)
 def route_get_collection_details():
     pass
 
 
-@app.post("/codeGenerator/generateCode")
-def route_generate_code():
-    pass
 
-
-@app.post("/codeGenerator/getCode")
-def route_get_code():
-    pass
-
-
-@app.post("/projects/setProjectName")
+@app.post(C.ROUTE_SET_PROJECT_NAME)
 def route_set_project_name(x: SetProjectNameRequest):
     with dbs:
         save_project_name(dbs, x.currProjectName, x.newProjectName)
 
 
-@app.post("/projects/setProjectConfigName")
+@app.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
 def route_set_project_config_name(x: SetProjectConfigNameRequest):
     with dbs:
         save_project_config_name(
@@ -402,7 +393,7 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest):
         )
 
 
-@app.post("/settings")
+@app.post(C.ROUTE_LOAD_SETTINGS)
 def route_load_settings():
     with dbs:
         return load_settings(dbs)
@@ -418,7 +409,7 @@ def route_logging():
     pass
 
 
-@app.post("/sections")
+@app.post(C.ROUTE_SECTIONS)
 def route_sections():
     pass
 

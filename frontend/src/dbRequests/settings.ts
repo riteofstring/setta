@@ -1,9 +1,9 @@
-import { LOAD_SETTINGS } from "z_utils/routes";
+import { C } from "utils/constants";
 import { post } from "./utils";
 
 export async function dbLoadSettings() {
   return await post({
-    address: LOAD_SETTINGS,
+    address: C.ROUTE_LOAD_SETTINGS,
     body: {},
   });
 }

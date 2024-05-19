@@ -2,20 +2,20 @@ import { useKeywordRegex } from "models/info/keywordRegex";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { findRefs } from "utils/CodeMirror/utils";
-import { SECTIONS } from "z_utils/routes";
+import { C } from "utils/constants";
 import { post } from "./utils";
 
 export async function dbGetSections() {
   return await post({
     body: {},
-    address: SECTIONS,
+    address: C.ROUTE_SECTIONS,
   });
 }
 
 export async function dbLoadSection({ sectionId }) {
   return await post({
     body: { sectionId },
-    address: SECTIONS,
+    address: C.ROUTE_SECTIONS,
   });
 }
 

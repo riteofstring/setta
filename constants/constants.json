@@ -24,5 +24,16 @@
   "SOCIAL": "SOCIAL",
   "COLLECTION": "collection",
   "CALLABLE": "callable",
-  "PARAMETER": "parameter"
+  "PARAMETER": "parameter",
+  "ROUTE_PROJECTS": "/projects",
+  "ROUTE_SAVE_PROJECT": "/projects/save",
+  "ROUTE_CREATE_PROJECT": "/projects/createProject",
+  "ROUTE_SAVE_AS_NEW_PROJECT_CONFIG": "/projects/saveAsNewProjectConfig",
+  "ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG": "/projects/saveAsExistingProjectConfig",
+  "ROUTE_GET_COLLECTIONS_AND_MODULES": "/codeInfo/getCollectionsAndModules",
+  "ROUTE_GET_COLLECTION_DETAILS": "/codeInfo/getCollectionDetails",
+  "ROUTE_SET_PROJECT_NAME": "/projects/setProjectName",
+  "ROUTE_SET_PROJECT_CONFIG_NAME": "/projects/setProjectConfigName",
+  "ROUTE_SECTIONS": "/sections",
+  "ROUTE_LOAD_SETTINGS": "/settings"
 }

@@ -1,13 +1,9 @@
 import { useCodeInfo } from "models/info/codeInfo";
-import {
-  GET_COLLECTIONS_AND_MODULES,
-  GET_COLLECTION_DETAILS,
-} from "z_utils/routes";
 import { post } from "./utils";
 
 async function dbGetCollectionsAndModules({ searchTerm }) {
   return await post({
-    address: GET_COLLECTIONS_AND_MODULES,
+    address: C.ROUTE_GET_COLLECTIONS_AND_MODULES,
     body: { searchTerm },
   });
 }
@@ -26,7 +22,7 @@ export async function dbGetCollectionDetails(id) {
   }
 
   const res = await post({
-    address: GET_COLLECTION_DETAILS,
+    address: C.ROUTE_GET_COLLECTION_DETAILS,
     body: { codeInfoId: id },
   });
 
