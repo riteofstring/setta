@@ -1,10 +1,6 @@
 import React from "react";
-import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "thunks/sections/sectionOps";
-import { IconButton } from "utils/atoms/buttons/IconButton";
-import { StandardPopover } from "utils/atoms/popover/standardpopover";
 import { isRoot } from "z_utils/constants";
-import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton/MinimizeButton";
@@ -55,28 +51,9 @@ function _SectionHeader({
             : "z-10 ml-auto flex items-center"
         }
       >
-        {isSeriesElement && (
-          <StandardPopover
-            popoverContent={
-              <Incrementer
-                sectionId={sectionId}
-                isRoot={_isRoot}
-                popover={true}
-              />
-            }
-            arrowClasses="fill-white dark:fill-runcoder-800"
-            inputClasses="rounded-lg"
-            trigger={
-              <IconButton
-                twClasses="[&_*]:hover:text-runcoder-500 [&_*]:dark:hover:text-runcoder-400"
-                bg="bg-transparent"
-              >
-                <TbSortDescending2 className="text-runcoder-300 dark:text-runcoder-700" />
-              </IconButton>
-            }
-            header={"Description for Infoview"}
-          />
-        )}
+        {/* {(isSeriesElement || _isRoot) && (
+          <Incrementer sectionId={sectionId} isRoot={_isRoot} />
+        )} */}
         <MinimizeButton />
         <CustomCloseButton
           onClick={onCustomCloseButtonClick}

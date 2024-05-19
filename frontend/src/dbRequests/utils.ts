@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from "axios";
-import { BACKEND } from "z_utils/addresses";
+import { COMMON_CONSTS } from "utils/constants";
 
 export async function post<S, R>({
   address,
@@ -9,7 +9,7 @@ export async function post<S, R>({
   body: S;
 }) {
   return axios
-    .post<S, AxiosResponse<R>>(`${BACKEND}${address}`, body, {
+    .post<S, AxiosResponse<R>>(`${COMMON_CONSTS.BACKEND}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
       },

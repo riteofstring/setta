@@ -1,5 +1,6 @@
 import importlib.util
 import os
+from pathlib import Path
 
 
 def import_from_path(file_path):
@@ -21,3 +22,7 @@ def import_from_path(file_path):
     spec.loader.exec_module(module)
 
     return module
+
+
+def get_absolute_path(src_path, file_path):
+    return (Path(src_path).parent / file_path).resolve()

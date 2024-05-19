@@ -22,12 +22,12 @@ export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
       return (
         <CodeLanguageIcon
           codeLanguage={codeLanguage}
-          classes="text-runcoder-300 dark:text-runcoder-400/50 group-hover/card-section:text-cyan-500 dark:text-runcoder-500  transition-colors"
+          classes="text-runcoder-300 dark:text-runcoder-400/50 group-hover/card-section:text-blue-500 dark:text-runcoder-500  transition-colors"
         />
       );
     case TERMINAL:
       return (
-        <FaTerminal className="text-runcoder-300 transition-colors group-hover/card-section:text-cyan-500 dark:text-runcoder-400/50 dark:text-runcoder-500 " />
+        <FaTerminal className="text-runcoder-300 transition-colors group-hover/card-section:text-blue-500 dark:text-runcoder-400/50 dark:text-runcoder-500 " />
       );
     case GLOBAL_PARAM_SWEEP:
     case GLOBAL_VARIABLES:
@@ -36,11 +36,11 @@ export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
       );
     case PARAM_SWEEP:
       return (
-        <TbArrowIteration className="text-runcoder-300 transition-colors group-hover/card-section:text-cyan-500 dark:text-runcoder-400/50 dark:text-runcoder-500 " />
+        <TbArrowIteration className="text-runcoder-300 transition-colors group-hover/card-section:text-blue-500 dark:text-runcoder-400/50 dark:text-runcoder-500 " />
       );
     default:
       return (
-        <i className="gg-menu group/card-section:hover:bg text-runcoder-300 transition-colors group-hover/card-section:text-cyan-500 dark:text-runcoder-500 " />
+        <i className="gg-menu group/card-section:hover:bg text-runcoder-300 transition-colors group-hover/card-section:text-blue-500 dark:text-runcoder-500 " />
       );
   }
 }

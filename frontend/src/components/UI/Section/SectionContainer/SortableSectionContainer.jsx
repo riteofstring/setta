@@ -54,7 +54,10 @@ function _SortableCore({
   const stackProps = { style, ref: setNodeRef, ...attributes };
 
   return (
-    <div className="relative" {...stackProps}>
+    <div
+      className={`relative ${isHorizontalOrientation ? "" : "first:mt-2"}`}
+      {...stackProps}
+    >
       {isTempSection(sectionId) ? (
         <DummySection forceShow={true} />
       ) : (

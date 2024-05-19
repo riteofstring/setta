@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from pathlib import Path
@@ -17,6 +18,18 @@ from .backend.export_db.export_db import export_database
 from .backend.import_db import import_database
 from .cli.run import run as _run
 from .cli.web import web as _web
+from .utils.constants import C
+from .utils.utils import get_absolute_path
+
+
+def load_constants():
+    constants_folder = Path("../../constants")
+    with open(
+        get_absolute_path(__file__, constants_folder / "constants.json"), "r"
+    ) as f:
+        constants = json.load(f)
+    for k, v in constants.items():
+        setattr(C, k, v)
 
 
 @click.command()
@@ -142,6 +155,7 @@ def cli(ctx, reload, with_example_projects, db, i, w):
         )
 
 
+load_constants()
 cli.add_command(run)
 cli.add_command(web)
 cli.add_command(version)
