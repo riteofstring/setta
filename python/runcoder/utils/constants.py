@@ -1,9 +1,6 @@
 import builtins
 
 CODE_FOLDER = "runcoder_code"
-PARAMETER = "parameter"
-COLLECTION = "collection"
-CALLABLE = "callable"
 BUILT_INS = set(dir(builtins))
 
 

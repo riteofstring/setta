@@ -2,8 +2,8 @@ import { dbSaveCodeInfo } from "dbRequests/sectionConfig";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionToParams } from "models/info/sectionToParams";
+import { C } from "utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
-import { RCType } from "z_utils/types/codeInfo";
 import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
 import {
@@ -29,7 +29,7 @@ export function addKwarg({
 }: AddKwargPayload) {
   const kwargInfo = newCodeInfo({
     name,
-    rcType: RCType.PARAMETER,
+    rcType: C.PARAMETER,
     editable: true,
   });
   const parent = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
@@ -81,7 +81,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
     .params[sectionId].map((x) => x.id);
   const collection = newCodeInfo({
     name,
-    rcType: RCType.COLLECTION,
+    rcType: C.COLLECTION,
     children,
   });
   dbSaveCodeInfo({

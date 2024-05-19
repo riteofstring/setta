@@ -5,10 +5,10 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { C } from "utils/constants";
 import { DEFAULT_DB_ALIAS } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
-import { RCType } from "z_utils/types/codeInfo";
 import { ManySectionType } from "z_utils/types/section";
 import { getSectionTypeConfig } from "./getters";
 
@@ -83,7 +83,7 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
 function initializeNewSectionConfig(sectionId) {
   const collection = newCodeInfo({
     name: "Contents",
-    rcType: RCType.COLLECTION,
+    rcType: C.COLLECTION,
   });
   useCodeInfo.getState().addCodeInfo({ info: collection });
   setSectionUITypeConfig({

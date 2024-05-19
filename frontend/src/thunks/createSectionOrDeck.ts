@@ -19,7 +19,6 @@ import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { SWITCH_UI_TYPE_ID } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
-import { RCType } from "z_utils/types/codeInfo";
 import { createNewId } from "z_utils/utils";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
@@ -143,7 +142,7 @@ function createSectionsFromArgparse({ pathToScript, args, ...props }) {
   for (const arg of args) {
     const info = newCodeInfo({
       name: arg.name,
-      rcType: RCType.PARAMETER,
+      rcType: C.PARAMETER,
       editable: true,
     });
     useCodeInfo.getState().addCodeInfo({ info, parent: sectionCodeInfoId });

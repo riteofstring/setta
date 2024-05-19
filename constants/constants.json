@@ -19,5 +19,8 @@
   "LIST": "LIST",
   "DICT": "DICT",
   "OUTPUT": "OUTPUT",
-  "SOCIAL": "SOCIAL"
+  "SOCIAL": "SOCIAL",
+  "COLLECTION": "collection",
+  "CALLABLE": "callable",
+  "PARAMETER": "parameter"
 }

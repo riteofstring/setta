@@ -4,9 +4,9 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { varControlUpdate } from "thunks/varControl";
+import { C } from "utils/constants";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
-import { RCType } from "z_utils/types/codeInfo";
 import { isUUID } from "z_utils/utils";
 import { getSectionInfo, getSectionTypeConfig } from "./getters";
 import { updateCallables, updateParams } from "./sectionContents";
@@ -17,7 +17,7 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
     const info = newCodeInfo({
       name: selectedItem,
       editable: false,
-      rcType: RCType.CALLABLE,
+      rcType: C.CALLABLE,
     });
     const { codeInfoId } = getSectionTypeConfig(sectionId);
     useCodeInfo.getState().addCodeInfo({ info, parent: codeInfoId });
@@ -52,7 +52,7 @@ function createChildrenCodeInfo(parent, params) {
     const info = newCodeInfo({
       name: p.name,
       editable: false,
-      rcType: RCType.PARAMETER,
+      rcType: C.PARAMETER,
       defaultVal: p.defaultVal,
       description: p.description,
     });

@@ -1,4 +1,4 @@
-import { CodeInfoType, RCType } from "../types/codeInfo";
+import { CodeInfoType } from "../types/codeInfo";
 import { maybeNewId } from "../utils";
 
 export function newCodeInfo({
@@ -12,7 +12,7 @@ export function newCodeInfo({
   isPinned = false,
   isFrozen = false,
   isSelected = false,
-}: Partial<CodeInfoType> & { rcType: RCType }): CodeInfoType {
+}: Partial<CodeInfoType>): CodeInfoType {
   return {
     id: maybeNewId(id),
     name,

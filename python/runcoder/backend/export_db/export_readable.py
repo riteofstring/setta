@@ -7,7 +7,7 @@ from yaml.representer import Representer
 
 from runcoder.backend.db.projects.load import load_full_project
 from runcoder.backend.db_path import DEFAULT_DB_ALIAS
-from runcoder.utils.constants import CALLABLE
+from runcoder.utils.constants import C
 
 
 def export_readable(dbs, filename, data):
@@ -95,7 +95,7 @@ def export_evCol(folder, config, selectedItem, evCol):
 
 def get_parameter_parent(id, codeInfo):
     for c in codeInfo.values():
-        if id in c["children"] and c["rcType"] == CALLABLE:
+        if id in c["children"] and c["rcType"] == C.CALLABLE:
             return c
     return None
 
