@@ -852,42 +852,42 @@ evRefs = {
 
 
 
-# from runcoder.code.export_selected import export_selected, get_code
-# from runcoder.code.generate_code import generate_code, generate_lines_of_code_without_imports
-# from runcoder.code.infer_imports import infer_imports
-# from runcoder.code.utils import process_refs
-# import json
-# import black
-# import isort
-# from pprint import pprint
+from runcoder.code.export_selected import export_selected, get_code
+from runcoder.code.generate_code import generate_code, generate_lines_of_code_without_imports
+from runcoder.code.infer_imports import infer_imports
+from runcoder.code.utils import process_refs
+import json
+import black
+import isort
+from pprint import pprint
 
-# with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
-#     p = json.load(f)
+with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
+    p = json.load(f)
 
-# with open("seed/BaseUITypes.json") as f:
-#     u = json.load(f)
+with open("seed/BaseUITypes.json") as f:
+    u = json.load(f)
 
-# config = p.pop("configs")[1]
-# config["uiTypes"].update(u)
-# config["project"] = {"id": p["id"]}
-# for v in config["sections"].values():
-#     if "dbSource" not in v:
-#         v["dbSource"] = ""
-# config["evRefs"] = evRefs
+config = p.pop("configs")[1]
+config["uiTypes"].update(u)
+config["project"] = {"id": p["id"]}
+for v in config["sections"].values():
+    if "dbSource" not in v:
+        v["dbSource"] = ""
+config["evRefs"] = evRefs
 
-# e = export_selected(config)
-# # for k,v in e.items():
-# #     print(k)
-# #     pprint(v)
-# #     print("\n\n")
-# templated_code = get_code(config)
+e = export_selected(config)
+# for k,v in e.items():
+#     print(k)
+#     pprint(v)
+#     print("\n\n")
+templated_code = get_code(config)
 
-# code = generate_code(e.output, templated_code)[0]
-# # code = "\n".join(code)
-# code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
-# code = isort.code(code, profile="black")
-# print(code)
-# # print(infer_imports(code))
+code = generate_code(e.output, templated_code)[0]
+# code = "\n".join(code)
+code = black.format_file_contents(code, fast=False, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=120))
+code = isort.code(code, profile="black")
+print(code)
+# print(infer_imports(code))
 
 
 
@@ -907,32 +907,3 @@ evRefs = {
 #                         "endPos": 30
 #                     }
 #                 ], e.get_ref_var_name, position=30))
-
-
-
-
-
-
-
-
-import inspect
-
-class MyClass:
-    def __init__(self, name, value):
-        self.name = name
-        self.value = value
-
-    @property
-    def label(self):
-        return f"{self.name}-{self.value}"
-
-def obj_to_dict(obj):
-    attributes = vars(obj)  # or obj.__dict__
-    properties = {name: getattr(obj, name) for name, value in inspect.getmembers(type(obj))
-                  if isinstance(value, property)}
-    return {**attributes, **properties}
-
-# Example usage
-obj = MyClass("test", 123)
-converted = obj_to_dict(obj)
-print(converted)

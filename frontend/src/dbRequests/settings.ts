@@ -14,10 +14,3 @@ export async function dbLoadSettings() {
     body: {},
   });
 }
-
-export async function dbLoadConstants() {
-  return await post({
-    address: "/constants",
-    body: {},
-  });
-}

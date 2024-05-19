@@ -8,6 +8,7 @@ export function StandardPopover({
   close = false,
   closeClasses,
   onOpenChange,
+  arrowClasses,
 }) {
   // TODO: show a close button if closeButton is true
 
@@ -19,7 +20,13 @@ export function StandardPopover({
           {close && (
             <Popover.Close className={closeClasses}>{close}</Popover.Close>
           )}
-          <Popover.Arrow className="[fill:rgb(229,_231,_235)] dark:[fill:rgb(51,_65,_85)]" />
+          <Popover.Arrow
+            className={
+              arrowClasses
+                ? arrowClasses
+                : "[fill:rgb(229,_231,_235)] dark:[fill:rgb(51,_65,_85)]"
+            }
+          />
           {popoverContent}
         </Popover.Content>
       </div>

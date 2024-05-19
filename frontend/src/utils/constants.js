@@ -32,7 +32,3 @@ export function setDbSourceMapping(newMapping) {
     DB_SOURCE_MAPPING[k] = v;
   }
 }
-
-export const COMMON_CONSTS = {};
-
-console.log(import.meta.env)

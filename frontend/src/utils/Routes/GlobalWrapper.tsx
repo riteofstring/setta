@@ -3,7 +3,7 @@ import { useSettings } from "models/settings";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { resetProjectStores } from "thunks/reset";
-import { loadConstants, loadSettings } from "thunks/user/settings";
+import { loadSettings } from "thunks/user/settings";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
   SAME_PROJECT_NEW_PROJECT_NAME,
@@ -16,7 +16,6 @@ export function GlobalWrapper({ children }) {
   const settingsLoaded = useSettings((x) => x.settingsLoaded);
 
   useEffect(() => {
-    loadConstants();
     loadSettings();
   }, []);
 

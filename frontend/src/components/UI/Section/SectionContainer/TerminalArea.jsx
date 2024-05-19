@@ -1,12 +1,12 @@
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
-import { COMMON_CONSTS } from "utils/constants";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { useReactFlow } from "xyflow/core/store";
+import { BACKEND_PORT, DOMAIN } from "z_utils/addresses";
 import { theme } from "./Terminal/TerminalTheme";
 
 export const TERMINAL_WEBSOCKETS = {};
@@ -19,7 +19,7 @@ function newTerminalWebsocket(sectionId) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
   } else {
     const projectConfigId = useProjectConfig.getState().id;
-    const wsTerminalAddress = `${COMMON_CONSTS.websocket}/terminal/${projectConfigId}/${sectionId}`;
+    const wsTerminalAddress = `ws://${DOMAIN}:${BACKEND_PORT}/terminal/${projectConfigId}/${sectionId}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
       if (PENDING_MSG[sectionId]) {

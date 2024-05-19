@@ -109,9 +109,7 @@ export function SectionContainerCoreResizable({
             isInfo={isInfo}
             sectionTypeName={sectionTypeName}
           />
-          {(isSeriesElement || _isRoot) && (
-            <Incrementer sectionId={sectionId} isRoot={_isRoot} />
-          )}
+          {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
           <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
           {hasVersions && (
             <Button

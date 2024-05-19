@@ -4,7 +4,6 @@ import { defineConfig } from "vite";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 import type { UserConfig as VitestUserConfigInterface } from "vitest/config";
-// import constants from "../constants/constants.json";
 
 const vitestConfig: VitestUserConfigInterface = {
   test: {
