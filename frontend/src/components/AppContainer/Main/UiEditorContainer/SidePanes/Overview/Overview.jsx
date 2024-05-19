@@ -1,13 +1,13 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import {
   constInfoViews,
   useCurrInfoView,
   useSetCurrInfoView,
 } from "models/info/infoView";
-import { usePanes } from "models/panes";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
 import { updateMapPosition } from "thunks/updateMapPosition";
@@ -24,7 +24,7 @@ const paneProps = {
 };
 
 export function Overview() {
-  const vis = usePanes((x) => x.vis[paneProps.paneName]);
+  const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
 
   return (
     <PaneContainer

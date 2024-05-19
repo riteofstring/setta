@@ -1,14 +1,14 @@
 import { dbLoadSettings } from "dbRequests/settings";
-import { darkModeLS, showMinimapLS } from "hooks/localStorageHooks";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useSettings } from "models/settings";
 
 export function toggleDarkMode() {
-  const [value, setValue] = darkModeLS();
+  const [value, setValue] = localStorageFns.darkMode.state();
   setValue(!value);
 }
 
 export function toggleMiniMap() {
-  const [value, setValue] = showMinimapLS();
+  const [value, setValue] = localStorageFns.showMinimap.state();
   setValue(!value);
 }
 

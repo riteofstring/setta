@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
-import { usePanes } from "models/panes";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
@@ -42,7 +41,6 @@ export function loadProjectState({
   useProjectConfig
     .getState()
     .resetAndSetAll(_.omit(projectConfig, ["viewport", "children"]));
-  usePanes.getState().setAll(projectConfig.panes);
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   useNodeInternals.getState().setNodes(
     _.map(projectConfig.children, (v, k) => ({

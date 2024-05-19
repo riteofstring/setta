@@ -1,22 +1,23 @@
 import React from "react";
+import { CLOSED_PANE_WIDTH } from "utils/constants";
 
-export function useDarkMode() {
-  return useLocalStorage("darkMode", true)[0]
+export const localStorageFns = {
+  darkMode: { init: true },
+  showMinimap: { init: true },
+  overviewVis: { init: true },
+  overviewWidth: { init: 335 },
+  overviewTrueWidth: { init: 335 },
+  uiEditorVis: { init: false },
+  uiEditorWidth: { init: 500 },
+  uiEditorTrueWidth: { init: CLOSED_PANE_WIDTH },
+};
+
+for (const [k, v] of Object.entries(localStorageFns)) {
+  localStorageFns[k].hook = () => useLocalStorage(k, v.init);
+  localStorageFns[k].state = () => localStorageState(k);
 }
 
-export function darkModeLS() {
-  return localStorageState("darkMode");
-}
-
-export function useShowMinimap() {
-  return useLocalStorage("showMinimap", true)[0]
-}
-
-export function showMinimapLS() {
-  return localStorageState("showMinimap");
-}
-
-export function localStorageState(key) {
+function localStorageState(key) {
   const x = JSON.parse(getLocalStorageItem(key));
   const setX = (value) => {
     setLocalStorageItem(key, value);

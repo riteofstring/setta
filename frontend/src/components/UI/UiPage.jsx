@@ -1,4 +1,4 @@
-import { useShowMinimap } from "hooks/localStorageHooks";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "thunks/keyActivations";
 import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
@@ -11,7 +11,7 @@ import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
-  const showMiniMap = useShowMinimap();
+  const [showMiniMap] = localStorageFns.showMinimap.hook();
 
   return (
     <GlobalDndContext>

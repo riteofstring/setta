@@ -1,12 +1,10 @@
-import { useDarkMode } from "hooks/localStorageHooks";
-import { usePanes } from "models/panes";
-import { UI_EDITOR } from "utils/constants";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { MiniMap } from "xyflow/minimap";
 import "xyflow/minimap/style.css";
 
 export function ResponsiveMiniMap() {
-  const uiEditorWidth = usePanes((x) => x.trueWidth[UI_EDITOR]);
-  const darkMode = useDarkMode();
+  const [uiEditorWidth] = localStorageFns.uiEditorTrueWidth.hook();
+  const [darkMode] = localStorageFns.darkMode.hook();
 
   return (
     <MiniMap

@@ -154,10 +154,6 @@ CREATE_TABLES_COMMANDS = [
         x REAL DEFAULT 0,
         y REAL DEFAULT 0,
         zoom REAL DEFAULT 1,
-        overviewVis BOOLEAN,
-        uiEditorVis BOOLEAN,
-        overviewWidth INTEGER,
-        uiEditorWidth INTEGER,
         UNIQUE (name, projectId),
         FOREIGN KEY (projectId) REFERENCES Project(id) ON DELETE CASCADE
     );

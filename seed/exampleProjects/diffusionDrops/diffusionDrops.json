@@ -12,16 +12,6 @@
           "y": -100,
           "zoom": 1
         },
-        "panes": {
-          "vis": {
-            "overview": true,
-            "uiEditor": false
-          },
-          "width": {
-            "overview": 300,
-            "uiEditor": 500
-          }
-        },
         "children": {}
       },
       "sections": {},
@@ -50,16 +40,6 @@
           "x": 299.76217556564006,
           "y": 169.9887593161227,
           "zoom": 0.5325205641147801
-        },
-        "panes": {
-          "vis": {
-            "overview": false,
-            "uiEditor": true
-          },
-          "width": {
-            "overview": 325,
-            "uiEditor": 500
-          }
         },
         "children": {
           "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {

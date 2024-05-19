@@ -36,35 +36,26 @@ def save_project(dbs, project):
 def save_project_configs(dbs, projectId, configs):
     db = dbs.default
     query = """
-        INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom, overviewVis, uiEditorVis, overviewWidth, uiEditorWidth)
-        VALUES (:id, :name, :projectId, :x, :y, :zoom, :overviewVis, :uiEditorVis, :overviewWidth, :uiEditorWidth)
+        INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom)
+        VALUES (:id, :name, :projectId, :x, :y, :zoom)
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
             projectId = :projectId,
             x = :x,
             y = :y,
-            zoom = :zoom,
-            overviewVis = :overviewVis,
-            uiEditorVis = :uiEditorVis,
-            overviewWidth = :overviewWidth,
-            uiEditorWidth = :uiEditorWidth
+            zoom = :zoom
     """
 
     query_params = []
     for c in configs:
         c = c["projectConfig"]
-        panes = c["panes"]
         query_params.append(
             {
                 "id": c["id"],
                 "name": c["name"],
                 "projectId": projectId,
                 **c["viewport"],
-                "overviewVis": panes["vis"]["overview"],
-                "uiEditorVis": panes["vis"]["uiEditor"],
-                "overviewWidth": panes["width"]["overview"],
-                "uiEditorWidth": panes["width"]["uiEditor"],
             }
         )
     print(query_params, flush=True)

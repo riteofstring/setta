@@ -23,10 +23,6 @@
             "y": 188.70833206176758,
             "zIndex": 1
           }
-        },
-        "panes": {
-          "vis": { "overview": true, "uiEditor": false },
-          "width": { "overview": 300, "uiEditor": 500 }
         }
       },
       "sections": {

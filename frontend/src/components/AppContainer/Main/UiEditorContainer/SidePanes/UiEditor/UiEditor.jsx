@@ -1,8 +1,8 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useRequiredUIEditorTabs } from "hooks/useUITypes";
 import { useActiveSection } from "models/activeSection";
-import { usePanes } from "models/panes";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
@@ -25,7 +25,7 @@ const paneProps = {
 
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const vis = usePanes((x) => x.vis[paneProps.paneName]);
+  const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
