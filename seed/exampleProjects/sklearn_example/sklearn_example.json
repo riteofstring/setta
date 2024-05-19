@@ -300,7 +300,7 @@
           "versionsVisible": 0,
           "code": "",
           "codeLanguage": "",
-          "isFrozen": 0,
+          "isFrozen": 1,
           "nonPresetUITypeIds": ["1a83a3ce-e415-4c2d-bed0-959ce18e7995"],
           "evColIds": [
             "1fc1e842-82fe-4a48-8794-23178822e22e",
