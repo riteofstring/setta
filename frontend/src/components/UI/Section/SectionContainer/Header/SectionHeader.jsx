@@ -1,9 +1,13 @@
+import { useSectionTypeName } from "hooks/useSectionType";
 import React from "react";
+import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "thunks/sections/sectionOps";
-import { isRoot } from "z_utils/constants";
+import { IconButton } from "utils/atoms/buttons/IconButton";
+import { StandardPopover } from "utils/atoms/popover/standardpopover";
+import { isRoot, TERMINAL } from "z_utils/constants";
+import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
-import { MinimizeButton } from "./MinimizeButton/MinimizeButton";
 import { SectionTitle } from "./Title/SectionTitle";
 
 function _SectionHeader({
@@ -51,10 +55,29 @@ function _SectionHeader({
             : "z-10 ml-auto flex items-center"
         }
       >
-        {/* {(isSeriesElement || _isRoot) && (
-          <Incrementer sectionId={sectionId} isRoot={_isRoot} />
-        )} */}
-        <MinimizeButton />
+        {isSeriesElement && (
+          <StandardPopover
+            popoverContent={
+              <Incrementer
+                sectionId={sectionId}
+                isRoot={_isRoot}
+                popover={true}
+              />
+            }
+            arrowClasses="fill-white dark:fill-runcoder-800"
+            inputClasses="rounded-lg"
+            trigger={
+              <IconButton
+                twClasses="[&_*]:hover:text-runcoder-500 [&_*]:dark:hover:text-runcoder-400"
+                bg="bg-transparent"
+              >
+                <TbSortDescending2 className="text-runcoder-300 dark:text-runcoder-700" />
+              </IconButton>
+            }
+            header={"Description for Infoview"}
+          />
+        )}
+        {/* <MinimizeButton /> */}
         <CustomCloseButton
           onClick={onCustomCloseButtonClick}
           aria-label="Delete self"
@@ -75,7 +98,11 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
     // <div className={`${isSearchResult ? "outline outline-green-400" : ""}`}>
     <SectionTitle
       sectionId={sectionId}
-      titleProps={getTitleStyles({ isActiveSection, isGlobalVariables })}
+      titleProps={getTitleStyles({
+        isActiveSection,
+        isGlobalVariables,
+        sectionId,
+      })}
     />
     // </div>
   );
@@ -83,7 +110,8 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
 
 export const SectionHeader = React.memo(_SectionHeader);
 
-function getTitleStyles({ isActiveSection, isGlobalVariables }) {
+function getTitleStyles({ isActiveSection, isGlobalVariables, sectionId }) {
+  const sectionTypeName = useSectionTypeName(sectionId);
   const editing =
     "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-runcoder-200 dark:bg-runcoder-900 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
 
@@ -91,8 +119,12 @@ function getTitleStyles({ isActiveSection, isGlobalVariables }) {
     isActiveSection
       ? isGlobalVariables
         ? "text-green-800 dark:text-green-200"
-        : "text-blue-800 dark:text-blue-400"
-      : "text-runcoder-700 dark:text-runcoder-300"
+        : sectionTypeName === TERMINAL
+          ? "text-blue-400"
+          : "text-blue-600 dark:text-blue-400"
+      : sectionTypeName === TERMINAL
+        ? "text-runcoder-300"
+        : "text-runcoder-700 dark:text-runcoder-300"
   } ${isGlobalVariables ? "uppercase font-bold" : "font-bold"}`;
 
   if (isGlobalVariables) {
