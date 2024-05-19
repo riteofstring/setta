@@ -12,7 +12,7 @@ import {
   computeEVReferences,
   computeInfoToFullName,
 } from "utils/CodeMirror/utils";
-import { TERMINAL } from "z_utils/constants";
+import { C } from "utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
@@ -61,7 +61,7 @@ export async function runCode({ codeId }) {
         const id = createNewId();
         INITIAL_MESSAGE[id] = message;
         addSectionInEmptySpace({
-          type: TERMINAL,
+          type: C.TERMINAL,
           inputSectionProps: { id },
           positionOffset: { x: count * 100, y: 0 },
         });

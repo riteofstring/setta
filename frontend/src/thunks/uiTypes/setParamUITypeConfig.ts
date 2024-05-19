@@ -7,7 +7,7 @@ import {
   getSectionInfo,
 } from "thunks/sections/getters";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
-import { SLIDER } from "z_utils/constants";
+import { C } from "utils/constants";
 import { getValueForUIType } from "z_utils/objs/ev";
 import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
@@ -76,7 +76,7 @@ function createNonPresetForParam({
 
 function updateEVs(uiTypeId, configName) {
   const uiType = useUITypes.getState().x[uiTypeId];
-  if (uiType.type === SLIDER && ["min", "max"].includes(configName)) {
+  if (uiType.type === C.SLIDER && ["min", "max"].includes(configName)) {
     _updateEVs(uiType);
   }
 }

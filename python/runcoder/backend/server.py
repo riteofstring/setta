@@ -16,7 +16,12 @@ from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C, set_constants
 from runcoder.utils.tasks import Tasks
 from runcoder.utils.terminals import TerminalWebsockets
-from runcoder.utils.utils import import_from_path, is_dev_mode, obj_to_dict, get_absolute_path
+from runcoder.utils.utils import (
+    get_absolute_path,
+    import_from_path,
+    is_dev_mode,
+    obj_to_dict,
+)
 
 from .db.codeInfo.save import save_code_info
 from .db.projects.delete import delete_projects

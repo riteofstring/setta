@@ -1,14 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { useGetSectionType } from "hooks/useSectionType";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import {
-  CODE,
-  GLOBAL_PARAM_SWEEP,
-  GLOBAL_VARIABLES,
-  PARAM_SWEEP,
-  TERMINAL,
-  VAR_CONTROL,
-} from "z_utils/constants";
+import { C } from "utils/constants";
 import { HeaderIcon } from "../HeaderIcon/HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton/CreateNewVersionButton";
@@ -21,11 +14,11 @@ function MenuButton({ sectionId, sectionTypeName }) {
   console.log("sectionTypeName: ", sectionTypeName);
 
   const isSpecial = [
-    CODE,
-    TERMINAL,
-    GLOBAL_PARAM_SWEEP,
-    GLOBAL_VARIABLES,
-    PARAM_SWEEP,
+    C.CODE,
+    C.TERMINAL,
+    C.GLOBAL_PARAM_SWEEP,
+    C.GLOBAL_VARIABLES,
+    C.PARAM_SWEEP,
   ].includes(sectionTypeName);
 
   return (
@@ -42,17 +35,17 @@ function MenuButton({ sectionId, sectionTypeName }) {
           />
         }
       >
-        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
+        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionType) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
         )}
 
-        {sectionType === PARAM_SWEEP ? (
+        {sectionType === C.PARAM_SWEEP ? (
           <CreateNewParamSweepButton sectionId={sectionId} />
         ) : (
           <CreateNewVersionButton sectionId={sectionId} />
         )}
 
-        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
+        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionType) && (
           <MultirunButton sectionId={sectionId} />
         )}
 

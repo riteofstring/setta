@@ -6,7 +6,7 @@ import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
-import { TEXT } from "z_utils/constants";
+import { C } from "utils/constants";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({
@@ -49,7 +49,7 @@ export function ParamInput({
   );
 
   const paramUIType = useGetParamUIType(sectionId, paramInfoId);
-  const isText = paramUIType.type === TEXT;
+  const isText = paramUIType.type === C.TEXT;
 
   useEffect(() => {
     if (value !== enteredValue) {

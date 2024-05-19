@@ -2,14 +2,7 @@ import copy
 
 from runcoder.backend.db_path import DEFAULT_DB_ALIAS
 
-from ..utils.constants import (
-    CODE,
-    DECK,
-    DICT_ROOT,
-    GLOBAL_VARIABLES,
-    LIST_ROOT,
-    SECTION,
-)
+from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
@@ -101,9 +94,9 @@ def maybe_create_var_name(
 
 
 def get_list_or_dict_value(p, children, type):
-    if type == LIST_ROOT:
+    if type == C.LIST_ROOT:
         return f"[None for _ in range({len(children)})]"
-    elif type == DICT_ROOT:
+    elif type == C.DICT_ROOT:
         children_names = [p["sections"][id]["name"] for id in children]
         return f"{{k:None for k in {children_names}}}"
 
@@ -117,7 +110,7 @@ def export_selected(p):
 def get_code(p):
     for id, s in p["sections"].items():
         if (
-            get_section_type(p, id) == CODE
+            get_section_type(p, id) == C.CODE
             and s["codeLanguage"] == "python"
             and needs_generated_python(s["code"])
         ):
@@ -127,7 +120,7 @@ def get_code(p):
 
 def flatten_groups(p):
     for sid, section in p["sections"].items():
-        if get_section_type(p, sid) != DECK:
+        if get_section_type(p, sid) != C.DECK:
             continue
 
         children = section["children"]
@@ -168,9 +161,9 @@ class Exporter:
         to_pop = []
         for id in self.p["sections"].keys():
             section_type = get_section_type(self.p, id)
-            if section_type == GLOBAL_VARIABLES:
+            if section_type == C.GLOBAL_VARIABLES:
                 self.export_params(id, is_global=True)
-            if section_type not in [SECTION, LIST_ROOT, DICT_ROOT]:
+            if section_type not in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT]:
                 to_pop.append(id)
         for id in to_pop:
             self.p["sections"].pop(id)
@@ -195,7 +188,7 @@ class Exporter:
                 "name": self.p["sections"][id]["name"],
                 "type": type,
             }
-            if type == SECTION:
+            if type == C.SECTION:
                 params, unused_params = self.export_params(id)
                 info["value"] = {
                     "callable": get_selected_item(self.p, id),
@@ -203,7 +196,7 @@ class Exporter:
                     "unusedParams": unused_params,
                 }
                 self.output[var_name] = info
-            elif type in [LIST_ROOT, DICT_ROOT]:
+            elif type in [C.LIST_ROOT, C.DICT_ROOT]:
                 children = self.p["sections"][id]["children"]
                 info["value"] = self.export_sections(children)
                 self.output[var_name] = info
@@ -226,7 +219,7 @@ class Exporter:
             info = {
                 "sectionId": id,
                 "name": self.p["sections"][id]["name"],
-                "type": SECTION,
+                "type": C.SECTION,
                 "value": {
                     "callable": None,
                     "params": params,

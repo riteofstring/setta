@@ -10,8 +10,8 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { C } from "utils/constants";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
-import { PARAM_SWEEP } from "z_utils/constants";
 
 export function VersionList({ sectionId, sectionTypeName }) {
   function onMouseLeave() {
@@ -32,7 +32,7 @@ export function VersionList({ sectionId, sectionTypeName }) {
         onMouseLeave={onMouseLeave}
       >
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
-          {sectionTypeName === PARAM_SWEEP ? (
+          {sectionTypeName === C.PARAM_SWEEP ? (
             <ParamSweepItems
               sectionId={sectionId}
               setNumListings={setNumListings}

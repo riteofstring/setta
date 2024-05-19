@@ -4,10 +4,10 @@ import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID } from "utils/constants";
+import { C, PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import { DECK, isRoot, rootTypeToChildSubType } from "z_utils/constants";
+import { isRoot, rootTypeToChildSubType } from "z_utils/constants";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
@@ -152,7 +152,7 @@ function setSectionSize({ newParentId, sectionId }) {
     return;
   }
   const s = useSectionInfos.getState();
-  const isDeck = getSectionType(newParentId).type === DECK;
+  const isDeck = getSectionType(newParentId).type === C.DECK;
 
   // if new parent is a deck and the deck has children
   if (isDeck) {

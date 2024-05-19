@@ -1,24 +1,16 @@
 import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/MarkdownEditor/MarkdownEditor";
 import { useSettings } from "models/settings";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { C } from "utils/constants";
 import {
-  CODE,
   CODE_UI_TYPE_ID,
-  DECK,
   DECK_UI_TYPE_ID,
-  DICT_ROOT,
   DICT_ROOT_UI_TYPE_ID,
-  GLOBAL_PARAM_SWEEP,
   GLOBAL_PARAM_SWEEP_UI_TYPE_ID,
-  GLOBAL_VARIABLES,
   GLOBAL_VARIABLES_UI_TYPE_ID,
-  INFO,
   INFO_UI_TYPE_ID,
-  LIST_ROOT,
   LIST_ROOT_UI_TYPE_ID,
-  TERMINAL,
   TERMINAL_UI_TYPE_ID,
-  VAR_CONTROL,
   VAR_CONTROL_UI_TYPE_ID,
 } from "z_utils/constants";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
@@ -44,31 +36,30 @@ export function addSectionAtPosition({
 
   const settings = useSettings.getState();
   sectionProps.size = settings.defaultSectionSize;
-
-  if (type === DECK) {
+  if (type === C.DECK) {
     sectionProps.uiTypeId = DECK_UI_TYPE_ID;
-  } else if (type === GLOBAL_VARIABLES) {
+  } else if (type === C.GLOBAL_VARIABLES) {
     sectionProps.name = "Global Variables";
     sectionProps.uiTypeId = GLOBAL_VARIABLES_UI_TYPE_ID;
-  } else if (type === CODE) {
+  } else if (type === C.CODE) {
     sectionProps.name = "Code";
     sectionProps.uiTypeId = CODE_UI_TYPE_ID;
     sectionProps.size = settings.defaultCodeSectionSize;
-  } else if (type === VAR_CONTROL) {
+  } else if (type === C.VAR_CONTROL) {
     sectionProps.name = "Var Control";
     sectionProps.uiTypeId = VAR_CONTROL_UI_TYPE_ID;
     sectionProps.size = settings.defaultCodeSectionSize;
-  } else if (type === TERMINAL) {
+  } else if (type === C.TERMINAL) {
     sectionProps.uiTypeId = TERMINAL_UI_TYPE_ID;
     sectionProps.size = settings.defaultTerminalSectionSize;
-  } else if (type === GLOBAL_PARAM_SWEEP) {
+  } else if (type === C.GLOBAL_PARAM_SWEEP) {
     sectionProps.name = "Global Param Sweep";
     sectionProps.uiTypeId = GLOBAL_PARAM_SWEEP_UI_TYPE_ID;
-  } else if (type === LIST_ROOT) {
+  } else if (type === C.LIST_ROOT) {
     sectionProps.uiTypeId = LIST_ROOT_UI_TYPE_ID;
-  } else if (type === DICT_ROOT) {
+  } else if (type === C.DICT_ROOT) {
     sectionProps.uiTypeId = DICT_ROOT_UI_TYPE_ID;
-  } else if (type === INFO) {
+  } else if (type === C.INFO) {
     sectionProps.name = getDefaultInfoTitle();
     sectionProps.uiTypeId = INFO_UI_TYPE_ID;
   }

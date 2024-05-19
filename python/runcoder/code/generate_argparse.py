@@ -1,4 +1,4 @@
-from ..utils.constants import SWITCH
+from ..utils.constants import C
 
 
 def generate_argparse(selected):
@@ -6,7 +6,7 @@ def generate_argparse(selected):
     for s in selected.values():
         if "paramInfoId" not in s:
             continue
-        if s["type"] == SWITCH:
+        if s["type"] == C.SWITCH:
             if s["value"] == "true":
                 output.append(f"--{s['name']}")
         else:

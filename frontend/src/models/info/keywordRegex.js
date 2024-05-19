@@ -4,14 +4,7 @@ import {
   hasParentInFlattenedStructure,
 } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
-import { SINGLETON_SECTIONS } from "utils/constants";
-import {
-  DICT_ROOT,
-  GLOBAL_VARIABLES,
-  LIST,
-  LIST_ROOT,
-  SECTION,
-} from "z_utils/constants";
+import { C, SINGLETON_SECTIONS } from "utils/constants";
 import { create } from "../utils";
 import { useSectionInfos } from "./sectionInfos";
 
@@ -32,7 +25,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   const topLevelIds = Object.keys(sectionIdsToNames).filter(
     (x) =>
       !hasParentInFlattenedStructure(x) &&
-      [GLOBAL_VARIABLES, SECTION, LIST_ROOT, DICT_ROOT].includes(
+      [C.GLOBAL_VARIABLES, C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
         getSectionType(x).type,
       ),
   );
@@ -80,7 +73,7 @@ function setFullChildrenNamesForRegex(
   for (const c of sectionState[sectionId].children) {
     const subType = getSectionType(c).config.subType;
     const name = sectionIdsToNames[c];
-    const currComponentName = subType === LIST ? name : `["${name}"]`;
+    const currComponentName = subType === C.LIST ? name : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
     setFullChildrenNamesForRegex(
       sectionState,

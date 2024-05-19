@@ -1,37 +1,20 @@
+import { C } from "utils/constants";
 import { SectionUITypeType, UITypeType } from "./types/uiType";
 
-export const TEXT = "TEXT";
-export const SLIDER = "SLIDER";
-export const SWITCH = "SWITCH";
-export const SECTION = "SECTION";
-export const LIST = "LIST";
-export const DICT = "DICT";
-export const DECK = "DECK";
-export const LIST_ROOT = "LIST_ROOT";
-export const DICT_ROOT = "DICT_ROOT";
-export const OUTPUT = "OUTPUT";
-export const INFO = "INFO";
-export const SOCIAL = "SOCIAL";
-export const GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
-export const CODE = "CODE";
-export const VAR_CONTROL = "VAR_CONTROL";
-export const PARAM_SWEEP = "PARAM_SWEEP";
-export const TERMINAL = "TERMINAL";
-export const GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP";
 export const SECTION_TYPE_NAMES = [
-  SECTION,
-  LIST_ROOT,
-  DICT_ROOT,
-  DECK,
-  OUTPUT,
-  INFO,
-  SOCIAL,
-  GLOBAL_VARIABLES,
-  CODE,
-  VAR_CONTROL,
-  PARAM_SWEEP,
-  TERMINAL,
-  GLOBAL_PARAM_SWEEP,
+  C.SECTION,
+  C.LIST_ROOT,
+  C.DICT_ROOT,
+  C.DECK,
+  C.OUTPUT,
+  C.INFO,
+  C.SOCIAL,
+  C.GLOBAL_VARIABLES,
+  C.CODE,
+  C.VAR_CONTROL,
+  C.PARAM_SWEEP,
+  C.TERMINAL,
+  C.GLOBAL_PARAM_SWEEP,
 ];
 
 export const DEFAULT_BASE_UI_TYPE_ID = "3fdaeb6a-e989-4888-b844-17a76f0b0192";
@@ -52,21 +35,21 @@ export const DICT_ROOT_UI_TYPE_ID = "623a9242-53e9-4b42-b695-431e9754a836";
 export const INFO_UI_TYPE_ID = "2b06a83b-b96a-490d-a2d7-3631619e6495";
 
 export function isRoot(sectionTypeName) {
-  return [LIST_ROOT, DICT_ROOT, DECK].includes(sectionTypeName);
+  return [C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(sectionTypeName);
 }
 
 export function isListRoot(sectionTypeName) {
-  return sectionTypeName === LIST_ROOT;
+  return sectionTypeName === C.LIST_ROOT;
 }
 
 export function isSeriesElement(sectionSubTypeName) {
-  return [LIST, DICT].includes(sectionSubTypeName);
+  return [C.LIST, C.DICT].includes(sectionSubTypeName);
 }
 
 export const rootTypeToChildSubType = {
-  [LIST_ROOT]: LIST,
-  [DICT_ROOT]: DICT,
-  [DECK]: null,
+  [C.LIST_ROOT]: C.LIST,
+  [C.DICT_ROOT]: C.DICT,
+  [C.DECK]: null,
 };
 
 export function isSectionUIType(
@@ -78,28 +61,28 @@ export function isSectionUIType(
 export const uiTypesToPretty = Object.freeze(
   new Map(
     Object.entries({
-      [TEXT]: "Text",
-      [SLIDER]: "Slider",
-      [SWITCH]: "Switch",
-      [SECTION]: "Object",
-      [LIST_ROOT]: "List of Objects",
-      [DICT_ROOT]: "Dict of Objects",
-      [DECK]: "Deck",
-      [OUTPUT]: "Program Output",
-      [INFO]: "Info",
-      [SOCIAL]: "Social",
-      [GLOBAL_VARIABLES]: "Global Variables",
-      [CODE]: "Code",
-      [VAR_CONTROL]: "Variable Control",
-      [PARAM_SWEEP]: "Parameter Sweep",
-      [TERMINAL]: "Terminal",
-      [GLOBAL_PARAM_SWEEP]: "Global Param Sweep",
+      [C.TEXT]: "Text",
+      [C.SLIDER]: "Slider",
+      [C.SWITCH]: "Switch",
+      [C.SECTION]: "Object",
+      [C.LIST_ROOT]: "List of Objects",
+      [C.DICT_ROOT]: "Dict of Objects",
+      [C.DECK]: "Deck",
+      [C.OUTPUT]: "Program Output",
+      [C.INFO]: "Info",
+      [C.SOCIAL]: "Social",
+      [C.GLOBAL_VARIABLES]: "Global Variables",
+      [C.CODE]: "Code",
+      [C.VAR_CONTROL]: "Variable Control",
+      [C.PARAM_SWEEP]: "Parameter Sweep",
+      [C.TERMINAL]: "Terminal",
+      [C.GLOBAL_PARAM_SWEEP]: "Global Param Sweep",
     }),
   ),
 );
 
 export function requiresKeyInput(sectionSubTypeName) {
-  return [null, DICT].includes(sectionSubTypeName);
+  return [null, C.DICT].includes(sectionSubTypeName);
 }
 
 export function getParamSweepSectionName(sectionName) {

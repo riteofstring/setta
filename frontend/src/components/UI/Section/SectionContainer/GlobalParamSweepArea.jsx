@@ -5,14 +5,7 @@ import { useRunGroups } from "models/runGroups";
 import React, { useState } from "react";
 import { BiFilter } from "react-icons/bi";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import {
-  CODE,
-  DECK,
-  DICT_ROOT,
-  GLOBAL_VARIABLES,
-  LIST_ROOT,
-  SECTION,
-} from "z_utils/constants";
+import { C } from "utils/constants";
 import { createNewId, createRandomName } from "z_utils/utils";
 
 export function GlobalParamSweepArea() {
@@ -75,12 +68,12 @@ function RunGroupList({
 
 function SectionList({ runGroupId, runGroup }) {
   const shownSectionTypes = [
-    SECTION,
-    LIST_ROOT,
-    DICT_ROOT,
-    DECK,
-    GLOBAL_VARIABLES,
-    CODE,
+    C.SECTION,
+    C.LIST_ROOT,
+    C.DICT_ROOT,
+    C.DECK,
+    C.GLOBAL_VARIABLES,
+    C.CODE,
   ];
   const allSections = useGetOverviewListing((sectionTypeName) =>
     shownSectionTypes.includes(sectionTypeName),

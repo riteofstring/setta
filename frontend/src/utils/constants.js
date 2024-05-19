@@ -33,4 +33,5 @@ export function setDbSourceMapping(newMapping) {
   }
 }
 
-export const COMMON_CONSTS = {};
+// constants object
+export const C = {};

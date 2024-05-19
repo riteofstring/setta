@@ -1,7 +1,7 @@
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
-import { COMMON_CONSTS } from "utils/constants";
+import { C } from "utils/constants";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
@@ -19,7 +19,7 @@ function newTerminalWebsocket(sectionId) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
   } else {
     const projectConfigId = useProjectConfig.getState().id;
-    const wsTerminalAddress = `${COMMON_CONSTS.WEBSOCKET}/terminal/${projectConfigId}/${sectionId}`;
+    const wsTerminalAddress = `${C.WEBSOCKET}/terminal/${projectConfigId}/${sectionId}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
       if (PENDING_MSG[sectionId]) {

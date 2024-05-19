@@ -1,7 +1,7 @@
 import { useGetSectionType } from "hooks/useSectionType";
 import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import React from "react";
-import { OUTPUT, SOCIAL } from "z_utils/constants";
+import { C } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { OutputsSearch } from "./OutputSearch";
@@ -50,9 +50,9 @@ function SectionConfigCore({ sectionId }) {
 
 function SearchSwitch({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
-  if (sectionType === OUTPUT) {
+  if (sectionType === C.OUTPUT) {
     return <OutputsSearch sectionId={sectionId} />;
-  } else if (sectionType === SOCIAL) {
+  } else if (sectionType === C.SOCIAL) {
     return <SocialTypeSearch sectionId={sectionId} />;
   } else {
     return <CollectionsSearch sectionId={sectionId} />;

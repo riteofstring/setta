@@ -4,37 +4,30 @@ import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
-import {
-  CODE,
-  GLOBAL_PARAM_SWEEP,
-  GLOBAL_VARIABLES,
-  PARAM_SWEEP,
-  TERMINAL,
-  VAR_CONTROL,
-} from "z_utils/constants";
+import { C } from "utils/constants";
 
 export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
   const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
 
   switch (sectionTypeName) {
-    case CODE:
-    case VAR_CONTROL:
+    case C.CODE:
+    case C.VAR_CONTROL:
       return (
         <CodeLanguageIcon
           codeLanguage={codeLanguage}
           classes="text-runcoder-300 dark:text-runcoder-400/50 group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-runcoder-500  transition-colors"
         />
       );
-    case TERMINAL:
+    case C.TERMINAL:
       return (
         <FaTerminal className="text-runcoder-300 transition-colors group-hover/card-section:text-blue-500 dark:text-runcoder-400/50 dark:text-runcoder-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
-    case GLOBAL_PARAM_SWEEP:
-    case GLOBAL_VARIABLES:
+    case C.GLOBAL_PARAM_SWEEP:
+    case C.GLOBAL_VARIABLES:
       return (
         <RiGlobalFill className="text-runcoder-300 transition-colors group-hover/card-section:text-green-500 dark:text-runcoder-400/50 dark:text-runcoder-500 " />
       );
-    case PARAM_SWEEP:
+    case C.PARAM_SWEEP:
       return (
         <TbArrowIteration className="text-runcoder-300 transition-colors group-hover/card-section:text-blue-500 dark:text-runcoder-400/50 dark:text-runcoder-500 dark:group-hover/card-section:text-[#0084ff] " />
       );

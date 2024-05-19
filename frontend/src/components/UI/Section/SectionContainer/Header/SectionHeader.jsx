@@ -4,7 +4,8 @@ import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
-import { isRoot, TERMINAL } from "z_utils/constants";
+import { C } from "utils/constants";
+import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
@@ -119,10 +120,10 @@ function getTitleStyles({ isActiveSection, isGlobalVariables, sectionId }) {
     isActiveSection
       ? isGlobalVariables
         ? "text-green-800 dark:text-green-200"
-        : sectionTypeName === TERMINAL
+        : sectionTypeName === C.TERMINAL
           ? "text-blue-400"
           : "text-blue-600 dark:text-blue-400"
-      : sectionTypeName === TERMINAL
+      : sectionTypeName === C.TERMINAL
         ? "text-runcoder-300"
         : "text-runcoder-700 dark:text-runcoder-300"
   } ${isGlobalVariables ? "uppercase font-bold" : "font-bold"}`;

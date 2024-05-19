@@ -14,14 +14,9 @@ import {
 } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID } from "utils/constants";
+import { C, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
-import {
-  CODE,
-  DECK,
-  GLOBAL_VARIABLES,
-  SWITCH_UI_TYPE_ID,
-} from "z_utils/constants";
+import { SWITCH_UI_TYPE_ID } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { RCType } from "z_utils/types/codeInfo";
@@ -40,7 +35,7 @@ export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   }
 
   onClickAddSection({
-    type: DECK,
+    type: C.DECK,
     x,
     y,
     callbackBeforeExit: getCallbackBeforeExit({
@@ -137,7 +132,7 @@ export function extractArgparseArgs({ pathToScript, ...props }) {
 
 function createSectionsFromArgparse({ pathToScript, args, ...props }) {
   const varSectionId = onClickAddSection({
-    type: GLOBAL_VARIABLES,
+    type: C.GLOBAL_VARIABLES,
     ...props,
     incrementVersion: false,
   });
@@ -165,7 +160,7 @@ function createSectionsFromArgparse({ pathToScript, args, ...props }) {
   updateParams(varSectionId);
 
   onClickAddSection({
-    type: CODE,
+    type: C.CODE,
     ...props,
     x: props.x + 600,
     incrementVersion: false,

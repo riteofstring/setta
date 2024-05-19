@@ -1,4 +1,4 @@
-from runcoder.utils.constants import is_section_ui_type
+from runcoder.utils.constants import C, is_section_ui_type
 
 
 def save_ui_types(dbs, uiTypes):
@@ -45,7 +45,7 @@ def parse_section_config(uiType):
 
 
 def save_slider_types(db, uiTypes):
-    uiTypes = [x for x in uiTypes if x["type"] == "SLIDER"]
+    uiTypes = [x for x in uiTypes if x["type"] == C.SLIDER]
     query = """
         UPDATE UIType
         SET sliderConfigMin = :sliderConfigMin,

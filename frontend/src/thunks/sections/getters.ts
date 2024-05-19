@@ -2,15 +2,8 @@ import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { DB_SOURCE_MAPPING } from "utils/constants";
-import {
-  DECK,
-  DEFAULT_DB_ALIAS,
-  INFO,
-  isRoot,
-  OUTPUT,
-  SOCIAL,
-} from "z_utils/constants";
+import { C, DB_SOURCE_MAPPING } from "utils/constants";
+import { DEFAULT_DB_ALIAS, isRoot } from "z_utils/constants";
 import { SectionUITypeConfigType } from "z_utils/types/uiType";
 
 export function getSectionInfo(sectionId) {
@@ -39,11 +32,11 @@ export function getSectionTypeConfig(sectionId) {
 }
 
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
-  return [OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
+  return [C.OUTPUT, C.INFO, C.SOCIAL].includes(getSectionType(sectionId).type);
 }
 
 export function getSectionIsDeck(sectionId) {
-  return getSectionType(sectionId).type === DECK;
+  return getSectionType(sectionId).type === C.DECK;
 }
 
 export function getSectionIdsWithUITypeIds(uiTypeIds) {

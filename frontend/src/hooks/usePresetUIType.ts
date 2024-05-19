@@ -1,13 +1,8 @@
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";
-import {
-  DICT_ROOT,
-  isSectionUIType,
-  LIST_ROOT,
-  SECTION,
-  uiTypesToPretty,
-} from "z_utils/constants";
+import { C } from "utils/constants";
+import { isSectionUIType, uiTypesToPretty } from "z_utils/constants";
 import { ManyUITypeType, PresetType, UITypeType } from "z_utils/types/uiType";
 import { isBasePreset, isPreset, isUserPreset } from "z_utils/uiTypeConstants";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
@@ -96,12 +91,12 @@ export function useAvailableUITypesForParam(
 
 function getOtherSectionTypeNamesToShow(currTypeName) {
   switch (currTypeName) {
-    case SECTION:
-      return [LIST_ROOT, DICT_ROOT];
-    case LIST_ROOT:
-      return [SECTION, DICT_ROOT];
-    case DICT_ROOT:
-      return [SECTION, LIST_ROOT];
+    case C.SECTION:
+      return [C.LIST_ROOT, C.DICT_ROOT];
+    case C.LIST_ROOT:
+      return [C.SECTION, C.DICT_ROOT];
+    case C.DICT_ROOT:
+      return [C.SECTION, C.LIST_ROOT];
     default:
       return [];
   }

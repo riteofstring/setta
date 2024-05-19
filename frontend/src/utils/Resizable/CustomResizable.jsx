@@ -11,8 +11,8 @@ import {
 } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
+import { C } from "utils/constants";
 import { useDndMode } from "utils/DNDSortable/dndState";
-import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 
@@ -105,7 +105,7 @@ function CustomResizableCore({
 function useSizeMode(sectionId) {
   const sectionType = useGetSectionType(sectionId, "type");
   const isTwitter = useIsTwitter(sectionId);
-  if (sectionType === OUTPUT) {
+  if (sectionType === C.OUTPUT) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   } else if (isTwitter) {
     return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };

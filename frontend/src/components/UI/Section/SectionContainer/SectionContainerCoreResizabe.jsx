@@ -2,20 +2,9 @@ import { useSectionHasMultipleParamSweeps } from "hooks/useParamSweepInfo";
 import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
+import { C } from "utils/constants";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
-import {
-  CODE,
-  GLOBAL_PARAM_SWEEP,
-  GLOBAL_VARIABLES,
-  INFO,
-  isRoot,
-  OUTPUT,
-  PARAM_SWEEP,
-  SECTION,
-  SOCIAL,
-  TERMINAL,
-  VAR_CONTROL,
-} from "z_utils/constants";
+import { isRoot } from "z_utils/constants";
 import { CodeArea } from "./CodeArea";
 import "./dndline.css";
 import { GlobalParamSweepArea } from "./GlobalParamSweepArea";
@@ -39,12 +28,13 @@ export function SectionContainerCoreResizable({
   isWrongType,
   dbSourceIsAvailable,
 }) {
-  const isGlobalVariables = sectionTypeName === GLOBAL_VARIABLES;
-  const isInfo = sectionTypeName === INFO;
+  const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
+  const isInfo = sectionTypeName === C.INFO;
   const hasEVVersions = useSectionHasMultipleEVCols(sectionId);
   const hasParamSweepVersions = useSectionHasMultipleParamSweeps(sectionId);
   const hasVersions =
-    (sectionTypeName === PARAM_SWEEP && hasParamSweepVersions) || hasEVVersions;
+    (sectionTypeName === C.PARAM_SWEEP && hasParamSweepVersions) ||
+    hasEVVersions;
 
   const getOutlineColor = () => {
     if (!dbSourceIsAvailable) {
@@ -68,12 +58,12 @@ export function SectionContainerCoreResizable({
       return "bg-white dark:bg-black";
     }
     switch (sectionTypeName) {
-      case VAR_CONTROL:
-      case CODE:
+      case C.VAR_CONTROL:
+      case C.CODE:
         return "bg-white dark:bg-runcoder-900";
-      case TERMINAL:
+      case C.TERMINAL:
         return "bg-runcoder-950 overflow-clip";
-      case GLOBAL_PARAM_SWEEP:
+      case C.GLOBAL_PARAM_SWEEP:
         return "@container/multipane";
       // case PARAM_SWEEP:
       //   return "bg-runcoder-50 dark:bg-runcoder-850";
@@ -132,24 +122,24 @@ export function SectionContainerCoreResizable({
 
 function AreaSwitch({ sectionId, sectionTypeName }) {
   switch (sectionTypeName) {
-    case SECTION:
+    case C.SECTION:
       return <InputArea sectionId={sectionId} />;
-    case OUTPUT:
+    case C.OUTPUT:
       return <OutputArea sectionId={sectionId} />;
-    case SOCIAL:
+    case C.SOCIAL:
       return <SocialArea sectionId={sectionId} />;
-    case INFO:
+    case C.INFO:
       return <InfoArea sectionId={sectionId} />;
-    case GLOBAL_VARIABLES:
+    case C.GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} />;
-    case CODE:
-    case VAR_CONTROL:
+    case C.CODE:
+    case C.VAR_CONTROL:
       return <CodeArea sectionId={sectionId} />;
-    case PARAM_SWEEP:
+    case C.PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
-    case TERMINAL:
+    case C.TERMINAL:
       return <TerminalArea sectionId={sectionId} />;
-    case GLOBAL_PARAM_SWEEP:
+    case C.GLOBAL_PARAM_SWEEP:
       return <GlobalParamSweepArea />;
     default:
       return null;

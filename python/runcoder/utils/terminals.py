@@ -18,7 +18,7 @@ from runcoder.code.find_placeholders import (
 )
 from runcoder.code.generate_argparse import generate_argparse
 from runcoder.code.generate_code import generate_code, replace_keywords
-from runcoder.utils.constants import CODE
+from runcoder.utils.constants import C
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
@@ -149,7 +149,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     code_sections = {
         id: copy.deepcopy(s)
         for id, s in p["sections"].items()
-        if get_section_type(p, s["id"]) == CODE
+        if get_section_type(p, s["id"]) == C.CODE
     }
     dependencies = {}
     for s in code_sections.values():

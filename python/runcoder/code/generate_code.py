@@ -1,7 +1,7 @@
 import ast
 import copy
 
-from ..utils.constants import DICT_ROOT, LIST_ROOT, SECTION, SLIDER, SWITCH, TEXT
+from ..utils.constants import C
 from .export_selected import get_args_var_name
 from .find_placeholders import double_braces
 from .infer_imports import infer_imports
@@ -49,18 +49,18 @@ def var_declaration(var_name, value, is_dict=False):
 
 def get_value(x, selected):
     type_value = x["type"]
-    if type_value in [TEXT, SLIDER]:
+    if type_value in [C.TEXT, C.SLIDER]:
         return str(x["value"])
-    elif type_value == SWITCH:
+    elif type_value == C.SWITCH:
         return str(get_boolean(x["value"]))
-    elif type_value in [SECTION]:
+    elif type_value in [C.SECTION]:
         if not x["value"]["callable"]:
             return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:
             return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
-    elif type_value == LIST_ROOT:
+    elif type_value == C.LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
-    elif type_value == DICT_ROOT:
+    elif type_value == C.DICT_ROOT:
         return "{" + get_dict_contents(x["value"], selected) + "}"
     else:
         return None

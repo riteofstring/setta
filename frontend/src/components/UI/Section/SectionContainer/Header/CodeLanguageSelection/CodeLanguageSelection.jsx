@@ -4,7 +4,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { PiBracketsCurlyBold } from "react-icons/pi";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
-import { CODE } from "z_utils/constants";
+import { C } from "utils/constants";
 
 function CodeLanguageSelection({ sectionId, sectionTypeName }) {
   const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
@@ -16,7 +16,7 @@ function CodeLanguageSelection({ sectionId, sectionTypeName }) {
   }
 
   return (
-    sectionTypeName === CODE && (
+    sectionTypeName === C.CODE && (
       <Menubar.Root>
         <MenuDropdown
           padding="p-1"

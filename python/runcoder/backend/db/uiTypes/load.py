@@ -1,4 +1,4 @@
-from runcoder.utils.constants import is_section_ui_type
+from runcoder.utils.constants import C, is_section_ui_type
 
 
 def load_base_uitypes(dbs):
@@ -44,7 +44,7 @@ def process_uitype(uitype):
     }
     if is_section_ui_type(uitype["type"]):
         output["config"] = load_section_config(uitype)
-    if uitype["type"] == "SLIDER":
+    if uitype["type"] == C.SLIDER:
         output["config"] = load_slider_config(uitype)
     return output
 
