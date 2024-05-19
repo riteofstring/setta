@@ -64,7 +64,7 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
         area="card-value"
       />
       {isText && (
-        <span className="border-box absolute border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
+        <span className="border-box absolute bottom-0 w-full border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
       )}
     </div>
   );

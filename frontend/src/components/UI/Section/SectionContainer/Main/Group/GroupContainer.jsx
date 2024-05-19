@@ -19,7 +19,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
     //   ref={ref}
     // >
     <div
-      className={`card-args-list -mx-1 flex flex-col gap-1 py-1 ${overflow ? "nowheel overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""}`}
+      className={`card-args-list -mx-1 flex flex-col gap-1 overflow-y-scroll py-1 pl-2 ${overflow ? "nowheel" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""}`}
       ref={ref}
     >
       <GetParams
