@@ -28,7 +28,7 @@ export async function dbLoadFullProject({
 }) {
   return await post({
     body: { withBaseUITypes },
-    address: `/projects/load/${projectName}`,
+    address: pseudoTemplatedStr(C.ROUTE_LOAD_FULL_PROJCT, { projectName }),
   });
 }
 
@@ -62,7 +62,7 @@ export async function dbSaveAsExistingProjectConfig({ project, configName }) {
 
 export async function dbDeleteProjects({ ids }) {
   return await post({
-    address: "/projects/deleteProjects",
+    address: C.ROUTE_DELETE_PROJECTS,
     body: { ids },
   });
 }

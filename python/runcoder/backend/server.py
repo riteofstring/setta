@@ -319,7 +319,7 @@ def route_load_project(projectName, configName):
         return load_project(dbs, projectName, configName)
 
 
-@app.post("/projects/load/{projectName}")
+@app.post(C.ROUTE_LOAD_FULL_PROJCT)
 def route_load_full_project(projectName, body: LoadFullProjectRequest):
     with dbs:
         return load_full_project(dbs, projectName, body.withBaseUITypes)
@@ -350,7 +350,7 @@ def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest)
         return save_as_existing_project_config(dbs, x.project, x.configName)
 
 
-@app.post("/projects/deleteProjects")
+@app.post(C.ROUTE_DELETE_PROJECTS)
 def route_delete_projects(x: DeleteProjectsRequest):
     with dbs:
         return delete_projects(dbs, x.ids)
