@@ -44,7 +44,7 @@ function _ParamContainer({
 
   return paramChildren.length === 0 ? (
     <article
-      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
+      className={`group/arg-group flex items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
       {...infoViewHandlers}
       onClick={(e) => onClick(e, sectionId, paramInfo.id)}
     >
@@ -58,9 +58,9 @@ function _ParamContainer({
       <PinButton
         sectionId={sectionId}
         paramInfoId={paramInfo.id}
-        variants="justify-self-end self-center"
+        variants="absolute"
       />
-      <ParamOptionsButton />
+      <ParamOptionsButton variants="absolute" />
     </article>
   ) : (
     <article

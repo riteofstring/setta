@@ -28,7 +28,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
 
   return (
     <>
-      <section className="card-args-control flex min-w-0  rounded-xl border-b border-solid border-white px-5  pb-1 shadow-sm @container dark:border-runcoder-700 dark:from-transparent">
+      <section className="card-args-control -mx-1 flex min-w-0  rounded-xl border-b border-solid border-white px-5  pb-1 shadow-sm @container dark:border-runcoder-700 dark:from-transparent">
         <div className="flex min-w-0 flex-grow flex-col @[12rem]:flex-row">
           <article className="flex items-center">
             <h3 className="pr-1  font-heading text-xs font-bold uppercase text-runcoder-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-runcoder-400/70 "></h3>

@@ -39,7 +39,7 @@ function FilterSection() {
   // bg-gradient-to-t from-runcoder-50
   return (
     <>
-      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
+      <search className="card-args-control -mx-1 flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
         <StandardSearch
           leftElement={<BiFilter className="text-runcoder-400" />}
           placeholder="Filter"
@@ -280,7 +280,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="card-arg-group group/arg-group group/textinput -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
+      <article className="group/arg-group group/textinput -mx-2 -my-1 flex items-center justify-between rounded-lg px-2 py-1">
         <ParamUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}

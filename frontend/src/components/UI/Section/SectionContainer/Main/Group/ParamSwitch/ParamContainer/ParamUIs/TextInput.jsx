@@ -23,7 +23,6 @@ export function TextInput({
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
-      className="card-value"
       // variants="bg-white dark:bg-transparent"
       classes={classes}
       area={area}
