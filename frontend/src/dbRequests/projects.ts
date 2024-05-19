@@ -1,6 +1,5 @@
 import { C } from "utils/constants";
-import { LOAD_PROJECT } from "z_utils/routes";
-import { post } from "./utils";
+import { post, pseudoTemplatedStr } from "./utils";
 
 export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
   return await post({
@@ -19,7 +18,7 @@ export async function dbGetProjectsForHomePage() {
 export async function dbLoadProject({ projectName, configName }) {
   return await post({
     body: {},
-    address: LOAD_PROJECT({ projectName, configName }),
+    address: pseudoTemplatedStr(C.LOAD_PROJECT, { projectName, configName }),
   });
 }
 

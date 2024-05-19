@@ -26,6 +26,7 @@
   "CALLABLE": "callable",
   "PARAMETER": "parameter",
   "ROUTE_PROJECTS": "/projects",
+  "ROUTE_LOAD_PROJECT": "/projects/load/{projectName}/{configName}",
   "ROUTE_SAVE_PROJECT": "/projects/save",
   "ROUTE_CREATE_PROJECT": "/projects/createProject",
   "ROUTE_SAVE_AS_NEW_PROJECT_CONFIG": "/projects/saveAsNewProjectConfig",

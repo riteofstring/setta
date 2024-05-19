@@ -313,7 +313,7 @@ def route_projects(x: ProjectRequest):
         return load_all_projects(dbs, x.format, x.projectId)
 
 
-@app.post("/projects/load/{projectName}/{configName}")
+@app.post(C.ROUTE_LOAD_PROJECT)
 def route_load_project(projectName, configName):
     with dbs:
         return load_project(dbs, projectName, configName)

@@ -17,3 +17,12 @@ export async function post<S, R>({
     .then((res) => res)
     .catch((res) => res);
 }
+
+export function pseudoTemplatedStr(inputStr, replacements) {
+  let output = inputStr;
+  for (const [key, value] of Object.entries(replacements)) {
+    const regex = new RegExp(`\\{${key}\\}`, "g"); // Creates a global regex
+    output = output.replace(regex, value);
+  }
+  return output;
+}
