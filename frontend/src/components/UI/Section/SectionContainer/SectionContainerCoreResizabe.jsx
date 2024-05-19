@@ -8,6 +8,7 @@ import {
   GLOBAL_PARAM_SWEEP,
   GLOBAL_VARIABLES,
   INFO,
+  isRoot,
   OUTPUT,
   PARAM_SWEEP,
   SECTION,
@@ -20,6 +21,7 @@ import "./dndline.css";
 import { GlobalParamSweepArea } from "./GlobalParamSweepArea";
 import { GlobalVariablesArea } from "./GlobalVariablesArea";
 import { SectionHeader } from "./Header/SectionHeader";
+import { Incrementer } from "./Incrementer/Incrementer";
 import { InfoArea } from "./InfoArea";
 import { InputArea } from "./InputArea";
 import { VersionList } from "./Main/VersionList/VersionList";
@@ -79,6 +81,7 @@ export function SectionContainerCoreResizable({
         return "bg-runcoder-50 dark:bg-runcoder-875";
     }
   };
+  const _isRoot = isRoot(sectionTypeName);
 
   const outlineColor = getOutlineColor();
   const bgColor = getBgColor();
@@ -106,6 +109,9 @@ export function SectionContainerCoreResizable({
             isInfo={isInfo}
             sectionTypeName={sectionTypeName}
           />
+          {(isSeriesElement || _isRoot) && (
+            <Incrementer sectionId={sectionId} isRoot={_isRoot} />
+          )}
           <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
           {hasVersions && (
             <Button

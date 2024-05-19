@@ -10,6 +10,10 @@ export function useMinSectionHeight(sectionId) {
   const hasSearch = useGetAllCallables(sectionId).length > 0 && !isRoot;
   const hasKwargControl = !isRoot;
 
+  if (isRoot){
+    return 50
+}
+
   if (isOutput) {
     return 300;
   }

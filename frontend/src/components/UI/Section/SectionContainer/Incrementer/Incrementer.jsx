@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TbSortDescending2, TbSortDescendingSmallBig } from "react-icons/tb";
 import { addChildrenToSeries } from "thunks/sections/addChild";
 import { deleteChildrenFromSeries } from "thunks/sections/deleteChild";
 
@@ -34,13 +35,19 @@ export function Incrementer({ sectionId, isRoot }) {
     // <Tooltip.Provider>
     //   <Tooltip.Root>
     //     <Tooltip.Trigger asChild>
-    <div className="flex max-w-xs gap-1 rounded-lg bg-runcoder-200 px-2 py-1 dark:bg-runcoder-900">
+    <div className="card-incrementer -mx-2 flex items-center gap-1 rounded-lg bg-runcoder-200 pl-2 pr-1 dark:bg-runcoder-950">
       {isRoot ? (
-        <p className="text-xs font-bold text-runcoder-500">Children</p>
+        <>
+          <TbSortDescendingSmallBig className="text-white" />
+          <p className="text-[10px] font-bold text-runcoder-500">Children</p>
+        </>
       ) : (
-        <p className="text-xs text-runcoder-500">Siblings</p>
+        <>
+          <TbSortDescending2 />
+          <p className="text-[10px] text-runcoder-500">Siblings</p>
+        </>
       )}
-      {isRoot && <i className="gg-corner-right-down" />}
+      {isRoot && <i className="gg-corner-right-down -ml-1 text-runcoder-600" />}
 
       {/* <input
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300"
@@ -49,7 +56,7 @@ export function Incrementer({ sectionId, isRoot }) {
         aria-label="Number of sections"
       /> */}
 
-      <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300">
+      <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-[10px] focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300">
         {numSections}
       </div>
 

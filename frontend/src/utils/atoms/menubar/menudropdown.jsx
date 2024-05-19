@@ -25,7 +25,7 @@ export function MenuDropdown({
       </Menubar.Trigger>
       <Menubar.Portal>
         <Menubar.Content
-          className={`z-20 min-w-[200px] rounded-md border border-solid border-runcoder-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-runcoder-800  dark:bg-runcoder-900 ${contentStyle}`}
+          className={`z-20 min-w-[200px] rounded-md border border-solid border-runcoder-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-runcoder-700/50  dark:bg-runcoder-850 ${contentStyle}`}
           align={align}
           sideOffset={sideOffset}
           alignOffset={alignOffset}

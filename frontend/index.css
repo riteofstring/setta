@@ -14,6 +14,10 @@ input {
   all: unset;
 }
 
+html, body {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
@@ -91,14 +95,14 @@ body {
 
 .card-grid {
   display: grid;
-  gap: 0.33rem;
+  gap: 0.25rem .33rem;
   grid-template-columns: [c1] 0 [c2] 0.5rem [c3] 1fr [c4] 1fr [c5] 0.5rem [c6] 0 [c7];
   grid-template-rows:
     [r1] 0.25rem
     [r2] minmax(0, min-content)
     [r3] minmax(0, min-content)
     [r4] minmax(0, min-content)
-    [r5] 1fr
+    [r5] minmax(0, 1fr)
     [r6] 0.25rem;
 }
 
@@ -200,6 +204,11 @@ body {
   grid-column: c3 / c5;
   grid-row: span 1;
   align-items: flex-start;
+}
+
+.card-incrementer {
+  grid-column: c3 / c5;
+  grid-row: r3 / r5;
 }
 
 .card-nested-group {

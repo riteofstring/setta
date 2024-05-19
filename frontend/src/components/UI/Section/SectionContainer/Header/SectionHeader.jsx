@@ -1,7 +1,6 @@
 import React from "react";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { isRoot } from "z_utils/constants";
-import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
 import { MinimizeButton } from "./MinimizeButton/MinimizeButton";
@@ -44,15 +43,17 @@ function _SectionHeader({
           /> */}
         </>
       )}
-      {(isSeriesElement || _isRoot) && (
-        <Incrementer sectionId={sectionId} isRoot={_isRoot} />
-      )}
 
       <div
         className={
-          isInfo ? "absolute right-2 top-[.3rem] z-10" : "absolute right-2 z-10"
+          isInfo
+            ? "absolute right-2 top-[.3rem] z-10"
+            : "z-10 ml-auto flex items-center"
         }
       >
+        {/* {(isSeriesElement || _isRoot) && (
+          <Incrementer sectionId={sectionId} isRoot={_isRoot} />
+        )} */}
         <MinimizeButton />
         <CustomCloseButton
           onClick={onCustomCloseButtonClick}
