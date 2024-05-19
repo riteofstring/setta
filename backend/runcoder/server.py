@@ -36,12 +36,11 @@ from runcoder.database.db.uiTypes.load import load_base_uitypes
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
 from runcoder.database.utils import convert_to_backend_format, generate_memorable_string
-from runcoder.environ import get_cli_args
 from runcoder.processors.processors import Processors, getProcessorOutput
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
-from runcoder.utils.constants import C, set_constants
+from runcoder.utils.constants import C
 from runcoder.utils.tasks import Tasks
 from runcoder.utils.utils import (
     get_absolute_path,
@@ -49,8 +48,6 @@ from runcoder.utils.utils import (
     is_dev_mode,
     obj_to_dict,
 )
-
-set_constants(**get_cli_args())
 
 origins = C.FRONTEND_ORIGINS
 app = FastAPI()

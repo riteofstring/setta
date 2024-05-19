@@ -4,9 +4,14 @@ import subprocess
 from pprint import pprint
 
 import docstring_parser
-import jedi
 
-from runcoder.type_checkers.python.type_checker import parse_and_type_check
+from runcoder.autocomplete.python.jedi.autocomplete import (
+    autocomplete as jedi_autocomplete,
+)
+from runcoder.autocomplete.python.jedi.autocomplete import (
+    get_parameters as jedi_get_parameters,
+)
+from runcoder.type_checkers.python.mypy.type_checker import parse_and_type_check
 
 from ..code.export_selected import export_selected, get_code
 from ..code.extract_args_from_help import extract_args_from_help
@@ -19,7 +24,7 @@ from ..code.generate_code import (
     var_declaration,
 )
 from ..code.utils import process_refs
-from ..utils.constants import BUILT_INS
+from ..utils.constants import BUILT_INS, C, set_constants
 from .utils import withTempFiles
 
 
@@ -46,7 +51,9 @@ class Processors:
         fn = self.fns[key]
         use_thread = key in self.interactive_projects
         self.maybe_read_cache(message, cache)
-        result = await tasks_obj.run_non_blocking_subprocess(fn, use_thread, message)
+        result = await tasks_obj.run_non_blocking_subprocess(
+            copyConstsThenRunFn, use_thread, C, fn, message
+        )
         self.maybe_cache_result(message, result, cache)
         return result
 
@@ -70,6 +77,11 @@ class Processors:
             cache.add_text_field_generated_code(
                 project["projectConfig"]["id"], sectionId, result["cache"]
             )
+
+
+def copyConstsThenRunFn(inputC, fn, message):
+    set_constants(**vars(inputC))
+    return fn(message)
 
 
 def codeCompletion(message):
@@ -122,10 +134,10 @@ def textFieldCompletion(message):
     return completionHelper(message, "textFieldCompletion", textFieldCompletionFn(None))
 
 
-def jedi_complete(code, var_name_to_line_num, var_name, column):
+def autocomplete(code, var_name_to_line_num, var_name, column):
     column = column + len(var_declaration(var_name, ""))
     line = var_name_to_line_num[var_name] + 1
-    return jedi.Script(code).complete(line=line, column=column), line
+    return jedi_autocomplete(code, line, column), line
 
 
 def textFieldCompletionFn(return_types):
@@ -136,7 +148,7 @@ def textFieldCompletionFn(return_types):
         variables = []
         builtins = []
         the_rest = []
-        results, _ = jedi_complete(code, var_name_to_line_num, var_name, column)
+        results, _ = autocomplete(code, var_name_to_line_num, var_name, column)
         for c in results:
             if return_types and c.type not in return_types:
                 continue
@@ -205,12 +217,12 @@ def parametersRequestFn(
     beforeText, code, var_name_to_line_num, var_name, referencable_var_names, column
 ):
     print("parametersRequest", flush=True)
-    results, line = jedi_complete(code, var_name_to_line_num, var_name, column)
+    results, line = autocomplete(code, var_name_to_line_num, var_name, column)
     parsed = docstring_parser.parse(results[0].docstring(raw=True))
     descriptions = {v.arg_name: v.description for v in parsed.params}
 
     code = append_to_line(code, line, "(")
-    signatures = jedi.Script(code).get_signatures(line=line)
+    signatures = jedi_get_parameters(code, line)
     output = []
     if signatures:
         signature = signatures[0]

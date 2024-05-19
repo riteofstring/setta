@@ -17,7 +17,6 @@ from .database.db_path import delete_alias as _delete_alias
 from .database.db_path import get_db_path_from_config, load_config
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
-from .environ import set_cli_args
 from .utils.constants import C, set_constants
 from .utils.utils import get_absolute_path, is_dev_mode
 
@@ -139,7 +138,7 @@ def delete_alias(name):
 @click.pass_context
 def cli(ctx, reload, with_example_projects, db, i, w, host, port):
     if ctx.invoked_subcommand is None:
-        set_cli_args(
+        set_constants(
             with_example_projects=with_example_projects,
             db_specs=db,
             i_path=i,
