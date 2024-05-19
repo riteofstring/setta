@@ -45,14 +45,8 @@ from .environ import get_cli_args
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
 set_constants(**get_cli_args())
-dev_mode = is_dev_mode()
 
-origins = (
-    ["http://127.0.0.1:3000", "http://localhost:3000"]
-    if dev_mode
-    else ["http://127.0.0.1:8000", "http://localhost:8000"]
-)
-
+origins = C.FRONTEND_ORIGINS
 app = FastAPI()
 tasks_obj = Tasks()
 cache = Cache()
@@ -72,7 +66,7 @@ maybe_create_tables_and_seed(
 @app.on_event("startup")
 async def startup_event():
     dbs.connect()
-    if not dev_mode:
+    if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
         frontend_folder = Path("../static/frontend")
         dist_path = get_absolute_path(__file__, frontend_folder)
@@ -376,7 +370,6 @@ def route_save_code_info(x: SaveCodeInfoRequest):
 @app.post(C.ROUTE_GET_COLLECTION_DETAILS)
 def route_get_collection_details():
     pass
-
 
 
 @app.post(C.ROUTE_SET_PROJECT_NAME)
