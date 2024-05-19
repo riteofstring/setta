@@ -23,13 +23,13 @@ from runcoder.utils.constants import C
 if platform.system() == "Windows":
     from winpty import PtyProcess
 
-    from .terminal_utils import windows_has_child_processes as has_child_processes
+    from .utils import windows_has_child_processes as has_child_processes
 
     TERMINAL_NAME = "bash.exe"
 else:
     from ptyprocess import PtyProcessUnicode as PtyProcess
 
-    from .terminal_utils import linux_has_child_processes as has_child_processes
+    from .utils import linux_has_child_processes as has_child_processes
 
     TERMINAL_NAME = ["zsh"]
 

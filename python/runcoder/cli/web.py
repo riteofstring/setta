@@ -4,12 +4,13 @@ import subprocess
 
 import websockets
 
+from runcoder.terminals.terminals import runCode
+
 from ..processors.processors import Processors, getProcessorOutput
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.cache import Cache
 from ..utils.constants import C
 from ..utils.tasks import Tasks
-from ..utils.terminals import runCode
 
 
 def web(websocket_id):

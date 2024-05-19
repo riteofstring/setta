@@ -39,10 +39,10 @@ from runcoder.database.utils import convert_to_backend_format, generate_memorabl
 from runcoder.environ import get_cli_args
 from runcoder.processors.processors import Processors, getProcessorOutput
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
+from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C, set_constants
 from runcoder.utils.tasks import Tasks
-from runcoder.utils.terminals import TerminalWebsockets
 from runcoder.utils.utils import (
     get_absolute_path,
     import_from_path,
