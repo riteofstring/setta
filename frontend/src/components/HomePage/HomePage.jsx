@@ -31,7 +31,7 @@ export function HomePage() {
   }, [doRefresh]);
 
   return (
-    <GridWrapper gridStyles="bg-rcbg-light dark:bg-rcbg-dark">
+    <GridWrapper gridStyles="bg-runcoder-100 dark:bg-runcoder-900">
       <RightColumn projects={projects} setDoRefresh={setDoRefresh} />
     </GridWrapper>
   );
@@ -133,11 +133,15 @@ const ProjectItem = forwardRef(
     // bg-[url('https://via.placeholder.com/400')]
 
     const itemStyles =
-      "relative grid grid-rows-[1fr_5rem] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-runcoder-600 gap-0";
+      "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-runcoder-600 gap-0";
 
     return (
       <div ref={forwardedRef} className={itemStyles}>
-        <Link to={defaultConfigAddress} state={{ pageLoadType: NEW_PROJECT }}>
+        <Link
+          to={defaultConfigAddress}
+          state={{ pageLoadType: NEW_PROJECT }}
+          className="contents"
+        >
           <ThumbnailArea
             onClickConfigsButton={onClickConfigsButton}
             project={project}
@@ -145,8 +149,8 @@ const ProjectItem = forwardRef(
             isSelected={isSelected}
             onSelectProject={onSelectProject}
           />
-          <div className="absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-2 row-end-3 w-full bg-white p-4 dark:bg-runcoder-800 ">
-            <p className="overflow-hidden overflow-ellipsis whitespace-nowrap font-heading text-xs font-bold text-runcoder-600 dark:text-runcoder-300">
+          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white p-4 dark:bg-runcoder-800 ">
+            <p className="font-heading text-sm font-bold text-runcoder-600 dark:text-runcoder-300">
               {name}
             </p>
           </div>
@@ -164,14 +168,14 @@ function ThumbnailArea({
   onSelectProject,
 }) {
   const pastelColors = [
-    "bg-red-500/40 dark:bg-red-800/30",
-    "bg-pink-500/40 dark:bg-pink-800/30",
-    "bg-purple-500/40 dark:bg-purple-800/30",
-    "bg-indigo-500/40 dark:bg-indigo-800/30",
-    "bg-blue-500/40 dark:bg-blue-800/30",
-    "bg-green-500/40 dark:bg-green-800/30",
-    "bg-yellow-500/40 dark:bg-yellow-800/30",
-    "bg-orange-500/40 dark:bg-orange-800/30",
+    "bg-red-500/60 dark:bg-red-600/30",
+    "bg-pink-500/60 dark:bg-pink-600/30",
+    "bg-purple-500/60 dark:bg-purple-600/30",
+    "bg-indigo-500/60 dark:bg-indigo-600/30",
+    "bg-blue-500/60 dark:bg-blue-600/30",
+    "bg-green-500/60 dark:bg-green-600/30",
+    "bg-yellow-500/60 dark:bg-yellow-600/30",
+    "bg-orange-500/60 dark:bg-orange-600/30",
   ];
 
   const getRandomPastelColor = () => {
@@ -188,16 +192,14 @@ function ThumbnailArea({
         <IconButton
           icon={<IoMdCheckmark />}
           color="text-white/50 hover:text-white"
-          bg={
-            isSelected ? "bg-blue-500" : "bg-runcoder-300/25 hover:bg-blue-500"
-          }
+          bg={isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"}
           size="w-4 h-4"
           onClick={(e) => onSelectProject(e, project.id)}
         />
         <StandardDropdown
           trigger={
             <div
-              className="flex items-center gap-1 rounded-full bg-runcoder-200 px-2 py-1 text-xs  hover:bg-runcoder-50 dark:bg-runcoder-700 dark:text-runcoder-300 dark:hover:bg-runcoder-500"
+              className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-xs  hover:bg-runcoder-50 dark:bg-black/20 dark:text-runcoder-300 dark:hover:bg-runcoder-950/50"
               onClick={onClickConfigsButton}
             >
               <BiGitBranch />
