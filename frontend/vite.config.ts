@@ -18,12 +18,12 @@ const vitestConfig: VitestUserConfigInterface = {
 export default defineConfig({
   plugins: [react(), viteTsconfigPaths(), svgrPlugin()],
   server: {
-    host: constants.HOST,
-    port: constants.FRONTEND_PORT,
+    host: constants.DEFAULT_HOST,
+    port: constants.DEV_MODE_FRONTEND_PORT,
     open: true,
   },
   preview: {
-    port: constants.FRONTEND_PORT,
+    port: constants.DEV_MODE_FRONTEND_PORT,
   },
   test: vitestConfig.test,
 });

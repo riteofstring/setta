@@ -19,7 +19,7 @@ def web(websocket_id):
         killMyPyDaemon()
 
 
-async def connect(websocket_id=None):
+async def connect(websocket_id):
     try:
         extra_headers = {} if not websocket_id else {"websocketId": websocket_id}
         async with websockets.connect(

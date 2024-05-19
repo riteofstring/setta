@@ -14,9 +14,10 @@ from runcoder.cli.web import getConsumerMessageAndSend
 from runcoder.processors.processors import Processors, getProcessorOutput
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
+from runcoder.utils.constants import C, set_constants
 from runcoder.utils.tasks import Tasks
 from runcoder.utils.terminals import TerminalWebsockets
-from runcoder.utils.utils import import_from_path
+from runcoder.utils.utils import import_from_path, obj_to_dict
 
 from .db.codeInfo.save import save_code_info
 from .db.projects.delete import delete_projects
@@ -37,9 +38,10 @@ from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
 from .db_init import maybe_create_tables_and_seed
 from .db_objs import DBs
-from .environ import get_cli_arg
+from .environ import get_cli_args
 from .utils.utils import convert_to_backend_format, generate_memorable_string
 
+set_constants(**get_cli_args())
 dev_mode = os.environ.get("RUNCODER_DEV_MODE")
 
 origins = (
@@ -53,12 +55,12 @@ tasks_obj = Tasks()
 cache = Cache()
 processors = Processors()
 dbs = DBs(
-    get_cli_arg("db_specs"),
-    get_cli_arg("create_if_not_exists"),
+    C.DB_SPECS,
+    C.CREATE_IF_NOT_EXISTS,
 )
 maybe_create_tables_and_seed(
     dbs,
-    with_example_projects=get_cli_arg("with_example_projects"),
+    with_example_projects=C.WITH_EXAMPLE_PROJECTS,
     with_base_ui_types=True,
     with_settings=True,
 )
@@ -86,7 +88,7 @@ async def startup_event():
             return content
 
     startMyPyDaemon()
-    i_path = get_cli_arg("i_path")
+    i_path = C.I_PATH
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
         processors.add_fn(i_args["project"], i_args["fn"])
@@ -404,6 +406,11 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest):
 def route_load_settings():
     with dbs:
         return load_settings(dbs)
+
+
+@app.post("/constants")
+def route_load_constants():
+    return obj_to_dict(C)
 
 
 @app.post("/settings/setDarkMode")

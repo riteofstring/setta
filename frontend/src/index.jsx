@@ -7,9 +7,22 @@ import { App } from "./App";
 import "./index.css";
 import { reportWebVitals } from "./reportWebVitals";
 
-for (const [k, v] of Object.entries(constants)) {
-  COMMON_CONSTS[k] = v;
+const DEV_MODE = import.meta.env.DEV;
+if (DEV_MODE) {
+  COMMON_CONSTS["BACKEND"] =
+    `http://${constants.DEFAULT_HOST}:${constants.DEFAULT_PORT}`;
+  COMMON_CONSTS["WEBSOCKET"] =
+    `ws://${constants.DEFAULT_HOST}:${constants.DEFAULT_PORT}`;
+} else {
+  COMMON_CONSTS["BACKEND"] = `http://${location.host}`
+  COMMON_CONSTS["WEBSOCKET"] = `ws://${location.host}`
 }
+
+delete constants.DEFAULT_HOST;
+delete constants.DEFAULT_PORT;
+delete constants.DEV_MODE_FRONTEND_PORT;
+
+console.log(COMMON_CONSTS)
 
 const container = document.getElementById("root");
 const root = createRoot(container);

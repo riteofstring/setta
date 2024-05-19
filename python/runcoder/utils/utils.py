@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import os
 from pathlib import Path
 
@@ -26,3 +27,13 @@ def import_from_path(file_path):
 
 def get_absolute_path(src_path, file_path):
     return (Path(src_path).parent / file_path).resolve()
+
+
+def obj_to_dict(obj):
+    attributes = vars(obj)
+    properties = {
+        name: getattr(obj, name)
+        for name, value in inspect.getmembers(type(obj))
+        if isinstance(value, property)
+    }
+    return {**attributes, **properties}
