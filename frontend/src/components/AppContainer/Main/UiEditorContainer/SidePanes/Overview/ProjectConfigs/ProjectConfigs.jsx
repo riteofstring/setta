@@ -20,18 +20,21 @@ export const ProjectConfigs = React.forwardRef(() => {
   }
 
   return (
-    <div className="mt-10 flex justify-center">
-      <div>
+    <>
+      <p className="text-xs text-runcoder-600 dark:text-runcoder-300">
+        Hover over an item to preview another version of your project
+      </p>
+      <div className="mt-4 flex gap-1">
         {configNames.map((name, idx) => (
-          <div
+          <p
             key={idx}
-            className="mb-4 flex items-center"
+            className="-mx-2 min-w-full flex-1 cursor-pointer rounded-xl px-2 py-1 text-runcoder-600 hover:bg-runcoder-100 dark:text-runcoder-400 dark:hover:bg-runcoder-800"
             onMouseOver={() => onMouseOver(idx)}
           >
-            <label className="mr-2 text-white">{name}</label>
-          </div>
+            {name}
+          </p>
         ))}
       </div>
-    </div>
+    </>
   );
 });
