@@ -27,6 +27,8 @@ function _ParamContainer({
   const isSearchResult = useProjectSearch((x) =>
     x.codeInfo.includes(paramInfo.id),
   );
+
+  // warnings should be AMBER
   const border = maybeErrorMessage
     ? "bg-red-200 dark:bg-red-800/30"
     : isSearchResult
@@ -108,7 +110,7 @@ function ErrorSection({ maybeErrorMessage }) {
     <Accordion.Root
       className="card-arg-group-error group/arg-group rounded-b-lg "
       type="single"
-      defaultValue="item-1"
+      // defaultValue="item-1"
       collapsible
       asChild
     >
