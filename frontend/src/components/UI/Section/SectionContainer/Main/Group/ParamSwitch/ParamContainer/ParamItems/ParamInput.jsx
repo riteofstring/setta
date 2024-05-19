@@ -9,7 +9,13 @@ import { setParamEnteredValue } from "thunks/paramInfos";
 import { TEXT } from "z_utils/constants";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
-export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
+export function ParamInput({
+  sectionId,
+  paramInfoId,
+  defaultVal,
+  isDisabled,
+  maybeErrorMessage,
+}) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
 
@@ -52,7 +58,9 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
   }, [enteredValue]);
 
   return (
-    <div className="group/textinput contents">
+    <div
+      className={`group/textinput contents ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""}`}
+    >
       <ParamUI
         sectionId={sectionId}
         paramInfoId={paramInfoId}

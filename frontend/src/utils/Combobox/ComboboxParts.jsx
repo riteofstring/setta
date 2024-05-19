@@ -13,7 +13,7 @@ export function ComboboxInput({
   placeholder,
 }) {
   const className =
-    "nodrag card-value font-code z-[1] row-span-1 h-[calc(2rem-2px)] min-w-0 cursor-auto border border-solid rounded-full bg-runcoder-900/50 border-runcoder-300 px-4 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-runcoder-300/25 dark:placeholder:text-runcoder-400/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-800 dark:caret-white dark:focus-visible:border-blue-400";
+    "nodrag card-value mb-1 font-code z-[1] row-span-1 h-[calc(2rem-2px)] min-w-0 cursor-auto border border-solid rounded-full bg-runcoder-900/50 border-runcoder-300 px-4 font-mono text-xs text-white font-normal leading-normal outline-none placeholder:text-runcoder-300/25 dark:placeholder:text-runcoder-400/25 focus:text-clip focus-visible:border-blue-400 dark:border-runcoder-800 dark:caret-white dark:focus-visible:border-blue-400";
 
   return (
     <StandardSearch
