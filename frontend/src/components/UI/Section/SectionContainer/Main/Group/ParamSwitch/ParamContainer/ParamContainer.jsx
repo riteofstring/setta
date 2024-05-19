@@ -7,8 +7,10 @@ import { useTypeErrors } from "models/typeErrors";
 import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
+import { HiOutlineDuplicate } from "react-icons/hi";
 import { paramSelect } from "thunks/keyActivations";
 import { updateParams } from "thunks/sections/sectionContents";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton/ParamOptionsButton";
@@ -157,13 +159,18 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-950"
+      className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className="nodrag max-h-full overflow-y-scroll px-2 py-2 font-mono dark:text-runcoder-100">
+      <aside className=" h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-runcoder-100">
         {children}
       </aside>
+      <IconButton
+        twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-runcoder-400 dark:text-runcoder-200 hover:text-runcoder-600 dark:hover:text-white"
+        bg="bg-runcoder-100/50 dark:bg-runcoder-700/50 hover:bg-runcoder-100 dark:hover:bg-runcoder-600"
+        icon={<HiOutlineDuplicate />}
+      />
     </Accordion.Content>
   ),
 );
