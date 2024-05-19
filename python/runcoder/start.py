@@ -13,11 +13,11 @@ from .backend.db_objs import create_dbs_with_input_as_default
 from .backend.db_path import create_alias
 from .backend.db_path import delete_alias as _delete_alias
 from .backend.db_path import get_db_path_from_config, load_config
-from .backend.environ import set_cli_args
 from .backend.export_db.export_db import export_database
 from .backend.import_db import import_database
 from .cli.run import run as _run
 from .cli.web import web as _web
+from .environ import set_cli_args
 from .utils.constants import C, set_constants
 from .utils.utils import get_absolute_path, is_dev_mode
 

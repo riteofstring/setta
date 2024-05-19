@@ -1,4 +1,5 @@
-from ...utils.utils import create_new_id, generate_memorable_string
+from runcoder.backend.utils import create_new_id, generate_memorable_string
+
 from ..codeInfo.save import save_code_info
 from ..enteredValues.save import save_ev_cols
 from ..paramSweeps.save import save_param_sweeps

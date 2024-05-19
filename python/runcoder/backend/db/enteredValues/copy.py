@@ -1,4 +1,4 @@
-from ...utils.utils import remap_ids, rename_keys
+from runcoder.backend.utils import remap_ids, rename_keys
 
 
 def copy_ev_cols(ev_cols, code_info_id_map):

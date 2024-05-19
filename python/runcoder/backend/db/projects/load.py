@@ -1,6 +1,7 @@
 from collections import defaultdict
 
-from ...utils.utils import aggregate_results
+from runcoder.backend.utils import aggregate_results
+
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
 from ..sections.load import load_sections

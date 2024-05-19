@@ -1,6 +1,5 @@
+from runcoder.backend.utils import get_children_recursively
 from runcoder.utils.constants import is_section_ui_type
-
-from ...utils.utils import get_children_recursively
 
 
 def load_code_info_for_sections(dbs, ui_types):

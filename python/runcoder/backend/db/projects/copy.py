@@ -1,6 +1,7 @@
 import copy
 
-from ...utils.utils import create_new_id
+from runcoder.backend.utils import create_new_id
+
 from ..sections.copy import copy_sections_and_other_info
 
 

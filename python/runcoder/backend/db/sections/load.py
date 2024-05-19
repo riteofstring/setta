@@ -1,6 +1,7 @@
 import itertools
 
-from ...utils.utils import get_children_recursively
+from runcoder.backend.utils import get_children_recursively
+
 from ..enteredValues.load import load_evcols
 from ..paramSweeps.load import load_param_sweeps
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition

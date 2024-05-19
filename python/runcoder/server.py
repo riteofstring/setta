@@ -34,12 +34,9 @@ from runcoder.backend.db.settings.load import load_settings
 from runcoder.backend.db.uiTypes.load import load_base_uitypes
 from runcoder.backend.db_init import maybe_create_tables_and_seed
 from runcoder.backend.db_objs import DBs
-from runcoder.backend.environ import get_cli_args
-from runcoder.backend.utils.utils import (
-    convert_to_backend_format,
-    generate_memorable_string,
-)
+from runcoder.backend.utils import convert_to_backend_format, generate_memorable_string
 from runcoder.cli.web import getConsumerMessageAndSend
+from runcoder.environ import get_cli_args
 from runcoder.processors.processors import Processors, getProcessorOutput
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.utils.cache import Cache
