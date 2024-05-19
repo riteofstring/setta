@@ -1,9 +1,7 @@
 import glob
 import json
-import os
 from pathlib import Path
 
-from runcoder.utils.constants import C
 from runcoder.utils.utils import get_absolute_path, is_dev_mode
 
 from .db.projects.save import save_project_details

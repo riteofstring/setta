@@ -10,7 +10,7 @@ import uvicorn
 from . import __version__
 from .backend.db_init import maybe_create_tables_and_seed
 from .backend.db_objs import create_dbs_with_input_as_default
-from .backend.db_path import DEFAULT_DB_ALIAS, create_alias
+from .backend.db_path import create_alias
 from .backend.db_path import delete_alias as _delete_alias
 from .backend.db_path import get_db_path_from_config, load_config
 from .backend.environ import set_cli_args
@@ -69,7 +69,7 @@ def init_db(path, with_example_projects):
 
 
 @click.command()
-@click.argument("db", default=DEFAULT_DB_ALIAS, required=False)
+@click.argument("db", default=C.DEFAULT_DB_ALIAS, required=False)
 def delete_db(db):
     path = get_db_path_from_config(db)
     if path:
@@ -90,7 +90,7 @@ def delete_db(db):
 
 
 @click.command()
-@click.argument("db", default=DEFAULT_DB_ALIAS, required=False)
+@click.argument("db", default=C.DEFAULT_DB_ALIAS, required=False)
 def export_db(db):
     path = get_db_path_from_config(db)
     export_database(path)

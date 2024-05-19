@@ -1,12 +1,9 @@
 import queue
 import sqlite3
 
-from .db_path import (
-    DEFAULT_DB_ALIAS,
-    DEFAULT_SETTINGS_DB_ALIAS,
-    get_db_path_from_config,
-    validate_path,
-)
+from runcoder.utils.constants import C
+
+from .db_path import get_db_path_from_config, validate_path
 
 
 class DB:
@@ -130,7 +127,7 @@ class DBs:
         for db_spec in db_specs:
             output.append(self.parse_one_arg(db_spec, create_if_not_exists))
 
-        for special_key in [DEFAULT_DB_ALIAS, DEFAULT_SETTINGS_DB_ALIAS]:
+        for special_key in [C.DEFAULT_DB_ALIAS, C.DEFAULT_SETTINGS_DB_ALIAS]:
             if special_key not in [x[0] for x in output]:
                 output.append((special_key, get_db_path_from_config(special_key)))
 
@@ -201,18 +198,18 @@ class DBs:
 
     @property
     def default(self):
-        return self[DEFAULT_DB_ALIAS]
+        return self[C.DEFAULT_DB_ALIAS]
 
     @property
     def settings(self):
-        return self[DEFAULT_SETTINGS_DB_ALIAS]
+        return self[C.DEFAULT_SETTINGS_DB_ALIAS]
 
 
 def move_default_and_settings_to_beginning(x):
     def custom_sort_key(item):
-        if item[0] == DEFAULT_DB_ALIAS:
+        if item[0] == C.DEFAULT_DB_ALIAS:
             return 0
-        elif item[0] == DEFAULT_SETTINGS_DB_ALIAS:
+        elif item[0] == C.DEFAULT_SETTINGS_DB_ALIAS:
             return 1
         else:
             return 2

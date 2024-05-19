@@ -3,7 +3,7 @@ import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { C, DB_SOURCE_MAPPING } from "utils/constants";
-import { DEFAULT_DB_ALIAS, isRoot } from "z_utils/constants";
+import { isRoot } from "z_utils/constants";
 import { SectionUITypeConfigType } from "z_utils/types/uiType";
 
 export function getSectionInfo(sectionId) {
@@ -69,7 +69,7 @@ export function getSectionByName(name: string) {
 
 export function getSectionDBSource(sectionId: string) {
   const { dbSource } = getSectionInfo(sectionId);
-  return dbSource ? dbSource : DEFAULT_DB_ALIAS;
+  return dbSource ? dbSource : C.DEFAULT_DB_ALIAS;
 }
 
 export function getMappedSectionDBSource(sectionId: string) {

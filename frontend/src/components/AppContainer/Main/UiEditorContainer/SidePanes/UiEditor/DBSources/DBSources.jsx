@@ -2,7 +2,7 @@ import { useSectionDBSource } from "hooks/useSectionInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useState } from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
-import { DEFAULT_DB_ALIAS } from "z_utils/constants";
+import { C } from "utils/constants";
 
 export function DBSources({ sectionId }) {
   const dbSource = useSectionDBSource(sectionId);
@@ -16,7 +16,7 @@ export function DBSources({ sectionId }) {
     setSectionInfoAttr({ sectionId, attr: "dbSource", value: localVal });
     // update evCol dbsource params if necessary
     useParamInfos.getState().duplicateDbSource({
-      oldDbSource: DEFAULT_DB_ALIAS,
+      oldDbSource: C.DEFAULT_DB_ALIAS,
       newDbSource: localVal,
     });
   }

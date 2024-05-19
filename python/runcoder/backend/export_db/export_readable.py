@@ -6,7 +6,6 @@ import yaml
 from yaml.representer import Representer
 
 from runcoder.backend.db.projects.load import load_full_project
-from runcoder.backend.db_path import DEFAULT_DB_ALIAS
 from runcoder.utils.constants import C
 
 
@@ -69,7 +68,7 @@ def export_section(folder, config, section):
             section_folder,
             config,
             section["selectedItem"],
-            config["evCols"][DEFAULT_DB_ALIAS][evColId],
+            config["evCols"][C.DEFAULT_DB_ALIAS][evColId],
         )
 
     if section["code"]:

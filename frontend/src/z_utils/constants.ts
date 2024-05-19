@@ -88,5 +88,3 @@ export function requiresKeyInput(sectionSubTypeName) {
 export function getParamSweepSectionName(sectionName) {
   return `${sectionName} Sweep`;
 }
-
-export const DEFAULT_DB_ALIAS = "default";

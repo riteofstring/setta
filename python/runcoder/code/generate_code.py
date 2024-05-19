@@ -2,7 +2,6 @@ import ast
 import copy
 
 from ..utils.constants import C
-from .export_selected import get_args_var_name
 from .find_placeholders import double_braces
 from .infer_imports import infer_imports
 from .utils import push_var_deep

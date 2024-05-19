@@ -1,7 +1,5 @@
 import copy
 
-from runcoder.backend.db_path import DEFAULT_DB_ALIAS
-
 from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
@@ -271,7 +269,7 @@ class Exporter:
         section = self.p["sections"][section_id]
         ev_col_id = section["evColId"]
         dbSource = section["dbSource"]
-        dbSource = dbSource if dbSource else DEFAULT_DB_ALIAS
+        dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
         dbSource = self.p["dbSourceMapping"][dbSource]
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
         refs = self.p["evRefs"][dbSource][ev_col_id]["values"][id]
