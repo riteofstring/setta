@@ -1,11 +1,11 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-from runcoder.utils.constants import C
+from ..utils.constants import BACKEND
 
 
 def post(post_obj, address, **kwargs):
-    return post_obj.post(f"{C.BACKEND}/{address}", **kwargs)
+    return post_obj.post(f"{BACKEND}/{address}", **kwargs)
 
 
 def get_retry_session(total=5, backoff_factor=0.1, status_forcelist=(404,)):

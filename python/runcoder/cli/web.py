@@ -1,16 +1,15 @@
 import asyncio
 import json
-import subprocess
 
 import websockets
+import subprocess
 
 from ..processors.processors import Processors, getProcessorOutput
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.cache import Cache
-from ..utils.constants import C
+from ..utils.constants import WEBSOCKET
 from ..utils.tasks import Tasks
 from ..utils.terminals import runCode
-
 
 def web(websocket_id):
     try:
@@ -23,7 +22,7 @@ async def connect(websocket_id=None):
     try:
         extra_headers = {} if not websocket_id else {"websocketId": websocket_id}
         async with websockets.connect(
-            C.WEBSOCKET,
+            WEBSOCKET,
             extra_headers=extra_headers,
         ) as websocket:
             await consumer_handler(websocket)
@@ -42,6 +41,7 @@ async def consumer_handler(websocket):
         message = json.loads(message)
         if message["messageType"] == "runCode":
             runCode(message, command_callback=run_code_as_subprocess)
+
 
         # # create_task so that we don't have to await consumer message
         # await task_obj.create_task(

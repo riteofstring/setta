@@ -1,6 +1,9 @@
 import builtins
-from types import SimpleNamespace
 
+DOMAIN = "127.0.0.1"
+BACKEND_PORT = 8000
+BACKEND = f"http://{DOMAIN}:{BACKEND_PORT}"
+WEBSOCKET = f"ws://{DOMAIN}:{BACKEND_PORT}"
 CODE_FOLDER = "runcoder_code"
 PARAMETER = "parameter"
 COLLECTION = "collection"
@@ -26,6 +29,3 @@ BUILT_INS = set(dir(builtins))
 
 def is_section_ui_type(x):
     return x not in [TEXT, SLIDER, SWITCH]
-
-
-C = SimpleNamespace()

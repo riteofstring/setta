@@ -204,7 +204,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         filepath = id_to_filepath[sid]
         callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
-
+    
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
     elif command_callback:

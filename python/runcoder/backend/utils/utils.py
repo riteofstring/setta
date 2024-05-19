@@ -13,6 +13,10 @@ def maybe_new_id(x):
     return x if x else create_new_id()
 
 
+def get_absolute_path(src_path, file_path):
+    return (Path(src_path).parent / file_path).resolve()
+
+
 def generate_memorable_string():
     adjectives = ["furry", "happy", "sad", "large", "tiny"]
     nouns = ["dog", "cat", "bird", "fish", "mouse"]
