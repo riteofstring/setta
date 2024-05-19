@@ -6,6 +6,8 @@ from pprint import pprint
 import docstring_parser
 import jedi
 
+from runcoder.type_checkers.python.type_checker import parse_and_type_check
+
 from ..code.export_selected import export_selected, get_code
 from ..code.extract_args_from_help import extract_args_from_help
 from ..code.generate_code import (
@@ -16,7 +18,6 @@ from ..code.generate_code import (
     set_line,
     var_declaration,
 )
-from ..code.type_checker import parse_and_type_check
 from ..code.utils import process_refs
 from ..utils.constants import BUILT_INS
 from .utils import withTempFiles
