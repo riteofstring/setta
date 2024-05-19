@@ -9,7 +9,7 @@ export async function post<S, R>({
   body: S;
 }) {
   return axios
-    .post<S, AxiosResponse<R>>(`${COMMON_CONSTS.BACKEND}${address}`, body, {
+    .post<S, AxiosResponse<R>>(`${COMMON_CONSTS.backend}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
       },

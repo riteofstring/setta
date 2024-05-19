@@ -19,7 +19,7 @@ function newTerminalWebsocket(sectionId) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
   } else {
     const projectConfigId = useProjectConfig.getState().id;
-    const wsTerminalAddress = `${COMMON_CONSTS.WEBSOCKET}/terminal/${projectConfigId}/${sectionId}`;
+    const wsTerminalAddress = `${COMMON_CONSTS.websocket}/terminal/${projectConfigId}/${sectionId}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
       if (PENDING_MSG[sectionId]) {

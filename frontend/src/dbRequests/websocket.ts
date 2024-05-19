@@ -11,7 +11,7 @@ let wss;
 
 export function openWebSocket(pathname) {
   if (!wss) {
-    wss = new WebSocket(COMMON_CONSTS.WEBSOCKET);
+    wss = new WebSocket(COMMON_CONSTS.websocket);
   }
 
   wss.addEventListener("open", () => {

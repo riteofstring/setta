@@ -53,12 +53,12 @@ tasks_obj = Tasks()
 cache = Cache()
 processors = Processors()
 dbs = DBs(
-    get_cli_arg("db_specs"),
-    get_cli_arg("create_if_not_exists"),
+    C.db_specs,
+    C.create_if_not_exists,
 )
 maybe_create_tables_and_seed(
     dbs,
-    with_example_projects=get_cli_arg("with_example_projects"),
+    with_example_projects=C.with_example_projects,
     with_base_ui_types=True,
     with_settings=True,
 )
@@ -86,7 +86,7 @@ async def startup_event():
             return content
 
     startMyPyDaemon()
-    i_path = get_cli_arg("i_path")
+    i_path = C.i_path
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
         processors.add_fn(i_args["project"], i_args["fn"])

@@ -28,4 +28,19 @@ def is_section_ui_type(x):
     return x not in [TEXT, SLIDER, SWITCH]
 
 
-C = SimpleNamespace()
+class Constants:
+    @property
+    def backend(self):
+        return f"http://{self.backend_host}:{self.backend_port}"
+
+    @property
+    def websocket(self):
+        return f"ws://{self.backend_host}:{self.backend_port}"
+
+
+C = Constants()
+
+
+def set_constants(**kwargs):
+    for k, v in kwargs.items():
+        setattr(C, k, v)

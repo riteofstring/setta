@@ -5,7 +5,7 @@ from runcoder.utils.constants import C
 
 
 def post(post_obj, address, **kwargs):
-    return post_obj.post(f"{C.BACKEND}/{address}", **kwargs)
+    return post_obj.post(f"{C.backend}/{address}", **kwargs)
 
 
 def get_retry_session(total=5, backoff_factor=0.1, status_forcelist=(404,)):

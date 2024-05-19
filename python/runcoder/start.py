@@ -18,7 +18,7 @@ from .backend.export_db.export_db import export_database
 from .backend.import_db import import_database
 from .cli.run import run as _run
 from .cli.web import web as _web
-from .utils.constants import C
+from .utils.constants import set_constants
 from .utils.utils import get_absolute_path
 
 
@@ -28,8 +28,7 @@ def load_constants():
         get_absolute_path(__file__, constants_folder / "constants.json"), "r"
     ) as f:
         constants = json.load(f)
-    for k, v in constants.items():
-        setattr(C, k, v)
+    set_constants(**constants)
 
 
 @click.command()
@@ -40,7 +39,10 @@ def run(code_id):
 
 @click.command()
 @click.argument("websocket_id", required=False)
-def web(websocket_id):
+@click.option("--backend_host", default="127.0.0.1", help="backend host")
+@click.option("--backend_port", default=8000, help="backend port")
+def web(websocket_id, backend_host, backend_port):
+    set_constants(backend_host=backend_host, backend_port=backend_port)
     _web(websocket_id)
 
 
@@ -127,35 +129,31 @@ def delete_alias(name):
 @click.option("--db", "-d", type=str, multiple=True, default=[])
 @click.option("--i", type=str, default=None, help="interactive program path")
 @click.option("--w", is_flag=True, help="create dbs it they don't exist")
+@click.option("--backend_host", default="127.0.0.1", help="backend host")
+@click.option("--backend_port", default=8000, help="backend port")
 @click.pass_context
-def cli(ctx, reload, with_example_projects, db, i, w):
-    if ctx.invoked_subcommand in [
-        "version",
-        "init-db",
-        "delete-db",
-        "alias",
-        "delete-alias",
-    ]:
-        return
+def cli(ctx, reload, with_example_projects, db, i, w, backend_host, backend_port):
     if ctx.invoked_subcommand is None:
         set_cli_args(
             with_example_projects=with_example_projects,
             db_specs=db,
             i_path=i,
             create_if_not_exists=w,
+            backend_host=backend_host,
+            backend_port=backend_port,
         )
 
         sys.path.append(str(Path(__file__).resolve().parent))
         uvicorn.run(
             "backend.server:app",
-            host="0.0.0.0",
-            port=8000,
+            host=backend_host,
+            port=backend_port,
             log_level="info",
             reload=reload,
         )
 
 
-load_constants()
+# load_constants()
 cli.add_command(run)
 cli.add_command(web)
 cli.add_command(version)
