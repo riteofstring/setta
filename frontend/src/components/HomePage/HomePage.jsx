@@ -18,7 +18,6 @@ import { Item } from "utils/atoms/dropdown/item";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
-import { ThumbnailLogo } from "./Thumbnail/ThumbnailLogo";
 
 export function HomePage() {
   const [doRefresh, setDoRefresh] = useState(true);
@@ -164,8 +163,27 @@ function ThumbnailArea({
   isSelected,
   onSelectProject,
 }) {
+  const pastelColors = [
+    "bg-red-500/40 dark:bg-red-800/30",
+    "bg-pink-500/40 dark:bg-pink-800/30",
+    "bg-purple-500/40 dark:bg-purple-800/30",
+    "bg-indigo-500/40 dark:bg-indigo-800/30",
+    "bg-blue-500/40 dark:bg-blue-800/30",
+    "bg-green-500/40 dark:bg-green-800/30",
+    "bg-yellow-500/40 dark:bg-yellow-800/30",
+    "bg-orange-500/40 dark:bg-orange-800/30",
+  ];
+
+  const getRandomPastelColor = () => {
+    const randomIndex = Math.floor(Math.random() * pastelColors.length);
+    return pastelColors[randomIndex];
+  };
+
+  const bgColor = getRandomPastelColor();
   return (
-    <div className="absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-runcoder-500 bg-center p-4 dark:bg-runcoder-600">
+    <div
+      className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${bgColor}`}
+    >
       <aside className="col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <IconButton
           icon={<IoMdCheckmark />}
@@ -191,10 +209,10 @@ function ThumbnailArea({
         />
       </aside>
 
-      <ThumbnailLogo
+      {/* <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
         svgStyles="fill-runcoder-200"
-      />
+      /> */}
     </div>
   );
 }
