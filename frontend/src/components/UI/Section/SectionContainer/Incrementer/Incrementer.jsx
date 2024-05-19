@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { TbSortDescending2, TbSortDescendingSmallBig } from "react-icons/tb";
+import { TbSortDescendingSmallBig } from "react-icons/tb";
 import { addChildrenToSeries } from "thunks/sections/addChild";
 import { deleteChildrenFromSeries } from "thunks/sections/deleteChild";
 
-export function Incrementer({ sectionId, isRoot }) {
+export function Incrementer({ sectionId, isRoot, popover = false }) {
   const addSections = (numSections) => {
     addChildrenToSeries({
       isRoot,
@@ -35,17 +35,16 @@ export function Incrementer({ sectionId, isRoot }) {
     // <Tooltip.Provider>
     //   <Tooltip.Root>
     //     <Tooltip.Trigger asChild>
-    <div className="card-incrementer -mx-2 flex items-center gap-1 rounded-lg bg-runcoder-200 pl-2 pr-1 dark:bg-runcoder-950">
+    <div
+      className={`card-incrementer -mx-2 flex items-center gap-1 rounded-lg  bg-runcoder-100 pl-2 pr-1 dark:bg-runcoder-950 ${popover ? "border border-solid border-white py-1 shadow-lg dark:border-runcoder-800" : ""}`}
+    >
       {isRoot ? (
         <>
           <TbSortDescendingSmallBig className="text-runcoder-300 dark:text-runcoder-600" />
           <p className="text-[10px] font-bold text-runcoder-500">Children: </p>
         </>
       ) : (
-        <>
-          <TbSortDescending2 />
-          <p className="text-[10px] text-runcoder-500">Siblings</p>
-        </>
+        <p className="text-[10px] text-runcoder-500">Siblings</p>
       )}
       {/* {isRoot && <i className="gg-corner-right-down -ml-1 text-runcoder-600" />} */}
 
