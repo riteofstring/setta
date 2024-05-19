@@ -13,7 +13,7 @@ import {
 } from "dbRequests/sections";
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
@@ -311,18 +311,7 @@ function CoreCodeMirror({
 
   const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
 
-  useEffect(() => {
-    if (!value && defaultVal) {
-      const div = document.querySelector(`#${divId} .cm-cursor`);
-      if (div) {
-        console.log("div dispatch event");
-        div.dispatchEvent(new Event("mousedown"));
-      }
-    }
-  }, [!value]);
-
-  function onMouseDown() {
-    console.log("onMouseDown!");
+  function onClick() {
     fixPlaceholderCursor(divId, value, defaultVal);
   }
 
@@ -348,7 +337,7 @@ function CoreCodeMirror({
       extensions={extensions}
       onChange={localOnChange}
       onBlur={onBlur}
-      onMouseDown={onMouseDown}
+      onClick={onClick}
       indentWithTab={false}
     />
   );
