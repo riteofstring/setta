@@ -28,7 +28,6 @@ export const otherConfigurableSettings = {
 
 const initialState = {
   settingsLoaded: false,
-  showMiniMap: true,
   ...jsonSettings,
   ...otherConfigurableSettings,
   ...initialShortcuts,

@@ -31,6 +31,6 @@ for (const theme of [githubDarkTheme, githubLightTheme]) {
 }
 
 export function useCodeMirrorStyle() {
-  const [darkMode] = useDarkMode();
+  const darkMode = useDarkMode();
   return darkMode ? githubDarkTheme : githubLightTheme;
 }

@@ -1,4 +1,4 @@
-import { useSettings } from "models/settings";
+import { useShowMinimap } from "hooks/localStorageHooks";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "thunks/keyActivations";
 import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
@@ -11,7 +11,7 @@ import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
-  const showMiniMap = useSettings((x) => x.showMiniMap);
+  const showMiniMap = useShowMinimap();
 
   return (
     <GlobalDndContext>

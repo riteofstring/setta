@@ -1,15 +1,27 @@
 import React from "react";
 
 export function useDarkMode() {
-  return useLocalStorage("darkMode", true);
+  return useLocalStorage("darkMode", true)[0]
 }
 
-export function darkModeState() {
-  const darkMode = JSON.parse(getLocalStorageItem("darkMode"));
-  const setDarkMode = (value) => {
-    setLocalStorageItem("darkMode", value);
+export function darkModeLS() {
+  return localStorageState("darkMode");
+}
+
+export function useShowMinimap() {
+  return useLocalStorage("showMinimap", true)[0]
+}
+
+export function showMinimapLS() {
+  return localStorageState("showMinimap");
+}
+
+export function localStorageState(key) {
+  const x = JSON.parse(getLocalStorageItem(key));
+  const setX = (value) => {
+    setLocalStorageItem(key, value);
   };
-  return [darkMode, setDarkMode];
+  return [x, setX];
 }
 
 function dispatchStorageEvent(key, newValue) {

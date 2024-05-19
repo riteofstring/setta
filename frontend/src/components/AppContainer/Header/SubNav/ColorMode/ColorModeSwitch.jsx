@@ -6,7 +6,7 @@ import { toggleDarkMode } from "thunks/user/settings";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {
-  const [darkMode] = useDarkMode();
+  const darkMode = useDarkMode();
 
   useEffect(() => {
     if (darkMode) {

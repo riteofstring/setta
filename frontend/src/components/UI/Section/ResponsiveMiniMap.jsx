@@ -6,7 +6,7 @@ import "xyflow/minimap/style.css";
 
 export function ResponsiveMiniMap() {
   const uiEditorWidth = usePanes((x) => x.trueWidth[UI_EDITOR]);
-  const [darkMode] = useDarkMode();
+  const darkMode = useDarkMode();
 
   return (
     <MiniMap
