@@ -165,7 +165,7 @@ function ThumbnailArea({
   onSelectProject,
 }) {
   return (
-    <div className="absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-runcoder-300 bg-center p-4 dark:bg-runcoder-600">
+    <div className="absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-runcoder-500 bg-center p-4 dark:bg-runcoder-600">
       <aside className="col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
         <IconButton
           icon={<IoMdCheckmark />}
