@@ -4,7 +4,7 @@ export function ParamOptionsButton({ variants = "" }) {
   //hover:!bg-white dark:hover:!bg-runcoder-900
   return (
     <IconButton
-      twClasses={` ${variants}`}
+      twClasses={`card-param-options-btn justify-self-end self-center ${variants}`}
       size="h-3 w-3"
       icon={<i className="gg-options"></i>}
       color={`[&>*]:text-transparent group-hover/arg-group:[&>*]:text-runcoder-400 dark:group-hover/arg-group:[&>*]:text-runcoder-400 hover:[&>*]:!text-runcoder-800 dark:hover:[&>*]:!text-runcoder-100`}

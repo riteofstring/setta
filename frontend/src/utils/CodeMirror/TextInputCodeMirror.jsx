@@ -208,7 +208,7 @@ export function TextInputCodeMirror({
         <DummyCodeMirror
           code={value}
           onMouseDown={onMouseDown}
-          className={`${className ? className : ""} nodrag  absolute cursor-text select-text break-words ${classes ? classes : "pl-[6px] pr-[2px]"} font-mono text-xs [tab-size:4] [word-break:break-word] ${area}`}
+          className={`${className} nodrag cursor-text select-text break-words ${classes ? classes : "pl-[6px] pr-[2px]"} font-mono text-xs [tab-size:4] [word-break:break-word] ${area}`}
           theme={theme}
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}

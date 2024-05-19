@@ -52,7 +52,7 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
   }, [enteredValue]);
 
   return (
-    <div className="group/textinput relative flex-1">
+    <div className="group/textinput contents">
       <ParamUI
         sectionId={sectionId}
         paramInfoId={paramInfoId}
@@ -60,11 +60,11 @@ export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
         defaultVal={defaultVal}
         onChange={onChange}
         isDisabled={isDisabled}
-        className="nodrag absolute"
+        className="nodrag"
         area="card-value"
       />
       {isText && (
-        <span className="border-box absolute bottom-0 w-full border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
+        <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
       )}
     </div>
   );
