@@ -15,7 +15,7 @@ export function FileExplorer({
 }) {
   return (
     <>
-      <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-runcoder-400">
+      <Dialog.Title className=" mb-4 font-bold uppercase tracking-widest text-runcoder-400">
         {title}
       </Dialog.Title>
 
@@ -29,7 +29,7 @@ export function FileExplorer({
         </Button>
       ))}
 
-      <div className="mx-3 mb-2 flex justify-between border-b border-solid border-runcoder-200 pb-2">
+      <div className="mb-2 flex justify-between border-b border-solid border-runcoder-200 pb-2">
         <Button twClasses="text-xs text-runcoder-400 hover:text-runcoder-900 dark:hover:text-runcoder-200 rounded-md ring-0">
           Name
         </Button>
