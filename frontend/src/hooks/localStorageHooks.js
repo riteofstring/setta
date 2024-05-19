@@ -25,23 +25,34 @@ function localStorageState(key) {
   return [x, setX];
 }
 
+function getActualKey(key) {
+  return `runcoder_data_${key}`;
+}
+
+////////////////////////////////////////
+//https://github.com/uidotdev/usehooks//
+////////////////////////////////////////
+
 function dispatchStorageEvent(key, newValue) {
   window.dispatchEvent(new StorageEvent("storage", { key, newValue }));
 }
 
 const setLocalStorageItem = (key, value) => {
   const stringifiedValue = JSON.stringify(value);
-  window.localStorage.setItem(key, stringifiedValue);
-  dispatchStorageEvent(key, stringifiedValue);
+  const actualKey = getActualKey(key);
+  window.localStorage.setItem(actualKey, stringifiedValue);
+  dispatchStorageEvent(actualKey, stringifiedValue);
 };
 
 const removeLocalStorageItem = (key) => {
-  window.localStorage.removeItem(key);
-  dispatchStorageEvent(key, null);
+  const actualKey = getActualKey(key);
+  window.localStorage.removeItem(actualKey);
+  dispatchStorageEvent(actualKey, null);
 };
 
 const getLocalStorageItem = (key) => {
-  return window.localStorage.getItem(key);
+  const actualKey = getActualKey(key);
+  return window.localStorage.getItem(actualKey);
 };
 
 const useLocalStorageSubscribe = (callback) => {
