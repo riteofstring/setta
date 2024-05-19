@@ -72,7 +72,10 @@ export function ParamInput({
         area="card-value"
       />
       {isText && (
-        <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
+        <>
+          <i className="card-value gg-spinner self-center justify-self-end text-blue-500/50" />
+          <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
+        </>
       )}
     </div>
   );
