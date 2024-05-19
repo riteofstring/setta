@@ -1,5 +1,5 @@
 import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
-import { useSettings } from "models/settings";
+import { useDarkMode } from "hooks/localStorageHooks";
 
 const githubDarkTheme = githubDarkInit({
   settings: {
@@ -31,7 +31,6 @@ for (const theme of [githubDarkTheme, githubLightTheme]) {
 }
 
 export function useCodeMirrorStyle() {
-  const darkMode = useSettings((x) => x.darkMode);
-
+  const [darkMode] = useDarkMode();
   return darkMode ? githubDarkTheme : githubLightTheme;
 }

@@ -16,6 +16,5 @@ export const GENERATE_CODE = "/codeGenerator/generateCode";
 export const GET_CODE = "/codeGenerator/getCode";
 export const SET_PROJECT_NAME = "/projects/setProjectName";
 export const SET_PROJECT_CONFIG_NAME = "/projects/setProjectConfigName";
-export const SET_DARK_MODE = "/settings/setDarkMode";
 export const SECTIONS = "/sections";
 export const LOAD_SETTINGS = "/settings";

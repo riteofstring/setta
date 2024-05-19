@@ -1,14 +1,14 @@
-import { dbLoadSettings, dbSetDarkMode } from "dbRequests/settings";
+import { dbLoadSettings } from "dbRequests/settings";
+import { darkModeState } from "hooks/localStorageHooks";
 import { useSettings } from "models/settings";
 
 export function toggleDarkMode() {
-  useSettings.getState().toggleSetting("darkMode");
-  dbSetDarkMode(useSettings.getState().darkMode);
+  const [darkMode, setDarkMode] = darkModeState();
+  setDarkMode(!darkMode);
 }
 
 export function toggleMiniMap() {
   useSettings.getState().toggleSetting("showMiniMap");
-  // dbSetDarkMode(useSettings.getState().darkMode);
 }
 
 export async function loadSettings() {

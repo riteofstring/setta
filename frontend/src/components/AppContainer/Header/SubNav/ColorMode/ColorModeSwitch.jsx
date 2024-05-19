@@ -1,4 +1,4 @@
-import { useSettings } from "models/settings";
+import { useDarkMode } from "hooks/localStorageHooks";
 import { useEffect } from "react";
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
@@ -6,7 +6,7 @@ import { toggleDarkMode } from "thunks/user/settings";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {
-  const darkMode = useSettings((x) => x.darkMode);
+  const [darkMode] = useDarkMode();
 
   useEffect(() => {
     if (darkMode) {

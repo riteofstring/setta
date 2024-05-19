@@ -38,7 +38,6 @@ from .db.projects.saveAs import (
 )
 from .db.sections.copy import copy_relative_positions, copy_sections_and_other_info
 from .db.settings.load import load_settings
-from .db.settings.save import save_dark_mode
 from .db.uiTypes.load import load_base_uitypes
 from .db_init import maybe_create_tables_and_seed
 from .db_objs import DBs
@@ -154,10 +153,6 @@ class SetProjectConfigNameRequest(BaseModel):
     projectId: str
     currProjectConfigName: str
     newProjectConfigName: str
-
-
-class SetDarkModeRequest(BaseModel):
-    darkMode: bool
 
 
 class SaveCodeInfoRequest(BaseModel):
@@ -416,12 +411,6 @@ def route_load_settings():
 @app.post("/constants")
 def route_load_constants():
     return obj_to_dict(C)
-
-
-@app.post("/settings/setDarkMode")
-def route_set_dark_mode(x: SetDarkModeRequest):
-    with dbs:
-        save_dark_mode(dbs, x.darkMode)
 
 
 @app.post("/logging")

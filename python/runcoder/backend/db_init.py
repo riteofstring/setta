@@ -6,8 +6,7 @@ CREATE_TABLES_COMMANDS = [
     # Settings model
     """
     CREATE TABLE IF NOT EXISTS Settings (
-        profileName TEXT PRIMARY KEY,
-        darkMode BOOLEAN DEFAULT 1
+        profileName TEXT PRIMARY KEY
     );
     """,
     # CodeInfo model
