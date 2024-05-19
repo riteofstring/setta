@@ -38,8 +38,8 @@ export function Incrementer({ sectionId, isRoot }) {
     <div className="card-incrementer -mx-2 flex items-center gap-1 rounded-lg bg-runcoder-200 pl-2 pr-1 dark:bg-runcoder-950">
       {isRoot ? (
         <>
-          <TbSortDescendingSmallBig className="text-runcoder-300 dark:text-runcoder-600" />
-          <p className="text-[10px] font-bold text-runcoder-500">Children: </p>
+          <TbSortDescendingSmallBig className="text-white" />
+          <p className="text-[10px] font-bold text-runcoder-500">Children</p>
         </>
       ) : (
         <>
@@ -47,18 +47,18 @@ export function Incrementer({ sectionId, isRoot }) {
           <p className="text-[10px] text-runcoder-500">Siblings</p>
         </>
       )}
-      {/* {isRoot && <i className="gg-corner-right-down -ml-1 text-runcoder-600" />} */}
+      {isRoot && <i className="gg-corner-right-down -ml-1 text-runcoder-600" />}
 
-      <input
+      {/* <input
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         aria-label="Number of sections"
-      />
+      /> */}
 
-      {/* <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-[10px] focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300">
+      <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-[10px] focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300">
         {numSections}
-      </div> */}
+      </div>
 
       <button
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-runcoder-300"
