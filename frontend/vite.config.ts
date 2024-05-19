@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 import type { UserConfig as VitestUserConfigInterface } from "vitest/config";
+import constants from "../constants/constants.json";
 
 const vitestConfig: VitestUserConfigInterface = {
   test: {
@@ -17,12 +18,12 @@ const vitestConfig: VitestUserConfigInterface = {
 export default defineConfig({
   plugins: [react(), viteTsconfigPaths(), svgrPlugin()],
   server: {
-    host: "127.0.0.1",
-    port: 3000,
+    host: constants.HOST,
+    port: constants.FRONTEND_PORT,
     open: true,
   },
   preview: {
-    port: 3000,
+    port: constants.FRONTEND_PORT,
   },
   test: vitestConfig.test,
 });

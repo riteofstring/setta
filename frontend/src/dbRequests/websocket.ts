@@ -5,13 +5,13 @@ import {
 } from "models/websocket";
 import { updateOutput } from "thunks/outputs";
 import { updateConnectedTo } from "thunks/websocketConnectionList";
-import { WEBSOCKET } from "z_utils/addresses";
+import { COMMON_CONSTS } from "utils/constants";
 
 let wss;
 
 export function openWebSocket(pathname) {
   if (!wss) {
-    wss = new WebSocket(WEBSOCKET);
+    wss = new WebSocket(COMMON_CONSTS.WEBSOCKET);
   }
 
   wss.addEventListener("open", () => {

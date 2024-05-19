@@ -38,11 +38,7 @@ export const StandardSearch = React.forwardRef(
           tabIndex="0"
           onChange={onChange}
         />
-        <div
-          className={`absolute right-0 grid select-none place-items-center ${leftElementStyles}`}
-        >
-          {rightElement}
-        </div>
+        {rightElement}
       </MaybeForm>
     );
   },

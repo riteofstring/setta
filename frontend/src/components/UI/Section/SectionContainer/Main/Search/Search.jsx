@@ -57,20 +57,17 @@ export function SectionSearch({ sectionId, initialSelection }) {
   }
 
   return (
-    <>
-      <TextInputCodeMirror
-        sectionId={sectionId}
-        paramInfoId={null}
-        value={value}
-        onChange={setValue}
-        className="card-search rounded-2xl border border-solid border-runcoder-100 bg-white py-[.33rem] focus-visible:border-white focus-visible:ring-2 dark:border-runcoder-800 dark:bg-runcoder-900 dark:focus-visible:border-runcoder-900"
-        variants="[&_.cm-line]:pl-3 [&_.cm-line]:pr-3 [&_.cm-activeLine]:!bg-inherit"
-        classes="px-3"
-        singleLine={true}
-        onEnter={onEnter}
-      />
-      <i className="card-search gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
-    </>
+    <TextInputCodeMirror
+      sectionId={sectionId}
+      paramInfoId={null}
+      value={value}
+      onChange={setValue}
+      className="card-search rounded-2xl border border-solid border-runcoder-100 bg-white py-[.33rem] focus-visible:border-white focus-visible:ring-2 dark:border-runcoder-800 dark:bg-runcoder-900 dark:focus-visible:border-runcoder-900"
+      variants="[&_.cm-line]:pl-3 [&_.cm-line]:pr-3 [&_.cm-activeLine]:!bg-inherit"
+      classes="px-3"
+      singleLine={true}
+      onEnter={onEnter}
+    />
   );
 }
 

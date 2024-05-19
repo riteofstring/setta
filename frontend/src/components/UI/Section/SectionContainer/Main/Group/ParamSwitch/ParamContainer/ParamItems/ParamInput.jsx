@@ -9,13 +9,7 @@ import { setParamEnteredValue } from "thunks/paramInfos";
 import { TEXT } from "z_utils/constants";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
-export function ParamInput({
-  sectionId,
-  paramInfoId,
-  defaultVal,
-  isDisabled,
-  maybeErrorMessage,
-}) {
+export function ParamInput({ sectionId, paramInfoId, defaultVal, isDisabled }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
 
@@ -58,9 +52,7 @@ export function ParamInput({
   }, [enteredValue]);
 
   return (
-    <div
-      className={`group/textinput contents ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""}`}
-    >
+    <div className="group/textinput contents">
       <ParamUI
         sectionId={sectionId}
         paramInfoId={paramInfoId}
@@ -72,10 +64,7 @@ export function ParamInput({
         area="card-value"
       />
       {isText && (
-        <>
-          <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
-          <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
-        </>
+        <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
       )}
     </div>
   );
