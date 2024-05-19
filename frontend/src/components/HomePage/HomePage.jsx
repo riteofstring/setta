@@ -149,8 +149,8 @@ const ProjectItem = forwardRef(
             isSelected={isSelected}
             onSelectProject={onSelectProject}
           />
-          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white p-4 dark:bg-runcoder-800 ">
-            <p className="font-heading text-sm font-bold text-runcoder-600 dark:text-runcoder-300">
+          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-runcoder-800 ">
+            <p className="font-heading text-sm text-runcoder-600 dark:text-runcoder-100">
               {name}
             </p>
           </div>
