@@ -1,11 +1,6 @@
 from runcoder.utils.constants import C, is_section_ui_type
 
 
-def load_base_uitypes(dbs):
-    db = dbs.default
-    return load_uitypes_by_condition(db, preset_types=["BASE", "USER"])
-
-
 def load_uitypes_by_condition(db, preset_types=None, ids=None):
     if preset_types and ids:
         raise ValueError

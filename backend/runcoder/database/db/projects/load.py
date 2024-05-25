@@ -5,7 +5,6 @@ from runcoder.database.utils import aggregate_results
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
 from ..sections.load import load_sections
-from ..uiTypes.load import load_base_uitypes
 from .utils import convert_to_file_menu_format
 
 
@@ -124,8 +123,7 @@ def load_project(dbs, project_name, config_name):
     evCols = sections_data["evCols"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
-    baseUITypes = load_base_uitypes(dbs)
-    uiTypes = {**baseUITypes, **sections_data["nonPresetUITypes"]}
+    uiTypes = sections_data["nonPresetUITypes"]
     codeInfo = load_code_info_for_sections(dbs, uiTypes)
 
     return {
@@ -146,7 +144,7 @@ def load_project(dbs, project_name, config_name):
     }
 
 
-def load_full_project(dbs, project_name, with_base_uitypes=False):
+def load_full_project(dbs, project_name):
     query = """
         SELECT
             ProjectConfig.name as configName
@@ -168,10 +166,6 @@ def load_full_project(dbs, project_name, with_base_uitypes=False):
     for c in config_names:
         p = load_project(dbs, project_name, c)
         project = p.pop("project")
-        if not with_base_uitypes:
-            p["uiTypes"] = {
-                k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
-            }
         configs.append(p)
 
     output = {**project, "configs": configs}

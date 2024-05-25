@@ -4,6 +4,7 @@ import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
+import BASE_UI_TYPES from "../../../constants/BaseUITypes.json";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "../models/info/codeInfo";
@@ -50,7 +51,7 @@ export function loadProjectState({
       tempZIndex: v.zIndex,
     })),
   );
-  useUITypes.getState().resetAndSetAll(uiTypes);
+  useUITypes.getState().resetAndSetAll({ ...uiTypes, ...BASE_UI_TYPES });
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);
   useRunGroups.getState().resetAndSetAll(runGroups);

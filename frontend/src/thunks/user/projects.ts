@@ -4,10 +4,7 @@ import { useOtherProjectConfigs } from "models/info/otherProjectConfigs";
 import { loadProjectState } from "thunks/loadProjectState";
 
 export async function loadProject({ projectName, configName }) {
-  const res = await dbLoadFullProject({
-    projectName,
-    withBaseUITypes: true,
-  });
+  const res = await dbLoadFullProject({ projectName });
   if (res.status === 200) {
     const projectConfig = res.data.configs.find(
       (x) => x.projectConfig.name === configName,

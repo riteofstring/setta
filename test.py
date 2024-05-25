@@ -864,7 +864,7 @@ from pprint import pprint
 with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
     p = json.load(f)
 
-with open("seed/BaseUITypes.json") as f:
+with open("constants/BaseUITypes.json") as f:
     u = json.load(f)
 
 config = p.pop("configs")[1]
