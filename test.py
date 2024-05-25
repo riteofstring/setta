@@ -1,6 +1,6 @@
 # import jedi
 # from pprint import pprint
-# from runcoder.code.utils import get_str_from_value, get_value_from_completions
+# from runcoder.code_gen.utils import get_str_from_value, get_value_from_completions
 # import string
 # import copy
 
@@ -37,8 +37,8 @@
 # pprint(output)
 
 
-# from runcoder.code.export_selected import export_selected
-# from runcoder.code.generate_code import generate_code
+# from runcoder.code_gen.export_selected import export_selected
+# from runcoder.code_gen.generate_code import generate_code
 # import json
 # from pprint import pprint
 
@@ -125,7 +125,7 @@
 #     #     print(line.decode('utf8'))
 
 
-# from runcoder.code.generate_code import infer_imports
+# from runcoder.code_gen.generate_code import infer_imports
 
 # code = """import numpy as np
 
@@ -181,8 +181,8 @@
 # print(number_of_lines)  # Output will be 1
 
 
-# from runcoder.code.export_selected import export_selected
-# from runcoder.code.generate_code import generate_code
+# from runcoder.code_gen.export_selected import export_selected
+# from runcoder.code_gen.generate_code import generate_code
 # import json
 # from pprint import pprint
 # import yaml
@@ -852,10 +852,10 @@ evRefs = {
 
 
 
-from runcoder.code.export_selected import export_selected, get_code
-from runcoder.code.generate_code import generate_code, generate_lines_of_code_without_imports
-from runcoder.code.infer_imports import infer_imports
-from runcoder.code.utils import process_refs
+from runcoder.code_gen.export_selected import export_selected, get_code
+from runcoder.code_gen.generate_code import generate_code, generate_lines_of_code_without_imports
+from runcoder.code_gen.infer_imports import infer_imports
+from runcoder.code_gen.utils import process_refs
 import json
 import black
 import isort
