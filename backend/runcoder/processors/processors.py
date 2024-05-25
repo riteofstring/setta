@@ -14,8 +14,8 @@ from runcoder.autocomplete.python.jedi.autocomplete import (
 from runcoder.type_checkers.python.mypy.type_checker import parse_and_type_check
 
 from ..code.export_selected import export_selected, get_code
-from ..code.extract_args_from_help import extract_args_from_help
-from ..code.generate_code import (
+from ..code.python.extract_args_from_help import extract_args_from_help
+from ..code.python.generate_code import (
     append_to_line,
     generate_code,
     generate_lines_of_code_without_imports,

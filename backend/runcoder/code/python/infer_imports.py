@@ -1,6 +1,6 @@
 import ast
 
-from ..utils.constants import BUILT_INS
+from ...utils.constants import BUILT_INS
 
 
 def infer_imports(code):

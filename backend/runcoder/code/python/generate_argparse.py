@@ -1,4 +1,4 @@
-from ..utils.constants import C
+from ...utils.constants import C
 
 
 def generate_argparse(selected):

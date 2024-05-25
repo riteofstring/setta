@@ -16,8 +16,8 @@ from runcoder.code.find_placeholders import (
     needs_python_argparse,
     needs_yaml,
 )
-from runcoder.code.generate_argparse import generate_argparse
-from runcoder.code.generate_code import generate_code, replace_keywords
+from runcoder.code.python.generate_argparse import generate_argparse
+from runcoder.code.python.generate_code import generate_code, replace_keywords
 from runcoder.utils.constants import C
 
 if platform.system() == "Windows":

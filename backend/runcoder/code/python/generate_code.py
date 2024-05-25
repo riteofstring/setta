@@ -1,10 +1,10 @@
 import ast
 import copy
 
-from ..utils.constants import C
-from .find_placeholders import double_braces
+from ...utils.constants import C
+from ..find_placeholders import double_braces
+from ..utils import push_var_deep
 from .infer_imports import infer_imports
-from .utils import push_var_deep
 
 
 def get_location_str(node):
