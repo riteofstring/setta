@@ -3,6 +3,7 @@ import { pseudoTemplatedStr } from "dbRequests/utils";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
+import { URLS } from "utils/constants";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
@@ -20,7 +21,7 @@ function newTerminalWebsocket(sectionId) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
   } else {
     const projectConfigId = useProjectConfig.getState().id;
-    const wsTerminalAddress = `${C.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, id: sectionId })}`;
+    const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, id: sectionId })}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
       if (PENDING_MSG[sectionId]) {
