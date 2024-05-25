@@ -38,5 +38,12 @@
   "ROUTE_SET_PROJECT_NAME": "/projects/setProjectName",
   "ROUTE_SET_PROJECT_CONFIG_NAME": "/projects/setProjectConfigName",
   "ROUTE_SECTIONS": "/sections",
-  "ROUTE_LOAD_SETTINGS": "/settings"
+  "ROUTE_LOAD_SETTINGS": "/settings",
+  "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{id}",
+  "ROUTE_PARAMETERS_REQUEST": "/parametersRequest",
+  "ROUTE_TEXT_FIELD_INITIALIZE_CODE": "/textFieldInitializeCode",
+  "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
+  "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
+  "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
+  "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}"
 }

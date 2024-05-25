@@ -31,7 +31,7 @@ export async function dbParametersRequest({
     fullText,
     beforeText,
     position,
-    address: "/parametersRequest",
+    address: C.ROUTE_PARAMETERS_REQUEST,
   });
 }
 
@@ -39,7 +39,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   const project = getProjectDataToGenerateCode({});
   return await post({
     body: { project, sectionId, paramInfoId },
-    address: "/textFieldInitializeCode",
+    address: C.ROUTE_TEXT_FIELD_INITIALIZE_CODE,
   });
 }
 
@@ -47,7 +47,7 @@ export async function dbTypeCheckRequest() {
   const project = getProjectDataToGenerateCode({});
   return await post({
     body: { project },
-    address: "/typeCheckRequest",
+    address: C.ROUTE_TYPE_CHECK_REQUEST,
   });
 }
 
@@ -57,7 +57,7 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
-  address = "/textFieldCompletion",
+  address = C.ROUTE_TEXT_FIELD_COMPLETION,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();

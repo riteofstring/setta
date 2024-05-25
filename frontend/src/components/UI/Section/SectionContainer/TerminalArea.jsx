@@ -1,3 +1,4 @@
+import { pseudoTemplatedStr } from "dbRequests/utils";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
@@ -19,7 +20,7 @@ function newTerminalWebsocket(sectionId) {
     ws = TERMINAL_WEBSOCKETS[sectionId];
   } else {
     const projectConfigId = useProjectConfig.getState().id;
-    const wsTerminalAddress = `${C.WEBSOCKET}/terminal/${projectConfigId}/${sectionId}`;
+    const wsTerminalAddress = `${C.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, id: sectionId })}`;
     ws = new WebSocket(wsTerminalAddress);
     ws.addEventListener("open", () => {
       if (PENDING_MSG[sectionId]) {

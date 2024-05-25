@@ -276,7 +276,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.disconnect(id)
 
 
-@app.websocket("/terminal/{projectConfigId}/{id}")
+@app.websocket(C.ROUTE_TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket, projectConfigId: str, id: str
 ):
@@ -395,11 +395,6 @@ def route_load_settings():
         return load_settings(dbs)
 
 
-@app.post("/constants")
-def route_load_constants():
-    return obj_to_dict(C)
-
-
 @app.post("/logging")
 def route_logging():
     pass
@@ -420,17 +415,17 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
     return {**output, "relativePositions": relativePositions}
 
 
-@app.post("/terminal/getFreeTerminal/{projectConfigId}")
+@app.post(C.ROUTE_GET_FREE_TERMINAL)
 def route_terminal_get_free_terminal(projectConfigId):
     return terminal_websockets.get_free_terminal(projectConfigId)
 
 
-@app.post("/terminal/deleteTerminals")
+@app.post(C.ROUTE_DELETE_TERMINALS)
 def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
     terminal_websockets.delete_terminals(x.ids)
 
 
-@app.post("/parametersRequest")
+@app.post(C.ROUTE_PARAMETERS_REQUEST)
 async def route_parameters_request(x: ParametersRequestRequest):
     result = await getProcessorOutput(
         {"messageType": "parametersRequest", "message": x.dict()},
@@ -441,7 +436,7 @@ async def route_parameters_request(x: ParametersRequestRequest):
     return result["output"]
 
 
-@app.post("/textFieldInitializeCode")
+@app.post(C.ROUTE_TEXT_FIELD_INITIALIZE_CODE)
 async def route_text_field_initialize_code(x: TextFieldInitializeCode):
     result = await getProcessorOutput(
         {"messageType": "textFieldInitializeCode", "message": x.dict()},
@@ -452,7 +447,7 @@ async def route_text_field_initialize_code(x: TextFieldInitializeCode):
     return result["output"]
 
 
-@app.post("/typeCheckRequest")
+@app.post(C.ROUTE_TYPE_CHECK_REQUEST)
 async def route_type_check_request(x: TypeCheckRequestRequest):
     result = await getProcessorOutput(
         {"messageType": "typeCheckRequest", "message": x.project},
@@ -463,7 +458,7 @@ async def route_type_check_request(x: TypeCheckRequestRequest):
     return result["output"]
 
 
-@app.post("/textFieldCompletion")
+@app.post(C.ROUTE_TEXT_FIELD_COMPLETION)
 async def route_text_field_completion(x: TextFieldCompletionRequest):
     result = await getProcessorOutput(
         {"messageType": "textFieldCompletion", "message": x.dict()},
