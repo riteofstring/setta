@@ -18,7 +18,10 @@ export async function dbGetProjectsForHomePage() {
 export async function dbLoadProject({ projectName, configName }) {
   return await post({
     body: {},
-    address: pseudoTemplatedStr(C.LOAD_PROJECT, { projectName, configName }),
+    address: pseudoTemplatedStr(C.ROUTE_LOAD_PROJECT, {
+      projectName,
+      configName,
+    }),
   });
 }
 
@@ -29,10 +32,10 @@ export async function dbLoadFullProject({ projectName }) {
   });
 }
 
-export async function dbCreateProject({ name }) {
+export async function dbCreateProject({ name, previewImgColor }) {
   return await post({
     address: C.ROUTE_CREATE_PROJECT,
-    body: { name },
+    body: { name, previewImgColor },
   });
 }
 

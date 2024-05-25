@@ -142,6 +142,7 @@ CREATE_TABLES_COMMANDS = [
         name TEXT,
         defaultConfigId TEXT UNIQUE,
         previewImg TEXT,
+        previewImgColor TEXT,
         UNIQUE (name),
         FOREIGN KEY (defaultConfigId) REFERENCES ProjectConfig(id)
     );

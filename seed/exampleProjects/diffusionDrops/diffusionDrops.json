@@ -3,6 +3,7 @@
   "name": "diffusionDrops",
   "defaultConfigId": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
   "previewImg": null,
+  "previewImgColor": "bg-purple-500/60 dark:bg-purple-600/30",
   "configs": [
     {
       "projectConfig": {

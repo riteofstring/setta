@@ -3,6 +3,7 @@
   "name": "sklearn_example",
   "defaultConfigId": "41f411f7-b14d-4375-bfcd-204446866745",
   "previewImg": null,
+  "previewImgColor": "bg-pink-500/60 dark:bg-pink-600/30",
   "configs": [
     {
       "projectConfig": {

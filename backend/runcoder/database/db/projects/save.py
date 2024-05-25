@@ -8,33 +8,46 @@ from ..sections.save import save_sections
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
-def save_project_details(dbs, p):
+def save_project_details(dbs, p, withPreviewImgColor=False):
     save_code_info(dbs, merge_configs(p, "codeInfo"), merge_configs(p, "evCols"))
     save_ev_cols(dbs, merge_configs(p, "evCols"))
     save_ui_types(dbs, merge_configs(p, "uiTypes"))
     save_ui_type_cols(dbs, merge_configs(p, "uiTypeCols"))
     save_param_sweeps(dbs, merge_configs(p, "paramSweeps"))
     save_sections(dbs, merge_configs(p, "sections"))
-    save_project(dbs, p)
+    save_project(dbs, p, withPreviewImgColor)
     save_project_configs(dbs, p["id"], p["configs"])
     save_run_groups(dbs, merge_configs(p, "runGroups"))
     update_default_project_config(dbs, p)
 
 
-def save_project(dbs, project):
+def save_project(dbs, project, withPreviewImgColor=False):
     db = dbs.default
     query = """
         INSERT INTO Project (id, name, previewImg)
         VALUES (:id, :name, :previewImg)
         ON CONFLICT (id)
-        DO UPDATE SET 
+        DO UPDATE SET
         name = :name,
         previewImg = :previewImg
-
     """
 
-    query_params = {"id": project["id"], "name": project["name"], "previewImg": project["previewImg"]}
+    query_params = {
+        "id": project["id"],
+        "name": project["name"],
+        "previewImg": project["previewImg"],
+    }
     db.execute(query, query_params)
+
+    if withPreviewImgColor:
+        query = """
+            UPDATE Project
+            SET previewImgColor = :previewImgColor
+            WHERE ID = :id
+        """
+        db.execute(
+            query, {"id": project["id"], "previewImgColor": project["previewImgColor"]}
+        )
 
 
 def save_project_configs(dbs, projectId, configs):
@@ -107,7 +120,7 @@ def update_default_project_config(dbs, p):
     db.execute(query, query_params)
 
 
-def create_project(dbs, name):
+def create_project(dbs, name, previewImgColor):
     db = dbs.default
     query = """
         SELECT name
@@ -120,11 +133,11 @@ def create_project(dbs, name):
         name = generate_memorable_string()
 
     query = """
-        INSERT INTO Project (id, name)
-        VALUES (:id, :name)
+        INSERT INTO Project (id, name, previewImgColor)
+        VALUES (:id, :name, :previewImgColor)
     """
     projectId = create_new_id()
-    query_params = {"id": projectId, "name": name}
+    query_params = {"id": projectId, "name": name, "previewImgColor": previewImgColor}
     db.execute(query, query_params)
 
     query = """

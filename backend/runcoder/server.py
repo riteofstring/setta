@@ -130,6 +130,7 @@ class SaveAsExistingProjectConfigRequest(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: Optional[str] = None
+    previewImgColor: str
 
 
 class DeleteProjectsRequest(BaseModel):
@@ -327,7 +328,7 @@ def route_save_project(x: ProjectSaveRequest):
 @app.post(C.ROUTE_CREATE_PROJECT)
 def route_create_project(x: CreateProjectRequest):
     with dbs:
-        return create_project(dbs, x.name)
+        return create_project(dbs, x.name, x.previewImgColor)
 
 
 @app.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)

@@ -3,6 +3,7 @@
   "name": "argparse_example",
   "defaultConfigId": "06053c7e-2445-4fe5-9143-f6b75f12d332",
   "previewImg": null,
+  "previewImgColor": "bg-red-500/60 dark:bg-red-600/30",
   "configs": [
     {
       "projectConfig": {
