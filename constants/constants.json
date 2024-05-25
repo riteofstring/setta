@@ -45,5 +45,8 @@
   "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
   "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
-  "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}"
+  "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
+  "MESSAGE_CONNECTION": "connection",
+  "MESSAGE_LIST_OF_INTERACTIVE_PROJECTS": "listOfInteractiveProjects",
+  "MESSAGE_ALL_CONNECTIONS": "allConnections"
 }
