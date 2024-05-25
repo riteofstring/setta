@@ -31,7 +31,7 @@ def load_all_projects(dbs, format, input_project_id):
 
     # Using a dictionary to collect configurations per project
     project_dict = defaultdict(
-        lambda: {"id": None, "name": None, "defaultConfigId": None, "previewImg": None, "configs": []}
+        lambda: {"id": None, "name": None, "defaultConfigId": None, "previewImg": None, "previewImgColor":None, "configs": []}
     )
 
     for row in db.fetchall():

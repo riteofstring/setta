@@ -24,16 +24,17 @@ def save_project_details(dbs, p):
 def save_project(dbs, project):
     db = dbs.default
     query = """
-        INSERT INTO Project (id, name, previewImg)
-        VALUES (:id, :name, :previewImg)
+        INSERT INTO Project (id, name, previewImg, previewImgColor)
+        VALUES (:id, :name, :previewImg, :previewImgColor)
         ON CONFLICT (id)
         DO UPDATE SET 
         name = :name,
-        previewImg = :previewImg
+        previewImg = :previewImg,
+        previewImgColor = :previewImgColor
 
     """
 
-    query_params = {"id": project["id"], "name": project["name"], "previewImg": project["previewImg"]}
+    query_params = {"id": project["id"], "name": project["name"], "previewImg": project["previewImg"], "previewImgColor": project["previewImgColor"]}
     db.execute(query, query_params)
 
 
