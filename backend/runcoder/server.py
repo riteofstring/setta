@@ -317,9 +317,9 @@ def route_load_project(projectName, configName):
 
 
 @app.post(C.ROUTE_LOAD_FULL_PROJCT)
-def route_load_full_project(projectName, body: LoadFullProjectRequest):
+def route_load_full_project(projectName, body):
     with dbs:
-        return load_full_project(dbs, projectName, body.withBaseUITypes)
+        return load_full_project(dbs, projectName, body)
 
 
 @app.post(C.ROUTE_SAVE_PROJECT)
