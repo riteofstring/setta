@@ -17,6 +17,8 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
+import { getNodesBounds } from "xyflow/core";
+import { getXYWidthHeight, MinimapSvg } from "xyflow/minimap/MiniMap";
 import "./homepage.css";
 
 export function HomePage() {
@@ -126,6 +128,7 @@ const ProjectItem = forwardRef(
     const defaultConfigAddress = useDefaultConfigAddress(project);
 
     function onClickConfigsButton(e) {
+      console.log("onClickConfigsButton");
       e.stopPropagation();
       setOpenConfigs(!openConfigs);
     }
@@ -167,6 +170,8 @@ function ThumbnailArea({
   isSelected,
   onSelectProject,
 }) {
+  const previewImgNodes = JSON.parse(project.previewImgNodes);
+
   return (
     <div
       className={`absolute bottom-0 left-0 top-0 col-start-1 col-end-2 row-start-1 row-end-2 grid w-full bg-center p-4 ${project.previewImgColor}`}
@@ -193,10 +198,10 @@ function ThumbnailArea({
           align="end"
         />
       </aside>
-      <div
-        className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150"
-        dangerouslySetInnerHTML={{ __html: project.previewImg }}
-      />
+
+      <div className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150">
+        <PreviewImg previewImgNodes={previewImgNodes} />
+      </div>
 
       {/* <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
@@ -242,4 +247,41 @@ function useConfigAddress({ project, configId }) {
 function useDefaultConfigAddress(project) {
   const configId = project.defaultConfigId;
   return useConfigAddress({ project, configId });
+}
+
+function PreviewImg({ previewImgNodes }) {
+  const nodes = previewImgNodes.map((n) => ({
+    position: { x: n.x, y: n.y },
+    width: n.w,
+    height: n.h,
+  }));
+
+  const elementWidth = 200;
+  const elementHeight = 150;
+  const boundingRect = getNodesBounds(nodes);
+  const { x, y, width, height, offset } = getXYWidthHeight({
+    boundingRect,
+    elementHeight,
+    elementWidth,
+    offsetScale: 5,
+  });
+
+  return MinimapSvg({
+    elementWidth: 200,
+    elementHeight: 150,
+    x,
+    y,
+    width,
+    height,
+    offset,
+    nodes,
+    nodeColor: "#2D384D",
+    nodeStrokeColor: "transparent",
+    nodeBorderRadius: 5,
+    nodeStrokeWidth: 2,
+    nodeClassName: "",
+    maskColor: "rgb(20, 22, 31, 0.5)",
+    maskStrokeColor: "none",
+    maskStrokeWidth: 1,
+  });
 }

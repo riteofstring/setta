@@ -14,9 +14,10 @@ def load_all_projects(dbs, format, input_project_id):
             Project.id AS projectId,
             Project.name AS projectName,
             Project.defaultConfigId,
-            Project.previewImg,
+            Project.previewImgNodes,
             Project.previewImgColor,
-            ProjectConfig.*
+            ProjectConfig.id AS configId,
+            ProjectConfig.name AS configName
         FROM
             Project
         JOIN
@@ -35,8 +36,7 @@ def load_all_projects(dbs, format, input_project_id):
             "id": None,
             "name": None,
             "defaultConfigId": None,
-            "previewImg": None,
-            "previewImgColor": None,
+            "previewImgNodes": None,
             "configs": [],
         }
     )
@@ -46,16 +46,16 @@ def load_all_projects(dbs, format, input_project_id):
         project_id = row_dict.pop("projectId")
         project_name = row_dict.pop("projectName")
         defaultConfigId = row_dict.pop("defaultConfigId")
-        previewImg = row_dict.pop("previewImg")
+        previewImgNodes = row_dict.pop("previewImgNodes")
         previewImgColor = row_dict.pop("previewImgColor")
         curr = project_dict[project_id]
 
         curr["id"] = project_id
         curr["name"] = project_name
         curr["defaultConfigId"] = defaultConfigId
-        curr["previewImg"] = previewImg
+        curr["previewImgNodes"] = previewImgNodes
         curr["previewImgColor"] = previewImgColor
-        curr["configs"].append(row_dict)
+        curr["configs"].append({"id": row_dict["configId"], "name": row_dict["configName"]})
 
     # Convert the dictionary to a list of project dictionaries
     projects_with_configs = list(project_dict.values())

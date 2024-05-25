@@ -42,12 +42,12 @@ function _MiniMapNodes({
 
   return (
     <>
-      {nodes.map((node) => {
+      {nodes.map((node, idx) => {
         const { x, y } = node.position;
 
         return (
           <NodeComponent
-            key={node.id}
+            key={`${node.id ?? idx}`}
             x={x}
             y={y}
             width={node.width!}

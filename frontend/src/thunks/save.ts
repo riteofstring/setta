@@ -15,12 +15,9 @@ import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
-import ReactDOMServer from "react-dom/server";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
-import { getNodesBounds } from "xyflow/core";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
-import { getXYWidthHeight, MinimapSvg } from "xyflow/minimap/MiniMap";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
 import { ManyUITypeType } from "z_utils/types/uiType";
@@ -28,7 +25,7 @@ import { isPreset } from "z_utils/uiTypeConstants";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
-  project.previewImg = minimapSvgToText();
+  project.previewImgNodes = getPreviewImgNodes();
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = getViewport();
   const children = {};
@@ -116,35 +113,16 @@ export function assembleUITypes(
   return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
 }
 
-function minimapSvgToText() {
-  const nodes = useNodeInternals.getState().getNodes();
-  const elementWidth = 200;
-  const elementHeight = 150;
-  const boundingRect = getNodesBounds(nodes);
-  const { x, y, width, height, offset } = getXYWidthHeight({
-    boundingRect,
-    elementHeight,
-    elementWidth,
-    offsetScale: 5,
-  });
-
-  const svgElement = MinimapSvg({
-    elementWidth: 200,
-    elementHeight: 150,
-    x,
-    y,
-    width,
-    height,
-    offset,
-    nodes,
-    nodeColor: "#2D384D",
-    nodeStrokeColor: "transparent",
-    nodeBorderRadius: 5,
-    nodeStrokeWidth: 2,
-    nodeClassName: "",
-    maskColor: "rgb(20, 22, 31, 0.5)",
-    maskStrokeColor: "none",
-    maskStrokeWidth: 1,
-  });
-  return ReactDOMServer.renderToString(svgElement);
+function getPreviewImgNodes() {
+  const nodes = useNodeInternals
+    .getState()
+    .getNodes()
+    .map((n) => ({
+      x: n.position.x,
+      y: n.position.y,
+      w: n.width,
+      h: n.height,
+    }));
+    
+  return JSON.stringify(nodes);
 }
