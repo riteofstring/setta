@@ -1,4 +1,4 @@
-import { C } from "utils/constants";
+import C from "constants/constants.json";
 import { post, pseudoTemplatedStr } from "./utils";
 
 export async function dbGetFreeTerminal(projectConfigId) {

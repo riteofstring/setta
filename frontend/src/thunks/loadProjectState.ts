@@ -1,10 +1,10 @@
+import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import BASE_UI_TYPES from "../../../constants/BaseUITypes.json";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "../models/info/codeInfo";

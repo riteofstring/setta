@@ -34,4 +34,4 @@ export function setDbSourceMapping(newMapping) {
 }
 
 // constants object
-export const C = {};
+export const URLS = {};

@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
@@ -11,7 +12,6 @@ import {
 } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
-import { C } from "utils/constants";
 import { useDndMode } from "utils/DNDSortable/dndState";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";

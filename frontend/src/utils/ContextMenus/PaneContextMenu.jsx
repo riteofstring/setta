@@ -1,10 +1,11 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useContextMenus } from "models/contextMenus";
 import { useModal } from "models/modal";
 import { onClickAddSection } from "thunks/createSectionOrDeck";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
-import { C, SINGLETON_SECTIONS } from "utils/constants";
+import { SINGLETON_SECTIONS } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {

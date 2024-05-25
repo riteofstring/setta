@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import { useGetParamSweepNames } from "hooks/useParamSweepInfo";
 import _ from "lodash";
@@ -5,7 +6,6 @@ import { useRunGroups } from "models/runGroups";
 import React, { useState } from "react";
 import { BiFilter } from "react-icons/bi";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { C } from "utils/constants";
 import { createNewId, createRandomName } from "z_utils/utils";
 
 export function GlobalParamSweepArea() {

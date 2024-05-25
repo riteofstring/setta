@@ -1,10 +1,10 @@
+import C from "constants/constants.json";
 import { useSectionTypeName } from "hooks/useSectionType";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "thunks/sections/sectionOps";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
-import { C } from "utils/constants";
 import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";

@@ -1,6 +1,7 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
-import { C, SINGLETON_SECTIONS } from "utils/constants";
+import { SINGLETON_SECTIONS } from "utils/constants";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";

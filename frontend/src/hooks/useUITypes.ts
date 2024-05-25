@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { useUITypes } from "models/info/uiTypes";
 import {
   DB_SOURCES_TAB,
@@ -5,7 +6,6 @@ import {
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
 } from "models/uiEditor";
-import { C } from "utils/constants";
 import { useGetSectionInfo } from "./useSectionInfo";
 
 export function useRequiredUIEditorTabs(sectionId) {

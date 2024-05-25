@@ -1,10 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useExportProjectJson } from "hooks/useGetOrCreateProjects";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { loadProjectState } from "thunks/loadProjectState";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
-import BASE_UI_TYPES from "../../../../../constants/BaseUITypes.json";
 
 export function ExportJSONModal({ modalType, open }) {
   const { projectJson, exportProjectJson, exportFullProjectJson } =

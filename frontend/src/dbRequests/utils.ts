@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from "axios";
-import { C } from "utils/constants";
+import { URLS } from "utils/constants";
 
 export async function post<S, R>({
   address,
@@ -9,7 +9,7 @@ export async function post<S, R>({
   body: S;
 }) {
   return axios
-    .post<S, AxiosResponse<R>>(`${C.BACKEND}${address}`, body, {
+    .post<S, AxiosResponse<R>>(`${URLS.BACKEND}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
       },

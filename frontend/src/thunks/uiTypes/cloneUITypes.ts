@@ -1,6 +1,6 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
-import { C } from "utils/constants";
 import { isSeriesElement, rootTypeToChildSubType } from "z_utils/constants";
 import { UITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
