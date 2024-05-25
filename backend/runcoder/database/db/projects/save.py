@@ -8,20 +8,20 @@ from ..sections.save import save_sections
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
-def save_project_details(dbs, p, withPreviewImgColor=False):
+def save_project_details(dbs, p):
     save_code_info(dbs, merge_configs(p, "codeInfo"), merge_configs(p, "evCols"))
     save_ev_cols(dbs, merge_configs(p, "evCols"))
     save_ui_types(dbs, merge_configs(p, "uiTypes"))
     save_ui_type_cols(dbs, merge_configs(p, "uiTypeCols"))
     save_param_sweeps(dbs, merge_configs(p, "paramSweeps"))
     save_sections(dbs, merge_configs(p, "sections"))
-    save_project(dbs, p, withPreviewImgColor)
+    save_project(dbs, p)
     save_project_configs(dbs, p["id"], p["configs"])
     save_run_groups(dbs, merge_configs(p, "runGroups"))
     update_default_project_config(dbs, p)
 
 
-def save_project(dbs, project, withPreviewImgColor=False):
+def save_project(dbs, project):
     db = dbs.default
     query = """
         INSERT INTO Project (id, name, previewImg)
@@ -39,7 +39,7 @@ def save_project(dbs, project, withPreviewImgColor=False):
     }
     db.execute(query, query_params)
 
-    if withPreviewImgColor:
+    if "previewImgColor" in project:
         query = """
             UPDATE Project
             SET previewImgColor = :previewImgColor

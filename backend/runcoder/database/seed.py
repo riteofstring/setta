@@ -24,7 +24,7 @@ def seed_projects(dbs):
     for filepath in example_jsons:
         with open(filepath, "r") as f:
             data = json.load(f)
-        save_project_details(dbs, data, withPreviewImgColor=True)
+        save_project_details(dbs, data)
 
 
 def seed_settings(dbs):
