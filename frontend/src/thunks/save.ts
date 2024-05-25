@@ -18,8 +18,8 @@ import { useRunGroups } from "models/runGroups";
 import ReactDOMServer from "react-dom/server";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
+import { getNodesBounds } from "xyflow/core";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
-import { getViewportForFitView } from "xyflow/core/store/utils";
 import { MinimapSvg } from "xyflow/minimap/MiniMap";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
@@ -118,17 +118,31 @@ export function assembleUITypes(
 
 function minimapSvgToText() {
   const nodes = useNodeInternals.getState().getNodes();
-  const { x, y, zoom } = getViewportForFitView(nodes, null, null, 0.1);
+  const offsetScale = 5;
+  const elementWidth = 200;
+  const elementHeight = 150;
+  const boundingRect = getNodesBounds(nodes);
+  const scaledWidth = boundingRect.width / elementWidth;
+  const scaledHeight = boundingRect.height / elementHeight;
+  const viewScale = Math.max(scaledWidth, scaledHeight);
+  const viewWidth = viewScale * elementWidth;
+  const viewHeight = viewScale * elementHeight;
+  const offset = offsetScale * viewScale;
 
-  console.log(x, y);
+  const x = boundingRect.x - (viewWidth - boundingRect.width) / 2 - offset;
+  const y = boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset;
+  const width = viewWidth + offset * 2;
+  const height = viewHeight + offset * 2;
 
   const svgElement = MinimapSvg({
     elementWidth: 200,
     elementHeight: 150,
     x,
     y,
-    width: 3079.881060980945,
-    height: 2346.5760464616724,
+    width,
+    height,
+    offset,
+    nodes,
     nodeColor: "#e2e2e2",
     nodeStrokeColor: "transparent",
     nodeBorderRadius: 5,
@@ -137,14 +151,6 @@ function minimapSvgToText() {
     maskColor: "rgb(20, 22, 31, 0.5)",
     maskStrokeColor: "none",
     maskStrokeWidth: 1,
-    offset: 60.76218407246146,
-    viewBB: {
-      x: 198.67356492579069,
-      y: -1103.096877556506,
-      width: 1561.9999999999995,
-      height: 1121.9999999999998,
-    },
-    nodes: nodes,
   });
   return ReactDOMServer.renderToString(svgElement);
 }

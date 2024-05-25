@@ -267,16 +267,18 @@ export function MinimapSvg({
       ) : (
         <MiniMapNodesReactive {...minimapNodesProps} />
       )}
-      <path
-        className="react-flow__minimap-mask"
-        d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
+      {viewBB && (
+        <path
+          className="react-flow__minimap-mask"
+          d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
 M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
-        fill={maskColor}
-        fillRule="evenodd"
-        stroke={maskStrokeColor}
-        strokeWidth={maskStrokeWidth}
-        pointerEvents="none"
-      />
+          fill={maskColor}
+          fillRule="evenodd"
+          stroke={maskStrokeColor}
+          strokeWidth={maskStrokeWidth}
+          pointerEvents="none"
+        />
+      )}
     </svg>
   );
 }
