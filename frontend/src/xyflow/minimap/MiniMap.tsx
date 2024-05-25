@@ -43,6 +43,25 @@ function getSelector(nodes, overviewWidth) {
   };
 }
 
+export function getXYWidthHeight({
+  boundingRect,
+  elementHeight,
+  elementWidth,
+  offsetScale,
+}) {
+  const scaledWidth = boundingRect.width / elementWidth;
+  const scaledHeight = boundingRect.height / elementHeight;
+  const viewScale = Math.max(scaledWidth, scaledHeight);
+  const viewWidth = viewScale * elementWidth;
+  const viewHeight = viewScale * elementHeight;
+  const offset = offsetScale * viewScale;
+  const x = boundingRect.x - (viewWidth - boundingRect.width) / 2 - offset;
+  const y = boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset;
+  const width = viewWidth + offset * 2;
+  const height = viewHeight + offset * 2;
+  return { x, y, width, height, viewScale, offset };
+}
+
 function MiniMap({
   style,
   className,
@@ -76,16 +95,12 @@ function MiniMap({
   const elementWidth = (style?.width as number) ?? defaultWidth;
   const elementHeight = (style?.height as number) ?? defaultHeight;
 
-  const scaledWidth = boundingRect.width / elementWidth;
-  const scaledHeight = boundingRect.height / elementHeight;
-  const viewScale = Math.max(scaledWidth, scaledHeight);
-  const viewWidth = viewScale * elementWidth;
-  const viewHeight = viewScale * elementHeight;
-  const offset = offsetScale * viewScale;
-  const x = boundingRect.x - (viewWidth - boundingRect.width) / 2 - offset;
-  const y = boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset;
-  const width = viewWidth + offset * 2;
-  const height = viewHeight + offset * 2;
+  const { x, y, width, height, viewScale, offset } = getXYWidthHeight({
+    boundingRect,
+    elementHeight,
+    elementWidth,
+    offsetScale,
+  });
   const viewScaleRef = useRef(0);
 
   viewScaleRef.current = viewScale;

@@ -20,7 +20,7 @@ import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
 import { getNodesBounds } from "xyflow/core";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
-import { MinimapSvg } from "xyflow/minimap/MiniMap";
+import { getXYWidthHeight, MinimapSvg } from "xyflow/minimap/MiniMap";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
 import { ManyUITypeType } from "z_utils/types/uiType";
@@ -118,21 +118,15 @@ export function assembleUITypes(
 
 function minimapSvgToText() {
   const nodes = useNodeInternals.getState().getNodes();
-  const offsetScale = 5;
   const elementWidth = 200;
   const elementHeight = 150;
   const boundingRect = getNodesBounds(nodes);
-  const scaledWidth = boundingRect.width / elementWidth;
-  const scaledHeight = boundingRect.height / elementHeight;
-  const viewScale = Math.max(scaledWidth, scaledHeight);
-  const viewWidth = viewScale * elementWidth;
-  const viewHeight = viewScale * elementHeight;
-  const offset = offsetScale * viewScale;
-
-  const x = boundingRect.x - (viewWidth - boundingRect.width) / 2 - offset;
-  const y = boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset;
-  const width = viewWidth + offset * 2;
-  const height = viewHeight + offset * 2;
+  const { x, y, width, height, offset } = getXYWidthHeight({
+    boundingRect,
+    elementHeight,
+    elementWidth,
+    offsetScale: 5,
+  });
 
   const svgElement = MinimapSvg({
     elementWidth: 200,
@@ -143,7 +137,7 @@ function minimapSvgToText() {
     height,
     offset,
     nodes,
-    nodeColor: "#e2e2e2",
+    nodeColor: "#2D384D",
     nodeStrokeColor: "transparent",
     nodeBorderRadius: 5,
     nodeStrokeWidth: 2,
