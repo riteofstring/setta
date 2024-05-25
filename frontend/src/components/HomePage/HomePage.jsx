@@ -210,6 +210,7 @@ function ThumbnailArea({
           align="end"
         />
       </aside>
+      <div dangerouslySetInnerHTML={{ __html: project.previewImg }} />
 
       {/* <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
