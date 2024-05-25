@@ -1,8 +1,7 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { DB_SOURCE_MAPPING } from "utils/constants";
+import { C, DB_SOURCE_MAPPING } from "utils/constants";
 import { SectionType } from "z_utils/types/section";
 
 export function useGetSectionInfo<K extends keyof SectionType>(

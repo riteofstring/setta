@@ -1,7 +1,7 @@
 import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/MarkdownEditor/MarkdownEditor";
-import C from "constants/constants.json";
 import { useSettings } from "models/settings";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { C } from "utils/constants";
 import {
   CODE_UI_TYPE_ID,
   DECK_UI_TYPE_ID,

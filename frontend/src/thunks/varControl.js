@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -7,6 +6,7 @@ import { useSectionToParams } from "models/info/sectionToParams";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { getSectionByName, getSectionType } from "thunks/sections/getters";
 import { setSelectedItem } from "thunks/sections/setters";
+import { C } from "utils/constants";
 
 export function varControlUpdate() {
   const js_code = getVarControlSection()?.varControl;

@@ -2,7 +2,6 @@ import {
   INITIAL_MESSAGE,
   TERMINAL_WEBSOCKETS,
 } from "components/UI/Section/SectionContainer/TerminalArea";
-import C from "constants/constants.json";
 import { dbGetFreeTerminal } from "dbRequests/terminals";
 import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
@@ -13,6 +12,7 @@ import {
   computeEVReferences,
   computeInfoToFullName,
 } from "utils/CodeMirror/utils";
+import { C } from "utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";

@@ -16,7 +16,7 @@ def export_readable(dbs, filename, data):
     all_used_data = defaultdict(dict)
     full_projects = []
     for p in data["Project"]:
-        full_project = load_full_project(dbs, p["name"])
+        full_project = load_full_project(dbs, p["name"], with_base_uitypes=False)
         full_projects.append(full_project)
         for c in full_project["configs"]:
             for k, v in c.items():

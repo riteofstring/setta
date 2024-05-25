@@ -1,9 +1,8 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { DB_SOURCE_MAPPING } from "utils/constants";
+import { C, DB_SOURCE_MAPPING } from "utils/constants";
 import { isRoot } from "z_utils/constants";
 import { SectionUITypeConfigType } from "z_utils/types/uiType";
 

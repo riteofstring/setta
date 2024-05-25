@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import { useGetSectionType } from "hooks/useSectionType";
 import { undeck } from "thunks/undeck";
 import { Item } from "utils/atoms/dropdown/item";
+import { C } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function NodeContextMenu(props) {

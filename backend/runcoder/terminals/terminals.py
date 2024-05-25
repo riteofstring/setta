@@ -9,15 +9,15 @@ from collections import defaultdict, deque
 import psutil
 from fastapi import WebSocketDisconnect
 
-from runcoder.code_gen.export_selected import export_selected, get_section_type
-from runcoder.code_gen.find_placeholders import (
+from runcoder.code.export_selected import export_selected, get_section_type
+from runcoder.code.find_placeholders import (
     double_braces,
     needs_generated_python,
     needs_python_argparse,
     needs_yaml,
 )
-from runcoder.code_gen.python.generate_argparse import generate_argparse
-from runcoder.code_gen.python.generate_code import generate_code, replace_keywords
+from runcoder.code.python.generate_argparse import generate_argparse
+from runcoder.code.python.generate_code import generate_code, replace_keywords
 from runcoder.utils.constants import C
 
 if platform.system() == "Windows":

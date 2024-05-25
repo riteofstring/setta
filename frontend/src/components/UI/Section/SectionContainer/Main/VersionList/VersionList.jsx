@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useGetEVColNames } from "hooks/useEnteredValue";
 import {
   getForSectionId,
@@ -11,6 +10,7 @@ import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { C } from "utils/constants";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
 
 export function VersionList({ sectionId, sectionTypeName }) {

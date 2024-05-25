@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
@@ -6,6 +5,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { C } from "utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { ManySectionType } from "z_utils/types/section";

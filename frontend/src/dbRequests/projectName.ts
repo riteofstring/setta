@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
+import { C } from "utils/constants";
 import { post } from "./utils";
 
 export async function dbSetProjectName(newProjectName) {

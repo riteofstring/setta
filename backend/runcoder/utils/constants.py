@@ -1,13 +1,7 @@
 import builtins
-import json
-from pathlib import Path
 
-from .utils import get_absolute_path, is_dev_mode
+from .utils import is_dev_mode
 
-CONSTANTS_FOLDER = (
-    Path("../../../constants") if is_dev_mode() else Path("../static/constants")
-)
-SEED_FOLDER = Path("../../../seed") if is_dev_mode() else Path("../static/seed")
 CODE_FOLDER = "runcoder_code"
 BUILT_INS = set(dir(builtins))
 
@@ -42,11 +36,3 @@ def set_constants(**kwargs):
 
 def is_section_ui_type(x):
     return x not in [C.TEXT, C.SLIDER, C.SWITCH]
-
-
-def load_constants():
-    with open(
-        get_absolute_path(__file__, CONSTANTS_FOLDER / "constants.json"), "r"
-    ) as f:
-        constants = json.load(f)
-    set_constants(**constants)

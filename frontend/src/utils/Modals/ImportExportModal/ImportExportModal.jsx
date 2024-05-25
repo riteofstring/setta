@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import BASE_UI_TYPES from "constants/BaseUITypes.json";
+import { dbGetBaseUITypes } from "dbRequests/uiTypes";
 import { useExportProjectJson } from "hooks/useGetOrCreateProjects";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
@@ -37,8 +37,11 @@ export function ImportJSONModal() {
 
   async function onClick() {
     const parsed = JSON.parse(value);
-    parsed.uiTypes = { ...parsed.uiTypes, ...BASE_UI_TYPES };
-    loadProjectState(parsed);
+    const res = await dbGetBaseUITypes();
+    if (res.status === 200) {
+      parsed.uiTypes = { ...parsed.uiTypes, ...res.data };
+      loadProjectState(parsed);
+    }
   }
 
   return (

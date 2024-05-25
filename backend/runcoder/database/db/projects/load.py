@@ -5,6 +5,7 @@ from runcoder.database.utils import aggregate_results
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
 from ..sections.load import load_sections
+from ..uiTypes.load import load_base_uitypes
 from .utils import convert_to_file_menu_format
 
 
@@ -14,6 +15,7 @@ def load_all_projects(dbs, format, input_project_id):
             Project.id AS projectId,
             Project.name AS projectName,
             Project.defaultConfigId,
+            Project.previewImg,
             ProjectConfig.*
         FROM
             Project
@@ -29,7 +31,7 @@ def load_all_projects(dbs, format, input_project_id):
 
     # Using a dictionary to collect configurations per project
     project_dict = defaultdict(
-        lambda: {"id": None, "name": None, "defaultConfigId": None, "configs": []}
+        lambda: {"id": None, "name": None, "defaultConfigId": None, "previewImg": None, "configs": []}
     )
 
     for row in db.fetchall():
@@ -37,11 +39,13 @@ def load_all_projects(dbs, format, input_project_id):
         project_id = row_dict.pop("projectId")
         project_name = row_dict.pop("projectName")
         defaultConfigId = row_dict.pop("defaultConfigId")
+        previewImg = row_dict.pop("previewImg")
         curr = project_dict[project_id]
 
         curr["id"] = project_id
         curr["name"] = project_name
         curr["defaultConfigId"] = defaultConfigId
+        curr["previewImg"] = previewImg
         curr["configs"].append(row_dict)
 
     # Convert the dictionary to a list of project dictionaries
@@ -123,7 +127,8 @@ def load_project(dbs, project_name, config_name):
     evCols = sections_data["evCols"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
-    uiTypes = sections_data["nonPresetUITypes"]
+    baseUITypes = load_base_uitypes(dbs)
+    uiTypes = {**baseUITypes, **sections_data["nonPresetUITypes"]}
     codeInfo = load_code_info_for_sections(dbs, uiTypes)
 
     return {
@@ -144,7 +149,7 @@ def load_project(dbs, project_name, config_name):
     }
 
 
-def load_full_project(dbs, project_name):
+def load_full_project(dbs, project_name, with_base_uitypes=False):
     query = """
         SELECT
             ProjectConfig.name as configName
@@ -166,6 +171,10 @@ def load_full_project(dbs, project_name):
     for c in config_names:
         p = load_project(dbs, project_name, c)
         project = p.pop("project")
+        if not with_base_uitypes:
+            p["uiTypes"] = {
+                k: v for k, v in p["uiTypes"].items() if v["presetType"] != "BASE"
+            }
         configs.append(p)
 
     output = {**project, "configs": configs}

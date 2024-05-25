@@ -1,8 +1,8 @@
-import C from "constants/constants.json";
 import { useSectionHasMultipleParamSweeps } from "hooks/useParamSweepInfo";
 import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
 import { TbVersions } from "react-icons/tb";
 import { Button } from "utils/atoms/buttons/Button";
+import { C } from "utils/constants";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import { isRoot } from "z_utils/constants";
 import { CodeArea } from "./CodeArea";

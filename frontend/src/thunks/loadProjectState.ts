@@ -1,4 +1,3 @@
-import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamSweep } from "models/paramSweep";
@@ -51,7 +50,7 @@ export function loadProjectState({
       tempZIndex: v.zIndex,
     })),
   );
-  useUITypes.getState().resetAndSetAll({ ...uiTypes, ...BASE_UI_TYPES });
+  useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);
   useRunGroups.getState().resetAndSetAll(runGroups);

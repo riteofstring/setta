@@ -1,4 +1,4 @@
-import C from "constants/constants.json";
+import { C } from "utils/constants";
 import { post } from "./utils";
 
 export async function dbLoadSettings() {

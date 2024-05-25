@@ -1,11 +1,10 @@
-import C from "constants/constants.json";
 import { dbDeleteTerminals } from "dbRequests/terminals";
 import { useActiveSection } from "models/activeSection";
 import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID } from "utils/constants";
+import { C, PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { isRoot, rootTypeToChildSubType } from "z_utils/constants";

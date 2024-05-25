@@ -1,10 +1,10 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { C } from "utils/constants";
 import { findAll } from "z_utils/getDescendants";
 import { getSectionTypeConfig } from "../sections/getters";
 

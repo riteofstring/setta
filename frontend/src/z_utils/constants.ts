@@ -1,4 +1,4 @@
-import C from "constants/constants.json";
+import { C } from "utils/constants";
 import { SectionUITypeType, UITypeType } from "./types/uiType";
 
 export const SECTION_TYPE_NAMES = [

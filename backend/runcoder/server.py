@@ -32,6 +32,7 @@ from runcoder.database.db.sections.copy import (
     copy_sections_and_other_info,
 )
 from runcoder.database.db.settings.load import load_settings
+from runcoder.database.db.uiTypes.load import load_base_uitypes
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
 from runcoder.database.utils import convert_to_backend_format, generate_memorable_string
@@ -116,6 +117,10 @@ class ProjectRequest(BaseModel):
 
 class ProjectSaveRequest(BaseModel):
     project: dict
+
+
+class LoadFullProjectRequest(BaseModel):
+    withBaseUITypes: bool
 
 
 class SaveAsNewProjectConfigRequest(BaseModel):
@@ -312,9 +317,9 @@ def route_load_project(projectName, configName):
 
 
 @app.post(C.ROUTE_LOAD_FULL_PROJCT)
-def route_load_full_project(projectName):
+def route_load_full_project(projectName, body: LoadFullProjectRequest):
     with dbs:
-        return load_full_project(dbs, projectName)
+        return load_full_project(dbs, projectName, body.withBaseUITypes)
 
 
 @app.post(C.ROUTE_SAVE_PROJECT)
@@ -346,6 +351,12 @@ def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest)
 def route_delete_projects(x: DeleteProjectsRequest):
     with dbs:
         return delete_projects(dbs, x.ids)
+
+
+@app.post("/uiTypes/getBaseUITypes")
+def route_get_base_uitypes():
+    with dbs:
+        return load_base_uitypes(dbs)
 
 
 @app.post(C.ROUTE_GET_COLLECTIONS_AND_MODULES)

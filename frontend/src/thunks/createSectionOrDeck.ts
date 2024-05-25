@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { sendMessage } from "dbRequests/websocket";
 import { useCodeInfo } from "models/info/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
@@ -15,7 +14,7 @@ import {
 } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { PANEID } from "utils/constants";
+import { C, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { SWITCH_UI_TYPE_ID } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";

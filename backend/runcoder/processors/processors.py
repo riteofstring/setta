@@ -13,9 +13,9 @@ from runcoder.autocomplete.python.jedi.autocomplete import (
 )
 from runcoder.type_checkers.python.mypy.type_checker import parse_and_type_check
 
-from ..code_gen.export_selected import export_selected, get_code
-from ..code_gen.python.extract_args_from_help import extract_args_from_help
-from ..code_gen.python.generate_code import (
+from ..code.export_selected import export_selected, get_code
+from ..code.python.extract_args_from_help import extract_args_from_help
+from ..code.python.generate_code import (
     append_to_line,
     generate_code,
     generate_lines_of_code_without_imports,
@@ -23,7 +23,7 @@ from ..code_gen.python.generate_code import (
     set_line,
     var_declaration,
 )
-from ..code_gen.utils import process_refs
+from ..code.utils import process_refs
 from ..utils.constants import BUILT_INS, C, set_constants
 from .utils import withTempFiles
 

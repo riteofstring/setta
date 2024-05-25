@@ -1,4 +1,4 @@
-import C from "constants/constants.json";
+import { C } from "utils/constants";
 import { requiresKeyInput } from "z_utils/constants";
 import { useGetSectionTypeConfig, useIsOneOfType } from "./useSectionType";
 

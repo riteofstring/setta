@@ -1,8 +1,8 @@
-import C from "constants/constants.json";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { findRefs } from "utils/CodeMirror/utils";
+import { C } from "utils/constants";
 import { post } from "./utils";
 
 export async function dbGetSections() {

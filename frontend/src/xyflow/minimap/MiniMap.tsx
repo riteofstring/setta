@@ -190,6 +190,7 @@ function MiniMap({
       data-testid="rf__minimap"
     >
       <svg
+        id="minimap-svg"
         width={elementWidth}
         height={elementHeight}
         viewBox={`${x} ${y} ${width} ${height}`}

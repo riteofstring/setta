@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { sendMessage } from "dbRequests/websocket";
 import { useGetParamEnteredValue } from "hooks/useEnteredValue";
 import { useGetParamUIType } from "hooks/useParamUIType";
@@ -7,6 +6,7 @@ import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
+import { C } from "utils/constants";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({

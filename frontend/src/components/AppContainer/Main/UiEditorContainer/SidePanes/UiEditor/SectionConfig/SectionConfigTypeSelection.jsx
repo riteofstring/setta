@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useCodeInfo } from "models/info/codeInfo";
 import { getSectionTypeConfig } from "thunks/sections/getters";
@@ -7,6 +6,7 @@ import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { SectionUITypeCombobox } from "utils/Combobox/UITypeCombobox";
+import { C } from "utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 
 export function SectionConfigTypeSelection({ sectionId }) {

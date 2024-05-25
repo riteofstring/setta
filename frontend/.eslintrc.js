@@ -48,7 +48,6 @@ module.exports = {
           styles: "./src/styles",
           thunks: "./src/thunks",
           utils: "./src/utils",
-          constants: "../constants"
         },
       },
     },

@@ -1,10 +1,10 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import C from "constants/constants.json";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { PiBracketsCurlyBold } from "react-icons/pi";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
+import { C } from "utils/constants";
 
 function CodeLanguageSelection({ sectionId, sectionTypeName }) {
   const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
