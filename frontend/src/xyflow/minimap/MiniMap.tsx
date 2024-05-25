@@ -253,30 +253,6 @@ export function MinimapSvg({
     nodeComponent,
   };
 
-  console.log(
-    elementWidth,
-    elementHeight,
-    x,
-    y,
-    width,
-    height,
-    svgRef,
-    onSvgClick,
-    onSvgNodeClick,
-    nodeColor,
-    nodeStrokeColor,
-    nodeBorderRadius,
-    nodeClassName,
-    nodeStrokeWidth,
-    nodeComponent,
-    offset,
-    viewBB,
-    maskColor,
-    maskStrokeColor,
-    maskStrokeWidth,
-    nodes,
-  );
-
   return (
     <svg
       width={elementWidth}

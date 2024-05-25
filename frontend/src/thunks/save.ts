@@ -19,6 +19,7 @@ import ReactDOMServer from "react-dom/server";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
+import { getViewportForFitView } from "xyflow/core/store/utils";
 import { MinimapSvg } from "xyflow/minimap/MiniMap";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
@@ -117,12 +118,15 @@ export function assembleUITypes(
 
 function minimapSvgToText() {
   const nodes = useNodeInternals.getState().getNodes();
+  const { x, y, zoom } = getViewportForFitView(nodes, null, null, 0.1);
+
+  console.log(x, y);
 
   const svgElement = MinimapSvg({
     elementWidth: 200,
     elementHeight: 150,
-    x: -541.6610110454911,
-    y: -1046.8237304646998,
+    x,
+    y,
     width: 3079.881060980945,
     height: 2346.5760464616724,
     nodeColor: "#e2e2e2",
