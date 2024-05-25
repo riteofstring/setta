@@ -15,9 +15,11 @@ import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
+import ReactDOMServer from "react-dom/server";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
+import { MinimapSvg } from "xyflow/minimap/MiniMap";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
 import { ManyUITypeType } from "z_utils/types/uiType";
@@ -25,7 +27,7 @@ import { isPreset } from "z_utils/uiTypeConstants";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
-  project.previewImg = minimapSvgToText()
+  project.previewImg = minimapSvgToText();
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = getViewport();
   const children = {};
@@ -114,7 +116,31 @@ export function assembleUITypes(
 }
 
 function minimapSvgToText() {
-  const svgElement = document.getElementById("minimap-svg");
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(svgElement);
+  const nodes = useNodeInternals.getState().getNodes();
+
+  const svgElement = MinimapSvg({
+    elementWidth: 200,
+    elementHeight: 150,
+    x: -541.6610110454911,
+    y: -1046.8237304646998,
+    width: 3079.881060980945,
+    height: 2346.5760464616724,
+    nodeColor: "#e2e2e2",
+    nodeStrokeColor: "transparent",
+    nodeBorderRadius: 5,
+    nodeStrokeWidth: 2,
+    nodeClassName: "",
+    maskColor: "rgb(20, 22, 31, 0.5)",
+    maskStrokeColor: "none",
+    maskStrokeWidth: 1,
+    offset: 60.76218407246146,
+    viewBB: {
+      x: 198.67356492579069,
+      y: -1103.096877556506,
+      width: 1561.9999999999995,
+      height: 1121.9999999999998,
+    },
+    nodes: nodes,
+  });
+  return ReactDOMServer.renderToString(svgElement);
 }

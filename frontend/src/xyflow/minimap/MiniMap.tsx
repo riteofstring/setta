@@ -18,7 +18,7 @@ import {
 import useVisibleNodes from "xyflow/core/hooks/useVisibleNodes";
 import { useReactFlow } from "xyflow/core/store";
 import { shallow } from "zustand/shallow";
-import MiniMapNodes from "./MiniMapNodes";
+import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
 import type { MiniMapProps } from "./types";
 
 const defaultWidth = 200;
@@ -66,7 +66,7 @@ function MiniMap({
   zoomStep = 10,
   offsetScale = 5,
 }: MiniMapProps) {
-  const svg = useRef<SVGSVGElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useVisibleNodes();
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
   const { boundingRect, viewBB } = useReactFlow(
@@ -91,8 +91,8 @@ function MiniMap({
   viewScaleRef.current = viewScale;
 
   useEffect(() => {
-    if (svg.current) {
-      const selection = select(svg.current as Element);
+    if (svgRef.current) {
+      const selection = select(svgRef.current as Element);
 
       const zoomHandler = (event: D3ZoomEvent<SVGSVGElement, any>) => {
         const { transform, d3Selection, d3Zoom } = useReactFlow.getState();
@@ -189,35 +189,29 @@ function MiniMap({
       className={cc(["react-flow__minimap", className])}
       data-testid="rf__minimap"
     >
-      <svg
-        id="minimap-svg"
-        width={elementWidth}
-        height={elementHeight}
-        viewBox={`${x} ${y} ${width} ${height}`}
-        role="img"
-        ref={svg}
-        onClick={onSvgClick}
-      >
-        <MiniMapNodes
-          onClick={onSvgNodeClick}
-          nodeColor={nodeColor}
-          nodeStrokeColor={nodeStrokeColor}
-          nodeBorderRadius={nodeBorderRadius}
-          nodeClassName={nodeClassName}
-          nodeStrokeWidth={nodeStrokeWidth}
-          nodeComponent={nodeComponent}
-        />
-        <path
-          className="react-flow__minimap-mask"
-          d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
-        M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
-          fill={maskColor}
-          fillRule="evenodd"
-          stroke={maskStrokeColor}
-          strokeWidth={maskStrokeWidth}
-          pointerEvents="none"
-        />
-      </svg>
+      <MinimapSvg
+        elementWidth={elementWidth}
+        elementHeight={elementHeight}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        svgRef={svgRef}
+        onSvgClick={onSvgClick}
+        onSvgNodeClick={onSvgNodeClick}
+        nodeColor={nodeColor}
+        nodeStrokeColor={nodeStrokeColor}
+        nodeBorderRadius={nodeBorderRadius}
+        nodeClassName={nodeClassName}
+        nodeStrokeWidth={nodeStrokeWidth}
+        nodeComponent={nodeComponent}
+        offset={offset}
+        viewBB={viewBB}
+        maskColor={maskColor}
+        maskStrokeColor={maskStrokeColor}
+        maskStrokeWidth={maskStrokeWidth}
+        nodes={null}
+      />
     </Panel>
   );
 }
@@ -225,3 +219,88 @@ function MiniMap({
 MiniMap.displayName = "MiniMap";
 
 export default memo(MiniMap);
+
+export function MinimapSvg({
+  elementWidth,
+  elementHeight,
+  x,
+  y,
+  width,
+  height,
+  svgRef,
+  onSvgClick,
+  onSvgNodeClick,
+  nodeColor,
+  nodeStrokeColor,
+  nodeBorderRadius,
+  nodeClassName,
+  nodeStrokeWidth,
+  nodeComponent,
+  offset,
+  viewBB,
+  maskColor,
+  maskStrokeColor,
+  maskStrokeWidth,
+  nodes,
+}) {
+  const minimapNodesProps = {
+    onClick: onSvgNodeClick,
+    nodeColor,
+    nodeStrokeColor,
+    nodeBorderRadius,
+    nodeClassName,
+    nodeStrokeWidth,
+    nodeComponent,
+  };
+
+  console.log(
+    elementWidth,
+    elementHeight,
+    x,
+    y,
+    width,
+    height,
+    svgRef,
+    onSvgClick,
+    onSvgNodeClick,
+    nodeColor,
+    nodeStrokeColor,
+    nodeBorderRadius,
+    nodeClassName,
+    nodeStrokeWidth,
+    nodeComponent,
+    offset,
+    viewBB,
+    maskColor,
+    maskStrokeColor,
+    maskStrokeWidth,
+    nodes,
+  );
+
+  return (
+    <svg
+      width={elementWidth}
+      height={elementHeight}
+      viewBox={`${x} ${y} ${width} ${height}`}
+      role="img"
+      ref={svgRef}
+      onClick={onSvgClick}
+    >
+      {nodes ? (
+        <MiniMapNodes nodes={nodes} {...minimapNodesProps} />
+      ) : (
+        <MiniMapNodesReactive {...minimapNodesProps} />
+      )}
+      <path
+        className="react-flow__minimap-mask"
+        d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
+M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
+        fill={maskColor}
+        fillRule="evenodd"
+        stroke={maskStrokeColor}
+        strokeWidth={maskStrokeWidth}
+        pointerEvents="none"
+      />
+    </svg>
+  );
+}
