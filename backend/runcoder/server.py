@@ -35,7 +35,7 @@ from runcoder.database.db.settings.load import load_settings
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
 from runcoder.database.utils import convert_to_backend_format, generate_memorable_string
-from runcoder.processors.processors import Processors, getProcessorOutput
+from runcoder.processors.processors import getProcessorOutput, InteractiveFns, parametersRequest, textFieldInitializeCode, textFieldCompletion, typeCheckRequest
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
@@ -52,7 +52,7 @@ origins = C.FRONTEND_ORIGINS
 app = FastAPI()
 tasks_obj = Tasks()
 cache = Cache()
-processors = Processors()
+interactive_fns = InteractiveFns()
 dbs = DBs(
     C.DB_SPECS,
     C.CREATE_IF_NOT_EXISTS,
@@ -91,7 +91,7 @@ async def startup_event():
     i_path = C.I_PATH
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
-        processors.add_fn(i_args["project"], i_args["fn"])
+        interactive_fns.add_fn(i_args["project"], i_args["fn"])
 
 
 @app.on_event("shutdown")
@@ -212,7 +212,7 @@ class ConnectionManager:
                 "toWebsocketId": id,
                 "messageType": "interactiveProjects",
                 "websocketId": id,
-                "message": list(processors.interactive_projects),
+                "message": list(interactive_fns.fns.keys()),
             }
         )
         await self.broadcast_connections()
@@ -418,10 +418,10 @@ def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
 @app.post(C.ROUTE_PARAMETERS_REQUEST)
 async def route_parameters_request(x: ParametersRequestRequest):
     result = await getProcessorOutput(
-        {"messageType": "parametersRequest", "message": x.dict()},
+        parametersRequest,
+        {"message": x.dict()},
         tasks_obj,
         cache,
-        processors,
     )
     return result["output"]
 
@@ -429,10 +429,10 @@ async def route_parameters_request(x: ParametersRequestRequest):
 @app.post(C.ROUTE_TEXT_FIELD_INITIALIZE_CODE)
 async def route_text_field_initialize_code(x: TextFieldInitializeCode):
     result = await getProcessorOutput(
-        {"messageType": "textFieldInitializeCode", "message": x.dict()},
+        textFieldInitializeCode,
+        {"message": x.dict()},
         tasks_obj,
         cache,
-        processors,
     )
     return result["output"]
 
@@ -440,10 +440,10 @@ async def route_text_field_initialize_code(x: TextFieldInitializeCode):
 @app.post(C.ROUTE_TYPE_CHECK_REQUEST)
 async def route_type_check_request(x: TypeCheckRequestRequest):
     result = await getProcessorOutput(
-        {"messageType": "typeCheckRequest", "message": x.project},
+        typeCheckRequest,
+        {"message": x.dict()},
         tasks_obj,
         cache,
-        processors,
     )
     return result["output"]
 
@@ -451,10 +451,10 @@ async def route_type_check_request(x: TypeCheckRequestRequest):
 @app.post(C.ROUTE_TEXT_FIELD_COMPLETION)
 async def route_text_field_completion(x: TextFieldCompletionRequest):
     result = await getProcessorOutput(
-        {"messageType": "textFieldCompletion", "message": x.dict()},
+        textFieldCompletion,
+        {"message": x.dict()},
         tasks_obj,
         cache,
-        processors,
     )
     print("textFieldCompletion", result["output"], flush=True)
     return result["output"]

@@ -6,7 +6,7 @@ import websockets
 
 from runcoder.terminals.terminals import runCode
 
-from ..processors.processors import Processors, getProcessorOutput
+from ..processors.processors import getProcessorOutput
 from ..processors.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.cache import Cache
 from ..utils.constants import C
@@ -36,9 +36,6 @@ async def connect(websocket_id):
 
 async def consumer_handler(websocket):
     startMyPyDaemon()
-    task_obj = Tasks()
-    cache = Cache()
-    processors = Processors()
     async for message in websocket:
         message = json.loads(message)
         if message["messageType"] == "runCode":

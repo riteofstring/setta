@@ -28,55 +28,49 @@ from ..utils.constants import BUILT_INS, C, set_constants
 from .utils import withTempFiles
 
 
-class Processors:
+class InteractiveFns:
     def __init__(self):
-        self.fns = {
-            "codeCompletionRequest": codeCompletion,
-            "textFieldInitializeCode": textFieldInitializeCode,
-            "textFieldCompletion": textFieldCompletion,
-            "parametersRequest": parametersRequest,
-            "typeCheckRequest": typeCheckRequest,
-            "connection": connectionEstablished,
-            "allConnections": allConnections,
-            "extractArgparseArgs": extractArgparseArgs,
-        }
-        self.interactive_projects = set()
+        self.fns = {}
 
     def add_fn(self, key, fn):
         self.fns[key] = fn
-        self.interactive_projects.add(key)
 
-    async def __call__(self, message, tasks_obj, cache):
-        key = message["messageType"]
-        fn = self.fns[key]
-        use_thread = key in self.interactive_projects
-        self.maybe_read_cache(message, cache)
+
+async def getProcessorOutput(fn, message, tasks_obj, cache, use_thread=False):
+    try:
+        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
+        maybe_read_cache(fn, message, cache)
         result = await tasks_obj.run_non_blocking_subprocess(
             copyConstsThenRunFn, use_thread, C, fn, message
         )
-        self.maybe_cache_result(message, result, cache)
+        maybe_cache_result(message, result, cache)
         return result
+    except asyncio.CancelledError:
+        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
+        return {"output": None, "name": None}
 
-    def maybe_read_cache(self, message, cache):
-        if message["messageType"] in [
-            "parametersRequest",
-            "codeCompletionRequest",
-            "textFieldCompletion",
-        ]:
-            message = message["message"]
-            message["cached"] = cache.text_field_generated_code.get(
-                message["projectConfigId"], {}
-            ).get(message["sectionId"], None)
 
-    def maybe_cache_result(self, message, result, cache):
-        if result["cache"] is None:
-            return
-        if result["name"] == "textFieldInitializeCode":
-            project = message["message"]["project"]
-            sectionId = message["message"]["sectionId"]
-            cache.add_text_field_generated_code(
-                project["projectConfig"]["id"], sectionId, result["cache"]
-            )
+def maybe_read_cache(fn, message, cache):
+    if fn in [
+        parametersRequest,
+        codeCompletion,
+        textFieldCompletion,
+    ]:
+        message = message["message"]
+        message["cached"] = cache.text_field_generated_code.get(
+            message["projectConfigId"], {}
+        ).get(message["sectionId"], None)
+
+
+def maybe_cache_result(message, result, cache):
+    if result["cache"] is None:
+        return
+    if result["name"] == "textFieldInitializeCode":
+        project = message["message"]["project"]
+        sectionId = message["message"]["sectionId"]
+        cache.add_text_field_generated_code(
+            project["projectConfig"]["id"], sectionId, result["cache"]
+        )
 
 
 def copyConstsThenRunFn(inputC, fn, message):
@@ -278,27 +272,8 @@ def typeCheckRequest(message):
     return {"output": output, "name": "typeCheck", "cache": None}
 
 
-def connectionEstablished(message):
-    print(f"Connected as {message['websocketId']}")
-    return {"output": None, "name": None, "cache": None}
-
-
-def allConnections(message):
-    print("All connections:")
-    pprint(message["connections"])
-    return {"output": None, "name": None, "cache": None}
-
-
 def extractArgparseArgs(message):
     script_path = message["message"]
     output = extract_args_from_help(script_path)
     return {"output": output, "name": "extractArgparseArgs", "cache": None}
 
-
-async def getProcessorOutput(message, tasks_obj, cache, processors):
-    try:
-        print(f"Start processing message ID: {message.get('id', None)}", flush=True)
-        return await processors(message, tasks_obj, cache)
-    except asyncio.CancelledError:
-        print(f"Task for {message.get('id', None)} was cancelled.", flush=True)
-        return {"output": None, "name": None}
