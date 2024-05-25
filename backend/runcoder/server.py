@@ -205,12 +205,12 @@ class ConnectionManager:
         isCLI = "Python" in websocket.headers.get("user-agent", "")
         self.sockets[id] = {"websocket": websocket, "isCLI": isCLI}
         await self.send_message(
-            {"toWebsocketId": id, "messageType": C.MESSAGE_CONNECTION, "websocketId": id}
+            {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
         )
         await self.send_message(
             {
                 "toWebsocketId": id,
-                "messageType": C.MESSAGE_LIST_OF_INTERACTIVE_PROJECTS,
+                "messageType": "interactiveProjects",
                 "websocketId": id,
                 "message": list(processors.interactive_projects),
             }
@@ -251,7 +251,7 @@ class ConnectionManager:
         if self.use_server_as_cli:
             connections.append({"websocketId": self.server_cli_name, "isCLI": True})
         await self.broadcast(
-            {"messageType": C.MESSAGE_ALL_CONNECTIONS, "connections": connections}
+            {"messageType": "allConnections", "connections": connections}
         )
 
 
