@@ -118,11 +118,11 @@ function getPreviewImgNodes() {
     .getState()
     .getNodes()
     .map((n) => ({
-      x: n.position.x,
-      y: n.position.y,
-      w: n.width,
-      h: n.height,
+      x: Math.round(n.position.x),
+      y: Math.round(n.position.y),
+      w: Math.round(n.width),
+      h: Math.round(n.height),
     }));
-    
+
   return JSON.stringify(nodes);
 }

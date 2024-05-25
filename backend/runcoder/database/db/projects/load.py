@@ -55,7 +55,9 @@ def load_all_projects(dbs, format, input_project_id):
         curr["defaultConfigId"] = defaultConfigId
         curr["previewImgNodes"] = previewImgNodes
         curr["previewImgColor"] = previewImgColor
-        curr["configs"].append({"id": row_dict["configId"], "name": row_dict["configName"]})
+        curr["configs"].append(
+            {"id": row_dict["configId"], "name": row_dict["configName"]}
+        )
 
     # Convert the dictionary to a list of project dictionaries
     projects_with_configs = list(project_dict.values())
