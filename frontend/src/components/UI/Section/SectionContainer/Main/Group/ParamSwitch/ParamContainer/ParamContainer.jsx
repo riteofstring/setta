@@ -159,7 +159,7 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-950"
+      className="nowheel nodrag relative -mx-2 overflow-hidden rounded-md bg-white text-xs dark:bg-runcoder-950"
       {...props}
       ref={forwardedRef}
     >
@@ -174,3 +174,6 @@ const AccordionContent = React.forwardRef(
     </Accordion.Content>
   ),
 );
+
+// for AccordionContent animated version:
+// className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-950"
