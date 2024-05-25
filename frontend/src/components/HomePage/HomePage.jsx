@@ -210,7 +210,10 @@ function ThumbnailArea({
           align="end"
         />
       </aside>
-      <div dangerouslySetInnerHTML={{ __html: project.previewImg }} />
+      <div
+        className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150 [&_.react-flow__minimap-mask]:hidden"
+        dangerouslySetInnerHTML={{ __html: project.previewImg }}
+      />
 
       {/* <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
