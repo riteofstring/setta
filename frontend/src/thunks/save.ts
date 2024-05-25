@@ -25,7 +25,6 @@ import { isPreset } from "z_utils/uiTypeConstants";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
-  project.previewImg = minimapSvgToText()
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = getViewport();
   const children = {};
@@ -111,10 +110,4 @@ export function assembleUITypes(
   _isPreset: boolean,
 ): ManyUITypeType {
   return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
-}
-
-function minimapSvgToText() {
-  const svgElement = document.getElementById("minimap-svg");
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(svgElement);
 }
