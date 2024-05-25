@@ -1,4 +1,4 @@
-import { C } from "utils/constants";
+import C from "constants/constants.json";
 import { post, pseudoTemplatedStr } from "./utils";
 
 export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
@@ -22,12 +22,9 @@ export async function dbLoadProject({ projectName, configName }) {
   });
 }
 
-export async function dbLoadFullProject({
-  projectName,
-  withBaseUITypes = false,
-}) {
+export async function dbLoadFullProject({ projectName }) {
   return await post({
-    body: { withBaseUITypes },
+    body: {},
     address: pseudoTemplatedStr(C.ROUTE_LOAD_FULL_PROJCT, { projectName }),
   });
 }

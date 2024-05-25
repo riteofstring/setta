@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 from pathlib import Path
@@ -17,20 +16,7 @@ from .database.db_path import delete_alias as _delete_alias
 from .database.db_path import get_db_path_from_config, load_config
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
-from .utils.constants import C, set_constants
-from .utils.utils import get_absolute_path, is_dev_mode
-
-
-def load_constants():
-    constants_folder = (
-        Path("../../constants") if is_dev_mode() else Path("static/constants")
-    )
-    with open(
-        get_absolute_path(__file__, constants_folder / "constants.json"), "r"
-    ) as f:
-        constants = json.load(f)
-    set_constants(**constants)
-
+from .utils.constants import C, load_constants, set_constants
 
 load_constants()
 

@@ -1,10 +1,10 @@
+import C from "constants/constants.json";
 import { dbParametersRequest } from "dbRequests/sections";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { varControlUpdate } from "thunks/varControl";
-import { C } from "utils/constants";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { isUUID } from "z_utils/utils";

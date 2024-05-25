@@ -1,4 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import C from "constants/constants.json";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { addSectionInEmptySpace } from "thunks/addSectionInEmptySpace";
@@ -6,7 +7,6 @@ import { requestTypeCheck } from "thunks/typeCheck";
 import { redoProjectState, undoProjectState } from "thunks/undo";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
-import { C } from "utils/constants";
 
 export function EditMenu() {
   return (

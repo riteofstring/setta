@@ -1,10 +1,11 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
 } from "thunks/sections/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
-import { C, SINGLETON_SECTIONS } from "utils/constants";
+import { SINGLETON_SECTIONS } from "utils/constants";
 import { create } from "../utils";
 import { useSectionInfos } from "./sectionInfos";
 

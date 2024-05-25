@@ -1,7 +1,7 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { C } from "utils/constants";
 import { isRoot, isSeriesElement } from "z_utils/constants";
 import {
   SectionUITypeConfigType,

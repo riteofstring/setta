@@ -35,7 +35,7 @@ export type MiniMapProps<NodeData = any> = Omit<
   offsetScale?: number;
 };
 
-export type MiniMapNodesType = Pick<
+export type MiniMapNodes = Pick<
   MiniMapProps,
   | "nodeColor"
   | "nodeStrokeColor"

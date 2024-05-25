@@ -1,5 +1,5 @@
+import C from "constants/constants.json";
 import _ from "lodash";
-import { C } from "utils/constants";
 import { EVType } from "z_utils/types/evCol";
 import { UITypeType } from "z_utils/types/uiType";
 

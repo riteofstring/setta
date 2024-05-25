@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -7,7 +8,6 @@ import {
   getSectionInfo,
 } from "thunks/sections/getters";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
-import { C } from "utils/constants";
 import { getValueForUIType } from "z_utils/objs/ev";
 import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
