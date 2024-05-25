@@ -2,6 +2,7 @@
   "id": "f1e8cae1-ee3f-4aba-a672-8fc969205ad0",
   "name": "huge_project",
   "defaultConfigId": "222db762-5097-4aa2-893b-846422cd8f0d",
+  "previewImg": null,
   "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
   "configs": [
     {

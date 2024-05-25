@@ -28,7 +28,7 @@ import { isPreset } from "z_utils/uiTypeConstants";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
-  // project.previewImg = minimapSvgToText();
+  project.previewImg = minimapSvgToText();
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = getViewport();
   const children = {};
@@ -116,3 +116,35 @@ export function assembleUITypes(
   return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
 }
 
+function minimapSvgToText() {
+  const nodes = useNodeInternals.getState().getNodes();
+  const elementWidth = 200;
+  const elementHeight = 150;
+  const boundingRect = getNodesBounds(nodes);
+  const { x, y, width, height, offset } = getXYWidthHeight({
+    boundingRect,
+    elementHeight,
+    elementWidth,
+    offsetScale: 5,
+  });
+
+  const svgElement = MinimapSvg({
+    elementWidth: 200,
+    elementHeight: 150,
+    x,
+    y,
+    width,
+    height,
+    offset,
+    nodes,
+    nodeColor: "#2D384D",
+    nodeStrokeColor: "transparent",
+    nodeBorderRadius: 5,
+    nodeStrokeWidth: 2,
+    nodeClassName: "",
+    maskColor: "rgb(20, 22, 31, 0.5)",
+    maskStrokeColor: "none",
+    maskStrokeWidth: 1,
+  });
+  return ReactDOMServer.renderToString(svgElement);
+}

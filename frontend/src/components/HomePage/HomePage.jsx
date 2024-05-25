@@ -126,7 +126,6 @@ const ProjectItem = forwardRef(
     const defaultConfigAddress = useDefaultConfigAddress(project);
 
     function onClickConfigsButton(e) {
-      console.log("onClickConfigsButton")
       e.stopPropagation();
       setOpenConfigs(!openConfigs);
     }
@@ -194,9 +193,10 @@ function ThumbnailArea({
           align="end"
         />
       </aside>
-      <div className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150">
-        {/* <PreviewImg nodes={project.defaultConfigNodes} /> */}
-      </div>
+      <div
+        className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150"
+        dangerouslySetInnerHTML={{ __html: project.previewImg }}
+      />
 
       {/* <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
@@ -242,35 +242,4 @@ function useConfigAddress({ project, configId }) {
 function useDefaultConfigAddress(project) {
   const configId = project.defaultConfigId;
   return useConfigAddress({ project, configId });
-}
-
-function PreviewImg(nodes) {
-  const elementWidth = 200;
-  const elementHeight = 150;
-  const boundingRect = getNodesBounds(nodes);
-  const { x, y, width, height, offset } = getXYWidthHeight({
-    boundingRect,
-    elementHeight,
-    elementWidth,
-    offsetScale: 5,
-  });
-
-  return MinimapSvg({
-    elementWidth: 200,
-    elementHeight: 150,
-    x,
-    y,
-    width,
-    height,
-    offset,
-    nodes,
-    nodeColor: "#2D384D",
-    nodeStrokeColor: "transparent",
-    nodeBorderRadius: 5,
-    nodeStrokeWidth: 2,
-    nodeClassName: "",
-    maskColor: "rgb(20, 22, 31, 0.5)",
-    maskStrokeColor: "none",
-    maskStrokeWidth: 1,
-  });
 }

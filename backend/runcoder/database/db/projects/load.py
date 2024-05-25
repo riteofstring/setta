@@ -7,21 +7,6 @@ from ..runGroups.load import load_run_groups
 from ..sections.load import load_sections
 from .utils import convert_to_file_menu_format
 
- # LEFT JOIN
-        #     ProjectConfigChildren
-        # ON
-        #     ProjectConfig.id = ProjectConfigChildren.parentId
-        # LEFT JOIN
-        #     Section
-        # ON
-        #     Section.id = ProjectConfigChildren.childId
-
-
-
-            #         ProjectConfigChildren.x,
-            # ProjectConfigChildren.y,
-            # Section.width,
-            # Section.height
 
 def load_all_projects(dbs, format, input_project_id):
     query = """
@@ -29,16 +14,15 @@ def load_all_projects(dbs, format, input_project_id):
             Project.id AS projectId,
             Project.name AS projectName,
             Project.defaultConfigId,
+            Project.previewImg,
             Project.previewImgColor,
-            ProjectConfig.id AS configId,
-            ProjectConfig.name AS configName
+            ProjectConfig.*
         FROM
             Project
         JOIN
             ProjectConfig
         ON
             ProjectConfig.projectId = Project.id
-
         ORDER BY
             Project.id;
     """
@@ -51,6 +35,7 @@ def load_all_projects(dbs, format, input_project_id):
             "id": None,
             "name": None,
             "defaultConfigId": None,
+            "previewImg": None,
             "previewImgColor": None,
             "configs": [],
         }
@@ -58,18 +43,19 @@ def load_all_projects(dbs, format, input_project_id):
 
     for row in db.fetchall():
         row_dict = dict(row)
-        print(row_dict)
         project_id = row_dict.pop("projectId")
         project_name = row_dict.pop("projectName")
         defaultConfigId = row_dict.pop("defaultConfigId")
+        previewImg = row_dict.pop("previewImg")
         previewImgColor = row_dict.pop("previewImgColor")
         curr = project_dict[project_id]
 
         curr["id"] = project_id
         curr["name"] = project_name
         curr["defaultConfigId"] = defaultConfigId
+        curr["previewImg"] = previewImg
         curr["previewImgColor"] = previewImgColor
-        curr["configs"].append({"id": row_dict["configId"], "name": row_dict["configName"]})
+        curr["configs"].append(row_dict)
 
     # Convert the dictionary to a list of project dictionaries
     projects_with_configs = list(project_dict.values())
