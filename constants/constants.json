@@ -45,5 +45,6 @@
   "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
   "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
-  "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}"
+  "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
+  "ROUTE_SAVE_CODE_INFO": "/codeInfo/save"
 }

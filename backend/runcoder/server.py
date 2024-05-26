@@ -1,4 +1,3 @@
-import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -8,7 +7,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from runcoder.database.db.codeInfo.save import save_code_info
 from runcoder.database.db.settings.load import load_settings
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
@@ -21,6 +19,7 @@ from runcoder.processors.processors import (
     typeCheckRequest,
 )
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
+from runcoder.routers.code_info import router as code_info_router
 from runcoder.routers.dependencies import get_dbs, get_tasks_and_cache
 from runcoder.routers.projects import router as projects_router
 from runcoder.routers.sections import router as sections_router
@@ -102,10 +101,7 @@ app.include_router(projects_router)
 app.include_router(sections_router)
 app.include_router(terminals_router)
 app.include_router(websocket_router)
-
-
-class SaveCodeInfoRequest(BaseModel):
-    codeInfo: dict
+app.include_router(code_info_router)
 
 
 class ParametersRequestRequest(BaseModel):
@@ -138,31 +134,10 @@ class TextFieldCompletionRequest(BaseModel):
     evRefs: list
 
 
-@app.post(C.ROUTE_GET_COLLECTIONS_AND_MODULES)
-def route_get_collections_and_modules():
-    pass
-
-
-@app.post("/codeInfo/save")
-def route_save_code_info(x: SaveCodeInfoRequest, dbs=Depends(get_dbs)):
-    with dbs:
-        save_code_info(dbs, x.codeInfo)
-
-
-@app.post(C.ROUTE_GET_COLLECTION_DETAILS)
-def route_get_collection_details():
-    pass
-
-
 @app.post(C.ROUTE_LOAD_SETTINGS)
 def route_load_settings(dbs=Depends(get_dbs)):
     with dbs:
         return load_settings(dbs)
-
-
-@app.post("/logging")
-def route_logging():
-    pass
 
 
 @app.post(C.ROUTE_PARAMETERS_REQUEST)

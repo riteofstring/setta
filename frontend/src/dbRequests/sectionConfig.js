@@ -1,5 +1,6 @@
 import { useCodeInfo } from "models/info/codeInfo";
 import { post } from "./utils";
+import C from "constants/constants.json"
 
 async function dbGetCollectionsAndModules({ searchTerm }) {
   return await post({
@@ -31,7 +32,7 @@ export async function dbGetCollectionDetails(id) {
 
 export async function dbSaveCodeInfo({ codeInfo }) {
   return await post({
-    address: "/codeInfo/save",
+    address: C.ROUTE_SAVE_CODE_INFO,
     body: { codeInfo },
   });
 }
