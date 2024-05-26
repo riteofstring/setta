@@ -4,7 +4,7 @@ import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { DEFAULT_BASE_UI_TYPE_ID } from "z_utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "z_utils/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
 import { UITypeType } from "z_utils/types/uiType";
@@ -128,7 +128,7 @@ function initializeParamUIType(
       } else if (userDefaultUIType) {
         newId = userDefaultUIType.id;
       } else {
-        newId = DEFAULT_BASE_UI_TYPE_ID;
+        newId = BASE_UI_TYPE_IDS.TEXT;
       }
       newIds[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
       paramIdToUITypeId[paramId] = newId;

@@ -1,3 +1,6 @@
+import BASE_UI_TYPES from "constants/BaseUITypes.json";
+import C from "constants/constants.json"
+
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 export const SECTIONWIDTH = 200;
 export const PANEID = "-1";
@@ -35,3 +38,19 @@ export function setDbSourceMapping(newMapping) {
 
 // constants object
 export const URLS = {};
+export const BASE_UI_TYPE_IDS = {};
+
+export function globalConstInit() {
+  const DEV_MODE = import.meta.env.DEV;
+  if (DEV_MODE) {
+    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
+    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
+  } else {
+    URLS.BACKEND = `http://${location.host}`;
+    URLS.WEBSOCKET = `ws://${location.host}`;
+  }
+
+  for (const [k, v] of Object.entries(BASE_UI_TYPES)) {
+    BASE_UI_TYPE_IDS[v.type] = k;
+  }
+}

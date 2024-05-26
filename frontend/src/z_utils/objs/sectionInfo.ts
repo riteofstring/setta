@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { DEFAULT_SECTION_UI_TYPE_ID } from "../constants";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";
 import { createVarName, maybeNewId } from "../utils";
@@ -13,7 +13,7 @@ export function newSectionInfo({
   position,
   zIndex = 0,
   parentId = null,
-  uiTypeId = DEFAULT_SECTION_UI_TYPE_ID,
+  uiTypeId = BASE_UI_TYPE_IDS.SECTION,
   evColId,
   uiTypeColId,
   paramSweepId = null,
