@@ -5,8 +5,8 @@ def get_dbs(request: Request):
     return request.app.state.dbs
 
 
-def get_tasks_and_cache(request: Request):
-    return [request.app.state.task_runner, request.app.state.cache]
+def get_tasks(request: Request):
+    return request.app.state.tasks
 
 
 def get_terminal_websockets(websocket: WebSocket):
@@ -15,7 +15,3 @@ def get_terminal_websockets(websocket: WebSocket):
 
 def get_websocket_manager(websocket: WebSocket):
     return websocket.app.state.websocket_manager
-
-
-def get_interactive_fns(websocket: WebSocket):
-    return websocket.app.state.interactive_fns

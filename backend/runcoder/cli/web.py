@@ -6,7 +6,6 @@ import websockets
 
 from runcoder.terminals.terminals import runCode
 
-from ..tasks.processors import getProcessorOutput
 from ..tasks.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.constants import C
 

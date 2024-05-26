@@ -17,11 +17,9 @@ from runcoder.routers import (
     terminals_router,
     websocket_router,
 )
-from runcoder.tasks.processors import InteractiveFns
-from runcoder.tasks.task_runner import TaskRunner
+from runcoder.tasks.processors import Tasks
 from runcoder.tasks.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.terminals.terminals import TerminalWebsockets
-from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C
 from runcoder.utils.utils import get_absolute_path, import_from_path, is_dev_mode
 from runcoder.utils.websocket_manager import WebsocketManager
@@ -31,10 +29,8 @@ from runcoder.utils.websocket_manager import WebsocketManager
 async def lifespan(app: FastAPI):
     # startup
     app.state.terminal_websockets = TerminalWebsockets()
-    app.state.task_runner = TaskRunner()
-    app.state.cache = Cache()
-    app.state.interactive_fns = InteractiveFns()
-    app.state.websocket_manager = WebsocketManager(app.state.interactive_fns)
+    app.state.tasks = Tasks()
+    app.state.websocket_manager = WebsocketManager(app.state.tasks)
     app.state.dbs = DBs(
         C.DB_SPECS,
         C.CREATE_IF_NOT_EXISTS,
@@ -72,7 +68,7 @@ async def lifespan(app: FastAPI):
     i_path = C.I_PATH
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
-        app.state.interactive_fns.add_fn(i_args["project"], i_args["fn"])
+        app.state.tasks.add_interactive_fn(i_args["project"], i_args["fn"])
 
     yield
 

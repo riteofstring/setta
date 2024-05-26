@@ -8,11 +8,11 @@ from runcoder.database.utils import generate_memorable_string
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class WebsocketManager:
-    def __init__(self, interactive_fns):
+    def __init__(self, tasks):
         self.sockets = {}
         self.use_server_as_cli = True
         self.server_cli_name = "main"
-        self.interactive_fns = interactive_fns
+        self.tasks = tasks
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -29,7 +29,7 @@ class WebsocketManager:
                 "toWebsocketId": id,
                 "messageType": "interactiveProjects",
                 "websocketId": id,
-                "message": list(self.interactive_fns.fns.keys()),
+                "message": list(self.tasks.interactive_fns.keys()),
             }
         )
         await self.broadcast_connections()
