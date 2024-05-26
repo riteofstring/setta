@@ -44,12 +44,16 @@ class WebsocketManager:
             wid = message["toWebsocketId"]
             if wid == self.server_cli_name:
                 websocket = self.sockets[fromWebsocketId]["websocket"]
-                message["websocketId"] = wid
-                await tasks.create_task(
-                    message.get("id", None),
-                    getConsumerMessageAndSend(
-                        message, websocket.send_text, tasks, cache, processors
-                    ),
+                result = await self.tasks(message["messageType"], message)
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "id": message["id"],
+                            "message": result["output"],
+                            "toWebsocketId": wid,
+                            "messageType": result["name"],
+                        }
+                    )
                 )
             else:
                 websocket = self.sockets[wid]["websocket"]
