@@ -1,5 +1,5 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
-import C from "constants/constants.json"
+import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 export const SECTIONWIDTH = 200;

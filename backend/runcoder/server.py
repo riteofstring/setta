@@ -17,7 +17,7 @@ from runcoder.routers import (
     terminals_router,
     websocket_router,
 )
-from runcoder.tasks.processors import Tasks
+from runcoder.tasks.tasks import Tasks
 from runcoder.tasks.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.constants import C

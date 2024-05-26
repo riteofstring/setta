@@ -1,6 +1,6 @@
+import C from "constants/constants.json";
 import { useCodeInfo } from "models/info/codeInfo";
 import { post } from "./utils";
-import C from "constants/constants.json"
 
 async function dbGetCollectionsAndModules({ searchTerm }) {
   return await post({

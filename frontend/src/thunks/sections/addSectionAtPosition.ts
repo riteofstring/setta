@@ -42,8 +42,6 @@ export function addSectionAtPosition({
   } else if (type === C.INFO) {
     sectionProps.name = getDefaultInfoTitle();
   }
-  console.log("BASE_UI_TYPE_IDS", BASE_UI_TYPE_IDS)
-  console.log("type", type)
 
   sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
 

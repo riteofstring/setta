@@ -55,7 +55,7 @@ class Tasks:
                 use_thread = False
             self.maybe_read_cache(fn_name, message)
             result = await self.task_runner.run_non_blocking_subprocess(
-                copyConstsThenRunFn, use_thread, C, fn, message
+                self.copyConstsThenRunFn, use_thread, C, fn, message
             )
             self.maybe_cache_result(message, result)
             return result
@@ -87,10 +87,9 @@ class Tasks:
     def add_interactive_fn(self, key, fn):
         self.interactive_fns[key] = fn
 
-
-def copyConstsThenRunFn(inputC, fn, message):
-    set_constants(**vars(inputC))
-    return fn(message)
+    def copyConstsThenRunFn(self, inputC, fn, message):
+        set_constants(**vars(inputC))
+        return fn(message)
 
 
 def codeCompletion(message):
