@@ -34,13 +34,11 @@ class Tasks:
             print(f"Start processing message ID: {message.get('id', None)}", flush=True)
             if fn_name in self.interactive_fns:
                 fn = self.interactive_fns[fn_name]
-                use_thread = True
             else:
                 fn = self.fns[fn_name]
-                use_thread = False
             fn.read_cache(self.cache, message)
             result = await self.task_runner.run_non_blocking_subprocess(
-                copyConstsThenRunFn, use_thread, C, fn.fn, message
+                copyConstsThenRunFn, fn.as_subprocess, C, fn.fn, message
             )
             fn.write_cache(self.cache, message, result)
             return result

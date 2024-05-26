@@ -57,5 +57,5 @@ def write_cache(cache, message, result):
 
 
 textFieldInitializeCode = TaskDefinition(
-    fn=_textFieldInitializeCode, write_cache=write_cache
+    fn=_textFieldInitializeCode, write_cache=write_cache, as_subprocess=True
 )

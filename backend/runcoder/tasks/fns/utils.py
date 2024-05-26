@@ -57,3 +57,4 @@ class TaskDefinition(BaseModel):
     fn: Callable
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
+    as_subprocess: Optional[bool] = False

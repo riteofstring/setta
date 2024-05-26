@@ -44,4 +44,6 @@ def _parametersRequest(message):
     return completionHelper(message, "parameters", parametersRequestFn)
 
 
-parametersRequest = TaskDefinition(fn=_parametersRequest, read_cache=read_cache)
+parametersRequest = TaskDefinition(
+    fn=_parametersRequest, read_cache=read_cache, as_subprocess=True
+)

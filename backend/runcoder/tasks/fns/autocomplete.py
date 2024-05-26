@@ -110,5 +110,9 @@ def read_cache(cache, message):
     ).get(message["sectionId"], None)
 
 
-codeCompletion = TaskDefinition(fn=_codeCompletion, read_cache=read_cache)
-textFieldCompletion = TaskDefinition(fn=_textFieldCompletion, read_cache=read_cache)
+codeCompletion = TaskDefinition(
+    fn=_codeCompletion, read_cache=read_cache, as_subprocess=True
+)
+textFieldCompletion = TaskDefinition(
+    fn=_textFieldCompletion, read_cache=read_cache, as_subprocess=True
+)
