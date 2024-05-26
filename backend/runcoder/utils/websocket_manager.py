@@ -2,7 +2,6 @@ import json
 
 from fastapi import WebSocket
 
-from runcoder.cli.web import getConsumerMessageAndSend
 from runcoder.database.utils import generate_memorable_string
 
 

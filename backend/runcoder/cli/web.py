@@ -10,10 +10,7 @@ from ..utils.constants import C
 
 
 def web(websocket_id):
-    try:
-        asyncio.run(connect(websocket_id))
-    finally:
-        killMyPyDaemon()
+    asyncio.run(connect(websocket_id))
 
 
 async def connect(websocket_id):
@@ -31,35 +28,10 @@ async def connect(websocket_id):
 
 
 async def consumer_handler(websocket):
-    startMyPyDaemon()
     async for message in websocket:
         message = json.loads(message)
         if message["messageType"] == "runCode":
             runCode(message, command_callback=run_code_as_subprocess)
-
-        # # create_task so that we don't have to await consumer message
-        # await task_obj.create_task(
-        #     message.get("id", None),
-        #     getConsumerMessageAndSend(
-        #         message, websocket.send, task_obj, cache, processors
-        #     ),
-        # )
-
-
-async def getConsumerMessageAndSend(message, send_fn, tasks, cache, processors):
-    result = await getProcessorOutput(message, tasks, cache, processors)
-    if result["output"] is not None:
-        print(f"Done processing message ID {message.get('id', None)}", flush=True)
-        await send_fn(
-            json.dumps(
-                {
-                    "id": message["id"],
-                    "message": result["output"],
-                    "toWebsocketId": message["websocketId"],
-                    "messageType": result["name"],
-                }
-            )
-        )
 
 
 def run_code_as_subprocess(command):

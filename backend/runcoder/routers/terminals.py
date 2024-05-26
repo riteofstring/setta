@@ -6,7 +6,10 @@ from pydantic import BaseModel
 
 from runcoder.utils.constants import C
 
-from .dependencies import get_terminal_websockets
+from .dependencies import (
+    get_terminal_websockets,
+    get_terminal_websockets_from_websocket,
+)
 
 router = APIRouter()
 
@@ -20,7 +23,7 @@ async def terminal_websocket_endpoint(
     websocket: WebSocket,
     projectConfigId: str,
     id: str,
-    terminal_websockets=Depends(get_terminal_websockets),
+    terminal_websockets=Depends(get_terminal_websockets_from_websocket),
 ):
     await terminal_websockets.connect(websocket, projectConfigId, id)
     try:
