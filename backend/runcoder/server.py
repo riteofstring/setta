@@ -1,10 +1,8 @@
-import asyncio
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional
 
-from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +26,7 @@ from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.routers.dependencies import get_dbs, get_tasks_and_cache
 from runcoder.routers.projects import router as projects_router
 from runcoder.routers.sections import router as sections_router
+from runcoder.routers.terminals import router as terminals_router
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C
@@ -38,6 +37,7 @@ from runcoder.utils.utils import get_absolute_path, import_from_path, is_dev_mod
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
+    app.state.terminal_websockets = TerminalWebsockets()
     app.state.tasks_obj = Tasks()
     app.state.cache = Cache()
     app.state.interactive_fns = InteractiveFns()
@@ -85,7 +85,7 @@ async def lifespan(app: FastAPI):
     # shutdown
     print("shutdown_event", flush=True)
     killMyPyDaemon()
-    terminal_websockets.delete_all_terminals()
+    app.state.terminal_websockets.delete_all_terminals()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -99,14 +99,11 @@ app.add_middleware(
 
 app.include_router(projects_router)
 app.include_router(sections_router)
+app.include_router(terminals_router)
 
 
 class SaveCodeInfoRequest(BaseModel):
     codeInfo: dict
-
-
-class DeleteTerminalsRequest(BaseModel):
-    ids: List[str]
 
 
 class ParametersRequestRequest(BaseModel):
@@ -205,7 +202,6 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-terminal_websockets = TerminalWebsockets()
 
 
 @app.websocket("/")
@@ -219,34 +215,6 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.send_message(json.loads(data), id)
     except WebSocketDisconnect:
         await manager.disconnect(id)
-
-
-@app.websocket(C.ROUTE_TERMINAL)
-async def terminal_websocket_endpoint(
-    websocket: WebSocket, projectConfigId: str, id: str
-):
-    await terminal_websockets.connect(websocket, projectConfigId, id)
-    try:
-        # Start reading from and writing to the terminal
-        read_task = terminal_websockets.loop.create_task(
-            terminal_websockets.read_from_terminal(id)
-        )
-        write_task = terminal_websockets.loop.create_task(
-            terminal_websockets.write_to_terminal(websocket, id)
-        )
-
-        # Wait for either task to complete
-        _, pending = await asyncio.wait(
-            [read_task, write_task], return_when=asyncio.FIRST_COMPLETED
-        )
-
-        # Cancel the remaining tasks
-        for task in pending:
-            task.cancel()
-            await task  # Ensure task is properly cancelled
-    finally:
-        # Cleanup
-        terminal_websockets.disconnect(websocket, id)
 
 
 @app.post(C.ROUTE_GET_COLLECTIONS_AND_MODULES)
@@ -274,16 +242,6 @@ def route_load_settings(dbs=Depends(get_dbs)):
 @app.post("/logging")
 def route_logging():
     pass
-
-
-@app.post(C.ROUTE_GET_FREE_TERMINAL)
-def route_terminal_get_free_terminal(projectConfigId):
-    return terminal_websockets.get_free_terminal(projectConfigId)
-
-
-@app.post(C.ROUTE_DELETE_TERMINALS)
-def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
-    terminal_websockets.delete_terminals(x.ids)
 
 
 @app.post(C.ROUTE_PARAMETERS_REQUEST)

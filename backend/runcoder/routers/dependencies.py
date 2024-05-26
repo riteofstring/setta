@@ -1,4 +1,4 @@
-from fastapi import Request
+from fastapi import Request, WebSocket
 
 
 def get_dbs(request: Request):
@@ -7,3 +7,7 @@ def get_dbs(request: Request):
 
 def get_tasks_and_cache(request: Request):
     return [request.app.state.tasks_obj, request.app.state.cache]
+
+
+def get_terminal_websockets(websocket: WebSocket):
+    return websocket.app.state.terminal_websockets
