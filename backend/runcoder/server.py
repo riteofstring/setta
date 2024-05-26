@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from runcoder.daemons.daemons import killDaemons, startDaemons
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
 from runcoder.routers import (
@@ -19,6 +18,7 @@ from runcoder.routers import (
     websocket_router,
 )
 from runcoder.tasks.tasks import Tasks
+from runcoder.tasks.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.constants import C
 from runcoder.utils.utils import get_absolute_path, import_from_path, is_dev_mode
@@ -28,8 +28,8 @@ from runcoder.utils.websocket_manager import WebsocketManager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    app.state.tasks = Tasks()
     app.state.terminal_websockets = TerminalWebsockets()
+    app.state.tasks = Tasks()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
     app.state.dbs = DBs(
         C.DB_SPECS,
@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
                 content = f.read()
             return content
 
-    startDaemons()
+    startMyPyDaemon()
     i_path = C.I_PATH
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
 
     # shutdown
     print("shutdown_event", flush=True)
-    killDaemons()
+    killMyPyDaemon()
     app.state.terminal_websockets.delete_all_terminals()
 
 

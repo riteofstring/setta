@@ -22,7 +22,6 @@
   "DICT": "DICT",
   "OUTPUT": "OUTPUT",
   "SOCIAL": "SOCIAL",
-  "NON_SECTION_TYPES": ["TEXT", "SLIDER", "SWITCH"],
   "COLLECTION": "collection",
   "CALLABLE": "callable",
   "PARAMETER": "parameter",

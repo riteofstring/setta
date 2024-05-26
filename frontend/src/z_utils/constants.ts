@@ -1,6 +1,22 @@
 import C from "constants/constants.json";
 import { SectionUITypeType, UITypeType } from "./types/uiType";
 
+export const SECTION_TYPE_NAMES = [
+  C.SECTION,
+  C.LIST_ROOT,
+  C.DICT_ROOT,
+  C.DECK,
+  C.OUTPUT,
+  C.INFO,
+  C.SOCIAL,
+  C.GLOBAL_VARIABLES,
+  C.CODE,
+  C.VAR_CONTROL,
+  C.PARAM_SWEEP,
+  C.TERMINAL,
+  C.GLOBAL_PARAM_SWEEP,
+];
+
 export function isRoot(sectionTypeName) {
   return [C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(sectionTypeName);
 }
@@ -22,7 +38,7 @@ export const rootTypeToChildSubType = {
 export function isSectionUIType(
   uiType: UITypeType,
 ): uiType is SectionUITypeType {
-  return !C.NON_SECTION_TYPES.includes(uiType.type);
+  return SECTION_TYPE_NAMES.includes(uiType.type);
 }
 
 export const uiTypesToPretty = Object.freeze(
