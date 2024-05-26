@@ -25,7 +25,7 @@ from runcoder.processors.processors import (
     typeCheckRequest,
 )
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
-from runcoder.routers.dependencies import get_dbs
+from runcoder.routers.dependencies import get_dbs, get_tasks_and_cache
 from runcoder.routers.projects import router as projects_router
 from runcoder.routers.sections import router as sections_router
 from runcoder.terminals.terminals import TerminalWebsockets
@@ -38,6 +38,9 @@ from runcoder.utils.utils import get_absolute_path, import_from_path, is_dev_mod
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
+    app.state.tasks_obj = Tasks()
+    app.state.cache = Cache()
+    app.state.interactive_fns = InteractiveFns()
     app.state.dbs = DBs(
         C.DB_SPECS,
         C.CREATE_IF_NOT_EXISTS,
@@ -75,7 +78,7 @@ async def lifespan(app: FastAPI):
     i_path = C.I_PATH
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
-        interactive_fns.add_fn(i_args["project"], i_args["fn"])
+        app.state.interactive_fns.add_fn(i_args["project"], i_args["fn"])
 
     yield
 
@@ -85,15 +88,11 @@ async def lifespan(app: FastAPI):
     terminal_websockets.delete_all_terminals()
 
 
-origins = C.FRONTEND_ORIGINS
 app = FastAPI(lifespan=lifespan)
-tasks_obj = Tasks()
-cache = Cache()
-interactive_fns = InteractiveFns()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=C.FRONTEND_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -288,7 +287,10 @@ def route_terminal_delete_terminals(x: DeleteTerminalsRequest):
 
 
 @app.post(C.ROUTE_PARAMETERS_REQUEST)
-async def route_parameters_request(x: ParametersRequestRequest):
+async def route_parameters_request(
+    x: ParametersRequestRequest, tasks_and_cache=Depends(get_tasks_and_cache)
+):
+    tasks_obj, cache = tasks_and_cache
     result = await getProcessorOutput(
         parametersRequest,
         {"message": x.dict()},
@@ -299,7 +301,10 @@ async def route_parameters_request(x: ParametersRequestRequest):
 
 
 @app.post(C.ROUTE_TEXT_FIELD_INITIALIZE_CODE)
-async def route_text_field_initialize_code(x: TextFieldInitializeCode):
+async def route_text_field_initialize_code(
+    x: TextFieldInitializeCode, tasks_and_cache=Depends(get_tasks_and_cache)
+):
+    tasks_obj, cache = tasks_and_cache
     result = await getProcessorOutput(
         textFieldInitializeCode,
         {"message": x.dict()},
@@ -310,7 +315,10 @@ async def route_text_field_initialize_code(x: TextFieldInitializeCode):
 
 
 @app.post(C.ROUTE_TYPE_CHECK_REQUEST)
-async def route_type_check_request(x: TypeCheckRequestRequest):
+async def route_type_check_request(
+    x: TypeCheckRequestRequest, tasks_and_cache=Depends(get_tasks_and_cache)
+):
+    tasks_obj, cache = tasks_and_cache
     result = await getProcessorOutput(
         typeCheckRequest,
         {"message": x.dict()},
@@ -321,7 +329,10 @@ async def route_type_check_request(x: TypeCheckRequestRequest):
 
 
 @app.post(C.ROUTE_TEXT_FIELD_COMPLETION)
-async def route_text_field_completion(x: TextFieldCompletionRequest):
+async def route_text_field_completion(
+    x: TextFieldCompletionRequest, tasks_and_cache=Depends(get_tasks_and_cache)
+):
+    tasks_obj, cache = tasks_and_cache
     result = await getProcessorOutput(
         textFieldCompletion,
         {"message": x.dict()},
