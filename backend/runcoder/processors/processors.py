@@ -276,4 +276,3 @@ def extractArgparseArgs(message):
     script_path = message["message"]
     output = extract_args_from_help(script_path)
     return {"output": output, "name": "extractArgparseArgs", "cache": None}
-

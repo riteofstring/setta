@@ -1,9 +1,10 @@
 import asyncio
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,22 +12,6 @@ from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
 from runcoder.database.db.codeInfo.save import save_code_info
-from runcoder.database.db.projects.delete import delete_projects
-from runcoder.database.db.projects.load import (
-    load_all_projects,
-    load_full_project,
-    load_project,
-)
-from runcoder.database.db.projects.save import (
-    create_project,
-    save_project_config_name,
-    save_project_details,
-    save_project_name,
-)
-from runcoder.database.db.projects.saveAs import (
-    save_as_existing_project_config,
-    save_as_new_project_config,
-)
 from runcoder.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
@@ -34,9 +19,18 @@ from runcoder.database.db.sections.copy import (
 from runcoder.database.db.settings.load import load_settings
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
-from runcoder.database.utils import convert_to_backend_format, generate_memorable_string
-from runcoder.processors.processors import getProcessorOutput, InteractiveFns, parametersRequest, textFieldInitializeCode, textFieldCompletion, typeCheckRequest
+from runcoder.database.utils import generate_memorable_string
+from runcoder.processors.processors import (
+    InteractiveFns,
+    getProcessorOutput,
+    parametersRequest,
+    textFieldCompletion,
+    textFieldInitializeCode,
+    typeCheckRequest,
+)
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
+from runcoder.routers.dependencies import get_dbs
+from runcoder.routers.projects import router as projects_router
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C
@@ -48,26 +42,24 @@ from runcoder.utils.utils import (
     obj_to_dict,
 )
 
-origins = C.FRONTEND_ORIGINS
-app = FastAPI()
-tasks_obj = Tasks()
-cache = Cache()
-interactive_fns = InteractiveFns()
-dbs = DBs(
-    C.DB_SPECS,
-    C.CREATE_IF_NOT_EXISTS,
-)
-maybe_create_tables_and_seed(
-    dbs,
-    with_example_projects=C.WITH_EXAMPLE_PROJECTS,
-    with_base_ui_types=True,
-    with_settings=True,
-)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup
+    app.state.dbs = DBs(
+        C.DB_SPECS,
+        C.CREATE_IF_NOT_EXISTS,
+    )
 
-@app.on_event("startup")
-async def startup_event():
-    dbs.connect()
+    maybe_create_tables_and_seed(
+        app.state.dbs,
+        with_example_projects=C.WITH_EXAMPLE_PROJECTS,
+        with_base_ui_types=True,
+        with_settings=True,
+    )
+
+    app.state.dbs.connect()
+
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
         frontend_folder = Path("static/frontend")
@@ -93,13 +85,19 @@ async def startup_event():
         i_args = import_from_path(i_path).RUNCODER
         interactive_fns.add_fn(i_args["project"], i_args["fn"])
 
+    yield
 
-@app.on_event("shutdown")
-def shutdown_event():
+    # shutdown
     print("shutdown_event", flush=True)
     killMyPyDaemon()
     terminal_websockets.delete_all_terminals()
 
+
+origins = C.FRONTEND_ORIGINS
+app = FastAPI(lifespan=lifespan)
+tasks_obj = Tasks()
+cache = Cache()
+interactive_fns = InteractiveFns()
 
 app.add_middleware(
     CORSMiddleware,
@@ -108,44 +106,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class ProjectRequest(BaseModel):
-    format: str
-    projectId: Optional[str] = None
-
-
-class ProjectSaveRequest(BaseModel):
-    project: dict
-
-
-class SaveAsNewProjectConfigRequest(BaseModel):
-    project: dict
-    newConfigName: str
-
-
-class SaveAsExistingProjectConfigRequest(BaseModel):
-    project: dict
-    configName: str
-
-
-class CreateProjectRequest(BaseModel):
-    name: Optional[str] = None
-    previewImgColor: str
-
-
-class DeleteProjectsRequest(BaseModel):
-    ids: List[str]
-
-
-class SetProjectNameRequest(BaseModel):
-    currProjectName: str
-    newProjectName: str
-
-
-class SetProjectConfigNameRequest(BaseModel):
-    projectId: str
-    currProjectConfigName: str
-    newProjectConfigName: str
+app.include_router(projects_router)
 
 
 class SaveCodeInfoRequest(BaseModel):
@@ -300,62 +261,13 @@ async def terminal_websocket_endpoint(
         terminal_websockets.disconnect(websocket, id)
 
 
-@app.post(C.ROUTE_PROJECTS)
-def route_projects(x: ProjectRequest):
-    with dbs:
-        return load_all_projects(dbs, x.format, x.projectId)
-
-
-@app.post(C.ROUTE_LOAD_PROJECT)
-def route_load_project(projectName, configName):
-    with dbs:
-        return load_project(dbs, projectName, configName)
-
-
-@app.post(C.ROUTE_LOAD_FULL_PROJCT)
-def route_load_full_project(projectName):
-    with dbs:
-        return load_full_project(dbs, projectName)
-
-
-@app.post(C.ROUTE_SAVE_PROJECT)
-def route_save_project(x: ProjectSaveRequest):
-    formatted = convert_to_backend_format(x.project)
-    with dbs:
-        save_project_details(dbs, formatted)
-
-
-@app.post(C.ROUTE_CREATE_PROJECT)
-def route_create_project(x: CreateProjectRequest):
-    with dbs:
-        return create_project(dbs, x.name, x.previewImgColor)
-
-
-@app.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)
-def route_save_as_new_project_config(x: SaveAsNewProjectConfigRequest):
-    with dbs:
-        return save_as_new_project_config(dbs, x.project, x.newConfigName)
-
-
-@app.post(C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG)
-def route_save_as_existing_project_config(x: SaveAsExistingProjectConfigRequest):
-    with dbs:
-        return save_as_existing_project_config(dbs, x.project, x.configName)
-
-
-@app.post(C.ROUTE_DELETE_PROJECTS)
-def route_delete_projects(x: DeleteProjectsRequest):
-    with dbs:
-        return delete_projects(dbs, x.ids)
-
-
 @app.post(C.ROUTE_GET_COLLECTIONS_AND_MODULES)
 def route_get_collections_and_modules():
     pass
 
 
 @app.post("/codeInfo/save")
-def route_save_code_info(x: SaveCodeInfoRequest):
+def route_save_code_info(x: SaveCodeInfoRequest, dbs=Depends(get_dbs)):
     with dbs:
         save_code_info(dbs, x.codeInfo)
 
@@ -365,22 +277,8 @@ def route_get_collection_details():
     pass
 
 
-@app.post(C.ROUTE_SET_PROJECT_NAME)
-def route_set_project_name(x: SetProjectNameRequest):
-    with dbs:
-        save_project_name(dbs, x.currProjectName, x.newProjectName)
-
-
-@app.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
-def route_set_project_config_name(x: SetProjectConfigNameRequest):
-    with dbs:
-        save_project_config_name(
-            dbs, x.projectId, x.currProjectConfigName, x.newProjectConfigName
-        )
-
-
 @app.post(C.ROUTE_LOAD_SETTINGS)
-def route_load_settings():
+def route_load_settings(dbs=Depends(get_dbs)):
     with dbs:
         return load_settings(dbs)
 
