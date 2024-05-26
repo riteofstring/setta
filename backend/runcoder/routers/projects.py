@@ -1,4 +1,7 @@
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
 from runcoder.database.db.projects.delete import delete_projects
 from runcoder.database.db.projects.load import (
@@ -20,18 +23,47 @@ from runcoder.database.utils import convert_to_backend_format
 from runcoder.utils.constants import C
 
 from .dependencies import get_dbs
-from .types.projects import (
-    CreateProjectRequest,
-    DeleteProjectsRequest,
-    ProjectRequest,
-    ProjectSaveRequest,
-    SaveAsExistingProjectConfigRequest,
-    SaveAsNewProjectConfigRequest,
-    SetProjectConfigNameRequest,
-    SetProjectNameRequest,
-)
 
 router = APIRouter()
+
+
+class ProjectRequest(BaseModel):
+    format: str
+    projectId: Optional[str] = None
+
+
+class ProjectSaveRequest(BaseModel):
+    project: dict
+
+
+class SaveAsNewProjectConfigRequest(BaseModel):
+    project: dict
+    newConfigName: str
+
+
+class SaveAsExistingProjectConfigRequest(BaseModel):
+    project: dict
+    configName: str
+
+
+class CreateProjectRequest(BaseModel):
+    name: Optional[str] = None
+    previewImgColor: str
+
+
+class DeleteProjectsRequest(BaseModel):
+    ids: List[str]
+
+
+class SetProjectNameRequest(BaseModel):
+    currProjectName: str
+    newProjectName: str
+
+
+class SetProjectConfigNameRequest(BaseModel):
+    projectId: str
+    currProjectConfigName: str
+    newProjectConfigName: str
 
 
 @router.post(C.ROUTE_PROJECTS)

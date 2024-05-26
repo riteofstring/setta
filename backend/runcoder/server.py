@@ -12,10 +12,6 @@ from pydantic import BaseModel
 
 from runcoder.cli.web import getConsumerMessageAndSend
 from runcoder.database.db.codeInfo.save import save_code_info
-from runcoder.database.db.sections.copy import (
-    copy_relative_positions,
-    copy_sections_and_other_info,
-)
 from runcoder.database.db.settings.load import load_settings
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
@@ -31,16 +27,12 @@ from runcoder.processors.processors import (
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.routers.dependencies import get_dbs
 from runcoder.routers.projects import router as projects_router
+from runcoder.routers.sections import router as sections_router
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C
 from runcoder.utils.tasks import Tasks
-from runcoder.utils.utils import (
-    get_absolute_path,
-    import_from_path,
-    is_dev_mode,
-    obj_to_dict,
-)
+from runcoder.utils.utils import get_absolute_path, import_from_path, is_dev_mode
 
 
 @asynccontextmanager
@@ -107,14 +99,11 @@ app.add_middleware(
 )
 
 app.include_router(projects_router)
+app.include_router(sections_router)
 
 
 class SaveCodeInfoRequest(BaseModel):
     codeInfo: dict
-
-
-class SectionsMakeCopyRequest(BaseModel):
-    sectionsAndOtherInfo: dict
 
 
 class DeleteTerminalsRequest(BaseModel):
@@ -286,21 +275,6 @@ def route_load_settings(dbs=Depends(get_dbs)):
 @app.post("/logging")
 def route_logging():
     pass
-
-
-@app.post(C.ROUTE_SECTIONS)
-def route_sections():
-    pass
-
-
-@app.post("/sections/makeCopy")
-def route_sections_make_copy(x: SectionsMakeCopyRequest):
-    output = copy_sections_and_other_info(x.sectionsAndOtherInfo)
-    relativePositions = copy_relative_positions(
-        x.sectionsAndOtherInfo["relativePositions"], output["section_id_map"]
-    )
-    output.pop("section_id_map")
-    return {**output, "relativePositions": relativePositions}
 
 
 @app.post(C.ROUTE_GET_FREE_TERMINAL)
