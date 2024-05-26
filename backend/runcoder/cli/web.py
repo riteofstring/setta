@@ -6,11 +6,9 @@ import websockets
 
 from runcoder.terminals.terminals import runCode
 
-from ..processors.processors import getProcessorOutput
-from ..processors.utils import killMyPyDaemon, startMyPyDaemon
-from ..utils.cache import Cache
+from ..tasks.processors import getProcessorOutput
+from ..tasks.utils import killMyPyDaemon, startMyPyDaemon
 from ..utils.constants import C
-from ..utils.tasks import Tasks
 
 
 def web(websocket_id):

@@ -2,7 +2,7 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 
-class Tasks:
+class TaskRunner:
     def __init__(self):
         self.pool_executor = ProcessPoolExecutor(max_workers=2)
         self.thread_executor = ThreadPoolExecutor(max_workers=2)

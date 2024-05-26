@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from runcoder.processors.processors import (
+from runcoder.tasks.processors import (
     getProcessorOutput,
     parametersRequest,
     textFieldCompletion,

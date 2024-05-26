@@ -8,8 +8,6 @@ from fastapi.staticfiles import StaticFiles
 
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
-from runcoder.processors.processors import InteractiveFns
-from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.routers import (
     code_info_router,
     misc_router,
@@ -19,10 +17,12 @@ from runcoder.routers import (
     terminals_router,
     websocket_router,
 )
+from runcoder.tasks.processors import InteractiveFns
+from runcoder.tasks.task_runner import TaskRunner
+from runcoder.tasks.utils import killMyPyDaemon, startMyPyDaemon
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C
-from runcoder.utils.tasks import Tasks
 from runcoder.utils.utils import get_absolute_path, import_from_path, is_dev_mode
 from runcoder.utils.websocket_manager import WebsocketManager
 
@@ -31,7 +31,7 @@ from runcoder.utils.websocket_manager import WebsocketManager
 async def lifespan(app: FastAPI):
     # startup
     app.state.terminal_websockets = TerminalWebsockets()
-    app.state.tasks = Tasks()
+    app.state.task_runner = TaskRunner()
     app.state.cache = Cache()
     app.state.interactive_fns = InteractiveFns()
     app.state.websocket_manager = WebsocketManager(app.state.interactive_fns)
