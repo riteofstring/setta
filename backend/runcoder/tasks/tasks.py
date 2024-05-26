@@ -221,69 +221,10 @@ def completionHelper(message, return_name, fn):
     return {"output": output, "name": return_name, "cache": None}
 
 
-def parametersRequestFn(
-    beforeText, code, var_name_to_line_num, var_name, referencable_var_names, column
-):
-    print("parametersRequest", flush=True)
-    results, line = autocomplete(code, var_name_to_line_num, var_name, column)
-    parsed = docstring_parser.parse(results[0].docstring(raw=True))
-    descriptions = {v.arg_name: v.description for v in parsed.params}
-
-    code = append_to_line(code, line, "(")
-    signatures = jedi_get_parameters(code, line)
-    output = []
-    if signatures:
-        signature = signatures[0]
-        for param in signature.params:
-            # If a default value is present, it will be included in the bracket.
-            defaultVal = (
-                param.description.split("=")[-1].strip()
-                if "=" in param.description
-                else None
-            )
-            output.append(
-                {
-                    "name": param.name,
-                    "defaultVal": defaultVal,
-                    "description": descriptions.get(param.name, ""),
-                }
-            )
-
-    return output
 
 
-def parametersRequest(message):
-    return completionHelper(message, "parameters", parametersRequestFn)
 
 
-def typeCheckRequest(message):
-    p = message["message"]
-    exporter_obj = export_selected(p)
-    code_json = exporter_obj.output
-    print("typeCheckRequest", flush=True)
-    try:
-        templated_code = get_code(p)
-        code, _ = generate_code(code_json, templated_code)
-    except SyntaxError:
-        print("typeCheckRequest SyntaxError", flush=True)
-        return {"output": {}, "name": "typeCheck", "cache": None}
-
-    def fn(temp_file_paths):
-        return subprocess.run(
-            ["dmypy", "check", temp_file_paths[0]],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-    process = withTempFiles(write=[code], in_file_with_suffix=[".py"], then_do=fn)
-    stdout = process.stdout
-
-    print("stdout", stdout, flush=True)
-    errors = stdout
-    output = parse_and_type_check(errors, code, code_json)
-    print(output, flush=True)
-    return {"output": output, "name": "typeCheck", "cache": None}
 
 
 def extractArgparseArgs(message):
