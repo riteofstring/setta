@@ -44,6 +44,12 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.dbs.connect()
+    startDaemons()
+
+    i_path = C.I_PATH
+    if i_path:
+        i_args = import_from_path(i_path).RUNCODER
+        app.state.tasks.add_interactive_fn(i_args["project"], i_args["fn"])
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
@@ -63,12 +69,6 @@ async def lifespan(app: FastAPI):
             with open(dist_path / "index.html") as f:
                 content = f.read()
             return content
-
-    startDaemons()
-    i_path = C.I_PATH
-    if i_path:
-        i_args = import_from_path(i_path).RUNCODER
-        app.state.tasks.add_interactive_fn(i_args["project"], i_args["fn"])
 
     yield
 
