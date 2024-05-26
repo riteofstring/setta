@@ -3,24 +3,6 @@ import subprocess
 import tempfile
 
 
-def startMyPyDaemon():
-    subprocess.run(
-        [
-            "dmypy",
-            "start",
-            "--",
-            "--show-error-end",
-            "--no-error-summary",
-            "--no-pretty",
-            "--no-color-output",
-        ]
-    )
-
-
-def killMyPyDaemon():
-    subprocess.run(["dmypy", "stop"])
-
-
 def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
     if len(write) != len(in_file_with_suffix):
         raise ValueError("Writes and suffixes lists must have the same length.")
