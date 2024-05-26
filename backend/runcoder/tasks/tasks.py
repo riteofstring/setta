@@ -2,13 +2,9 @@ import asyncio
 from typing import Dict
 
 from ..utils.constants import C, set_constants
+from . import fns
 from .cache import Cache
-from .fns.autocomplete import codeCompletion, textFieldCompletion
-from .fns.extractArgparseArgs import extractArgparseArgs
-from .fns.parametersRequest import parametersRequest
-from .fns.textFieldInitializeCode import textFieldInitializeCode
-from .fns.typeCheckRequest import typeCheckRequest
-from .fns.utils import TaskDefinition
+from .fns.utils import TaskDefinition, import_from_path
 from .task_runner import TaskRunner
 
 
@@ -22,12 +18,7 @@ class Tasks:
         self.task_runner = TaskRunner()
         self.cache = Cache()
         self.fns: Dict[str, TaskDefinition] = {}
-        self.add_fn(codeCompletion)
-        self.add_fn(textFieldCompletion)
-        self.add_fn(extractArgparseArgs)
-        self.add_fn(parametersRequest)
-        self.add_fn(textFieldInitializeCode)
-        self.add_fn(typeCheckRequest)
+        self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message):
         try:
@@ -45,6 +36,15 @@ class Tasks:
 
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
+
+    def add_fns_from_path(self, path):
+        module = import_from_path(path)
+        self.add_fns_from_module(module)
+
+    def add_fns_from_module(self, module):
+        for attr in vars(module).values():
+            if isinstance(attr, TaskDefinition):
+                self.add_fn(attr)
 
     @property
     def custom_fn_names(self):

@@ -21,7 +21,7 @@ from runcoder.routers import (
 from runcoder.tasks.tasks import Tasks
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.constants import C
-from runcoder.utils.utils import get_absolute_path, import_from_path, is_dev_mode
+from runcoder.utils.utils import get_absolute_path, is_dev_mode
 from runcoder.utils.websocket_manager import WebsocketManager
 
 
@@ -48,8 +48,7 @@ async def lifespan(app: FastAPI):
 
     i_path = C.I_PATH
     if i_path:
-        i_args = import_from_path(i_path).RUNCODER
-        app.state.tasks.add_fn(i_args)
+        app.state.tasks.add_fns_from_path(i_path)
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
