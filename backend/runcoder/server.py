@@ -10,13 +10,15 @@ from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
 from runcoder.processors.processors import InteractiveFns
 from runcoder.processors.utils import killMyPyDaemon, startMyPyDaemon
-from runcoder.routers.code_info import router as code_info_router
-from runcoder.routers.misc import router as misc_router
-from runcoder.routers.projects import router as projects_router
-from runcoder.routers.sections import router as sections_router
-from runcoder.routers.tasks import router as tasks_router
-from runcoder.routers.terminals import router as terminals_router
-from runcoder.routers.websocket import router as websocket_router
+from runcoder.routers import (
+    code_info_router,
+    misc_router,
+    projects_router,
+    sections_router,
+    tasks_router,
+    terminals_router,
+    websocket_router,
+)
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.cache import Cache
 from runcoder.utils.constants import C
