@@ -64,12 +64,6 @@ async def lifespan(app: FastAPI):
                 content = f.read()
             return content
 
-    startMyPyDaemon()
-    i_path = C.I_PATH
-    if i_path:
-        i_args = import_from_path(i_path).RUNCODER
-        app.state.tasks.add_interactive_fn(i_args["project"], i_args["fn"])
-
     yield
 
     # shutdown
