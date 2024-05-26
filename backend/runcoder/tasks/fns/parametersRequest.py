@@ -5,7 +5,8 @@ from runcoder.autocomplete.python.jedi.autocomplete import (
 )
 from runcoder.code_gen.python.generate_code import append_to_line
 
-from .autocomplete import autocomplete, completionHelper
+from .autocomplete import autocomplete, completionHelper, read_cache
+from .utils import TaskDefinition
 
 
 def parametersRequestFn(
@@ -39,5 +40,8 @@ def parametersRequestFn(
     return output
 
 
-def parametersRequest(message):
+def _parametersRequest(message):
     return completionHelper(message, "parameters", parametersRequestFn)
+
+
+parametersRequest = TaskDefinition(fn=_parametersRequest, read_cache=read_cache)

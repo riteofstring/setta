@@ -5,8 +5,10 @@ from runcoder.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
 )
 
+from .utils import TaskDefinition
 
-def textFieldInitializeCode(message):
+
+def _textFieldInitializeCode(message):
     message = message["message"]
     project = message["project"]
     exporter_obj = export_selected(project)
@@ -42,3 +44,18 @@ def textFieldInitializeCode(message):
             exporter_obj,
         ],
     }
+
+
+def write_cache(cache, message, result):
+    if result["cache"] is None:
+        return
+    project = message["message"]["project"]
+    sectionId = message["message"]["sectionId"]
+    cache.add_text_field_generated_code(
+        project["projectConfig"]["id"], sectionId, result["cache"]
+    )
+
+
+textFieldInitializeCode = TaskDefinition(
+    fn=_textFieldInitializeCode, write_cache=write_cache
+)

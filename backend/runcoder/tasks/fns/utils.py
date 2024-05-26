@@ -1,6 +1,9 @@
 import os
 import subprocess
 import tempfile
+from typing import Callable, Optional
+
+from pydantic import BaseModel
 
 
 def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
@@ -44,3 +47,13 @@ def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
             for temp_file in temp_files:
                 temp_file.close()
                 os.remove(temp_file.name)
+
+
+def do_nothing(*args, **kwargs):
+    pass
+
+
+class TaskDefinition(BaseModel):
+    fn: Callable
+    read_cache: Optional[Callable] = do_nothing
+    write_cache: Optional[Callable] = do_nothing

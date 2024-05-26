@@ -9,8 +9,10 @@ from runcoder.code_gen.python.generate_code import (
 from runcoder.code_gen.utils import process_refs
 from runcoder.utils.constants import BUILT_INS
 
+from .utils import TaskDefinition
 
-def codeCompletion(message):
+
+def _codeCompletion(message):
     return completionHelper(
         message,
         "codeCompletion",
@@ -18,7 +20,7 @@ def codeCompletion(message):
     )
 
 
-def textFieldCompletion(message):
+def _textFieldCompletion(message):
     return completionHelper(message, "textFieldCompletion", textFieldCompletionFn(None))
 
 
@@ -99,3 +101,14 @@ def completionHelper(message, return_name, fn):
         position,
     )
     return {"output": output, "name": return_name, "cache": None}
+
+
+def read_cache(cache, message):
+    message = message["message"]
+    message["cached"] = cache.text_field_generated_code.get(
+        message["projectConfigId"], {}
+    ).get(message["sectionId"], None)
+
+
+codeCompletion = TaskDefinition(fn=_codeCompletion, read_cache=read_cache)
+textFieldCompletion = TaskDefinition(fn=_textFieldCompletion, read_cache=read_cache)
