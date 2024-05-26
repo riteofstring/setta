@@ -41,7 +41,7 @@ def set_constants(**kwargs):
 
 
 def is_section_ui_type(x):
-    return x not in [C.TEXT, C.SLIDER, C.SWITCH]
+    return x not in C.NON_SECTION_TYPES
 
 
 def load_constants():
