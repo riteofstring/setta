@@ -9,4 +9,9 @@ def _extractArgparseArgs(message):
     return {"output": output, "name": "extractArgparseArgs", "cache": None}
 
 
-extractArgparseArgs = TaskDefinition(fn=_extractArgparseArgs, as_subprocess=True)
+extractArgparseArgs = TaskDefinition(
+    name="extractArgparseArgs",
+    fn=_extractArgparseArgs,
+    as_subprocess=True,
+    is_built_in=True,
+)

@@ -54,7 +54,9 @@ def do_nothing(*args, **kwargs):
 
 
 class TaskDefinition(BaseModel):
+    name: str
     fn: Callable
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
     as_subprocess: Optional[bool] = False
+    is_built_in: Optional[bool] = False

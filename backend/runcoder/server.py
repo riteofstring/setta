@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     i_path = C.I_PATH
     if i_path:
         i_args = import_from_path(i_path).RUNCODER
-        app.state.tasks.add_interactive_fn(i_args["project"], i_args["fn"])
+        app.state.tasks.add_fn(i_args)
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'

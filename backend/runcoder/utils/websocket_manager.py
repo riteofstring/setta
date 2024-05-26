@@ -29,7 +29,7 @@ class WebsocketManager:
                 "toWebsocketId": id,
                 "messageType": "interactiveProjects",
                 "websocketId": id,
-                "message": list(self.tasks.interactive_fns.keys()),
+                "message": self.tasks.custom_fn_names,
             }
         )
         await self.broadcast_connections()

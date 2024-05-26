@@ -111,8 +111,16 @@ def read_cache(cache, message):
 
 
 codeCompletion = TaskDefinition(
-    fn=_codeCompletion, read_cache=read_cache, as_subprocess=True
+    name="codeCompletion",
+    fn=_codeCompletion,
+    read_cache=read_cache,
+    as_subprocess=True,
+    is_built_in=True,
 )
 textFieldCompletion = TaskDefinition(
-    fn=_textFieldCompletion, read_cache=read_cache, as_subprocess=True
+    name="textFieldCompletion",
+    fn=_textFieldCompletion,
+    read_cache=read_cache,
+    as_subprocess=True,
+    is_built_in=True,
 )

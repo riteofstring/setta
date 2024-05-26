@@ -37,4 +37,6 @@ def _typeCheckRequest(message):
     return {"output": output, "name": "typeCheck", "cache": None}
 
 
-typeCheckRequest = TaskDefinition(fn=_typeCheckRequest, as_subprocess=True)
+typeCheckRequest = TaskDefinition(
+    name="typeCheckRequest", fn=_typeCheckRequest, as_subprocess=True, is_built_in=True
+)

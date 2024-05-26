@@ -45,5 +45,9 @@ def _parametersRequest(message):
 
 
 parametersRequest = TaskDefinition(
-    fn=_parametersRequest, read_cache=read_cache, as_subprocess=True
+    name="parametersRequest",
+    fn=_parametersRequest,
+    read_cache=read_cache,
+    as_subprocess=True,
+    is_built_in=True,
 )

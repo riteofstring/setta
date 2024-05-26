@@ -1,3 +1,5 @@
+from runcoder.tasks.fns.utils import TaskDefinition
+
 def fn(message):
     c = message["message"]
     return {
@@ -7,4 +9,4 @@ def fn(message):
     }
 
 
-RUNCODER = {"fn": fn, "project": "interactive_example"}
+RUNCODER = TaskDefinition(name="interactive_example", fn=fn)
