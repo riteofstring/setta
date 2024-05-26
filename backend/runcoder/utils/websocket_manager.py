@@ -45,10 +45,10 @@ class WebsocketManager:
             if wid == self.server_cli_name:
                 websocket = self.sockets[fromWebsocketId]["websocket"]
                 message["websocketId"] = wid
-                await tasks_obj.create_task(
+                await tasks.create_task(
                     message.get("id", None),
                     getConsumerMessageAndSend(
-                        message, websocket.send_text, tasks_obj, cache, processors
+                        message, websocket.send_text, tasks, cache, processors
                     ),
                 )
             else:

@@ -36,11 +36,11 @@ class InteractiveFns:
         self.fns[key] = fn
 
 
-async def getProcessorOutput(fn, message, tasks_obj, cache, use_thread=False):
+async def getProcessorOutput(fn, message, tasks, cache, use_thread=False):
     try:
         print(f"Start processing message ID: {message.get('id', None)}", flush=True)
         maybe_read_cache(fn, message, cache)
-        result = await tasks_obj.run_non_blocking_subprocess(
+        result = await tasks.run_non_blocking_subprocess(
             copyConstsThenRunFn, use_thread, C, fn, message
         )
         maybe_cache_result(message, result, cache)

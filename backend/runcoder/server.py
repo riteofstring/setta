@@ -37,7 +37,7 @@ from runcoder.utils.websocket_manager import WebsocketManager
 async def lifespan(app: FastAPI):
     # startup
     app.state.terminal_websockets = TerminalWebsockets()
-    app.state.tasks_obj = Tasks()
+    app.state.tasks = Tasks()
     app.state.cache = Cache()
     app.state.interactive_fns = InteractiveFns()
     app.state.websocket_manager = WebsocketManager(app.state.interactive_fns)
@@ -144,11 +144,11 @@ def route_load_settings(dbs=Depends(get_dbs)):
 async def route_parameters_request(
     x: ParametersRequestRequest, tasks_and_cache=Depends(get_tasks_and_cache)
 ):
-    tasks_obj, cache = tasks_and_cache
+    tasks, cache = tasks_and_cache
     result = await getProcessorOutput(
         parametersRequest,
         {"message": x.dict()},
-        tasks_obj,
+        tasks,
         cache,
     )
     return result["output"]
@@ -158,11 +158,11 @@ async def route_parameters_request(
 async def route_text_field_initialize_code(
     x: TextFieldInitializeCode, tasks_and_cache=Depends(get_tasks_and_cache)
 ):
-    tasks_obj, cache = tasks_and_cache
+    tasks, cache = tasks_and_cache
     result = await getProcessorOutput(
         textFieldInitializeCode,
         {"message": x.dict()},
-        tasks_obj,
+        tasks,
         cache,
     )
     return result["output"]
@@ -172,11 +172,11 @@ async def route_text_field_initialize_code(
 async def route_type_check_request(
     x: TypeCheckRequestRequest, tasks_and_cache=Depends(get_tasks_and_cache)
 ):
-    tasks_obj, cache = tasks_and_cache
+    tasks, cache = tasks_and_cache
     result = await getProcessorOutput(
         typeCheckRequest,
         {"message": x.dict()},
-        tasks_obj,
+        tasks,
         cache,
     )
     return result["output"]
@@ -186,11 +186,11 @@ async def route_type_check_request(
 async def route_text_field_completion(
     x: TextFieldCompletionRequest, tasks_and_cache=Depends(get_tasks_and_cache)
 ):
-    tasks_obj, cache = tasks_and_cache
+    tasks, cache = tasks_and_cache
     result = await getProcessorOutput(
         textFieldCompletion,
         {"message": x.dict()},
-        tasks_obj,
+        tasks,
         cache,
     )
     print("textFieldCompletion", result["output"], flush=True)

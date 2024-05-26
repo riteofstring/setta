@@ -6,7 +6,7 @@ def get_dbs(request: Request):
 
 
 def get_tasks_and_cache(request: Request):
-    return [request.app.state.tasks_obj, request.app.state.cache]
+    return [request.app.state.tasks, request.app.state.cache]
 
 
 def get_terminal_websockets(websocket: WebSocket):

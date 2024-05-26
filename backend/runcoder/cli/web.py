@@ -50,8 +50,8 @@ async def consumer_handler(websocket):
         # )
 
 
-async def getConsumerMessageAndSend(message, send_fn, tasks_obj, cache, processors):
-    result = await getProcessorOutput(message, tasks_obj, cache, processors)
+async def getConsumerMessageAndSend(message, send_fn, tasks, cache, processors):
+    result = await getProcessorOutput(message, tasks, cache, processors)
     if result["output"] is not None:
         print(f"Done processing message ID {message.get('id', None)}", flush=True)
         await send_fn(
