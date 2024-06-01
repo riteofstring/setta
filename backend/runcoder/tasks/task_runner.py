@@ -9,12 +9,6 @@ class TaskRunner:
         self.tasks_dict = {}
         self.loop = asyncio.get_event_loop()
 
-    async def create_task(self, id, *args, **kwargs):
-        await self.cancel_existing(id)
-        x = asyncio.create_task(*args, **kwargs)
-        x.add_done_callback(lambda t: self.remove_task(id))
-        self.tasks_dict[id] = x
-
     async def cancel_existing(self, id):
         if id in self.tasks_dict:
             task = self.tasks_dict[id]
@@ -28,6 +22,15 @@ class TaskRunner:
     def remove_task(self, id):
         self.tasks_dict.pop(id, None)
 
-    async def run_non_blocking_subprocess(self, fn, as_subprocess, *args):
+    async def run_non_blocking_subprocess(self, id, fn, as_subprocess, *args):
+        await self.cancel_existing(id)
         executor = self.pool_executor if as_subprocess else self.thread_executor
-        return await self.loop.run_in_executor(executor, fn, *args)
+        future = self.loop.run_in_executor(executor, fn, *args)
+        self.tasks_dict[id] = future
+        try:
+            result = await future
+            self.remove_task(id)
+            return result
+        except asyncio.CancelledError:
+            self.remove_task(id)
+            raise

@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends
 
-from runcoder.tasks.fns.autocomplete import CodeCompletionContent
-from runcoder.tasks.fns.textFieldInitializeCode import TextFieldInitializeCodeContent
+from runcoder.tasks.fns.autocomplete import CodeCompletionMessage
+from runcoder.tasks.fns.textFieldInitializeCode import TextFieldInitializeCodeMessage
 from runcoder.tasks.fns.typeCheckRequest import TypeCheckRequestMessage
-from runcoder.tasks.fns.utils import TaskMessage
 from runcoder.utils.constants import C
 
 from .dependencies import get_tasks
@@ -12,16 +11,16 @@ router = APIRouter()
 
 
 @router.post(C.ROUTE_PARAMETERS_REQUEST)
-async def route_parameters_request(x: CodeCompletionContent, tasks=Depends(get_tasks)):
-    result = await tasks(TaskMessage(fn_name="parametersRequest", content=x))
+async def route_parameters_request(x: CodeCompletionMessage, tasks=Depends(get_tasks)):
+    result = await tasks("parametersRequest", x)
     return result["output"]
 
 
 @router.post(C.ROUTE_TEXT_FIELD_INITIALIZE_CODE)
 async def route_text_field_initialize_code(
-    x: TextFieldInitializeCodeContent, tasks=Depends(get_tasks)
+    x: TextFieldInitializeCodeMessage, tasks=Depends(get_tasks)
 ):
-    result = await tasks(TaskMessage(fn_name="textFieldInitializeCode", content=x))
+    result = await tasks("textFieldInitializeCode", x)
     return result["output"]
 
 
@@ -29,13 +28,13 @@ async def route_text_field_initialize_code(
 async def route_type_check_request(
     x: TypeCheckRequestMessage, tasks=Depends(get_tasks)
 ):
-    result = await tasks(TaskMessage(fn_name="typeCheckRequest", content=x))
+    result = await tasks("typeCheckRequest", x)
     return result["output"]
 
 
 @router.post(C.ROUTE_TEXT_FIELD_COMPLETION)
 async def route_text_field_completion(
-    x: CodeCompletionContent, tasks=Depends(get_tasks)
+    x: CodeCompletionMessage, tasks=Depends(get_tasks)
 ):
-    result = await tasks(TaskMessage(fn_name="textFieldCompletion", content=x))
+    result = await tasks("textFieldCompletion", x)
     return result["output"]

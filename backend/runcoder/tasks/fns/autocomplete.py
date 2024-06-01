@@ -109,8 +109,8 @@ def completionHelper(message: CodeCompletionMessage, return_name, fn):
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
-    print("completionHelper", flush=True)
-    print(code, flush=True)
+    # print("completionHelper", flush=True)
+    # print(code, flush=True)
     output = fn(
         message.beforeText,
         code,

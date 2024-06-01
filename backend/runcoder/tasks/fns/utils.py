@@ -85,6 +85,5 @@ class TaskDefinition(BaseModel):
 
 
 class TaskMessage(BaseModel):
-    # id: str
-    fn_name: str
+    id: str
     content: Any

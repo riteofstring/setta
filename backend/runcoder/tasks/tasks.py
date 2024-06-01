@@ -19,18 +19,18 @@ class Tasks:
         self.fns: Dict[str, TaskDefinition] = {}
         self.add_fns_from_module(fns)
 
-    async def __call__(self, message: TaskMessage):
+    async def __call__(self, fn_name, message: TaskMessage):
         try:
-            # print(f"Start processing message ID: {message.id}", flush=True)
-            fn = self.fns[message.fn_name]
+            print(f"Start processing message ID: {message.id}", flush=True)
+            fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
             result = await self.task_runner.run_non_blocking_subprocess(
-                copyConstsThenRunFn, fn.as_subprocess, C, fn.fn, message
+                message.id, copyConstsThenRunFn, fn.as_subprocess, C, fn.fn, message
             )
             fn.write_cache(self.cache, message, result)
             return result
         except asyncio.CancelledError:
-            # print(f"Task for {message.id} was cancelled.", flush=True)
+            print(f"Task for {message.id} was cancelled.", flush=True)
             return {"output": None, "name": None}
 
     def add_fn(self, task_def: TaskDefinition):
