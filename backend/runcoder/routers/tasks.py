@@ -1,18 +1,14 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
 from runcoder.tasks.fns.autocomplete import CodeCompletionContent
 from runcoder.tasks.fns.textFieldInitializeCode import TextFieldInitializeCodeContent
+from runcoder.tasks.fns.typeCheckRequest import TypeCheckRequestMessage
 from runcoder.tasks.fns.utils import TaskMessage
 from runcoder.utils.constants import C
 
 from .dependencies import get_tasks
 
 router = APIRouter()
-
-
-class TypeCheckRequestRequest(BaseModel):
-    project: dict
 
 
 @router.post(C.ROUTE_PARAMETERS_REQUEST)
@@ -31,7 +27,7 @@ async def route_text_field_initialize_code(
 
 @router.post(C.ROUTE_TYPE_CHECK_REQUEST)
 async def route_type_check_request(
-    x: TypeCheckRequestRequest, tasks=Depends(get_tasks)
+    x: TypeCheckRequestMessage, tasks=Depends(get_tasks)
 ):
     result = await tasks(TaskMessage(fn_name="typeCheckRequest", content=x))
     return result["output"]

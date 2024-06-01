@@ -4,11 +4,15 @@ from runcoder.code_gen.export_selected import export_selected, get_code
 from runcoder.code_gen.python.generate_code import generate_code
 from runcoder.type_checkers.python.mypy.type_checker import parse_and_type_check
 
-from .utils import TaskDefinition, withTempFiles
+from .utils import TaskDefinition, TaskMessage, withTempFiles
 
 
-def _typeCheckRequest(message):
-    p = message["message"]
+class TypeCheckRequestMessage(TaskMessage):
+    content: dict
+
+
+def _typeCheckRequest(message: TypeCheckRequestMessage):
+    p = message.content
     exporter_obj = export_selected(p)
     code_json = exporter_obj.output
     print("typeCheckRequest", flush=True)
