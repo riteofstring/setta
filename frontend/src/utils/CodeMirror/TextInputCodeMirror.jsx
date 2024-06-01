@@ -136,26 +136,35 @@ function getOnCreateEditor({
 }
 
 function getCompletionsFn(sectionId, paramInfoId) {
-  return async (context) => {
-    const fullText = context.state.doc.toString();
-    if (!fullText.trim()) return null;
-    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-    const res = await dbTextFieldCompletion({
-      sectionId,
-      paramInfoId,
-      fullText,
-      beforeText: before.text,
-      position: context.pos,
+  return (context) => {
+    console.log("getCompletionsFn");
+
+    return new Promise((resolve) => {
+      const fullText = context.state.doc.toString();
+      if (!fullText.trim()) return null;
+      const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
+
+      dbTextFieldCompletion({
+        sectionId,
+        paramInfoId,
+        fullText,
+        beforeText: before.text,
+        position: context.pos,
+      })
+        .then((res) => {
+          if (res.status === 200) {
+            resolve({
+              filter: true,
+              from: before ? before.from : context.pos,
+              options: res.data,
+              // validFor: /([^.=\\(]*)$/,
+            });
+          } else {
+            resolve(null);
+          }
+        })
+        .catch(() => resolve(null));
     });
-    if (res.status === 200) {
-      return {
-        filter: true,
-        from: before ? before.from : context.pos,
-        options: res.data,
-        // validFor: /([^.=\\(]*)$/,
-      };
-    }
-    return null;
   };
 }
 
