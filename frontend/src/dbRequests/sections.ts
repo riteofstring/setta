@@ -54,7 +54,7 @@ export async function dbTypeCheckRequest() {
   });
 }
 
-export function dbTextFieldCompletion({
+export async function dbTextFieldCompletion({
   sectionId,
   paramInfoId,
   fullText,
@@ -65,7 +65,7 @@ export function dbTextFieldCompletion({
   const projectConfigId = useProjectConfig.getState().id;
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
   const evRefs = findRefs(keywordRegex, fullNameToInfo, fullText);
-  return post({
+  return await post({
     body: {
       id: `${address}-${sectionId}-${paramInfoId}`,
       content: {
