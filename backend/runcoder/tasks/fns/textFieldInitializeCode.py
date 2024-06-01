@@ -1,21 +1,33 @@
 import json
 
+from pydantic import BaseModel
+
 from runcoder.code_gen.export_selected import export_selected, get_code
 from runcoder.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
 )
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, TaskMessage
 
 
-def _textFieldInitializeCode(message):
-    message = message["message"]
-    project = message["project"]
+class TextFieldInitializeCodeContent(BaseModel):
+    project: dict
+    sectionId: str
+    paramInfoId: str | None
+
+
+class TextFieldInitializeCodeMessage(TaskMessage):
+    content: TextFieldInitializeCodeContent
+
+
+def _textFieldInitializeCode(message: TextFieldInitializeCodeMessage):
+    message = message.content
+    project = message.project
     exporter_obj = export_selected(project)
     codeJson = exporter_obj.output
     templatedCode = get_code(project)
-    sectionId = message["sectionId"]
-    paramInfoId = message["paramInfoId"]
+    sectionId = message.sectionId
+    paramInfoId = message.paramInfoId
     push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
     lines, var_name_to_line_num = generate_lines_of_code_without_imports(
         codeJson,
@@ -46,11 +58,11 @@ def _textFieldInitializeCode(message):
     }
 
 
-def write_cache(cache, message, result):
+def write_cache(cache, message: TextFieldInitializeCodeMessage, result):
     if result["cache"] is None:
         return
-    project = message["message"]["project"]
-    sectionId = message["message"]["sectionId"]
+    project = message.content.project
+    sectionId = message.content.sectionId
     cache.add_text_field_generated_code(
         project["projectConfig"]["id"], sectionId, result["cache"]
     )

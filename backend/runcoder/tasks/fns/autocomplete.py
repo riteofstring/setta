@@ -1,3 +1,7 @@
+from typing import Any, Optional
+
+from pydantic import BaseModel
+
 from runcoder.autocomplete.python.jedi.autocomplete import (
     autocomplete as jedi_autocomplete,
 )
@@ -9,10 +13,25 @@ from runcoder.code_gen.python.generate_code import (
 from runcoder.code_gen.utils import process_refs
 from runcoder.utils.constants import BUILT_INS
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, TaskMessage
 
 
-def _codeCompletion(message):
+class CodeCompletionContent(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    paramInfoId: str | None
+    beforeText: str
+    fullText: str
+    position: int
+    evRefs: list
+    cached: Optional[Any] = None
+
+
+class CodeCompletionMessage(TaskMessage):
+    content: CodeCompletionContent
+
+
+def _codeCompletion(message: CodeCompletionMessage):
     return completionHelper(
         message,
         "codeCompletion",
@@ -20,7 +39,7 @@ def _codeCompletion(message):
     )
 
 
-def _textFieldCompletion(message):
+def _textFieldCompletion(message: CodeCompletionMessage):
     return completionHelper(message, "textFieldCompletion", textFieldCompletionFn(None))
 
 
@@ -65,9 +84,9 @@ def textFieldCompletionFn(return_types):
     return fn
 
 
-def completionHelper(message, return_name, fn):
-    message = message["message"]
-    cached = message.pop("cached")
+def completionHelper(message: CodeCompletionMessage, return_name, fn):
+    message = message.content
+    cached = message.cached
     if cached is None:
         return {"output": [], "name": return_name, "cache": None}
     (
@@ -78,13 +97,13 @@ def completionHelper(message, return_name, fn):
         exporter_obj,
     ) = cached
     var_name = exporter_obj.var_name_mapping[
-        (message["sectionId"], message["paramInfoId"], False)
+        (message.sectionId, message.paramInfoId, False)
     ]
     fullText, position = process_refs(
-        message["fullText"],
-        message["evRefs"],
+        message.fullText,
+        message.evRefs,
         exporter_obj.get_ref_var_name,
-        message["position"],
+        message.position,
     )
     set_line(lines, var_name_to_line_num, var_name, fullText)
     code, var_name_to_line_num = prepend_with_imports(
@@ -93,7 +112,7 @@ def completionHelper(message, return_name, fn):
     print("completionHelper", flush=True)
     print(code, flush=True)
     output = fn(
-        message["beforeText"],
+        message.beforeText,
         code,
         var_name_to_line_num,
         var_name,
@@ -103,11 +122,11 @@ def completionHelper(message, return_name, fn):
     return {"output": output, "name": return_name, "cache": None}
 
 
-def read_cache(cache, message):
-    message = message["message"]
-    message["cached"] = cache.text_field_generated_code.get(
-        message["projectConfigId"], {}
-    ).get(message["sectionId"], None)
+def read_cache(cache, message: CodeCompletionMessage):
+    message = message.content
+    message.cached = cache.text_field_generated_code.get(
+        message.projectConfigId, {}
+    ).get(message.sectionId, None)
 
 
 codeCompletion = TaskDefinition(

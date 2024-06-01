@@ -1,10 +1,14 @@
 from runcoder.code_gen.python.extract_args_from_help import extract_args_from_help
 
-from .utils import TaskDefinition
+from .utils import TaskDefinition, TaskMessage
 
 
-def _extractArgparseArgs(message):
-    script_path = message["message"]
+class ExtractArgparseArgsMessage(TaskMessage):
+    content: str
+
+
+def _extractArgparseArgs(message: ExtractArgparseArgsMessage):
+    script_path = message.content
     output = extract_args_from_help(script_path)
     return {"output": output, "name": "extractArgparseArgs", "cache": None}
 

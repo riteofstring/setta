@@ -2,7 +2,7 @@ import importlib.util
 import os
 import subprocess
 import tempfile
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from pydantic import BaseModel
 
@@ -82,3 +82,9 @@ class TaskDefinition(BaseModel):
     write_cache: Optional[Callable] = do_nothing
     as_subprocess: Optional[bool] = False
     is_built_in: Optional[bool] = False
+
+
+class TaskMessage(BaseModel):
+    # id: str
+    fn_name: str
+    content: Any
