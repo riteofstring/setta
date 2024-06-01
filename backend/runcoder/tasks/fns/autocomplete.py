@@ -124,9 +124,7 @@ def completionHelper(message: CodeCompletionMessage, return_name, fn):
 
 def read_cache(cache, message: CodeCompletionMessage):
     message = message.content
-    message.cached = cache.text_field_generated_code.get(
-        message.projectConfigId, {}
-    ).get(message.sectionId, None)
+    message.cached = cache.get(message.projectConfigId, {}).get(message.sectionId, None)
 
 
 codeCompletion = TaskDefinition(

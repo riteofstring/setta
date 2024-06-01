@@ -3,7 +3,6 @@ from typing import Dict
 
 from ..utils.constants import C, set_constants
 from . import fns
-from .cache import Cache
 from .fns.utils import TaskDefinition, TaskMessage, import_from_path
 from .task_runner import TaskRunner
 
@@ -16,7 +15,7 @@ def copyConstsThenRunFn(inputC, fn, message):
 class Tasks:
     def __init__(self):
         self.task_runner = TaskRunner()
-        self.cache = Cache()
+        self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
         self.add_fns_from_module(fns)
 

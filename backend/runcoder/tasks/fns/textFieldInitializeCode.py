@@ -63,9 +63,7 @@ def write_cache(cache, message: TextFieldInitializeCodeMessage, result):
         return
     project = message.content.project
     sectionId = message.content.sectionId
-    cache.add_text_field_generated_code(
-        project["projectConfig"]["id"], sectionId, result["cache"]
-    )
+    cache.setdefault(project["projectConfig"]["id"], {})[sectionId] = result["cache"]
 
 
 textFieldInitializeCode = TaskDefinition(
