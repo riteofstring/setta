@@ -16,6 +16,7 @@ class LSPManager:
         )
         loop = asyncio.get_running_loop()
         loop.create_task(self.read_response())
+        await self.send_initialize_request()
 
     async def send_request(self, method, params):
         request = json.dumps(
@@ -81,7 +82,6 @@ def process_response(response):
 async def main():
     lsp = LSPManager()
     await lsp.start_server()
-    await lsp.send_initialize_request()
     await lsp.send_document_open_request()
     await lsp.send_autocomplete_request(1, 11)
     await lsp.server.wait()
