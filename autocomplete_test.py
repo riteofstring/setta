@@ -10,9 +10,7 @@ async def start_server():
         stderr=asyncio.subprocess.PIPE
     )
 
-async def send_request(proc):
-    method = "initialize"
-    params = {"capabilities": {}, "rootUri": None}
+async def send_request(proc, method, params):
     request = json.dumps({
         "jsonrpc": "2.0",
         "id": 1,
@@ -21,14 +19,14 @@ async def send_request(proc):
     }).encode('utf-8')
     content_length = len(request)
     header = f"Content-Length: {content_length}\r\n\r\n".encode('utf-8')
-    print("request")
-    pprint(request)
     proc.stdin.write(header + request)
+    print("sending")
+    pprint(request)
     await proc.stdin.drain()
 
 async def read_response(proc):
-    headers = b''
     while True:
+        headers = b''
         while True:
             chunk = await proc.stdout.read(1)
             headers += chunk
@@ -37,6 +35,7 @@ async def read_response(proc):
         
         headers_str = headers.decode('utf-8')
         header_parts = headers_str.split('\r\n')
+        print("headers", headers)
         content_length = 0
         for header in header_parts:
             if header.startswith('Content-Length:'):
@@ -45,6 +44,7 @@ async def read_response(proc):
         
         response = await proc.stdout.read(content_length)
         print("response")
+        print(response)
         response = json.loads(response.decode('utf-8'))
         pprint(response)
 
@@ -53,8 +53,32 @@ async def main():
     loop = asyncio.get_running_loop()
     
     read_task = loop.create_task(read_response(server))
-    await send_request(server)
-    
+
+    # Initialize the server
+    init_params = {"capabilities": {}, "rootUri": None}
+    await send_request(server, "initialize", init_params)
+
+    # Send a didOpen notification with Python code
+    code_content = "import math\nprint(math.)"
+    open_params = {
+        "textDocument": {
+            "uri": "file:///fakepath/file.py",
+            "languageId": "python",
+            "version": 1,
+            "text": code_content
+        }
+    }
+    await send_request(server, "textDocument/didOpen", open_params)
+
+    # Optionally, send other requests like completion or symbol listing here
+    # Send an autocompletion request
+    completion_params = {
+        "textDocument": {"uri": "file:///fakepath/file.py"},
+        "position": {"line": 1, "character": len("print(math.")}  # cursor position after 'sqrt('
+    }
+    await send_request(server, "textDocument/completion", completion_params)
+
+
     _, pending = await asyncio.wait(
         [read_task], return_when=asyncio.FIRST_COMPLETED
     )
