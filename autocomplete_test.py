@@ -2,6 +2,7 @@ import asyncio
 import json
 from pprint import pprint
 import uuid
+from pathlib import Path
 
 
 def create_id():
@@ -37,9 +38,18 @@ type_mapping = {
 }
 
 
+def get_file_uri(path):
+    return f"file://{path}"
+
+
+def get_virtual_uri(path):
+    return f"virtual://{path}"
+
+
 class LSPManager:
-    def __init__(self):
+    def __init__(self, root_path):
         self.sent_messages = {}
+        self.root_path = root_path
 
     async def start_server(self):
         self.server = await asyncio.create_subprocess_exec(
@@ -62,7 +72,7 @@ class LSPManager:
         await self.server.stdin.drain()
 
     async def send_initialize_request(self):
-        init_params = {"capabilities": {}, "rootUri": None}
+        init_params = {"capabilities": {}, "rootUri": get_file_uri(self.root_path)}
         id = create_id()
         await self.send_request(id, "initialize", init_params)
 
@@ -70,7 +80,7 @@ class LSPManager:
         code_content = "import math\nprint(math.)"
         open_params = {
             "textDocument": {
-                "uri": "file:///fakepath/file.py",
+                "uri": get_virtual_uri(self.root_path / "file.py"),
                 "languageId": "python",
                 "version": 1,
                 "text": code_content,
@@ -81,11 +91,22 @@ class LSPManager:
 
     async def send_autocomplete_request(self, line, character):
         completion_params = {
-            "textDocument": {"uri": "file:///fakepath/file.py"},
+            "textDocument": {"uri": get_virtual_uri(self.root_path / "file.py")},
             "position": {"line": line, "character": character},
         }
         id = create_id()
         await self.send_request(id, "textDocument/completion", completion_params)
+
+    async def send_document_update(self, newText, version):
+        params = {
+            "textDocument": {
+                "uri": get_virtual_uri(self.root_path / "file.py"),
+                "version": version,
+            },
+            "contentChanges": [{"text": newText}],
+        }
+        id = create_id()
+        await self.send_request(id, "textDocument/didChange", params)
 
     async def read_response(self):
         while True:
@@ -121,15 +142,18 @@ class LSPManager:
             del self.sent_messages[id]
 
         # print(self.received_messages.keys())
-        # pprint(response)
+        pprint(response)
         # process_response(response)
 
 
 async def main():
-    lsp = LSPManager()
+    lsp = LSPManager(
+        root_path=Path("D:\\Documents\\App Development\\runcoder\\.runcoder_code")
+    )
     await lsp.start_server()
     await lsp.send_document_open_request()
     await lsp.send_autocomplete_request(1, 11)
+    await lsp.send_document_update("import math\nprint(math.sqrt(16))", version=2)
     pprint(lsp.sent_messages.keys())
     await lsp.server.wait()
 
