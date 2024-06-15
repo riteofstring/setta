@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from runcoder.routers import (
 from runcoder.tasks.tasks import Tasks
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.constants import C
+from runcoder.utils.lsp import LSP
 from runcoder.utils.utils import get_absolute_path, is_dev_mode
 from runcoder.utils.websocket_manager import WebsocketManager
 
@@ -29,6 +31,7 @@ from runcoder.utils.websocket_manager import WebsocketManager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
+    app.state.lsp = LSP(root_path=Path(os.getcwd()) / ".runcoder_code")
     app.state.tasks = Tasks()
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
@@ -45,6 +48,7 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.dbs.connect()
+    await app.state.lsp.start_server()
 
     i_path = C.I_PATH
     if i_path:
@@ -74,6 +78,7 @@ async def lifespan(app: FastAPI):
     # shutdown
     print("shutdown_event", flush=True)
     app.state.terminal_websockets.delete_all_terminals()
+    app.state.lsp.kill_server()
 
 
 app = FastAPI(lifespan=lifespan)

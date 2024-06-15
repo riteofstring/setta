@@ -1,6 +1,5 @@
 import docstring_parser
 
-
 from runcoder.code_gen.python.generate_code import append_to_line
 
 from .autocomplete import autocomplete, completionHelper, read_cache
