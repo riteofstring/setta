@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from runcoder.daemons.daemons import killDaemons, startDaemons
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
 from runcoder.routers import (
@@ -46,7 +45,6 @@ async def lifespan(app: FastAPI):
     )
 
     app.state.dbs.connect()
-    startDaemons()
 
     i_path = C.I_PATH
     if i_path:
@@ -75,7 +73,6 @@ async def lifespan(app: FastAPI):
 
     # shutdown
     print("shutdown_event", flush=True)
-    killDaemons()
     app.state.terminal_websockets.delete_all_terminals()
 
 

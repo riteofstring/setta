@@ -2,9 +2,6 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from runcoder.autocomplete.python.jedi.autocomplete import (
-    autocomplete as jedi_autocomplete,
-)
 from runcoder.code_gen.python.generate_code import (
     prepend_with_imports,
     set_line,

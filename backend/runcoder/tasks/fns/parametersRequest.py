@@ -1,8 +1,6 @@
 import docstring_parser
 
-from runcoder.autocomplete.python.jedi.autocomplete import (
-    get_parameters as jedi_get_parameters,
-)
+
 from runcoder.code_gen.python.generate_code import append_to_line
 
 from .autocomplete import autocomplete, completionHelper, read_cache
