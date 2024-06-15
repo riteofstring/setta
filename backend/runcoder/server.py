@@ -20,7 +20,6 @@ from runcoder.routers import (
     websocket_router,
 )
 from runcoder.tasks.tasks import Tasks
-from runcoder.tasks.lsp_manager import LSPManager
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.constants import C
 from runcoder.utils.utils import get_absolute_path, is_dev_mode
@@ -30,7 +29,6 @@ from runcoder.utils.websocket_manager import WebsocketManager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    app.state.lsp = LSPManager()
     app.state.tasks = Tasks()
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
@@ -46,7 +44,6 @@ async def lifespan(app: FastAPI):
         with_settings=True,
     )
 
-    await app.state.lsp.start_server()
     app.state.dbs.connect()
 
     i_path = C.I_PATH
