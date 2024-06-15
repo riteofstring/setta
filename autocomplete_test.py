@@ -1,11 +1,45 @@
 import asyncio
 import json
 from pprint import pprint
+import uuid
+
+
+def create_id():
+    return str(uuid.uuid4())
+
+
+type_mapping = {
+    1: "text",
+    2: "method",
+    3: "function",
+    4: "constructor",
+    5: "field",
+    6: "variable",
+    7: "class",
+    8: "interface",
+    9: "module",
+    10: "property",
+    11: "unit",
+    12: "value",
+    13: "enum",
+    14: "keyword",
+    15: "snippet",
+    16: "color",
+    17: "file",
+    18: "reference",
+    19: "folder",
+    20: "enummember",
+    21: "constant",
+    22: "struct",
+    23: "event",
+    24: "operator",
+    25: "typeparameter",
+}
 
 
 class LSPManager:
     def __init__(self):
-        self.messages = {}
+        self.sent_messages = {}
 
     async def start_server(self):
         self.server = await asyncio.create_subprocess_exec(
@@ -18,20 +52,19 @@ class LSPManager:
         loop.create_task(self.read_response())
         await self.send_initialize_request()
 
-    async def send_request(self, method, params):
-        request = json.dumps(
-            {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
-        ).encode("utf-8")
+    async def send_request(self, id, method, params):
+        request_dict = {"jsonrpc": "2.0", "id": id, "method": method, "params": params}
+        request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
         self.server.stdin.write(header + request)
-        print("sending")
-        pprint(request)
+        self.sent_messages[id] = request_dict
         await self.server.stdin.drain()
 
     async def send_initialize_request(self):
         init_params = {"capabilities": {}, "rootUri": None}
-        await self.send_request("initialize", init_params)
+        id = create_id()
+        await self.send_request(id, "initialize", init_params)
 
     async def send_document_open_request(self):
         code_content = "import math\nprint(math.)"
@@ -43,14 +76,16 @@ class LSPManager:
                 "text": code_content,
             }
         }
-        await self.send_request("textDocument/didOpen", open_params)
+        id = create_id()
+        await self.send_request(id, "textDocument/didOpen", open_params)
 
     async def send_autocomplete_request(self, line, character):
         completion_params = {
             "textDocument": {"uri": "file:///fakepath/file.py"},
             "position": {"line": line, "character": character},
         }
-        await self.send_request("textDocument/completion", completion_params)
+        id = create_id()
+        await self.send_request(id, "textDocument/completion", completion_params)
 
     async def read_response(self):
         while True:
@@ -71,12 +106,23 @@ class LSPManager:
 
             response = await self.server.stdout.read(content_length)
             response = json.loads(response.decode("utf-8"))
-            pprint(response)
-            # process_response(response)
+            self.process_response(response)
 
+    def process_response(self, response):
+        id = response.get("id", None)
+        if id:
+            message_type = self.sent_messages[id]["method"]
+            if message_type == "textDocument/completion":
+                completions = [
+                    {"insertText": x["insertText"], "type": type_mapping[x["kind"]]}
+                    for x in response["result"]["items"]
+                ]
+                pprint(completions)
+            del self.sent_messages[id]
 
-def process_response(response):
-    print(response["method"])
+        # print(self.received_messages.keys())
+        # pprint(response)
+        # process_response(response)
 
 
 async def main():
@@ -84,6 +130,7 @@ async def main():
     await lsp.start_server()
     await lsp.send_document_open_request()
     await lsp.send_autocomplete_request(1, 11)
+    pprint(lsp.sent_messages.keys())
     await lsp.server.wait()
 
 
