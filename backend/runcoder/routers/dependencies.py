@@ -9,10 +9,6 @@ def get_tasks(request: Request):
     return request.app.state.tasks
 
 
-def get_lsp_writer(request: Request):
-    return request.app.state.lsp_writer
-
-
 def get_terminal_websockets_from_websocket(websocket: WebSocket):
     return websocket.app.state.terminal_websockets
 

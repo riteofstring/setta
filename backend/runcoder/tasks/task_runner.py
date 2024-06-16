@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from enum import Enum
 
@@ -8,6 +9,10 @@ from ..utils.constants import C, set_constants
 def copyConstsThenRunFn(inputC, fn, fn_args):
     set_constants(**vars(inputC))
     return fn(fn_args)
+
+
+def sync_wrapper(fn, *args, **kwargs):
+    return asyncio.run(fn(*args, **kwargs))
 
 
 class RunType(Enum):
@@ -39,15 +44,20 @@ class TaskRunner:
     async def run(self, id, fn, fn_args, run_as):
         await self.cancel_existing(id)
         if run_as == RunType.NONE:
-            fn(fn_args)
+            fn(*fn_args)
         elif run_as in [RunType.THREAD, RunType.SUBPROCESS]:
             if run_as == RunType.SUBPROCESS:
                 executor = self.pool_executor
-                fn_args = [C, fn, fn_args]
+                fn_args = [C, fn, *fn_args]
                 fn = copyConstsThenRunFn
             else:
                 executor = self.thread_executor
-            future = self.loop.run_in_executor(executor, fn, fn_args)
+
+            if inspect.iscoroutinefunction(fn):
+                future = self.loop.run_in_executor(executor, sync_wrapper, fn, *fn_args)
+            else:
+                future = self.loop.run_in_executor(executor, fn, *fn_args)
+
             self.tasks_dict[id] = future
             try:
                 result = await future

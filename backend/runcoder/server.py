@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.lsp_listener = LanguageServerListener(app.state.lsp, None)
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
-    app.state.tasks = Tasks()
+    app.state.tasks = Tasks(app.state.lsp_writer)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
     app.state.dbs = DBs(

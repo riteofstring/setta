@@ -46,7 +46,9 @@ class WebsocketManager:
             wid = message["toWebsocketId"]
             if wid == self.server_cli_id:
                 # process task and send any results back to requester
-                result = await self.tasks(message["messageType"], message["content"])
+                result = await self.tasks(
+                    message["messageType"], TaskMessage.parse_obj(message)
+                )
                 if result["output"]:
                     websocket = self.sockets[fromWebsocketId]["websocket"]
                     await websocket.send_text(

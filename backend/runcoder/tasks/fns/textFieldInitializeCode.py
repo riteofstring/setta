@@ -5,10 +5,11 @@ from pydantic import BaseModel
 from runcoder.code_gen.export_selected import export_selected, get_code
 from runcoder.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
+    prepend_with_imports,
 )
 from runcoder.tasks.task_runner import RunType
 
-from .utils import TaskDefinition, TaskMessage
+from .utils import TaskDefinition
 
 
 class TextFieldInitializeCodeContent(BaseModel):
@@ -17,12 +18,8 @@ class TextFieldInitializeCodeContent(BaseModel):
     paramInfoId: str | None
 
 
-class TextFieldInitializeCodeMessage(TaskMessage):
-    content: TextFieldInitializeCodeContent
-
-
-def _textFieldInitializeCode(message: TextFieldInitializeCodeMessage):
-    message = message.content
+async def _textFieldInitializeCode(message, lsp_writer):
+    message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
     exporter_obj = export_selected(project)
     codeJson = exporter_obj.output
@@ -46,6 +43,10 @@ def _textFieldInitializeCode(message: TextFieldInitializeCodeMessage):
     ]
     print("textFieldInitializeCode", flush=True)
     print(referencable_var_names, flush=True)
+
+    code, _ = prepend_with_imports(lines, templatedCode, None, var_name_to_line_num)
+    await lsp_writer.send_document_open_request(code, project["projectConfig"]["id"])
+
     return {
         "output": None,
         "name": "textFieldInitializeCode",
@@ -59,11 +60,12 @@ def _textFieldInitializeCode(message: TextFieldInitializeCodeMessage):
     }
 
 
-def write_cache(cache, message: TextFieldInitializeCodeMessage, result):
+def write_cache(cache, message, result):
     if result["cache"] is None:
         return
-    project = message.content.project
-    sectionId = message.content.sectionId
+    message = TextFieldInitializeCodeContent.parse_obj(message.content)
+    project = message.project
+    sectionId = message.sectionId
     cache.setdefault(project["projectConfig"]["id"], {})[sectionId] = result["cache"]
 
 
@@ -73,4 +75,5 @@ textFieldInitializeCode = TaskDefinition(
     write_cache=write_cache,
     run_as=RunType.THREAD,
     is_built_in=True,
+    dependencies=["lsp_writer"],
 )
