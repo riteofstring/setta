@@ -1,5 +1,19 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from enum import Enum
+
+from ..utils.constants import C, set_constants
+
+
+def copyConstsThenRunFn(inputC, fn, fn_args):
+    set_constants(**vars(inputC))
+    return fn(fn_args)
+
+
+class RunType(Enum):
+    SUBPROCESS = "SUBPROCESS"
+    THREAD = "THREAD"
+    NONE = "NONE"
 
 
 class TaskRunner:
@@ -22,15 +36,25 @@ class TaskRunner:
     def remove_task(self, id):
         self.tasks_dict.pop(id, None)
 
-    async def run(self, id, fn, as_subprocess, *args):
+    async def run(self, id, fn, fn_args, run_as):
         await self.cancel_existing(id)
-        executor = self.pool_executor if as_subprocess else self.thread_executor
-        future = self.loop.run_in_executor(executor, fn, *args)
-        self.tasks_dict[id] = future
-        try:
-            result = await future
-            self.remove_task(id)
-            return result
-        except asyncio.CancelledError:
-            self.remove_task(id)
-            raise
+        if run_as == RunType.NONE:
+            fn(fn_args)
+        elif run_as in [RunType.THREAD, RunType.SUBPROCESS]:
+            if run_as == RunType.SUBPROCESS:
+                executor = self.pool_executor
+                fn_args = [C, fn, fn_args]
+                fn = copyConstsThenRunFn
+            else:
+                executor = self.thread_executor
+            future = self.loop.run_in_executor(executor, fn, fn_args)
+            self.tasks_dict[id] = future
+            try:
+                result = await future
+                self.remove_task(id)
+                return result
+            except asyncio.CancelledError:
+                self.remove_task(id)
+                raise
+        else:
+            raise ValueError

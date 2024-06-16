@@ -28,7 +28,7 @@ export function ParamInput({
     if (interactive_state.currProjectIsInteractive) {
       sendMessage({
         id: interactive_state.id,
-        message: value,
+        content: value,
         messageType: useProject.getState().name,
       });
     }

@@ -8,6 +8,7 @@ from runcoder.code_gen.python.generate_code import (
     var_declaration,
 )
 from runcoder.code_gen.utils import process_refs
+from runcoder.tasks.task_runner import RunType
 from runcoder.utils.constants import BUILT_INS
 
 from .utils import TaskDefinition, TaskMessage
@@ -128,13 +129,13 @@ codeCompletion = TaskDefinition(
     name="codeCompletion",
     fn=_codeCompletion,
     read_cache=read_cache,
-    as_subprocess=True,
+    run_as=RunType.THREAD,
     is_built_in=True,
 )
 textFieldCompletion = TaskDefinition(
     name="textFieldCompletion",
     fn=_textFieldCompletion,
     read_cache=read_cache,
-    as_subprocess=True,
+    run_as=RunType.THREAD,
     is_built_in=True,
 )

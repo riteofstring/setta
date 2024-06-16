@@ -6,6 +6,8 @@ from typing import Any, Callable, Optional
 
 from pydantic import BaseModel
 
+from runcoder.tasks.task_runner import RunType
+
 
 def import_from_path(file_path):
     # Extract directory and module name from file path
@@ -80,7 +82,7 @@ class TaskDefinition(BaseModel):
     fn: Callable
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
-    as_subprocess: Optional[bool] = False
+    run_as: Optional[RunType] = RunType.NONE
     is_built_in: Optional[bool] = False
 
 

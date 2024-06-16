@@ -6,6 +6,7 @@ from runcoder.code_gen.export_selected import export_selected, get_code
 from runcoder.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
 )
+from runcoder.tasks.task_runner import RunType
 
 from .utils import TaskDefinition, TaskMessage
 
@@ -70,6 +71,6 @@ textFieldInitializeCode = TaskDefinition(
     name="textFieldInitializeCode",
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
-    as_subprocess=True,
+    run_as=RunType.THREAD,
     is_built_in=True,
 )

@@ -1,11 +1,10 @@
 import C from "constants/constants.json";
-import { sendMessage } from "dbRequests/websocket";
+import { sendMessageInRoom } from "hooks/useWebsocket";
 import { useCodeInfo } from "models/info/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { useWebsocketRooms } from "models/websocket";
 import { initializeChildParams } from "thunks/initializeParam";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { getSectionTypeConfig } from "thunks/sections/getters";
@@ -19,7 +18,6 @@ import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
-import { createNewId } from "z_utils/utils";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
@@ -113,19 +111,11 @@ export function loadSectionIntoState({
 }
 
 export function extractArgparseArgs({ pathToScript, ...props }) {
-  const id = createNewId();
-  const unsub = useWebsocketRooms.subscribe(
-    (x) => x[id],
-    (x) => {
-      createSectionsFromArgparse({ pathToScript, args: x, ...props });
-      unsub();
-      useWebsocketRooms.getState().deleteRoom(id);
-    },
-  );
-  sendMessage({
-    id,
+  sendMessageInRoom({
     messageType: "extractArgparseArgs",
     message: pathToScript,
+    callback: (x) =>
+      createSectionsFromArgparse({ pathToScript, args: x, ...props }),
   });
 }
 

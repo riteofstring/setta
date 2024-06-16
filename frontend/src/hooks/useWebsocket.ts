@@ -1,6 +1,6 @@
 import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
 import { useWebsocketRooms } from "models/websocket";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { createNewId } from "z_utils/utils";
 
@@ -16,28 +16,57 @@ export function useOpenCloseWebsocket() {
   }, [location.pathname]);
 }
 
-function useWebsocketRoom(messageType) {
-  const [id, setId] = useState(null);
-  const received = useWebsocketRooms((x) => x[id] ?? "");
-  const send = useCallback(
-    (message) => {
-      if (id) {
-        sendMessage({ message, id, messageType });
+export function sendMessageInRoom({
+  id,
+  messageType,
+  content,
+  callback,
+  unsubscribeAfter = true,
+  deleteAfter = true,
+}) {
+  const actualId = id ? id : createNewId();
+  const unsub = useWebsocketRooms.subscribe(
+    (x) => x[actualId],
+    (x) => {
+      callback(x);
+      if (unsubscribeAfter) {
+        unsub();
+      }
+      if (deleteAfter) {
+        useWebsocketRooms.getState().deleteRoom(actualId);
       }
     },
-    [id],
   );
 
-  useEffect(() => {
-    const _id = createNewId();
-    useWebsocketRooms.getState().createRoom(_id);
-    setId(_id);
-
-    // cleanup
-    return () => {
-      useWebsocketRooms.getState().deleteRoom(_id);
-    };
-  }, []);
-
-  return [received, send];
+  sendMessage({
+    id: actualId,
+    messageType,
+    content,
+  });
 }
+
+// function useWebsocketRoom(messageType) {
+//   const [id, setId] = useState(null);
+//   const received = useWebsocketRooms((x) => x[id] ?? "");
+//   const send = useCallback(
+//     (message) => {
+//       if (id) {
+//         sendMessage({ message, id, messageType });
+//       }
+//     },
+//     [id],
+//   );
+
+//   useEffect(() => {
+//     const _id = createNewId();
+//     useWebsocketRooms.getState().createRoom(_id);
+//     setId(_id);
+
+//     // cleanup
+//     return () => {
+//       useWebsocketRooms.getState().deleteRoom(_id);
+//     };
+//   }, []);
+
+//   return [received, send];
+// }

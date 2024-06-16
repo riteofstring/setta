@@ -1,6 +1,7 @@
 import docstring_parser
 
 from runcoder.code_gen.python.generate_code import append_to_line
+from runcoder.tasks.task_runner import RunType
 
 from .autocomplete import autocomplete, completionHelper, read_cache
 from .utils import TaskDefinition
@@ -45,6 +46,6 @@ parametersRequest = TaskDefinition(
     name="parametersRequest",
     fn=_parametersRequest,
     read_cache=read_cache,
-    as_subprocess=True,
+    run_as=RunType.THREAD,
     is_built_in=True,
 )

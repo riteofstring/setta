@@ -22,12 +22,14 @@ async def route_parameters_request(x: CodeCompletionMessage, tasks=Depends(get_t
 async def route_text_field_initialize_code(
     x: TextFieldInitializeCodeMessage,
     tasks=Depends(get_tasks),
-    lsp_writer=Depends(get_lsp_writer)
+    lsp_writer=Depends(get_lsp_writer),
 ):
     result = await tasks("textFieldInitializeCode", x)
     lines, var_name_to_line_num, _, templatedCode, _ = result["cache"]
     code, _ = prepend_with_imports(lines, templatedCode, None, var_name_to_line_num)
-    await lsp_writer.send_document_open_request(code, x.content.project["projectConfig"]["id"])
+    await lsp_writer.send_document_open_request(
+        code, x.content.project["projectConfig"]["id"]
+    )
     return result["output"]
 
 

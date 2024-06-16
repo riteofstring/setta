@@ -23,7 +23,11 @@ from runcoder.routers import (
 from runcoder.tasks.tasks import Tasks
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.constants import C
-from runcoder.utils.lsp import LanguageServer, LanguageServerListener, LanguageServerWriter
+from runcoder.utils.lsp import (
+    LanguageServer,
+    LanguageServerListener,
+    LanguageServerWriter,
+)
 from runcoder.utils.utils import get_absolute_path, is_dev_mode
 from runcoder.utils.websocket_manager import WebsocketManager
 

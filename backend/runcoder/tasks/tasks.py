@@ -1,15 +1,9 @@
 import asyncio
 from typing import Dict
 
-from ..utils.constants import C, set_constants
 from . import fns
 from .fns.utils import TaskDefinition, TaskMessage, import_from_path
 from .task_runner import TaskRunner
-
-
-def copyConstsThenRunFn(inputC, fn, message):
-    set_constants(**vars(inputC))
-    return fn(message)
 
 
 class Tasks:
@@ -24,9 +18,7 @@ class Tasks:
             print(f"Start processing message ID: {message.id}", flush=True)
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
-            result = await self.task_runner.run(
-                message.id, copyConstsThenRunFn, fn.as_subprocess, C, fn.fn, message
-            )
+            result = await self.task_runner.run(message.id, fn.fn, message, fn.run_as)
             fn.write_cache(self.cache, message, result)
             return result
         except asyncio.CancelledError:

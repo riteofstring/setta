@@ -38,7 +38,7 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  // console.log(m);
+  console.log(m);
   if (m.type === "LOG") {
     updateOutput(m.data);
   } else if (m.messageType === "connection") {
@@ -46,11 +46,11 @@ function receiveMessage(message) {
   } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
   } else if (m.messageType === "interactiveProjects") {
-    useInteractive.getState().setProjects(m["message"]);
+    useInteractive.getState().setProjects(m["content"]);
   } else if (m.messageType === "interactive") {
-    useInteractive.getState().setData(m["message"]);
+    useInteractive.getState().setData(m["content"]);
   } else if (m.id) {
-    useWebsocketRooms.getState().setMessage(m.id, m.message);
+    useWebsocketRooms.getState().setMessage(m.id, m.content);
   }
 }
 
@@ -60,13 +60,13 @@ export function sendLocation(pathname) {
   }
 }
 
-export async function sendMessage({ message, id, messageType }) {
+export async function sendMessage({ content, id, messageType }) {
   const connectedTo = useWebsocketConnectionList.getState().connectedTo;
   if (wssReady() && connectedTo) {
     wss.send(
       JSON.stringify({
         id,
-        message,
+        content,
         toWebsocketId: connectedTo,
         messageType,
       }),

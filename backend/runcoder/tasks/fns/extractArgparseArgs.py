@@ -1,4 +1,5 @@
 from runcoder.code_gen.python.extract_args_from_help import extract_args_from_help
+from runcoder.tasks.task_runner import RunType
 
 from .utils import TaskDefinition, TaskMessage
 
@@ -16,6 +17,6 @@ def _extractArgparseArgs(message: ExtractArgparseArgsMessage):
 extractArgparseArgs = TaskDefinition(
     name="extractArgparseArgs",
     fn=_extractArgparseArgs,
-    as_subprocess=True,
+    run_as=RunType.THREAD,
     is_built_in=True,
 )

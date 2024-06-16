@@ -4,6 +4,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
 import { findRefs } from "utils/CodeMirror/utils";
 import { post } from "./utils";
+import { sendMessage } from "./websocket";
 
 export async function dbGetSections() {
   return await post({
@@ -37,12 +38,11 @@ export async function dbParametersRequest({
 
 export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   const project = getProjectDataToGenerateCode({});
-  return await post({
-    body: {
-      id: `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}-${paramInfoId}`,
-      content: { project, sectionId, paramInfoId },
-    },
-    address: C.ROUTE_TEXT_FIELD_INITIALIZE_CODE,
+  const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}-${paramInfoId}`
+  sendMessage({
+    id,
+    messageType: "textFieldInitializeCode",
+    content: { project, sectionId, paramInfoId },
   });
 }
 

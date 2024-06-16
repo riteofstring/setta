@@ -2,6 +2,7 @@ import subprocess
 
 from runcoder.code_gen.export_selected import export_selected, get_code
 from runcoder.code_gen.python.generate_code import generate_code
+from runcoder.tasks.task_runner import RunType
 
 from .utils import TaskDefinition, TaskMessage, withTempFiles
 
@@ -41,5 +42,8 @@ def _typeCheckRequest(message: TypeCheckRequestMessage):
 
 
 typeCheckRequest = TaskDefinition(
-    name="typeCheckRequest", fn=_typeCheckRequest, as_subprocess=True, is_built_in=True
+    name="typeCheckRequest",
+    fn=_typeCheckRequest,
+    run_as=RunType.THREAD,
+    is_built_in=True,
 )

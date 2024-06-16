@@ -46,7 +46,7 @@ export async function runCode({ codeId }) {
     if (useWebsocketConnectionList.getState().connectedTo !== "main") {
       // TODO unify the sendMessage format with the above message format
       sendMessage({
-        message: projectVariant,
+        content: projectVariant,
         id: codeId,
         messageType: "runCode",
       });

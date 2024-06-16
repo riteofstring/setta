@@ -3,6 +3,7 @@ import json
 from fastapi import WebSocket
 
 from runcoder.database.utils import generate_memorable_string
+from runcoder.tasks.fns.utils import TaskMessage
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
@@ -29,7 +30,7 @@ class WebsocketManager:
                 "toWebsocketId": id,
                 "messageType": "interactiveProjects",
                 "websocketId": id,
-                "message": self.tasks.custom_fn_names,
+                "content": self.tasks.custom_fn_names,
             },
             fromWebsocketId=self.server_cli_id,
         )
@@ -45,14 +46,14 @@ class WebsocketManager:
             wid = message["toWebsocketId"]
             if wid == self.server_cli_id:
                 # process task and send any results back to requester
-                websocket = self.sockets[fromWebsocketId]["websocket"]
-                result = await self.tasks(message["messageType"], message)
+                result = await self.tasks(message["messageType"], message["content"])
                 if result["output"]:
+                    websocket = self.sockets[fromWebsocketId]["websocket"]
                     await websocket.send_text(
                         json.dumps(
                             {
                                 "id": message["id"],
-                                "message": result["output"],
+                                "content": result["output"],
                                 "toWebsocketId": wid,
                                 "messageType": result["name"],
                             }
