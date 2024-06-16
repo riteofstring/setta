@@ -17,6 +17,6 @@ async def websocket_endpoint(
         while True:
             data = await websocket.receive_text()
             print("received message", flush=True)
-            await websocket_manager.send_message(json.loads(data), id)
+            await websocket_manager.send_message(json.loads(data), fromWebsocketId=id)
     except WebSocketDisconnect:
         await websocket_manager.disconnect(id)

@@ -24,7 +24,7 @@ class Tasks:
             print(f"Start processing message ID: {message.id}", flush=True)
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
-            result = await self.task_runner.run_non_blocking_subprocess(
+            result = await self.task_runner.run(
                 message.id, copyConstsThenRunFn, fn.as_subprocess, C, fn.fn, message
             )
             fn.write_cache(self.cache, message, result)

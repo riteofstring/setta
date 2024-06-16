@@ -1,9 +1,8 @@
 import asyncio
 import json
+from collections import defaultdict
 from pprint import pprint
 from pathlib import Path
-from collections import defaultdict
-
 
 type_mapping = {
     1: "text",
@@ -42,22 +41,37 @@ def get_virtual_uri(root_path, code_id):
     return f"virtual://{root_path / code_id}.py"
 
 
-class LSPManager:
+class LanguageServer:
     def __init__(self, root_path):
-        self.sent_messages = {}
-        self.versions = defaultdict(int)
         self.root_path = root_path
+        self.sent_messages = {}
+        self.server = None
 
     async def start_server(self):
+        print("starting server")
         self.server = await asyncio.create_subprocess_exec(
             "pylsp",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        loop = asyncio.get_running_loop()
-        loop.create_task(self.read_response())
-        await self.send_initialize_request()
+
+    def kill_server(self):
+        self.server.terminate()
+
+    @property
+    def stdin(self):
+        return self.server.stdin
+    
+    @property
+    def stdout(self):
+        return self.server.stdout
+
+
+class LanguageServerWriter:
+    def __init__(self, server):
+        self.server = server
+        self.versions = defaultdict(int)
 
     async def send_request(self, method, params, id=None):
         request_dict = {"jsonrpc": "2.0", "id": id, "method": method, "params": params}
@@ -103,6 +117,30 @@ class LSPManager:
         }
         await self.send_request("textDocument/didChange", params)
 
+    @property
+    def root_path(self):
+        return self.server.root_path
+    
+    @property
+    def sent_messages(self):
+        return self.server.sent_messages
+
+    def get_version_number(self, virtual_filename):
+        self.versions[virtual_filename] += 1
+        return self.versions[virtual_filename]
+
+
+
+class LanguageServerListener:
+    def __init__(self, server, websocket_manager):
+        self.server = server
+        self.websocket_manager = websocket_manager
+        
+    async def start_listener(self):
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.read_response())
+        print("listening")
+
     async def read_response(self):
         while True:
             headers = b""
@@ -129,30 +167,38 @@ class LSPManager:
         if id:
             message_type = self.sent_messages[id]["method"]
             if message_type == "textDocument/completion":
-                completions = [
+                response = [
                     {"insertText": x["insertText"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
-                pprint(completions)
             del self.sent_messages[id]
 
+        # self.websocket_manager.send_message({})
+
         # print(self.received_messages.keys())
-        pprint(response)
+        # print(response, flush=True)
         # process_response(response)
 
-    def get_version_number(self, virtual_filename):
-        self.versions[virtual_filename] += 1
-        return self.versions[virtual_filename]
+
+    @property
+    def sent_messages(self):
+        return self.server.sent_messages
+
+
 
 
 async def main():
-    lsp = LSPManager(
+    lsp = LanguageServer(
         root_path=Path("D:\\Documents\\App Development\\runcoder\\.runcoder_code")
     )
+    lsp_listener = LanguageServerListener(lsp, None)
+    lsp_writer = LanguageServerWriter(lsp)
     await lsp.start_server()
-    await lsp.send_document_open_request("import math\nprint(math.)", "file")
-    await lsp.send_autocomplete_request(1, 11, "file", "1234")
-    await lsp.send_document_update("import math\nprint(math.sqrt(16))", "file")
+    await lsp_listener.start_listener()
+    await lsp_writer.send_initialize_request()
+    await lsp_writer.send_document_open_request("import math\nprint(math.)", "file")
+    await lsp_writer.send_autocomplete_request(1, 11, "file", "1234")
+    await lsp_writer.send_document_update("import math\nprint(math.sqrt(16))", "file")
     pprint(lsp.sent_messages.keys())
     await lsp.server.wait()
 

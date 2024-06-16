@@ -22,7 +22,7 @@ class TaskRunner:
     def remove_task(self, id):
         self.tasks_dict.pop(id, None)
 
-    async def run_non_blocking_subprocess(self, id, fn, as_subprocess, *args):
+    async def run(self, id, fn, as_subprocess, *args):
         await self.cancel_existing(id)
         executor = self.pool_executor if as_subprocess else self.thread_executor
         future = self.loop.run_in_executor(executor, fn, *args)

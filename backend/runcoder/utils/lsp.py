@@ -1,7 +1,6 @@
 import asyncio
 import json
 from collections import defaultdict
-from pprint import pprint
 
 type_mapping = {
     1: "text",
@@ -40,11 +39,11 @@ def get_virtual_uri(root_path, code_id):
     return f"virtual://{root_path / code_id}.py"
 
 
-class LSP:
+class LanguageServer:
     def __init__(self, root_path):
-        self.sent_messages = {}
-        self.versions = defaultdict(int)
         self.root_path = root_path
+        self.sent_messages = {}
+        self.server = None
 
     async def start_server(self):
         print("starting server")
@@ -54,10 +53,23 @@ class LSP:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        loop = asyncio.get_running_loop()
-        loop.create_task(self.read_response())
-        await self.send_initialize_request()
-        print("done starting server")
+
+    def kill_server(self):
+        self.server.terminate()
+
+    @property
+    def stdin(self):
+        return self.server.stdin
+
+    @property
+    def stdout(self):
+        return self.server.stdout
+
+
+class LanguageServerWriter:
+    def __init__(self, server):
+        self.server = server
+        self.versions = defaultdict(int)
 
     async def send_request(self, method, params, id=None):
         request_dict = {"jsonrpc": "2.0", "id": id, "method": method, "params": params}
@@ -103,6 +115,29 @@ class LSP:
         }
         await self.send_request("textDocument/didChange", params)
 
+    @property
+    def root_path(self):
+        return self.server.root_path
+
+    @property
+    def sent_messages(self):
+        return self.server.sent_messages
+
+    def get_version_number(self, virtual_filename):
+        self.versions[virtual_filename] += 1
+        return self.versions[virtual_filename]
+
+
+class LanguageServerListener:
+    def __init__(self, server, websocket_manager):
+        self.server = server
+        self.websocket_manager = websocket_manager
+
+    async def start_listener(self):
+        loop = asyncio.get_running_loop()
+        loop.create_task(self.read_response())
+        print("listening")
+
     async def read_response(self):
         while True:
             headers = b""
@@ -129,20 +164,18 @@ class LSP:
         if id:
             message_type = self.sent_messages[id]["method"]
             if message_type == "textDocument/completion":
-                completions = [
+                response = [
                     {"insertText": x["insertText"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
-                pprint(completions)
             del self.sent_messages[id]
+
+        # self.websocket_manager.send_message({})
 
         # print(self.received_messages.keys())
         print(response, flush=True)
         # process_response(response)
 
-    def get_version_number(self, virtual_filename):
-        self.versions[virtual_filename] += 1
-        return self.versions[virtual_filename]
-
-    def kill_server(self):
-        self.server.terminate()
+    @property
+    def sent_messages(self):
+        return self.server.sent_messages

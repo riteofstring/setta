@@ -10,7 +10,7 @@ class WebsocketManager:
     def __init__(self, tasks):
         self.sockets = {}
         self.use_server_as_cli = True
-        self.server_cli_name = "main"
+        self.server_cli_id = "main"
         self.tasks = tasks
 
     async def connect(self, websocket: WebSocket):
@@ -21,7 +21,8 @@ class WebsocketManager:
         isCLI = "Python" in websocket.headers.get("user-agent", "")
         self.sockets[id] = {"websocket": websocket, "isCLI": isCLI}
         await self.send_message(
-            {"toWebsocketId": id, "messageType": "connection", "websocketId": id}
+            {"toWebsocketId": id, "messageType": "connection", "websocketId": id},
+            fromWebsocketId=self.server_cli_id,
         )
         await self.send_message(
             {
@@ -29,7 +30,8 @@ class WebsocketManager:
                 "messageType": "interactiveProjects",
                 "websocketId": id,
                 "message": self.tasks.custom_fn_names,
-            }
+            },
+            fromWebsocketId=self.server_cli_id,
         )
         await self.broadcast_connections()
         return id
@@ -38,23 +40,26 @@ class WebsocketManager:
         del self.sockets[id]
         await self.broadcast_connections()
 
-    async def send_message(self, message, fromWebsocketId=None):
+    async def send_message(self, message, fromWebsocketId):
         if "toWebsocketId" in message:
             wid = message["toWebsocketId"]
-            if wid == self.server_cli_name:
+            if wid == self.server_cli_id:
+                # process task and send any results back to requester
                 websocket = self.sockets[fromWebsocketId]["websocket"]
                 result = await self.tasks(message["messageType"], message)
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "id": message["id"],
-                            "message": result["output"],
-                            "toWebsocketId": wid,
-                            "messageType": result["name"],
-                        }
+                if result["output"]:
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "id": message["id"],
+                                "message": result["output"],
+                                "toWebsocketId": wid,
+                                "messageType": result["name"],
+                            }
+                        )
                     )
-                )
             else:
+                # just send data to target websocket
                 websocket = self.sockets[wid]["websocket"]
                 await websocket.send_text(
                     json.dumps({**message, "websocketId": fromWebsocketId})
@@ -69,7 +74,7 @@ class WebsocketManager:
         for id, s in self.sockets.items():
             connections.append({"websocketId": id, "isCLI": s["isCLI"]})
         if self.use_server_as_cli:
-            connections.append({"websocketId": self.server_cli_name, "isCLI": True})
+            connections.append({"websocketId": self.server_cli_id, "isCLI": True})
         await self.broadcast(
             {"messageType": "allConnections", "connections": connections}
         )
