@@ -42,7 +42,7 @@ def get_virtual_uri(root_path, code_id):
 class LanguageServer:
     def __init__(self, root_path):
         self.root_path = root_path
-        self.sent_methods = {}
+        self.sent_msg_info = {}
         self.server = None
 
     async def start_server(self):
@@ -78,7 +78,7 @@ class LanguageServerWriter:
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
         self.server.stdin.write(header + request)
         if id:
-            self.sent_methods[id] = request_dict
+            self.sent_msg_info[id] = request_dict
         await self.server.stdin.drain()
 
     async def send_initialize_request(self):
@@ -124,8 +124,8 @@ class LanguageServerWriter:
         return self.server.root_path
 
     @property
-    def sent_methods(self):
-        return self.server.sent_methods
+    def sent_msg_info(self):
+        return self.server.sent_msg_info
 
     def get_version_number(self, virtual_filename):
         self.versions[virtual_filename] += 1
@@ -177,21 +177,22 @@ class LanguageServerListener:
 
             try:
                 response = json.loads(response.decode("utf-8"))
-                self.process_response(response)
+                await self.process_response(response)
             except json.JSONDecodeError as e:
                 print(f"JSONDecodeError: {e} - Response: {response}")
                 break
 
-    def process_response(self, response):
+    async def process_response(self, response):
         print(response, flush=True)
         id = response.get("id", None)
         if id:
-            message_type = self.sent_methods[id]
-            if message_type == "textDocument/completion":
-                response = [
-                    {"insertText": x["insertText"], "type": type_mapping[x["kind"]]}
+            method = self.sent_msg_info[id]["method"]
+            if method == "textDocument/completion":
+                content = [
+                    {"label": x["insertText"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
+                await self.websocket_manager.send_message_to_requester(id, content)
 
         # self.websocket_manager.send_message({})
 
@@ -199,5 +200,5 @@ class LanguageServerListener:
         # process_response(response)
 
     @property
-    def sent_methods(self):
-        return self.server.sent_methods
+    def sent_msg_info(self):
+        return self.server.sent_msg_info

@@ -13,6 +13,7 @@ class WebsocketManager:
         self.use_server_as_cli = True
         self.server_cli_id = "main"
         self.tasks = tasks
+        self.message_id_to_sender_id = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -43,6 +44,8 @@ class WebsocketManager:
 
     async def send_message(self, message, fromWebsocketId):
         if "toWebsocketId" in message:
+            if "id" in message:
+                self.message_id_to_sender_id[message["id"]] = fromWebsocketId
             wid = message["toWebsocketId"]
             if wid == self.server_cli_id:
                 # process task and send any results back to requester
@@ -67,6 +70,11 @@ class WebsocketManager:
                 await websocket.send_text(
                     json.dumps({**message, "websocketId": fromWebsocketId})
                 )
+
+    async def send_message_to_requester(self, id, content):
+        # just send data to target websocket
+        websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
+        await websocket.send_text(json.dumps({"id": id, "content": content}))
 
     async def broadcast(self, message):
         for s in self.sockets.values():

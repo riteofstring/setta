@@ -38,11 +38,13 @@ async def lifespan(app: FastAPI):
     app.state.lsp = LanguageServer(
         root_path=Path(os.getcwd()) / ".runcoder_code",
     )
-    app.state.lsp_listener = LanguageServerListener(app.state.lsp, None)
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
     app.state.tasks = Tasks(app.state.lsp_writer)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
+    app.state.lsp_listener = LanguageServerListener(
+        app.state.lsp, app.state.websocket_manager
+    )
     app.state.dbs = DBs(
         C.DB_SPECS,
         C.CREATE_IF_NOT_EXISTS,
