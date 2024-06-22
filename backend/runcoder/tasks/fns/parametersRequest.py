@@ -3,7 +3,7 @@ import docstring_parser
 from runcoder.code_gen.python.generate_code import append_to_line
 from runcoder.tasks.task_runner import RunType
 
-from .autocomplete import autocomplete, completionHelper, read_cache
+from .autocomplete import completionHelper, read_cache
 from .utils import TaskDefinition
 
 

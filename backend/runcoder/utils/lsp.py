@@ -101,9 +101,11 @@ class LanguageServerWriter:
             "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
             "position": {"line": line, "character": character},
         }
+        print("send_autocomplete_request", flush=True)
         await self.send_request(
             "textDocument/completion", completion_params, id=request_id
         )
+        print("done send_autocomplete_request", flush=True)
 
     async def send_document_update(self, code, code_id):
         params = {
@@ -113,7 +115,9 @@ class LanguageServerWriter:
             },
             "contentChanges": [{"text": code}],
         }
+        print("send_autocomplete_request", flush=True)
         await self.send_request("textDocument/didChange", params)
+        print("done send_document_update", flush=True)
 
     @property
     def root_path(self):
@@ -160,6 +164,7 @@ class LanguageServerListener:
             self.process_response(response)
 
     def process_response(self, response):
+        print(response, flush=True)
         id = response.get("id", None)
         if id:
             message_type = self.sent_messages[id]["method"]
@@ -173,7 +178,6 @@ class LanguageServerListener:
         # self.websocket_manager.send_message({})
 
         # print(self.received_messages.keys())
-        print(response, flush=True)
         # process_response(response)
 
     @property
