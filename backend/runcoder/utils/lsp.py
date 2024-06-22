@@ -136,6 +136,7 @@ class LanguageServerListener:
     def __init__(self, server, websocket_manager):
         self.server = server
         self.websocket_manager = websocket_manager
+        self.stop_event = asyncio.Event()
 
     async def start_listener(self):
         loop = asyncio.get_running_loop()
@@ -143,10 +144,12 @@ class LanguageServerListener:
         print("listening")
 
     async def read_response(self):
-        while True:
+        while not self.stop_event.is_set():
             headers = b""
-            while True:
+            while not self.stop_event.is_set():
                 chunk = await self.server.stdout.read(1)
+                if not chunk:
+                    break
                 headers += chunk
                 if headers.endswith(b"\r\n\r\n"):
                     break

@@ -86,8 +86,8 @@ async def lifespan(app: FastAPI):
     yield
 
     # shutdown
-    print("shutdown_event", flush=True)
     app.state.terminal_websockets.delete_all_terminals()
+    app.state.lsp_listener.stop_event.set()
     app.state.lsp.kill_server()
 
 
