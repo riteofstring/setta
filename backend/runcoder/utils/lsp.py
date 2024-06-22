@@ -42,7 +42,7 @@ def get_virtual_uri(root_path, code_id):
 class LanguageServer:
     def __init__(self, root_path):
         self.root_path = root_path
-        self.sent_messages = {}
+        self.sent_methods = {}
         self.server = None
 
     async def start_server(self):
@@ -78,7 +78,7 @@ class LanguageServerWriter:
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
         self.server.stdin.write(header + request)
         if id:
-            self.sent_messages[id] = request_dict
+            self.sent_methods[id] = request_dict
         await self.server.stdin.drain()
 
     async def send_initialize_request(self):
@@ -124,8 +124,8 @@ class LanguageServerWriter:
         return self.server.root_path
 
     @property
-    def sent_messages(self):
-        return self.server.sent_messages
+    def sent_methods(self):
+        return self.server.sent_methods
 
     def get_version_number(self, virtual_filename):
         self.versions[virtual_filename] += 1
@@ -154,6 +154,9 @@ class LanguageServerListener:
                 if headers.endswith(b"\r\n\r\n"):
                     break
 
+            if self.stop_event.is_set():
+                break
+
             headers_str = headers.decode("utf-8")
             header_parts = headers_str.split("\r\n")
             content_length = 0
@@ -162,21 +165,33 @@ class LanguageServerListener:
                     content_length = int(header.split(":")[1].strip())
                     break
 
-            response = await self.server.stdout.read(content_length)
-            response = json.loads(response.decode("utf-8"))
-            self.process_response(response)
+            response = b""
+            while len(response) < content_length and not self.stop_event.is_set():
+                chunk = await self.server.stdout.read(content_length - len(response))
+                if not chunk:
+                    break
+                response += chunk
+
+            if self.stop_event.is_set():
+                break
+
+            try:
+                response = json.loads(response.decode("utf-8"))
+                self.process_response(response)
+            except json.JSONDecodeError as e:
+                print(f"JSONDecodeError: {e} - Response: {response}")
+                break
 
     def process_response(self, response):
         print(response, flush=True)
         id = response.get("id", None)
         if id:
-            message_type = self.sent_messages[id]["method"]
+            message_type = self.sent_methods[id]
             if message_type == "textDocument/completion":
                 response = [
                     {"insertText": x["insertText"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
-            del self.sent_messages[id]
 
         # self.websocket_manager.send_message({})
 
@@ -184,5 +199,5 @@ class LanguageServerListener:
         # process_response(response)
 
     @property
-    def sent_messages(self):
-        return self.server.sent_messages
+    def sent_methods(self):
+        return self.server.sent_methods
