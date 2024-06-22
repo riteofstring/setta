@@ -34,6 +34,7 @@ export async function dbParametersRequest({
     beforeText,
     position,
     address: C.ROUTE_PARAMETERS_REQUEST,
+    messageType: "parametersRequest"
   });
 }
 
@@ -62,13 +63,14 @@ export async function dbTextFieldCompletion({
   beforeText,
   position,
   address = C.ROUTE_TEXT_FIELD_COMPLETION,
+  messageType = "textFieldCompletion"
 }) {
   const projectConfigId = useProjectConfig.getState().id;
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
   const evRefs = findRefs(keywordRegex, fullNameToInfo, fullText);
   return await sendMessageInRoom({
     id: `${address}-${sectionId}-${paramInfoId}`,
-    messageType: "textFieldCompletion",
+    messageType,
     content: {
       projectConfigId,
       sectionId,

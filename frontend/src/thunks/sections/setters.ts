@@ -40,10 +40,8 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
       beforeText: "",
       position: selectedItem.length,
     });
-    if (res.status === 200) {
-      createChildrenCodeInfo(id, res.data);
-      setSelectedItemChildren(sectionId, id, changedByUser);
-    }
+    createChildrenCodeInfo(id, res);
+    setSelectedItemChildren(sectionId, id, changedByUser);
   }
 }
 

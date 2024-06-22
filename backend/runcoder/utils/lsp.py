@@ -101,11 +101,21 @@ class LanguageServerWriter:
             "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
             "position": {"line": line, "character": character},
         }
-        print("send_autocomplete_request", flush=True)
         await self.send_request(
             "textDocument/completion", completion_params, id=request_id
         )
         print("done send_autocomplete_request", flush=True)
+
+    async def send_signature_help_request(self, line, character, code_id, request_id):
+        completion_params = {
+            "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
+            "position": {"line": line, "character": character},
+            "context": {"triggerKind": 2, "triggerCharacter": "("},
+        }
+        print("line, character", line, character, flush=True)
+        await self.send_request(
+            "textDocument/signatureHelp", completion_params, id=request_id
+        )
 
     async def send_document_update(self, code, code_id):
         params = {
@@ -115,7 +125,6 @@ class LanguageServerWriter:
             },
             "contentChanges": [{"text": code}],
         }
-        print("send_autocomplete_request", flush=True)
         await self.send_request("textDocument/didChange", params)
         print("done send_document_update", flush=True)
 
@@ -191,6 +200,16 @@ class LanguageServerListener:
                 content = [
                     {"label": x["insertText"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
+                ]
+                await self.websocket_manager.send_message_to_requester(id, content)
+            elif method == "textDocument/signatureHelp":
+                content = [
+                    {
+                        "name": x["label"],
+                        "description": x["documentation"]["value"],
+                        "defaultVal": "",
+                    }
+                    for x in response["result"]["signatures"][0]["parameters"]
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
 

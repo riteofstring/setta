@@ -107,6 +107,19 @@ class LanguageServerWriter:
             "textDocument/completion", completion_params, id=request_id
         )
 
+    async def send_signature_help_request(self, line, character, code_id, request_id):
+        completion_params = {
+            "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
+            "position": {"line": line, "character": character},
+            "context": {
+                "triggerKind": 2,
+                "triggerCharacter": "("
+            }
+        }
+        await self.send_request(
+            "textDocument/signatureHelp", completion_params, id=request_id
+        )
+
     async def send_document_update(self, code, code_id):
         params = {
             "textDocument": {
@@ -171,12 +184,16 @@ class LanguageServerListener:
                     {"insertText": x["insertText"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
+            elif message_type == "textDocument/signatureHelp":
+                response = [{"name": x["label"], "description": x["documentation"]["value"], "defaultVal": ""} for x in response["result"]["signatures"][0]["parameters"]]
+                pprint(response)
             del self.sent_messages[id]
+            
 
         # self.websocket_manager.send_message({})
 
         # print(self.received_messages.keys())
-        # print(response, flush=True)
+        
         # process_response(response)
 
 
@@ -196,11 +213,13 @@ async def main():
     await lsp.start_server()
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
-    await lsp_writer.send_document_open_request("import math\nprint(math.)", "file")
-    await lsp_writer.send_autocomplete_request(1, 11, "file", "1234")
-    await lsp_writer.send_document_update("import math\nprint(math.sqrt(16))", "file")
+    await lsp_writer.send_document_open_request("import torch\ntorch.nn.CrossEntropyLoss(", "file")
+    # await lsp_writer.send_autocomplete_request(1, 11, "file", "1234")
+    # await lsp_writer.send_document_update("import math\nmath.sqrt(", "file")
+    await lsp_writer.send_signature_help_request(1, 26, "file", "1234")
     pprint(lsp.sent_messages.keys())
     await lsp.server.wait()
+
 
 
 if __name__ == "__main__":
