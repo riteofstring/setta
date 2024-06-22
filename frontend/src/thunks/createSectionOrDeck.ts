@@ -110,13 +110,12 @@ export function loadSectionIntoState({
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function extractArgparseArgs({ pathToScript, ...props }) {
-  sendMessageInRoom({
+export async function extractArgparseArgs({ pathToScript, ...props }) {
+  const args = await sendMessageInRoom({
     messageType: "extractArgparseArgs",
-    message: pathToScript,
-    callback: (x) =>
-      createSectionsFromArgparse({ pathToScript, args: x, ...props }),
+    content: pathToScript,
   });
+  createSectionsFromArgparse({ pathToScript, args, ...props });
 }
 
 function createSectionsFromArgparse({ pathToScript, args, ...props }) {

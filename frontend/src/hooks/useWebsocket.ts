@@ -16,32 +16,23 @@ export function useOpenCloseWebsocket() {
   }, [location.pathname]);
 }
 
-export function sendMessageInRoom({
-  id,
-  messageType,
-  content,
-  callback,
-  unsubscribeAfter = true,
-  deleteAfter = true,
-}) {
-  const actualId = id ? id : createNewId();
-  const unsub = useWebsocketRooms.subscribe(
-    (x) => x[actualId],
-    (x) => {
-      callback(x);
-      if (unsubscribeAfter) {
+export async function sendMessageInRoom({ id, messageType, content }) {
+  return new Promise((resolve) => {
+    const actualId = id ? id : createNewId();
+    const unsub = useWebsocketRooms.subscribe(
+      (x) => x[actualId],
+      (x) => {
         unsub();
-      }
-      if (deleteAfter) {
+        resolve(x);
         useWebsocketRooms.getState().deleteRoom(actualId);
-      }
-    },
-  );
+      },
+    );
 
-  sendMessage({
-    id: actualId,
-    messageType,
-    content,
+    sendMessage({
+      id: actualId,
+      messageType,
+      content,
+    });
   });
 }
 

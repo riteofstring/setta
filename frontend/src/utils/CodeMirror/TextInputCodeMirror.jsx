@@ -140,31 +140,24 @@ function getCompletionsFn(sectionId, paramInfoId) {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
     const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-    dbTextFieldCompletion({
+    const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
       fullText,
       beforeText: before.text,
       position: context.pos,
     });
-    return {
-      filter: true,
-      from: before ? before.from : context.pos,
-      options: ["dogs", "cats"],
-      // validFor: /([^.=\\(]*)$/,
-    };
+    console.log("res", res);
+    if (res) {
+      return {
+        filter: true,
+        from: before ? before.from : context.pos,
+        options: res,
+        // validFor: /([^.=\\(]*)$/,
+      };
+    }
+    return null;
   };
-
-  // if (res.status === 200) {
-  //   return {
-  //     filter: true,
-  //     from: before ? before.from : context.pos,
-  //     options: res.data,
-  //     // validFor: /([^.=\\(]*)$/,
-  //   };
-  // }
-  // return null;
-  // };
 }
 
 function goToSectionOnNameClick({ editor, event, variable }) {

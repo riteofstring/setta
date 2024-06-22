@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { sendMessageInRoom } from "hooks/useWebsocket";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
@@ -65,7 +66,7 @@ export async function dbTextFieldCompletion({
   const projectConfigId = useProjectConfig.getState().id;
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
   const evRefs = findRefs(keywordRegex, fullNameToInfo, fullText);
-  sendMessage({
+  return await sendMessageInRoom({
     id: `${address}-${sectionId}-${paramInfoId}`,
     messageType: "textFieldCompletion",
     content: {
