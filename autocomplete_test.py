@@ -4,6 +4,9 @@ import re
 from pathlib import Path
 from collections import defaultdict
 from pprint import pprint
+import os
+import uuid
+import time
 
 type_mapping = {
     1: "text",
@@ -35,11 +38,11 @@ type_mapping = {
 
 
 def get_file_uri(path):
-    return f"file://{path}"
+    return f"file:\\\\{path}"
 
 
 def get_virtual_uri(root_path, code_id):
-    return f"virtual://{root_path / code_id}.py"
+    return f"file:\\\\{root_path / code_id}.py"
 
 
 def extract_default_parameters(signature_help):
@@ -73,11 +76,15 @@ class LanguageServer:
 
     async def start_server(self):
         print("starting server")
-        self.server = await asyncio.create_subprocess_exec(
+        print("os.getcwd()", os.getcwd())
+        self.server = await asyncio.create_subprocess_shell(
+            # "pylyzer --server",
+            # "pyright-langserver --stdio",# --pythonpath C:\\Users\\Kevin\\anaconda3\\envs\\abcde_env\\python",
             "pylsp",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd=os.getcwd()
         )
 
     def kill_server(self):
@@ -98,18 +105,38 @@ class LanguageServerWriter:
         self.versions = defaultdict(int)
 
     async def send_request(self, method, params, id=None):
-        request_dict = {"jsonrpc": "2.0", "id": id, "method": method, "params": params}
+        request_dict = {"jsonrpc": "2.0", "method": method}
+        if id:
+            request_dict["id"] = id
+            self.sent_msg_info[id] = request_dict
+        if params is not None:
+             request_dict["params"] = params
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
+        print(header+request)
         self.server.stdin.write(header + request)
-        if id:
-            self.sent_msg_info[id] = request_dict
         await self.server.stdin.drain()
 
     async def send_initialize_request(self):
-        init_params = {"capabilities": {}, "rootUri": get_file_uri(self.root_path)}
-        await self.send_request("initialize", init_params)
+        init_params = {
+            "capabilities": {
+                "textDocument": {
+                    "publishDiagnostics": {
+                        "versionSupport": True,
+                    },
+                    "hover": {
+                        "contentFormat": ["markdown", "plaintext"],
+                    },
+                    "signatureHelp": {},
+                },
+            },
+            # "initializationOptions": {"python": {}},
+            "rootUri": get_file_uri(self.root_path),
+            "rootPath": str(self.root_path),
+            "processId": "1",
+        }
+        await self.send_request("initialize", init_params, id=str(uuid.uuid4()))
 
     async def send_document_open_request(self, code, code_id):
         open_params = {
@@ -143,6 +170,23 @@ class LanguageServerWriter:
             "textDocument/signatureHelp", completion_params, id=request_id
         )
 
+    async def send_hover_request(self, line, character, code_id, request_id):
+        completion_params = {
+            "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
+            "position": {"line": line, "character": character},
+            # "context": {"triggerKind": 2, "triggerCharacter": "("},
+        }
+        await self.send_request(
+            "textDocument/hover", completion_params, id=request_id
+        )
+
+    async def send_didChangeWorkspaceFolder(self, request_id):
+        await self.send_request(
+            "workspace/didChangeConfiguration", {        "settings": {
+            "python.analysis.typeCheckingMode": "basic"
+        }}, id=request_id
+        )
+
     async def send_document_update(self, code, code_id):
         params = {
             "textDocument": {
@@ -151,7 +195,7 @@ class LanguageServerWriter:
             },
             "contentChanges": [{"text": code}],
         }
-        await self.send_request("textDocument/didChange", params)
+        await self.send_request("textDocument/didChange", params, id=str(uuid.uuid4()))
         print("done send_document_update", flush=True)
 
     @property
@@ -168,10 +212,12 @@ class LanguageServerWriter:
 
 
 class LanguageServerListener:
-    def __init__(self, server, websocket_manager):
+    def __init__(self, server, websocket_manager, lsp_writer):
         self.server = server
         self.websocket_manager = websocket_manager
         self.stop_event = asyncio.Event()
+        self.received_first_response_with_id = False
+        self.lsp_writer = lsp_writer
 
     async def start_listener(self):
         loop = asyncio.get_running_loop()
@@ -182,6 +228,7 @@ class LanguageServerListener:
         while not self.stop_event.is_set():
             headers = b""
             while not self.stop_event.is_set():
+                print("waiting for header")
                 chunk = await self.server.stdout.read(1)
                 if not chunk:
                     break
@@ -191,6 +238,9 @@ class LanguageServerListener:
 
             if self.stop_event.is_set():
                 break
+
+            # if not headers:
+                # continue
 
             headers_str = headers.decode("utf-8")
             header_parts = headers_str.split("\r\n")
@@ -239,6 +289,11 @@ class LanguageServerListener:
                     for x in response["result"]["signatures"][0]["parameters"]
                 ]
                 # await self.websocket_manager.send_message_to_requester(id, content)
+            elif not self.received_first_response_with_id:
+                self.received_first_response_with_id = True
+                # await self.lsp_writer.send_didChangeWorkspaceFolder(str(uuid.uuid4()))
+                # await self.lsp_writer.send_document_open_request("import math\nmath.sqrt()", "test")
+                # await self.lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
 
         # self.websocket_manager.send_message({})
 
@@ -250,25 +305,31 @@ class LanguageServerListener:
         return self.server.sent_msg_info
 
 
-
-
 async def main():
     lsp = LanguageServer(
         root_path=Path("D:\\Documents\\App Development\\runcoder\\.runcoder_code")
     )
-    lsp_listener = LanguageServerListener(lsp, None)
     lsp_writer = LanguageServerWriter(lsp)
+    lsp_listener = LanguageServerListener(lsp, None, lsp_writer)
+    
     await lsp.start_server()
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
-    await lsp_writer.send_document_open_request("import torch\ntorch.nn.CrossEntropyLoss(", "file")
-    # await lsp_writer.send_autocomplete_request(1, 11, "file", "1234")
+    await lsp_writer.send_document_open_request("import math\nmath.sqrt(", "test")
+    # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
+    # await lsp_writer.send_hover_request(1, 2, "tes", str(uuid.uuid4()))
     # await lsp_writer.send_document_update("import math\nmath.sqrt(", "file")
-    await lsp_writer.send_signature_help_request(1, 26, "file", "1234")
-    # pprint(lsp.sent_messages.keys())
+    # await lsp_writer.send_signature_help_request(1, 10, "file", "1234")
+    # pprint(lsp.sent_msg_info.keys())
+    print("\n\n\n***********LISTENING*************")
     await lsp.server.wait()
-
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+    #  "initializationOptions": {
+    #     "pythonVersion": "3.11",
+    #     "pythonPlatform": "Windows",
+    #     "pythonPath": "C:\\Users\\Kevin\\anaconda3\\envs\\abcde_env\\python",
+    #     "typeCheckingMode": "strict"
