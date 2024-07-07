@@ -76,7 +76,7 @@ class LanguageServer:
         print("starting server")
         self.server = await asyncio.create_subprocess_shell(
             # "pylyzer --server D:\\Documents\\App Development\\runcoder\\.runcoder_code\\test.py",
-            "pyright-langserver --stdio --verbose",  # --pythonpath C:\\Users\\Kevin\\anaconda3\\envs\\abcde_env\\python",
+            "pyright-langserver --stdio",
             # "pylsp",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
@@ -235,7 +235,7 @@ class LanguageServerListener:
             method = self.sent_msg_info[id]["method"]
             if method == "textDocument/completion":
                 content = [
-                    {"label": x["insertText"], "type": type_mapping[x["kind"]]}
+                    {"label": x["label"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
                 # await self.websocket_manager.send_message_to_requester(id, content)
@@ -271,13 +271,13 @@ async def main():
     await lsp_writer.send_initialize_request()
     await lsp_writer.send_didChangeConfiguration()
     await lsp_writer.send_document_open_request("import torch\ntorch.nn.C", "test")
-    # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
+    await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
     # await lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
     # await lsp_writer.send_symbol_request("test", str(uuid.uuid4()))
-    await lsp_writer.send_document_update(
-        "import torch\ntorch.nn.CrossEntropyLoss(", "test"
-    )
-    await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
+    # await lsp_writer.send_document_update(
+    #     "import torch\ntorch.nn.CrossEntropyLoss(", "test"
+    # )
+    # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
     print("\n\n\n***********LISTENING*************")
     await lsp.server.wait()
