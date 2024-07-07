@@ -1,11 +1,10 @@
 import asyncio
 import json
 import re
-from pathlib import Path
-from collections import defaultdict
-from pprint import pprint
-import os
 import uuid
+from collections import defaultdict
+from pathlib import Path
+from pprint import pprint
 
 type_mapping = {
     1: "text",
@@ -75,10 +74,9 @@ class LanguageServer:
 
     async def start_server(self):
         print("starting server")
-        print("os.getcwd()", os.getcwd())
         self.server = await asyncio.create_subprocess_shell(
             # "pylyzer --server D:\\Documents\\App Development\\runcoder\\.runcoder_code\\test.py",
-            "pyright-langserver --stdio --verbose",# --pythonpath C:\\Users\\Kevin\\anaconda3\\envs\\abcde_env\\python",
+            "pyright-langserver --stdio --verbose",  # --pythonpath C:\\Users\\Kevin\\anaconda3\\envs\\abcde_env\\python",
             # "pylsp",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
@@ -110,7 +108,6 @@ class LanguageServerWriter:
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
-        print(header+request)
         self.server.stdin.write(header + request)
         await self.server.stdin.drain()
 
@@ -118,7 +115,6 @@ class LanguageServerWriter:
         init_params = {
             "capabilities": {},
             "workspaceFolders": [{"uri": get_file_uri(self.root_path)}],
-            "processId": None,
         }
         await self.send_request("initialize", init_params, id=str(uuid.uuid4()))
 
@@ -155,9 +151,7 @@ class LanguageServerWriter:
         )
 
     async def send_didChangeConfiguration(self):
-        await self.send_request(
-            "workspace/didChangeConfiguration", {"settings": {}}, id=None
-        )
+        await self.send_request("workspace/didChangeConfiguration", {})
 
     async def send_document_update(self, code, code_id):
         params = {
@@ -167,7 +161,7 @@ class LanguageServerWriter:
             },
             "contentChanges": [{"text": code}],
         }
-        await self.send_request("textDocument/didChange", params, id=str(uuid.uuid4()))
+        await self.send_request("textDocument/didChange", params)
         print("done send_document_update", flush=True)
 
     @property
@@ -199,7 +193,6 @@ class LanguageServerListener:
         while not self.stop_event.is_set():
             headers = b""
             while not self.stop_event.is_set():
-                # print("waiting for header")
                 chunk = await self.server.stdout.read(1)
                 if not chunk:
                     break
@@ -272,17 +265,19 @@ async def main():
     )
     lsp_writer = LanguageServerWriter(lsp)
     lsp_listener = LanguageServerListener(lsp, None)
-    
+
     await lsp.start_server()
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
     await lsp_writer.send_didChangeConfiguration()
     await lsp_writer.send_document_open_request("import torch\ntorch.nn.C", "test")
-    await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
+    # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
     # await lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
     # await lsp_writer.send_symbol_request("test", str(uuid.uuid4()))
-    # await lsp_writer.send_document_update("import math\nmath.sqrt(", "file")
-    # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
+    await lsp_writer.send_document_update(
+        "import torch\ntorch.nn.CrossEntropyLoss(", "test"
+    )
+    await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
     print("\n\n\n***********LISTENING*************")
     await lsp.server.wait()
