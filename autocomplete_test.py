@@ -37,11 +37,11 @@ type_mapping = {
 
 
 def get_file_uri(path):
-    return f"file:///{path}"
+    return f"file://{path}"
 
 
 def get_virtual_uri(root_path, code_id):
-    return f"file:///{root_path}/{code_id}.py"
+    return f"file://{root_path / code_id}.py"
 
 
 def extract_default_parameters(signature_help):
@@ -83,7 +83,6 @@ class LanguageServer:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=os.getcwd()
         )
 
     def kill_server(self):
@@ -104,12 +103,10 @@ class LanguageServerWriter:
         self.versions = defaultdict(int)
 
     async def send_request(self, method, params, id=None):
-        request_dict = {"jsonrpc": "2.0", "method": method}
+        request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
         if id:
             request_dict["id"] = id
             self.sent_msg_info[id] = request_dict
-        if params is not None:
-             request_dict["params"] = params
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
@@ -157,24 +154,7 @@ class LanguageServerWriter:
             "textDocument/signatureHelp", completion_params, id=request_id
         )
 
-    async def send_hover_request(self, line, character, code_id, request_id):
-        completion_params = {
-            "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
-            "position": {"line": line, "character": character},
-        }
-        await self.send_request(
-            "textDocument/hover", completion_params, id=request_id
-        )
-
-    async def send_symbol_request(self, code_id, request_id):
-        completion_params = {
-            "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
-        }
-        await self.send_request(
-            "textDocument/documentSymbol", completion_params, id=request_id
-        )
-
-    async def send_didChangeWorkspaceFolder(self):
+    async def send_didChangeConfiguration(self):
         await self.send_request(
             "workspace/didChangeConfiguration", {"settings": {}}, id=None
         )
@@ -204,12 +184,11 @@ class LanguageServerWriter:
 
 
 class LanguageServerListener:
-    def __init__(self, server, websocket_manager, lsp_writer):
+    def __init__(self, server, websocket_manager):
         self.server = server
         self.websocket_manager = websocket_manager
         self.stop_event = asyncio.Event()
         self.received_first_response_with_id = False
-        self.lsp_writer = lsp_writer
 
     async def start_listener(self):
         loop = asyncio.get_running_loop()
@@ -289,15 +268,15 @@ class LanguageServerListener:
 
 async def main():
     lsp = LanguageServer(
-        root_path="D:/Documents/App Development/runcoder/.runcoder_code"
+        root_path=Path("D:/Documents/App Development/runcoder/.runcoder_code")
     )
     lsp_writer = LanguageServerWriter(lsp)
-    lsp_listener = LanguageServerListener(lsp, None, lsp_writer)
+    lsp_listener = LanguageServerListener(lsp, None)
     
     await lsp.start_server()
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
-    await lsp_writer.send_didChangeWorkspaceFolder()
+    await lsp_writer.send_didChangeConfiguration()
     await lsp_writer.send_document_open_request("import torch\ntorch.nn.C", "test")
     await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
     # await lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
