@@ -1,9 +1,9 @@
 import asyncio
 import json
+import re
+from pathlib import Path
 from collections import defaultdict
 from pprint import pprint
-from pathlib import Path
-import re
 
 type_mapping = {
     1: "text",
@@ -42,10 +42,33 @@ def get_virtual_uri(root_path, code_id):
     return f"virtual://{root_path / code_id}.py"
 
 
+def extract_default_parameters(signature_help):
+    # Extract the first signature's label containing the method signature
+    signature_str = signature_help["result"]["signatures"][0]["label"]
+
+    # Updated regex to accurately parse parameter names and default values
+    param_pattern = r"(\w+)(?:\s*:\s*[\w\[\]]+)?(?:\s*=\s*([^,)]+))?(?:,|\))"
+
+    # Find all matches in the signature string
+    matches = re.findall(param_pattern, signature_str)
+
+    # Create a dictionary of parameter names and their default values
+    default_params = {}
+    for param, value in matches:
+        if value:
+            # Strip whitespace from the default value
+            default_params[param] = value.strip()
+        else:
+            # If no default value is specified, set it to None
+            default_params[param] = None
+
+    return default_params
+
+
 class LanguageServer:
     def __init__(self, root_path):
         self.root_path = root_path
-        self.sent_messages = {}
+        self.sent_msg_info = {}
         self.server = None
 
     async def start_server(self):
@@ -63,7 +86,7 @@ class LanguageServer:
     @property
     def stdin(self):
         return self.server.stdin
-    
+
     @property
     def stdout(self):
         return self.server.stdout
@@ -81,7 +104,7 @@ class LanguageServerWriter:
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
         self.server.stdin.write(header + request)
         if id:
-            self.sent_messages[id] = request_dict
+            self.sent_msg_info[id] = request_dict
         await self.server.stdin.drain()
 
     async def send_initialize_request(self):
@@ -107,16 +130,15 @@ class LanguageServerWriter:
         await self.send_request(
             "textDocument/completion", completion_params, id=request_id
         )
+        print("done send_autocomplete_request", flush=True)
 
     async def send_signature_help_request(self, line, character, code_id, request_id):
         completion_params = {
             "textDocument": {"uri": get_virtual_uri(self.root_path, code_id)},
             "position": {"line": line, "character": character},
-            "context": {
-                "triggerKind": 2,
-                "triggerCharacter": "("
-            }
+            "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
+        print("line, character", line, character, flush=True)
         await self.send_request(
             "textDocument/signatureHelp", completion_params, id=request_id
         )
@@ -130,39 +152,45 @@ class LanguageServerWriter:
             "contentChanges": [{"text": code}],
         }
         await self.send_request("textDocument/didChange", params)
+        print("done send_document_update", flush=True)
 
     @property
     def root_path(self):
         return self.server.root_path
-    
+
     @property
-    def sent_messages(self):
-        return self.server.sent_messages
+    def sent_msg_info(self):
+        return self.server.sent_msg_info
 
     def get_version_number(self, virtual_filename):
         self.versions[virtual_filename] += 1
         return self.versions[virtual_filename]
 
 
-
 class LanguageServerListener:
     def __init__(self, server, websocket_manager):
         self.server = server
         self.websocket_manager = websocket_manager
-        
+        self.stop_event = asyncio.Event()
+
     async def start_listener(self):
         loop = asyncio.get_running_loop()
         loop.create_task(self.read_response())
         print("listening")
 
     async def read_response(self):
-        while True:
+        while not self.stop_event.is_set():
             headers = b""
-            while True:
+            while not self.stop_event.is_set():
                 chunk = await self.server.stdout.read(1)
+                if not chunk:
+                    break
                 headers += chunk
                 if headers.endswith(b"\r\n\r\n"):
                     break
+
+            if self.stop_event.is_set():
+                break
 
             headers_str = headers.decode("utf-8")
             header_parts = headers_str.split("\r\n")
@@ -172,62 +200,55 @@ class LanguageServerListener:
                     content_length = int(header.split(":")[1].strip())
                     break
 
-            response = await self.server.stdout.read(content_length)
-            response = json.loads(response.decode("utf-8"))
-            self.process_response(response)
+            response = b""
+            while len(response) < content_length and not self.stop_event.is_set():
+                chunk = await self.server.stdout.read(content_length - len(response))
+                if not chunk:
+                    break
+                response += chunk
 
-    def process_response(self, response):
+            if self.stop_event.is_set():
+                break
+
+            try:
+                response = json.loads(response.decode("utf-8"))
+                await self.process_response(response)
+            except json.JSONDecodeError as e:
+                print(f"JSONDecodeError: {e} - Response: {response}")
+                break
+
+    async def process_response(self, response):
         id = response.get("id", None)
         pprint(response)
         if id:
-            message_type = self.sent_messages[id]["method"]
-            if message_type == "textDocument/completion":
-                response = [
-                    {"insertText": x["insertText"], "type": type_mapping[x["kind"]]}
+            method = self.sent_msg_info[id]["method"]
+            if method == "textDocument/completion":
+                content = [
+                    {"label": x["insertText"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
-            elif message_type == "textDocument/signatureHelp":
+                # await self.websocket_manager.send_message_to_requester(id, content)
+            elif method == "textDocument/signatureHelp":
                 defaultVals = extract_default_parameters(response)
-                response = [{"name": x["label"], "description": x["documentation"]["value"], "defaultVal": defaultVals.get(x["label"], "")} for x in response["result"]["signatures"][0]["parameters"]]
-                pprint(response)
-            del self.sent_messages[id]
-            
+                content = [
+                    {
+                        "name": x["label"],
+                        "description": x["documentation"]["value"],
+                        "defaultVal": defaultVals.get(x["label"], ""),
+                    }
+                    for x in response["result"]["signatures"][0]["parameters"]
+                ]
+                # await self.websocket_manager.send_message_to_requester(id, content)
 
         # self.websocket_manager.send_message({})
 
         # print(self.received_messages.keys())
-        
         # process_response(response)
 
-
     @property
-    def sent_messages(self):
-        return self.server.sent_messages
+    def sent_msg_info(self):
+        return self.server.sent_msg_info
 
-
-
-
-def extract_default_parameters(signature_help):
-    # Extract the first signature's label containing the method signature
-    signature_str = signature_help['result']['signatures'][0]['label']
-    
-    # Updated regex to accurately parse parameter names and default values
-    param_pattern = r'(\w+)(?:\s*:\s*[\w\[\]]+)?(?:\s*=\s*([^,)]+))?(?:,|\))'
-    
-    # Find all matches in the signature string
-    matches = re.findall(param_pattern, signature_str)
-    
-    # Create a dictionary of parameter names and their default values
-    default_params = {}
-    for param, value in matches:
-        if value:
-            # Strip whitespace from the default value
-            default_params[param] = value.strip()
-        else:
-            # If no default value is specified, set it to None
-            default_params[param] = None
-
-    return default_params
 
 
 
@@ -244,7 +265,7 @@ async def main():
     # await lsp_writer.send_autocomplete_request(1, 11, "file", "1234")
     # await lsp_writer.send_document_update("import math\nmath.sqrt(", "file")
     await lsp_writer.send_signature_help_request(1, 26, "file", "1234")
-    pprint(lsp.sent_messages.keys())
+    # pprint(lsp.sent_messages.keys())
     await lsp.server.wait()
 
 
