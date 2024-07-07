@@ -6,7 +6,6 @@ from collections import defaultdict
 from pprint import pprint
 import os
 import uuid
-import time
 
 type_mapping = {
     1: "text",
@@ -77,16 +76,15 @@ class LanguageServer:
     async def start_server(self):
         print("starting server")
         print("os.getcwd()", os.getcwd())
-        with open("pyright_error_logs.txt", 'w') as error_file:
-            self.server = await asyncio.create_subprocess_shell(
-                # "pylyzer --server D:\\Documents\\App Development\\runcoder\\.runcoder_code\\test.py",
-                "pyright-langserver --stdio --verbose",# --pythonpath C:\\Users\\Kevin\\anaconda3\\envs\\abcde_env\\python",
-                # "pylsp",
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=error_file,
-                cwd=os.getcwd()
-            )
+        self.server = await asyncio.create_subprocess_shell(
+            # "pylyzer --server D:\\Documents\\App Development\\runcoder\\.runcoder_code\\test.py",
+            "pyright-langserver --stdio --verbose",# --pythonpath C:\\Users\\Kevin\\anaconda3\\envs\\abcde_env\\python",
+            # "pylsp",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=os.getcwd()
+        )
 
     def kill_server(self):
         self.server.terminate()
@@ -121,18 +119,7 @@ class LanguageServerWriter:
 
     async def send_initialize_request(self):
         init_params = {
-            "capabilities": {
-                # "textDocument": {
-                #     "publishDiagnostics": {
-                #         "versionSupport": True,
-                #     },
-                #     "hover": {
-                #         "contentFormat": ["markdown", "plaintext"],
-                #     },
-                #     "signatureHelp": {},
-                # },
-            },
-            # "initializationOptions": {"python": {}},
+            "capabilities": {},
             "workspaceFolders": [{"uri": get_file_uri(self.root_path)}],
             "processId": None,
         }
@@ -244,9 +231,6 @@ class LanguageServerListener:
             if self.stop_event.is_set():
                 break
 
-            # if not headers:
-                # continue
-
             headers_str = headers.decode("utf-8")
             header_parts = headers_str.split("\r\n")
             content_length = 0
@@ -294,15 +278,6 @@ class LanguageServerListener:
                     for x in response["result"]["signatures"][0]["parameters"]
                 ]
                 # await self.websocket_manager.send_message_to_requester(id, content)
-            # elif not self.received_first_response_with_id:
-            #     self.received_first_response_with_id = True
-            #     await self.lsp_writer.send_didChangeWorkspaceFolder()
-            #     await self.lsp_writer.send_document_open_request("import math\nmath.sqrt()", "test")
-                
-        # elif "params" in response and response["params"]["message"].startswith("Starting service"):
-            # await self.lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
-
-        # self.websocket_manager.send_message({})
 
         # print(self.received_messages.keys())
         # process_response(response)
@@ -323,14 +298,12 @@ async def main():
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
     await lsp_writer.send_didChangeWorkspaceFolder()
-    await lsp_writer.send_document_open_request("import math\nmath.sqrt(", "test")
-    # await lsp_writer.send_document_open_request("import math\nmath.sqrt(", "test")
-    # await lsp_writer.send_document_open_request("import math\nmath.sqrt(", "test")
-    # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
+    await lsp_writer.send_document_open_request("import torch\ntorch.nn.C", "test")
+    await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
     # await lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
     # await lsp_writer.send_symbol_request("test", str(uuid.uuid4()))
     # await lsp_writer.send_document_update("import math\nmath.sqrt(", "file")
-    await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
+    # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
     print("\n\n\n***********LISTENING*************")
     await lsp.server.wait()
