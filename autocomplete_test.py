@@ -289,7 +289,7 @@ class LanguageServerListener:
 
 async def main():
     lsp = LanguageServer(
-        root_path=Path("D:/Documents/App Development/runcoder/.runcoder_code")
+        root_path="D:/Documents/App Development/runcoder/.runcoder_code"
     )
     lsp_writer = LanguageServerWriter(lsp)
     lsp_listener = LanguageServerListener(lsp, None, lsp_writer)
