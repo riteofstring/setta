@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import uuid
 from collections import defaultdict
 
 type_mapping = {
@@ -37,7 +38,7 @@ def get_file_uri(path):
 
 
 def get_virtual_uri(root_path, code_id):
-    return f"virtual://{root_path / code_id}.py"
+    return f"file://{root_path / code_id}.py"
 
 
 def extract_default_parameters(signature_help):
@@ -71,8 +72,10 @@ class LanguageServer:
 
     async def start_server(self):
         print("starting server")
-        self.server = await asyncio.create_subprocess_exec(
-            "pylsp",
+        self.server = await asyncio.create_subprocess_shell(
+            # "pylyzer --server D:\\Documents\\App Development\\runcoder\\.runcoder_code\\test.py",
+            "pyright-langserver --stdio",
+            # "pylsp",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -96,18 +99,24 @@ class LanguageServerWriter:
         self.versions = defaultdict(int)
 
     async def send_request(self, method, params, id=None):
-        request_dict = {"jsonrpc": "2.0", "id": id, "method": method, "params": params}
+        request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
+        if id:
+            request_dict["id"] = id
+            self.sent_msg_info[id] = request_dict
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
+        print(header + request, flush=True)
         self.server.stdin.write(header + request)
-        if id:
-            self.sent_msg_info[id] = request_dict
         await self.server.stdin.drain()
 
     async def send_initialize_request(self):
-        init_params = {"capabilities": {}, "rootUri": get_file_uri(self.root_path)}
-        await self.send_request("initialize", init_params)
+        init_params = {
+            "capabilities": {},
+            "workspaceFolders": [{"uri": get_file_uri(self.root_path)}],
+        }
+        await self.send_request("initialize", init_params, id=str(uuid.uuid4()))
+        await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(self, code, code_id):
         open_params = {
@@ -128,7 +137,6 @@ class LanguageServerWriter:
         await self.send_request(
             "textDocument/completion", completion_params, id=request_id
         )
-        print("done send_autocomplete_request", flush=True)
 
     async def send_signature_help_request(self, line, character, code_id, request_id):
         completion_params = {
@@ -136,10 +144,12 @@ class LanguageServerWriter:
             "position": {"line": line, "character": character},
             "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
-        print("line, character", line, character, flush=True)
         await self.send_request(
             "textDocument/signatureHelp", completion_params, id=request_id
         )
+
+    async def send_didChangeConfiguration(self):
+        await self.send_request("workspace/didChangeConfiguration", {})
 
     async def send_document_update(self, code, code_id):
         params = {
@@ -150,7 +160,6 @@ class LanguageServerWriter:
             "contentChanges": [{"text": code}],
         }
         await self.send_request("textDocument/didChange", params)
-        print("done send_document_update", flush=True)
 
     @property
     def root_path(self):
@@ -174,7 +183,6 @@ class LanguageServerListener:
     async def start_listener(self):
         loop = asyncio.get_running_loop()
         loop.create_task(self.read_response())
-        print("listening")
 
     async def read_response(self):
         while not self.stop_event.is_set():
@@ -217,11 +225,12 @@ class LanguageServerListener:
 
     async def process_response(self, response):
         id = response.get("id", None)
+        print(response, flush=True)
         if id:
             method = self.sent_msg_info[id]["method"]
             if method == "textDocument/completion":
                 content = [
-                    {"label": x["insertText"], "type": type_mapping[x["kind"]]}
+                    {"label": x["label"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
@@ -236,8 +245,6 @@ class LanguageServerListener:
                     for x in response["result"]["signatures"][0]["parameters"]
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
-
-        # self.websocket_manager.send_message({})
 
         # print(self.received_messages.keys())
         # process_response(response)

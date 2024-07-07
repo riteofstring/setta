@@ -117,6 +117,7 @@ class LanguageServerWriter:
             "workspaceFolders": [{"uri": get_file_uri(self.root_path)}],
         }
         await self.send_request("initialize", init_params, id=str(uuid.uuid4()))
+        await self.send_didChangeConfiguration() # pyright requires this step
 
     async def send_document_open_request(self, code, code_id):
         open_params = {
@@ -268,7 +269,6 @@ async def main():
     await lsp.start_server()
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
-    await lsp_writer.send_didChangeConfiguration()
     await lsp_writer.send_document_open_request("import torch\ntorch.nn.C", "test")
     await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
     # await lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
