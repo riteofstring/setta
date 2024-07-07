@@ -182,7 +182,6 @@ class LanguageServerListener:
         self.server = server
         self.websocket_manager = websocket_manager
         self.stop_event = asyncio.Event()
-        self.received_first_response_with_id = False
 
     async def start_listener(self):
         loop = asyncio.get_running_loop()
