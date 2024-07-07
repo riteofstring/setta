@@ -3,6 +3,7 @@ import json
 from collections import defaultdict
 from pprint import pprint
 from pathlib import Path
+import re
 
 type_mapping = {
     1: "text",
@@ -177,6 +178,7 @@ class LanguageServerListener:
 
     def process_response(self, response):
         id = response.get("id", None)
+        pprint(response)
         if id:
             message_type = self.sent_messages[id]["method"]
             if message_type == "textDocument/completion":
@@ -185,7 +187,8 @@ class LanguageServerListener:
                     for x in response["result"]["items"]
                 ]
             elif message_type == "textDocument/signatureHelp":
-                response = [{"name": x["label"], "description": x["documentation"]["value"], "defaultVal": ""} for x in response["result"]["signatures"][0]["parameters"]]
+                defaultVals = extract_default_parameters(response)
+                response = [{"name": x["label"], "description": x["documentation"]["value"], "defaultVal": defaultVals.get(x["label"], "")} for x in response["result"]["signatures"][0]["parameters"]]
                 pprint(response)
             del self.sent_messages[id]
             
@@ -201,6 +204,30 @@ class LanguageServerListener:
     def sent_messages(self):
         return self.server.sent_messages
 
+
+
+
+def extract_default_parameters(signature_help):
+    # Extract the first signature's label containing the method signature
+    signature_str = signature_help['result']['signatures'][0]['label']
+    
+    # Updated regex to accurately parse parameter names and default values
+    param_pattern = r'(\w+)(?:\s*:\s*[\w\[\]]+)?(?:\s*=\s*([^,)]+))?(?:,|\))'
+    
+    # Find all matches in the signature string
+    matches = re.findall(param_pattern, signature_str)
+    
+    # Create a dictionary of parameter names and their default values
+    default_params = {}
+    for param, value in matches:
+        if value:
+            # Strip whitespace from the default value
+            default_params[param] = value.strip()
+        else:
+            # If no default value is specified, set it to None
+            default_params[param] = None
+
+    return default_params
 
 
 

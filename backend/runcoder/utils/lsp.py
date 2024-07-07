@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from collections import defaultdict
 
 type_mapping = {
@@ -37,6 +38,29 @@ def get_file_uri(path):
 
 def get_virtual_uri(root_path, code_id):
     return f"virtual://{root_path / code_id}.py"
+
+
+def extract_default_parameters(signature_help):
+    # Extract the first signature's label containing the method signature
+    signature_str = signature_help["result"]["signatures"][0]["label"]
+
+    # Updated regex to accurately parse parameter names and default values
+    param_pattern = r"(\w+)(?:\s*:\s*[\w\[\]]+)?(?:\s*=\s*([^,)]+))?(?:,|\))"
+
+    # Find all matches in the signature string
+    matches = re.findall(param_pattern, signature_str)
+
+    # Create a dictionary of parameter names and their default values
+    default_params = {}
+    for param, value in matches:
+        if value:
+            # Strip whitespace from the default value
+            default_params[param] = value.strip()
+        else:
+            # If no default value is specified, set it to None
+            default_params[param] = None
+
+    return default_params
 
 
 class LanguageServer:
@@ -192,7 +216,6 @@ class LanguageServerListener:
                 break
 
     async def process_response(self, response):
-        print(response, flush=True)
         id = response.get("id", None)
         if id:
             method = self.sent_msg_info[id]["method"]
@@ -203,11 +226,12 @@ class LanguageServerListener:
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
+                defaultVals = extract_default_parameters(response)
                 content = [
                     {
                         "name": x["label"],
                         "description": x["documentation"]["value"],
-                        "defaultVal": "",
+                        "defaultVal": defaultVals.get(x["label"], ""),
                     }
                     for x in response["result"]["signatures"][0]["parameters"]
                 ]
