@@ -72,6 +72,40 @@ def parse_signature(signature):
     return param_info_list
 
 
+def try_read_version(x, versions_for_uri):
+    if "version" in x:
+        return x["version"]
+    return max(versions_for_uri.keys())
+
+
+def process_diagnostics(diagnostics, code_split, codeJson):
+    output = {}
+    for d in diagnostics:
+        r = d["range"]
+        start, end = r["start"], r["end"]
+        if d["code"] == "reportArgumentType":
+            problem_var = code_split[start["line"]][
+                start["character"] : end["character"]
+            ]
+            set_message(codeJson, problem_var, output, d["message"])
+    return output
+
+
+def set_message(code_json, problem_var, output, message):
+    print("set_message", problem_var)
+    section_id, param_info_id = (
+        code_json[problem_var]["sectionId"],
+        code_json[problem_var]["paramInfoId"],
+    )
+
+    if section_id not in output:
+        output[section_id] = {}
+    if param_info_id not in output[section_id]:
+        output[section_id][param_info_id] = []
+
+    output[section_id][param_info_id].append(message)
+
+
 class LanguageServerReader(LanguageServerInteractor):
     def __init__(self, server, websocket_manager):
         self.server = server
@@ -138,15 +172,17 @@ class LanguageServerReader(LanguageServerInteractor):
                 pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            pass
-            # params = response["params"]
-            # diagnostics = params["diagnostics"]
-            # uri = params["uri"]
-            # version = params["version"]
-            # code = self.versions[uri][version]["code"]
-            # print(code)
-            # for d in diagnostics:
-            # print(d["message"])
+            pprint(response)
+            params = response["params"]
+            diagnostics = params["diagnostics"]
+            uri = params["uri"]
+            version = try_read_version(params, self.versions[uri])
+            version_info = self.versions[uri][version]
+            code = version_info["code"]
+            codeJson = version_info["codeJson"]
+            code_split = code.split("\n")
+            output = process_diagnostics(diagnostics, code_split, codeJson)
+            pprint(output)
 
         # print(self.received_messages.keys())
         # process_response(response)
