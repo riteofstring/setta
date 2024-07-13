@@ -5,6 +5,7 @@ import uuid
 from collections import defaultdict
 from pathlib import Path
 from pprint import pprint
+import time
 
 type_mapping = {
     1: "text",
@@ -270,8 +271,10 @@ async def main():
     await lsp.start_server()
     await lsp_listener.start_listener()
     await lsp_writer.send_initialize_request()
-    await lsp_writer.send_document_open_request("import torch\ntorch.nn.C", "test")
-    await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
+    await lsp_writer.send_document_open_request("import math\nmath.sqrt('dog')", "test")
+    # await lsp_writer.send_document_update("import math\nmath.sqrt(5)", "test")
+    # await lsp_writer.send_document_open_request("import torch\ntorch.nn.C", "test")
+    # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
     # await lsp_writer.send_hover_request(1, 2, "test", str(uuid.uuid4()))
     # await lsp_writer.send_symbol_request("test", str(uuid.uuid4()))
     # await lsp_writer.send_document_update(
