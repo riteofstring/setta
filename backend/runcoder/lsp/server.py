@@ -4,7 +4,8 @@ import asyncio
 class LanguageServer:
     def __init__(self, root_path):
         self.root_path = root_path
-        self.sent_msg_info = {}
+        self.msg_id_to_method = {}
+        self.versions = {}
         self.server = None
 
     async def start_server(self):
@@ -29,3 +30,26 @@ class LanguageServer:
     @property
     def stdout(self):
         return self.server.stdout
+
+
+class LanguageServerInteractor:
+    @property
+    def msg_id_to_method(self):
+        return self.server.msg_id_to_method
+
+    @property
+    def root_path(self):
+        return self.server.root_path
+
+    @property
+    def versions(self):
+        return self.server.versions
+
+    def get_new_version_number(self, uri, code):
+        if uri not in self.versions:
+            self.versions[uri] = {0: code}
+            new_version = 0
+        else:
+            new_version = max(self.versions[uri].keys()) + 1
+            self.versions[uri][new_version] = code
+        return new_version

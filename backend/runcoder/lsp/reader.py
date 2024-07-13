@@ -2,6 +2,8 @@ import asyncio
 import json
 import re
 
+from .server import LanguageServerInteractor
+
 type_mapping = {
     1: "text",
     2: "method",
@@ -54,7 +56,7 @@ def extract_default_parameters(signature_help):
     return default_params
 
 
-class LanguageServerReader:
+class LanguageServerReader(LanguageServerInteractor):
     def __init__(self, server, websocket_manager):
         self.server = server
         self.websocket_manager = websocket_manager
@@ -105,9 +107,9 @@ class LanguageServerReader:
 
     async def process_response(self, response):
         id = response.get("id", None)
-        print(response, flush=True)
+        method = response.get("method", None)
         if id:
-            method = self.sent_msg_info[id]["method"]
+            method = method if method else self.msg_id_to_method[id]
             if method == "textDocument/completion":
                 content = [
                     {"label": x["label"], "type": type_mapping[x["kind"]]}
@@ -125,10 +127,15 @@ class LanguageServerReader:
                     for x in response["result"]["signatures"][0]["parameters"]
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
+        elif method == "textDocument/publishDiagnostics":
+            params = response["params"]
+            diagnostics = params["diagnostics"]
+            uri = params["uri"]
+            version = params["version"]
+            code = self.versions[uri][version]
+            print(code)
+            # for d in diagnostics:
+            # print(d["message"])
 
         # print(self.received_messages.keys())
         # process_response(response)
-
-    @property
-    def sent_msg_info(self):
-        return self.server.sent_msg_info
