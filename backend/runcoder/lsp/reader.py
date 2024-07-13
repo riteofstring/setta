@@ -50,8 +50,9 @@ def parse_signature(signature):
     params = label.split(", ")
     param_info_list = []
     descriptions = extract_descriptions(signature)
+    positional_only_indicator_idx = -1
 
-    for param in params:
+    for idx, param in enumerate(params):
         # Extract parameter name and default value
         parts = param.split("=")
         name_type = parts[0].strip()
@@ -59,6 +60,9 @@ def parse_signature(signature):
 
         # Further split to separate name from type if needed (optional)
         name = name_type.split(":")[0].strip()
+        if name == "/":
+            positional_only_indicator_idx = idx
+            continue
 
         # Append parsed information to list
         param_info_list.append(
@@ -66,8 +70,12 @@ def parse_signature(signature):
                 "name": name,
                 "defaultVal": default,
                 "description": descriptions.get(name, ""),
+                "positionalOnly": False,
             }
         )
+
+    for idx in range(0, positional_only_indicator_idx):
+        param_info_list[idx]["positionalOnly"] = True
 
     return param_info_list
 
@@ -169,12 +177,12 @@ class LanguageServerReader(LanguageServerInteractor):
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                # pprint(response)
+                pprint(response)
                 content = parse_signature(response["result"]["signatures"][0])
                 pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            print("response", response, flush=True)
+            # print("response", response, flush=True)
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]
@@ -184,7 +192,7 @@ class LanguageServerReader(LanguageServerInteractor):
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")
             content = process_diagnostics(diagnostics, code_split, codeJson)
-            print("content", content, flush=True)
+            # print("content", content, flush=True)
             await self.websocket_manager.broadcast(
                 {"messageType": "diagnostics", "content": content}
             )

@@ -53,6 +53,7 @@ function createChildrenCodeInfo(parent, params) {
       rcType: C.PARAMETER,
       defaultVal: p.defaultVal,
       description: p.description,
+      positionalOnly: p.positionalOnly,
     });
     useCodeInfo.getState().addCodeInfo({ info, parent });
   }
