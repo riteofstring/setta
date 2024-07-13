@@ -50,7 +50,7 @@ def textFieldCompletionFn(return_types, lsp_writer):
         referencable_var_names,
         column,
     ):
-        await lsp_writer.send_document_update(code, code_id)
+        await lsp_writer.send_document_update(code_id, code, {})
         column = column + len(var_declaration(var_name, ""))
         line = var_name_to_line_num[var_name]
         await lsp_writer.send_autocomplete_request(line, column, code_id, request_id)

@@ -1,6 +1,8 @@
 import asyncio
 import json
-import re
+from pprint import pprint
+
+import docstring_parser
 
 from .server import LanguageServerInteractor
 
@@ -33,27 +35,41 @@ type_mapping = {
 }
 
 
-def extract_default_parameters(signature_help):
-    # Extract the first signature's label containing the method signature
-    signature_str = signature_help["result"]["signatures"][0]["label"]
+def extract_descriptions(signature):
+    parsed = docstring_parser.parse(signature["documentation"]["value"])
+    return {v.arg_name: v.description for v in parsed.params}
 
-    # Updated regex to accurately parse parameter names and default values
-    param_pattern = r"(\w+)(?:\s*:\s*[\w\[\]]+)?(?:\s*=\s*([^,)]+))?(?:,|\))"
 
-    # Find all matches in the signature string
-    matches = re.findall(param_pattern, signature_str)
+def parse_signature(signature):
+    label = signature["label"]
+    # Remove any enclosing function definition or parentheses
+    if "(" in label and ")" in label:
+        label = label[label.find("(") + 1 : label.rfind(")")]
 
-    # Create a dictionary of parameter names and their default values
-    default_params = {}
-    for param, value in matches:
-        if value:
-            # Strip whitespace from the default value
-            default_params[param] = value.strip()
-        else:
-            # If no default value is specified, set it to None
-            default_params[param] = None
+    # Split parameters by commas
+    params = label.split(", ")
+    param_info_list = []
+    descriptions = extract_descriptions(signature)
 
-    return default_params
+    for param in params:
+        # Extract parameter name and default value
+        parts = param.split("=")
+        name_type = parts[0].strip()
+        default = parts[1].strip() if len(parts) > 1 else None
+
+        # Further split to separate name from type if needed (optional)
+        name = name_type.split(":")[0].strip()
+
+        # Append parsed information to list
+        param_info_list.append(
+            {
+                "name": name,
+                "defaultVal": default,
+                "description": descriptions.get(name, ""),
+            }
+        )
+
+    return param_info_list
 
 
 class LanguageServerReader(LanguageServerInteractor):
@@ -117,23 +133,18 @@ class LanguageServerReader(LanguageServerInteractor):
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                defaultVals = extract_default_parameters(response)
-                content = [
-                    {
-                        "name": x["label"],
-                        "description": x["documentation"]["value"],
-                        "defaultVal": defaultVals.get(x["label"], ""),
-                    }
-                    for x in response["result"]["signatures"][0]["parameters"]
-                ]
+                # pprint(response)
+                content = parse_signature(response["result"]["signatures"][0])
+                pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            params = response["params"]
-            diagnostics = params["diagnostics"]
-            uri = params["uri"]
-            version = params["version"]
-            code = self.versions[uri][version]
-            print(code)
+            pass
+            # params = response["params"]
+            # diagnostics = params["diagnostics"]
+            # uri = params["uri"]
+            # version = params["version"]
+            # code = self.versions[uri][version]["code"]
+            # print(code)
             # for d in diagnostics:
             # print(d["message"])
 

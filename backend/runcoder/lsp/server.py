@@ -45,11 +45,12 @@ class LanguageServerInteractor:
     def versions(self):
         return self.server.versions
 
-    def get_new_version_number(self, uri, code):
+    def get_new_version_number(self, uri, code, codeJson):
+        obj = {"code": code, "codeJson": codeJson}
         if uri not in self.versions:
-            self.versions[uri] = {0: code}
+            self.versions[uri] = {0: obj}
             new_version = 0
         else:
             new_version = max(self.versions[uri].keys()) + 1
-            self.versions[uri][new_version] = code
+            self.versions[uri][new_version] = obj
         return new_version
