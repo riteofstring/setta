@@ -83,6 +83,8 @@ def process_diagnostics(diagnostics, code_split, codeJson):
     for d in diagnostics:
         r = d["range"]
         start, end = r["start"], r["end"]
+        if "code" not in d:
+            continue
         if d["code"] == "reportArgumentType":
             problem_var = code_split[start["line"]][
                 start["character"] : end["character"]
@@ -172,7 +174,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            pprint(response)
+            print("response", response, flush=True)
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]
@@ -181,8 +183,11 @@ class LanguageServerReader(LanguageServerInteractor):
             code = version_info["code"]
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")
-            output = process_diagnostics(diagnostics, code_split, codeJson)
-            pprint(output)
+            content = process_diagnostics(diagnostics, code_split, codeJson)
+            print("content", content, flush=True)
+            await self.websocket_manager.broadcast(
+                {"messageType": "diagnostics", "content": content}
+            )
 
         # print(self.received_messages.keys())
         # process_response(response)

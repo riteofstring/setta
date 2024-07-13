@@ -1,4 +1,5 @@
 import { useInteractive } from "models/interactive";
+import { useTypeErrors } from "models/typeErrors";
 import {
   useWebsocketConnectionList,
   useWebsocketRooms,
@@ -49,6 +50,8 @@ function receiveMessage(message) {
     useInteractive.getState().setProjects(m["content"]);
   } else if (m.messageType === "interactive") {
     useInteractive.getState().setData(m["content"]);
+  } else if (m.messageType === "diagnostics") {
+    useTypeErrors.setState(m.content, true);
   } else if (m.id) {
     useWebsocketRooms.getState().setMessage(m.id, m.content);
   }

@@ -67,7 +67,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.get_new_version_number(uri, code_id, codeJson),
+                "version": self.get_new_version_number(uri, code, codeJson),
             },
             "contentChanges": [{"text": code}],
         }
