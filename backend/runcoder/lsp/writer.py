@@ -62,12 +62,12 @@ class LanguageServerWriter(LanguageServerInteractor):
     async def send_didChangeConfiguration(self):
         await self.send_request("workspace/didChangeConfiguration", params={})
 
-    async def send_document_update(self, code, code_id):
+    async def send_document_update(self,code_id, code, codeJson):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.get_new_version_number(uri, code_id),
+                "version": self.get_new_version_number(uri, code_id, codeJson),
             },
             "contentChanges": [{"text": code}],
         }

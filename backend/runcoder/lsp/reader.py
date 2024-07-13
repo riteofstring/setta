@@ -132,7 +132,7 @@ class LanguageServerReader(LanguageServerInteractor):
             diagnostics = params["diagnostics"]
             uri = params["uri"]
             version = params["version"]
-            code = self.versions[uri][version]
+            code = self.versions[uri][version]["code"]
             print(code)
             # for d in diagnostics:
             # print(d["message"])

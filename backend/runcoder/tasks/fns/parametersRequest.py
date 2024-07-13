@@ -20,7 +20,7 @@ def parametersRequestFn(lsp_writer):
         line = var_name_to_line_num[var_name]
         code = append_to_line(code, line, "(")
         print(code)
-        await lsp_writer.send_document_update(code, code_id)
+        await lsp_writer.send_document_update(code_id, code)
         column = column + len(var_declaration(var_name, "")) + 1
         await lsp_writer.send_signature_help_request(line, column, code_id, request_id)
 

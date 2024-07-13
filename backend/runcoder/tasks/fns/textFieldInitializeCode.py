@@ -45,7 +45,7 @@ async def _textFieldInitializeCode(message, lsp_writer):
     print(referencable_var_names, flush=True)
 
     code, _ = prepend_with_imports(lines, templatedCode, None, var_name_to_line_num)
-    await lsp_writer.send_document_open_request(code, project["projectConfig"]["id"])
+    await lsp_writer.send_document_open_request(project["projectConfig"]["id"], code, codeJson)
 
     return {
         "output": None,
