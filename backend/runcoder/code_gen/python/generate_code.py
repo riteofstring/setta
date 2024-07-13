@@ -21,7 +21,12 @@ def get_import_text(code):
 
 
 def get_mappings(var_names, selected, is_dict):
-    mappings = [var_declaration(selected[v]["name"], v, is_dict) for v in var_names]
+    mappings = [
+        v
+        if selected[v]["positionalOnly"]
+        else var_declaration(selected[v]["name"], v, is_dict)
+        for v in var_names
+    ]
     return ", ".join(mappings)
 
 

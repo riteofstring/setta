@@ -240,7 +240,8 @@ class Exporter:
         return params, unused_params
 
     def export_param(self, section_id, id, is_global=False):
-        param_name = self.p["codeInfo"][id]["name"]
+        codeInfo = self.p["codeInfo"][id]
+        param_name = codeInfo["name"]
         var_name = maybe_create_var_name(
             section_id,
             id,
@@ -258,6 +259,7 @@ class Exporter:
                 "paramInfoId": id,
                 "sectionId": section_id,
                 "name": param_name,
+                "positionalOnly": codeInfo["positionalOnly"],
                 "deps": deps,
                 "type": get_param_ui_type(self.p, section_id, id),
                 "is_global": is_global,
