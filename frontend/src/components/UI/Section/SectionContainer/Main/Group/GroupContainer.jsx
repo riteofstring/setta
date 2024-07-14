@@ -42,7 +42,7 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
   return (
     <GetParamSwitch
       sectionId={sectionId}
-      objInfoId={objInfoId}
+      parentId={objInfoId}
       infos={params}
     />
   );

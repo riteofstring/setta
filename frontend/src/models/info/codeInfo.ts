@@ -51,12 +51,14 @@ export const useCodeInfo = createProjectState(
         }),
       deleteInfo: ({ ids, parent }) =>
         set((state) => {
-          state.x = _.omit(state.x, ids);
+          console.log("deleting", ids)
+          console.log("parent", parent)
           if (parent) {
             state.x[parent].children = state.x[parent].children.filter(
               (y) => !ids.includes(y),
             );
           }
+          state.x = _.omit(state.x, ids);
         }),
       update: (payload) =>
         set((state) => {

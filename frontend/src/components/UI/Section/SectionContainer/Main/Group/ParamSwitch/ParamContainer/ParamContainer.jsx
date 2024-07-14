@@ -18,7 +18,6 @@ import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({
   sectionId,
-  objInfoId,
   paramInfo,
   isKwarg,
   children,
@@ -47,6 +46,9 @@ function _ParamContainer({
     (x) => paramInfo.children.map((c) => x.x[c]),
     _.isEqual,
   );
+
+  console.log("paramInfo", paramInfo)
+  console.log("paramChildren", paramChildren)
 
   return paramChildren.length === 0 ? (
     <>
