@@ -5,7 +5,7 @@ import { useGetParamUIType } from "hooks/useParamUIType";
 import _ from "lodash";
 import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";
-import { idForLSPWaiting, useWaitingForLSPResult } from "models/lsp";
+import { useIdWaitingForLSPResult } from "models/lsp";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -80,9 +80,7 @@ export function ParamInput({
 }
 
 function LoadingSpinner({ sectionId, paramInfoId }) {
-  const waitingForResult = useWaitingForLSPResult(
-    (x) => x[idForLSPWaiting({ sectionId, paramInfoId })],
-  );
+  const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
   return (
     waitingForResult && (
       <>

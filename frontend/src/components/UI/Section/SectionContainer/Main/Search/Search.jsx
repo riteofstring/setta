@@ -1,5 +1,5 @@
 import { useCodeInfo } from "models/info/codeInfo";
-import { idForLSPWaiting, useWaitingForLSPResult } from "models/lsp";
+import { useIdWaitingForLSPResult } from "models/lsp";
 import { useState } from "react";
 import { setSelectedItem } from "thunks/sections/setters";
 import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
@@ -57,10 +57,6 @@ export function SectionSearch({ sectionId, initialSelection }) {
     setSelectedItem(sectionId, value, true);
   }
 
-  const waitingForResult = useWaitingForLSPResult(
-    (x) => x[idForLSPWaiting({ sectionId, paramInfoId: null })],
-  );
-
   return (
     <>
       <TextInputCodeMirror
@@ -74,9 +70,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
         singleLine={true}
         onEnter={onEnter}
       />
-      {waitingForResult && (
-        <i className="card-search gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
-      )}
+      <LoadingSpinner sectionId={sectionId} paramInfoId={null} />
     </>
   );
 }
@@ -87,4 +81,13 @@ function mergeCompletionsAndHistory(completions, history) {
     (x) => !existingNames.has(x.name),
   );
   return [...filteredCompletions, ...history];
+}
+
+function LoadingSpinner({ sectionId, paramInfoId }) {
+  const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
+  return (
+    waitingForResult && (
+      <i className="card-search gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
+    )
+  );
 }
