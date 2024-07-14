@@ -62,6 +62,12 @@ export const useCodeInfo = createProjectState(
         set((state) => {
           state.x = { ...state.x, ...payload };
         }),
+      batchUpdateChildren: (payload) =>
+        set((state) => {
+          for (const [id, newChildren] of Object.entries(payload)) {
+            state.x[id].children = newChildren;
+          }
+        }),
     })),
   ),
 );

@@ -1,6 +1,11 @@
+import C from "constants/constants.json";
+import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
+import { getSectionTypeConfig } from "thunks/sections/getters";
+import { updateParams } from "thunks/sections/sectionContents";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
+import { findAll } from "z_utils/getDescendants";
 
 export function KwargsControls({ sectionId, objInfoId }) {
   const setParamFilter = useSectionParamFilter((x) => x.setFilter);
@@ -20,6 +25,17 @@ export function KwargsControls({ sectionId, objInfoId }) {
     setParamFilter({ sectionId, filter: e.target.value });
   }
 
+  function onPushRight() {
+    const { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
+
+    const newCodeInfoChildren = {};
+    for (const p of selectedParams) {
+      computeNewChildren(codeInfos, p, newCodeInfoChildren);
+    }
+    useCodeInfo.getState().batchUpdateChildren(newCodeInfoChildren);
+    updateParams(sectionId);
+  }
+
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-runcoder-600 text-runcoder-300";
 
@@ -37,6 +53,12 @@ export function KwargsControls({ sectionId, objInfoId }) {
             </button>
             <button className={buttonClass} onClick={onClickAddKwarg}>
               <i className="gg-math-plus col-start-1 row-start-1" />
+            </button>
+            <button className={buttonClass}>
+              <i className="gg-push-left col-start-1 row-start-1" />
+            </button>
+            <button className={buttonClass} onClick={onPushRight}>
+              <i className="gg-push-right col-start-1 row-start-1" />
             </button>
             <VerticalLine inputStyles="ml-2 mr-3 self-stretch invisible @[12rem]:visible" />
           </article>
@@ -64,4 +86,46 @@ export function KwargsControls({ sectionId, objInfoId }) {
       {/* <hr className="col-span-full row-start-5 row-end-6 " /> */}
     </>
   );
+}
+
+function getAllSelectedParams(sectionId) {
+  const codeInfos = findAll(useCodeInfo.getState().x, [
+    getSectionTypeConfig(sectionId).codeInfoId,
+  ]);
+  return {
+    codeInfos,
+    selectedParams: codeInfos.filter(
+      (x) => x.rcType === C.PARAMETER && x.isSelected,
+    ),
+  };
+}
+
+function computeNewChildren(codeInfos, paramInfo, newChildren) {
+  const parentInfo = codeInfos.find((x) => x.children.includes(paramInfo.id));
+  const siblingList = parentInfo.children;
+  const paramIdx = siblingList.indexOf(paramInfo.id);
+  let prevUnselectedSiblingIdx = -1;
+  for (let i = paramIdx - 1; i >= 0; i--) {
+    if (!useCodeInfo.getState().x[siblingList[i]].isSelected) {
+      prevUnselectedSiblingIdx = i;
+      break;
+    }
+  }
+  if (prevUnselectedSiblingIdx < 0) {
+    return;
+  }
+  const siblingInfo =
+    useCodeInfo.getState().x[siblingList[prevUnselectedSiblingIdx]];
+
+  if (!(parentInfo.id in newChildren)) {
+    newChildren[parentInfo.id] = parentInfo.children;
+  }
+  newChildren[parentInfo.id] = newChildren[parentInfo.id].filter(
+    (x) => x !== paramInfo.id,
+  );
+
+  if (!(siblingInfo.id in newChildren)) {
+    newChildren[siblingInfo.id] = siblingInfo.children;
+  }
+  newChildren[siblingInfo.id] = [...newChildren[siblingInfo.id], paramInfo.id];
 }

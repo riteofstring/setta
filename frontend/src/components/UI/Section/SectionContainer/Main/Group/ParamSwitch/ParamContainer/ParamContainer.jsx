@@ -8,8 +8,6 @@ import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { paramSelect } from "thunks/keyActivations";
-import { updateParams } from "thunks/sections/sectionContents";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
@@ -34,7 +32,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const paramIsSelected = paramInfo.isSelected;
 
   const bg = paramIsSelected
-    ? "bg-runcoder-300/20 dark:bg-runcoder-950/50"
+    ? "bg-lime-400"
     : "hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25";
 
   const paramChildren = useCodeInfo(
@@ -47,7 +45,6 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
       <article
         className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
         {...infoViewHandlers}
-        onClick={(e) => onClick(e, sectionId, paramInfo.id)}
       >
         {children}
         <ParamInput
@@ -72,7 +69,6 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     <article
       className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1  ${bg} ${border}`}
       {...infoViewHandlers}
-      onClick={(e) => onClick(e, sectionId, paramInfo.id)}
     >
       {children}
       <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">
@@ -93,13 +89,6 @@ export const ParamContainer = React.memo(
     _.isEqual(p.paramInfo, n.paramInfo) &&
     _.isEqual(p.uiType, n.uiType),
 );
-
-function onClick(e, sectionId, paramInfoId) {
-  if (paramSelect(e)) {
-    useCodeInfo.getState().toggleSelected(paramInfoId);
-    updateParams(sectionId);
-  }
-}
 
 function ErrorSection({ maybeErrorMessage }) {
   return (
