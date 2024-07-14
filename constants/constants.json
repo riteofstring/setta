@@ -7,7 +7,6 @@
   "TEXT": "TEXT",
   "SLIDER": "SLIDER",
   "SWITCH": "SWITCH",
-  "NESTED_PARAM": "NESTED_PARAM",
   "SECTION": "SECTION",
   "LIST_ROOT": "LIST_ROOT",
   "DICT_ROOT": "DICT_ROOT",
@@ -48,5 +47,6 @@
   "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
   "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
-  "ROUTE_SAVE_CODE_INFO": "/codeInfo/save"
+  "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
+  "NESTED_PARAM": "NESTED_PARAM"
 }

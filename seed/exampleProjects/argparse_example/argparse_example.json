@@ -171,7 +171,9 @@
               "03b6a0ad-0815-4697-af57-167d2accc06a": "31",
               "20fe3b32-be65-4b59-9f32-013435901dcc": "",
               "61948f59-832b-4a29-9dac-facf187f8fc3": "Kevin",
+              "80b6429e-fbb9-4070-a574-b32e0e061ab4": "very sexy",
               "af82bade-133f-4878-9688-91672f8fa2ee": "Musgrave",
+              "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": "grave music",
               "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": "false",
               "b1318655-3495-4d2d-8fef-89a138386641": "1000"
             }
@@ -241,7 +243,15 @@
             "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
             "nonPresetUITypeIds": []
           },
+          "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
+            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+            "nonPresetUITypeIds": []
+          },
           "af82bade-133f-4878-9688-91672f8fa2ee": {
+            "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+            "nonPresetUITypeIds": []
+          },
+          "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
             "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
             "nonPresetUITypeIds": []
           },
@@ -316,12 +326,38 @@
           "isPinned": 0,
           "isFrozen": 0,
           "isSelected": 0,
+          "children": ["80b6429e-fbb9-4070-a574-b32e0e061ab4"],
+          "positionalOnly": false
+        },
+        "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
+          "id": "80b6429e-fbb9-4070-a574-b32e0e061ab4",
+          "name": "meaning",
+          "editable": 1,
+          "rcType": "parameter",
+          "defaultVal": null,
+          "description": "",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
           "children": [],
           "positionalOnly": false
         },
         "af82bade-133f-4878-9688-91672f8fa2ee": {
           "id": "af82bade-133f-4878-9688-91672f8fa2ee",
           "name": "last_name",
+          "editable": 1,
+          "rcType": "parameter",
+          "defaultVal": null,
+          "description": "",
+          "isPinned": 0,
+          "isFrozen": 0,
+          "isSelected": 0,
+          "children": ["0eac6e6f-6f26-47af-a9a3-89d9c365b26b"],
+          "positionalOnly": false
+        },
+        "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
+          "id": "0eac6e6f-6f26-47af-a9a3-89d9c365b26b",
+          "name": "meaning",
           "editable": 1,
           "rcType": "parameter",
           "defaultVal": null,
