@@ -1,3 +1,4 @@
+import _ from "lodash";
 import React from "react";
 import { KwargParam } from "./ParamSwitchOptions/KwargParam";
 import { RegularParam } from "./ParamSwitchOptions/RegularParam";
@@ -15,5 +16,6 @@ export const ParamSwitch = React.memo(
   (p, n) =>
     p.paramInfo.id === n.paramInfo.id &&
     p.paramInfo.isFrozen === n.paramInfo.isFrozen &&
-    p.paramInfo.isSelected === n.paramInfo.isSelected,
+    p.paramInfo.isSelected === n.paramInfo.isSelected &&
+    _.isEqual(p.paramInfo.children, n.paramInfo.children),
 );

@@ -11,7 +11,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
   function onClickDeleteKwarg() {
     deleteKwarg({
       sectionId,
-      objInfoId,
+      parentId: objInfoId,
       deleteLast: true,
       incrementVersion: true,
     });

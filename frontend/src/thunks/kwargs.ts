@@ -42,7 +42,7 @@ export function addKwarg({
 
 type DeleteKwargPayload = {
   sectionId: string;
-  objInfoId: string;
+  parentId: string;
   deleteLast?: boolean;
   kwargId?: string;
   incrementVersion?: boolean;
@@ -51,23 +51,23 @@ type DeleteKwargPayload = {
 export function deleteKwarg(payload: DeleteKwargPayload) {
   let {
     sectionId,
-    objInfoId,
+    parentId,
     deleteLast = false,
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
   const { evColId, uiTypeColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  objInfoId = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
+  parentId = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
   if (deleteLast) {
-    const kwargIds = getKwargIds(objInfoId);
+    const kwargIds = getKwargIds(parentId);
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  useCodeInfo.getState().deleteInfo({ ids: [kwargId], parent: objInfoId });
+  useCodeInfo.getState().deleteInfo({ ids: [kwargId], parent: parentId });
   useParamInfos
     .getState()
     .deleteParamInfo({ dbSource, evColId, uiTypeColId, ids: [kwargId] });

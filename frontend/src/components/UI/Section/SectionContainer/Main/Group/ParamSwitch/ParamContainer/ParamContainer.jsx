@@ -16,13 +16,7 @@ import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
-function _ParamContainer({
-  sectionId,
-  objInfoId,
-  paramInfo,
-  isKwarg,
-  children,
-}) {
+function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
@@ -84,7 +78,7 @@ function _ParamContainer({
       <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">
         <GetParamSwitch
           sectionId={sectionId}
-          objInfoId={objInfoId}
+          parentId={paramInfo.id}
           infos={paramChildren}
         />
       </div>
