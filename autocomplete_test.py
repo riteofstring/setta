@@ -26,7 +26,7 @@ async def main():
 
     code_id = "test"
     # code = "import math\nx=math.sqrt()"
-    code = "import numpy\nnumpy.cos("
+    code = "import numpy\nnumpy.cos()"
     codeJson = {}
 
     # code_id = "test"

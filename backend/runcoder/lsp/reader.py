@@ -186,7 +186,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            # pprint(response)
+            print(response)
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]
