@@ -15,8 +15,8 @@ def save_code_info(dbs, codeInfo, ev_cols):
 
 def save_code_info_to_one_db(db, codeInfo):
     query = """
-        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, isPinned, isFrozen, isSelected)
-        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :isPinned, :isFrozen, :isSelected)
+        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, isSelected)
+        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :isSelected)
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
@@ -24,6 +24,7 @@ def save_code_info_to_one_db(db, codeInfo):
             rcType = :rcType,
             defaultVal = :defaultVal,
             description = :description,
+            positionalOnly = :positionalOnly,
             isPinned = :isPinned,
             isFrozen = :isFrozen,
             isSelected = :isSelected

@@ -20,10 +20,10 @@ def get_import_text(code):
     return "\n".join(imports)
 
 
-def get_mappings(var_names, selected, is_dict):
+def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
     mappings = [
         v
-        if selected[v]["positionalOnly"]
+        if not is_dict and v in positionalOnlyParams
         else var_declaration(selected[v]["name"], v, is_dict)
         for v in var_names
     ]
@@ -34,8 +34,10 @@ def get_dict_contents(var_names, selected):
     return get_mappings(var_names, selected, is_dict=True)
 
 
-def get_callable_params(var_names, selected):
-    return get_mappings(var_names, selected, is_dict=False)
+def get_callable_params(var_names, positionalOnlyParams, selected):
+    return get_mappings(
+        var_names, selected, is_dict=False, positionalOnlyParams=positionalOnlyParams
+    )
 
 
 def get_boolean(value):
@@ -61,7 +63,7 @@ def get_value(x, selected):
         if not x["value"]["callable"]:
             return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:
-            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
+            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], x['value']['positionalOnlyParams'], selected)})"
     elif type_value == C.LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
     elif type_value == C.DICT_ROOT:

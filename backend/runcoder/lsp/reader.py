@@ -177,12 +177,12 @@ class LanguageServerReader(LanguageServerInteractor):
                 ]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                pprint(response)
+                # pprint(response)
                 content = parse_signature(response["result"]["signatures"][0])
                 pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
-            # print("response", response, flush=True)
+            # pprint(response)
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]

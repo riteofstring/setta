@@ -13,6 +13,7 @@ import {
 } from "dbRequests/sections";
 import _ from "lodash";
 import { useKeywordRegex } from "models/info/keywordRegex";
+import { setWaitingForLSP } from "models/lsp";
 import { useCallback, useRef, useState } from "react";
 import { goToSection } from "thunks/goToSection";
 import { variableClick } from "thunks/keyActivations";
@@ -140,6 +141,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
     const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
+    setWaitingForLSP({ sectionId, paramInfoId, waiting: true });
     const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
@@ -147,6 +149,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
       beforeText: before.text,
       position: context.pos,
     });
+    setWaitingForLSP({ sectionId, paramInfoId, waiting: false });
     console.log("res", res);
     if (res) {
       return {
