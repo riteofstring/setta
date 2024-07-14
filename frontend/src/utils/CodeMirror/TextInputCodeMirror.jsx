@@ -141,7 +141,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
     const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-    setWaitingForLSP({ sectionId, paramInfoId, waiting: true });
+    const setToNotWaiting = setWaitingForLSP({ sectionId, paramInfoId });
     const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
@@ -149,7 +149,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
       beforeText: before.text,
       position: context.pos,
     });
-    setWaitingForLSP({ sectionId, paramInfoId, waiting: false });
+    setToNotWaiting();
     console.log("res", res);
     if (res) {
       return {
