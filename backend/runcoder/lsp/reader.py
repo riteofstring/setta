@@ -36,8 +36,10 @@ type_mapping = {
 
 
 def extract_descriptions(signature):
-    parsed = docstring_parser.parse(signature["documentation"]["value"])
-    return {v.arg_name: v.description for v in parsed.params}
+    if "documentation" in signature:
+        parsed = docstring_parser.parse(signature["documentation"]["value"])
+        return {v.arg_name: v.description for v in parsed.params}
+    return {}
 
 
 def parse_signature(signature):
@@ -62,6 +64,8 @@ def parse_signature(signature):
         name = name_type.split(":")[0].strip()
         if name == "/":
             positional_only_indicator_idx = idx
+            continue
+        if name == "*":
             continue
 
         # Append parsed information to list

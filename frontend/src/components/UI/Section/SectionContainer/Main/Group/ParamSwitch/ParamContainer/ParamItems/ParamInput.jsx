@@ -73,7 +73,10 @@ export function ParamInput({
         area="card-value"
       />
       {isText && (
-        <LoadingSpinner sectionId={sectionId} paramInfoId={paramInfoId} />
+        <>
+          <LoadingSpinner sectionId={sectionId} paramInfoId={paramInfoId} />
+          <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
+        </>
       )}
     </div>
   );
@@ -83,10 +86,7 @@ function LoadingSpinner({ sectionId, paramInfoId }) {
   const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
   return (
     waitingForResult && (
-      <>
-        <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
-        <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
-      </>
+      <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
     )
   );
 }
