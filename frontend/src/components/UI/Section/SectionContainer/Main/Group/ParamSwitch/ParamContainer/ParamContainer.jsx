@@ -170,6 +170,7 @@ const AccordionContent = React.forwardRef(
         twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-runcoder-400 dark:text-runcoder-200 hover:text-runcoder-600 dark:hover:text-white"
         bg="bg-runcoder-100/50 dark:bg-runcoder-700/50 hover:bg-runcoder-100 dark:hover:bg-runcoder-600"
         icon={<HiOutlineDuplicate />}
+        onClick={() => navigator.clipboard.writeText(children)}
       />
     </Accordion.Content>
   ),
