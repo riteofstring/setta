@@ -25,16 +25,20 @@ export function KwargsControls({ sectionId, objInfoId }) {
     setParamFilter({ sectionId, filter: e.target.value });
   }
 
-  function onPushRight() {
-    const { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
-
-    const newCodeInfoChildren = {};
-    for (const p of selectedParams) {
-      computeNewChildren(codeInfos, p, newCodeInfoChildren);
-    }
-    useCodeInfo.getState().batchUpdateChildren(newCodeInfoChildren);
-    updateParams(sectionId);
+  function onPush(computeFn) {
+    return () => {
+      const { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
+      const newCodeInfoChildren = {};
+      for (const p of selectedParams) {
+        computeFn(codeInfos, p, newCodeInfoChildren);
+      }
+      useCodeInfo.getState().batchUpdateChildren(newCodeInfoChildren);
+      updateParams(sectionId);
+    };
   }
+
+  const onPushLeft = onPush(computeNewChildrenForLeftPush);
+  const onPushRight = onPush(computeNewChildrenForRightPush);
 
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-runcoder-600 text-runcoder-300";
@@ -54,7 +58,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
             <button className={buttonClass} onClick={onClickAddKwarg}>
               <i className="gg-math-plus col-start-1 row-start-1" />
             </button>
-            <button className={buttonClass}>
+            <button className={buttonClass} onClick={onPushLeft}>
               <i className="gg-push-left col-start-1 row-start-1" />
             </button>
             <button className={buttonClass} onClick={onPushRight}>
@@ -100,8 +104,12 @@ function getAllSelectedParams(sectionId) {
   };
 }
 
-function computeNewChildren(codeInfos, paramInfo, newChildren) {
+function computeNewChildrenForRightPush(codeInfos, paramInfo, newChildren) {
   const parentInfo = codeInfos.find((x) => x.children.includes(paramInfo.id));
+  if (parentInfo.isSelected) {
+    return;
+  }
+
   const siblingList = parentInfo.children;
   const paramIdx = siblingList.indexOf(paramInfo.id);
   let prevUnselectedSiblingIdx = -1;
@@ -128,4 +136,29 @@ function computeNewChildren(codeInfos, paramInfo, newChildren) {
     newChildren[siblingInfo.id] = siblingInfo.children;
   }
   newChildren[siblingInfo.id] = [...newChildren[siblingInfo.id], paramInfo.id];
+}
+
+function computeNewChildrenForLeftPush(codeInfos, paramInfo, newChildren) {
+  const parentInfo = codeInfos.find((x) => x.children.includes(paramInfo.id));
+  const gParentInfo = codeInfos.find((x) => x.children.includes(parentInfo.id));
+  if (!gParentInfo || gParentInfo.isSelected || parentInfo.isSelected) {
+    return;
+  }
+  const parentSiblingList = gParentInfo.children;
+  const parentIdx = parentSiblingList.indexOf(parentInfo.id);
+  if (!(parentInfo.id in newChildren)) {
+    newChildren[parentInfo.id] = parentInfo.children;
+  }
+  newChildren[parentInfo.id] = newChildren[parentInfo.id].filter(
+    (x) => x !== paramInfo.id,
+  );
+
+  if (!(gParentInfo.id in newChildren)) {
+    newChildren[gParentInfo.id] = gParentInfo.children;
+  }
+  newChildren[gParentInfo.id] = [
+    ...newChildren[gParentInfo.id].slice(0, parentIdx + 1),
+    paramInfo.id,
+    ...newChildren[gParentInfo.id].slice(parentIdx + 1),
+  ];
 }
