@@ -136,10 +136,7 @@ def prepend_with_imports(
             var_str = var_declaration(force_appear_var_name, "None")
         lines[line_num] = var_str
 
-    code_to_infer = replace_keywords(
-        templated_code, {"RUNCODER_GENERATED_CODE": "\n".join(lines)}
-    )
-    imports = get_import_text(code_to_infer)
+    imports = get_import_text("\n".join(lines))
     imports = imports + "\n\n"
 
     if force_appear_var_name:
