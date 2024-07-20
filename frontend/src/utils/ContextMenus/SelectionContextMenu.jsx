@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSection";
+import { closeAllContextMenus } from "state/actions/contextMenus";
 import { createDeck } from "state/actions/createSectionOrDeck";
 import { deleteSections } from "state/actions/sectionOps";
 import { useContextMenus } from "state/definitions/contextMenus";
@@ -13,7 +14,7 @@ export function SelectionContextMenu() {
     _.isEqual,
   );
   const closeContextMenu = () => {
-    useContextMenus.getState().closeAll();
+    closeAllContextMenus();
     clearActiveSectionIds();
     useReactFlow.setState({ nodesSelectionDims: null });
   };

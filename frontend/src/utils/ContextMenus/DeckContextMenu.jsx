@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { closeAllContextMenus } from "state/actions/contextMenus";
 import { undeck } from "state/actions/undeck";
 import { useContextMenus } from "state/definitions/contextMenus";
 import { useSectionInfos } from "state/definitions/sectionInfos";
@@ -7,22 +8,21 @@ import { ContextMenuCore } from "./ContextMenuCore";
 
 export function DeckContextMenu() {
   const { isOpen, x, y, sectionId } = useContextMenus((x) => x.deck, _.isEqual);
-  const closeContextMenu = () => useContextMenus.getState().closeAll();
   function onClickUndeck() {
     undeck(sectionId);
-    closeContextMenu();
+    closeAllContextMenus();
   }
 
   function onClickToggleOrientation() {
     useSectionInfos.getState().toggleOrientation({ sectionId });
-    closeContextMenu();
+    closeAllContextMenus();
   }
 
   return (
     <ContextMenuCore
       x={x}
       y={y}
-      closeContextMenu={closeContextMenu}
+      closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
     >
       <Item onClick={onClickUndeck}>Undeck</Item>

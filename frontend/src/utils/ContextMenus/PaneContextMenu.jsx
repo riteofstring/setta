@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
+import { closeAllContextMenus } from "state/actions/contextMenus";
 import { onClickAddSection } from "state/actions/createSectionOrDeck";
 import { useContextMenus } from "state/definitions/contextMenus";
 import { useModal } from "state/definitions/modal";
@@ -10,12 +11,11 @@ import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
-  const closeContextMenu = () => useContextMenus.getState().closeAll();
 
   const commonProps = {
     x,
     y,
-    callbackBeforeExit: closeContextMenu,
+    callbackBeforeExit: closeAllContextMenus,
     projectXY: true,
     incrementVersion: true,
   };
@@ -25,14 +25,14 @@ export function PaneContextMenu() {
   function openLoadModal(_modalType) {
     setModalType(_modalType);
     setModalData(_.omit(commonProps, ["callbackBeforeExit"]));
-    closeContextMenu();
+    closeAllContextMenus();
   }
 
   return (
     <ContextMenuCore
       x={x}
       y={y}
-      closeContextMenu={closeContextMenu}
+      closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
     >
       <Item

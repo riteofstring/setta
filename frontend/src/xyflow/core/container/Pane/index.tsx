@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from "react";
 import { clearActiveSectionIds } from "state/actions/activeSection";
-import { useContextMenus } from "state/definitions/contextMenus";
+import { openPaneContextMenu } from "state/actions/contextMenus";
 import {
   onNodesChange,
   resetSelectedElements,
@@ -91,7 +91,7 @@ const Pane = memo(
         event.preventDefault();
         return;
       }
-      useContextMenus.getState().openPane(event);
+      openPaneContextMenu(event);
     };
 
     const onMouseDown = (event: ReactMouseEvent): void => {
