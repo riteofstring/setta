@@ -32,12 +32,26 @@ export function KwargsControls({ sectionId, objInfoId }) {
   }
 
   function onClickDeleteKwarg() {
-    deleteKwarg({
-      sectionId,
-      parentId: objInfoId,
-      deleteLast: true,
-      incrementVersion: true,
-    });
+    const { selectedParams } = getAllSelectedParams(sectionId);
+    if (selectedParams.length > 0) {
+      for (const p of selectedParams) {
+        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
+          x.children.includes(p.id),
+        );
+        const kwargId = parent.children[parent.children.indexOf(p.id) + 1];
+        if (kwargId) {
+          deleteKwarg({ sectionId, parentId: parent.id, kwargId });
+        }
+      }
+      maybeIncrementProjectStateVersion(true);
+    } else {
+      deleteKwarg({
+        sectionId,
+        parentId: objInfoId,
+        deleteLast: true,
+        incrementVersion: true,
+      });
+    }
   }
   function onSearchChange(e) {
     setParamFilter({ sectionId, filter: e.target.value });
