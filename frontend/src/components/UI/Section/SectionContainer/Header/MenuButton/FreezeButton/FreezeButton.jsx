@@ -1,4 +1,4 @@
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useSectionToParams } from "models/info/sectionToParams";
 import { updateParams } from "state/sectionInfos/actions/sectionContents";
 import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";

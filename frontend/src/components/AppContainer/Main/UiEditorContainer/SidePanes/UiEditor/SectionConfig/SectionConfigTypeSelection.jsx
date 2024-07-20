@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { updateParamsAndCallables } from "state/sectionInfos/actions/sectionContents";
 import { getSectionTypeConfig } from "state/sectionInfos/getters";
 import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";

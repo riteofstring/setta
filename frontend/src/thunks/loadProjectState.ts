@@ -7,7 +7,7 @@ import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
-import { useCodeInfo } from "../models/info/codeInfo";
+import { useCodeInfo } from "../state/codeInfo/definition";
 import { useOutputGroups } from "../models/info/outputGroups";
 import { useOutputs } from "../models/info/outputs";
 import { useParamInfos } from "../models/info/paramInfos";

@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { post } from "./utils";
 
 async function dbGetCollectionsAndModules({ searchTerm }) {

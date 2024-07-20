@@ -2,7 +2,7 @@ import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
 import { useGetParamInfosThatHaveNames } from "state/sectionInfos/hooks/useSectionContents";
 import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";

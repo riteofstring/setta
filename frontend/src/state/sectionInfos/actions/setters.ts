@@ -1,10 +1,10 @@
 import C from "constants/constants.json";
 import { dbParametersRequest } from "dbRequests/sections";
 import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "state/sectionInfos/definition";
-import { initializeChildParams } from "thunks/initializeParam";
+import { initializeChildParams } from "state/codeInfo/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { varControlUpdate } from "thunks/varControl";
 import { getParamSweepSectionName } from "z_utils/constants";

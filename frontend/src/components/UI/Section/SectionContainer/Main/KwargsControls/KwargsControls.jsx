@@ -1,8 +1,8 @@
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { updateParams } from "state/sectionInfos/actions/sectionContents";
-import { addKwarg, deleteKwarg } from "thunks/kwargs";
+import { addKwarg, deleteKwarg } from "state/codeInfo/actions/kwargs";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import {

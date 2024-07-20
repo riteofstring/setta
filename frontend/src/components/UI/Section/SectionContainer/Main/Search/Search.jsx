@@ -1,4 +1,4 @@
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useIdWaitingForLSPResult } from "models/lsp";
 import { useState } from "react";
 import { setSelectedItem } from "state/sectionInfos/actions/setters";

@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { sendMessageInRoom } from "hooks/useWebsocket";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
@@ -12,7 +12,7 @@ import {
 import { moveSections } from "state/sectionInfos/actions/sectionOps";
 import { useSectionInfos } from "state/sectionInfos/definition";
 import { getSectionTypeConfig } from "state/sectionInfos/getters";
-import { initializeChildParams } from "thunks/initializeParam";
+import { initializeChildParams } from "state/codeInfo/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";

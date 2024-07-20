@@ -1,4 +1,4 @@
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { MdOutlinePushPin } from "react-icons/md";
 import { updateParams } from "state/sectionInfos/actions/sectionContents";
 import { IconButton } from "utils/atoms/buttons/IconButton";

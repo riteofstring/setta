@@ -5,7 +5,7 @@ import {
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";

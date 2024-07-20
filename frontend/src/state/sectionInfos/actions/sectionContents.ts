@@ -1,4 +1,4 @@
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { updateKeywordRegex } from "models/info/keywordRegex";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {

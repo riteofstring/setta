@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useSectionInfos } from "state/sectionInfos/definition";

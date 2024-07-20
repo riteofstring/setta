@@ -8,7 +8,7 @@ import {
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { useSectionInfos } from "../../state/sectionInfos/definition";
 import { create } from "../utils";
-import { useCodeInfo } from "./codeInfo";
+import { useCodeInfo } from "../../state/codeInfo/definition";
 
 const ARGS_PREFIX = "__";
 

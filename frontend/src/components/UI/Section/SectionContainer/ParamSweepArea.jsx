@@ -1,7 +1,7 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
 import { useParamSweepInfo } from "hooks/useParamSweepInfo";
 import _ from "lodash";
-import { useCodeInfo } from "models/info/codeInfo";
+import { useCodeInfo } from "state/codeInfo/definition";
 import { useParamInfos } from "models/info/paramInfos";
 import { useParamSweep } from "models/paramSweep";
 import React from "react";

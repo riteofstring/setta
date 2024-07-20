@@ -5,7 +5,7 @@ import {
   CodeInfoStateFrontendType,
   CodeInfoZustandType,
 } from "z_utils/types/codeInfo";
-import { createProjectState } from "../utils";
+import { createProjectState } from "../../models/utils";
 
 // x maps from every objInfo key to its objInfo
 const initialState: CodeInfoStateFrontendType = {
