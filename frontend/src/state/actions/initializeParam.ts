@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
@@ -13,7 +13,7 @@ import { ManyOf } from "z_utils/types/utils";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
-} from "../../sectionInfos/getters";
+} from "../getters/sectionInfo";
 
 export function initializeChildParams({
   sectionIds,

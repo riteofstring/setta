@@ -4,7 +4,7 @@ import _ from "lodash";
 import React from "react";
 import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 
 function _SocialArea({ sectionId }) {
   const size = useSectionInfos((x) => x.x[sectionId].size);

@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { pseudoTemplatedStr } from "dbRequests/utils";
 import { useProjectConfig } from "models/info/projectConfig";
 import React, { useEffect, useRef } from "react";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { URLS } from "utils/constants";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";

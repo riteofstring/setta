@@ -6,7 +6,7 @@ import C from "constants/constants.json";
 import { dbGetFreeTerminal } from "dbRequests/terminals";
 import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
 import { useWebsocketConnectionList } from "models/websocket";
 import {
@@ -14,8 +14,8 @@ import {
   computeInfoToFullName,
 } from "utils/CodeMirror/utils";
 import { createNewId } from "z_utils/utils";
-import { getMappedSectionDBSource } from "../state/sectionInfos/getters";
-import { addSectionInEmptySpace } from "../state/sectionInfos/actions/addSectionInEmptySpace";
+import { getMappedSectionDBSource } from "../state/getters/sectionInfo";
+import { addSectionInEmptySpace } from "../state/actions/addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {

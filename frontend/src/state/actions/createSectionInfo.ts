@@ -1,16 +1,16 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "state/sectionInfos/definition";
-import { initializeChildParams } from "state/codeInfo/actions/initializeParam";
+import { useSectionInfos } from "state/definitions/sectionInfos";
+import { initializeChildParams } from "state/actions/initializeParam";
 import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { ManySectionType } from "z_utils/types/section";
-import { getSectionType, getSectionTypeConfig } from "../getters";
+import { getSectionType, getSectionTypeConfig } from "../getters/sectionInfo";
 
 export function createChildForSeries({ parentId, numChildren }) {
   // const { name: parentName } = useSectionInfos.getState().x[parentId];

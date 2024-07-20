@@ -1,8 +1,8 @@
 import _ from "lodash";
 import { useActiveSection } from "models/activeSection";
 import { useContextMenus } from "models/contextMenus";
-import { deleteSections } from "state/sectionInfos/actions/sectionOps";
-import { createDeck } from "state/sectionInfos/actions/createSectionOrDeck";
+import { deleteSections } from "state/actions/sectionOps";
+import { createDeck } from "state/actions/createSectionOrDeck";
 import { Item } from "utils/atoms/dropdown/item";
 import { useReactFlow } from "xyflow/core/store";
 import { ContextMenuCore } from "./ContextMenuCore";

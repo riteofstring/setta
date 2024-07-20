@@ -1,4 +1,4 @@
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { goToSection } from "thunks/goToSection";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";

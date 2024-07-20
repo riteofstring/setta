@@ -9,7 +9,7 @@ import {
 import { useSettings } from "models/settings";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
-import { setZIndices } from "state/sectionInfos/actions/sectionPositions";
+import { setZIndices } from "state/actions/sectionPositions";
 import { useReactFlow } from "xyflow/core/store";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";

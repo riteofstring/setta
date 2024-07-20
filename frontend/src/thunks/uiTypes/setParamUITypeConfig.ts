@@ -1,12 +1,12 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
-} from "state/sectionInfos/getters";
+} from "state/getters/sectionInfo";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { getValueForUIType } from "z_utils/objs/ev";
 import { getParamUIType } from "../paramInfos";

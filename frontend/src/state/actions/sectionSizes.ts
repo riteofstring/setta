@@ -1,6 +1,6 @@
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { getSectionParentId } from "../getters";
+import { getSectionParentId } from "../getters/sectionInfo";
 import { setSectionSize } from "./setters";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {

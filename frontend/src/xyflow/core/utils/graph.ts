@@ -3,7 +3,7 @@ import type { Selection as D3Selection } from "d3";
 import { localStorageFns } from "hooks/localStorageHooks";
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefs } from "models/sectionRefs";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
 import {

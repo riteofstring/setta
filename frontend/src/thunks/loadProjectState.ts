@@ -7,15 +7,15 @@ import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
-import { useCodeInfo } from "../state/codeInfo/definition";
+import { useCodeInfo } from "../state/definitions/codeInfo";
 import { useOutputGroups } from "../models/info/outputGroups";
 import { useOutputs } from "../models/info/outputs";
 import { useParamInfos } from "../models/info/paramInfos";
 import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
 import { useUITypes } from "../models/info/uiTypes";
-import { updateManyParamsAndCallables } from "../state/sectionInfos/actions/sectionContents";
-import { useSectionInfos } from "../state/sectionInfos/definition";
+import { updateManyParamsAndCallables } from "../state/actions/sectionContents";
+import { useSectionInfos } from "../state/definitions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function loadProjectState({

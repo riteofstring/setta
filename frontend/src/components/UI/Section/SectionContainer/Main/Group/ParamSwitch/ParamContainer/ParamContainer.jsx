@@ -1,6 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import _ from "lodash";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useSetCurrInfoView } from "models/info/infoView";
 import { useTypeErrors } from "models/typeErrors";
 import { useProjectSearch } from "models/useProjectSearch";

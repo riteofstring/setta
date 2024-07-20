@@ -1,4 +1,4 @@
-import { getSectionParentId } from "state/sectionInfos/getters";
+import { getSectionParentId } from "state/getters/sectionInfo";
 import colors from "tailwindcss/colors";
 import { useDndMonitor } from "utils/DNDSortable/CustomCore";
 import { useDndMode, useDndState } from "utils/DNDSortable/dndState";

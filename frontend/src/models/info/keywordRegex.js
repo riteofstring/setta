@@ -1,14 +1,14 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getParamInfos } from "state/sectionInfos/actions/sectionContents";
+import { getParamInfos } from "state/actions/sectionContents";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
-} from "state/sectionInfos/getters";
+} from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { useSectionInfos } from "../../state/sectionInfos/definition";
+import { useSectionInfos } from "../../state/definitions/sectionInfos";
 import { create } from "../utils";
-import { useCodeInfo } from "../../state/codeInfo/definition";
+import { useCodeInfo } from "../../state/definitions/codeInfo";
 
 const ARGS_PREFIX = "__";
 

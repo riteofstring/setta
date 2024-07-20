@@ -1,4 +1,4 @@
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 
 export function useHasNested(sectionId: string) {

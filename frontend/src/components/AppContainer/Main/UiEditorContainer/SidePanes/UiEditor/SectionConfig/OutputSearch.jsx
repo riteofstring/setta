@@ -3,8 +3,8 @@ import {
   setSectionInfoAttr,
   setSectionName,
   setSectionSize,
-} from "state/sectionInfos/actions/setters";
-import { useSectionInfos } from "state/sectionInfos/definition";
+} from "state/actions/setters";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { INITIAL_CHART_SIZE } from "utils/constants";

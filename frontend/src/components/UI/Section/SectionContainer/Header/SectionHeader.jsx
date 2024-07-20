@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { useSectionTypeName } from "state/sectionInfos/hooks/useSectionType";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
-import { deleteSections } from "state/sectionInfos/actions/sectionOps";
+import { deleteSections } from "state/actions/sectionOps";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
 import { isRoot } from "z_utils/constants";

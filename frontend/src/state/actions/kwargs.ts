@@ -1,18 +1,18 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "dbRequests/sectionConfig";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionToParams } from "models/info/sectionToParams";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
-import { updateParams } from "../../sectionInfos/actions/sectionContents";
+import { updateParams } from "./sectionContents";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
   getSectionTypeConfig,
-} from "../../sectionInfos/getters";
-import { getKwargIds } from "../getters";
+} from "../getters/sectionInfo";
+import { getKwargIds } from "../getters/codeInfo";
 import { initializeParam } from "./initializeParam";
-import { maybeIncrementProjectStateVersion } from "../../../thunks/undo";
+import { maybeIncrementProjectStateVersion } from "../../thunks/undo";
 
 type AddKwargPayload = {
   sectionId: string;

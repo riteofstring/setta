@@ -5,7 +5,7 @@ import {
 } from "dbRequests/projects";
 import _ from "lodash";
 import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useProject } from "models/info/project";
@@ -14,7 +14,7 @@ import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";

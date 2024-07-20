@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { SectionType } from "z_utils/types/section";
 

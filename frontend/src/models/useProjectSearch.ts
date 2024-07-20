@@ -1,6 +1,6 @@
 import { matchSorter } from "match-sorter";
-import { useSectionInfos } from "../state/sectionInfos/definition";
-import { useCodeInfo } from "../state/codeInfo/definition";
+import { useSectionInfos } from "../state/definitions/sectionInfos";
+import { useCodeInfo } from "../state/definitions/codeInfo";
 import { createProjectState } from "./utils";
 
 const initialState = { sections: [], codeInfo: [] };

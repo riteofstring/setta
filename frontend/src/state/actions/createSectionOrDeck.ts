@@ -1,18 +1,18 @@
 import C from "constants/constants.json";
 import { sendMessageInRoom } from "hooks/useWebsocket";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { addSectionAtPosition } from "state/sectionInfos/actions/addSectionAtPosition";
+import { addSectionAtPosition } from "state/actions/addSectionAtPosition";
 import {
   updateManyParamsAndCallables,
   updateParams,
-} from "state/sectionInfos/actions/sectionContents";
-import { moveSections } from "state/sectionInfos/actions/sectionOps";
-import { useSectionInfos } from "state/sectionInfos/definition";
-import { getSectionTypeConfig } from "state/sectionInfos/getters";
-import { initializeChildParams } from "state/codeInfo/actions/initializeParam";
+} from "state/actions/sectionContents";
+import { moveSections } from "state/actions/sectionOps";
+import { useSectionInfos } from "state/definitions/sectionInfos";
+import { getSectionTypeConfig } from "state/getters/sectionInfo";
+import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";

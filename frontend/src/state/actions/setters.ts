@@ -1,16 +1,16 @@
 import C from "constants/constants.json";
 import { dbParametersRequest } from "dbRequests/sections";
 import _ from "lodash";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useKeywordRegex } from "models/info/keywordRegex";
-import { useSectionInfos } from "state/sectionInfos/definition";
-import { initializeChildParams } from "state/codeInfo/actions/initializeParam";
+import { useSectionInfos } from "state/definitions/sectionInfos";
+import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { varControlUpdate } from "thunks/varControl";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { isUUID } from "z_utils/utils";
-import { getSectionInfo, getSectionTypeConfig } from "../getters";
+import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
 import { updateCallables, updateParams } from "./sectionContents";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {

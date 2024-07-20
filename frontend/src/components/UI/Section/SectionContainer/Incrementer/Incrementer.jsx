@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
-import { addChildrenToSeries } from "state/sectionInfos/actions/addChild";
-import { deleteChildrenFromSeries } from "state/sectionInfos/actions/deleteChild";
+import { addChildrenToSeries } from "state/actions/addChild";
+import { deleteChildrenFromSeries } from "state/actions/deleteChild";
 
 export function Incrementer({ sectionId, isRoot, popover = false }) {
   const addSections = (numSections) => {

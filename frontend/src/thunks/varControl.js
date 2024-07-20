@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useCodeInfo } from "state/codeInfo/definition";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionToParams } from "models/info/sectionToParams";
-import { setSelectedItem } from "state/sectionInfos/actions/setters";
-import { useSectionInfos } from "state/sectionInfos/definition";
-import { getSectionByName, getSectionType } from "state/sectionInfos/getters";
+import { setSelectedItem } from "state/actions/setters";
+import { useSectionInfos } from "state/definitions/sectionInfos";
+import { getSectionByName, getSectionType } from "state/getters/sectionInfo";
 import { setParamEnteredValue } from "thunks/paramInfos";
 
 export function varControlUpdate() {

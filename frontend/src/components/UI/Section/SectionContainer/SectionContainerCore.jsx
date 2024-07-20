@@ -3,9 +3,9 @@ import { toggleVersionsVisible } from "state/sectionInfos/hooks/useSectionVersio
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
-import { getParamInfos } from "state/sectionInfos/actions/sectionContents";
-import { setZIndices } from "state/sectionInfos/actions/sectionPositions";
-import { getHighestAncestor } from "state/sectionInfos/actions/sectionSizes";
+import { getParamInfos } from "state/actions/sectionContents";
+import { setZIndices } from "state/actions/sectionPositions";
+import { getHighestAncestor } from "state/actions/sectionSizes";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,

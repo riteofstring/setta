@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   setSectionInfoAttr,
   setSectionSize,
-} from "state/sectionInfos/actions/setters";
+} from "state/actions/setters";
 import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 
 export function SocialTypeSearch({ sectionId }) {

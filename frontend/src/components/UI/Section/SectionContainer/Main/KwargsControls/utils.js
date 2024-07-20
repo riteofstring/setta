@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "state/codeInfo/definition";
-import { getSectionTypeConfig } from "state/sectionInfos/getters";
+import { useCodeInfo } from "state/definitions/codeInfo";
+import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { findAll } from "z_utils/getDescendants";
 
 export function getAllSelectedParams(sectionId) {

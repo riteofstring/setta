@@ -1,6 +1,6 @@
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { insertIntoArray } from "utils/utils";
-import { getSectionInfo, getSectionParentId } from "../getters";
+import { getSectionInfo, getSectionParentId } from "../getters/sectionInfo";
 import { setAllChildren } from "./children";
 import { createChildForSeries } from "./createSectionInfo";
 import { updateManyParamsAndCallables } from "./sectionContents";

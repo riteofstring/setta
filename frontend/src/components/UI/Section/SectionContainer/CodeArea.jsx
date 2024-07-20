@@ -3,8 +3,8 @@ import { python } from "@codemirror/lang-python";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import React from "react";
-import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { setSectionInfoAttr } from "state/actions/setters";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 

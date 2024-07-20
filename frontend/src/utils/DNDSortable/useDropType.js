@@ -2,7 +2,7 @@ import {
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
   getSectionIsRoot,
-} from "state/sectionInfos/getters";
+} from "state/getters/sectionInfo";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";

@@ -1,5 +1,5 @@
-import { useSectionInfos } from "state/sectionInfos/definition";
-import { getSectionType } from "../getters";
+import { useSectionInfos } from "state/definitions/sectionInfos";
+import { getSectionType } from "../getters/sectionInfo";
 
 export function setAllChildren(sectionId, newStateFn) {
   useSectionInfos.getState().setAllChildren({

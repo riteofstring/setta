@@ -7,8 +7,8 @@ import {
   useGetParamSweepNames,
 } from "hooks/useParamSweepInfo";
 import { useState } from "react";
-import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
-import { useSectionInfos } from "state/sectionInfos/definition";
+import { setSectionInfoAttr } from "state/actions/setters";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
