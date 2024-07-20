@@ -6,7 +6,6 @@ import {
 } from "requests/projects";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useNodeInternals } from "state/definitions/nodeInternals";
-import { useNotification } from "state/definitions/notification";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useParamSweep } from "state/definitions/paramSweep";
 import { useProject } from "state/definitions/project";
@@ -23,6 +22,7 @@ import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
 import { ManyUITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
 import { getNodes } from "./nodeInternals";
+import { setNotificationMessage } from "./notification";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
@@ -75,12 +75,11 @@ export function getProjectData(): ProjectSaveType {
 }
 
 export async function saveProject() {
-  const n = useNotification.getState();
-  n.setMessage("Saving...");
+  setNotificationMessage("Saving...");
   const x = assembleProject();
   const res = await dbSaveProject(x);
   if (res.status === 200) {
-    n.setMessage("Saved!");
+    setNotificationMessage("Saved!");
   }
 }
 
