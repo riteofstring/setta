@@ -3,6 +3,7 @@ import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
 import { updateParams } from "thunks/sections/sectionContents";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import {
   computeNewChildrenForLeftPush,
@@ -15,8 +16,21 @@ export function KwargsControls({ sectionId, objInfoId }) {
   const setParamFilter = useSectionParamFilter((x) => x.setFilter);
 
   function onClickAddKwarg() {
-    addKwarg({ sectionId, objInfoId, incrementVersion: true });
+    const { selectedParams } = getAllSelectedParams(sectionId);
+    if (selectedParams.length > 0) {
+      for (const p of selectedParams) {
+        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
+          x.children.includes(p.id),
+        );
+        const insertIdx = parent.children.indexOf(p.id) + 1;
+        addKwarg({ sectionId, parentId: parent.id, insertIdx });
+      }
+      maybeIncrementProjectStateVersion(true);
+    } else {
+      addKwarg({ sectionId, parentId: objInfoId, incrementVersion: true });
+    }
   }
+
   function onClickDeleteKwarg() {
     deleteKwarg({
       sectionId,
