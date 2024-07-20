@@ -1,23 +1,25 @@
+import C from "constants/constants.json";
+import { dbParametersRequest } from "dbRequests/sections";
+import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { varControlUpdate } from "thunks/varControl";
-import { requestParameters } from "thunks/websocket";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
-import { RCType } from "z_utils/types/codeInfo";
 import { isUUID } from "z_utils/utils";
 import { getSectionInfo, getSectionTypeConfig } from "./getters";
 import { updateCallables, updateParams } from "./sectionContents";
 
-export function setSelectedItem(sectionId, selectedItem, changedByUser) {
+export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   let id = selectedItem;
   if (!isUUID(id)) {
     const info = newCodeInfo({
       name: selectedItem,
       editable: false,
-      rcType: RCType.CALLABLE,
+      rcType: C.CALLABLE,
     });
     const { codeInfoId } = getSectionTypeConfig(sectionId);
     useCodeInfo.getState().addCodeInfo({ info, parent: codeInfoId });
@@ -34,11 +36,18 @@ export function setSelectedItem(sectionId, selectedItem, changedByUser) {
   if (isUUID(selectedItem)) {
     setSelectedItemChildren(sectionId, id, changedByUser);
   } else {
-    requestParameters(sectionId, `${selectedItem}(`, (x) => {
-      createChildrenCodeInfo(id, x);
-      setSelectedItemChildren(sectionId, id, changedByUser);
+    const res = await dbParametersRequest({
+      sectionId,
+      fullText: selectedItem,
+      beforeText: "",
+      position: selectedItem.length,
     });
+    createChildrenCodeInfo(id, res);
+    setSelectedItemChildren(sectionId, id, changedByUser);
   }
+  useKeywordRegex
+    .getState()
+    .update(_.mapValues(useSectionInfos.getState().x, (x) => x.name));
 }
 
 function createChildrenCodeInfo(parent, params) {
@@ -46,9 +55,10 @@ function createChildrenCodeInfo(parent, params) {
     const info = newCodeInfo({
       name: p.name,
       editable: false,
-      rcType: RCType.PARAMETER,
+      rcType: C.PARAMETER,
       defaultVal: p.defaultVal,
       description: p.description,
+      positionalOnly: p.positionalOnly,
     });
     useCodeInfo.getState().addCodeInfo({ info, parent });
   }

@@ -1,5 +1,7 @@
+from runcoder.tasks.fns import TaskDefinition
+
 def fn(message):
-    c = message["message"]
+    c = message["content"]
     return {
         "output": [((i - 10) / 5) ** float(c) for i in range(20)],
         "name": "interactive",
@@ -7,4 +9,4 @@ def fn(message):
     }
 
 
-RUNCODER = {"fn": fn, "project": "interactive_example"}
+interactive_example = TaskDefinition(name="interactive_example", fn=fn)

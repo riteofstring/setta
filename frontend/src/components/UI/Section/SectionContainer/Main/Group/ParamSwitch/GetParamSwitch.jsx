@@ -2,7 +2,7 @@ import { matchSorter } from "match-sorter";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { ParamSwitch } from "./ParamSwitch";
 
-export function GetParamSwitch({ sectionId, objInfoId, infos }) {
+export function GetParamSwitch({ sectionId, parentId, infos }) {
   const paramFilter = useSectionParamFilter((x) => x.x[sectionId]);
   const filteredInfos = paramFilter
     ? matchSorter(infos, paramFilter, { keys: ["name"] })
@@ -12,7 +12,7 @@ export function GetParamSwitch({ sectionId, objInfoId, infos }) {
     <ParamSwitch
       key={`${e.name}-${idx}`}
       sectionId={sectionId}
-      objInfoId={objInfoId}
+      parentId={parentId}
       paramInfo={e}
       isKwarg={e.editable}
     />

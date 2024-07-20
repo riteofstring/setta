@@ -10,7 +10,7 @@ import ZoomPane from "../ZoomPane";
 
 export type FlowRendererProps = Omit<
   GraphViewProps,
-  "snapToGrid" | "snapGrid" | "arrowHeadColor" | "selectNodesOnDrag"
+  "arrowHeadColor" | "selectNodesOnDrag"
 > & {
   children: ReactNode;
 };

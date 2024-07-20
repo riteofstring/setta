@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { dbGetBaseUITypes } from "dbRequests/uiTypes";
+import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useExportProjectJson } from "hooks/useGetOrCreateProjects";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
@@ -37,11 +37,8 @@ export function ImportJSONModal() {
 
   async function onClick() {
     const parsed = JSON.parse(value);
-    const res = await dbGetBaseUITypes();
-    if (res.status === 200) {
-      parsed.uiTypes = { ...parsed.uiTypes, ...res.data };
-      loadProjectState(parsed);
-    }
+    parsed.uiTypes = { ...parsed.uiTypes, ...BASE_UI_TYPES };
+    loadProjectState(parsed);
   }
 
   return (
@@ -67,7 +64,7 @@ function TextAreaModal({
   onClick,
 }) {
   return (
-    <div className="flex min-h-[70vh] flex-grow flex-col  ">
+    <div className="flex h-full flex-grow flex-col  ">
       <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-runcoder-400">
         {title}
       </Dialog.Title>

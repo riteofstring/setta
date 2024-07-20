@@ -1,6 +1,5 @@
 rm -rfv frontend/dist && \
 rm -rfv build && \
 rm -rfv dist && \
-rm -rfv python/runcoder.egg-info && \
-rm -rfv python/runcoder/frontend && \
-rm -rf python/runcoder/seed
+rm -rfv backend/runcoder.egg-info && \
+rm -rfv backend/runcoder/static

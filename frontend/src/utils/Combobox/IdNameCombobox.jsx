@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import { idNameHelper, useIdNameCombobox } from "./useIdNameCombobox";
 
@@ -9,10 +10,10 @@ export function IdNameCombobox({
   onSelectedItemChange,
   small,
   position,
-  outerDivClasses,
+  outerDivClasses = "",
   inputCallback,
   onInputMouseDown,
-  isStandardSearch,
+  placeholder,
 }) {
   const {
     localOnSelectedItemChange,
@@ -44,11 +45,19 @@ export function IdNameCombobox({
     onArrowUpOrDown,
   });
 
+  const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
+
+  function onInputClick(e) {
+    const rect = e.target.getBoundingClientRect();
+    const yMargin = -30;
+    setListDims({ x: rect.left, y: rect.bottom + yMargin, width: rect.width });
+  }
+
   return (
     <search
       className={`card-search flex ${
         small ? "h-7" : "h-8"
-      } w-full flex-col items-stretch overflow-visible ${outerDivClasses}`}
+      } w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
     >
       <ComboboxInput
         getInputProps={getInputProps}
@@ -56,13 +65,15 @@ export function IdNameCombobox({
         isOpen={isReallyOpen}
         small={small}
         onInputMouseDown={onInputMouseDown}
-        isStandardSearch={isStandardSearch}
+        onInputClick={onInputClick}
+        placeholder={placeholder}
       />
 
       <ComboboxList
         isOpen={isReallyOpen}
         getMenuProps={getMenuProps}
         position={position}
+        listDims={listDims}
       >
         <ComboboxItems
           filteredItems={filteredItems}

@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
@@ -8,12 +9,11 @@ import { getChildUIType } from "thunks/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
-import { RCType } from "z_utils/types/codeInfo";
 import { ManySectionType } from "z_utils/types/section";
 import { getSectionType, getSectionTypeConfig } from "./getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
-  const { name: parentName } = useSectionInfos.getState().x[parentId];
+  // const { name: parentName } = useSectionInfos.getState().x[parentId];
   const parentUIType = getSectionType(parentId);
   const uiType = getChildUIType(parentUIType, parentId);
   const nonPresetUITypeIds = !uiType.presetType ? [uiType.id] : [];
@@ -21,7 +21,6 @@ export function createChildForSeries({ parentId, numChildren }) {
   return createSectionInfo({
     sectionProps: {
       parentId,
-      parentName,
       uiTypeId: uiType.id,
       nonPresetUITypeIds,
     },
@@ -50,6 +49,7 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
   useParamInfos.getState().initManyEvColIds({
+    dbSource: C.DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.evColId),
   });
 
@@ -83,7 +83,7 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
 function initializeNewSectionConfig(sectionId) {
   const collection = newCodeInfo({
     name: "Contents",
-    rcType: RCType.COLLECTION,
+    rcType: C.COLLECTION,
   });
   useCodeInfo.getState().addCodeInfo({ info: collection });
   setSectionUITypeConfig({

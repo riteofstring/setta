@@ -18,7 +18,6 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
       initialSelection={selectedId}
       onSelectedItemChange={onDropdownSelect}
       position="absolute"
-      isStandardSearch={true}
     />
   );
 }

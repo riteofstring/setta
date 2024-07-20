@@ -13,9 +13,9 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useNotification } from "models/notification";
-import { usePanes } from "models/panes";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
+import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
 import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
@@ -25,6 +25,7 @@ import { isPreset } from "z_utils/uiTypeConstants";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
+  project.previewImgNodes = getPreviewImgNodes();
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = getViewport();
   const children = {};
@@ -32,10 +33,6 @@ export function getProjectData(): ProjectSaveType {
     children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
   }
   projectConfig.children = children;
-  projectConfig.panes = {
-    vis: usePanes.getState().vis,
-    width: usePanes.getState().width,
-  };
 
   const evCols = useParamInfos.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
@@ -69,6 +66,7 @@ export function getProjectData(): ProjectSaveType {
     sections,
     codeInfo,
     projectConfigCodeInfoMaps,
+    dbSourceMapping: DB_SOURCE_MAPPING,
   };
   // console.log(output);
 
@@ -113,4 +111,18 @@ export function assembleUITypes(
   _isPreset: boolean,
 ): ManyUITypeType {
   return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
+}
+
+function getPreviewImgNodes() {
+  const nodes = useNodeInternals
+    .getState()
+    .getNodes()
+    .map((n) => ({
+      x: Math.round(n.position.x),
+      y: Math.round(n.position.y),
+      w: Math.round(n.width),
+      h: Math.round(n.height),
+    }));
+
+  return JSON.stringify(nodes);
 }

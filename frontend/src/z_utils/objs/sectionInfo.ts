@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { DEFAULT_SECTION_UI_TYPE_ID } from "../constants";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";
 import { createVarName, maybeNewId } from "../utils";
@@ -13,8 +13,7 @@ export function newSectionInfo({
   position,
   zIndex = 0,
   parentId = null,
-  chainedFrom = null,
-  uiTypeId = DEFAULT_SECTION_UI_TYPE_ID,
+  uiTypeId = BASE_UI_TYPE_IDS.SECTION,
   evColId,
   uiTypeColId,
   paramSweepId = null,
@@ -31,6 +30,8 @@ export function newSectionInfo({
   code = "",
   codeLanguage = "",
   isFrozen = false,
+  dbSource = "",
+  isHorizontalOrientation = false,
 }: Partial<SectionType> & {
   size: SizeType;
 }): SectionType {
@@ -46,7 +47,6 @@ export function newSectionInfo({
     position,
     zIndex,
     parentId,
-    chainedFrom,
     uiTypeId: maybeNewId(uiTypeId),
     evColId: _evColId,
     uiTypeColId: maybeNewId(uiTypeColId),
@@ -64,5 +64,7 @@ export function newSectionInfo({
     paramSweepSectionId,
     nonPresetUITypeIds,
     isFrozen,
+    dbSource,
+    isHorizontalOrientation,
   };
 }

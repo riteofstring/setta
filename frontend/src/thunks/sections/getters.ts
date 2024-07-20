@@ -1,8 +1,10 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { DECK, INFO, isRoot, OUTPUT, SOCIAL } from "z_utils/constants";
+import { DB_SOURCE_MAPPING } from "utils/constants";
+import { isRoot } from "z_utils/constants";
 import { SectionUITypeConfigType } from "z_utils/types/uiType";
 
 export function getSectionInfo(sectionId) {
@@ -30,16 +32,12 @@ export function getSectionTypeConfig(sectionId) {
   return getSectionType(sectionId).config as SectionUITypeConfigType;
 }
 
-export function getSectionCanHaveNested(sectionId) {
-  return ![OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
-}
-
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
-  return [OUTPUT, INFO, SOCIAL].includes(getSectionType(sectionId).type);
+  return [C.OUTPUT, C.INFO, C.SOCIAL].includes(getSectionType(sectionId).type);
 }
 
 export function getSectionIsDeck(sectionId) {
-  return getSectionType(sectionId).type === DECK;
+  return getSectionType(sectionId).type === C.DECK;
 }
 
 export function getSectionIdsWithUITypeIds(uiTypeIds) {
@@ -68,4 +66,21 @@ export function getSectionSiblingNames(sectionId: string) {
 
 export function getSectionByName(name: string) {
   return _.find(useSectionInfos.getState().x, (x) => x.name === name);
+}
+
+export function getSectionDBSource(sectionId: string) {
+  const { dbSource } = getSectionInfo(sectionId);
+  return dbSource ? dbSource : C.DEFAULT_DB_ALIAS;
+}
+
+export function getMappedSectionDBSource(sectionId: string) {
+  return DB_SOURCE_MAPPING[getSectionDBSource(sectionId)];
+}
+
+export function hasParentInFlattenedStructure(sectionId: string) {
+  let parentId = getSectionParentId(sectionId);
+  while (parentId && getSectionIsDeck(parentId)) {
+    parentId = getSectionParentId(parentId);
+  }
+  return parentId !== null;
 }

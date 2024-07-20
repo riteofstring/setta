@@ -1,5 +1,7 @@
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "thunks/keyActivations";
+import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
 import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
@@ -9,19 +11,15 @@ import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
+  const [showMiniMap] = localStorageFns.showMinimap.hook();
 
   return (
     <GlobalDndContext>
       <SectionsPane />
       <PaneContextMenu />
       <SelectionContextMenu />
-      {/* {nodeCtxMenuDetails.nodeId && (
-        <NodeContextMenu
-          {...nodeCtxMenuDetails}
-          closeContextMenu={closeNodeCtxMenu}
-        />
-      )} */}
-      <ResponsiveMiniMap />
+      <DeckContextMenu />
+      {showMiniMap && <ResponsiveMiniMap />}
       <ResponsiveControls />
     </GlobalDndContext>
   );

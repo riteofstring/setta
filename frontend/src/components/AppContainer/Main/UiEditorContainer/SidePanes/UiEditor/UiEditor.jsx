@@ -1,9 +1,10 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useRequiredUIEditorTabs } from "hooks/useUITypes";
 import { useActiveSection } from "models/activeSection";
-import { usePanes } from "models/panes";
 import {
+  DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   tabNameToPretty,
@@ -12,6 +13,7 @@ import {
 } from "models/uiEditor";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
+import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { UIConfig } from "./UIConfig/UIConfig";
@@ -23,7 +25,7 @@ const paneProps = {
 
 export function UiEditor() {
   const sectionIds = useActiveSection((x) => x.ids);
-  const vis = usePanes((x) => x.vis[paneProps.paneName]);
+  const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
 
   return (
     <PaneContainer paneProps={paneProps} paneTitle="Edit" minimumWidth={425}>
@@ -69,7 +71,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] focus-visible:ring-2 dark:text-runcoder-400 [&[data-state='active']]:border-runcoder-500 [&[data-state='active']]:font-bold"
+      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out]  hover:text-blue-800 focus-visible:ring-2 dark:text-runcoder-400 dark:hover:text-blue-500 [&[data-state='active']]:border-runcoder-500 [&[data-state='active']]:font-bold"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
@@ -125,6 +127,14 @@ function InfoTab({ sectionId }) {
   );
 }
 
+function DBSourcesTab({ sectionId }) {
+  return (
+    <TabContent value={DB_SOURCES_TAB}>
+      <DBSources sectionId={sectionId} />
+    </TabContent>
+  );
+}
+
 // function RuntimeTab({ sectionId }) {
 //   return (
 //     <TabContent value={RUNTIME_CONFIG_TAB}>
@@ -140,6 +150,8 @@ function TabContentSelector({ sectionId, tabName }) {
     return <UIConfigTab sectionId={sectionId} />;
   } else if (tabName === INFO_CONFIG_TAB) {
     return <InfoTab sectionId={sectionId} />;
+  } else if (tabName === DB_SOURCES_TAB) {
+    return <DBSourcesTab sectionId={sectionId} />;
   }
   // else if (tabName === RUNTIME_CONFIG_TAB) {
   //   return <RuntimeTab sectionId={sectionId} />;

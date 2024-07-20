@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useActiveSection } from "models/activeSection";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { usePanes } from "models/panes";
 import { useSectionRefs } from "models/sectionRefs";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
@@ -19,13 +19,14 @@ export const pointToRendererPoint = (
   [tx, ty, tScale]: Transform,
   snapToGrid: boolean,
   [snapX, snapY]: [number, number],
+  ignoreGrid,
 ): XYPosition => {
   const position: XYPosition = {
     x: (x - tx) / tScale,
     y: (y - ty) / tScale,
   };
 
-  if (snapToGrid) {
+  if (!ignoreGrid && snapToGrid) {
     return {
       x: snapX * Math.round(position.x / snapX),
       y: snapY * Math.round(position.y / snapY),
@@ -132,7 +133,7 @@ export const getViewportForBounds = (
   const x =
     width / 2 -
     boundsCenterX * clampedZoom +
-    usePanes.getState().trueWidth.overview;
+    localStorageFns.overviewTrueWidth.state()[0];
   const y = height / 2 - boundsCenterY * clampedZoom;
 
   return { x, y, zoom: clampedZoom };
@@ -145,15 +146,24 @@ export const getD3Transition = (
   return selection.transition().duration(duration);
 };
 
-export function getSectionRect(sectionId) {
+export function getSectionRect(sectionId, ignoreGrid = false) {
   const ref =
     useSectionRefs.getState().selfOnly[sectionId] ??
     useSectionRefs.getState().withNested[sectionId];
   const { clientWidth: width, clientHeight: height } = ref;
   const { x: _x, y: _y } = ref.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition({
-    x: _x,
-    y: _y,
-  });
+  const { x, y } = screenToFlowPosition(
+    {
+      x: _x,
+      y: _y,
+    },
+    ignoreGrid,
+  );
   return { x, y, width, height };
+}
+
+export function getSectionRectWithNested(sectionId) {
+  const ref = useSectionRefs.getState().withNested[sectionId];
+  const { clientWidth: width, clientHeight: height } = ref;
+  return { width, height };
 }

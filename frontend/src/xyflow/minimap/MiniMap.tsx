@@ -4,6 +4,7 @@ import cc from "classcat";
 import { pointer, select } from "d3-selection";
 import type { D3ZoomEvent } from "d3-zoom";
 import { zoom, zoomIdentity } from "d3-zoom";
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useNodeInternals } from "models/info/nodeInternals";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
@@ -17,9 +18,8 @@ import {
 import useVisibleNodes from "xyflow/core/hooks/useVisibleNodes";
 import { useReactFlow } from "xyflow/core/store";
 import { shallow } from "zustand/shallow";
-import MiniMapNodes from "./MiniMapNodes";
+import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
 import type { MiniMapProps } from "./types";
-import { usePanes } from "models/panes";
 
 const defaultWidth = 200;
 const defaultHeight = 150;
@@ -27,7 +27,7 @@ const defaultHeight = 150;
 function getSelector(nodes, overviewWidth) {
   return (s) => {
     const viewBB: Rect = {
-      x: (-s.transform[0]+ overviewWidth) / s.transform[2],
+      x: (-s.transform[0] + overviewWidth) / s.transform[2],
       y: -s.transform[1] / s.transform[2],
       width: s.width / s.transform[2],
       height: s.height / s.transform[2],
@@ -41,6 +41,25 @@ function getSelector(nodes, overviewWidth) {
           : viewBB,
     };
   };
+}
+
+export function getXYWidthHeight({
+  boundingRect,
+  elementHeight,
+  elementWidth,
+  offsetScale,
+}) {
+  const scaledWidth = boundingRect.width / elementWidth;
+  const scaledHeight = boundingRect.height / elementHeight;
+  const viewScale = Math.max(scaledWidth, scaledHeight);
+  const viewWidth = viewScale * elementWidth;
+  const viewHeight = viewScale * elementHeight;
+  const offset = offsetScale * viewScale;
+  const x = boundingRect.x - (viewWidth - boundingRect.width) / 2 - offset;
+  const y = boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset;
+  const width = viewWidth + offset * 2;
+  const height = viewHeight + offset * 2;
+  return { x, y, width, height, viewScale, offset };
 }
 
 function MiniMap({
@@ -66,30 +85,29 @@ function MiniMap({
   zoomStep = 10,
   offsetScale = 5,
 }: MiniMapProps) {
-  const svg = useRef<SVGSVGElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useVisibleNodes();
-  const overviewWidth = usePanes(x=>x.trueWidth.overview)
-  const { boundingRect, viewBB } = useReactFlow(getSelector(nodes, overviewWidth), shallow);
+  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
+  const { boundingRect, viewBB } = useReactFlow(
+    getSelector(nodes, overviewWidth),
+    shallow,
+  );
   const elementWidth = (style?.width as number) ?? defaultWidth;
   const elementHeight = (style?.height as number) ?? defaultHeight;
 
-  const scaledWidth = boundingRect.width / elementWidth;
-  const scaledHeight = boundingRect.height / elementHeight;
-  const viewScale = Math.max(scaledWidth, scaledHeight);
-  const viewWidth = viewScale * elementWidth;
-  const viewHeight = viewScale * elementHeight;
-  const offset = offsetScale * viewScale;
-  const x = boundingRect.x - (viewWidth - boundingRect.width) / 2 - offset;
-  const y = boundingRect.y - (viewHeight - boundingRect.height) / 2 - offset;
-  const width = viewWidth + offset * 2;
-  const height = viewHeight + offset * 2;
+  const { x, y, width, height, viewScale, offset } = getXYWidthHeight({
+    boundingRect,
+    elementHeight,
+    elementWidth,
+    offsetScale,
+  });
   const viewScaleRef = useRef(0);
 
   viewScaleRef.current = viewScale;
 
   useEffect(() => {
-    if (svg.current) {
-      const selection = select(svg.current as Element);
+    if (svgRef.current) {
+      const selection = select(svgRef.current as Element);
 
       const zoomHandler = (event: D3ZoomEvent<SVGSVGElement, any>) => {
         const { transform, d3Selection, d3Zoom } = useReactFlow.getState();
@@ -186,34 +204,29 @@ function MiniMap({
       className={cc(["react-flow__minimap", className])}
       data-testid="rf__minimap"
     >
-      <svg
-        width={elementWidth}
-        height={elementHeight}
-        viewBox={`${x} ${y} ${width} ${height}`}
-        role="img"
-        ref={svg}
-        onClick={onSvgClick}
-      >
-        <MiniMapNodes
-          onClick={onSvgNodeClick}
-          nodeColor={nodeColor}
-          nodeStrokeColor={nodeStrokeColor}
-          nodeBorderRadius={nodeBorderRadius}
-          nodeClassName={nodeClassName}
-          nodeStrokeWidth={nodeStrokeWidth}
-          nodeComponent={nodeComponent}
-        />
-        <path
-          className="react-flow__minimap-mask"
-          d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
-        M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
-          fill={maskColor}
-          fillRule="evenodd"
-          stroke={maskStrokeColor}
-          strokeWidth={maskStrokeWidth}
-          pointerEvents="none"
-        />
-      </svg>
+      <MinimapSvg
+        elementWidth={elementWidth}
+        elementHeight={elementHeight}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        svgRef={svgRef}
+        onSvgClick={onSvgClick}
+        onSvgNodeClick={onSvgNodeClick}
+        nodeColor={nodeColor}
+        nodeStrokeColor={nodeStrokeColor}
+        nodeBorderRadius={nodeBorderRadius}
+        nodeClassName={nodeClassName}
+        nodeStrokeWidth={nodeStrokeWidth}
+        nodeComponent={nodeComponent}
+        offset={offset}
+        viewBB={viewBB}
+        maskColor={maskColor}
+        maskStrokeColor={maskStrokeColor}
+        maskStrokeWidth={maskStrokeWidth}
+        nodes={null}
+      />
     </Panel>
   );
 }
@@ -221,3 +234,66 @@ function MiniMap({
 MiniMap.displayName = "MiniMap";
 
 export default memo(MiniMap);
+
+export function MinimapSvg({
+  elementWidth,
+  elementHeight,
+  x,
+  y,
+  width,
+  height,
+  svgRef,
+  onSvgClick,
+  onSvgNodeClick,
+  nodeColor,
+  nodeStrokeColor,
+  nodeBorderRadius,
+  nodeClassName,
+  nodeStrokeWidth,
+  nodeComponent,
+  offset,
+  viewBB,
+  maskColor,
+  maskStrokeColor,
+  maskStrokeWidth,
+  nodes,
+}) {
+  const minimapNodesProps = {
+    onClick: onSvgNodeClick,
+    nodeColor,
+    nodeStrokeColor,
+    nodeBorderRadius,
+    nodeClassName,
+    nodeStrokeWidth,
+    nodeComponent,
+  };
+
+  return (
+    <svg
+      width={elementWidth}
+      height={elementHeight}
+      viewBox={`${x} ${y} ${width} ${height}`}
+      role="img"
+      ref={svgRef}
+      onClick={onSvgClick}
+    >
+      {nodes ? (
+        <MiniMapNodes nodes={nodes} {...minimapNodesProps} />
+      ) : (
+        <MiniMapNodesReactive {...minimapNodesProps} />
+      )}
+      {viewBB && (
+        <path
+          className="react-flow__minimap-mask"
+          d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
+M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
+          fill={maskColor}
+          fillRule="evenodd"
+          stroke={maskStrokeColor}
+          strokeWidth={maskStrokeWidth}
+          pointerEvents="none"
+        />
+      )}
+    </svg>
+  );
+}

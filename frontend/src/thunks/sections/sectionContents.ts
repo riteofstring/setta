@@ -1,4 +1,5 @@
 import { useCodeInfo } from "models/info/codeInfo";
+import { updateKeywordRegex } from "models/info/keywordRegex";
 import { useSectionToParams } from "models/info/sectionToParams";
 import {
   findAllCallables,
@@ -31,12 +32,19 @@ function computeAllParams(sectionId: string, objInfoId: string) {
 }
 
 export function updateManyParamsAndCallables(sectionIds: string[]) {
-  sectionIds.forEach((x) => updateParamsAndCallables(x));
+  sectionIds.forEach((x) => updateParamsAndCallables(x, false));
+  updateKeywordRegex();
 }
 
-export function updateParamsAndCallables(sectionId: string) {
+export function updateParamsAndCallables(
+  sectionId: string,
+  doUpdateKeywordRegex = true,
+) {
   updateCallables(sectionId);
   updateParams(sectionId);
+  if (doUpdateKeywordRegex) {
+    updateKeywordRegex();
+  }
 }
 
 export function updateCallables(sectionId: string) {

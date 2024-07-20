@@ -1,19 +1,18 @@
+import C from "constants/constants.json";
+import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import {
-  GLOBAL_PARAM_SWEEP,
-  GLOBAL_VARIABLES,
-  isListRoot,
-  VAR_CONTROL,
-} from "z_utils/constants";
+import { isListRoot } from "z_utils/constants";
 import {
   SectionInfoStateType,
   SectionInfoZustandType,
 } from "z_utils/types/section";
 import { createProjectState } from "../utils";
+import { useKeywordRegex } from "./keywordRegex";
 
 const initialState: SectionInfoStateType = {
   x: {},
@@ -115,6 +114,11 @@ export const useSectionInfos = createProjectState(
           set((state) => {
             state.x[sectionId].resizeEvent = resizeEvent;
           }),
+        toggleOrientation: ({ sectionId }) =>
+          set((state) => {
+            state.x[sectionId].isHorizontalOrientation =
+              !state.x[sectionId].isHorizontalOrientation;
+          }),
       })),
     ),
   ),
@@ -141,17 +145,38 @@ function getSingletonSubscriptionFn(type) {
   };
 }
 
-useSectionInfos.subscribe(getSingletonSubscriptionFn(GLOBAL_VARIABLES), (x) => {
-  SINGLETON_SECTIONS.globalVariables = x;
-});
+useSectionInfos.subscribe(
+  getSingletonSubscriptionFn(C.GLOBAL_VARIABLES),
+  (x) => {
+    SINGLETON_SECTIONS.globalVariables = x;
+    useKeywordRegex.getState().updateGlobalVariables(x);
+  },
+);
 
 useSectionInfos.subscribe(
-  getSingletonSubscriptionFn(GLOBAL_PARAM_SWEEP),
+  getSingletonSubscriptionFn(C.GLOBAL_PARAM_SWEEP),
   (x) => {
     SINGLETON_SECTIONS.globalParamSweep = x;
   },
 );
 
-useSectionInfos.subscribe(getSingletonSubscriptionFn(VAR_CONTROL), (x) => {
+useSectionInfos.subscribe(getSingletonSubscriptionFn(C.VAR_CONTROL), (x) => {
   SINGLETON_SECTIONS.varControl = x;
 });
+
+useSectionInfos.subscribe(
+  (state) => _.mapValues(state.x, (v) => v.children),
+  (x) => useDndChildren.getState().reset(x),
+);
+
+useSectionInfos.subscribe(
+  (state) => _.mapValues(state.x, (v) => v.name),
+  (x) => useKeywordRegex.getState().update(x),
+  { equalityFn: _.isEqual },
+);
+
+export function manualDndChildrenReset() {
+  useDndChildren
+    .getState()
+    .reset(_.mapValues(useSectionInfos.getState().x, (v) => v.children));
+}

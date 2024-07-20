@@ -1,5 +1,6 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
 import { useParamSweepInfo } from "hooks/useParamSweepInfo";
+import { useMappedSectionDBSource } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -120,8 +121,8 @@ function ArgItem({
   }
 
   return (
-    <article className="nodrag nowheel card-sweep-group  py-1">
-      <div className="col-start-2 col-end-6 flex items-center">
+    <article className="nodrag nowheel card-sweep-group py-1">
+      <div className="col-start-2 col-end-6 flex min-w-0 items-center">
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
@@ -153,7 +154,7 @@ function ArgItem({
           />
         ))
       ) : (
-        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col rounded-lg bg-runcoder-850 px-4 py-3">
+        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-runcoder-100 px-4 py-3 dark:bg-runcoder-850">
           <p className="col-start-1 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
             Name
           </p>
@@ -161,15 +162,20 @@ function ArgItem({
             Value
           </p>
 
-          <ShowEVCol objInfoId={objInfoId} evColId={evColId} />
+          <ShowEVCol
+            forSectionId={forSectionId}
+            objInfoId={objInfoId}
+            evColId={evColId}
+          />
         </div>
       )}
     </article>
   );
 }
 
-function ShowEVCol({ objInfoId, evColId }) {
-  const evCol = useParamInfos((x) => x.x[evColId]);
+function ShowEVCol({ forSectionId, objInfoId, evColId }) {
+  const dbSource = useMappedSectionDBSource(forSectionId);
+  const evCol = useParamInfos((x) => x.x[dbSource][evColId]);
   const paramsWithValues = useCodeInfo((x) => {
     const output = [];
     for (const c of x.x[objInfoId].children) {
@@ -257,7 +263,7 @@ function ParamCombobox({
       ]}
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
-      isStandardSearch={true}
+      placeholder="Filter & Add Sweep"
     />
   );
 }
@@ -274,14 +280,17 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
+      <article className="card-arg-group group/arg-group group/textinput -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
         <ParamUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}
           value={value}
           onChange={onChange}
           className="nodrag"
+          area="card-value-full"
         />
+        <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
+        <span className="card-value-full border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-800" />
       </article>
     </>
   );

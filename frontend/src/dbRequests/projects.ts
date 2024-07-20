@@ -1,75 +1,68 @@
-import {
-  CREATE_PROJECT,
-  LOAD_PROJECT,
-  PROJECTS,
-  SAVE_AS_EXISTING_PROJECT_CONFIG,
-  SAVE_AS_NEW_PROJECT_CONFIG,
-  SAVE_PROJECT,
-} from "z_utils/routes";
-import { post } from "./utils";
+import C from "constants/constants.json";
+import { post, pseudoTemplatedStr } from "./utils";
 
 export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
   return await post({
     body: { projectId, format: "fileMenu" },
-    address: PROJECTS,
+    address: C.ROUTE_PROJECTS,
   });
 }
 
 export async function dbGetProjectsForHomePage() {
   return await post({
     body: { format: "homePage" },
-    address: PROJECTS,
+    address: C.ROUTE_PROJECTS,
   });
 }
 
 export async function dbLoadProject({ projectName, configName }) {
   return await post({
     body: {},
-    address: LOAD_PROJECT({ projectName, configName }),
+    address: pseudoTemplatedStr(C.ROUTE_LOAD_PROJECT, {
+      projectName,
+      configName,
+    }),
   });
 }
 
-export async function dbLoadFullProject({
-  projectName,
-  withBaseUITypes = false,
-}) {
+export async function dbLoadFullProject({ projectName }) {
   return await post({
-    body: { withBaseUITypes },
-    address: `/projects/load/${projectName}`,
+    body: {},
+    address: pseudoTemplatedStr(C.ROUTE_LOAD_FULL_PROJCT, { projectName }),
   });
 }
 
-export async function dbCreateProject({ name }) {
+export async function dbCreateProject({ name, previewImgColor }) {
   return await post({
-    address: CREATE_PROJECT,
-    body: { name },
+    address: C.ROUTE_CREATE_PROJECT,
+    body: { name, previewImgColor },
   });
 }
 
 export async function dbSaveProject({ project }) {
   return await post({
-    address: SAVE_PROJECT,
+    address: C.ROUTE_SAVE_PROJECT,
     body: { project },
   });
 }
 
 export async function dbSaveAsNewProjectConfig({ project, newConfigName }) {
   return await post({
-    address: SAVE_AS_NEW_PROJECT_CONFIG,
+    address: C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG,
     body: { project, newConfigName },
   });
 }
 
 export async function dbSaveAsExistingProjectConfig({ project, configName }) {
   return await post({
-    address: SAVE_AS_EXISTING_PROJECT_CONFIG,
+    address: C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configName },
   });
 }
 
 export async function dbDeleteProjects({ ids }) {
   return await post({
-    address: "/projects/deleteProjects",
+    address: C.ROUTE_DELETE_PROJECTS,
     body: { ids },
   });
 }

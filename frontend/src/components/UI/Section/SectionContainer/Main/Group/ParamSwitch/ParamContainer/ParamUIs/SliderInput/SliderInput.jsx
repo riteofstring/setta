@@ -77,12 +77,13 @@ export function SliderInput({
   max,
   step,
   isDisabled,
+  area = "card-value",
 }) {
   const valueNum = _.toNumber(value);
 
   return (
     <Slider.Root
-      className="data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-40 touch-none select-none items-center data-[orientation='horizontal']:h-5"
+      className={`${area} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-40 touch-none select-none items-center data-[orientation='horizontal']:h-5`}
       aria-label="slider"
       value={[valueNum]}
       defaultValue={[defaultVal]}

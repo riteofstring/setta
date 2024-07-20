@@ -1,39 +1,45 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ShortcutSettings } from "./ShortcutSettings";
+import { SimpleSettings } from "./SimpleSettings";
 
 export function Settings() {
-  const initialSettings = [
-    { name: "Setting1", value: "" },
-    { name: "Setting2", value: "" },
-    // Add more settings as needed
-  ];
-
-  const [settings, setSettings] = useState(initialSettings);
-
-  const handleInputChange = (index, newValue) => {
-    const newSettings = settings.map((setting, i) => {
-      if (i === index) {
-        return { ...setting, value: newValue };
-      }
-      return setting;
-    });
-    setSettings(newSettings);
-  };
-
+  const goBackOrToHome = useGoBackOrToHome();
   return (
-    <div className="mt-10 flex justify-center">
-      <div>
-        {settings.map((setting, index) => (
-          <div key={index} className="mb-4 flex items-center">
-            <label className="mr-2 text-white">{setting.name}</label>
-            <input
-              type="text"
-              value={setting.value}
-              onChange={(e) => handleInputChange(index, e.target.value)}
-              className="rounded bg-gray-800 p-2 text-white"
-            />
-          </div>
-        ))}
-      </div>
+    <div className="h-dvh w-dvw overflow-y-scroll">
+      <section className="mx-auto flex w-[clamp(200px,_50vw,_800px)] flex-col pb-24">
+        <header className="flex justify-between pb-4 pt-4">
+          <h1 className=" font-heading text-3xl font-bold text-runcoder-700 dark:text-runcoder-600">
+            Settings
+          </h1>
+          <button
+            onClick={goBackOrToHome}
+            className="flex-start flex cursor-pointer items-center rounded-xl border border-solid border-runcoder-400 border-transparent py-1 pl-1 pr-4 text-runcoder-600 hover:bg-runcoder-200 dark:border-runcoder-800 dark:text-runcoder-300 dark:hover:bg-runcoder-700"
+          >
+            <i className="gg-arrow-left" />
+            <p className="text-lg font-bold">Back</p>
+          </button>
+        </header>
+
+        <h2 className="pb-4 pt-4 font-heading text-xl font-bold text-runcoder-600 dark:text-runcoder-600">
+          General
+        </h2>
+        <SimpleSettings />
+        <h2 className="pb-4 pt-8 font-heading text-xl font-bold text-runcoder-600 dark:text-runcoder-600">
+          Keyboard Shortcuts
+        </h2>
+        <ShortcutSettings />
+      </section>
     </div>
   );
+}
+
+function useGoBackOrToHome() {
+  const navigate = useNavigate();
+  return () => {
+    if (window.history?.length && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
 }

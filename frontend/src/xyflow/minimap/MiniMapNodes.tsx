@@ -3,7 +3,7 @@
 import { useNodeInternals } from "models/info/nodeInternals";
 import { memo } from "react";
 import MiniMapNode from "./MiniMapNode";
-import type { GetMiniMapNodeAttribute, MiniMapNodes } from "./types";
+import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
 declare const window: any;
 
@@ -12,7 +12,15 @@ const selectorNodes = (s) =>
 const getAttrFunction = (func: any): GetMiniMapNodeAttribute =>
   func instanceof Function ? func : () => func;
 
-function MiniMapNodes({
+function _MiniMapNodesReactive(props: MiniMapNodesType) {
+  const nodes = useNodeInternals(selectorNodes);
+  return <MiniMapNodes nodes={nodes} {...props} />;
+}
+
+export const MiniMapNodesReactive = memo(_MiniMapNodesReactive);
+
+function _MiniMapNodes({
+  nodes,
   nodeStrokeColor = "transparent",
   nodeColor = "#e2e2e2",
   nodeClassName = "",
@@ -22,8 +30,7 @@ function MiniMapNodes({
   // a component properly.
   nodeComponent: NodeComponent = MiniMapNode,
   onClick,
-}: MiniMapNodes) {
-  const nodes = useNodeInternals(selectorNodes);
+}: MiniMapNodesType) {
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
@@ -35,12 +42,12 @@ function MiniMapNodes({
 
   return (
     <>
-      {nodes.map((node) => {
+      {nodes.map((node, idx) => {
         const { x, y } = node.position;
 
         return (
           <NodeComponent
-            key={node.id}
+            key={`${node.id ?? idx}`}
             x={x}
             y={y}
             width={node.width!}
@@ -62,4 +69,4 @@ function MiniMapNodes({
   );
 }
 
-export default memo(MiniMapNodes);
+export const MiniMapNodes = memo(_MiniMapNodes);

@@ -1,12 +1,11 @@
+import { localStorageFns } from "hooks/localStorageHooks";
 import { useActiveSection } from "models/activeSection";
-import { usePanes } from "models/panes";
-import { OVERVIEW } from "utils/constants";
 import { setCenter } from "xyflow/core/hooks/useViewportHelper";
 import { getSectionRect } from "xyflow/core/utils/graph";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function goToSection(sectionId: string) {
-  const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
+  const [overviewWidth] = localStorageFns.overviewTrueWidth.state();
   const { x, y, width, height } = getSectionRect(sectionId);
   const newX = x + width / 2 - overviewWidth;
   const newY = y + height / 2 + 100;

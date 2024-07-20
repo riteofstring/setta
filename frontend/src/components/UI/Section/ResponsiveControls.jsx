@@ -1,16 +1,18 @@
+import { localStorageFns } from "hooks/localStorageHooks";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
-import { usePanes } from "models/panes";
 import { useSettings } from "models/settings";
 import potpack from "potpack";
+import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
-import { OVERVIEW } from "utils/constants";
+import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
+import { toggleMiniMap } from "thunks/user/settings";
 import { ControlButton, Controls } from "xyflow/controls";
 import "xyflow/controls/style.css";
+import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
 
 export function ResponsiveControls() {
-  const overviewWidth = usePanes((x) => x.trueWidth[OVERVIEW]);
-  const darkMode = useSettings((x) => x.darkMode);
+  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
 
   function onClickLayout() {
     const margin = 50;
@@ -47,6 +49,17 @@ export function ResponsiveControls() {
     >
       <ControlButton onClick={onClickLayout}>
         <RiLayoutFill />
+      </ControlButton>
+      <ControlButton
+        onClick={() => useSettings.getState().toggleSetting("snapToGrid")}
+      >
+        <TbGrid4X4 />
+      </ControlButton>
+      <ControlButton onClick={resetZoom}>
+        <TbZoomReset />
+      </ControlButton>
+      <ControlButton onClick={toggleMiniMap}>
+        <IoMapOutline />
       </ControlButton>
     </Controls>
   );

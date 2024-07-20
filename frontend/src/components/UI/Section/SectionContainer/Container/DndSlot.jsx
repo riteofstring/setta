@@ -2,23 +2,14 @@ import { RiDragDropFill } from "react-icons/ri";
 import {
   BehaviorDropType,
   behaviorToPretty,
-  PositionDropType,
 } from "utils/DNDSortable/dropTypes";
 
-export function DndSlot({
-  positionDropType,
-  behaviorDropType,
-  children,
-  isDeck,
-}) {
+export function DndSlot({ behaviorDropType, children, isDeck }) {
   const text = behaviorToPretty[behaviorDropType];
 
   return (
     <>
-      {positionDropType === PositionDropType.ABOVE && (
-        <DndSlotTop text={text} behaviorDropType={behaviorDropType} />
-      )}
-      {positionDropType === PositionDropType.INTO && (
+      {behaviorDropType && (
         <DndSlotMiddle
           text={text}
           behaviorDropType={behaviorDropType}
@@ -26,9 +17,6 @@ export function DndSlot({
         />
       )}
       {children}
-      {positionDropType === PositionDropType.BELOW && (
-        <DndSlotBottom text={text} behaviorDropType={behaviorDropType} />
-      )}
     </>
   );
 }
@@ -45,26 +33,6 @@ function DndSlotMiddle({ text, behaviorDropType, isDeck }) {
         behaviorDropType={behaviorDropType}
         isDeck={isDeck}
       />
-    </div>
-  );
-}
-
-function DndSlotTop({ text, behaviorDropType }) {
-  return (
-    <div className="relative z-20 flex w-full justify-center">
-      <div className="absolute -bottom-5 flex justify-center">
-        <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
-      </div>
-    </div>
-  );
-}
-
-function DndSlotBottom({ text, behaviorDropType }) {
-  return (
-    <div className="relative z-20 flex w-full justify-center">
-      <div className="absolute -bottom-5 flex justify-center">
-        <DndSlotInner text={text} behaviorDropType={behaviorDropType} />
-      </div>
     </div>
   );
 }

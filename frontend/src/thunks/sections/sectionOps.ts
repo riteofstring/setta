@@ -1,3 +1,5 @@
+import C from "constants/constants.json";
+import { dbDeleteTerminals } from "dbRequests/terminals";
 import { useActiveSection } from "models/activeSection";
 import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
@@ -6,7 +8,7 @@ import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
-import { DECK, isRoot, rootTypeToChildSubType } from "z_utils/constants";
+import { isRoot, rootTypeToChildSubType } from "z_utils/constants";
 import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
@@ -15,7 +17,6 @@ import { setAllChildren } from "./children";
 import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
-import { dbDeleteTerminals } from "dbRequests/terminals";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];
@@ -26,7 +27,7 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
   useActiveSection.getState().removeIds(idsToDelete);
   useSectionInfos.getState().removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
-  dbDeleteTerminals(idsToDelete) // delete any terminals associated with the sections
+  dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }
@@ -152,7 +153,7 @@ function setSectionSize({ newParentId, sectionId }) {
     return;
   }
   const s = useSectionInfos.getState();
-  const isDeck = getSectionType(newParentId).type === DECK;
+  const isDeck = getSectionType(newParentId).type === C.DECK;
 
   // if new parent is a deck and the deck has children
   if (isDeck) {

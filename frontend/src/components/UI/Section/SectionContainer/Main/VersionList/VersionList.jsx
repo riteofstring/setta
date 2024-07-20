@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { useGetEVColNames } from "hooks/useEnteredValue";
 import {
   getForSectionId,
@@ -11,7 +12,6 @@ import { useState } from "react";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
-import { PARAM_SWEEP } from "z_utils/constants";
 
 export function VersionList({ sectionId, sectionTypeName }) {
   function onMouseLeave() {
@@ -28,11 +28,11 @@ export function VersionList({ sectionId, sectionTypeName }) {
   return (
     <ResizableVersionsList sectionId={sectionId} numListings={numListings}>
       <section
-        className="version-section -my-4 flex-1 self-stretch pb-8 pt-9"
+        className="version-section -my-4 flex-1 self-stretch pb-8 pt-6"
         onMouseLeave={onMouseLeave}
       >
         <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
-          {sectionTypeName === PARAM_SWEEP ? (
+          {sectionTypeName === C.PARAM_SWEEP ? (
             <ParamSweepItems
               sectionId={sectionId}
               setNumListings={setNumListings}

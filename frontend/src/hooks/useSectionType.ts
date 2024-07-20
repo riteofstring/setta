@@ -1,15 +1,8 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import {
-  DECK,
-  GLOBAL_VARIABLES,
-  isRoot,
-  isSeriesElement,
-  OUTPUT,
-  SOCIAL,
-  TERMINAL,
-} from "z_utils/constants";
+import { isRoot, isSeriesElement } from "z_utils/constants";
 import {
   SectionUITypeConfigType,
   SectionUITypeType,
@@ -75,11 +68,11 @@ export function useIsRoot(sectionId: string) {
 }
 
 export function useIsDeck(sectionId: string) {
-  return useIsType(sectionId, DECK);
+  return useIsType(sectionId, C.DECK);
 }
 
 export function useIsOutput(sectionId: string) {
-  return useIsType(sectionId, OUTPUT);
+  return useIsType(sectionId, C.OUTPUT);
 }
 
 // export function useIsInfo(sectionId: string) {
@@ -87,11 +80,11 @@ export function useIsOutput(sectionId: string) {
 // }
 
 export function useIsSocial(sectionId: string) {
-  return useIsType(sectionId, SOCIAL);
+  return useIsType(sectionId, C.SOCIAL);
 }
 
 export function useIsGlobalVariables(sectionId: string) {
-  return useIsType(sectionId, GLOBAL_VARIABLES);
+  return useIsType(sectionId, C.GLOBAL_VARIABLES);
 }
 
 // export function useIsCode(sectionId: string) {
@@ -103,5 +96,5 @@ export function useIsGlobalVariables(sectionId: string) {
 // }
 
 export function useIsTerminal(sectionId: string) {
-  return useIsType(sectionId, TERMINAL);
+  return useIsType(sectionId, C.TERMINAL);
 }

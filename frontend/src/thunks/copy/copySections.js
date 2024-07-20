@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useNodeInternals } from "models/info/nodeInternals";
@@ -5,7 +6,6 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { findAll } from "z_utils/getDescendants";
-import { RCType } from "z_utils/types/codeInfo";
 import { getSectionTypeConfig } from "../sections/getters";
 
 export function copySections(sectionIds) {
@@ -47,8 +47,8 @@ function getCodeInfo(sections) {
         ...codeInfos.filter(
           (x) =>
             x.isSelected ||
-            x.rcType === RCType.CALLABLE ||
-            x.rcType === RCType.COLLECTION ||
+            x.rcType === C.CALLABLE ||
+            x.rcType === C.COLLECTION ||
             sectionCodeInfoIds.includes(x.id),
         ),
       );

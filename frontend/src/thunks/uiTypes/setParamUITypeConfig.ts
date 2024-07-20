@@ -1,10 +1,13 @@
+import C from "constants/constants.json";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getSectionInfo } from "thunks/sections/getters";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "thunks/sections/getters";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
-import { SLIDER } from "z_utils/constants";
 import { getValueForUIType } from "z_utils/objs/ev";
 import { getParamUIType } from "../paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
@@ -73,7 +76,7 @@ function createNonPresetForParam({
 
 function updateEVs(uiTypeId, configName) {
   const uiType = useUITypes.getState().x[uiTypeId];
-  if (uiType.type === SLIDER && ["min", "max"].includes(configName)) {
+  if (uiType.type === C.SLIDER && ["min", "max"].includes(configName)) {
     _updateEVs(uiType);
   }
 }
@@ -93,6 +96,7 @@ function _updateEVs(uiType) {
 
     for (const s of Object.values(useSectionInfos.getState().x)) {
       if (s.uiTypeColId === colId) {
+        const dbSource = getMappedSectionDBSource(s.id);
         for (const [pid, currValue] of Object.entries(
           pState.x[s.evColId].values,
         )) {
@@ -100,6 +104,7 @@ function _updateEVs(uiType) {
             const newVal = getValueForUIType({ uiType, currValue });
             if (newVal !== currValue) {
               pState.setEnteredValue({
+                dbSource,
                 collectionId: s.evColId,
                 paramInfoId: pid,
                 value: newVal,

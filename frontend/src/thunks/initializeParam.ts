@@ -4,13 +4,13 @@ import { useUserCodeInfoMaps } from "models/codeInfoMaps/userCodeInfoMaps";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { DEFAULT_BASE_UI_TYPE_ID } from "z_utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "z_utils/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
 import { UITypeType } from "z_utils/types/uiType";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { ManyOf } from "z_utils/types/utils";
-import { getSectionInfo } from "./sections/getters";
+import { getMappedSectionDBSource, getSectionInfo } from "./sections/getters";
 
 export function initializeChildParams({
   sectionIds,
@@ -23,6 +23,7 @@ export function initializeChildParams({
   childFinder: any;
   inputParamIdToUITypeId: any;
 }) {
+  console.log("initializeChildParams");
   const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
     initializeParam(s, params, inputParamIdToUITypeId);
@@ -49,7 +50,8 @@ function initializeParamEnteredValue(
   paramIdToUITypeId: { [id: string]: string },
 ) {
   const { evColId } = getSectionInfo(sectionId);
-  const evCol = useParamInfos.getState().x[evColId];
+  const dbSource = getMappedSectionDBSource(sectionId);
+  const evCol = useParamInfos.getState().x[dbSource][evColId];
   const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
 
   const uiTypeState = useUITypes.getState();
@@ -61,6 +63,7 @@ function initializeParamEnteredValue(
   }
 
   useParamInfos.getState().initManyEnteredValues({
+    dbSource: getMappedSectionDBSource(sectionId),
     collectionId: evColId,
     paramIdsToUITypes,
   });
@@ -125,7 +128,7 @@ function initializeParamUIType(
       } else if (userDefaultUIType) {
         newId = userDefaultUIType.id;
       } else {
-        newId = DEFAULT_BASE_UI_TYPE_ID;
+        newId = BASE_UI_TYPE_IDS.TEXT;
       }
       newIds[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
       paramIdToUITypeId[paramId] = newId;

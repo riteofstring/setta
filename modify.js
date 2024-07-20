@@ -9,21 +9,11 @@ async function loadAndModifyJson(filePath) {
     // Check if json contains 'configs' and it's an array
     if (json.configs && Array.isArray(json.configs)) {
       json.configs.forEach(config => {
-        if (config.projectConfig && config.projectConfig.children && config.sections) {
-          // Transform 'children' into a list of ids
-          const childrenIds = Object.keys(config.projectConfig.children);
-          const newChildren = childrenIds.map(id => id);
-
-          // Move x, y, zIndex to 'sections'
-          childrenIds.forEach(id => {
-            const { x, y, zIndex } = config.projectConfig.children[id];
-            if (!config.sections[id]) config.sections[id] = {};
-            config.sections[id].position = {x,y}
-            config.sections[id].zIndex = zIndex
-          });
-
-          // Update 'children' to the new list of ids
-          config.projectConfig.children = newChildren;
+        if (config.codeInfo) {
+          for (const [k,v] of Object.entries(config.codeInfo)){
+            v.positionalOnly = false
+            config.codeInfo[k] = v
+          }
         }
       });
     }

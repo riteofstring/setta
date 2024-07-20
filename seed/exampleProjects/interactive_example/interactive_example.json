@@ -2,6 +2,8 @@
   "id": "eea98f45-6e8d-4cd5-87c8-5ef9d6326d19",
   "name": "interactive_example",
   "defaultConfigId": "03a28f24-e773-43a3-a1cf-da0fe7c1b8f9",
+  "previewImgNodes": "[{\"x\":1164,\"y\":189,\"w\":201,\"h\":301},{\"x\":550,\"y\":189,\"w\":224,\"h\":143}]",
+  "previewImgColor": "bg-yellow-500/60 dark:bg-yellow-600/30",
   "configs": [
     {
       "projectConfig": {
@@ -23,10 +25,6 @@
             "y": 188.70833206176758,
             "zIndex": 1
           }
-        },
-        "panes": {
-          "vis": { "overview": true, "uiEditor": false },
-          "width": { "overview": 300, "uiEditor": 500 }
         }
       },
       "sections": {
@@ -44,7 +42,6 @@
           "codeLanguage": "",
           "nonPresetUITypeIds": ["0ea28d59-81d3-446f-a0c2-1c3813f60112"],
           "evColIds": ["0723f95a-e74c-4c1e-9aea-2eacad673293"],
-          "chainedFrom": null,
           "selectedItem": null,
           "outputGroup": null,
           "children": [],
@@ -72,7 +69,6 @@
           "codeLanguage": "",
           "nonPresetUITypeIds": ["9f52ec07-9bed-4a6d-ab95-c9dd6a003260"],
           "evColIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
-          "chainedFrom": null,
           "selectedItem": null,
           "outputGroup": null,
           "children": [],
@@ -88,15 +84,17 @@
         }
       },
       "evCols": {
-        "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
-          "name": "acceptable_purple",
-          "values": {
-            "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
+        "default": {
+          "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
+            "name": "acceptable_purple",
+            "values": {
+              "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
+            }
+          },
+          "0723f95a-e74c-4c1e-9aea-2eacad673293": {
+            "name": "intensive_ivory",
+            "values": {}
           }
-        },
-        "0723f95a-e74c-4c1e-9aea-2eacad673293": {
-          "name": "intensive_ivory",
-          "values": {}
         }
       },
       "uiTypes": {
@@ -154,7 +152,8 @@
           "description": "",
           "isPinned": false,
           "isFrozen": false,
-          "isSelected": false
+          "isSelected": false,
+          "positionalOnly": false
         },
         "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
           "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -166,7 +165,8 @@
           "description": "",
           "isPinned": false,
           "isFrozen": false,
-          "isSelected": false
+          "isSelected": false,
+          "positionalOnly": false
         },
         "9193e5d1-544b-4490-99ee-f7ba34a0ed80": {
           "id": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
@@ -178,7 +178,8 @@
           "description": "",
           "isPinned": false,
           "isFrozen": false,
-          "isSelected": false
+          "isSelected": false,
+          "positionalOnly": false
         }
       },
       "userCodeInfoMaps": {},
@@ -186,7 +187,11 @@
       "outputGroups": {},
       "outputs": {},
       "paramSweeps": {},
-      "runGroups": {}
+      "runGroups": {},
+      "dbSourceMapping": {
+        "default": "default",
+        "settings": "default"
+      }
     }
   ]
 }

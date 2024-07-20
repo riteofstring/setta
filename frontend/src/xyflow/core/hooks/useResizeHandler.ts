@@ -1,4 +1,4 @@
-import { usePanes } from "models/panes";
+import { localStorageFns } from "hooks/localStorageHooks";
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
 import { useReactFlow } from "../store";
@@ -7,8 +7,8 @@ import { devWarn, getDimensions } from "../utils";
 function useResizeHandler(
   rendererNode: MutableRefObject<HTMLDivElement | null>,
 ): void {
-  const overviewWidth = usePanes((x) => x.trueWidth.overview);
-  const uiEditorWidth = usePanes((x) => x.trueWidth.uiEditor);
+  const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
+  const [uiEditorWidth] = localStorageFns.uiEditorTrueWidth.hook();
 
   useEffect(() => {
     let resizeObserver: ResizeObserver;

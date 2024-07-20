@@ -6,6 +6,7 @@ export const StandardSearch = React.forwardRef(
       placeholder = "Search",
       twClasses = "",
       outerClasses = "",
+      noLeftElement = false,
       leftElement = false,
       leftElementStyles,
       rightElement = false,
@@ -16,15 +17,19 @@ export const StandardSearch = React.forwardRef(
     },
     ref,
   ) => {
-    const classes = `w-full flex-grow outline-0 cursor-auto ${twClasses}`;
+    const classes = ` flex-grow outline-0 cursor-auto min-w-0 ${twClasses}`;
 
     return (
       <MaybeForm onFormSubmit={onFormSubmit} outerClasses={outerClasses}>
-        <div
-          className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
-        >
-          {leftElement || <i className="gg-search" />}
-        </div>
+        {!noLeftElement && (
+          <div
+            className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
+          >
+            {leftElement || (
+              <i className="gg-sort-az ml-[.4rem] !scale-75 text-runcoder-300 dark:text-runcoder-600" />
+            )}
+          </div>
+        )}
         <input
           className={inputStyles || classes}
           placeholder={placeholder}
@@ -33,7 +38,11 @@ export const StandardSearch = React.forwardRef(
           tabIndex="0"
           onChange={onChange}
         />
-        {rightElement}
+        <div
+          className={`absolute right-0 grid select-none place-items-center ${leftElementStyles}`}
+        >
+          {rightElement}
+        </div>
       </MaybeForm>
     );
   },
