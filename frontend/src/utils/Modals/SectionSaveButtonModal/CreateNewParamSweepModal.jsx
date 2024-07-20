@@ -2,7 +2,7 @@ import { getForSectionId } from "hooks/useParamSweepInfo";
 import { useModal } from "models/modal";
 import { useParamSweep } from "models/paramSweep";
 import { useSectionInfos } from "state/sectionInfos/definition";
-import { setSectionInfoAttr } from "thunks/sections/setters";
+import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { createNewId } from "z_utils/utils";
 

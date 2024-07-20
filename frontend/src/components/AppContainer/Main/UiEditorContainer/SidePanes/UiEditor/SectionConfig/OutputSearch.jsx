@@ -5,7 +5,7 @@ import {
   setSectionInfoAttr,
   setSectionName,
   setSectionSize,
-} from "thunks/sections/setters";
+} from "state/sectionInfos/actions/setters";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { Expandable } from "./Expandable";

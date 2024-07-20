@@ -1,7 +1,7 @@
 import { useCodeInfo } from "models/info/codeInfo";
 import { useIdWaitingForLSPResult } from "models/lsp";
 import { useState } from "react";
-import { setSelectedItem } from "thunks/sections/setters";
+import { setSelectedItem } from "state/sectionInfos/actions/setters";
 import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
 
 export function SectionSearch({ sectionId, initialSelection }) {

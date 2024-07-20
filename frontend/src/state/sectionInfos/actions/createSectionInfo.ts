@@ -13,7 +13,7 @@ import { ManySectionType } from "z_utils/types/section";
 import {
   getSectionType,
   getSectionTypeConfig,
-} from "../../state/sectionInfos/getters";
+} from "../getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
   // const { name: parentName } = useSectionInfos.getState().x[parentId];

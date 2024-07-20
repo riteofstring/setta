@@ -1,8 +1,8 @@
 import {
   getSectionInfo,
   getSectionParentId,
-} from "../../state/sectionInfos/getters";
-import { deleteSections } from "./sectionOps";
+} from "../getters";
+import { deleteSections } from "../../../thunks/sections/sectionOps";
 
 export function deleteChildrenFromSeries({
   isRoot,

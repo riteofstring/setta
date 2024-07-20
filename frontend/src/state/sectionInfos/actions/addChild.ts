@@ -3,10 +3,10 @@ import { insertIntoArray } from "utils/utils";
 import {
   getSectionInfo,
   getSectionParentId,
-} from "../../state/sectionInfos/getters";
+} from "../getters";
 import { setAllChildren } from "./children";
 import { createChildForSeries } from "./createSectionInfo";
-import { updateManyParamsAndCallables } from "./sectionContents";
+import { updateManyParamsAndCallables } from "../../../thunks/sections/sectionContents";
 
 export function addChildrenToSeries({
   isRoot,

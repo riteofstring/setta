@@ -1,4 +1,4 @@
-import { setSectionInfoAttr } from "thunks/sections/setters";
+import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 
 export function setSectionVersionsHeight({ sectionId, height }) {
   setSectionInfoAttr({

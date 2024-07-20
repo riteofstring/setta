@@ -1,5 +1,5 @@
 import { useNodeInternals } from "models/info/nodeInternals";
-import { createSectionInfo } from "thunks/sections/createSectionInfo";
+import { createSectionInfo } from "state/sectionInfos/actions/createSectionInfo";
 
 export function creatAdjacentSection(sectionId, sectionProps) {
   const { position: sectionPosition, width: sectionWidth } = useNodeInternals

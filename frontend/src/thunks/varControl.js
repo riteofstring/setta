@@ -6,7 +6,7 @@ import { useSectionToParams } from "models/info/sectionToParams";
 import { useSectionInfos } from "state/sectionInfos/definition";
 import { getSectionByName, getSectionType } from "state/sectionInfos/getters";
 import { setParamEnteredValue } from "thunks/paramInfos";
-import { setSelectedItem } from "thunks/sections/setters";
+import { setSelectedItem } from "state/sectionInfos/actions/setters";
 
 export function varControlUpdate() {
   const js_code = getVarControlSection()?.varControl;

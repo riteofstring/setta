@@ -1,5 +1,5 @@
 import { localStorageFns } from "hooks/localStorageHooks";
-import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
+import { addSectionAtPosition } from "state/sectionInfos/actions/addSectionAtPosition";
 import { useReactFlow } from "xyflow/core/store";
 
 export function addSectionInEmptySpace({

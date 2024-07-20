@@ -3,7 +3,7 @@ import { justMoveANode } from "models/info/nodeInternals";
 import { useRef } from "react";
 import { manualDndChildrenReset } from "state/sectionInfos/definition";
 import { getSectionParentId } from "state/sectionInfos/getters";
-import { setAllChildren } from "thunks/sections/children";
+import { setAllChildren } from "state/sectionInfos/actions/children";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";

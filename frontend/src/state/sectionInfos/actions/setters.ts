@@ -13,8 +13,8 @@ import { isUUID } from "z_utils/utils";
 import {
   getSectionInfo,
   getSectionTypeConfig,
-} from "../../state/sectionInfos/getters";
-import { updateCallables, updateParams } from "./sectionContents";
+} from "../getters";
+import { updateCallables, updateParams } from "../../../thunks/sections/sectionContents";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   let id = selectedItem;

@@ -7,7 +7,7 @@ import { useUITypes } from "models/info/uiTypes";
 import { useSectionInfos } from "state/sectionInfos/definition";
 import { getSectionTypeConfig } from "state/sectionInfos/getters";
 import { initializeChildParams } from "thunks/initializeParam";
-import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
+import { addSectionAtPosition } from "state/sectionInfos/actions/addSectionAtPosition";
 import {
   updateManyParamsAndCallables,
   updateParams,
