@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { StandardInput } from "utils/atoms/input/StandardInput";
 
-export function ParamNameInput({ value, onBlur, hasChildren }) {
+export function ParamNameInput({ value, onBlur, hasChildren, onClick }) {
   const [liveValue, setLiveValue] = useState(value);
 
   useEffect(() => {
@@ -15,6 +15,7 @@ export function ParamNameInput({ value, onBlur, hasChildren }) {
       value={liveValue}
       onChange={(v) => setLiveValue(v.target.value)}
       onBlur={(v) => onBlur(v.target.value)}
+      onClick={onClick}
     />
   );
 }

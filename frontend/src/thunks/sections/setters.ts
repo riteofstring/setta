@@ -1,6 +1,8 @@
 import C from "constants/constants.json";
 import { dbParametersRequest } from "dbRequests/sections";
+import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { useKeywordRegex } from "models/info/keywordRegex";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
@@ -43,6 +45,9 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
     createChildrenCodeInfo(id, res);
     setSelectedItemChildren(sectionId, id, changedByUser);
   }
+  useKeywordRegex
+    .getState()
+    .update(_.mapValues(useSectionInfos.getState().x, (x) => x.name));
 }
 
 function createChildrenCodeInfo(parent, params) {
@@ -53,6 +58,7 @@ function createChildrenCodeInfo(parent, params) {
       rcType: C.PARAMETER,
       defaultVal: p.defaultVal,
       description: p.description,
+      positionalOnly: p.positionalOnly,
     });
     useCodeInfo.getState().addCodeInfo({ info, parent });
   }

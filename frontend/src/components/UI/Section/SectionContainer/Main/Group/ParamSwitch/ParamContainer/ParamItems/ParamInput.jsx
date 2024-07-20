@@ -5,6 +5,7 @@ import { useGetParamUIType } from "hooks/useParamUIType";
 import _ from "lodash";
 import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";
+import { useIdWaitingForLSPResult } from "models/lsp";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -73,10 +74,19 @@ export function ParamInput({
       />
       {isText && (
         <>
-          <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
+          <LoadingSpinner sectionId={sectionId} paramInfoId={paramInfoId} />
           <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
         </>
       )}
     </div>
+  );
+}
+
+function LoadingSpinner({ sectionId, paramInfoId }) {
+  const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
+  return (
+    waitingForResult && (
+      <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
+    )
   );
 }

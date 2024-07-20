@@ -27,7 +27,7 @@ export function ComboboxInput({
         onMouseDown: onInputMouseDown,
         onClick: onInputClick,
       })}
-      rightElement={<i className="gg-spinner mr-1 text-blue-500/70" />}
+      // rightElement={<i className="gg-spinner mr-1 text-blue-500/70" />}
       // rightElement={
       //   <StandardSearchRightBtn
       //     {...getToggleButtonProps()}

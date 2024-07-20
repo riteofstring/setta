@@ -20,8 +20,13 @@ def get_import_text(code):
     return "\n".join(imports)
 
 
-def get_mappings(var_names, selected, is_dict):
-    mappings = [var_declaration(selected[v]["name"], v, is_dict) for v in var_names]
+def get_mappings(var_names, selected, is_dict, positionalOnlyParams=None):
+    mappings = [
+        v
+        if not is_dict and v in positionalOnlyParams
+        else var_declaration(selected[v]["name"], v, is_dict)
+        for v in var_names
+    ]
     return ", ".join(mappings)
 
 
@@ -29,8 +34,10 @@ def get_dict_contents(var_names, selected):
     return get_mappings(var_names, selected, is_dict=True)
 
 
-def get_callable_params(var_names, selected):
-    return get_mappings(var_names, selected, is_dict=False)
+def get_callable_params(var_names, positionalOnlyParams, selected):
+    return get_mappings(
+        var_names, selected, is_dict=False, positionalOnlyParams=positionalOnlyParams
+    )
 
 
 def get_boolean(value):
@@ -56,10 +63,10 @@ def get_value(x, selected):
         if not x["value"]["callable"]:
             return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:
-            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], selected)})"
+            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], x['value']['positionalOnlyParams'], selected)})"
     elif type_value == C.LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
-    elif type_value == C.DICT_ROOT:
+    elif type_value in [C.DICT_ROOT, C.NESTED_PARAM]:
         return "{" + get_dict_contents(x["value"], selected) + "}"
     else:
         return None
@@ -129,10 +136,7 @@ def prepend_with_imports(
             var_str = var_declaration(force_appear_var_name, "None")
         lines[line_num] = var_str
 
-    code_to_infer = replace_keywords(
-        templated_code, {"RUNCODER_GENERATED_CODE": "\n".join(lines)}
-    )
-    imports = get_import_text(code_to_infer)
+    imports = get_import_text("\n".join(lines))
     imports = imports + "\n\n"
 
     if force_appear_var_name:

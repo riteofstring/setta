@@ -4,7 +4,7 @@ import { ParamContainer } from "../ParamContainer/ParamContainer";
 import { ParamNameInput } from "../ParamContainer/ParamItems/ParamNameInput";
 
 export function KwargParam(props) {
-  const { sectionId, objInfoId, paramInfo: kwargInfo } = props;
+  const { sectionId, parentId, paramInfo: kwargInfo } = props;
   const onBlur = (v) => {
     changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
   };
@@ -12,7 +12,7 @@ export function KwargParam(props) {
   const onClick = () => {
     deleteKwarg({
       sectionId,
-      objInfoId,
+      parentId,
       kwargId: kwargInfo.id,
       incrementVersion: true,
     });
@@ -34,6 +34,7 @@ export function KwargParam(props) {
           value={kwargInfo.name}
           hasChildren={kwargInfo.children.length > 0}
           onBlur={onBlur}
+          onClick={props.onNameClick}
         />
       </ParamContainer>
     </>

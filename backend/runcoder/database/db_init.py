@@ -18,6 +18,7 @@ CREATE_TABLES_COMMANDS = [
         rcType TEXT,
         defaultVal TEXT,
         description TEXT,
+        positionalOnly BOOLEAN,
         isPinned BOOLEAN,
         isFrozen BOOLEAN,
         isSelected BOOLEAN

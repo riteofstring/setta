@@ -11,6 +11,7 @@ def parametersRequestFn(lsp_writer):
         request_id,
         beforeText,
         code,
+        codeJson,
         var_name_to_line_num,
         var_name,
         referencable_var_names,
@@ -18,9 +19,10 @@ def parametersRequestFn(lsp_writer):
     ):
         print("parametersRequest", flush=True)
         line = var_name_to_line_num[var_name]
-        code = append_to_line(code, line, "(")
+        code = append_to_line(code, line, "()")
         print(code)
-        await lsp_writer.send_document_update(code, code_id)
+        await lsp_writer.send_document_update(code_id, code, codeJson)
+        # the +1 below is to move the cursor into the parentheses.
         column = column + len(var_declaration(var_name, "")) + 1
         await lsp_writer.send_signature_help_request(line, column, code_id, request_id)
 
