@@ -6,7 +6,10 @@ export function setNotificationMessage(payload) {
     if (state.timeoutId !== null) {
       clearTimeout(state.timeoutId);
     }
-    const id = setTimeout(() => set({ message: "" }), 3000);
+    const id = setTimeout(
+      () => useNotification.setState({ message: "" }),
+      3000,
+    );
     return { message: payload, timeoutId: id };
   });
 }

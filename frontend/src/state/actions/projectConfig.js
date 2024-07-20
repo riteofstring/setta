@@ -9,5 +9,5 @@ export function setProjectConfigName(name) {
 }
 
 export function getProjectConfigMetadata() {
-  _.pick(useProjectConfig.getState(), ["id", "name"]);
+  return _.pick(useProjectConfig.getState(), ["id", "name"]);
 }
