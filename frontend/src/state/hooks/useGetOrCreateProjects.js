@@ -4,7 +4,7 @@ import {
   dbGetProjectsForHomePage,
   dbLoadFullProject,
 } from "dbRequests/projects";
-import { useProject } from "models/info/project";
+import { useProject } from "state/definitions/project";
 import { useState } from "react";
 import { getProjectData } from "state/actions/save";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";

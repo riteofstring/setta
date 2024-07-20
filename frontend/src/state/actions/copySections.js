@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useNodeInternals } from "models/info/nodeInternals";
-import { useParamInfos } from "models/info/paramInfos";
-import { useUITypes } from "models/info/uiTypes";
+import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useUITypes } from "state/definitions/uiTypes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { findAll } from "z_utils/getDescendants";
 import { getSectionTypeConfig } from "../getters/sectionInfo";

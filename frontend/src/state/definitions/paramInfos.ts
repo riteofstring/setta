@@ -7,8 +7,7 @@ import {
   ParamInfoZustandType,
 } from "z_utils/types/paramInfo";
 import { createRandomName } from "z_utils/utils";
-import { createProjectState } from "../utils";
-import { initValue } from "./utils";
+import { createProjectState, initValue } from "./utils";
 
 const initialState: ParamInfoStateType = { x: {}, y: {}, version: 0 };
 

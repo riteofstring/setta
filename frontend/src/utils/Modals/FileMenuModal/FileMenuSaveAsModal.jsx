@@ -1,6 +1,6 @@
 import { useGetProjectsForFileMenu } from "state/hooks/useGetOrCreateProjects";
-import { useProject } from "models/info/project";
-import { useProjectConfig } from "models/info/projectConfig";
+import { useProject } from "state/definitions/project";
+import { useProjectConfig } from "state/definitions/projectConfig";
 import { useEffect } from "react";
 import {
   saveAsExistingProjectConfig,

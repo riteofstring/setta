@@ -1,7 +1,7 @@
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { UITypeStateType, UITypeZustandType } from "z_utils/types/uiType";
-import { createProjectState } from "../utils";
+import { createProjectState } from "./utils";
 
 const initialState: UITypeStateType = { x: {}, version: 0 };
 

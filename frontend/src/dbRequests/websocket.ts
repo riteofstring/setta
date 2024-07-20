@@ -1,9 +1,9 @@
-import { useInteractive } from "models/interactive";
-import { useTypeErrors } from "models/typeErrors";
+import { useInteractive } from "state/definitions/interactive";
+import { useTypeErrors } from "state/definitions/typeErrors";
 import {
   useWebsocketConnectionList,
   useWebsocketRooms,
-} from "models/websocket";
+} from "state/definitions/websocket";
 import { updateOutput } from "state/actions/outputs";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
 import { URLS } from "utils/constants";

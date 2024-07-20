@@ -1,4 +1,4 @@
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useCallback } from "react";
 
 function useVisibleNodes() {

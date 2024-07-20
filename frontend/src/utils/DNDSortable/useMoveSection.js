@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { justMoveANode } from "models/info/nodeInternals";
+import { justMoveANode } from "state/definitions/nodeInternals";
 import { useRef } from "react";
 import { setAllChildren } from "state/actions/children";
 import { moveSection } from "state/actions/sectionOps";

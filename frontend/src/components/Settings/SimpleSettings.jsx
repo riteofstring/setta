@@ -3,7 +3,7 @@ import {
   jsonSettings,
   otherConfigurableSettings,
   useSettings,
-} from "models/settings";
+} from "state/definitions/settings";
 
 const settingNames = Object.keys({
   ...jsonSettings,

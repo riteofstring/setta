@@ -1,4 +1,4 @@
-import { useNotification } from "models/notification";
+import { useNotification } from "state/definitions/notification";
 import { VscSave } from "react-icons/vsc";
 
 export function Notification() {

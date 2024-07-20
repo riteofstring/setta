@@ -1,7 +1,7 @@
 import { zoomIdentity } from "d3-zoom";
 import type { StoreApi } from "zustand";
 
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 import type { FitViewOptions, ReactFlowState } from "../types";
 import {
   getD3Transition,

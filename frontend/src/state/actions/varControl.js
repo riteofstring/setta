@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useParamInfos } from "models/info/paramInfos";
-import { useSectionToParams } from "models/info/sectionToParams";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useSectionToParams } from "state/definitions/sectionToParams";
 import { setSelectedItem } from "state/actions/setters";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionByName, getSectionType } from "state/getters/sectionInfo";

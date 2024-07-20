@@ -1,4 +1,4 @@
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 import { createSectionInfo } from "state/actions/createSectionInfo";
 
 export function creatAdjacentSection(sectionId, sectionProps) {

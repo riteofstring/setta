@@ -3,9 +3,9 @@ import {
   dbSetProjectName,
 } from "dbRequests/projectName";
 import { useEditableOnSubmit } from "state/hooks/useEditableOnSubmit";
-import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
-import { useProject } from "models/info/project";
-import { useProjectConfig } from "models/info/projectConfig";
+import { constInfoViews, useSetCurrInfoView } from "state/definitions/infoView";
+import { useProject } from "state/definitions/project";
+import { useProjectConfig } from "state/definitions/projectConfig";
 import { Editable } from "utils/Editable/Editable";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,

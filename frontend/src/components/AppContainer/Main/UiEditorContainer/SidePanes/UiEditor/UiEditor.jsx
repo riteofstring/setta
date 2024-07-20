@@ -2,7 +2,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
-import { useActiveSection } from "models/activeSection";
+import { useActiveSection } from "state/definitions/activeSection";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
@@ -10,7 +10,7 @@ import {
   tabNameToPretty,
   UI_CONFIG_TAB,
   useUIEditor,
-} from "models/uiEditor";
+} from "state/definitions/uiEditor";
 import { FiEdit3 } from "react-icons/fi";
 import { UI_EDITOR } from "utils/constants";
 import { DBSources } from "./DBSources/DBSources";

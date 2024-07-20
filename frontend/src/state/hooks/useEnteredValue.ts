@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useParamInfos } from "models/info/paramInfos";
+import { useParamInfos } from "state/definitions/paramInfos";
 import {
   useGetSectionInfo,
   useMappedSectionDBSource,

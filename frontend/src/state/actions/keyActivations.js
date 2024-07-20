@@ -2,7 +2,7 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
-import { useSettings } from "models/settings";
+import { useSettings } from "state/definitions/settings";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
 import { copy } from "./copy";

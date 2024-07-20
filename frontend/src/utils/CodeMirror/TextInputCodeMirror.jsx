@@ -12,8 +12,8 @@ import {
   dbTextFieldInitializeCode,
 } from "dbRequests/sections";
 import _ from "lodash";
-import { useKeywordRegex } from "models/info/keywordRegex";
-import { setWaitingForLSP } from "models/lsp";
+import { useKeywordRegex } from "state/definitions/keywordRegex";
+import { setWaitingForLSP } from "state/definitions/lsp";
 import { useCallback, useRef, useState } from "react";
 import { goToSection } from "state/actions/goToSection";
 import { variableClick } from "state/actions/keyActivations";

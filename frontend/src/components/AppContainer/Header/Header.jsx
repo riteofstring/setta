@@ -1,7 +1,7 @@
 import _ from "lodash";
-import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
-import { useHomePageSearch } from "models/useHomePageSearch";
-import { updateSearch } from "models/useProjectSearch";
+import { constInfoViews, useSetCurrInfoView } from "state/definitions/infoView";
+import { useHomePageSearch } from "state/definitions/useHomePageSearch";
+import { updateSearch } from "state/definitions/useProjectSearch";
 import { useCallback, useState } from "react";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { Notification } from "./Notification/Notification";

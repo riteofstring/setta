@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useUITypes } from "models/info/uiTypes";
+import { useUITypes } from "state/definitions/uiTypes";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import { useKeywordRegex } from "../../models/info/keywordRegex";
+import { useKeywordRegex } from "../definitions/keywordRegex";
 import { useSectionInfos } from "../definitions/sectionInfos";
 
 function getSingletonSubscriptionFn(type) {

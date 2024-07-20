@@ -1,5 +1,5 @@
 import { ParentSize } from "@visx/responsive";
-import { useInteractive } from "models/interactive";
+import { useInteractive } from "state/definitions/interactive";
 import React from "react";
 import { LineChart } from "utils/Charts/LineChart";
 

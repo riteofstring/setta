@@ -1,4 +1,4 @@
-import { useParamSweep } from "models/paramSweep";
+import { useParamSweep } from "state/definitions/paramSweep";
 import { setSectionInfoAttr } from "state/actions/setters";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionName } from "state/getters/sectionInfo";

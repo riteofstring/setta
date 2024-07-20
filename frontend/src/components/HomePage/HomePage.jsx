@@ -4,7 +4,7 @@ import {
   useGetProjectsForHomePage,
 } from "state/hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
-import { useHomePageSearch } from "models/useHomePageSearch";
+import { useHomePageSearch } from "state/definitions/useHomePageSearch";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";

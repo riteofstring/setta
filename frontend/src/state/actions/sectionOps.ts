@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { dbDeleteTerminals } from "dbRequests/terminals";
-import { useActiveSection } from "models/activeSection";
-import { addNodes, deleteNodes } from "models/info/nodeInternals";
+import { useActiveSection } from "state/definitions/activeSection";
+import { addNodes, deleteNodes } from "state/definitions/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";

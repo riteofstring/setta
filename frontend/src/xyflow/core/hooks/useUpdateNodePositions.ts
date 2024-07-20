@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
-import { useNodeInternals } from "models/info/nodeInternals";
-import { useSettings } from "models/settings";
+import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useSettings } from "state/definitions/settings";
 import { useReactFlow } from "../store";
 
 function useUpdateNodePositions() {

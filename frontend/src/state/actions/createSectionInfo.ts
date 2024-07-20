@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { addNodes } from "models/info/nodeInternals";
-import { useParamInfos } from "models/info/paramInfos";
+import { addNodes } from "state/definitions/nodeInternals";
+import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { getChildUIType } from "state/actions/getChildUITypeId";

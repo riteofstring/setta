@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { dbParametersRequest } from "dbRequests/sections";
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useKeywordRegex } from "models/info/keywordRegex";
+import { useKeywordRegex } from "state/definitions/keywordRegex";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";

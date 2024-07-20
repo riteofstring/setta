@@ -1,4 +1,4 @@
-import { useModal } from "models/modal";
+import { useModal } from "state/definitions/modal";
 import { useEffect, useState } from "react";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { FileExplorer } from "./FileExplorer";

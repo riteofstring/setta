@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useParamInfos } from "models/info/paramInfos";
-import { useUITypes } from "models/info/uiTypes";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useUITypes } from "state/definitions/uiTypes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import {
   getMappedSectionDBSource,

@@ -1,4 +1,4 @@
-import { updateNodeDimensions } from "models/info/nodeInternals";
+import { updateNodeDimensions } from "state/definitions/nodeInternals";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { NodeWrapper } from "xyflow/core/components/Nodes/wrapNode";
 import { useReactFlow } from "xyflow/core/store";

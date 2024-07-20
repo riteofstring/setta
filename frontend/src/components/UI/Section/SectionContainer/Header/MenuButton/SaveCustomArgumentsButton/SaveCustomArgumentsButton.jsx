@@ -1,4 +1,4 @@
-import { useModal } from "models/modal";
+import { useModal } from "state/definitions/modal";
 import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 
 export function SaveCustomArgumentsButton({ sectionId }) {

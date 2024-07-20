@@ -1,4 +1,4 @@
-import { useUITypes } from "models/info/uiTypes";
+import { useUITypes } from "state/definitions/uiTypes";
 import { setSectionInfoAttr } from "state/actions/setters";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { cloneNewUIType, maybeCloneUIType } from "state/actions/cloneUITypes";

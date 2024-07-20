@@ -1,4 +1,4 @@
-import { createProjectState } from "../utils";
+import { createProjectState } from "./utils";
 
 export const constInfoViews = {
   OVERVIEW: "Click on a section name to pan to it.",

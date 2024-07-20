@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 import { memo } from "react";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";

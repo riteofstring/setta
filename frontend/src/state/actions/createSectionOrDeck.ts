@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { addNodes } from "models/info/nodeInternals";
-import { useParamInfos } from "models/info/paramInfos";
-import { useUITypes } from "models/info/uiTypes";
+import { addNodes } from "state/definitions/nodeInternals";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useUITypes } from "state/definitions/uiTypes";
 import { addSectionAtPosition } from "state/actions/addSectionAtPosition";
 import {
   updateManyParamsAndCallables,

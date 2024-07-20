@@ -4,16 +4,16 @@ import {
   dbSaveProject,
 } from "dbRequests/projects";
 import _ from "lodash";
-import { useProjectConfigCodeInfoMaps } from "models/codeInfoMaps/projectConfigCodeInfoMaps";
+import { useProjectConfigCodeInfoMaps } from "state/definitions/projectConfigCodeInfoMaps";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useNodeInternals } from "models/info/nodeInternals";
-import { useParamInfos } from "models/info/paramInfos";
-import { useProject } from "models/info/project";
-import { useProjectConfig } from "models/info/projectConfig";
-import { useUITypes } from "models/info/uiTypes";
-import { useNotification } from "models/notification";
-import { useParamSweep } from "models/paramSweep";
-import { useRunGroups } from "models/runGroups";
+import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useProject } from "state/definitions/project";
+import { useProjectConfig } from "state/definitions/projectConfig";
+import { useUITypes } from "state/definitions/uiTypes";
+import { useNotification } from "state/definitions/notification";
+import { useParamSweep } from "state/definitions/paramSweep";
+import { useRunGroups } from "state/definitions/runGroups";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";

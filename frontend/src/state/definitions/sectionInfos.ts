@@ -8,7 +8,7 @@ import {
   SectionInfoStateType,
   SectionInfoZustandType,
 } from "z_utils/types/section";
-import { createProjectState } from "../../models/utils";
+import { createProjectState } from "./utils";
 
 const initialState: SectionInfoStateType = {
   x: {},

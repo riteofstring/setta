@@ -1,4 +1,4 @@
-import { useParamInfos } from "models/info/paramInfos";
+import { useParamInfos } from "state/definitions/paramInfos";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { convertValue } from "./convertValue";

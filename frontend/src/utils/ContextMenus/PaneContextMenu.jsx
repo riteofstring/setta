@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useContextMenus } from "models/contextMenus";
-import { useModal } from "models/modal";
+import { useContextMenus } from "state/definitions/contextMenus";
+import { useModal } from "state/definitions/modal";
 import { onClickAddSection } from "state/actions/createSectionOrDeck";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";

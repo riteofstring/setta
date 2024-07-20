@@ -1,4 +1,4 @@
-import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
+import { constInfoViews, useSetCurrInfoView } from "state/definitions/infoView";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { runCode } from "state/actions/generateCode";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";

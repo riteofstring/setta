@@ -4,7 +4,7 @@ import { fitView } from "xyflow/core/store/utils";
 import { getDimensions } from "xyflow/core/utils";
 import { createSelectionChange } from "xyflow/core/utils/changes";
 import { temporal } from "zundo";
-import { createProjectState } from "../utils";
+import { createProjectState } from "./utils";
 
 const initialState = { x: new Map(), version: 0 };
 

@@ -6,9 +6,9 @@ import {
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { useSectionInfos } from "../../state/definitions/sectionInfos";
-import { create } from "../utils";
-import { useCodeInfo } from "../../state/definitions/codeInfo";
+import { useSectionInfos } from "./sectionInfos";
+import { create } from "./utils";
+import { useCodeInfo } from "./codeInfo";
 
 const ARGS_PREFIX = "__";
 

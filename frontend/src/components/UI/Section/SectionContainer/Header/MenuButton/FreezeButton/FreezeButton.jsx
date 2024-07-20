@@ -1,5 +1,5 @@
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useSectionToParams } from "models/info/sectionToParams";
+import { useSectionToParams } from "state/definitions/sectionToParams";
 import { updateParams } from "state/actions/sectionContents";
 import { setSectionInfoAttr } from "state/actions/setters";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";

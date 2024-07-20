@@ -1,4 +1,4 @@
-import { useModal } from "models/modal";
+import { useModal } from "state/definitions/modal";
 import { useEffect, useState } from "react";
 import { saveKwargsAsCollection } from "state/actions/kwargs";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";

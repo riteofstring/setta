@@ -1,7 +1,7 @@
 import cc from "classcat";
 import _ from "lodash";
-import { useContextMenus } from "models/contextMenus";
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useContextMenus } from "state/definitions/contextMenus";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 import React, { useRef } from "react";
 import useDrag from "xyflow/core/hooks/useDrag";
 import { useReactFlow } from "xyflow/core/store";

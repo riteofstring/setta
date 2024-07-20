@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 
 export function setZIndices(sectionIds, incrementVersion) {

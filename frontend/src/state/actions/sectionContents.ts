@@ -1,6 +1,6 @@
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { updateKeywordRegex } from "models/info/keywordRegex";
-import { useSectionToParams } from "models/info/sectionToParams";
+import { updateKeywordRegex } from "state/definitions/keywordRegex";
+import { useSectionToParams } from "state/definitions/sectionToParams";
 import {
   findAllCallables,
   findAllParametersOfCallables,

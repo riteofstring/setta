@@ -1,6 +1,6 @@
 import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
-import { useSettings } from "models/settings";
+import { useSettings } from "state/definitions/settings";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";

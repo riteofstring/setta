@@ -1,6 +1,6 @@
 import { getForSectionId } from "state/hooks/useParamSweepInfo";
-import { useModal } from "models/modal";
-import { useParamSweep } from "models/paramSweep";
+import { useModal } from "state/definitions/modal";
+import { useParamSweep } from "state/definitions/paramSweep";
 import { setSectionInfoAttr } from "state/actions/setters";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";

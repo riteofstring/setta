@@ -1,6 +1,6 @@
 import { dbLoadFullProject } from "dbRequests/projects";
 import _ from "lodash";
-import { useOtherProjectConfigs } from "models/info/otherProjectConfigs";
+import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
 import { loadProjectState } from "state/actions/loadProjectState";
 
 export async function loadProject({ projectName, configName }) {

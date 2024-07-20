@@ -1,6 +1,6 @@
 import _ from "lodash";
-import { useParamInfos } from "models/info/paramInfos";
-import { useUITypes } from "models/info/uiTypes";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useUITypes } from "state/definitions/uiTypes";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 

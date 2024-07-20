@@ -1,5 +1,5 @@
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useSectionParamFilter } from "models/info/sectionParamFilter";
+import { useSectionParamFilter } from "state/definitions/sectionParamFilter";
 import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { updateParams } from "state/actions/sectionContents";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs";

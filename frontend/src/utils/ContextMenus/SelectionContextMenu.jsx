@@ -1,6 +1,6 @@
 import _ from "lodash";
-import { useActiveSection } from "models/activeSection";
-import { useContextMenus } from "models/contextMenus";
+import { useActiveSection } from "state/definitions/activeSection";
+import { useContextMenus } from "state/definitions/contextMenus";
 import { deleteSections } from "state/actions/sectionOps";
 import { createDeck } from "state/actions/createSectionOrDeck";
 import { Item } from "utils/atoms/dropdown/item";

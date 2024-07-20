@@ -1,4 +1,4 @@
-import { useUITypes } from "models/info/uiTypes";
+import { useUITypes } from "state/definitions/uiTypes";
 
 export function setConfigAndChildConfig(uiType, configProps) {
   useUITypes.getState().setOneConfig({ uiTypeId: uiType.id, ...configProps });

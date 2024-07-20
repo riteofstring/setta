@@ -1,9 +1,9 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useSetCurrInfoView } from "models/info/infoView";
-import { useTypeErrors } from "models/typeErrors";
-import { useProjectSearch } from "models/useProjectSearch";
+import { useSetCurrInfoView } from "state/definitions/infoView";
+import { useTypeErrors } from "state/definitions/typeErrors";
+import { useProjectSearch } from "state/definitions/useProjectSearch";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";

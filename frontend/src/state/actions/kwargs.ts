@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "dbRequests/sectionConfig";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useParamInfos } from "models/info/paramInfos";
-import { useSectionToParams } from "models/info/sectionToParams";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useSectionToParams } from "state/definitions/sectionToParams";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { updateParams } from "./sectionContents";
 import {

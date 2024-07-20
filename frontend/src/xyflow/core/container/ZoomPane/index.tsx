@@ -11,7 +11,7 @@ import {
 import { useEffect, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
-import { useContextMenus } from "models/contextMenus";
+import { useContextMenus } from "state/definitions/contextMenus";
 import { useReactFlow } from "xyflow/core/store";
 import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";

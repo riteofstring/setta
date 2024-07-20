@@ -1,5 +1,5 @@
-import { useParamInfos } from "models/info/paramInfos";
-import { useUITypes } from "models/info/uiTypes";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useUITypes } from "state/definitions/uiTypes";
 import {
   getMappedSectionDBSource,
   getSectionInfo,

@@ -1,4 +1,4 @@
-import { useUITypes } from "models/info/uiTypes";
+import { useUITypes } from "state/definitions/uiTypes";
 import { cloneRootUIType } from "./cloneUITypes";
 
 export function getChildUIType(parentUIType, parentId) {

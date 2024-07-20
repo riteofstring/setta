@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { createProjectState } from "models/utils";
+import { createProjectState } from "state/definitions/utils";
 import { immer } from "zustand/middleware/immer";
 
 const initialState = {

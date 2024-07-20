@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useNodeInternals } from "models/info/nodeInternals";
-import { useUITypes } from "models/info/uiTypes";
+import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useUITypes } from "state/definitions/uiTypes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { isRoot } from "z_utils/constants";

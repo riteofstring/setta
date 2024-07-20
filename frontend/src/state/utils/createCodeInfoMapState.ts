@@ -3,7 +3,7 @@ import {
   CodeInfoMapStateType,
   CodeInfoMapZustandType,
 } from "z_utils/types/codeInfoMap";
-import { create } from "../utils";
+import { create } from "../definitions/utils";
 
 export const initialState: CodeInfoMapStateType = {
   x: {},

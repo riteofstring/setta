@@ -1,4 +1,4 @@
-import { useUITypes } from "models/info/uiTypes";
+import { useUITypes } from "state/definitions/uiTypes";
 import { useEffect, useState } from "react";
 import { cloneNewUIType } from "state/actions/cloneUITypes";
 import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";

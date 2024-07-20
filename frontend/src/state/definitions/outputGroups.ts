@@ -3,7 +3,7 @@ import {
   OutputGroupStateType,
   OutputGroupZustandType,
 } from "z_utils/types/outputGroup";
-import { createProjectState } from "../utils";
+import { createProjectState } from "./utils";
 
 const initialState: OutputGroupStateType = { x: {} };
 

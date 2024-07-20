@@ -5,7 +5,7 @@ import {
   ProjectConfigFrontendType,
   ProjectConfigZustandType,
 } from "z_utils/types/projectConfig";
-import { createProjectState } from "../utils";
+import { createProjectState } from "./utils";
 
 const initialState: ProjectConfigFrontendType = {
   id: "",

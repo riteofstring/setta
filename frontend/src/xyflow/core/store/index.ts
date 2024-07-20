@@ -1,5 +1,5 @@
 import { zoomIdentity } from "d3-zoom";
-import { useActiveSection } from "models/activeSection";
+import { useActiveSection } from "state/definitions/activeSection";
 import { createWithEqualityFn } from "zustand/traditional";
 import type { CoordinateExtent, ReactFlowState, XYPosition } from "../types";
 import { getNodesBounds, getSectionRect } from "../utils/graph";

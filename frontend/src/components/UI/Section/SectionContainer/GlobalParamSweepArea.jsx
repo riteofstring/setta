@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { useGetParamSweepNames } from "state/hooks/useParamSweepInfo";
 import _ from "lodash";
-import { useRunGroups } from "models/runGroups";
+import { useRunGroups } from "state/definitions/runGroups";
 import React, { useState } from "react";
 import { BiFilter } from "react-icons/bi";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";

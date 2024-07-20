@@ -1,5 +1,5 @@
 import { localStorageFns } from "state/hooks/localStorageHooks";
-import { useActiveSection } from "models/activeSection";
+import { useActiveSection } from "state/definitions/activeSection";
 import { setCenter } from "xyflow/core/hooks/useViewportHelper";
 import { getSectionRect } from "xyflow/core/utils/graph";
 import { setZIndices } from "./sectionPositions";

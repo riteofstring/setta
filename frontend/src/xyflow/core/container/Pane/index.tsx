@@ -2,13 +2,13 @@
  * The user selection rectangle gets displayed when a user drags the mouse while pressing shift
  */
 
-import { useActiveSection } from "models/activeSection";
-import { useContextMenus } from "models/contextMenus";
+import { useActiveSection } from "state/definitions/activeSection";
+import { useContextMenus } from "state/definitions/contextMenus";
 import {
   onNodesChange,
   resetSelectedElements,
   useNodeInternals,
-} from "models/info/nodeInternals";
+} from "state/definitions/nodeInternals";
 import React, {
   memo,
   MouseEvent as ReactMouseEvent,

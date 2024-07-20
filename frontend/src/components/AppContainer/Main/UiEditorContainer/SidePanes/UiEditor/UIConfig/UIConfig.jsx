@@ -3,7 +3,7 @@ import { useGetParamUIType } from "state/hooks/useParamUIType";
 import { useGetParamInfosThatHaveNames } from "state/hooks/useSectionContents";
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useUITypes } from "models/info/uiTypes";
+import { useUITypes } from "state/definitions/uiTypes";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";
 import { updateParams } from "state/actions/sectionContents";

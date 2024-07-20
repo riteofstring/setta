@@ -1,5 +1,5 @@
-import { useParamInfos } from "models/info/paramInfos";
-import { useModal } from "models/modal";
+import { useParamInfos } from "state/definitions/paramInfos";
+import { useModal } from "state/definitions/modal";
 import { setSectionInfoAttr } from "state/actions/setters";
 import {
   getMappedSectionDBSource,

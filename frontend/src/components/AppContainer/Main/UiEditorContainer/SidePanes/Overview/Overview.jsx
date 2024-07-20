@@ -7,7 +7,7 @@ import {
   constInfoViews,
   useCurrInfoView,
   useSetCurrInfoView,
-} from "models/info/infoView";
+} from "state/definitions/infoView";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
 import { updateMapPosition } from "state/actions/updateMapPosition";

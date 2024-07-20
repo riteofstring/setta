@@ -1,7 +1,7 @@
 import { useIsSeriesElement, useSectionTypeName } from "state/hooks/useSectionType";
 import { toggleVersionsVisible } from "state/hooks/useSectionVersions";
-import { useActiveSection } from "models/activeSection";
-import { useSectionRefAndInit } from "models/sectionRefs";
+import { useActiveSection } from "state/definitions/activeSection";
+import { useSectionRefAndInit } from "state/definitions/sectionRefs";
 import React from "react";
 import { getParamInfos } from "state/actions/sectionContents";
 import { setZIndices } from "state/actions/sectionPositions";

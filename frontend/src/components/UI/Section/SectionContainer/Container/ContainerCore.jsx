@@ -1,7 +1,7 @@
 import { useTempHasNested } from "state/hooks/useSectionChildren";
 import _ from "lodash";
-import { useContextMenus } from "models/contextMenus";
-import { useSectionRefAndInit } from "models/sectionRefs";
+import { useContextMenus } from "state/definitions/contextMenus";
+import { useSectionRefAndInit } from "state/definitions/sectionRefs";
 import React from "react";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 

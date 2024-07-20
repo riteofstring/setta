@@ -5,8 +5,8 @@ import {
   unselectNodesAndEdges,
   updateNodePositions,
   useNodeInternals,
-} from "models/info/nodeInternals";
-import { useSettings } from "models/settings";
+} from "state/definitions/nodeInternals";
+import { useSettings } from "state/definitions/settings";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { setZIndices } from "state/actions/sectionPositions";
