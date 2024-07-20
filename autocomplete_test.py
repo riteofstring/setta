@@ -1,7 +1,7 @@
 import asyncio
-from backend.runcoder.lsp.reader import LanguageServerReader
-from backend.runcoder.lsp.server import LanguageServer
-from backend.runcoder.lsp.writer import LanguageServerWriter
+from backend.setta.lsp.reader import LanguageServerReader
+from backend.setta.lsp.server import LanguageServer
+from backend.setta.lsp.writer import LanguageServerWriter
 from pathlib import Path
 
 

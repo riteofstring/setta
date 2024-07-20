@@ -909,7 +909,7 @@
 #                 ], e.get_ref_var_name, position=30))
 
 
-from backend.runcoder.code_gen.python.infer_imports import infer_imports
+from backend.setta.code_gen.python.infer_imports import infer_imports
 
 code = """x = math.sqrt(5)
 y = numpy.sin(34)

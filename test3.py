@@ -458,10 +458,10 @@ project = {
 }
 
 
-from backend.runcoder.utils.constants import load_constants
-from backend.runcoder.code_gen.export_selected import export_selected
-from backend.runcoder.code_gen.python.generate_code import generate_code
-from backend.runcoder.code_gen.find_placeholders import double_braces
+from backend.setta.utils.constants import load_constants
+from backend.setta.code_gen.export_selected import export_selected
+from backend.setta.code_gen.python.generate_code import generate_code
+from backend.setta.code_gen.find_placeholders import double_braces
 from pprint import pprint
 
 load_constants()
