@@ -115,18 +115,18 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
     <li
       onMouseOver={() => onMouseOver(id)}
       onClick={() => onClick(id)}
-      className="version-list-item -mx-2 -my-1 cursor-pointer auto-rows-auto justify-between rounded-xl px-2 py-1 text-xs hover:bg-runcoder-50/50 dark:hover:bg-runcoder-800/50"
+      className="version-list-item -mx-2 -my-1 cursor-pointer auto-rows-auto justify-between rounded-xl px-2 py-1 text-xs hover:bg-setta-50/50 dark:hover:bg-setta-800/50"
     >
       <p
         className={`col-start-1 truncate ${
           isCurr
-            ? "font-medium text-runcoder-800 dark:text-runcoder-100"
-            : "text-runcoder-400 dark:text-runcoder-400"
+            ? "font-medium text-setta-800 dark:text-setta-100"
+            : "text-setta-400 dark:text-setta-400"
         } `}
       >
         {name}
       </p>
-      <p className="col-start-2 italic text-runcoder-400 dark:text-runcoder-500">
+      <p className="col-start-2 italic text-setta-400 dark:text-setta-500">
         01/04/2024
       </p>
     </li>

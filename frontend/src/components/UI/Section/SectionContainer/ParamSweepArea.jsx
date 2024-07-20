@@ -36,12 +36,12 @@ export const ParamSweepArea = React.memo(_ParamSweepArea);
 function FilterSection() {
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1";
-  // bg-gradient-to-t from-runcoder-50
+  // bg-gradient-to-t from-setta-50
   return (
     <>
-      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
+      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
         <StandardSearch
-          leftElement={<BiFilter className="text-runcoder-400" />}
+          leftElement={<BiFilter className="text-setta-400" />}
           placeholder="Filter"
           inputStyles={inputStyles}
           outerClasses="flex-1"
@@ -154,11 +154,11 @@ function ArgItem({
           />
         ))
       ) : (
-        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-runcoder-100 px-4 py-3 dark:bg-runcoder-850">
-          <p className="col-start-1 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
+        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-setta-100 px-4 py-3 dark:bg-setta-850">
+          <p className="col-start-1 text-xs font-bold text-setta-300 dark:text-setta-600">
             Name
           </p>
-          <p className="col-start-2 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
+          <p className="col-start-2 text-xs font-bold text-setta-300 dark:text-setta-600">
             Value
           </p>
 
@@ -195,7 +195,7 @@ function EVColItem({ name, value }) {
   // TODO: show value next to name, like
   // name value
   return (
-    <dl className="col-span-2 grid grid-cols-subgrid font-mono text-xs text-runcoder-500 dark:text-runcoder-200">
+    <dl className="col-span-2 grid grid-cols-subgrid font-mono text-xs text-setta-500 dark:text-setta-200">
       <dt className="col-start-1 truncate">{name}</dt>
       <dd className="col-start-2 truncate">{value}</dd>
     </dl>
@@ -274,7 +274,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
       <IconButton
         icon={<IoClose />}
         bg="bg-transparent"
-        color="text-runcoder-400 hover:text-runcoder-600 dark:hover:text-runcoder-200"
+        color="text-setta-400 hover:text-setta-600 dark:hover:text-setta-200"
         twClasses="card-close-arg-group place-self-center ml-1"
         padding=""
         size="h-[.66rem] w-[.66rem]"
@@ -290,7 +290,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
           area="card-value-full"
         />
         <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
-        <span className="card-value-full border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-800" />
+        <span className="card-value-full border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
       </article>
     </>
   );

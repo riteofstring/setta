@@ -72,7 +72,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out] hover:text-blue-800 focus-visible:ring-2 dark:text-runcoder-400 dark:hover:text-blue-500 [&[data-state='active']]:border-runcoder-500 [&[data-state='active']]:font-bold"
+      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out] hover:text-blue-800 focus-visible:ring-2 dark:text-setta-400 dark:hover:text-blue-500 [&[data-state='active']]:border-setta-500 [&[data-state='active']]:font-bold"
       value={value}
       tab-index="0"
     >
@@ -100,12 +100,12 @@ const ProjectOverview = React.forwardRef(() => {
     <>
       <ProjectName />
       <StandardSearch
-        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800  focus-visible:!border-blue-300 pl-7 py-1"
+        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
         placeholder="Filter"
         leftElement={
-          <BiFilter className="text-runcoder-600 dark:text-runcoder-400" />
+          <BiFilter className="text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
         aria-label="Overview Search"
@@ -125,7 +125,7 @@ const ProjectOverview = React.forwardRef(() => {
 const InfoViewBig = React.forwardRef(() => {
   const currInfoView = useCurrInfoView();
   return (
-    <aside className="self-start overflow-clip text-runcoder-500 dark:text-runcoder-200">
+    <aside className="self-start overflow-clip text-setta-500 dark:text-setta-200">
       {currInfoView}
     </aside>
   );

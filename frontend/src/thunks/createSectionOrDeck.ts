@@ -153,7 +153,7 @@ function createSectionsFromArgparse({ pathToScript, args, ...props }) {
     x: props.x + 600,
     incrementVersion: false,
     inputSectionProps: {
-      script: `python ${pathToScript} {{ RUNCODER_PYTHON_ARGPARSE }}`,
+      script: `python ${pathToScript} {{ SETTA_PYTHON_ARGPARSE }}`,
     },
   });
 }

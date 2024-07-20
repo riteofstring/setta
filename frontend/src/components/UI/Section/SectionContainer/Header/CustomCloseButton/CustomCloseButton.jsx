@@ -7,7 +7,7 @@ export function CustomCloseButton({ isInfo, onClick, ...props }) {
     <IconButton
       {...props}
       icon={<i className="gg-close" />}
-      color="text-runcoder-600 hover:text-white"
+      color="text-setta-600 hover:text-white"
       bg="bg-transparent hover:bg-red-500"
       size="w-auto h-auto"
       padding="p-0"

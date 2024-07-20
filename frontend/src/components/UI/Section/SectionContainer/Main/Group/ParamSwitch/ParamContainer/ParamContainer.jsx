@@ -33,7 +33,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
 
   const bg = paramIsSelected
     ? "bg-lime-400/50"
-    : "hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25";
+    : "hover:bg-setta-200/20 dark:hover:bg-setta-700/25";
 
   const paramChildren = useCodeInfo(
     (x) => paramInfo.children.map((c) => x.x[c]),
@@ -142,16 +142,16 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-2 overflow-hidden rounded-md bg-white text-xs dark:bg-runcoder-950"
+      className="nowheel nodrag relative -mx-2 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-runcoder-100">
+      <aside className=" h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
         {children}
       </aside>
       <IconButton
-        twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-runcoder-400 dark:text-runcoder-200 hover:text-runcoder-600 dark:hover:text-white"
-        bg="bg-runcoder-100/50 dark:bg-runcoder-700/50 hover:bg-runcoder-100 dark:hover:bg-runcoder-600"
+        twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-setta-400 dark:text-setta-200 hover:text-setta-600 dark:hover:text-white"
+        bg="bg-setta-100/50 dark:bg-setta-700/50 hover:bg-setta-100 dark:hover:bg-setta-600"
         icon={<HiOutlineDuplicate />}
         onClick={() => navigator.clipboard.writeText(children)}
       />
@@ -160,4 +160,4 @@ const AccordionContent = React.forwardRef(
 );
 
 // for AccordionContent animated version:
-// className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-950"
+// className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-setta-950"

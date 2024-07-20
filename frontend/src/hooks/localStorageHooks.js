@@ -26,7 +26,7 @@ function localStorageState(key) {
 }
 
 function getActualKey(key) {
-  return `runcoder_data_${key}`;
+  return `setta_data_${key}`;
 }
 
 ////////////////////////////////////////

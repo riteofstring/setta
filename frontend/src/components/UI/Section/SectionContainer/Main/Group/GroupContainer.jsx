@@ -10,7 +10,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
-  // border-b border-solid border-runcoder-100
+  // border-b border-solid border-setta-100
   return (
     // <ScrollingArea
     //   styles={`card-args-list py-1 ${noWheel} ${

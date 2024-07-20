@@ -28,7 +28,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-200 dark:border-runcoder-800 focus-visible:!border-blue-300 pl-7 py-1";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-7 py-1";
 
   return (
     <>
@@ -37,7 +37,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         placeholder="Filter"
         leftElement={
-          <BiFilter className="text-runcoder-600 dark:text-runcoder-400" />
+          <BiFilter className="text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
       />
@@ -83,11 +83,11 @@ function _UIElement({ sectionId, paramInfo }) {
 
   return (
     <div
-      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-runcoder-200"
+      className="flex flex-col self-stretch text-left last:mb-[400px] hover:opacity-100 hover:duration-500 [&:hover_.uicfg-title]:text-black dark:[&:hover_.uicfg-title]:text-setta-200"
       data-testid={`UIElement ${paramName}`}
     >
       <div className="grid grid-cols-1 grid-rows-1 items-center">
-        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-runcoder-500">
+        <p className="uicfg-title col-start-1 col-end-2 row-start-1 row-end-2 text-sm uppercase tracking-widest text-setta-500">
           {paramName}
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
@@ -120,7 +120,7 @@ function InfoViewDescription({ sectionId, paramInfoId }) {
       inputClasses="rounded-lg"
       trigger={
         <IconButton twClasses="" size="w-4 h-4" padding="py-2 px-2">
-          <BiPencil className="text-runcoder-500" />
+          <BiPencil className="text-setta-500" />
         </IconButton>
       }
       header={"Description for Infoview"}

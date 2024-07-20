@@ -1,4 +1,4 @@
-from runcoder.tasks.fns import TaskDefinition
+from setta.tasks.fns import TaskDefinition
 
 def fn(message):
     c = message["content"]

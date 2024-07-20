@@ -44,17 +44,17 @@ export function KwargsControls({ sectionId, objInfoId }) {
   const onPushDown = onPush(computeNewChildrenForVerticalPush("down"), true);
 
   const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-runcoder-600 text-runcoder-300";
+    "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-setta-600 text-setta-300";
 
   const buttonClass =
-    "focus-visible:ring-2 grid grid-cols-[1fr] grid-rows-[1fr] place-items-center nodrag cursor-pointer flex bg-transparent hover:bg-runcoder-100 dark:hover:bg-runcoder-950/50 text-runcoder-500 dark:hover:text-runcoder-300 rounded-full ";
+    "focus-visible:ring-2 grid grid-cols-[1fr] grid-rows-[1fr] place-items-center nodrag cursor-pointer flex bg-transparent hover:bg-setta-100 dark:hover:bg-setta-950/50 text-setta-500 dark:hover:text-setta-300 rounded-full ";
 
   return (
     <>
-      <section className="card-args-control flex min-w-0  rounded-xl border-b border-solid border-white px-5  pb-1 shadow-sm @container dark:border-runcoder-700 dark:from-transparent">
+      <section className="card-args-control flex min-w-0  rounded-xl border-b border-solid border-white px-5  pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
         <div className="flex min-w-0 flex-grow flex-col @[12rem]:flex-row">
           <article className="flex items-center">
-            <h3 className="pr-1  font-heading text-xs font-bold uppercase text-runcoder-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-runcoder-400/70 "></h3>
+            <h3 className="pr-1  font-heading text-xs font-bold uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3>
             <button className={buttonClass} onClick={onClickDeleteKwarg}>
               <i className="gg-math-minus col-start-1 row-start-1" />
             </button>
@@ -77,7 +77,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
           </article>
 
           <search className="nodrag relative flex w-full min-w-0 items-center">
-            <i className="gg-sort-az -mr-4 text-runcoder-300 dark:text-runcoder-600" />
+            <i className="gg-sort-az -mr-4 text-setta-300 dark:text-setta-600" />
             <input
               id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
               className={inputStyles}
@@ -89,7 +89,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
         </div>
         {/* <StandardSearch
           id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-          leftElement={<BiFilter className="text-runcoder-400" />}
+          leftElement={<BiFilter className="text-setta-400" />}
           placeholder="Filter"
           inputStyles={inputStyles}
           outerClasses="flex-1"

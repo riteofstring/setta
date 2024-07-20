@@ -1,6 +1,6 @@
 # import jedi
 # from pprint import pprint
-# from runcoder.code_gen.utils import get_str_from_value, get_value_from_completions
+# from setta.code_gen.utils import get_str_from_value, get_value_from_completions
 # import string
 # import copy
 
@@ -37,8 +37,8 @@
 # pprint(output)
 
 
-# from runcoder.code_gen.export_selected import export_selected
-# from runcoder.code_gen.generate_code import generate_code
+# from setta.code_gen.export_selected import export_selected
+# from setta.code_gen.generate_code import generate_code
 # import json
 # from pprint import pprint
 
@@ -99,19 +99,19 @@
 #         print(line)
 #     return go
 
-# process = subprocess.Popen("python runcoder_temp.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+# process = subprocess.Popen("python setta_temp.py", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 # while stream_process(process):
 #     time.sleep(0.1)
 
 # # process = subprocess.run(, shell=True, capture_output=True, text=True, check=True)
-# with subprocess.Popen("bash runcoder_temp.sh", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, text=True, bufsize=1) as process:
+# with subprocess.Popen("bash setta_temp.sh", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True, text=True, bufsize=1) as process:
 #     for line in process.stdout:
 #         print(line)
 
 # import subprocess
 # import sys
 
-# process = subprocess.Popen(["python3", "runcoder_temp.py"], stdout=subprocess.PIPE)
+# process = subprocess.Popen(["python3", "setta_temp.py"], stdout=subprocess.PIPE)
 # for c in iter(lambda: process.stdout.read(1), b""):
 #     print(c)
 #     # f.buffer.write(c)
@@ -119,13 +119,13 @@
 
 # import subprocess
 # import sys
-# with subprocess.Popen("bash runcoder_temp.sh", shell=True) as process:
+# with subprocess.Popen("bash setta_temp.sh", shell=True) as process:
 #     pass
 #     # for line in process.stdout:
 #     #     print(line.decode('utf8'))
 
 
-# from runcoder.code_gen.generate_code import infer_imports
+# from setta.code_gen.generate_code import infer_imports
 
 # code = """import numpy as np
 
@@ -181,8 +181,8 @@
 # print(number_of_lines)  # Output will be 1
 
 
-# from runcoder.code_gen.export_selected import export_selected
-# from runcoder.code_gen.generate_code import generate_code
+# from setta.code_gen.export_selected import export_selected
+# from setta.code_gen.generate_code import generate_code
 # import json
 # from pprint import pprint
 # import yaml
@@ -497,7 +497,7 @@
 #     os.makedirs(folder_path)
 #     return folder_path
 
-# create_timestamped_folder(".runcoder_code", "")
+# create_timestamped_folder(".setta_code", "")
 
 
 # import sqlite3
@@ -546,7 +546,7 @@
 #         yaml.dump(database_export, file, allow_unicode=True)
 
 # # Replace 'your_database.db' with the path to your SQLite database
-# database_path = 'runcoder.db'
+# database_path = 'setta.db'
 
 # # Connect to the SQLite database
 # conn = sqlite3.connect(database_path)
@@ -852,10 +852,10 @@
 
 
 
-# from runcoder.code_gen.export_selected import export_selected, get_code
-# from runcoder.code_gen.generate_code import generate_code, generate_lines_of_code_without_imports
-# from runcoder.code_gen.infer_imports import infer_imports
-# from runcoder.code_gen.utils import process_refs
+# from setta.code_gen.export_selected import export_selected, get_code
+# from setta.code_gen.generate_code import generate_code, generate_lines_of_code_without_imports
+# from setta.code_gen.infer_imports import infer_imports
+# from setta.code_gen.utils import process_refs
 # import json
 # import black
 # import isort

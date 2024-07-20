@@ -59,9 +59,9 @@ function _LineAndPointsCore({
           scale={yScale}
           hideAxisLine
           hideTicks
-          // labelClassName="fill-runcoder-500 dark:fill-runcoder-300 font-sans"
+          // labelClassName="fill-setta-500 dark:fill-setta-300 font-sans"
           left={-8}
-          tickClassName="[&_*]:fill-runcoder-500  dark:text-runcoder-300 font-sans"
+          tickClassName="[&_*]:fill-setta-500  dark:text-setta-300 font-sans"
         />
       </AxisWithZoom>
       <AxisWithZoom childKey="AxisBottom">
@@ -70,7 +70,7 @@ function _LineAndPointsCore({
           top={yMax + 8}
           hideAxisLine
           hideTicks
-          tickClassName="[&_*]:fill-runcoder-500  dark:text-runcoder-300 font-sans"
+          tickClassName="[&_*]:fill-setta-500  dark:text-setta-300 font-sans"
         />
       </AxisWithZoom>
       <LinePath

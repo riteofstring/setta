@@ -33,7 +33,7 @@ function Items() {
       <MenuItem onClick={typeCheck} shortcut="Ctrl + Shift + T">
         Type Check
       </MenuItem>
-      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-runcoder-100 dark:bg-runcoder-600" />
+      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem onClick={redoProjectState} shortcut="Ctrl + Shift + Z">
         Redo
       </MenuItem>

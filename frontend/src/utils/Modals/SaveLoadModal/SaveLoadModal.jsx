@@ -138,7 +138,7 @@ export function Footer({ onClose, onClick, buttonText }) {
     <div className="mb-2 mt-4 flex justify-end gap-2">
       {buttonText && (
         <DialogCloseButton
-          twClasses="bg-runcoder-200 dark:bg-runcoder-850 hover:bg-runcoder-300 dark:hover:bg-runcoder-900 text-runcoder-600 dark:text-runcoder-200 hover:cursor-pointer"
+          twClasses="bg-setta-200 dark:bg-setta-850 hover:bg-setta-300 dark:hover:bg-setta-900 text-setta-600 dark:text-setta-200 hover:cursor-pointer"
           onClick={onClick}
         >
           {buttonText}
@@ -146,7 +146,7 @@ export function Footer({ onClose, onClick, buttonText }) {
       )}
 
       <DialogCloseButton
-        twClasses="border border-solid border-runcoder-200 dark:border-runcoder-800 text-runcoder-400 hover:border-runcoder-500 hover:text-runcoder-600 dark:hover:text-runcoder-200 dark:hover:bg-runcoder-900 hover:cursor-pointer"
+        twClasses="border border-solid border-setta-200 dark:border-setta-800 text-setta-400 hover:border-setta-500 hover:text-setta-600 dark:hover:text-setta-200 dark:hover:bg-setta-900 hover:cursor-pointer"
         onClick={onClose}
       >
         Close

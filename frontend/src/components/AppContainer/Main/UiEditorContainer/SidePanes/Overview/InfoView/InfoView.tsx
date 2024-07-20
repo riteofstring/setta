@@ -10,7 +10,7 @@ export function InfoView() {
   // replace with accordion atom
   return (
     <Accordion.Root
-      className="mt-8 rounded-md border border-solid border-white shadow-sm dark:border-runcoder-800"
+      className="mt-8 rounded-md border border-solid border-white shadow-sm dark:border-setta-800"
       type="single"
       defaultValue="item-1"
       collapsible
@@ -46,7 +46,7 @@ const AccordionTrigger = React.forwardRef(
     <Accordion.Header className="flex">
       <Accordion.Trigger
         className={classNames(
-          "group flex h-11 flex-1 cursor-default items-center justify-between overflow-hidden rounded-md bg-white px-5 font-heading text-xs font-bold uppercase leading-none tracking-widest text-runcoder-400 shadow-sm outline-none transition-all hover:cursor-pointer hover:bg-runcoder-500 hover:text-white dark:bg-runcoder-800",
+          "group flex h-11 flex-1 cursor-default items-center justify-between overflow-hidden rounded-md bg-white px-5 font-heading text-xs font-bold uppercase leading-none tracking-widest text-setta-400 shadow-sm outline-none transition-all hover:cursor-pointer hover:bg-setta-500 hover:text-white dark:bg-setta-800",
           className,
         )}
         {...props}
@@ -66,13 +66,13 @@ const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
       className={classNames(
-        "h-36 overflow-hidden rounded-b-md bg-runcoder-100 text-sm  data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-900",
+        "h-36 overflow-hidden rounded-b-md bg-setta-100 text-sm  data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-setta-900",
         className,
       )}
       {...props}
       ref={forwardedRef}
     >
-      <aside className="max-h-full overflow-ellipsis px-5 py-4 dark:text-runcoder-300">
+      <aside className="max-h-full overflow-ellipsis px-5 py-4 dark:text-setta-300">
         {children}
       </aside>
     </Accordion.Content>

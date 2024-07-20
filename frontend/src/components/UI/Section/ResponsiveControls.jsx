@@ -45,7 +45,7 @@ export function ResponsiveControls() {
   return (
     <Controls
       style={{ transform: `translateX(${overviewWidth}px)` }}
-      className="transition-transform [&>button]:bg-runcoder-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300"
+      className="transition-transform [&>button]:bg-setta-50 dark:[&>button]:border-setta-800 dark:[&>button]:bg-setta-700 dark:[&>button]:text-setta-300 dark:[&_svg]:fill-setta-300"
     >
       <ControlButton onClick={onClickLayout}>
         <RiLayoutFill />

@@ -24,7 +24,7 @@ export function KwargParam(props) {
         onClick={onClick}
         icon={<i className="gg-close" />}
         bg="bg-transparent"
-        color="text-runcoder-400 dark:text-runcoder-700 hover:text-runcoder-700 dark:hover:text-runcoder-200"
+        color="text-setta-400 dark:text-setta-700 hover:text-setta-700 dark:hover:text-setta-200"
         twClasses={`card-close-arg-group ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[.15rem]" : "place-self-center"} ml-1 z-20`}
         padding=""
         size="h-[.66rem] w-[.66rem]"

@@ -239,7 +239,7 @@ project = {
             "description": "",
             "versionsHeight": 100,
             "versionsVisible": 0,
-            "code": "{{ RUNCODER_GENERATED_CODE }}",
+            "code": "{{ SETTA_GENERATED_CODE }}",
             "codeLanguage": "python",
             "isFrozen": 0,
             "dbSource": None,
@@ -469,4 +469,4 @@ x = export_selected(project)
 
 pprint(x.output)
 
-print(generate_code(x.output, double_braces("RUNCODER_GENERATED_CODE"))[0])
+print(generate_code(x.output, double_braces("SETTA_GENERATED_CODE"))[0])

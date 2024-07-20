@@ -54,7 +54,7 @@ function ObjCollectionDetails({ children, details, name }) {
       <div className="select-text rounded-md px-1 py-1">
         {Object.entries(groupedDetails).map(([k, v]) => (
           <div key={`ObjCollectionDetails-${k}`}>
-            <p className="text-sm font-bold dark:text-runcoder-200">{k}</p>
+            <p className="text-sm font-bold dark:text-setta-200">{k}</p>
             <ObjListText objList={v} />
           </div>
         ))}
@@ -67,7 +67,7 @@ function ObjListText({ objList }) {
   return objList.map((x) => (
     <div
       key={`ObjListText-${x.id}`}
-      className="indent-2 dark:text-runcoder-200"
+      className="indent-2 dark:text-setta-200"
     >
       {x.name}
     </div>

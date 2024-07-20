@@ -17,7 +17,7 @@ export const DummySection = React.forwardRef(({ forceShow }, ref) => {
   return (
     <div
       style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}
-      className="rounded-md bg-runcoder-50/25"
+      className="rounded-md bg-setta-50/25"
       ref={ref}
     />
   );

@@ -30,4 +30,4 @@ export function TextInput({
     />
   );
 }
-// bg-white/50 dark:bg-runcoder-900 rounded-md
+// bg-white/50 dark:bg-setta-900 rounded-md

@@ -5,7 +5,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        runcoder: {
+        setta: {
           50: "hsl(222, 28%, 95%)",
           100: "hsl(219, 24%, 89%)",
           200: "hsl(219, 25%, 77%)",

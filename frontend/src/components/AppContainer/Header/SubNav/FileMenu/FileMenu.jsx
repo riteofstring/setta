@@ -27,7 +27,7 @@ export function FileMenu() {
         <VscSaveAs />
         Save As
       </MenuItem>
-      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-runcoder-100 dark:bg-runcoder-600" />
+      <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
 
       <MenuItem onClick={openImportJSONModal}>
         {/* <BiImport /> */}
