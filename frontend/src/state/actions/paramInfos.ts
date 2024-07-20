@@ -5,6 +5,7 @@ import {
   getMappedSectionDBSource,
   getSectionInfo,
 } from "../getters/sectionInfo";
+import { setEnteredValue } from "./evCols";
 import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { varControlUpdate } from "./varControl";
@@ -32,9 +33,7 @@ export function setParamEnteredValue({
 }) {
   const { evColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  useEVCols
-    .getState()
-    .setEnteredValue({ dbSource, collectionId: evColId, paramInfoId, value });
+  setEnteredValue({ dbSource, collectionId: evColId, paramInfoId, value });
   if (incrementVersion) {
     varControlUpdate();
   }

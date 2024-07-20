@@ -4,7 +4,6 @@ import { getChildUIType } from "state/actions/getChildUITypeId";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
-import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
@@ -12,6 +11,7 @@ import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { ManySectionType } from "z_utils/types/section";
 import { getSectionType, getSectionTypeConfig } from "../getters/sectionInfo";
 import { addCodeInfo } from "./codeInfo";
+import { initManyEvColIds } from "./evCols";
 
 export function createChildForSeries({ parentId, numChildren }) {
   // const { name: parentName } = useSectionInfos.getState().x[parentId];
@@ -49,7 +49,7 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
 
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
-  useEVCols.getState().initManyEvColIds({
+  initManyEvColIds({
     dbSource: C.DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.evColId),
   });

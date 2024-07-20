@@ -8,7 +8,6 @@ import {
 } from "state/actions/sectionContents";
 import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
@@ -19,6 +18,7 @@ import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { addCodeInfo, addCodeInfoBatch } from "./codeInfo";
+import { updateEVCols } from "./evCols";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
@@ -90,7 +90,7 @@ export function loadSectionIntoState({
   }
 
   useUITypes.getState().update(uiTypes);
-  useEVCols.getState().update({ evCols });
+  updateEVCols({ evCols });
   useUITypeCols.getState().update({ uiTypeCols });
   addCodeInfoBatch(codeInfo);
   useSectionInfos.getState().update(sections);

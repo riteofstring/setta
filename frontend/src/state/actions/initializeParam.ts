@@ -15,6 +15,7 @@ import {
   getMappedSectionDBSource,
   getSectionInfo,
 } from "../getters/sectionInfo";
+import { initManyEnteredValues } from "./evCols";
 
 export function initializeChildParams({
   sectionIds,
@@ -66,7 +67,7 @@ function initializeParamEnteredValue(
     }
   }
 
-  useEVCols.getState().initManyEnteredValues({
+  initManyEnteredValues({
     dbSource: getMappedSectionDBSource(sectionId),
     collectionId: evColId,
     paramIdsToUITypes,

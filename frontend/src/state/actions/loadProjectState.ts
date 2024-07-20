@@ -1,6 +1,5 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
-import { useEVCols } from "state/definitions/evCols";
 import { useParamSweep } from "state/definitions/paramSweep";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
@@ -13,6 +12,7 @@ import { useUITypeCols } from "../definitions/uiTypeCols";
 import { useUITypes } from "../definitions/uiTypes";
 import { useUserCodeInfoMaps } from "../definitions/userCodeInfoMaps";
 import { setAllCodeInfo } from "./codeInfo";
+import { setAllEVCols } from "./evCols";
 import { setNodes } from "./nodeInternals";
 import { setAllOutputGroups } from "./outputGroups";
 import { setAllOutputs } from "./outputs";
@@ -53,7 +53,7 @@ export function loadProjectState({
     })),
   );
   useUITypes.getState().resetAndSetAll({ ...uiTypes, ...BASE_UI_TYPES });
-  useEVCols.getState().resetAndSetAll({ evCols });
+  setAllEVCols(evCols);
   useUITypeCols.getState().resetAndSetAll({ uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);
   useRunGroups.getState().resetAndSetAll(runGroups);

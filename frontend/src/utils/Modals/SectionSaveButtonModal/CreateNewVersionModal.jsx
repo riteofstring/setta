@@ -1,5 +1,5 @@
+import { duplicateEvCol } from "state/actions/evCols";
 import { setSectionInfoAttr } from "state/actions/setters";
-import { useEVCols } from "state/definitions/evCols";
 import { useModal } from "state/definitions/modal";
 import {
   getMappedSectionDBSource,
@@ -14,9 +14,7 @@ export function CreateNewVersionModal() {
     const currId = getSectionInfo(sectionId).evColId;
     const dbSource = getMappedSectionDBSource(sectionId);
     const newId = createNewId();
-    useEVCols
-      .getState()
-      .duplicateEvCol({ dbSource, id: currId, newId, newName: filename });
+    duplicateEvCol({ dbSource, id: currId, newId, newName: filename });
     setSectionInfoAttr({ sectionId, attr: "evColId", value: newId });
     setSectionInfoAttr({
       sectionId,

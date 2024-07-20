@@ -11,6 +11,7 @@ import {
 } from "state/getters/sectionInfo";
 import { getValueForUIType } from "z_utils/objs/ev";
 import { maybeCloneUIType } from "./cloneUITypes";
+import { setEnteredValue } from "./evCols";
 import { getParamUIType } from "./paramInfos";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
@@ -105,7 +106,7 @@ function _updateEVs(uiType) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({ uiType, currValue });
             if (newVal !== currValue) {
-              eState.setEnteredValue({
+              setEnteredValue({
                 dbSource,
                 collectionId: s.evColId,
                 paramInfoId: pid,
