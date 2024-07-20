@@ -61,5 +61,3 @@ export const useParamSweep = createProjectState(
     })),
   ),
 );
-
-useParamSweep.temporal.getState().pause();

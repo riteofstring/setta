@@ -128,8 +128,6 @@ function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
   }
 }
 
-useSectionInfos.temporal.getState().pause();
-
 export function manualDndChildrenReset() {
   useDndChildren
     .getState()

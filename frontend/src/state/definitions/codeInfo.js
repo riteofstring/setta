@@ -68,5 +68,3 @@ export const useCodeInfo = createProjectState(
     })),
   ),
 );
-
-useCodeInfo.temporal.getState().pause();

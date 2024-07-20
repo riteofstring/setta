@@ -15,5 +15,3 @@ export const useActiveSection = createProjectState(
     clear: () => set({ ids: [] }),
   })),
 );
-
-useActiveSection.temporal.getState().pause();

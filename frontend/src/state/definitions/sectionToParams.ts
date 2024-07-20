@@ -22,5 +22,3 @@ export const useSectionToParams = createProjectState(
     })),
   ),
 );
-
-useSectionToParams.temporal.getState().pause();

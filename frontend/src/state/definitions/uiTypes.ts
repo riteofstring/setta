@@ -37,5 +37,3 @@ export const useUITypes = createProjectState(
     })),
   ),
 );
-
-useUITypes.temporal.getState().pause();

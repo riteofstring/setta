@@ -17,32 +17,34 @@ function getSingletonSubscriptionFn(type) {
   };
 }
 
-useSectionInfos.subscribe(
-  getSingletonSubscriptionFn(C.GLOBAL_VARIABLES),
-  (x) => {
-    SINGLETON_SECTIONS.globalVariables = x;
-    useKeywordRegex.getState().updateGlobalVariables(x);
-  },
-);
+export function subscribe() {
+  useSectionInfos.subscribe(
+    getSingletonSubscriptionFn(C.GLOBAL_VARIABLES),
+    (x) => {
+      SINGLETON_SECTIONS.globalVariables = x;
+      useKeywordRegex.getState().updateGlobalVariables(x);
+    },
+  );
 
-useSectionInfos.subscribe(
-  getSingletonSubscriptionFn(C.GLOBAL_PARAM_SWEEP),
-  (x) => {
-    SINGLETON_SECTIONS.globalParamSweep = x;
-  },
-);
+  useSectionInfos.subscribe(
+    getSingletonSubscriptionFn(C.GLOBAL_PARAM_SWEEP),
+    (x) => {
+      SINGLETON_SECTIONS.globalParamSweep = x;
+    },
+  );
 
-useSectionInfos.subscribe(getSingletonSubscriptionFn(C.VAR_CONTROL), (x) => {
-  SINGLETON_SECTIONS.varControl = x;
-});
+  useSectionInfos.subscribe(getSingletonSubscriptionFn(C.VAR_CONTROL), (x) => {
+    SINGLETON_SECTIONS.varControl = x;
+  });
 
-useSectionInfos.subscribe(
-  (state) => _.mapValues(state.x, (v) => v.children),
-  (x) => useDndChildren.getState().reset(x),
-);
+  useSectionInfos.subscribe(
+    (state) => _.mapValues(state.x, (v) => v.children),
+    (x) => useDndChildren.getState().reset(x),
+  );
 
-useSectionInfos.subscribe(
-  (state) => _.mapValues(state.x, (v) => v.name),
-  (x) => useKeywordRegex.getState().update(x),
-  { equalityFn: _.isEqual },
-);
+  useSectionInfos.subscribe(
+    (state) => _.mapValues(state.x, (v) => v.name),
+    (x) => useKeywordRegex.getState().update(x),
+    { equalityFn: _.isEqual },
+  );
+}

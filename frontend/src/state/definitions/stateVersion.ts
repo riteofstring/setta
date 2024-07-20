@@ -8,5 +8,3 @@ export const useStateVersion = createProjectState(
     reset: () => set({ version: 0 }),
   })),
 );
-
-useStateVersion.temporal.getState().pause();

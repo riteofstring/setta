@@ -94,5 +94,3 @@ export const useParamInfos = createProjectState(
     })),
   ),
 );
-
-useParamInfos.temporal.getState().pause();

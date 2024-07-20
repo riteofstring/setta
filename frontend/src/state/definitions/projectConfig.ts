@@ -24,5 +24,3 @@ export const useProjectConfig = createProjectState(
     })),
   ),
 );
-
-useProjectConfig.temporal.getState().pause();

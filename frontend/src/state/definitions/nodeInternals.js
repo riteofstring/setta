@@ -18,8 +18,6 @@ export const useNodeInternals = createProjectState(
   })),
 );
 
-useNodeInternals.temporal.getState().pause();
-
 export function addNodes(nodes) {
   const changes = nodes.map((node) => ({ item: node, type: "add" }));
   onNodesChange(changes);
