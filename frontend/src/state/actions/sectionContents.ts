@@ -1,5 +1,4 @@
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { updateKeywordRegex } from "state/definitions/keywordRegex";
 import { useSectionToParams } from "state/definitions/sectionToParams";
 import {
   findAllCallables,
@@ -7,6 +6,7 @@ import {
   findAllParametersOfCollections,
 } from "z_utils/getDescendants";
 import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
+import { updateKeywordRegex } from "./keywordRegex";
 
 export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];

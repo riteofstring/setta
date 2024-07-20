@@ -5,12 +5,12 @@ import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { varControlUpdate } from "state/actions/varControl";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useKeywordRegex } from "state/definitions/keywordRegex";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { isUUID } from "z_utils/utils";
 import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
+import { updateKeywordRegex } from "./keywordRegex";
 import { updateCallables, updateParams } from "./sectionContents";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
@@ -45,9 +45,7 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
     createChildrenCodeInfo(id, res);
     setSelectedItemChildren(sectionId, id, changedByUser);
   }
-  useKeywordRegex
-    .getState()
-    .update(_.mapValues(useSectionInfos.getState().x, (x) => x.name));
+  updateKeywordRegex(_.mapValues(useSectionInfos.getState().x, (x) => x.name));
 }
 
 function createChildrenCodeInfo(parent, params) {

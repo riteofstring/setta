@@ -1,9 +1,12 @@
 import C from "constants/constants.json";
 import _ from "lodash";
+import {
+  updateGlobalVariablesRegex,
+  updateKeywordRegex,
+} from "state/actions/keywordRegex";
 import { useUITypes } from "state/definitions/uiTypes";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
-import { useKeywordRegex } from "../definitions/keywordRegex";
 import { useSectionInfos } from "../definitions/sectionInfos";
 
 function getSingletonSubscriptionFn(type) {
@@ -22,7 +25,7 @@ export function subscribe() {
     getSingletonSubscriptionFn(C.GLOBAL_VARIABLES),
     (x) => {
       SINGLETON_SECTIONS.globalVariables = x;
-      useKeywordRegex.getState().updateGlobalVariables(x);
+      updateGlobalVariablesRegex(x);
     },
   );
 
@@ -44,7 +47,7 @@ export function subscribe() {
 
   useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.name),
-    (x) => useKeywordRegex.getState().update(x),
+    (x) => updateKeywordRegex(x),
     { equalityFn: _.isEqual },
   );
 }
