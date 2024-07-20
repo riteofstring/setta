@@ -152,11 +152,30 @@ function computeNewChildrenForLeftPush(
     return;
   }
 
+  const siblingList = parentInfo.children;
+  const paramIdx = siblingList.indexOf(paramInfo.id);
+  const paramNewChildren = [];
+  for (let i = paramIdx + 1; i < siblingList.length; i++) {
+    const siblingId = siblingList[i];
+    if (useCodeInfo.getState().x[siblingId].isSelected) {
+      break;
+    }
+    paramNewChildren.push(siblingId);
+  }
+
+  if (!(paramInfo.id in newChildren)) {
+    newChildren[paramInfo.id] = paramInfo.children;
+  }
+  newChildren[paramInfo.id] = [
+    ...newChildren[paramInfo.id],
+    ...paramNewChildren,
+  ];
+
   if (!(parentInfo.id in newChildren)) {
     newChildren[parentInfo.id] = parentInfo.children;
   }
   newChildren[parentInfo.id] = newChildren[parentInfo.id].filter(
-    (x) => x !== paramInfo.id,
+    (x) => x !== paramInfo.id && !paramNewChildren.includes(x),
   );
 
   const parentSiblingList = gParentInfo.children;
