@@ -7,7 +7,6 @@ import {
 } from "state/actions/sectionContents";
 import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useCodeInfo } from "state/definitions/codeInfo";
 import { addNodes } from "state/definitions/nodeInternals";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionInfos } from "state/definitions/sectionInfos";
@@ -18,6 +17,7 @@ import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
+import { addCodeInfo, addCodeInfoBatch } from "./codeInfo";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
@@ -90,7 +90,7 @@ export function loadSectionIntoState({
 
   useUITypes.getState().update(uiTypes);
   useParamInfos.getState().update({ evCols, uiTypeCols });
-  useCodeInfo.getState().update(codeInfo);
+  addCodeInfoBatch(codeInfo);
   useSectionInfos.getState().update(sections);
   updateManyParamsAndCallables(Object.keys(sections));
   const nodes = [];
@@ -134,7 +134,7 @@ function createSectionsFromArgparse({ pathToScript, args, ...props }) {
       rcType: C.PARAMETER,
       editable: true,
     });
-    useCodeInfo.getState().addCodeInfo({ info, parent: sectionCodeInfoId });
+    addCodeInfo({ info, parent: sectionCodeInfoId });
     if (arg.type === "store_true") {
       paramIdToUITypeId[info.id] = BASE_UI_TYPE_IDS.SWITCH;
     }

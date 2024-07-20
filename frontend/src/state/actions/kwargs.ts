@@ -1,6 +1,5 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useCodeInfo } from "state/definitions/codeInfo";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionToParams } from "state/definitions/sectionToParams";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
@@ -10,6 +9,7 @@ import {
   getSectionInfo,
   getSectionTypeConfig,
 } from "../getters/sectionInfo";
+import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "./codeInfo";
 import { initializeParam } from "./initializeParam";
 import { updateParams } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
@@ -34,7 +34,7 @@ export function addKwarg({
     editable: true,
   });
   const parent = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
-  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent, insertIdx });
+  addCodeInfo({ info: kwargInfo, parent, insertIdx });
   initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
@@ -68,7 +68,7 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  useCodeInfo.getState().deleteInfo({ ids: [kwargId], parent: parentId });
+  deleteCodeInfo({ ids: [kwargId], parent: parentId });
   useParamInfos
     .getState()
     .deleteParamInfo({ dbSource, evColId, uiTypeColId, ids: [kwargId] });
@@ -91,7 +91,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 }
 
 export function changeKwargName({ sectionId, paramInfoId, name }) {
-  useCodeInfo.getState().setName({ id: paramInfoId, name });
+  setCodeInfoName({ id: paramInfoId, name });
   updateParams(sectionId);
   maybeIncrementProjectStateVersion(true);
 }

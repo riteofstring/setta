@@ -3,7 +3,6 @@ import _ from "lodash";
 import { getChildUIType } from "state/actions/getChildUITypeId";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
-import { useCodeInfo } from "state/definitions/codeInfo";
 import { addNodes } from "state/definitions/nodeInternals";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionInfos } from "state/definitions/sectionInfos";
@@ -11,6 +10,7 @@ import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { ManySectionType } from "z_utils/types/section";
 import { getSectionType, getSectionTypeConfig } from "../getters/sectionInfo";
+import { addCodeInfo } from "./codeInfo";
 
 export function createChildForSeries({ parentId, numChildren }) {
   // const { name: parentName } = useSectionInfos.getState().x[parentId];
@@ -85,7 +85,7 @@ function initializeNewSectionConfig(sectionId) {
     name: "Contents",
     rcType: C.COLLECTION,
   });
-  useCodeInfo.getState().addCodeInfo({ info: collection });
+  addCodeInfo({ info: collection });
   setSectionUITypeConfig({
     sectionId,
     configProps: {

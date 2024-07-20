@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { addCodeInfoBatch } from "state/actions/codeInfo";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { post } from "./utils";
 
@@ -27,7 +28,7 @@ export async function dbGetCollectionDetails(id) {
     body: { codeInfoId: id },
   });
 
-  s.update(res.data);
+  addCodeInfoBatch(res.data);
 }
 
 export async function dbSaveCodeInfo({ codeInfo }) {

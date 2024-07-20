@@ -1,4 +1,5 @@
 import { CgPushDown, CgPushUp } from "react-icons/cg";
+import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs";
 import { updateParams } from "state/actions/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -33,7 +34,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
         console.log(p);
         computeFn(codeInfos, p, newCodeInfoChildren, numChildrenInserted);
       }
-      useCodeInfo.getState().batchUpdateChildren(newCodeInfoChildren);
+      batchUpdateCodeInfoChildren(newCodeInfoChildren);
       updateParams(sectionId);
     };
   }

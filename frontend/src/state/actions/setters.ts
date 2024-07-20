@@ -4,12 +4,12 @@ import { dbParametersRequest } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { varControlUpdate } from "state/actions/varControl";
-import { useCodeInfo } from "state/definitions/codeInfo";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { isUUID } from "z_utils/utils";
 import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
+import { addCodeInfo } from "./codeInfo";
 import { updateKeywordRegex } from "./keywordRegex";
 import { updateCallables, updateParams } from "./sectionContents";
 
@@ -22,7 +22,7 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
       rcType: C.CALLABLE,
     });
     const { codeInfoId } = getSectionTypeConfig(sectionId);
-    useCodeInfo.getState().addCodeInfo({ info, parent: codeInfoId });
+    addCodeInfo({ info, parent: codeInfoId });
     id = info.id;
     updateCallables(sectionId);
   }
@@ -58,7 +58,7 @@ function createChildrenCodeInfo(parent, params) {
       description: p.description,
       positionalOnly: p.positionalOnly,
     });
-    useCodeInfo.getState().addCodeInfo({ info, parent });
+    addCodeInfo({ info, parent });
   }
 }
 
