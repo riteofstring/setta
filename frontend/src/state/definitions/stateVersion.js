@@ -2,9 +2,7 @@ import { temporal } from "zundo";
 import { createProjectState } from "./utils";
 
 export const useStateVersion = createProjectState(
-  temporal((set) => ({
+  temporal(() => ({
     version: 0,
-    incrementVersion: () => set((state) => ({ version: state.version + 1 })),
-    reset: () => set({ version: 0 }),
   })),
 );
