@@ -4,7 +4,6 @@ import { useParamSweep } from "state/definitions/paramSweep";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import { useOutputGroups } from "../definitions/outputGroups";
 import { useOutputs } from "../definitions/outputs";
 import { useParamInfos } from "../definitions/paramInfos";
 import { useProject } from "../definitions/project";
@@ -15,6 +14,7 @@ import { useUITypes } from "../definitions/uiTypes";
 import { useUserCodeInfoMaps } from "../definitions/userCodeInfoMaps";
 import { setAllCodeInfo } from "./codeInfo";
 import { setNodes } from "./nodeInternals";
+import { setAllOutputGroups } from "./outputGroups";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -61,7 +61,7 @@ export function loadProjectState({
     .resetAndSetAll(projectConfigCodeInfoMaps);
   useSectionInfos.getState().resetAndSetAll({ sections });
   useOutputs.getState().resetAndSetAll(outputs);
-  useOutputGroups.getState().resetAndSetAll(outputGroups);
+  setAllOutputGroups(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));
   maybeIncrementProjectStateVersion(true, false);
   return true;
