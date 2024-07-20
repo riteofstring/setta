@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { dbLoadFullProject } from "requests/projects";
 import { loadProjectState } from "state/actions/loadProjectState";
-import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
+import { setOtherProjectConfigs } from "./otherProjectConfigs";
 
 export async function loadProject({ projectName, configName }) {
   const res = await dbLoadFullProject({ projectName });
@@ -18,9 +18,7 @@ export async function loadProject({ projectName, configName }) {
       projectConfig,
       ...configsMerged,
     };
-    useOtherProjectConfigs
-      .getState()
-      .setOtherConfigs(res.data.configs.map((x) => x.projectConfig));
+    setOtherProjectConfigs(res.data.configs.map((x) => x.projectConfig));
     return loadProjectState(projectState);
   } else {
     return false;
