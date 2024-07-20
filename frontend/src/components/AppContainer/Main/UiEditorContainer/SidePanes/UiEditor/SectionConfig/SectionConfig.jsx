@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import React from "react";
 import { constInfoViews } from "state/definitions/infoView";
-import { useSetCurrInfoView } from "state/hooks/useCurrInfoView";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { useGetSectionType } from "state/hooks/useSectionType";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
@@ -16,10 +16,10 @@ const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
-  const infoViewHandlersCard = useSetCurrInfoView(
+  const infoViewHandlersCard = getInfoViewHandlers(
     constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
   );
-  const infoViewHandlersContents = useSetCurrInfoView(
+  const infoViewHandlersContents = getInfoViewHandlers(
     constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH,
   );
 

@@ -8,7 +8,7 @@ import { constInfoViews } from "state/definitions/infoView";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import {
   useCurrInfoView,
-  useSetCurrInfoView,
+  getInfoViewHandlers,
 } from "state/hooks/useCurrInfoView";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
@@ -92,8 +92,8 @@ function TabContent(props) {
 
 const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
-  const infoViewHandlers = useSetCurrInfoView(constInfoViews.OVERVIEW);
-  const infoViewHandlersSearch = useSetCurrInfoView(
+  const infoViewHandlers = getInfoViewHandlers(constInfoViews.OVERVIEW);
+  const infoViewHandlersSearch = getInfoViewHandlers(
     constInfoViews.OVERVIEW_SEARCH,
   );
   return (

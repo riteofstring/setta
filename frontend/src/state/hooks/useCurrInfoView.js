@@ -1,14 +1,16 @@
 import { useInfoView } from "state/definitions/infoView";
 
-export function useSetCurrInfoView(value) {
-  const setCurr = useInfoView((x) => x.setCurr);
+function setCurrInfoView(value) {
+  useInfoView.setState({ currValue: value });
+}
 
+export function getInfoViewHandlers(value) {
   function onMouseOver() {
-    setCurr(value);
+    setCurrInfoView(value);
   }
 
   function onMouseLeave() {
-    setCurr("");
+    setCurrInfoView("");
   }
 
   return { onMouseOver, onMouseLeave };

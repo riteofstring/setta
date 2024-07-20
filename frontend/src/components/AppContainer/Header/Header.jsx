@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { constInfoViews } from "state/definitions/infoView";
 import { useHomePageSearch } from "state/definitions/useHomePageSearch";
 import { updateSearch } from "state/definitions/useProjectSearch";
-import { useSetCurrInfoView } from "state/hooks/useCurrInfoView";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { Notification } from "./Notification/Notification";
 import { SiteLogo } from "./SiteLogo";
@@ -46,7 +46,7 @@ function SearchSwitch({ path }) {
 
 function ProjectPageSearch() {
   const [value, setValue] = useState("");
-  const infoViewHandlers = useSetCurrInfoView(constInfoViews.NAVBAR_SEARCH);
+  const infoViewHandlers = getInfoViewHandlers(constInfoViews.NAVBAR_SEARCH);
 
   function onChange(v) {
     setValue(v);

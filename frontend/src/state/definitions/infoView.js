@@ -13,9 +13,6 @@ export const constInfoViews = {
     "Choose which arguments appear in your selected card.",
 };
 
-const initialState = { currValue: "" };
-
-export const useInfoView = createProjectState((set) => ({
-  ...initialState,
-  setCurr: (value) => set({ currValue: value }),
+export const useInfoView = createProjectState(() => ({
+  currValue: "",
 }));

@@ -6,7 +6,7 @@ import { HiOutlineDuplicate } from "react-icons/hi";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useTypeErrors } from "state/definitions/typeErrors";
 import { useProjectSearch } from "state/definitions/useProjectSearch";
-import { useSetCurrInfoView } from "state/hooks/useCurrInfoView";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
@@ -16,7 +16,7 @@ import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
+  const infoViewHandlers = getInfoViewHandlers(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isSearchResult = useProjectSearch((x) =>
     x.codeInfo.includes(paramInfo.id),
