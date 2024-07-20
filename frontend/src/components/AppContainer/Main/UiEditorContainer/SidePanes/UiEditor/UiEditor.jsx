@@ -1,6 +1,7 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { FiEdit3 } from "react-icons/fi";
+import { setUIEditorTab } from "state/actions/uiEditor";
 import { useActiveSection } from "state/definitions/activeSection";
 import {
   DB_SOURCES_TAB,
@@ -40,7 +41,6 @@ export function UiEditor() {
 
 function TabsVisible({ sectionId }) {
   const rawTab = useUIEditor((x) => x.tab);
-  const setTab = useUIEditor((x) => x.setTab);
   const requiredTabs = useRequiredUIEditorTabs(sectionId);
   // when sectionId changes, the requiredTabs might not include the previously active tab
   const tab = requiredTabs.includes(rawTab) ? rawTab : requiredTabs[0];
@@ -50,7 +50,7 @@ function TabsVisible({ sectionId }) {
       className="contents"
       defaultValue={SECTION_CONFIG_TAB}
       value={tab}
-      onValueChange={setTab}
+      onValueChange={setUIEditorTab}
     >
       <Tabs.List asChild>
         <nav className="flex gap-4">

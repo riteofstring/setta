@@ -1,5 +1,6 @@
 import { createProjectState } from "./utils";
 
+// TODO: remove this hardcoded example error
 export const useTypeErrors = createProjectState(() => ({
   "d96cb110-6f72-435a-b745-2d55e277f983": {
     "0aa0f46a-e923-4528-a411-500cbda6e77b":
