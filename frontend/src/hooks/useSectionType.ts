@@ -28,7 +28,18 @@ export function useGetSectionType<K extends keyof SectionUITypeType>(
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
 }
 
+
+function getIsSeriesElement(state, sectionId){
+  const parentId =  state[sectionId].parentId
+  if (!parentId){
+    return false
+  }
+}
+
+
 export function useIsSeriesElement(sectionId: string) {
+  const parentId = useGetSectionInfo(sectionId, "parentId");
+  const parentUIType = useSectionInfos(x=> )
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) =>
     isSeriesElement(
