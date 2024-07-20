@@ -1,8 +1,9 @@
 import C from "constants/constants.json";
 import { cloneNewUIType } from "state/actions/cloneUITypes";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import {
   getMappedSectionDBSource,
@@ -66,7 +67,7 @@ function createNonPresetForParam({
   useUITypes.getState().setUIType({ uiType: newUIType });
 
   const { uiTypeColId } = getSectionInfo(sectionId);
-  useParamInfos.getState().setNonPresetUITypeIds({
+  useUITypeCols.getState().setNonPresetUITypeIds({
     collectionId: uiTypeColId,
     paramInfoId,
     newValueFn: (v) => [...v, newUIType.id],
@@ -82,8 +83,9 @@ function updateEVs(uiTypeId, configName) {
 }
 
 function _updateEVs(uiType) {
-  const pState = useParamInfos.getState();
-  for (const [colId, col] of Object.entries(pState.y)) {
+  const uState = useUITypeCols.getState();
+  const eState = useEVCols.getState();
+  for (const [colId, col] of Object.entries(uState.y)) {
     const paramsWithUITypeId = new Set();
     for (const [pid, p] of Object.entries(col)) {
       if (p.uiTypeId === uiType.id) {
@@ -98,12 +100,12 @@ function _updateEVs(uiType) {
       if (s.uiTypeColId === colId) {
         const dbSource = getMappedSectionDBSource(s.id);
         for (const [pid, currValue] of Object.entries(
-          pState.x[s.evColId].values,
+          eState.x[s.evColId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({ uiType, currValue });
             if (newVal !== currValue) {
-              pState.setEnteredValue({
+              eState.setEnteredValue({
                 dbSource,
                 collectionId: s.evColId,
                 paramInfoId: pid,

@@ -3,7 +3,7 @@ import _ from "lodash";
 import { setParamEnteredValue } from "state/actions/paramInfos";
 import { setSelectedItem } from "state/actions/setters";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useSectionToParams } from "state/definitions/sectionToParams";
 import { getSectionByName, getSectionType } from "state/getters/sectionInfo";
@@ -58,7 +58,7 @@ function niceState() {
     }
     if (sectionType === C.GLOBAL_VARIABLES) {
       for (const p of useSectionToParams.getState().params[v.id]) {
-        output[p.name] = useParamInfos.getState().x[v.evColId].values[p.id];
+        output[p.name] = useEVCols.getState().x[v.evColId].values[p.id];
       }
     } else {
       output[v.name] = v.selectedItem

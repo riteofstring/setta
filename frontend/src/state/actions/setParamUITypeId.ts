@@ -1,4 +1,4 @@
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { convertValue } from "./convertValue";
 import { maybeIncrementProjectStateVersion } from "./undo";
@@ -16,7 +16,7 @@ export function setParamUITypeId({
 }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
 
-  useParamInfos.getState().setUITypeId({
+  useUITypeCols.getState().setUITypeId({
     collectionId: uiTypeColId,
     paramInfoId,
     uiTypeId,

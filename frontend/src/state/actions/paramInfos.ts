@@ -1,4 +1,5 @@
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import {
   getMappedSectionDBSource,
@@ -10,12 +11,12 @@ import { varControlUpdate } from "./varControl";
 
 export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
-  return useParamInfos.getState().x[evColId].values[paramInfoId];
+  return useEVCols.getState().x[evColId].values[paramInfoId];
 }
 
 function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionInfo(sectionId);
-  return useParamInfos.getState().y[uiTypeColId][paramInfoId].uiTypeId;
+  return useUITypeCols.getState().y[uiTypeColId][paramInfoId].uiTypeId;
 }
 
 export function getParamUIType(sectionId, paramInfoId) {
@@ -31,7 +32,7 @@ export function setParamEnteredValue({
 }) {
   const { evColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  useParamInfos
+  useEVCols
     .getState()
     .setEnteredValue({ dbSource, collectionId: evColId, paramInfoId, value });
   if (incrementVersion) {

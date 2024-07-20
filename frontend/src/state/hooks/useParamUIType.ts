@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { useGetSectionInfo } from "./useGetSectionInfo";
@@ -15,7 +15,7 @@ function useUITypeCol<K extends keyof UITypeColType["codeInfoId"]>(
   key: K,
 ) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
-  return useParamInfos((x) => x.y[uiTypeColId][paramInfoId][key]);
+  return useUITypeCols((x) => x.y[uiTypeColId][paramInfoId][key]);
 }
 
 function useParamUITypeId(sectionId: string, paramInfoId: string) {

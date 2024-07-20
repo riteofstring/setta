@@ -8,8 +8,9 @@ import {
 } from "state/actions/sectionContents";
 import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { sendMessageInRoom } from "state/hooks/useWebsocket";
@@ -89,7 +90,8 @@ export function loadSectionIntoState({
   }
 
   useUITypes.getState().update(uiTypes);
-  useParamInfos.getState().update({ evCols, uiTypeCols });
+  useEVCols.getState().update({ evCols });
+  useUITypeCols.getState().update({ uiTypeCols });
   addCodeInfoBatch(codeInfo);
   useSectionInfos.getState().update(sections);
   updateManyParamsAndCallables(Object.keys(sections));

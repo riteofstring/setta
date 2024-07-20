@@ -1,7 +1,8 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useSectionToParams } from "state/definitions/sectionToParams";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { getKwargIds } from "../getters/codeInfo";
 import {
@@ -69,9 +70,8 @@ export function deleteKwarg(payload: DeleteKwargPayload) {
     kwargId = kwargIds[numKwargs - 1];
   }
   deleteCodeInfo({ ids: [kwargId], parent: parentId });
-  useParamInfos
-    .getState()
-    .deleteParamInfo({ dbSource, evColId, uiTypeColId, ids: [kwargId] });
+  useEVCols.getState().deleteParamInfo({ dbSource, evColId, ids: [kwargId] });
+  useUITypeCols.getState().deleteParamInfo({ uiTypeColId, ids: [kwargId] });
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
 }

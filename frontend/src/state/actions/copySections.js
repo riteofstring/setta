@@ -1,9 +1,10 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
+import { useEVCols } from "state/definitions/evCols";
 import { useNodeInternals } from "state/definitions/nodeInternals";
-import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { findAll } from "z_utils/getDescendants";
 import { getSectionTypeConfig } from "../getters/sectionInfo";
@@ -71,12 +72,12 @@ function getEVCols(sections) {
     evColIds.push(s.evColId);
     evColIds.push(...s.evColIds);
   }
-  return _.pick(useParamInfos.getState().x, evColIds);
+  return _.pick(useEVCols.getState().x, evColIds);
 }
 
 function getUITypeCols(sections) {
   return _.pick(
-    useParamInfos.getState().y,
+    useUITypeCols.getState().y,
     _.map(sections, (x) => x.uiTypeColId),
   );
 }

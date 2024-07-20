@@ -4,7 +4,7 @@ import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useParamSweep } from "state/definitions/paramSweep";
 import { useGetEVColNames } from "state/hooks/useEnteredValue";
 import { useMappedSectionDBSource } from "state/hooks/useGetSectionInfo";
@@ -175,7 +175,7 @@ function ArgItem({
 
 function ShowEVCol({ forSectionId, objInfoId, evColId }) {
   const dbSource = useMappedSectionDBSource(forSectionId);
-  const evCol = useParamInfos((x) => x.x[dbSource][evColId]);
+  const evCol = useEVCols((x) => x.x[dbSource][evColId]);
   const paramsWithValues = useCodeInfo((x) => {
     const output = [];
     for (const c of x.x[objInfoId].children) {

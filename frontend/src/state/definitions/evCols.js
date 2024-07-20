@@ -2,21 +2,17 @@ import _ from "lodash";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
 import { newEV } from "z_utils/objs/ev";
-import {
-  ParamInfoStateType,
-  ParamInfoZustandType,
-} from "z_utils/types/paramInfo";
 import { createRandomName } from "z_utils/utils";
 import { createProjectState, initValue } from "./utils";
 
-const initialState: ParamInfoStateType = { x: {}, y: {}, version: 0 };
+const initialState = { x: {}, version: 0 };
 
-export const useParamInfos = createProjectState(
+export const useEVCols = createProjectState(
   temporal(
-    immer<ParamInfoZustandType>((set) => ({
+    immer((set) => ({
       ...initialState,
-      resetAndSetAll: ({ evCols, uiTypeCols }) => {
-        set((state) => ({ ...state, x: evCols, y: uiTypeCols }), true);
+      resetAndSetAll: ({ evCols }) => {
+        set((state) => ({ ...state, x: evCols }), true);
       },
       duplicateEvCol: ({ dbSource, id, newId, newName }) =>
         set((state) => {
@@ -57,39 +53,16 @@ export const useParamInfos = createProjectState(
         set((state) => {
           state.x[dbSource][collectionId].values[paramInfoId] = value;
         }),
-      initManyUITypeColIds: ({ collectionIds }) =>
-        set((state) => {
-          _.forEach(collectionIds, (id) => initValue(state.y, id, {}));
-        }),
-      setManyUITypeIds: ({ collectionId, paramIdToUITypeId }) =>
-        set((state) => {
-          state.y[collectionId] = {
-            ...state.y[collectionId],
-            ...paramIdToUITypeId,
-          };
-        }),
-      setUITypeId: ({ collectionId, paramInfoId, uiTypeId }) =>
-        set((state) => {
-          state.y[collectionId][paramInfoId].uiTypeId = uiTypeId;
-        }),
-      setNonPresetUITypeIds: ({ collectionId, paramInfoId, newValueFn }) =>
-        set((state) => {
-          state.y[collectionId][paramInfoId].nonPresetUITypeIds = newValueFn(
-            state.y[collectionId][paramInfoId].nonPresetUITypeIds,
-          );
-        }),
-      deleteParamInfo: ({ dbSource, evColId, uiTypeColId, ids }) =>
+      deleteParamInfo: ({ dbSource, evColId, ids }) =>
         set((state) => {
           state.x[dbSource][evColId].values = _.omit(
             state.x[dbSource][evColId].values,
             ids,
           );
-          state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
         }),
-      update: ({ evCols, uiTypeCols }) =>
+      update: ({ evCols }) =>
         set((state) => {
           state.x = { ...state.x, ...evCols };
-          state.y = { ...state.y, ...uiTypeCols };
         }),
     })),
   ),

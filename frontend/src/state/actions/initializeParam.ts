@@ -1,7 +1,8 @@
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useProjectConfigCodeInfoMaps } from "state/definitions/projectConfigCodeInfoMaps";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { useUserCodeInfoMaps } from "state/definitions/userCodeInfoMaps";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
@@ -54,7 +55,7 @@ function initializeParamEnteredValue(
 ) {
   const { evColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  const evCol = useParamInfos.getState().x[dbSource][evColId];
+  const evCol = useEVCols.getState().x[dbSource][evColId];
   const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
 
   const uiTypeState = useUITypes.getState();
@@ -65,7 +66,7 @@ function initializeParamEnteredValue(
     }
   }
 
-  useParamInfos.getState().initManyEnteredValues({
+  useEVCols.getState().initManyEnteredValues({
     dbSource: getMappedSectionDBSource(sectionId),
     collectionId: evColId,
     paramIdsToUITypes,
@@ -74,7 +75,7 @@ function initializeParamEnteredValue(
 
 function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
   const { uiTypeColId } = getSectionInfo(sectionId);
-  const uiTypeCol = useParamInfos.getState().y[uiTypeColId];
+  const uiTypeCol = useUITypeCols.getState().y[uiTypeColId];
   return {
     paramIdToUITypeId: _.mapValues(
       paramInfos,
@@ -138,7 +139,7 @@ function initializeParamUIType(
     }
   }
 
-  useParamInfos.getState().setManyUITypeIds({
+  useUITypeCols.getState().setManyUITypeIds({
     collectionId: uiTypeColId,
     paramIdToUITypeId: newIds,
   });

@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import {
   useGetSectionInfo,
   useMappedSectionDBSource,
@@ -17,7 +17,7 @@ export function useGetParamEnteredValue(
   // console.log("evColId", evColId);
   // console.log("previewEVColId", previewEVColId);
 
-  return useParamInfos((x) => {
+  return useEVCols((x) => {
     if (dbSource in x.x) {
       return x.x[dbSource][previewEVColId ?? evColId].values[paramInfoId];
     }
@@ -28,7 +28,7 @@ export function useGetParamEnteredValue(
 export function useGetEVColNames(sectionId: string) {
   const dbSource = useMappedSectionDBSource(sectionId);
   const evColIds = useGetSectionInfo(sectionId, "evColIds");
-  return useParamInfos((x) => {
+  return useEVCols((x) => {
     if (dbSource in x.x) {
       return evColIds.map((e) => ({ id: e, name: x.x[dbSource][e].name }));
     }

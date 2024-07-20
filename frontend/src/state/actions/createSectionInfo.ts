@@ -4,8 +4,9 @@ import { getChildUIType } from "state/actions/getChildUITypeId";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { ManySectionType } from "z_utils/types/section";
@@ -48,12 +49,12 @@ function addSectionsToState(sectionInfos: ManySectionType, position) {
 
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
-  useParamInfos.getState().initManyEvColIds({
+  useEVCols.getState().initManyEvColIds({
     dbSource: C.DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.evColId),
   });
 
-  useParamInfos.getState().initManyUITypeColIds({
+  useUITypeCols.getState().initManyUITypeColIds({
     collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
   });
 

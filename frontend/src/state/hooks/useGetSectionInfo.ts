@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useParamInfos } from "state/definitions/paramInfos";
+import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { SectionType } from "z_utils/types/section";
@@ -40,5 +40,5 @@ export function useMappedSectionDBSource(sectionId) {
 
 export function useSectionDBSourceIsAvailable(sectionId) {
   const dbSource = useMappedSectionDBSource(sectionId);
-  return useParamInfos((x) => dbSource in x.x);
+  return useEVCols((x) => dbSource in x.x);
 }

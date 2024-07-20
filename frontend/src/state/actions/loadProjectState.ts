@@ -1,14 +1,15 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
+import { useEVCols } from "state/definitions/evCols";
 import { useParamSweep } from "state/definitions/paramSweep";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import { useParamInfos } from "../definitions/paramInfos";
 import { useProject } from "../definitions/project";
 import { useProjectConfig } from "../definitions/projectConfig";
 import { useProjectConfigCodeInfoMaps } from "../definitions/projectConfigCodeInfoMaps";
 import { useSectionInfos } from "../definitions/sectionInfos";
+import { useUITypeCols } from "../definitions/uiTypeCols";
 import { useUITypes } from "../definitions/uiTypes";
 import { useUserCodeInfoMaps } from "../definitions/userCodeInfoMaps";
 import { setAllCodeInfo } from "./codeInfo";
@@ -52,7 +53,8 @@ export function loadProjectState({
     })),
   );
   useUITypes.getState().resetAndSetAll({ ...uiTypes, ...BASE_UI_TYPES });
-  useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
+  useEVCols.getState().resetAndSetAll({ evCols });
+  useUITypeCols.getState().resetAndSetAll({ uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);
   useRunGroups.getState().resetAndSetAll(runGroups);
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);

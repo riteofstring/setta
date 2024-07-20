@@ -5,14 +5,15 @@ import {
   dbSaveProject,
 } from "requests/projects";
 import { useCodeInfo } from "state/definitions/codeInfo";
+import { useEVCols } from "state/definitions/evCols";
 import { useNodeInternals } from "state/definitions/nodeInternals";
-import { useParamInfos } from "state/definitions/paramInfos";
 import { useParamSweep } from "state/definitions/paramSweep";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
 import { useProjectConfigCodeInfoMaps } from "state/definitions/projectConfigCodeInfoMaps";
 import { useRunGroups } from "state/definitions/runGroups";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
@@ -35,9 +36,9 @@ export function getProjectData(): ProjectSaveType {
   }
   projectConfig.children = children;
 
-  const evCols = useParamInfos.getState().x;
+  const evCols = useEVCols.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
-  const uiTypeCols = useParamInfos.getState().y;
+  const uiTypeCols = useUITypeCols.getState().y;
   const paramSweeps = useParamSweep.getState().x;
   const runGroups = _.mapValues(useRunGroups.getState().x, (x) => ({
     ...x,
