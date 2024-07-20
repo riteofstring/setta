@@ -1,51 +1,46 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import C from "constants/constants.json";
 import { useGetSectionType } from "hooks/useSectionType";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { HeaderIcon } from "../HeaderIcon/HeaderIcon";
+import {
+  CODE,
+  GLOBAL_VARIABLES,
+  PARAM_SWEEP,
+  VAR_CONTROL,
+} from "z_utils/constants";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton/CreateNewVersionButton";
+import { DeriveButton } from "./DeriveButton/DeriveButton";
 import { FreezeButton } from "./FreezeButton/FreezeButton";
 import { MultirunButton } from "./MultiRunButton/MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton/SaveCustomArgumentsButton";
-function MenuButton({ sectionId, sectionTypeName }) {
+
+function MenuButton({ sectionId }) {
   // hover:bg-runcoder-100 dark:hover:bg-runcoder-900
   const sectionType = useGetSectionType(sectionId, "type");
-  console.log("sectionTypeName: ", sectionTypeName);
-
-  const isSpecial = [
-    C.CODE,
-    C.TERMINAL,
-    C.GLOBAL_PARAM_SWEEP,
-    C.GLOBAL_VARIABLES,
-    C.PARAM_SWEEP,
-  ].includes(sectionTypeName);
 
   return (
     <Menubar.Root>
       <MenuDropdown
-        padding={"p-1 mx-1"}
+        padding="p-1"
         rounded="rounded-full"
-        triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-runcoder-600 hover:text-white"} `}
-        trigger={
-          <HeaderIcon
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            classes=" "
-          />
-        }
+        triggerStyle="ml-1"
+        trigger={<i className="gg-shape-circle" />}
       >
-        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionType) && (
+        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
         )}
 
-        {sectionType === C.PARAM_SWEEP ? (
+        {sectionType === PARAM_SWEEP ? (
           <CreateNewParamSweepButton sectionId={sectionId} />
         ) : (
           <CreateNewVersionButton sectionId={sectionId} />
         )}
 
-        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionType) && (
+        {![PARAM_SWEEP, GLOBAL_VARIABLES, CODE, VAR_CONTROL].includes(
+          sectionType,
+        ) && <DeriveButton sectionId={sectionId} />}
+
+        {![PARAM_SWEEP, CODE, VAR_CONTROL].includes(sectionType) && (
           <MultirunButton sectionId={sectionId} />
         )}
 

@@ -1,7 +1,7 @@
+import { useDndMode, useHighlightDroppable } from "hooks/useDndUtils";
 import _ from "lodash";
+import { useDndState } from "models/info/dndState";
 import React from "react";
-import { useDndMode, useDndState } from "utils/DNDSortable/dndState";
-import { useHighlightDroppable } from "utils/DNDSortable/useDndUtils";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
@@ -14,10 +14,14 @@ function _DndSlotAndDndWatcher({
   dragListeners,
   children,
 }) {
-  const { style, behaviorDropType } = useHighlightDroppable(sectionId);
-
+  const { style, positionDropType, behaviorDropType } =
+    useHighlightDroppable(sectionId);
   return (
-    <DndSlot behaviorDropType={behaviorDropType} isDeck={isDeck}>
+    <DndSlot
+      positionDropType={positionDropType}
+      behaviorDropType={behaviorDropType}
+      isDeck={isDeck}
+    >
       <DndWatcherAndContainer
         isDeck={isDeck}
         sectionId={sectionId}
@@ -57,7 +61,7 @@ function _DndWatcherAndContainer({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = isSorting || isMovingFree ? "nodrag" : "";
+  const className = isDraggingSortable ? "nodrag" : "";
   const fullStyle = activeIsSelf ? { ...style, opacity: 0.5 } : style;
 
   return (

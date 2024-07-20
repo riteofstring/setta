@@ -121,13 +121,13 @@ function Body({
         onBreadCrumbClick={onBreadCrumbClick}
       />
       {modalType !== "Load" && (
-        // <div className="px-3">
-        <FileNameInput
-          placeholder={placeholder}
-          value={filename}
-          onChange={onFilenameChange}
-        />
-        // </div>
+        <div className="px-3">
+          <FileNameInput
+            placeholder={placeholder}
+            value={filename}
+            onChange={onFilenameChange}
+          />
+        </div>
       )}
     </>
   );
@@ -138,7 +138,7 @@ export function Footer({ onClose, onClick, buttonText }) {
     <div className="mb-2 mt-4 flex justify-end gap-2">
       {buttonText && (
         <DialogCloseButton
-          twClasses="bg-runcoder-200 dark:bg-runcoder-850 hover:bg-runcoder-300 dark:hover:bg-runcoder-900 text-runcoder-600 dark:text-runcoder-200 hover:cursor-pointer"
+          twClasses="bg-runcoder-200 dark:bg-runcoder-800 hover:bg-runcoder-300 dark:hover:bg-runcoder-900 text-runcoder-600 dark:text-runcoder-200 hover:cursor-pointer"
           onClick={onClick}
         >
           {buttonText}

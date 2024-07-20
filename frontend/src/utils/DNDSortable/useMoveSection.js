@@ -1,17 +1,15 @@
+import { useDndMode } from "hooks/useDndUtils";
 import _ from "lodash";
-import { justMoveANode } from "models/info/nodeInternals";
-import { manualDndChildrenReset } from "models/info/sectionInfos";
+import { useDndState } from "models/info/dndState";
 import { useRef } from "react";
 import { setAllChildren } from "thunks/sections/children";
 import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
-import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { updateWithArrayMove } from "utils/utils";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
-import { useDndChildren } from "./dndChildren";
-import { BehaviorDropType } from "./dropTypes";
+import { getDropType } from "./useDropType";
 
 function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
@@ -26,28 +24,27 @@ function onSortEnd({ active, over }) {
 
 function onFreeMoveEnd({ dummyRef }) {
   const dndState = useDndState.getState();
-  const dndChildrenState = useDndChildren.getState();
   const { activeId: sectionId, overId } = dndState;
   const oldParentId = _.defaultTo(getSectionParentId(sectionId), PANEID);
-  let newParentId = dndChildrenState.y[getDndSectionId(sectionId)] ?? null;
+  let newParentId = null;
   let newIndex = null;
   let position = null;
-  const behaviorDropType = dndState.behaviorDropType;
+  let behaviorDropType = null;
 
-  if (newParentId) {
-    newIndex = dndChildrenState.x[newParentId].indexOf(overId);
-  }
   // dropping nested section onto pane
-  else if (!overId) {
+  if (oldParentId !== PANEID && !overId) {
     newParentId = PANEID;
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
-
-    if (oldParentId === PANEID) {
-      justMoveANode(sectionId, position);
-      return;
-    }
+  } else if (overId) {
+    const dropType = getDropType({
+      centerYCondition: dndState.centerYCondition,
+      leftDistCondition: dndState.leftDistCondition,
+      shouldDrop: dndState.shouldDrop,
+    });
+    behaviorDropType = dropType.behaviorDropType;
+    [newParentId, newIndex] = dropType.positionDropType.slice(1);
   }
 
   moveSection({
@@ -59,29 +56,23 @@ function onFreeMoveEnd({ dummyRef }) {
     behaviorDropType,
     incrementVersion: true,
   });
-
-  if (behaviorDropType === BehaviorDropType.INVALID) {
-    manualDndChildrenReset();
-  }
 }
 
 export function useOnDragEnd() {
+  const { isSorting, isMovingFree } = useDndMode();
   const dummyRef = useRef(null);
 
   function onDragEnd({ active, over, collisions }) {
-    if (useDndState.getState().isSorting) {
+    if (isSorting) {
       onSortEnd({ active, over });
-    } else if (useDndState.getState().isMovingFree) {
+    } else if (isMovingFree) {
       onFreeMoveEnd({
         active,
         over,
         collisions,
         dummyRef,
       });
-    } else {
-      manualDndChildrenReset();
     }
-    useDndState.getState().reset();
   }
 
   return { dummyRef, onDragEnd };

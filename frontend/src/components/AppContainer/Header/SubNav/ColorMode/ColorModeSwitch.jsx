@@ -1,4 +1,4 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { useSettings } from "models/settings";
 import { useEffect } from "react";
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
@@ -6,7 +6,8 @@ import { toggleDarkMode } from "thunks/user/settings";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {
-  const [darkMode] = localStorageFns.darkMode.hook();
+  const darkMode = useSettings((x) => x.darkMode);
+
   useEffect(() => {
     if (darkMode) {
       document.querySelector("html").classList.add("dark");

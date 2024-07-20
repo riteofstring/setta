@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -7,6 +6,7 @@ import { useSectionToParams } from "models/info/sectionToParams";
 import { setParamEnteredValue } from "thunks/paramInfos";
 import { getSectionByName, getSectionType } from "thunks/sections/getters";
 import { setSelectedItem } from "thunks/sections/setters";
+import { CODE, GLOBAL_VARIABLES, VAR_CONTROL } from "z_utils/constants";
 
 export function varControlUpdate() {
   const js_code = getVarControlSection()?.varControl;
@@ -53,10 +53,10 @@ function niceState() {
   const output = {};
   for (const v of Object.values(useSectionInfos.getState().x)) {
     const sectionType = getSectionType(v.id).type;
-    if ([C.CODE, C.VAR_CONTROL].includes(sectionType)) {
+    if ([CODE, VAR_CONTROL].includes(sectionType)) {
       continue;
     }
-    if (sectionType === C.GLOBAL_VARIABLES) {
+    if (sectionType === GLOBAL_VARIABLES) {
       for (const p of useSectionToParams.getState().params[v.id]) {
         output[p.name] = useParamInfos.getState().x[v.evColId].values[p.id];
       }
@@ -72,7 +72,7 @@ function niceState() {
 
 function getGlobalVarsSection() {
   for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (getSectionType(s.id).type === C.GLOBAL_VARIABLES) {
+    if (getSectionType(s.id).type === GLOBAL_VARIABLES) {
       return s;
     }
   }
@@ -81,7 +81,7 @@ function getGlobalVarsSection() {
 
 function getVarControlSection() {
   for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (getSectionType(s.id).type === C.VAR_CONTROL) {
+    if (getSectionType(s.id).type === VAR_CONTROL) {
       return s;
     }
   }

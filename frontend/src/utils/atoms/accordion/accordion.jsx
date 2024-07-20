@@ -55,7 +55,7 @@ const AccordionTrigger = React.forwardRef(
   ) => (
     <Accordion.Header className={headerStyles}>
       <Accordion.Trigger
-        className={`group ${triggerStyles}`}
+        className={triggerStyles}
         {...props}
         ref={forwardedRef}
       >

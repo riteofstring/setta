@@ -1,13 +1,13 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
-import { localStorageFns } from "hooks/localStorageHooks";
 import { useGetOverviewListing } from "hooks/useGetOverviewListing";
 import {
   constInfoViews,
   useCurrInfoView,
   useSetCurrInfoView,
 } from "models/info/infoView";
+import { usePanes } from "models/panes";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
 import { updateMapPosition } from "thunks/updateMapPosition";
@@ -24,7 +24,7 @@ const paneProps = {
 };
 
 export function Overview() {
-  const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
+  const vis = usePanes((x) => x.vis[paneProps.paneName]);
 
   return (
     <PaneContainer
@@ -45,7 +45,7 @@ function TabsVisible() {
       // defaultValue={SECTION_CONFIG_TAB}
       // value={tab}
       // onValueChange={setTab}
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex flex-1 flex-col"
     >
       <Tabs.List>
         <nav className="flex gap-4">
@@ -72,7 +72,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out] hover:text-blue-800 focus-visible:ring-2 dark:text-runcoder-400 dark:hover:text-blue-500 [&[data-state='active']]:border-runcoder-500 [&[data-state='active']]:font-bold"
+      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] focus-visible:ring-2 dark:text-runcoder-400 [&[data-state='active']]:border-runcoder-500 [&[data-state='active']]:font-bold"
       value={value}
       tab-index="0"
     >
@@ -112,8 +112,8 @@ const ProjectOverview = React.forwardRef(() => {
         {...infoViewHandlersSearch}
       />
 
-      <ScrollingArea styles="flex-grow -mx-2 px-2 overflow-hidden min-h-0">
-        <ul className="min-h-0 flex-grow" {...infoViewHandlers}>
+      <ScrollingArea styles="flex-1 -mx-2 px-2">
+        <ul className="flex-grow" {...infoViewHandlers}>
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </ScrollingArea>

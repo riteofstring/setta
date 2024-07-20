@@ -1,8 +1,5 @@
-import C from "constants/constants.json";
 import _ from "lodash";
-import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
-import { DB_SOURCE_MAPPING } from "utils/constants";
 import { SectionType } from "z_utils/types/section";
 
 export function useGetSectionInfo<K extends keyof SectionType>(
@@ -26,19 +23,4 @@ export function useSectionInfoNames() {
 
 export function useSectionHasMultipleEVCols(sectionId) {
   return useSectionInfos((x) => x.x[sectionId].evColIds.length > 1);
-}
-
-export function useSectionDBSource(sectionId) {
-  return useSectionInfos((x) => x.x[sectionId].dbSource || C.DEFAULT_DB_ALIAS);
-}
-
-export function useMappedSectionDBSource(sectionId) {
-  return useSectionInfos(
-    (x) => DB_SOURCE_MAPPING[x.x[sectionId].dbSource || C.DEFAULT_DB_ALIAS],
-  );
-}
-
-export function useSectionDBSourceIsAvailable(sectionId) {
-  const dbSource = useMappedSectionDBSource(sectionId);
-  return useParamInfos((x) => dbSource in x.x);
 }

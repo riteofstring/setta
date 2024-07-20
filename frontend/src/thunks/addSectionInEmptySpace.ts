@@ -1,5 +1,6 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { usePanes } from "models/panes";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
+import { OVERVIEW } from "utils/constants";
 import { useReactFlow } from "xyflow/core/store";
 
 export function addSectionInEmptySpace({
@@ -13,7 +14,7 @@ export function addSectionInEmptySpace({
   const {
     transform: [_x, _y, zoom],
   } = useReactFlow.getState();
-  const [overviewWidth] = localStorageFns.overviewTrueWidth.state();
+  const overviewWidth = usePanes.getState().trueWidth[OVERVIEW];
 
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;

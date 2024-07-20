@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
@@ -12,7 +11,7 @@ import {
 } from "hooks/useSocialUtils";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
-import { useDndMode } from "utils/DNDSortable/dndState";
+import { OUTPUT } from "z_utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 
@@ -43,7 +42,6 @@ function CustomResizableCore({
   children,
   as,
 }) {
-  const { isSorting, isMovingFree } = useDndMode();
   const sizeMode = useSizeMode(sectionId);
   const size = useSectionInfos((x) => x.x[sectionId].size);
   const aspectRatio = useAspectRatio(sectionId);
@@ -70,17 +68,6 @@ function CustomResizableCore({
   const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
-  const enable =
-    isSorting || isMovingFree
-      ? false
-      : {
-          top: false,
-          left: false,
-          bottom: heightResizable,
-          right: widthResizable,
-          bottomRight: heightResizable && widthResizable,
-        };
-
   return (
     <ResizableWithScale
       id={sectionId}
@@ -93,7 +80,13 @@ function CustomResizableCore({
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
-      enable={enable}
+      enable={{
+        top: false,
+        left: false,
+        bottom: heightResizable,
+        right: widthResizable,
+        bottomRight: heightResizable && widthResizable,
+      }}
       className={inputClasses}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
@@ -105,7 +98,7 @@ function CustomResizableCore({
 function useSizeMode(sectionId) {
   const sectionType = useGetSectionType(sectionId, "type");
   const isTwitter = useIsTwitter(sectionId);
-  if (sectionType === C.OUTPUT) {
+  if (sectionType === OUTPUT) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   } else if (isTwitter) {
     return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };

@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useCodeInfo } from "models/info/codeInfo";
 import { getSectionTypeConfig } from "thunks/sections/getters";
@@ -8,6 +7,7 @@ import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { SectionUITypeCombobox } from "utils/Combobox/UITypeCombobox";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
+import { RCType } from "z_utils/types/codeInfo";
 
 export function SectionConfigTypeSelection({ sectionId }) {
   const selectedId = useGetSectionInfo(sectionId, "uiTypeId");
@@ -19,7 +19,7 @@ export function SectionConfigTypeSelection({ sectionId }) {
       if (!getSectionTypeConfig(sectionId).codeInfoId) {
         const codeInfo = newCodeInfo({
           name: "Section Contents",
-          rcType: C.COLLECTION,
+          rcType: RCType.COLLECTION,
         });
         useCodeInfo.getState().addCodeInfo({ info: codeInfo });
         setSectionUITypeConfig({

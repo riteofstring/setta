@@ -19,44 +19,26 @@ export const useParamInfos = createProjectState(
       resetAndSetAll: ({ evCols, uiTypeCols }) => {
         set((state) => ({ ...state, x: evCols, y: uiTypeCols }), true);
       },
-      duplicateEvCol: ({ dbSource, id, newId, newName }) =>
+      duplicateEvCol: ({ id, newId, newName }) =>
         set((state) => {
-          const dbSlice = state.x[dbSource];
-          dbSlice[newId] = _.cloneDeep(dbSlice[id]);
-          dbSlice[newId].name = newName;
+          state.x[newId] = _.cloneDeep(state.x[id]);
+          state.x[newId].name = newName;
         }),
-      duplicateDbSource: ({ oldDbSource, newDbSource }) =>
+      initManyEvColIds: ({ collectionIds }) =>
         set((state) => {
-          if (!(newDbSource in state.x)) {
-            return;
-          }
-          const oldDb = state.x[oldDbSource];
-          const newDb = state.x[newDbSource];
-          for (const evColId of Object.keys(oldDb)) {
-            if (!(evColId in newDb)) {
-              newDb[evColId] = _.cloneDeep(oldDb[evColId]);
-            }
-          }
+          _.forEach(collectionIds, (id) =>
+            initValue(state.x, id, { name: createRandomName(), values: {} }),
+          );
         }),
-      initManyEvColIds: ({ dbSource, collectionIds }) =>
-        set((state) => {
-          _.forEach(collectionIds, (id) => {
-            initValue(state.x, dbSource, {});
-            initValue(state.x[dbSource], id, {
-              name: createRandomName(),
-              values: {},
-            });
-          });
-        }),
-      initManyEnteredValues: ({ dbSource, collectionId, paramIdsToUITypes }) =>
+      initManyEnteredValues: ({ collectionId, paramIdsToUITypes }) =>
         set((state) => {
           _.forEach(paramIdsToUITypes, (uiType, id) => {
-            state.x[dbSource][collectionId].values[id] = newEV(uiType);
+            state.x[collectionId].values[id] = newEV(uiType);
           });
         }),
-      setEnteredValue: ({ dbSource, collectionId, paramInfoId, value }) =>
+      setEnteredValue: ({ collectionId, paramInfoId, value }) =>
         set((state) => {
-          state.x[dbSource][collectionId].values[paramInfoId] = value;
+          state.x[collectionId].values[paramInfoId] = value;
         }),
       initManyUITypeColIds: ({ collectionIds }) =>
         set((state) => {
@@ -79,12 +61,9 @@ export const useParamInfos = createProjectState(
             state.y[collectionId][paramInfoId].nonPresetUITypeIds,
           );
         }),
-      deleteParamInfo: ({ dbSource, evColId, uiTypeColId, ids }) =>
+      deleteParamInfo: ({ evColId, uiTypeColId, ids }) =>
         set((state) => {
-          state.x[dbSource][evColId].values = _.omit(
-            state.x[dbSource][evColId].values,
-            ids,
-          );
+          state.x[evColId].values = _.omit(state.x[evColId].values, ids);
           state.y[uiTypeColId] = _.omit(state.y[uiTypeColId], ids);
         }),
       update: ({ evCols, uiTypeCols }) =>

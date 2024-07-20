@@ -1,9 +1,9 @@
-import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
+import { usePanes } from "models/panes";
 import { useParamSweep } from "models/paramSweep";
 import { useRunGroups } from "models/runGroups";
-import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
+import { REACT_FLOW_STORE } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useProjectConfigCodeInfoMaps } from "../models/codeInfoMaps/projectConfigCodeInfoMaps";
 import { useUserCodeInfoMaps } from "../models/codeInfoMaps/userCodeInfoMaps";
@@ -32,9 +32,7 @@ export function loadProjectState({
   runGroups,
   outputs,
   outputGroups,
-  dbSourceMapping,
 }: ProjectLoadType) {
-  setDbSourceMapping(dbSourceMapping);
   useCodeInfo.getState().resetAndSetAll(codeInfo);
   if (project) {
     useProject.getState().resetAndSetAll(project);
@@ -42,6 +40,7 @@ export function loadProjectState({
   useProjectConfig
     .getState()
     .resetAndSetAll(_.omit(projectConfig, ["viewport", "children"]));
+  usePanes.getState().setAll(projectConfig.panes);
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   useNodeInternals.getState().setNodes(
     _.map(projectConfig.children, (v, k) => ({
@@ -51,7 +50,7 @@ export function loadProjectState({
       tempZIndex: v.zIndex,
     })),
   );
-  useUITypes.getState().resetAndSetAll({ ...uiTypes, ...BASE_UI_TYPES });
+  useUITypes.getState().resetAndSetAll(uiTypes);
   useParamInfos.getState().resetAndSetAll({ evCols, uiTypeCols });
   useParamSweep.getState().resetAndSetAll(paramSweeps);
   useRunGroups.getState().resetAndSetAll(runGroups);

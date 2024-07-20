@@ -1,10 +1,10 @@
-import C from "constants/constants.json";
-import { sendMessageInRoom } from "hooks/useWebsocket";
+import { sendMessage } from "dbRequests/websocket";
 import { useCodeInfo } from "models/info/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { useWebsocketRooms } from "models/websocket";
 import { initializeChildParams } from "thunks/initializeParam";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
 import { getSectionTypeConfig } from "thunks/sections/getters";
@@ -14,10 +14,18 @@ import {
 } from "thunks/sections/sectionContents";
 import { moveSections } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
+import { PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
+import {
+  CODE,
+  DECK,
+  GLOBAL_VARIABLES,
+  SWITCH_UI_TYPE_ID,
+} from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
+import { RCType } from "z_utils/types/codeInfo";
+import { createNewId } from "z_utils/utils";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
@@ -32,7 +40,7 @@ export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   }
 
   onClickAddSection({
-    type: C.DECK,
+    type: DECK,
     x,
     y,
     callbackBeforeExit: getCallbackBeforeExit({
@@ -110,17 +118,26 @@ export function loadSectionIntoState({
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export async function extractArgparseArgs({ pathToScript, ...props }) {
-  const args = await sendMessageInRoom({
+export function extractArgparseArgs({ pathToScript, ...props }) {
+  const id = createNewId();
+  const unsub = useWebsocketRooms.subscribe(
+    (x) => x[id],
+    (x) => {
+      createSectionsFromArgparse({ pathToScript, args: x, ...props });
+      unsub();
+      useWebsocketRooms.getState().deleteRoom(id);
+    },
+  );
+  sendMessage({
+    id,
     messageType: "extractArgparseArgs",
-    content: pathToScript,
+    message: pathToScript,
   });
-  createSectionsFromArgparse({ pathToScript, args, ...props });
 }
 
 function createSectionsFromArgparse({ pathToScript, args, ...props }) {
   const varSectionId = onClickAddSection({
-    type: C.GLOBAL_VARIABLES,
+    type: GLOBAL_VARIABLES,
     ...props,
     incrementVersion: false,
   });
@@ -131,12 +148,12 @@ function createSectionsFromArgparse({ pathToScript, args, ...props }) {
   for (const arg of args) {
     const info = newCodeInfo({
       name: arg.name,
-      rcType: C.PARAMETER,
+      rcType: RCType.PARAMETER,
       editable: true,
     });
     useCodeInfo.getState().addCodeInfo({ info, parent: sectionCodeInfoId });
     if (arg.type === "store_true") {
-      paramIdToUITypeId[info.id] = BASE_UI_TYPE_IDS.SWITCH;
+      paramIdToUITypeId[info.id] = SWITCH_UI_TYPE_ID;
     }
   }
 
@@ -148,7 +165,7 @@ function createSectionsFromArgparse({ pathToScript, args, ...props }) {
   updateParams(varSectionId);
 
   onClickAddSection({
-    type: C.CODE,
+    type: CODE,
     ...props,
     x: props.x + 600,
     incrementVersion: false,

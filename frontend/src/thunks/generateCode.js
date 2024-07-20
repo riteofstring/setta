@@ -2,66 +2,43 @@ import {
   INITIAL_MESSAGE,
   TERMINAL_WEBSOCKETS,
 } from "components/UI/Section/SectionContainer/TerminalArea";
-import C from "constants/constants.json";
 import { dbGetFreeTerminal } from "dbRequests/terminals";
-import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
-import { useWebsocketConnectionList } from "models/websocket";
-import {
-  computeEVReferences,
-  computeInfoToFullName,
-} from "utils/CodeMirror/utils";
+import { TERMINAL } from "z_utils/constants";
 import { createNewId } from "z_utils/utils";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
-import { getMappedSectionDBSource } from "./sections/getters";
 
-export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
+export function getProjectDataToGenerateCode() {
   const project = getProjectData();
   project.codeInfo = useCodeInfo.getState().x;
   const presetUITypes = assembleUITypes(useUITypes.getState().x, true);
   project.uiTypes = { ...project.uiTypes, ...presetUITypes };
   delete project.project.defaultConfigId;
-  if (includeEVReferences) {
-    computeEVReferences(project);
-    computeInfoToFullName(project);
-  }
-  console.log(project);
   return project;
 }
 
 export async function runCode({ codeId }) {
-  const project = getProjectDataToGenerateCode({ includeEVReferences: false });
+  const project = getProjectDataToGenerateCode();
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    computeEVReferences(projectVariant);
-    computeInfoToFullName(projectVariant);
-    const message = JSON.stringify({
-      id: codeId,
-      type: "runCode",
-      content: projectVariant,
-    });
-    if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-      // TODO unify the sendMessage format with the above message format
-      sendMessage({
-        content: projectVariant,
-        id: codeId,
-        messageType: "runCode",
-      });
-      continue;
-    }
     const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
     if (res.status === 200) {
       const freeTerminalId = res.data;
+      const message = JSON.stringify({
+        id: codeId,
+        type: "runCode",
+        message: projectVariant,
+      });
       if (freeTerminalId) {
         TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
       } else {
         const id = createNewId();
         INITIAL_MESSAGE[id] = message;
         addSectionInEmptySpace({
-          type: C.TERMINAL,
+          type: TERMINAL,
           inputSectionProps: { id },
           positionOffset: { x: count * 100, y: 0 },
         });
@@ -155,9 +132,7 @@ function* getProjectVariants(project) {
         const forSectionId = Object.values(project.sections).find((x) =>
           x.paramSweepIds.includes(paramSweepId),
         ).id;
-        const { evColId } = project.sections[forSectionId];
-        const dbSource = getMappedSectionDBSource(forSectionId);
-        const evCol = variant.evCols[dbSource][evColId];
+        const evCol = variant.evCols[project.sections[forSectionId].evColId];
         evCol.values[paramInfoId] = value;
       }
       yield variant;

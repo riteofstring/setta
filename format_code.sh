@@ -1,4 +1,4 @@
 #!/bin/sh
-black backend
-isort backend --profile black
-flake8 backend --count --show-source --statistics
+black python
+isort python --profile black
+flake8 python --count --show-source --statistics

@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useContextMenus } from "models/contextMenus";
 import { useModal } from "models/modal";
@@ -6,6 +5,18 @@ import { onClickAddSection } from "thunks/createSectionOrDeck";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import {
+  CODE,
+  DECK,
+  DICT_ROOT,
+  GLOBAL_PARAM_SWEEP,
+  GLOBAL_VARIABLES,
+  INFO,
+  LIST_ROOT,
+  SECTION,
+  TERMINAL,
+  VAR_CONTROL,
+} from "z_utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
@@ -36,30 +47,30 @@ export function PaneContextMenu() {
       isOpen={isOpen}
     >
       <Item
-        onClick={() => onClickAddSection({ type: C.SECTION, ...commonProps })}
+        onClick={() => onClickAddSection({ type: SECTION, ...commonProps })}
       >
         New Section
       </Item>
       <Item
-        onClick={() => onClickAddSection({ type: C.LIST_ROOT, ...commonProps })}
+        onClick={() => onClickAddSection({ type: LIST_ROOT, ...commonProps })}
       >
         New List
       </Item>
       <Item
-        onClick={() => onClickAddSection({ type: C.DICT_ROOT, ...commonProps })}
+        onClick={() => onClickAddSection({ type: DICT_ROOT, ...commonProps })}
       >
         New Dict
       </Item>
-      <Item onClick={() => onClickAddSection({ type: C.DECK, ...commonProps })}>
+      <Item onClick={() => onClickAddSection({ type: DECK, ...commonProps })}>
         New Group
       </Item>
-      <Item onClick={() => onClickAddSection({ type: C.INFO, ...commonProps })}>
+      <Item onClick={() => onClickAddSection({ type: INFO, ...commonProps })}>
         New Info
       </Item>
       {!SINGLETON_SECTIONS.globalVariables && (
         <Item
           onClick={() =>
-            onClickAddSection({ type: C.GLOBAL_VARIABLES, ...commonProps })
+            onClickAddSection({ type: GLOBAL_VARIABLES, ...commonProps })
           }
         >
           New Global Variables
@@ -68,7 +79,7 @@ export function PaneContextMenu() {
       <Item
         onClick={() =>
           onClickAddSection({
-            type: C.CODE,
+            type: CODE,
             ...commonProps,
             inputSectionProps: { codeLanguage: "python" },
           })
@@ -79,7 +90,7 @@ export function PaneContextMenu() {
       <Item
         onClick={() =>
           onClickAddSection({
-            type: C.CODE,
+            type: CODE,
             ...commonProps,
             inputSectionProps: { codeLanguage: "bash" },
           })
@@ -90,21 +101,21 @@ export function PaneContextMenu() {
       {!SINGLETON_SECTIONS.varControl && (
         <Item
           onClick={() =>
-            onClickAddSection({ type: C.VAR_CONTROL, ...commonProps })
+            onClickAddSection({ type: VAR_CONTROL, ...commonProps })
           }
         >
           New Variable Control
         </Item>
       )}
       <Item
-        onClick={() => onClickAddSection({ type: C.TERMINAL, ...commonProps })}
+        onClick={() => onClickAddSection({ type: TERMINAL, ...commonProps })}
       >
         New Terminal
       </Item>
       {!SINGLETON_SECTIONS.globalParamSweep && (
         <Item
           onClick={() =>
-            onClickAddSection({ type: C.GLOBAL_PARAM_SWEEP, ...commonProps })
+            onClickAddSection({ type: GLOBAL_PARAM_SWEEP, ...commonProps })
           }
         >
           New Global Param Sweep

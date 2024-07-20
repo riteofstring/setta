@@ -1,8 +1,8 @@
-import { MeasuringFrequency } from "utils/DNDSortable/CustomCore";
-import { useDndState } from "./dndState";
+import { MeasuringFrequency } from "@dnd-kit/core";
+import { useIsDraggingFreely } from "hooks/useDndUtils";
 
 export function useMeasuring() {
-  const isDraggingFreely = useDndState((x) => x.isMovingFree && !!x.activeId);
+  const isDraggingFreely = useIsDraggingFreely();
   const frequency = isDraggingFreely ? 200 : MeasuringFrequency.Optimized;
   return {
     droppable: { frequency },

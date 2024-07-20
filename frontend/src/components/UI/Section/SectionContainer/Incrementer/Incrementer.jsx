@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { TbSortDescendingSmallBig } from "react-icons/tb";
 import { addChildrenToSeries } from "thunks/sections/addChild";
 import { deleteChildrenFromSeries } from "thunks/sections/deleteChild";
 
-export function Incrementer({ sectionId, isRoot, popover = false }) {
+export function Incrementer({ sectionId, isRoot }) {
   const addSections = (numSections) => {
     addChildrenToSeries({
       isRoot,
@@ -35,29 +34,24 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
     // <Tooltip.Provider>
     //   <Tooltip.Root>
     //     <Tooltip.Trigger asChild>
-    <div
-      className={`card-incrementer -mx-2 flex items-center gap-1 rounded-lg  bg-runcoder-100 pl-2 pr-1 dark:bg-runcoder-950 ${popover ? "border border-solid border-white py-1 shadow-lg dark:border-runcoder-800" : ""}`}
-    >
+    <div className="flex max-w-xs gap-1 rounded-lg bg-runcoder-200 px-2 py-1 dark:bg-runcoder-900">
       {isRoot ? (
-        <>
-          <TbSortDescendingSmallBig className="text-runcoder-300 dark:text-runcoder-600" />
-          <p className="text-[10px] font-bold text-runcoder-500">Children: </p>
-        </>
+        <p className="text-xs font-bold text-runcoder-500">Children</p>
       ) : (
-        <p className="text-[10px] text-runcoder-500">Siblings</p>
+        <p className="text-xs text-runcoder-500">Siblings</p>
       )}
-      {/* {isRoot && <i className="gg-corner-right-down -ml-1 text-runcoder-600" />} */}
+      {isRoot && <i className="gg-corner-right-down" />}
 
-      <input
+      {/* <input
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
         aria-label="Number of sections"
-      />
+      /> */}
 
-      {/* <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-[10px] focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300">
+      <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-runcoder-800 dark:text-runcoder-300">
         {numSections}
-      </div> */}
+      </div>
 
       <button
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-runcoder-300"

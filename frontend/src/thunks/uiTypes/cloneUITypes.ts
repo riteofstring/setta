@@ -1,7 +1,10 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "models/info/uiTypes";
-import { isSeriesElement, rootTypeToChildSubType } from "z_utils/constants";
+import {
+  isSeriesElement,
+  rootTypeToChildSubType,
+  SECTION,
+} from "z_utils/constants";
 import { UITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
 import { createNewId } from "z_utils/utils";
@@ -44,7 +47,7 @@ function shouldCloneUIType(uiType, settingPreset) {
 export function cloneRootUIType(parentUIType, parentId) {
   const uiType = _.cloneDeep(parentUIType);
   uiType.id = createNewId();
-  uiType.type = C.SECTION;
+  uiType.type = SECTION;
   uiType.config.uiTypeColId = createNewId();
   uiType.config.subType = rootTypeToChildSubType[parentUIType.type];
   uiType.presetType = null;

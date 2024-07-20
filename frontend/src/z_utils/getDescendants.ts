@@ -1,5 +1,4 @@
-import C from "constants/constants.json";
-import { CodeInfoType } from "./types/codeInfo";
+import { CodeInfoType, RCType } from "./types/codeInfo";
 
 function _findAllDescendants(
   allCodeInfo,
@@ -31,7 +30,7 @@ export function findAllCallables(allCodeInfo, codeInfoIds) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
-    (c) => c?.rcType === C.CALLABLE,
+    (c) => c?.rcType === RCType.CALLABLE,
     () => true,
   );
 }
@@ -40,8 +39,8 @@ export function findAllParametersOfCallables(allCodeInfo, codeInfoIds) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
-    (c) => c?.rcType === C.PARAMETER,
-    (c) => c?.rcType === C.CALLABLE,
+    (c) => c?.rcType === RCType.PARAMETER,
+    (c) => c?.rcType === RCType.CALLABLE,
   );
 }
 
@@ -49,8 +48,8 @@ export function findAllParametersOfCollections(allCodeInfo, codeInfoIds) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
-    (c) => c?.rcType === C.PARAMETER,
-    (c) => c?.rcType === C.COLLECTION,
+    (c) => c?.rcType === RCType.PARAMETER,
+    (c) => c?.rcType === RCType.COLLECTION,
   );
 }
 
@@ -58,7 +57,7 @@ export function findAllParameters(allCodeInfo, codeInfoIds) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
-    (c) => c?.rcType === C.PARAMETER,
+    (c) => c?.rcType === RCType.PARAMETER,
     () => true,
   );
 }

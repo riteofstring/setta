@@ -1,18 +1,17 @@
 import { useInteractive } from "models/interactive";
-import { useTypeErrors } from "models/typeErrors";
 import {
   useWebsocketConnectionList,
   useWebsocketRooms,
 } from "models/websocket";
 import { updateOutput } from "thunks/outputs";
 import { updateConnectedTo } from "thunks/websocketConnectionList";
-import { URLS } from "utils/constants";
+import { WEBSOCKET } from "z_utils/addresses";
 
 let wss;
 
 export function openWebSocket(pathname) {
   if (!wss) {
-    wss = new WebSocket(URLS.WEBSOCKET);
+    wss = new WebSocket(WEBSOCKET);
   }
 
   wss.addEventListener("open", () => {
@@ -39,7 +38,7 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  console.log(m);
+  // console.log(m);
   if (m.type === "LOG") {
     updateOutput(m.data);
   } else if (m.messageType === "connection") {
@@ -47,13 +46,11 @@ function receiveMessage(message) {
   } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
   } else if (m.messageType === "interactiveProjects") {
-    useInteractive.getState().setProjects(m["content"]);
+    useInteractive.getState().setProjects(m["message"]);
   } else if (m.messageType === "interactive") {
-    useInteractive.getState().setData(m["content"]);
-  } else if (m.messageType === "diagnostics") {
-    useTypeErrors.setState(m.content, true);
+    useInteractive.getState().setData(m["message"]);
   } else if (m.id) {
-    useWebsocketRooms.getState().setMessage(m.id, m.content);
+    useWebsocketRooms.getState().setMessage(m.id, m.message);
   }
 }
 
@@ -63,13 +60,13 @@ export function sendLocation(pathname) {
   }
 }
 
-export async function sendMessage({ content, id, messageType }) {
+export async function sendMessage({ message, id, messageType }) {
   const connectedTo = useWebsocketConnectionList.getState().connectedTo;
   if (wssReady() && connectedTo) {
     wss.send(
       JSON.stringify({
         id,
-        content,
+        message,
         toWebsocketId: connectedTo,
         messageType,
       }),

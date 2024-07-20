@@ -4,7 +4,7 @@ export type CodeInfoType = {
   id: string;
   name: string;
   editable: boolean;
-  rcType: string;
+  rcType: RCType;
   defaultVal: string | null;
   children: string[];
   description: string;
@@ -12,6 +12,12 @@ export type CodeInfoType = {
   isFrozen: boolean;
   isSelected: boolean;
 };
+
+export enum RCType {
+  COLLECTION = "collection",
+  CALLABLE = "callable",
+  PARAMETER = "parameter",
+}
 
 export type ManyCodeInfoType = ManyOf<CodeInfoType>;
 export type ManyCollectionsType = ManyOf<CodeInfoType>;

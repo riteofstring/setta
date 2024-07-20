@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { EVType } from "z_utils/types/evCol";
 import { UITypeType } from "z_utils/types/uiType";
+import { SLIDER, SWITCH, TEXT } from "../constants";
 
 export function getValueForUIType({
   uiType,
@@ -11,11 +11,11 @@ export function getValueForUIType({
   currValue?: string;
 }) {
   switch (uiType.type) {
-    case C.TEXT:
+    case TEXT:
       return "";
-    case C.SLIDER:
+    case SLIDER:
       return convertValueForSlider({ uiType, currValue });
-    case C.SWITCH:
+    case SWITCH:
       return "false";
     default:
       return "";

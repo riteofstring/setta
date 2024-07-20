@@ -38,5 +38,5 @@ abcde_env
 .DS_Store
 .mypy_cache/
 .dmypy.json
-backend/runcoder/frontend
+python/runcoder/frontend
 .runcoder_code

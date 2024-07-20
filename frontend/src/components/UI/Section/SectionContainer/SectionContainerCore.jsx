@@ -1,7 +1,4 @@
-import {
-  useGetSectionInfo,
-  useSectionDBSourceIsAvailable,
-} from "hooks/useSectionInfo";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { toggleVersionsVisible } from "hooks/useSectionVersions";
 import { useActiveSection } from "models/activeSection";
@@ -20,7 +17,6 @@ function _SectionContainerCore({ sectionId }) {
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const dbSourceIsAvailable = useSectionDBSourceIsAvailable(sectionId);
 
   function onClick(e) {
     if (paramSelect(e)) {
@@ -52,7 +48,7 @@ function _SectionContainerCore({ sectionId }) {
 
   return (
     <section
-      className={`group/card-section rounded-xl border border-white bg-white dark:border-runcoder-700 dark:bg-runcoder-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
+      className={`rounded-xl border border-white bg-white dark:border-runcoder-700 dark:bg-runcoder-900 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
       ref={refForPosition}
@@ -64,7 +60,6 @@ function _SectionContainerCore({ sectionId }) {
         isActiveSection={isActiveSection}
         toggleDescVis={() => toggleVersionsVisible(sectionId)}
         isWrongType={false} // TODO add the logic for this
-        dbSourceIsAvailable={dbSourceIsAvailable}
       />
     </section>
   );

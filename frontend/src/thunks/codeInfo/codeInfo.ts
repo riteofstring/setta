@@ -1,9 +1,12 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
+import { RCType } from "z_utils/types/codeInfo";
 
 export function getAllCollections() {
-  return _.pickBy(useCodeInfo.getState().x, (x) => x.rcType === C.COLLECTION);
+  return _.pickBy(
+    useCodeInfo.getState().x,
+    (x) => x.rcType === RCType.COLLECTION,
+  );
 }
 
 export function getKwargIds(objInfoId) {

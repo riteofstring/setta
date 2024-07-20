@@ -1,10 +1,13 @@
-import C from "constants/constants.json";
 import { useCodeInfo } from "models/info/codeInfo";
+import {
+  GET_COLLECTIONS_AND_MODULES,
+  GET_COLLECTION_DETAILS,
+} from "z_utils/routes";
 import { post } from "./utils";
 
 async function dbGetCollectionsAndModules({ searchTerm }) {
   return await post({
-    address: C.ROUTE_GET_COLLECTIONS_AND_MODULES,
+    address: GET_COLLECTIONS_AND_MODULES,
     body: { searchTerm },
   });
 }
@@ -23,7 +26,7 @@ export async function dbGetCollectionDetails(id) {
   }
 
   const res = await post({
-    address: C.ROUTE_GET_COLLECTION_DETAILS,
+    address: GET_COLLECTION_DETAILS,
     body: { codeInfoId: id },
   });
 
@@ -32,7 +35,7 @@ export async function dbGetCollectionDetails(id) {
 
 export async function dbSaveCodeInfo({ codeInfo }) {
   return await post({
-    address: C.ROUTE_SAVE_CODE_INFO,
+    address: "/codeInfo/save",
     body: { codeInfo },
   });
 }

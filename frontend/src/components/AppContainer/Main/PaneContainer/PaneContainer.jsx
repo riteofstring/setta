@@ -1,5 +1,5 @@
-import { localStorageFns } from "hooks/localStorageHooks";
 import { useWindowSize } from "hooks/useWindowSize";
+import { usePanes } from "models/panes";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
@@ -16,19 +16,21 @@ export function PaneContainer({
 }) {
   const size = useWindowSize();
   const { right, paneName } = paneProps;
-  const [vis, setVis] = localStorageFns[`${paneName}Vis`].hook();
-  const [width, setWidth] = localStorageFns[`${paneName}Width`].hook();
-  const [vMax, setVMax] = useState(100000);
-  const [vMin, setVMin] = useState(minimumWidth);
+  const vis = usePanes((x) => x.vis[paneName]);
+  const setVis = usePanes((x) => x.setVis);
+  const width = usePanes((x) => x.width[paneName]);
+  const setWidth = usePanes((x) => x.setWidth);
+  const setTrueWidth = usePanes((x) => x.setTrueWidth);
+  const [vMax, setVMax] = useState(50);
+  const [vMin, setVMin] = useState(50);
   const [btnDir, setBtnDir] = useState(right ? vis : !vis);
   const height = "100%";
-  const setTrueWidth = localStorageFns[`${paneName}TrueWidth`].state()[1];
 
   function uiToggle() {
     const newVis = !vis;
-    setVis(newVis);
+    setVis({ paneName, vis: newVis });
     setBtnDir(!btnDir);
-    setTrueWidth(newVis ? width : CLOSED_PANE_WIDTH);
+    setTrueWidth({ paneName, trueWidth: newVis ? width : CLOSED_PANE_WIDTH });
     if (onResizeStop) {
       const widthDiff = width - CLOSED_PANE_WIDTH;
       onResizeStop(newVis ? widthDiff : -widthDiff);
@@ -36,8 +38,8 @@ export function PaneContainer({
   }
 
   function setNewWidth(newWidth) {
-    setWidth(newWidth);
-    setTrueWidth(vis ? newWidth : CLOSED_PANE_WIDTH);
+    setWidth({ paneName, width: newWidth });
+    setTrueWidth({ paneName, trueWidth: vis ? newWidth : CLOSED_PANE_WIDTH });
   }
 
   useEffect(() => {
@@ -94,7 +96,7 @@ export function PaneContainer({
     >
       {children}
       <Button
-        twClasses={`text-runcoder-500 hover:bg-runcoder-100 dark:hover:bg-runcoder-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+        twClasses={`text-runcoder-500 hover:bg-runcoder-200 dark:hover:bg-runcoder-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
         tabIndex="-1"
         onClick={uiToggle}
       >
