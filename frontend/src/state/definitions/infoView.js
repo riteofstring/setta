@@ -1,5 +1,9 @@
 import { createProjectState } from "./utils";
 
+export const useInfoView = createProjectState(() => ({
+  currValue: "",
+}));
+
 export const constInfoViews = {
   OVERVIEW: "Click on a section name to pan to it.",
   NAVBAR_SEARCH: "Search your entire project from one location.",
@@ -12,7 +16,3 @@ export const constInfoViews = {
   SECTIONCONFIG_CONTENTS_SEARCH:
     "Choose which arguments appear in your selected card.",
 };
-
-export const useInfoView = createProjectState(() => ({
-  currValue: "",
-}));

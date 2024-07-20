@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/paramInfos";
 import { useInteractive } from "state/definitions/interactive";
-import { useIdWaitingForLSPResult } from "state/definitions/lsp";
+import { useIdWaitingForLSPResult } from "state/actions/lsp";
 import { useProject } from "state/definitions/project";
 import { useGetParamEnteredValue } from "state/hooks/useEnteredValue";
 import { useGetParamUIType } from "state/hooks/useParamUIType";
