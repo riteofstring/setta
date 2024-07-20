@@ -32,7 +32,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const paramIsSelected = paramInfo.isSelected;
 
   const bg = paramIsSelected
-    ? "bg-lime-400"
+    ? "bg-lime-400/50"
     : "hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25";
 
   const paramChildren = useCodeInfo(

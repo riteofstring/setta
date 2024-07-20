@@ -1,6 +1,7 @@
 import C from "constants/constants.json";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
+import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
 import { getSectionTypeConfig } from "thunks/sections/getters";
 import { updateParams } from "thunks/sections/sectionContents";
@@ -25,9 +26,12 @@ export function KwargsControls({ sectionId, objInfoId }) {
     setParamFilter({ sectionId, filter: e.target.value });
   }
 
-  function onPush(computeFn) {
+  function onPush(computeFn, processInReverse = false) {
     return () => {
-      const { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
+      let { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
+      if (processInReverse) {
+        selectedParams.reverse();
+      }
       const newCodeInfoChildren = {};
       const numChildrenInserted = {};
       for (const p of selectedParams) {
@@ -41,6 +45,8 @@ export function KwargsControls({ sectionId, objInfoId }) {
 
   const onPushLeft = onPush(computeNewChildrenForLeftPush);
   const onPushRight = onPush(computeNewChildrenForRightPush);
+  const onPushUp = onPush(computeNewChildrenForVerticalPush("up"));
+  const onPushDown = onPush(computeNewChildrenForVerticalPush("down"), true);
 
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-runcoder-600 text-runcoder-300";
@@ -65,6 +71,12 @@ export function KwargsControls({ sectionId, objInfoId }) {
             </button>
             <button className={buttonClass} onClick={onPushRight}>
               <i className="gg-push-right col-start-1 row-start-1" />
+            </button>
+            <button className={buttonClass} onClick={onPushUp}>
+              <CgPushUp />
+            </button>
+            <button className={buttonClass} onClick={onPushDown}>
+              <CgPushDown />
             </button>
             <VerticalLine inputStyles="ml-2 mr-3 self-stretch invisible @[12rem]:visible" />
           </article>
@@ -196,4 +208,23 @@ function computeNewChildrenForLeftPush(
     ...newChildren[gParentInfo.id].slice(insertIdx),
   ];
   numChildrenInserted[gParentInfo.id] += 1;
+}
+
+function computeNewChildrenForVerticalPush(direction) {
+  return (codeInfos, paramInfo, newChildren) => {
+    const parentInfo = codeInfos.find((x) => x.children.includes(paramInfo.id));
+    if (!(parentInfo.id in newChildren)) {
+      const siblingList = parentInfo.children;
+      newChildren[parentInfo.id] = siblingList.slice();
+    }
+
+    const x = newChildren[parentInfo.id];
+    const index = x.indexOf(paramInfo.id);
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || useCodeInfo.getState().x[x[newIndex]].isSelected) {
+      return;
+    }
+
+    [x[newIndex], x[index]] = [x[index], x[newIndex]]; // swap elements
+  };
 }
