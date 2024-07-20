@@ -1,6 +1,6 @@
+import { initParamSweep } from "state/actions/paramSweep";
 import { setSectionInfoAttr } from "state/actions/setters";
 import { useModal } from "state/definitions/modal";
-import { useParamSweep } from "state/definitions/paramSweep";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getForSectionId } from "state/hooks/useParamSweepInfo";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
@@ -10,7 +10,7 @@ export function CreateNewParamSweepModal() {
   function onClickCreateNewParamSweep({ filename }) {
     const sectionId = useModal.getState().modalData;
     const newId = createNewId();
-    useParamSweep.getState().initParamSweep({ id: newId, name: filename });
+    initParamSweep({ id: newId, name: filename });
     const forSectionId = getForSectionId(
       useSectionInfos.getState().x,
       sectionId,

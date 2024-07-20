@@ -3,9 +3,16 @@ import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
+import {
+  addParamSweepParamInfoId,
+  addParamSweepValue,
+  changeParamSweepParamInfoId,
+  deleteLastParamSweepValue,
+  deleteParamSweepValue,
+  setParamSweepValue,
+} from "state/actions/paramSweep";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useEVCols } from "state/definitions/evCols";
-import { useParamSweep } from "state/definitions/paramSweep";
 import { useGetEVColNames } from "state/hooks/useEnteredValue";
 import { useMappedSectionDBSource } from "state/hooks/useGetSectionInfo";
 import { useParamSweepInfo } from "state/hooks/useParamSweepInfo";
@@ -90,33 +97,26 @@ function ArgItem({
 
   function getOnChange(valueIdx) {
     return (v) =>
-      useParamSweep
-        .getState()
-        .setValue({ paramSweepId, idx, valueIdx, value: _.toString(v) });
+      setParamSweepValue({ paramSweepId, idx, valueIdx, value: _.toString(v) });
   }
 
   function getOnDelete(valueIdx) {
-    return () =>
-      useParamSweep.getState().deleteValue({ paramSweepId, idx, valueIdx });
+    return () => deleteParamSweepValue({ paramSweepId, idx, valueIdx });
   }
 
   function onPlus() {
-    useParamSweep.getState().addValue({ paramSweepId, idx });
+    addParamSweepValue({ paramSweepId, idx });
   }
 
   function onMinus() {
-    useParamSweep.getState().deleteLastValue({ paramSweepId, idx });
+    deleteLastParamSweepValue({ paramSweepId, idx });
   }
 
   function onSelectedItemChange(v) {
     if (v in useCodeInfo.getState().x) {
-      useParamSweep
-        .getState()
-        .changeParamInfoId({ paramSweepId, idx, paramInfoId: v });
+      changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
     } else {
-      useParamSweep
-        .getState()
-        .changeParamInfoId({ paramSweepId, idx, evColId: v });
+      changeParamSweepParamInfoId({ paramSweepId, idx, evColId: v });
     }
   }
 
@@ -210,9 +210,9 @@ function PlaceholderArgItem({
 }) {
   function onSelectedItemChange(v, changeByUser, setSelection) {
     if (v in useCodeInfo.getState().x) {
-      useParamSweep.getState().addParamInfoId({ paramSweepId, paramInfoId: v });
+      addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
     } else {
-      useParamSweep.getState().addParamInfoId({ paramSweepId, evColId: v });
+      addParamSweepParamInfoId({ paramSweepId, evColId: v });
     }
 
     setSelection(null);

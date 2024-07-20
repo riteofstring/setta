@@ -1,6 +1,5 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
-import { useParamSweep } from "state/definitions/paramSweep";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
@@ -16,6 +15,7 @@ import { setAllEVCols } from "./evCols";
 import { setNodes } from "./nodeInternals";
 import { setAllOutputGroups } from "./outputGroups";
 import { setAllOutputs } from "./outputs";
+import { setAllParamSweeps } from "./paramSweep";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -55,7 +55,7 @@ export function loadProjectState({
   useUITypes.getState().resetAndSetAll({ ...uiTypes, ...BASE_UI_TYPES });
   setAllEVCols(evCols);
   useUITypeCols.getState().resetAndSetAll({ uiTypeCols });
-  useParamSweep.getState().resetAndSetAll(paramSweeps);
+  setAllParamSweeps(paramSweeps);
   useRunGroups.getState().resetAndSetAll(runGroups);
   useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
   useProjectConfigCodeInfoMaps

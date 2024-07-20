@@ -1,6 +1,6 @@
 import { goToSection } from "state/actions/goToSection";
+import { initParamSweep } from "state/actions/paramSweep";
 import { setSectionInfoAttr } from "state/actions/setters";
-import { useParamSweep } from "state/definitions/paramSweep";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionName } from "state/getters/sectionInfo";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
@@ -27,9 +27,7 @@ function addParamSweepSection(sectionId) {
   const newSectionId = createNewId();
   const paramSweepId = createNewId();
 
-  useParamSweep
-    .getState()
-    .initParamSweep({ id: paramSweepId, name: createRandomName() });
+  initParamSweep({ id: paramSweepId, name: createRandomName() });
 
   setSectionInfoAttr({ sectionId, attr: "paramSweepId", value: paramSweepId });
   setSectionInfoAttr({
