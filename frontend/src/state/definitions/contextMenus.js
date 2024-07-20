@@ -1,15 +1,9 @@
-import { createProjectState } from "./utils";
+import { createProjectState, stateWithResetFn } from "./utils";
 
-const initialInnerState = { isOpen: false, x: 0, y: 0 };
-const initialState = {
-  pane: { ...initialInnerState },
-  deck: { ...initialInnerState, sectionId: null },
-  selection: { ...initialInnerState, nodeIds: [] },
-};
-
-export const useContextMenus = createProjectState((set) => ({
-  ...initialState,
-  reset: () => {
-    set(initialState);
-  },
-}));
+export const useContextMenus = createProjectState(
+  stateWithResetFn({
+    pane: { isOpen: false, x: 0, y: 0 },
+    deck: { isOpen: false, x: 0, y: 0, sectionId: null },
+    selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
+  }),
+);

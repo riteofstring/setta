@@ -53,6 +53,13 @@ function addStatePointer(state, stateType: keyof typeof STATE_TYPES) {
   stateDict[stateType].statePointers.push(state);
 }
 
+export function stateWithResetFn(initialState) {
+  return (set) => ({
+    ...initialState,
+    reset: () => set(initialState),
+  });
+}
+
 export function initValue(state, id, value) {
   if (!(id in state)) {
     state[id] = value;
