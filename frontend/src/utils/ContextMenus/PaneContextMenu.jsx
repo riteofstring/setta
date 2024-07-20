@@ -2,8 +2,8 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { onClickAddSection } from "state/actions/createSectionOrDeck";
+import { setModalData, setModalType } from "state/actions/modal";
 import { useContextMenus } from "state/definitions/contextMenus";
-import { useModal } from "state/definitions/modal";
 import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 import { Item } from "utils/atoms/dropdown/item";
 import { SINGLETON_SECTIONS } from "utils/constants";
@@ -20,8 +20,6 @@ export function PaneContextMenu() {
     incrementVersion: true,
   };
 
-  const setModalType = useModal((x) => x.setModalType);
-  const setModalData = useModal((x) => x.setModalData);
   function openLoadModal(_modalType) {
     setModalType(_modalType);
     setModalData(_.omit(commonProps, ["callbackBeforeExit"]));

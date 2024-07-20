@@ -1,10 +1,7 @@
 import { createProjectState } from "./utils";
 
-export const useModal = createProjectState((set) => ({
+export const useModal = createProjectState(() => ({
   open: false,
   modalType: null,
   modalData: null,
-  setOpen: (payload) => set({ open: payload }),
-  setModalType: (payload) => set({ modalType: payload }),
-  setModalData: (payload) => set({ modalData: payload }),
 }));

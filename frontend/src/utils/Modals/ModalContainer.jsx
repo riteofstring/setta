@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect } from "react";
+import { setModalData, setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions/modal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
@@ -17,8 +18,6 @@ import "./styles.css";
 
 export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
-  const setOpen = useModal((x) => x.setOpen);
-  const setModalData = useModal((x) => x.setModalData);
 
   useEffect(() => {
     if (!open) {
@@ -27,7 +26,7 @@ export function ModalContainer({ children }) {
   }, [open]);
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root open={open} onOpenChange={setModalOpen}>
       {children}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />

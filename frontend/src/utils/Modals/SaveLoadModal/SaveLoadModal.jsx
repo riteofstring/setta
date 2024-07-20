@@ -3,6 +3,7 @@ import { useModal } from "state/definitions/modal";
 import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { FileExplorer } from "./FileExplorer";
 import { FileNameInput } from "./FileNameInput";
+import { setModalOpen } from "state/actions/modal";
 
 export function SaveLoadModal({
   modalType,
@@ -17,7 +18,6 @@ export function SaveLoadModal({
   const [filename, setFilename] = useState("");
   const [currFiles, setCurrFiles] = useState(files);
   const [breadCrumb, setBreadCrumb] = useState([]);
-  const setOpen = useModal((x) => x.setOpen);
 
   useEffect(() => {
     setCurrFiles(files);
@@ -61,7 +61,7 @@ export function SaveLoadModal({
 
   function onFileDoubleClick(id) {
     onClickActionButton({ selected: id, filename: getFilenameFromId(id) });
-    setOpen(false);
+    setModalOpen(false);
     onClose();
   }
 

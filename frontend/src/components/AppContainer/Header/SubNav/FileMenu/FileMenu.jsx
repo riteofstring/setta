@@ -1,8 +1,8 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { Link } from "react-router-dom";
+import { setModalOpen, setModalType } from "state/actions/modal";
 import { saveProject } from "state/actions/save";
-import { useModal } from "state/definitions/modal";
 import { createAndGoToProject } from "state/hooks/useGetOrCreateProjects";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
@@ -49,9 +49,8 @@ export function FileMenu() {
 }
 
 function openFileMenuModal(modalType) {
-  const x = useModal.getState();
-  x.setModalType(modalType);
-  x.setOpen(true);
+  setModalType(modalType);
+  setModalOpen(true);
 }
 
 export function openLoadModal() {
