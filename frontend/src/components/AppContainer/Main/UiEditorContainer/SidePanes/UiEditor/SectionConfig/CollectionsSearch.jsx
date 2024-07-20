@@ -5,7 +5,7 @@ import {
 import { useGetSelectedCollectionsForSectionConfig } from "state/hooks/useSectionContents";
 import _ from "lodash";
 import { useState } from "react";
-import { setCollections } from "thunks/uiTypes/setCollections";
+import { setCollections } from "state/actions/setCollections";
 import { groupedObjInfo } from "utils/getFullObjPath";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";

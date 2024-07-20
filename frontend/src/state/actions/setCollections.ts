@@ -1,7 +1,7 @@
 import { updateManyParamsAndCallables } from "state/actions/sectionContents";
 import { getSectionIdsWithUITypeIds } from "state/getters/sectionInfo";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { initializeChildParams } from "../../state/actions/initializeParam";
+import { initializeChildParams } from "./initializeParam";
 import {
   maybeCloneSectionUIType,
   setSectionUITypeConfig,

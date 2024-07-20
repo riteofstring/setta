@@ -3,7 +3,7 @@ import { dbDeleteTerminals } from "dbRequests/terminals";
 import { useActiveSection } from "models/activeSection";
 import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";
-import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
