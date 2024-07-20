@@ -7,7 +7,7 @@ import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { useGetSectionInfo } from "state/sectionInfos/hooks";
+import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";

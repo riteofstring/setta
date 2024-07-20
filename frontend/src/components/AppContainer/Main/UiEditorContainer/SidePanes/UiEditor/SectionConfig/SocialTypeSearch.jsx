@@ -4,7 +4,7 @@ import {
   setSectionInfoAttr,
   setSectionSize,
 } from "state/sectionInfos/actions/setters";
-import { useGetSectionInfo } from "state/sectionInfos/hooks";
+import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 
 export function SocialTypeSearch({ sectionId }) {
   const url = useGetSectionInfo(sectionId, "social");

@@ -3,7 +3,7 @@ import colors from "tailwindcss/colors";
 import { useDndMonitor } from "utils/DNDSortable/CustomCore";
 import { useDndMode, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
-import { useTempHasNested } from "../../hooks/useSectionChildren";
+import { useTempHasNested } from "../../state/sectionInfos/hooks/useSectionChildren";
 
 export function useHighlightDroppable(sectionId: string) {
   const overIsSelf = useOverIsSelf(sectionId);

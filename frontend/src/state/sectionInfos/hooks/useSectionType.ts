@@ -7,7 +7,7 @@ import {
   SectionUITypeConfigType,
   SectionUITypeType,
 } from "z_utils/types/uiType";
-import { useGetSectionInfo } from "../state/sectionInfos/hooks";
+import { useGetSectionInfo } from "./useGetSectionInfo";
 
 export function useGetSectionTypeConfig<
   K extends keyof SectionUITypeConfigType,

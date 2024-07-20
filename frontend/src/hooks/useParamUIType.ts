@@ -2,7 +2,7 @@ import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
-import { useGetSectionInfo } from "../state/sectionInfos/hooks";
+import { useGetSectionInfo } from "../state/sectionInfos/hooks/useGetSectionInfo";
 
 export function useGetParamUIType(sectionId: string, paramInfoId: string) {
   const uiTypeId = useParamUITypeId(sectionId, paramInfoId);

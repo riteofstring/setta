@@ -8,7 +8,7 @@ import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
-import { useMappedSectionDBSource } from "state/sectionInfos/hooks";
+import { useMappedSectionDBSource } from "state/sectionInfos/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";

@@ -1,6 +1,6 @@
 import { useMatchSorterFilter } from "hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "hooks/useParamUIType";
-import { useGetParamInfosThatHaveNames } from "hooks/useSectionContents";
+import { useGetParamInfosThatHaveNames } from "state/sectionInfos/hooks/useSectionContents";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";

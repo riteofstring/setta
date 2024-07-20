@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import { useSectionInfos } from "state/sectionInfos/definition";
-import { useGetSectionInfo } from "state/sectionInfos/hooks";
+import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
 

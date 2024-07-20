@@ -2,9 +2,9 @@ import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useSectionInfos } from "state/sectionInfos/definition";
 import { getDepthListing } from "z_utils/childrenToDepth";
-import { useSectionInfoNames } from "../state/sectionInfos/hooks";
+import { useSectionInfoNames } from "../state/sectionInfos/hooks/useGetSectionInfo";
 import { useMatchSorterFilter } from "./useMatchSorterFilter";
-import { useSectionTypeNames } from "./useSectionType";
+import { useSectionTypeNames } from "../state/sectionInfos/hooks/useSectionType";
 
 export function useGetOverviewListing(sectionTypeFilter = null) {
   const topLevelSectionIds = useNodeInternals(

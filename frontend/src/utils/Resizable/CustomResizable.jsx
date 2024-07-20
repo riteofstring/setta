@@ -3,8 +3,8 @@ import {
   useMaxSectionWidth,
   useMinSectionHeight,
   useMinSectionWidth,
-} from "hooks/useSectionSizeBounds";
-import { useGetSectionType } from "hooks/useSectionType";
+} from "state/sectionInfos/hooks/useSectionSizeBounds";
+import { useGetSectionType } from "state/sectionInfos/hooks/useSectionType";
 import {
   useIsTwitter,
   useIsYouTube,

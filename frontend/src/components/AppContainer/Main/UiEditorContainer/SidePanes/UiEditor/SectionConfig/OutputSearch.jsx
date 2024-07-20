@@ -5,7 +5,7 @@ import {
   setSectionSize,
 } from "state/sectionInfos/actions/setters";
 import { useSectionInfos } from "state/sectionInfos/definition";
-import { useGetSectionInfo } from "state/sectionInfos/hooks";
+import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { Expandable } from "./Expandable";

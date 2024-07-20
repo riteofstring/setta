@@ -3,7 +3,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import {
   useGetSectionInfo,
   useMappedSectionDBSource,
-} from "../state/sectionInfos/hooks";
+} from "../state/sectionInfos/hooks/useGetSectionInfo";
 
 export function useGetParamEnteredValue(
   sectionId: string,

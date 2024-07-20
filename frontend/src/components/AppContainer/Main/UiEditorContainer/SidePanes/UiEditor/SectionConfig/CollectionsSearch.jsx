@@ -2,7 +2,7 @@ import {
   dbGetCollectionDetails,
   getCollectionsAndModulesFn,
 } from "dbRequests/sectionConfig";
-import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
+import { useGetSelectedCollectionsForSectionConfig } from "state/sectionInfos/hooks/useSectionContents";
 import _ from "lodash";
 import { useState } from "react";
 import { setCollections } from "thunks/uiTypes/setCollections";

@@ -1,5 +1,5 @@
-import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
-import { toggleVersionsVisible } from "hooks/useSectionVersions";
+import { useIsSeriesElement, useSectionTypeName } from "state/sectionInfos/hooks/useSectionType";
+import { toggleVersionsVisible } from "state/sectionInfos/hooks/useSectionVersions";
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
@@ -9,7 +9,7 @@ import { getHighestAncestor } from "state/sectionInfos/actions/sectionSizes";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
-} from "state/sectionInfos/hooks";
+} from "state/sectionInfos/hooks/useGetSectionInfo";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
