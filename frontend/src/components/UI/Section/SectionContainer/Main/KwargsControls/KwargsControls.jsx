@@ -29,10 +29,10 @@ export function KwargsControls({ sectionId, objInfoId }) {
     return () => {
       const { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
       const newCodeInfoChildren = {};
-      const numSiblingsInserted = {};
+      const numChildrenInserted = {};
       for (const p of selectedParams) {
         console.log(p);
-        computeFn(codeInfos, p, newCodeInfoChildren, numSiblingsInserted);
+        computeFn(codeInfos, p, newCodeInfoChildren, numChildrenInserted);
       }
       useCodeInfo.getState().batchUpdateChildren(newCodeInfoChildren);
       updateParams(sectionId);
@@ -144,7 +144,7 @@ function computeNewChildrenForLeftPush(
   codeInfos,
   paramInfo,
   newChildren,
-  numSiblingsInserted,
+  numChildrenInserted,
 ) {
   const parentInfo = codeInfos.find((x) => x.children.includes(paramInfo.id));
   const gParentInfo = codeInfos.find((x) => x.children.includes(parentInfo.id));
@@ -161,11 +161,12 @@ function computeNewChildrenForLeftPush(
 
   const parentSiblingList = gParentInfo.children;
   const parentIdx = parentSiblingList.indexOf(parentInfo.id);
-  if (!(parentInfo.id in numSiblingsInserted)) {
-    numSiblingsInserted[parentInfo.id] = 0;
+  console.log("parentIdx", parentIdx);
+  if (!(gParentInfo.id in numChildrenInserted)) {
+    numChildrenInserted[gParentInfo.id] = 0;
   }
 
-  const insertIdx = parentIdx + 1 + numSiblingsInserted[parentInfo.id];
+  const insertIdx = parentIdx + 1 + numChildrenInserted[gParentInfo.id];
   console.log("insertIdx", insertIdx);
   if (!(gParentInfo.id in newChildren)) {
     newChildren[gParentInfo.id] = gParentInfo.children;
@@ -175,5 +176,5 @@ function computeNewChildrenForLeftPush(
     paramInfo.id,
     ...newChildren[gParentInfo.id].slice(insertIdx),
   ];
-  numSiblingsInserted[parentInfo.id] += 1;
+  numChildrenInserted[gParentInfo.id] += 1;
 }
