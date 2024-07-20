@@ -1,4 +1,4 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import { MiniMap } from "xyflow/minimap";
 import "xyflow/minimap/style.css";
 

@@ -1,4 +1,4 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import { addSectionAtPosition } from "state/actions/addSectionAtPosition";
 import { useReactFlow } from "xyflow/core/store";
 

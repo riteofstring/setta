@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { requiresKeyInput } from "z_utils/constants";
-import { useGetSectionTypeConfig, useIsOneOfType } from "../state/sectionInfos/hooks/useSectionType";
+import { useGetSectionTypeConfig, useIsOneOfType } from "./useSectionType";
 
 export function useTitleIsEditable(sectionId: string) {
   const sectionSubType = useGetSectionTypeConfig(sectionId, "subType");

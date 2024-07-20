@@ -1,5 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { createAndGoToProject } from "hooks/useGetOrCreateProjects";
+import { createAndGoToProject } from "state/hooks/useGetOrCreateProjects";
 import { useModal } from "models/modal";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { Link } from "react-router-dom";

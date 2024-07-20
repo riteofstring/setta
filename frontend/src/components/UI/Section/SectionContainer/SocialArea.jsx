@@ -1,5 +1,5 @@
 import getYouTubeID from "get-youtube-id";
-import { linkIsTwitter, linkIsYouTube } from "hooks/useSocialUtils";
+import { linkIsTwitter, linkIsYouTube } from "state/hooks/useSocialUtils";
 import _ from "lodash";
 import React from "react";
 import { Tweet } from "react-twitter-widgets";

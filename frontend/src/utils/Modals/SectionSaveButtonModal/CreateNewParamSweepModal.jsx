@@ -1,4 +1,4 @@
-import { getForSectionId } from "hooks/useParamSweepInfo";
+import { getForSectionId } from "state/hooks/useParamSweepInfo";
 import { useModal } from "models/modal";
 import { useParamSweep } from "models/paramSweep";
 import { setSectionInfoAttr } from "state/actions/setters";

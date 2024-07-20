@@ -1,7 +1,7 @@
 import {
   useAvailableUITypesForParam,
   useAvailableUITypesForSection,
-} from "hooks/usePresetUIType";
+} from "state/hooks/usePresetUIType";
 import _ from "lodash";
 import { IdNameCombobox } from "./IdNameCombobox";
 

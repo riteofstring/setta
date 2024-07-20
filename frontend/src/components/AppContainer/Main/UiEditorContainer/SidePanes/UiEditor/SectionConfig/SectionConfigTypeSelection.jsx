@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { updateParamsAndCallables } from "state/actions/sectionContents";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
-import { useGetSectionInfo } from "state/sectionInfos/hooks/useGetSectionInfo";
+import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";

@@ -3,7 +3,7 @@ import { useCodeInfo } from "state/definitions/codeInfo";
 import { useSectionToParams } from "models/info/sectionToParams";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useGetSectionInfo } from "./useGetSectionInfo";
-import { useOutputValues } from "../../../hooks/useOutputNames";
+import { useOutputValues } from "./useOutputNames";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
 export function useGetAllCallables(sectionId: string) {

@@ -1,5 +1,5 @@
-import { useTempHasNested } from "state/sectionInfos/hooks/useSectionChildren";
-import { useIsDeck } from "state/sectionInfos/hooks/useSectionType";
+import { useTempHasNested } from "state/hooks/useSectionChildren";
+import { useIsDeck } from "state/hooks/useSectionType";
 import React from "react";
 import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
 import { ContainerSwitch } from "./Container/ContainerSwitch";

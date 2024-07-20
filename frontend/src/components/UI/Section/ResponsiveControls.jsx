@@ -1,4 +1,4 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
 import { useSettings } from "models/settings";

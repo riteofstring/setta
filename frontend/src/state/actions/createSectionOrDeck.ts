@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { sendMessageInRoom } from "hooks/useWebsocket";
+import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";

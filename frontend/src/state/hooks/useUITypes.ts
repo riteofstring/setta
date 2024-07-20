@@ -6,7 +6,7 @@ import {
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
 } from "models/uiEditor";
-import { useGetSectionInfo } from "../state/sectionInfos/hooks/useGetSectionInfo";
+import { useGetSectionInfo } from "./useGetSectionInfo";
 
 export function useRequiredUIEditorTabs(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");

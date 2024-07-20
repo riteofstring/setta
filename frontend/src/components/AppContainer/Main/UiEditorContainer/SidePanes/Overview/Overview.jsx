@@ -1,8 +1,8 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
-import { localStorageFns } from "hooks/localStorageHooks";
-import { useGetOverviewListing } from "hooks/useGetOverviewListing";
+import { localStorageFns } from "state/hooks/localStorageHooks";
+import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import {
   constInfoViews,
   useCurrInfoView,

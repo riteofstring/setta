@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { sendMessageInRoom } from "hooks/useWebsocket";
+import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";

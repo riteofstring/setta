@@ -1,5 +1,5 @@
-import { localStorageFns } from "hooks/localStorageHooks";
-import { useWindowSize } from "hooks/useWindowSize";
+import { localStorageFns } from "state/hooks/localStorageHooks";
+import { useWindowSize } from "state/hooks/useWindowSize";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";

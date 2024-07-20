@@ -1,4 +1,4 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
 import { useReactFlow } from "../store";

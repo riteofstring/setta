@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useGetSectionType } from "state/sectionInfos/hooks/useSectionType";
+import { useGetSectionType } from "state/hooks/useSectionType";
 import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import React from "react";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";

@@ -1,4 +1,4 @@
-import { useGetProjectsForFileMenu } from "hooks/useGetOrCreateProjects";
+import { useGetProjectsForFileMenu } from "state/hooks/useGetOrCreateProjects";
 import { useProject } from "models/info/project";
 import { useProjectConfig } from "models/info/projectConfig";
 import { useEffect } from "react";

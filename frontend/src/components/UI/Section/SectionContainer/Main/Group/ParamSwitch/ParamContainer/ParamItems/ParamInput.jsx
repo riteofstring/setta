@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { sendMessage } from "dbRequests/websocket";
-import { useGetParamEnteredValue } from "hooks/useEnteredValue";
-import { useGetParamUIType } from "hooks/useParamUIType";
+import { useGetParamEnteredValue } from "state/hooks/useEnteredValue";
+import { useGetParamUIType } from "state/hooks/useParamUIType";
 import _ from "lodash";
 import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";

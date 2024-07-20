@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useSectionTypeName } from "state/sectionInfos/hooks/useSectionType";
+import { useSectionTypeName } from "state/hooks/useSectionType";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sectionOps";

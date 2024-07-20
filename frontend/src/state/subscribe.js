@@ -1,1 +1,1 @@
-import "./sectionInfos/subscriptions";
+import "./subscriptions/sectionInfo";

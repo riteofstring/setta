@@ -3,13 +3,13 @@ import {
   useMaxSectionWidth,
   useMinSectionHeight,
   useMinSectionWidth,
-} from "state/sectionInfos/hooks/useSectionSizeBounds";
-import { useGetSectionType } from "state/sectionInfos/hooks/useSectionType";
+} from "state/hooks/useSectionSizeBounds";
+import { useGetSectionType } from "state/hooks/useSectionType";
 import {
   useIsTwitter,
   useIsYouTube,
   youtubeSectionAspectRatio,
-} from "hooks/useSocialUtils";
+} from "state/hooks/useSocialUtils";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sectionSizes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useDndMode } from "utils/DNDSortable/dndState";

@@ -2,7 +2,7 @@ import { dbDeleteProjects } from "dbRequests/projects";
 import {
   createAndGoToProject,
   useGetProjectsForHomePage,
-} from "hooks/useGetOrCreateProjects";
+} from "state/hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
 import { useHomePageSearch } from "models/useHomePageSearch";
 import { forwardRef, useEffect, useState } from "react";

@@ -1,7 +1,7 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
-import { localStorageFns } from "hooks/localStorageHooks";
-import { useRequiredUIEditorTabs } from "hooks/useUITypes";
+import { localStorageFns } from "state/hooks/localStorageHooks";
+import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
 import { useActiveSection } from "models/activeSection";
 import {
   DB_SOURCES_TAB,

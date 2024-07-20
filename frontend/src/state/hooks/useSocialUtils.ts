@@ -1,5 +1,5 @@
-import { useGetSectionInfo } from "../state/sectionInfos/hooks/useGetSectionInfo";
-import { useIsSocial } from "../state/sectionInfos/hooks/useSectionType";
+import { useGetSectionInfo } from "./useGetSectionInfo";
+import { useIsSocial } from "./useSectionType";
 
 // youtube is 16/9. Make it 16/12 because of padding
 export const youtubeSectionAspectRatio = 16 / 12;

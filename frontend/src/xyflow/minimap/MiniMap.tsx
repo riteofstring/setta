@@ -4,7 +4,7 @@ import cc from "classcat";
 import { pointer, select } from "d3-selection";
 import type { D3ZoomEvent } from "d3-zoom";
 import { zoom, zoomIdentity } from "d3-zoom";
-import { localStorageFns } from "hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import { useNodeInternals } from "models/info/nodeInternals";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
