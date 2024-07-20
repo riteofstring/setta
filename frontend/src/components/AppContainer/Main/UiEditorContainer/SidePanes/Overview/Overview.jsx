@@ -7,8 +7,8 @@ import { updateMapPosition } from "state/actions/updateMapPosition";
 import { constInfoViews } from "state/definitions/infoView";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import {
-  useCurrInfoView,
   getInfoViewHandlers,
+  useCurrInfoView,
 } from "state/hooks/useCurrInfoView";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";

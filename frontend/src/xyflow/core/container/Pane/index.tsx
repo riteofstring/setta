@@ -10,8 +10,8 @@ import React, {
 } from "react";
 import { clearActiveSectionIds } from "state/actions/activeSection";
 import { openPaneContextMenu } from "state/actions/contextMenus";
-import { getNodes } from "state/actions/nodeInternals";
 import {
+  getNodes,
   onNodesChange,
   resetSelectedElements,
 } from "state/actions/nodeInternals";

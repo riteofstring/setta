@@ -15,8 +15,8 @@ import {
 } from "requests/sections";
 import { goToSection } from "state/actions/goToSection";
 import { variableClick } from "state/actions/keyActivations";
-import { useKeywordRegex } from "state/definitions/keywordRegex";
 import { setWaitingForLSP } from "state/actions/lsp";
+import { useKeywordRegex } from "state/definitions/keywordRegex";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { useReactFlow } from "xyflow/core/store";
 import { DummyCodeMirror } from "./DummyCodeMirror";

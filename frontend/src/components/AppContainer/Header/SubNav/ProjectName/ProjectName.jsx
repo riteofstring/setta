@@ -14,7 +14,9 @@ import { router } from "utils/Routes/router";
 export function ProjectName() {
   const name = useProject((x) => x.name);
   const configName = useProjectConfig((x) => x.name);
-  const infoViewHandlers = getInfoViewHandlers(constInfoViews.OVERVIEW_PROJNAME);
+  const infoViewHandlers = getInfoViewHandlers(
+    constInfoViews.OVERVIEW_PROJNAME,
+  );
 
   async function setName(v) {
     await dbSetProjectName(v);
