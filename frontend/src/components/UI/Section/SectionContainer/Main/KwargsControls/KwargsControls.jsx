@@ -15,44 +15,8 @@ import {
 export function KwargsControls({ sectionId, objInfoId }) {
   const setParamFilter = useSectionParamFilter((x) => x.setFilter);
 
-  function onClickAddKwarg() {
-    const { selectedParams } = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
-          x.children.includes(p.id),
-        );
-        const insertIdx = parent.children.indexOf(p.id) + 1;
-        addKwarg({ sectionId, parentId: parent.id, insertIdx });
-      }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      addKwarg({ sectionId, parentId: objInfoId, incrementVersion: true });
-    }
-  }
-
-  function onClickDeleteKwarg() {
-    const { selectedParams } = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
-          x.children.includes(p.id),
-        );
-        const kwargId = parent.children[parent.children.indexOf(p.id) + 1];
-        if (kwargId) {
-          deleteKwarg({ sectionId, parentId: parent.id, kwargId });
-        }
-      }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      deleteKwarg({
-        sectionId,
-        parentId: objInfoId,
-        deleteLast: true,
-        incrementVersion: true,
-      });
-    }
-  }
+  const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
+  const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
     setParamFilter({ sectionId, filter: e.target.value });
   }
@@ -135,4 +99,47 @@ export function KwargsControls({ sectionId, objInfoId }) {
       {/* <hr className="col-span-full row-start-5 row-end-6 " /> */}
     </>
   );
+}
+
+function onClickAddKwargFn(sectionId, objInfoId) {
+  return () => {
+    const { selectedParams } = getAllSelectedParams(sectionId);
+    if (selectedParams.length > 0) {
+      for (const p of selectedParams) {
+        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
+          x.children.includes(p.id),
+        );
+        const insertIdx = parent.children.indexOf(p.id) + 1;
+        addKwarg({ sectionId, parentId: parent.id, insertIdx });
+      }
+      maybeIncrementProjectStateVersion(true);
+    } else {
+      addKwarg({ sectionId, parentId: objInfoId, incrementVersion: true });
+    }
+  };
+}
+
+function onClickDeleteKwargFn(sectionId, objInfoId) {
+  return () => {
+    const { selectedParams } = getAllSelectedParams(sectionId);
+    if (selectedParams.length > 0) {
+      for (const p of selectedParams) {
+        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
+          x.children.includes(p.id),
+        );
+        const kwargId = parent.children[parent.children.indexOf(p.id) + 1];
+        if (kwargId) {
+          deleteKwarg({ sectionId, parentId: parent.id, kwargId });
+        }
+      }
+      maybeIncrementProjectStateVersion(true);
+    } else {
+      deleteKwarg({
+        sectionId,
+        parentId: objInfoId,
+        deleteLast: true,
+        incrementVersion: true,
+      });
+    }
+  };
 }
