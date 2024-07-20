@@ -3,8 +3,8 @@ import potpack from "potpack";
 import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
+import { getNodes, setNodes } from "state/actions/nodeInternals";
 import { toggleMiniMap } from "state/actions/settings";
-import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useSettings } from "state/definitions/settings";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import { ControlButton, Controls } from "xyflow/controls";
@@ -16,7 +16,7 @@ export function ResponsiveControls() {
 
   function onClickLayout() {
     const margin = 50;
-    const nodeInternals = useNodeInternals.getState().getNodes();
+    const nodeInternals = getNodes();
 
     let sizes = nodeInternals.map((x) => ({
       id: x.id,
@@ -36,7 +36,7 @@ export function ResponsiveControls() {
       return node;
     });
 
-    useNodeInternals.getState().setNodes(newNodes);
+    setNodes(newNodes);
   }
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.

@@ -1,7 +1,7 @@
 import { zoomIdentity } from "d3-zoom";
 import type { StoreApi } from "zustand";
 
-import { useNodeInternals } from "state/definitions/nodeInternals";
+import { getNodes } from "state/actions/nodeInternals";
 import type { FitViewOptions, ReactFlowState } from "../types";
 import {
   getD3Transition,
@@ -32,16 +32,13 @@ export function fitView(
   const d3initialized = d3Zoom && d3Selection;
 
   if (d3initialized && (isInitialFitView || !options.initial)) {
-    const nodes = useNodeInternals
-      .getState()
-      .getNodes()
-      .filter((n) => {
-        if (options.nodes?.length) {
-          return options.nodes.some((optionNode) => optionNode.id === n.id);
-        }
+    const nodes = getNodes().filter((n) => {
+      if (options.nodes?.length) {
+        return options.nodes.some((optionNode) => optionNode.id === n.id);
+      }
 
-        return true;
-      });
+      return true;
+    });
 
     const nodesInitialized = nodes.every((n) => n.width && n.height);
 

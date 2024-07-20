@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from "react";
-import { updateNodeDimensions } from "state/definitions/nodeInternals";
+import { updateNodeDimensions } from "state/actions/nodeInternals";
 import { NodeWrapper } from "xyflow/core/components/Nodes/wrapNode";
 import { useReactFlow } from "xyflow/core/store";
 import { shallow } from "zustand/shallow";

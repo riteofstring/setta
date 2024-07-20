@@ -1,6 +1,5 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
-import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useParamSweep } from "state/definitions/paramSweep";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
@@ -15,6 +14,7 @@ import { useSectionInfos } from "../definitions/sectionInfos";
 import { useUITypes } from "../definitions/uiTypes";
 import { useUserCodeInfoMaps } from "../definitions/userCodeInfoMaps";
 import { setAllCodeInfo } from "./codeInfo";
+import { setNodes } from "./nodeInternals";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -43,7 +43,7 @@ export function loadProjectState({
     .getState()
     .resetAndSetAll(_.omit(projectConfig, ["viewport", "children"]));
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
-  useNodeInternals.getState().setNodes(
+  setNodes(
     _.map(projectConfig.children, (v, k) => ({
       id: k,
       position: { x: v.x, y: v.y },

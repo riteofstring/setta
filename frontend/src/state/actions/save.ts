@@ -22,6 +22,7 @@ import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
 import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
 import { ManyUITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
+import { getNodes } from "./nodeInternals";
 
 export function getProjectData(): ProjectSaveType {
   const project = useProject.getState().getAll();
@@ -114,15 +115,12 @@ export function assembleUITypes(
 }
 
 function getPreviewImgNodes() {
-  const nodes = useNodeInternals
-    .getState()
-    .getNodes()
-    .map((n) => ({
-      x: Math.round(n.position.x),
-      y: Math.round(n.position.y),
-      w: Math.round(n.width),
-      h: Math.round(n.height),
-    }));
+  const nodes = getNodes().map((n) => ({
+    x: Math.round(n.position.x),
+    y: Math.round(n.position.y),
+    w: Math.round(n.width),
+    h: Math.round(n.height),
+  }));
 
   return JSON.stringify(nodes);
 }

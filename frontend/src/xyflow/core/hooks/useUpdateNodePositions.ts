@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { useNodeInternals } from "state/definitions/nodeInternals";
+import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions/settings";
 import { useReactFlow } from "../store";
 
@@ -9,15 +9,12 @@ function useUpdateNodePositions() {
     (params: { x: number; y: number; isShiftPressed: boolean }) => {
       const { updateNodePositions, nodesDraggable } = useReactFlow.getState();
       const { snapToGrid, snapGrid } = useSettings.getState();
-      const selectedNodes = useNodeInternals
-        .getState()
-        .getNodes()
-        .filter(
-          (n) =>
-            n.selected &&
-            (n.draggable ||
-              (nodesDraggable && typeof n.draggable === "undefined")),
-        );
+      const selectedNodes = getNodes().filter(
+        (n) =>
+          n.selected &&
+          (n.draggable ||
+            (nodesDraggable && typeof n.draggable === "undefined")),
+      );
       // by default a node moves 5px on each key press, or 20px if shift is pressed
       // if snap grid is enabled, we use that for the velocity.
       const xVelo = snapToGrid ? snapGrid[0] : 5;

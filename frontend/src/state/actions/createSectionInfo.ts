@@ -3,7 +3,7 @@ import _ from "lodash";
 import { getChildUIType } from "state/actions/getChildUITypeId";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
-import { addNodes } from "state/definitions/nodeInternals";
+import { addNodes } from "state/actions/nodeInternals";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { newCodeInfo } from "z_utils/objs/codeInfo";

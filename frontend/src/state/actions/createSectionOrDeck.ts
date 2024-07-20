@@ -7,7 +7,7 @@ import {
 } from "state/actions/sectionContents";
 import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { addNodes } from "state/definitions/nodeInternals";
+import { addNodes } from "state/actions/nodeInternals";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypes } from "state/definitions/uiTypes";

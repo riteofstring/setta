@@ -10,11 +10,11 @@ import React, {
 } from "react";
 import { clearActiveSectionIds } from "state/actions/activeSection";
 import { openPaneContextMenu } from "state/actions/contextMenus";
+import { getNodes } from "state/actions/nodeInternals";
 import {
   onNodesChange,
   resetSelectedElements,
-  useNodeInternals,
-} from "state/definitions/nodeInternals";
+} from "state/actions/nodeInternals";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "xyflow/core/store";
@@ -147,7 +147,7 @@ const Pane = memo(
         height: Math.abs(mousePos.y - startY),
       };
 
-      const nodes = useNodeInternals.getState().getNodes();
+      const nodes = getNodes();
       const selectedNodeIds = getNodesInside(
         nextUserSelectRect,
         transform,

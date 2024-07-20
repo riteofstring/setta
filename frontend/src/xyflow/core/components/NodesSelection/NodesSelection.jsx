@@ -2,7 +2,7 @@ import cc from "classcat";
 import _ from "lodash";
 import React, { useRef } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
-import { useNodeInternals } from "state/definitions/nodeInternals";
+import { getNodes } from "state/actions/nodeInternals";
 import useDrag from "xyflow/core/hooks/useDrag";
 import { useReactFlow } from "xyflow/core/store";
 
@@ -14,9 +14,7 @@ function _NodesSelection({ x, y, width, height }) {
   const nodeRef = useRef(null);
 
   const onContextMenu = (event) => {
-    const selectedNodeIds = useNodeInternals
-      .getState()
-      .getNodes()
+    const selectedNodeIds = getNodes()
       .filter((n) => n.selected)
       .map((n) => n.id);
     openSelectionContextMenu(event, selectedNodeIds);
