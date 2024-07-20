@@ -14,8 +14,8 @@ import {
   computeInfoToFullName,
 } from "utils/CodeMirror/utils";
 import { createNewId } from "z_utils/utils";
-import { getMappedSectionDBSource } from "../state/getters/sectionInfo";
-import { addSectionInEmptySpace } from "../state/actions/addSectionInEmptySpace";
+import { getMappedSectionDBSource } from "../getters/sectionInfo";
+import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {

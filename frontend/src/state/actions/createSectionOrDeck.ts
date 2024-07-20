@@ -13,7 +13,7 @@ import { moveSections } from "state/actions/sectionOps";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { initializeChildParams } from "state/actions/initializeParam";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
 import { newCodeInfo } from "z_utils/objs/codeInfo";

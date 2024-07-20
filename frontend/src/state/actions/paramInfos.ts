@@ -3,7 +3,7 @@ import { useUITypes } from "models/info/uiTypes";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
-} from "../state/getters/sectionInfo";
+} from "../getters/sectionInfo";
 import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { varControlUpdate } from "./varControl";

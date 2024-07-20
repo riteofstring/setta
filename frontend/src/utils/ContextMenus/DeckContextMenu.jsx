@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useContextMenus } from "models/contextMenus";
 import { useSectionInfos } from "state/definitions/sectionInfos";
-import { undeck } from "thunks/undeck";
+import { undeck } from "state/actions/undeck";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 

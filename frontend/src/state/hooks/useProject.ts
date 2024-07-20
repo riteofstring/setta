@@ -3,7 +3,7 @@ import { useProjectConfig } from "models/info/projectConfig";
 import { useInteractive } from "models/interactive";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { loadProject } from "thunks/user/projects";
+import { loadProject } from "state/actions/projects";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,

@@ -12,7 +12,7 @@ import {
 } from "../getters/sectionInfo";
 import { getKwargIds } from "../getters/codeInfo";
 import { initializeParam } from "./initializeParam";
-import { maybeIncrementProjectStateVersion } from "../../thunks/undo";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
   sectionId: string;

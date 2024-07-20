@@ -2,7 +2,7 @@ import { localStorageFns } from "state/hooks/localStorageHooks";
 import { useEffect } from "react";
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
-import { toggleDarkMode } from "thunks/user/settings";
+import { toggleDarkMode } from "state/actions/settings";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {

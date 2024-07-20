@@ -1,6 +1,6 @@
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import { useEffect } from "react";
-import { attachKeyEventListeners } from "thunks/keyActivations";
+import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";

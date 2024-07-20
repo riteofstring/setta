@@ -3,7 +3,7 @@ import { useSectionParamFilter } from "models/info/sectionParamFilter";
 import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { updateParams } from "state/actions/sectionContents";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import {
   computeNewChildrenForLeftPush,

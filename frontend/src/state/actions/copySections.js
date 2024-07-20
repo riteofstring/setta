@@ -6,7 +6,7 @@ import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { findAll } from "z_utils/getDescendants";
-import { getSectionTypeConfig } from "../../state/getters/sectionInfo";
+import { getSectionTypeConfig } from "../getters/sectionInfo";
 
 export function copySections(sectionIds) {
   const sections = _.pick(useSectionInfos.getState().x, sectionIds);

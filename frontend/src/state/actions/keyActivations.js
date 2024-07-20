@@ -5,10 +5,10 @@ import {
 import { useSettings } from "models/settings";
 import { useDndState } from "utils/DNDSortable/dndState";
 import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
-import { copy } from "./copy/copy";
+import { copy } from "./copy";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";
-import { paste } from "./paste/paste";
+import { paste } from "./paste";
 import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 

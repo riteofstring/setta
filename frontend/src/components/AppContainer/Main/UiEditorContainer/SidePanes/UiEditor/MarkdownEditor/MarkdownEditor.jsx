@@ -1,7 +1,7 @@
 import _ from "lodash";
 import React, { useCallback, useEffect, useState } from "react";
 import { useSectionInfos } from "state/definitions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 
 const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
   const description = useSectionInfos((x) => x.x[sectionId].description);

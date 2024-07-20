@@ -6,7 +6,7 @@ import {
 } from "state/actions/setters";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";

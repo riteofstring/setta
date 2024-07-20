@@ -10,7 +10,7 @@ import {
 } from "models/info/infoView";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
-import { updateMapPosition } from "thunks/updateMapPosition";
+import { updateMapPosition } from "state/actions/updateMapPosition";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { OVERVIEW } from "utils/constants";

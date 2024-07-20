@@ -2,7 +2,7 @@ import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import React from "react";
 import { updateParams } from "state/actions/sectionContents";
-import { paramSelect } from "thunks/keyActivations";
+import { paramSelect } from "state/actions/keyActivations";
 import { KwargParam } from "./ParamSwitchOptions/KwargParam";
 import { RegularParam } from "./ParamSwitchOptions/RegularParam";
 

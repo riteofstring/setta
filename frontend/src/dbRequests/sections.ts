@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { useKeywordRegex } from "models/info/keywordRegex";
 import { useProjectConfig } from "models/info/projectConfig";
-import { getProjectDataToGenerateCode } from "thunks/generateCode";
+import { getProjectDataToGenerateCode } from "state/actions/generateCode";
 import { findRefs } from "utils/CodeMirror/utils";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";

@@ -6,7 +6,7 @@ import {
 } from "dbRequests/projects";
 import { useProject } from "models/info/project";
 import { useState } from "react";
-import { getProjectData } from "thunks/save";
+import { getProjectData } from "state/actions/save";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 

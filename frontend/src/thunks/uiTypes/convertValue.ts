@@ -1,5 +1,5 @@
 import { useUITypes } from "models/info/uiTypes";
-import { getParamEV, setParamEnteredValue } from "thunks/paramInfos";
+import { getParamEV, setParamEnteredValue } from "state/actions/paramInfos";
 import { getValueForUIType } from "z_utils/objs/ev";
 
 export function convertValue({ sectionId, paramInfoId, uiTypeId }) {

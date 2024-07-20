@@ -1,4 +1,4 @@
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionParentId } from "../getters/sectionInfo";
 import { setAllChildren } from "./children";

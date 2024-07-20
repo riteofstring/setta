@@ -9,7 +9,7 @@ import {
 } from "state/getters/sectionInfo";
 import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
 import { getValueForUIType } from "z_utils/objs/ev";
-import { getParamUIType } from "../paramInfos";
+import { getParamUIType } from "../../state/actions/paramInfos";
 import { maybeCloneUIType } from "./cloneUITypes";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";

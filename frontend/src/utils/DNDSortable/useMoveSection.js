@@ -5,7 +5,7 @@ import { setAllChildren } from "state/actions/children";
 import { moveSection } from "state/actions/sectionOps";
 import { manualDndChildrenReset } from "state/definitions/sectionInfos";
 import { getSectionParentId } from "state/getters/sectionInfo";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { PANEID } from "utils/constants";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { updateWithArrayMove } from "utils/utils";

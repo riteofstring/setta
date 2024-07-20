@@ -5,7 +5,7 @@ import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { SectionUITypeCombobox } from "utils/Combobox/UITypeCombobox";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 

@@ -7,7 +7,7 @@ import { useProject } from "models/info/project";
 import { useInteractive } from "models/interactive";
 import { useIdWaitingForLSPResult } from "models/lsp";
 import { useCallback, useEffect, useState } from "react";
-import { setParamEnteredValue } from "thunks/paramInfos";
+import { setParamEnteredValue } from "state/actions/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({

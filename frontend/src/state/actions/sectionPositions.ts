@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 
 export function setZIndices(sectionIds, incrementVersion) {
   const nodeInternals = useNodeInternals.getState().x;

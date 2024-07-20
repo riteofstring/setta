@@ -1,6 +1,6 @@
 import { useParamInfos } from "models/info/paramInfos";
 import { getSectionInfo } from "state/getters/sectionInfo";
-import { maybeIncrementProjectStateVersion } from "../undo";
+import { maybeIncrementProjectStateVersion } from "../../state/actions/undo";
 import { convertValue } from "./convertValue";
 
 export function setParamUITypeId({

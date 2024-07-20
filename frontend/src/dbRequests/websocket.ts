@@ -4,8 +4,8 @@ import {
   useWebsocketConnectionList,
   useWebsocketRooms,
 } from "models/websocket";
-import { updateOutput } from "thunks/outputs";
-import { updateConnectedTo } from "thunks/websocketConnectionList";
+import { updateOutput } from "state/actions/outputs";
+import { updateConnectedTo } from "state/actions/websocketConnectionList";
 import { URLS } from "utils/constants";
 
 let wss;

@@ -10,7 +10,7 @@ import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
 } from "state/hooks/useGetSectionInfo";
-import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
+import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 

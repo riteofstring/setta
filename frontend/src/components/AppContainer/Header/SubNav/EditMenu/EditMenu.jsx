@@ -3,8 +3,8 @@ import C from "constants/constants.json";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { addSectionInEmptySpace } from "state/actions/addSectionInEmptySpace";
-import { requestTypeCheck } from "thunks/typeCheck";
-import { redoProjectState, undoProjectState } from "thunks/undo";
+import { requestTypeCheck } from "state/actions/typeCheck";
+import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 

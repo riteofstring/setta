@@ -1,5 +1,5 @@
 import { useNodeInternals } from "models/info/nodeInternals";
-import { createDeck } from "../state/actions/createSectionOrDeck";
+import { createDeck } from "./createSectionOrDeck";
 
 export function groupSections() {
   const selectedNodes = [...useNodeInternals.getState().x].filter(
