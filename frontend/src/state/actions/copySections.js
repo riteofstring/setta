@@ -3,8 +3,8 @@ import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useParamInfos } from "state/definitions/paramInfos";
-import { useUITypes } from "state/definitions/uiTypes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useUITypes } from "state/definitions/uiTypes";
 import { findAll } from "z_utils/getDescendants";
 import { getSectionTypeConfig } from "../getters/sectionInfo";
 

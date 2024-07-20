@@ -1,5 +1,5 @@
-import { useNotification } from "state/definitions/notification";
 import { VscSave } from "react-icons/vsc";
+import { useNotification } from "state/definitions/notification";
 
 export function Notification() {
   const message = useNotification((x) => x.message);

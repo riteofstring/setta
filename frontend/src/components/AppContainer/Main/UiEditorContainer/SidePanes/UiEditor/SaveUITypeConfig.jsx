@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useModal } from "state/definitions/modal";
 import { BiSave } from "react-icons/bi";
+import { useModal } from "state/definitions/modal";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export function SaveUITypeConfig() {

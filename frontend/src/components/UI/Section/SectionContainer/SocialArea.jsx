@@ -1,10 +1,10 @@
 import getYouTubeID from "get-youtube-id";
-import { linkIsTwitter, linkIsYouTube } from "state/hooks/useSocialUtils";
 import _ from "lodash";
 import React from "react";
 import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { linkIsTwitter, linkIsYouTube } from "state/hooks/useSocialUtils";
 
 function _SocialArea({ sectionId }) {
   const size = useSectionInfos((x) => x.x[sectionId].size);

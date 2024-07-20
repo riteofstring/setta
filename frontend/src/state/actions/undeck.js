@@ -1,7 +1,4 @@
-import {
-  deleteSections,
-  moveSections,
-} from "state/actions/sectionOps";
+import { deleteSections, moveSections } from "state/actions/sectionOps";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { PANEID } from "utils/constants";
 import { getSectionRect } from "xyflow/core/utils/graph";

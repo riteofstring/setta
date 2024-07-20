@@ -2,10 +2,10 @@ import {
   dbSetProjectConfigName,
   dbSetProjectName,
 } from "dbRequests/projectName";
-import { useEditableOnSubmit } from "state/hooks/useEditableOnSubmit";
 import { constInfoViews, useSetCurrInfoView } from "state/definitions/infoView";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
+import { useEditableOnSubmit } from "state/hooks/useEditableOnSubmit";
 import { Editable } from "utils/Editable/Editable";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,

@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { pseudoTemplatedStr } from "dbRequests/utils";
-import { useProjectConfig } from "state/definitions/projectConfig";
 import React, { useEffect, useRef } from "react";
+import { useProjectConfig } from "state/definitions/projectConfig";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { URLS } from "utils/constants";
 import { Terminal } from "xterm";

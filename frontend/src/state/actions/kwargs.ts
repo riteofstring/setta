@@ -4,14 +4,14 @@ import { useCodeInfo } from "state/definitions/codeInfo";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionToParams } from "state/definitions/sectionToParams";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
-import { updateParams } from "./sectionContents";
+import { getKwargIds } from "../getters/codeInfo";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
   getSectionTypeConfig,
 } from "../getters/sectionInfo";
-import { getKwargIds } from "../getters/codeInfo";
 import { initializeParam } from "./initializeParam";
+import { updateParams } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {

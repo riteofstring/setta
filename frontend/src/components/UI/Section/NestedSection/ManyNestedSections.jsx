@@ -1,5 +1,5 @@
-import { useSectionInfos } from "state/definitions/sectionInfos";
 import { goToSection } from "state/actions/goToSection";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";

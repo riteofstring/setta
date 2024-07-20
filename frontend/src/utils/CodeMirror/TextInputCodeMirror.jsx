@@ -12,11 +12,11 @@ import {
   dbTextFieldInitializeCode,
 } from "dbRequests/sections";
 import _ from "lodash";
-import { useKeywordRegex } from "state/definitions/keywordRegex";
-import { setWaitingForLSP } from "state/definitions/lsp";
 import { useCallback, useRef, useState } from "react";
 import { goToSection } from "state/actions/goToSection";
 import { variableClick } from "state/actions/keyActivations";
+import { useKeywordRegex } from "state/definitions/keywordRegex";
+import { setWaitingForLSP } from "state/definitions/lsp";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { useReactFlow } from "xyflow/core/store";
 import { DummyCodeMirror } from "./DummyCodeMirror";

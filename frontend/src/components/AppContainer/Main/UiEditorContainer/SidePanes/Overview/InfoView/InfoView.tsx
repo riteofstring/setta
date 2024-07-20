@@ -1,8 +1,8 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import classNames from "classnames";
-import { useCurrInfoView } from "state/definitions/infoView";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
+import { useCurrInfoView } from "state/definitions/infoView";
 
 export function InfoView() {
   const currInfoView = useCurrInfoView();

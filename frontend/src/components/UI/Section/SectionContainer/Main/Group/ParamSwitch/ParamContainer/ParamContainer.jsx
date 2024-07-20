@@ -1,12 +1,12 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import _ from "lodash";
+import React from "react";
+import { BiChevronUp } from "react-icons/bi";
+import { HiOutlineDuplicate } from "react-icons/hi";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useSetCurrInfoView } from "state/definitions/infoView";
 import { useTypeErrors } from "state/definitions/typeErrors";
 import { useProjectSearch } from "state/definitions/useProjectSearch";
-import React from "react";
-import { BiChevronUp } from "react-icons/bi";
-import { HiOutlineDuplicate } from "react-icons/hi";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";

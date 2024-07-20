@@ -1,10 +1,10 @@
-import { linkIsTwitter, youtubeSectionAspectRatio } from "state/hooks/useSocialUtils";
 import { useState } from "react";
-import {
-  setSectionInfoAttr,
-  setSectionSize,
-} from "state/actions/setters";
+import { setSectionInfoAttr, setSectionSize } from "state/actions/setters";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
+import {
+  linkIsTwitter,
+  youtubeSectionAspectRatio,
+} from "state/hooks/useSocialUtils";
 
 export function SocialTypeSearch({ sectionId }) {
   const url = useGetSectionInfo(sectionId, "social");

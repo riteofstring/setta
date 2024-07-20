@@ -1,11 +1,11 @@
 import _ from "lodash";
-import { justMoveANode } from "state/definitions/nodeInternals";
 import { useRef } from "react";
 import { setAllChildren } from "state/actions/children";
 import { moveSection } from "state/actions/sectionOps";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { justMoveANode } from "state/definitions/nodeInternals";
 import { manualDndChildrenReset } from "state/definitions/sectionInfos";
 import { getSectionParentId } from "state/getters/sectionInfo";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { PANEID } from "utils/constants";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { updateWithArrayMove } from "utils/utils";

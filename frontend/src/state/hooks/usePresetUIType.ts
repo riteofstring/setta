@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useUITypes } from "state/definitions/uiTypes";
 import { isAmongNonPresets } from "state/actions/cloneUITypes";
+import { useUITypes } from "state/definitions/uiTypes";
 import { isSectionUIType, uiTypesToPretty } from "z_utils/constants";
 import { ManyUITypeType, PresetType, UITypeType } from "z_utils/types/uiType";
 import { isBasePreset, isPreset, isUserPreset } from "z_utils/uiTypeConstants";

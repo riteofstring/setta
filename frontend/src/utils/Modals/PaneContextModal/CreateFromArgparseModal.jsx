@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { useModal } from "state/definitions/modal";
 import { useRef } from "react";
 import { extractArgparseArgs } from "state/actions/createSectionOrDeck";
+import { useModal } from "state/definitions/modal";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function CreateFromArgparseModal() {

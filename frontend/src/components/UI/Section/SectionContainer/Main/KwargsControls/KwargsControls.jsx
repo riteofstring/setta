@@ -1,9 +1,9 @@
+import { CgPushDown, CgPushUp } from "react-icons/cg";
+import { addKwarg, deleteKwarg } from "state/actions/kwargs";
+import { updateParams } from "state/actions/sectionContents";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useSectionParamFilter } from "state/definitions/sectionParamFilter";
-import { CgPushDown, CgPushUp } from "react-icons/cg";
-import { updateParams } from "state/actions/sectionContents";
-import { addKwarg, deleteKwarg } from "state/actions/kwargs";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import {
   computeNewChildrenForLeftPush,

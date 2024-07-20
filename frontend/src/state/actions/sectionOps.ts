@@ -1,10 +1,10 @@
 import C from "constants/constants.json";
 import { dbDeleteTerminals } from "dbRequests/terminals";
+import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useActiveSection } from "state/definitions/activeSection";
 import { addNodes, deleteNodes } from "state/definitions/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";
-import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";

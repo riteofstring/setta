@@ -2,10 +2,10 @@ import {
   dbGetCollectionDetails,
   getCollectionsAndModulesFn,
 } from "dbRequests/sectionConfig";
-import { useGetSelectedCollectionsForSectionConfig } from "state/hooks/useSectionContents";
 import _ from "lodash";
 import { useState } from "react";
 import { setCollections } from "state/actions/setCollections";
+import { useGetSelectedCollectionsForSectionConfig } from "state/hooks/useSectionContents";
 import { groupedObjInfo } from "utils/getFullObjPath";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";

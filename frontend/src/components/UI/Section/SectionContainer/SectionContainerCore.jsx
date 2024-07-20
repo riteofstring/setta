@@ -1,16 +1,19 @@
-import { useIsSeriesElement, useSectionTypeName } from "state/hooks/useSectionType";
-import { toggleVersionsVisible } from "state/hooks/useSectionVersions";
-import { useActiveSection } from "state/definitions/activeSection";
-import { useSectionRefAndInit } from "state/definitions/sectionRefs";
 import React from "react";
+import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import { getParamInfos } from "state/actions/sectionContents";
 import { setZIndices } from "state/actions/sectionPositions";
 import { getHighestAncestor } from "state/actions/sectionSizes";
+import { useActiveSection } from "state/definitions/activeSection";
+import { useSectionRefAndInit } from "state/definitions/sectionRefs";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
 } from "state/hooks/useGetSectionInfo";
-import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
+import {
+  useIsSeriesElement,
+  useSectionTypeName,
+} from "state/hooks/useSectionType";
+import { toggleVersionsVisible } from "state/hooks/useSectionVersions";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 

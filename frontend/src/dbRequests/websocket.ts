@@ -1,11 +1,11 @@
+import { updateOutput } from "state/actions/outputs";
+import { updateConnectedTo } from "state/actions/websocketConnectionList";
 import { useInteractive } from "state/definitions/interactive";
 import { useTypeErrors } from "state/definitions/typeErrors";
 import {
   useWebsocketConnectionList,
   useWebsocketRooms,
 } from "state/definitions/websocket";
-import { updateOutput } from "state/actions/outputs";
-import { updateConnectedTo } from "state/actions/websocketConnectionList";
 import { URLS } from "utils/constants";
 
 let wss;

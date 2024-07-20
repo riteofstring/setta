@@ -1,9 +1,9 @@
-import { useOpenCloseWebsocket } from "state/hooks/useWebsocket";
-import { useSettings } from "state/definitions/settings";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { resetProjectStores } from "state/actions/reset";
 import { loadSettings } from "state/actions/settings";
+import { useSettings } from "state/definitions/settings";
+import { useOpenCloseWebsocket } from "state/hooks/useWebsocket";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
   SAME_PROJECT_NEW_PROJECT_NAME,

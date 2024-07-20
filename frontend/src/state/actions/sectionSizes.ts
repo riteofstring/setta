@@ -1,5 +1,5 @@
-import { useSectionInfos } from "state/definitions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionParentId } from "../getters/sectionInfo";
 import { setSectionSize } from "./setters";
 

@@ -1,12 +1,12 @@
-import { useGetProjectsForFileMenu } from "state/hooks/useGetOrCreateProjects";
-import { useProject } from "state/definitions/project";
-import { useProjectConfig } from "state/definitions/projectConfig";
 import { useEffect } from "react";
 import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
   saveProject,
 } from "state/actions/save";
+import { useProject } from "state/definitions/project";
+import { useProjectConfig } from "state/definitions/projectConfig";
+import { useGetProjectsForFileMenu } from "state/hooks/useGetOrCreateProjects";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { SAME_PROJECT_NEW_PROJECT_CONFIG } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";

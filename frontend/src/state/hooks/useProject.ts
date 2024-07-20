@@ -1,9 +1,9 @@
-import { useProject } from "state/definitions/project";
-import { useProjectConfig } from "state/definitions/projectConfig";
-import { useInteractive } from "state/definitions/interactive";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { loadProject } from "state/actions/projects";
+import { useInteractive } from "state/definitions/interactive";
+import { useProject } from "state/definitions/project";
+import { useProjectConfig } from "state/definitions/projectConfig";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,

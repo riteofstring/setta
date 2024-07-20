@@ -1,15 +1,15 @@
 import { dbDeleteProjects } from "dbRequests/projects";
-import {
-  createAndGoToProject,
-  useGetProjectsForHomePage,
-} from "state/hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
-import { useHomePageSearch } from "state/definitions/useHomePageSearch";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
+import { useHomePageSearch } from "state/definitions/useHomePageSearch";
+import {
+  createAndGoToProject,
+  useGetProjectsForHomePage,
+} from "state/hooks/useGetOrCreateProjects";
 import { Badge } from "utils/atoms/badges/badge";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";

@@ -1,4 +1,6 @@
 import C from "constants/constants.json";
+import { setSelfParentSiblingChildrenWidths } from "state/actions/sectionSizes";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
@@ -10,8 +12,6 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "state/hooks/useSocialUtils";
-import { setSelfParentSiblingChildrenWidths } from "state/actions/sectionSizes";
-import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useDndMode } from "utils/DNDSortable/dndState";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";

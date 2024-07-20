@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
-import { localStorageFns } from "state/hooks/localStorageHooks";
 import { useActiveSection } from "state/definitions/activeSection";
-import { useSectionRefs } from "state/definitions/sectionRefs";
 import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionRefs } from "state/definitions/sectionRefs";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { Node, Rect, Transform, Viewport, XYPosition } from "../types";
 import {

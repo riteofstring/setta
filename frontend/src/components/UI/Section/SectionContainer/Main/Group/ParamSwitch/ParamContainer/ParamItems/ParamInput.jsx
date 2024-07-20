@@ -1,13 +1,13 @@
 import C from "constants/constants.json";
 import { sendMessage } from "dbRequests/websocket";
-import { useGetParamEnteredValue } from "state/hooks/useEnteredValue";
-import { useGetParamUIType } from "state/hooks/useParamUIType";
 import _ from "lodash";
-import { useProject } from "state/definitions/project";
-import { useInteractive } from "state/definitions/interactive";
-import { useIdWaitingForLSPResult } from "state/definitions/lsp";
 import { useCallback, useEffect, useState } from "react";
 import { setParamEnteredValue } from "state/actions/paramInfos";
+import { useInteractive } from "state/definitions/interactive";
+import { useIdWaitingForLSPResult } from "state/definitions/lsp";
+import { useProject } from "state/definitions/project";
+import { useGetParamEnteredValue } from "state/hooks/useEnteredValue";
+import { useGetParamUIType } from "state/hooks/useParamUIType";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({

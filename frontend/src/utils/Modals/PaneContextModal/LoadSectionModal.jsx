@@ -1,7 +1,7 @@
 import { dbGetSections, dbLoadSection } from "dbRequests/sections";
-import { useModal } from "state/definitions/modal";
 import { useEffect, useState } from "react";
 import { loadSectionIntoState } from "state/actions/createSectionOrDeck";
+import { useModal } from "state/definitions/modal";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function LoadSectionModal({ open }) {

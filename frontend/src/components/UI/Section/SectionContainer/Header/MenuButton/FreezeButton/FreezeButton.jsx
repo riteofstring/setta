@@ -1,7 +1,7 @@
-import { useCodeInfo } from "state/definitions/codeInfo";
-import { useSectionToParams } from "state/definitions/sectionToParams";
 import { updateParams } from "state/actions/sectionContents";
 import { setSectionInfoAttr } from "state/actions/setters";
+import { useCodeInfo } from "state/definitions/codeInfo";
+import { useSectionToParams } from "state/definitions/sectionToParams";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function FreezeButton({ sectionId }) {

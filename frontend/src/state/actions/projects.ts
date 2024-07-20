@@ -1,7 +1,7 @@
 import { dbLoadFullProject } from "dbRequests/projects";
 import _ from "lodash";
-import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
 import { loadProjectState } from "state/actions/loadProjectState";
+import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
 
 export async function loadProject({ projectName, configName }) {
   const res = await dbLoadFullProject({ projectName });

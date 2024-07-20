@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "state/definitions/codeInfo";
 import { updateParamsAndCallables } from "state/actions/sectionContents";
-import { getSectionTypeConfig } from "state/getters/sectionInfo";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { setSectionUITypeId } from "state/actions/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useCodeInfo } from "state/definitions/codeInfo";
+import { getSectionTypeConfig } from "state/getters/sectionInfo";
+import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { SectionUITypeCombobox } from "utils/Combobox/UITypeCombobox";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 
