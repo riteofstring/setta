@@ -49,13 +49,17 @@ export function updateParamsAndCallables(
 
 export function updateCallables(sectionId: string) {
   const callables = computeAllCallables(sectionId);
-  useSectionToParams.getState().setCallables({ sectionId, callables });
+  useSectionToParams.setState((state) => {
+    state.callables[sectionId] = callables;
+  });
 }
 
 export function updateParams(sectionId: string) {
   const { selectedItem } = getSectionInfo(sectionId);
   const params = computeAllParams(sectionId, selectedItem);
-  useSectionToParams.getState().setParams({ sectionId, params });
+  useSectionToParams.setState((state) => {
+    state.params[sectionId] = params;
+  });
 }
 
 function movePinnedToFront(params) {
