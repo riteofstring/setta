@@ -1,10 +1,10 @@
 import { useParamInfos } from "models/info/paramInfos";
 import { useModal } from "models/modal";
+import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
 } from "state/sectionInfos/getters";
-import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { createNewId } from "z_utils/utils";
 

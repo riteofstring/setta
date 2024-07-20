@@ -1,8 +1,8 @@
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
 import { useTitleIsEditable } from "hooks/useTitleIsEditable";
+import { setSectionName } from "state/sectionInfos/actions/setters";
 import { getSectionSiblingNames } from "state/sectionInfos/getters";
 import { useGetSectionInfo } from "state/sectionInfos/hooks";
-import { setSectionName } from "state/sectionInfos/actions/setters";
 import { Editable } from "utils/Editable/Editable";
 
 export function SectionTitle({ sectionId, titleProps }) {

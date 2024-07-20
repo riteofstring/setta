@@ -3,14 +3,14 @@ import { toggleVersionsVisible } from "hooks/useSectionVersions";
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
+import { getParamInfos } from "state/sectionInfos/actions/sectionContents";
+import { setZIndices } from "state/sectionInfos/actions/sectionPositions";
+import { getHighestAncestor } from "state/sectionInfos/actions/sectionSizes";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
 } from "state/sectionInfos/hooks";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
-import { getParamInfos } from "thunks/sections/sectionContents";
-import { setZIndices } from "thunks/sections/sectionPositions";
-import { getHighestAncestor } from "thunks/sections/sectionSizes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 

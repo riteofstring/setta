@@ -10,8 +10,8 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "hooks/useSocialUtils";
+import { setSelfParentSiblingChildrenWidths } from "state/sectionInfos/actions/sectionSizes";
 import { useSectionInfos } from "state/sectionInfos/definition";
-import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { useDndMode } from "utils/DNDSortable/dndState";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";

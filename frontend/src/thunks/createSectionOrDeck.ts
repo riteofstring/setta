@@ -4,15 +4,15 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { useSectionInfos } from "state/sectionInfos/definition";
-import { getSectionTypeConfig } from "state/sectionInfos/getters";
-import { initializeChildParams } from "thunks/initializeParam";
 import { addSectionAtPosition } from "state/sectionInfos/actions/addSectionAtPosition";
 import {
   updateManyParamsAndCallables,
   updateParams,
-} from "thunks/sections/sectionContents";
-import { moveSections } from "thunks/sections/sectionOps";
+} from "state/sectionInfos/actions/sectionContents";
+import { moveSections } from "state/sectionInfos/actions/sectionOps";
+import { useSectionInfos } from "state/sectionInfos/definition";
+import { getSectionTypeConfig } from "state/sectionInfos/getters";
+import { initializeChildParams } from "thunks/initializeParam";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";

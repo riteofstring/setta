@@ -1,6 +1,6 @@
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionToParams } from "models/info/sectionToParams";
-import { updateParams } from "thunks/sections/sectionContents";
+import { updateParams } from "state/sectionInfos/actions/sectionContents";
 import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 

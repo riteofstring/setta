@@ -14,8 +14,8 @@ import { useParamInfos } from "../models/info/paramInfos";
 import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
 import { useUITypes } from "../models/info/uiTypes";
+import { updateManyParamsAndCallables } from "../state/sectionInfos/actions/sectionContents";
 import { useSectionInfos } from "../state/sectionInfos/definition";
-import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function loadProjectState({

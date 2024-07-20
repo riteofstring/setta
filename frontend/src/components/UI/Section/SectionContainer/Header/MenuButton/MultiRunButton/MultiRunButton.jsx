@@ -1,8 +1,8 @@
 import { useParamSweep } from "models/paramSweep";
+import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import { useSectionInfos } from "state/sectionInfos/definition";
 import { getSectionName } from "state/sectionInfos/getters";
 import { goToSection } from "thunks/goToSection";
-import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { getParamSweepSectionName } from "z_utils/constants";

@@ -1,4 +1,4 @@
-import { updateParamsAndCallables } from "thunks/sections/sectionContents";
+import { updateParamsAndCallables } from "state/sectionInfos/actions/sectionContents";
 import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
 import { maybeIncrementProjectStateVersion } from "../undo";
 

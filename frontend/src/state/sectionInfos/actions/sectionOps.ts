@@ -13,10 +13,10 @@ import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
 } from "z_utils/types/uiType";
-import { getSectionType } from "../../state/sectionInfos/getters";
-import { setAllChildren } from "../../state/sectionInfos/actions/children";
+import { getSectionType } from "../getters";
+import { setAllChildren } from "./children";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "../../state/sectionInfos/actions/setters";
+import { setSectionParentId } from "./setters";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete: string[] = [];

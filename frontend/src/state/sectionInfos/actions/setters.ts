@@ -10,11 +10,8 @@ import { varControlUpdate } from "thunks/varControl";
 import { getParamSweepSectionName } from "z_utils/constants";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { isUUID } from "z_utils/utils";
-import {
-  getSectionInfo,
-  getSectionTypeConfig,
-} from "../getters";
-import { updateCallables, updateParams } from "../../../thunks/sections/sectionContents";
+import { getSectionInfo, getSectionTypeConfig } from "../getters";
+import { updateCallables, updateParams } from "./sectionContents";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   let id = selectedItem;

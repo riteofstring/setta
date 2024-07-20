@@ -1,10 +1,10 @@
 import _ from "lodash";
 import { justMoveANode } from "models/info/nodeInternals";
 import { useRef } from "react";
+import { setAllChildren } from "state/sectionInfos/actions/children";
+import { moveSection } from "state/sectionInfos/actions/sectionOps";
 import { manualDndChildrenReset } from "state/sectionInfos/definition";
 import { getSectionParentId } from "state/sectionInfos/getters";
-import { setAllChildren } from "state/sectionInfos/actions/children";
-import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";

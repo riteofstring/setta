@@ -1,6 +1,6 @@
 import { useCodeInfo } from "models/info/codeInfo";
 import { MdOutlinePushPin } from "react-icons/md";
-import { updateParams } from "thunks/sections/sectionContents";
+import { updateParams } from "state/sectionInfos/actions/sectionContents";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export function PinButton({ variants, sectionId, paramInfoId }) {

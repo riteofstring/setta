@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import { useParamInfos } from "models/info/paramInfos";
 import { useState } from "react";
-import { useSectionDBSource } from "state/sectionInfos/hooks";
 import { setSectionInfoAttr } from "state/sectionInfos/actions/setters";
+import { useSectionDBSource } from "state/sectionInfos/hooks";
 
 export function DBSources({ sectionId }) {
   const dbSource = useSectionDBSource(sectionId);

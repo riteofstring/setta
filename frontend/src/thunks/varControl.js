@@ -3,10 +3,10 @@ import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionToParams } from "models/info/sectionToParams";
+import { setSelectedItem } from "state/sectionInfos/actions/setters";
 import { useSectionInfos } from "state/sectionInfos/definition";
 import { getSectionByName, getSectionType } from "state/sectionInfos/getters";
 import { setParamEnteredValue } from "thunks/paramInfos";
-import { setSelectedItem } from "state/sectionInfos/actions/setters";
 
 export function varControlUpdate() {
   const js_code = getVarControlSection()?.varControl;

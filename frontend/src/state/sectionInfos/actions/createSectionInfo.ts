@@ -10,10 +10,7 @@ import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { ManySectionType } from "z_utils/types/section";
-import {
-  getSectionType,
-  getSectionTypeConfig,
-} from "../getters";
+import { getSectionType, getSectionTypeConfig } from "../getters";
 
 export function createChildForSeries({ parentId, numChildren }) {
   // const { name: parentName } = useSectionInfos.getState().x[parentId];

@@ -6,7 +6,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useUITypes } from "models/info/uiTypes";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";
-import { updateParams } from "thunks/sections/sectionContents";
+import { updateParams } from "state/sectionInfos/actions/sectionContents";
 import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
 import { IconButton } from "utils/atoms/buttons/IconButton";

@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import { useCodeInfo } from "models/info/codeInfo";
+import { updateParamsAndCallables } from "state/sectionInfos/actions/sectionContents";
 import { getSectionTypeConfig } from "state/sectionInfos/getters";
 import { useGetSectionInfo } from "state/sectionInfos/hooks";
-import { updateParamsAndCallables } from "thunks/sections/sectionContents";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";

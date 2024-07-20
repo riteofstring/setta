@@ -4,6 +4,7 @@ import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useSectionToParams } from "models/info/sectionToParams";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
+import { updateParams } from "../state/sectionInfos/actions/sectionContents";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
@@ -11,7 +12,6 @@ import {
 } from "../state/sectionInfos/getters";
 import { getKwargIds } from "./codeInfo/codeInfo";
 import { initializeParam } from "./initializeParam";
-import { updateParams } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {

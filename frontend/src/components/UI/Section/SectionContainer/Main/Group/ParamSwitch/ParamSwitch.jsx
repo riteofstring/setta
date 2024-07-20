@@ -1,8 +1,8 @@
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import React from "react";
+import { updateParams } from "state/sectionInfos/actions/sectionContents";
 import { paramSelect } from "thunks/keyActivations";
-import { updateParams } from "thunks/sections/sectionContents";
 import { KwargParam } from "./ParamSwitchOptions/KwargParam";
 import { RegularParam } from "./ParamSwitchOptions/RegularParam";
 

@@ -1,7 +1,7 @@
 import { useSectionInfos } from "state/sectionInfos/definition";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
-import { getSectionParentId } from "../../state/sectionInfos/getters";
-import { setSectionSize } from "../../state/sectionInfos/actions/setters";
+import { getSectionParentId } from "../getters";
+import { setSectionSize } from "./setters";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
   // set own width
