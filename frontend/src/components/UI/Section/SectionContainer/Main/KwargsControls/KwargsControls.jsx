@@ -1,47 +1,24 @@
-import { useCodeInfo } from "models/info/codeInfo";
 import { useSectionParamFilter } from "models/info/sectionParamFilter";
-import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { addKwarg, deleteKwarg } from "thunks/kwargs";
-import { updateParams } from "thunks/sections/sectionContents";
-import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
-import {
-  computeNewChildrenForLeftPush,
-  computeNewChildrenForRightPush,
-  computeNewChildrenForVerticalPush,
-  getAllSelectedParams,
-} from "./utils";
 
 export function KwargsControls({ sectionId, objInfoId }) {
   const setParamFilter = useSectionParamFilter((x) => x.setFilter);
 
-  const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
-  const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
+  function onClickAddKwarg() {
+    addKwarg({ sectionId, objInfoId, incrementVersion: true });
+  }
+  function onClickDeleteKwarg() {
+    deleteKwarg({
+      sectionId,
+      parentId: objInfoId,
+      deleteLast: true,
+      incrementVersion: true,
+    });
+  }
   function onSearchChange(e) {
     setParamFilter({ sectionId, filter: e.target.value });
   }
-
-  function onPush(computeFn, processInReverse = false) {
-    return () => {
-      let { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
-      if (processInReverse) {
-        selectedParams.reverse();
-      }
-      const newCodeInfoChildren = {};
-      const numChildrenInserted = {};
-      for (const p of selectedParams) {
-        console.log(p);
-        computeFn(codeInfos, p, newCodeInfoChildren, numChildrenInserted);
-      }
-      useCodeInfo.getState().batchUpdateChildren(newCodeInfoChildren);
-      updateParams(sectionId);
-    };
-  }
-
-  const onPushLeft = onPush(computeNewChildrenForLeftPush);
-  const onPushRight = onPush(computeNewChildrenForRightPush);
-  const onPushUp = onPush(computeNewChildrenForVerticalPush("up"));
-  const onPushDown = onPush(computeNewChildrenForVerticalPush("down"), true);
 
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-runcoder-600 text-runcoder-300";
@@ -60,18 +37,6 @@ export function KwargsControls({ sectionId, objInfoId }) {
             </button>
             <button className={buttonClass} onClick={onClickAddKwarg}>
               <i className="gg-math-plus col-start-1 row-start-1" />
-            </button>
-            <button className={buttonClass} onClick={onPushLeft}>
-              <i className="gg-push-left col-start-1 row-start-1" />
-            </button>
-            <button className={buttonClass} onClick={onPushRight}>
-              <i className="gg-push-right col-start-1 row-start-1" />
-            </button>
-            <button className={buttonClass} onClick={onPushUp}>
-              <CgPushUp />
-            </button>
-            <button className={buttonClass} onClick={onPushDown}>
-              <CgPushDown />
             </button>
             <VerticalLine inputStyles="ml-2 mr-3 self-stretch invisible @[12rem]:visible" />
           </article>
@@ -99,47 +64,4 @@ export function KwargsControls({ sectionId, objInfoId }) {
       {/* <hr className="col-span-full row-start-5 row-end-6 " /> */}
     </>
   );
-}
-
-function onClickAddKwargFn(sectionId, objInfoId) {
-  return () => {
-    const { selectedParams } = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
-          x.children.includes(p.id),
-        );
-        const insertIdx = parent.children.indexOf(p.id) + 1;
-        addKwarg({ sectionId, parentId: parent.id, insertIdx });
-      }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      addKwarg({ sectionId, parentId: objInfoId, incrementVersion: true });
-    }
-  };
-}
-
-function onClickDeleteKwargFn(sectionId, objInfoId) {
-  return () => {
-    const { selectedParams } = getAllSelectedParams(sectionId);
-    if (selectedParams.length > 0) {
-      for (const p of selectedParams) {
-        const parent = Object.values(useCodeInfo.getState().x).find((x) =>
-          x.children.includes(p.id),
-        );
-        const kwargId = parent.children[parent.children.indexOf(p.id) + 1];
-        if (kwargId) {
-          deleteKwarg({ sectionId, parentId: parent.id, kwargId });
-        }
-      }
-      maybeIncrementProjectStateVersion(true);
-    } else {
-      deleteKwarg({
-        sectionId,
-        parentId: objInfoId,
-        deleteLast: true,
-        incrementVersion: true,
-      });
-    }
-  };
 }
