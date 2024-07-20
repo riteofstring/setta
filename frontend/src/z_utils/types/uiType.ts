@@ -23,6 +23,7 @@ export type SliderUITypeConfigType = { min: number; max: number; step: number };
 
 export type SectionUITypeConfigType = {
   codeInfoId: string;
+  subType: string | null;
   childUITypeId: string | null;
 };
 

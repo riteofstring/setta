@@ -3,10 +3,16 @@ import { dbDeleteTerminals } from "dbRequests/terminals";
 import { useActiveSection } from "models/activeSection";
 import { addNodes, deleteNodes } from "models/info/nodeInternals";
 import { useSectionInfos } from "models/info/sectionInfos";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
+import { isRoot, rootTypeToChildSubType } from "z_utils/constants";
+import {
+  SectionUITypeConfigType,
+  UITypeSetOneConfigPayloadType,
+} from "z_utils/types/uiType";
 import { setAllChildren } from "./children";
 import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
@@ -77,6 +83,11 @@ export function moveSection({
     return;
   }
 
+  maybeChangeSectionSubtype({
+    newParentId,
+    sectionId,
+  });
+
   setChildrenAndParent({
     oldParentId,
     newParentId,
@@ -113,6 +124,28 @@ function setChildrenAndParent({
   }
 
   setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
+}
+
+function maybeChangeSectionSubtype({ newParentId, sectionId }) {
+  const newParentUIType =
+    newParentId === PANEID ? null : getSectionType(newParentId);
+
+  let configProps: Partial<
+    UITypeSetOneConfigPayloadType<SectionUITypeConfigType["subType"]>
+  >;
+  if (newParentUIType && isRoot(newParentUIType.type)) {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
+    };
+  } else {
+    configProps = {
+      configName: "subType",
+      newValueFn: () => null,
+    };
+  }
+
+  setSectionUITypeConfig({ sectionId, configProps });
 }
 
 function setSectionSize({ newParentId, sectionId }) {
