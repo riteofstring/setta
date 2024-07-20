@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { setSectionInfoAttr, setSectionSize } from "state/actions/setters";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
+import { setSectionSize } from "state/actions/setters";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import {
   linkIsTwitter,

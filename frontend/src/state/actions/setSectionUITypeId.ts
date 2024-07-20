@@ -1,5 +1,5 @@
 import { updateParamsAndCallables } from "state/actions/sectionContents";
-import { setSectionInfoAttr } from "state/actions/setters";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function setSectionUITypeId({

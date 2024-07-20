@@ -1,8 +1,8 @@
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
+import { toggleSectionOrientation } from "state/actions/sectionInfos";
 import { undeck } from "state/actions/undeck";
 import { useContextMenus } from "state/definitions/contextMenus";
-import { useSectionInfos } from "state/definitions/sectionInfos";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -14,7 +14,7 @@ export function DeckContextMenu() {
   }
 
   function onClickToggleOrientation() {
-    useSectionInfos.getState().toggleOrientation({ sectionId });
+    toggleSectionOrientation({ sectionId });
     closeAllContextMenus();
   }
 

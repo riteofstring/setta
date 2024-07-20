@@ -2,7 +2,6 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import { useSectionInfos } from "../definitions/sectionInfos";
 import { useUITypeCols } from "../definitions/uiTypeCols";
 import { useUITypes } from "../definitions/uiTypes";
 import { setAllCodeInfo } from "./codeInfo";
@@ -15,6 +14,7 @@ import { setProject } from "./project";
 import { setProjectConfig } from "./projectConfig";
 import { setAllRunGroups } from "./runGroups";
 import { updateManyParamsAndCallables } from "./sectionContents";
+import { setAllSectionInfos } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function loadProjectState({
@@ -51,7 +51,7 @@ export function loadProjectState({
   useUITypeCols.getState().resetAndSetAll({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
-  useSectionInfos.getState().resetAndSetAll({ sections });
+  setAllSectionInfos({ sections });
   setAllOutputs(outputs);
   setAllOutputGroups(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));

@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { useState } from "react";
 import { duplicateDbSource } from "state/actions/evCols";
-import { setSectionInfoAttr } from "state/actions/setters";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { useSectionDBSource } from "state/hooks/useGetSectionInfo";
 
 export function DBSources({ sectionId }) {

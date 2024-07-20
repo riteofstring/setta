@@ -1,6 +1,6 @@
 import { setCodeInfoFrozen } from "state/actions/codeInfo";
 import { updateParams } from "state/actions/sectionContents";
-import { setSectionInfoAttr } from "state/actions/setters";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { useSectionToParams } from "state/definitions/sectionToParams";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 

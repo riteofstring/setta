@@ -1,6 +1,7 @@
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionParentId } from "../getters/sectionInfo";
+import { setSectionInfoAttr } from "./sectionInfos";
 import { setSectionSize } from "./setters";
 
 export function setSelfParentSiblingChildrenWidths({ sectionId, size }) {
@@ -33,7 +34,7 @@ export function setAllChildrenWidths({ sectionId, exclude, width }) {
     sectionIds.push(...s.x[currId].children);
     idx += 1;
   }
-  useSectionInfos.getState().setSectionInfoAttr({
+  setSectionInfoAttr({
     sectionIds: sectionIds.filter((x) => x !== exclude),
     attr: "size",
     newValueFn: (size) => ({ width, height: size.height }),

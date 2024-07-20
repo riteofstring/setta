@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { setSectionResizeEvent } from "state/actions/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sectionSizes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import {
@@ -49,9 +50,7 @@ function CustomResizableCore({
   const aspectRatio = useAspectRatio(sectionId);
 
   function onResizeStart() {
-    useSectionInfos
-      .getState()
-      .setResizeEvent({ sectionId, resizeEvent: "start" });
+    setSectionResizeEvent({ sectionId, resizeEvent: "start" });
   }
 
   function onResizeStop(...props) {
@@ -62,9 +61,7 @@ function CustomResizableCore({
       sizeMode,
     });
     setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
-    useSectionInfos
-      .getState()
-      .setResizeEvent({ sectionId, resizeEvent: "end" });
+    setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
   const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;

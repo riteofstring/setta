@@ -15,6 +15,7 @@ import {
 import { getSectionType } from "../getters/sectionInfo";
 import { removeActiveSectionIds } from "./activeSection";
 import { setAllChildren } from "./children";
+import { removeSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 
@@ -25,7 +26,7 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
   }
 
   removeActiveSectionIds(idsToDelete);
-  useSectionInfos.getState().removeSectionInfos(idsToDelete);
+  removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
   dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections
 

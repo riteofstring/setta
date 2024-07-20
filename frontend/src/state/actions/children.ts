@@ -1,11 +1,11 @@
-import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionType } from "../getters/sectionInfo";
+import { setSectionChildren, setSectionChildrenNames } from "./sectionInfos";
 
 export function setAllChildren(sectionId, newStateFn) {
-  useSectionInfos.getState().setAllChildren({
+  setSectionChildren({
     sectionId,
     newStateFn,
   });
   const sectionType = getSectionType(sectionId);
-  useSectionInfos.getState().setChildrenNames({ sectionId, sectionType });
+  setSectionChildrenNames({ sectionId, sectionType });
 }

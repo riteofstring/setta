@@ -8,7 +8,6 @@ import {
 } from "state/actions/sectionContents";
 import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
@@ -19,6 +18,7 @@ import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { addCodeInfo, addCodeInfoBatch } from "./codeInfo";
 import { updateEVCols } from "./evCols";
+import { updateSections } from "./sectionInfos";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
@@ -93,7 +93,7 @@ export function loadSectionIntoState({
   updateEVCols({ evCols });
   useUITypeCols.getState().update({ uiTypeCols });
   addCodeInfoBatch(codeInfo);
-  useSectionInfos.getState().update(sections);
+  updateSections(sections);
   updateManyParamsAndCallables(Object.keys(sections));
   const nodes = [];
   for (const [id, n] of Object.entries(topLevelMapping)) {

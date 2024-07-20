@@ -1,5 +1,6 @@
 import _ from "lodash";
 import React, { useCallback, useEffect, useState } from "react";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 
@@ -21,13 +22,9 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
   const setDescription = useCallback(
     _.debounce((v) => {
       if (v !== description) {
-        useSectionInfos
-          .getState()
-          .setSectionInfoAttr({ sectionId, attr: "description", value: v });
+        setSectionInfoAttr({ sectionId, attr: "description", value: v });
         const sectionName = getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
-        useSectionInfos
-          .getState()
-          .setSectionInfoAttr({ sectionId, attr: "name", value: sectionName });
+        setSectionInfoAttr({ sectionId, attr: "name", value: sectionName });
         maybeIncrementProjectStateVersion(true);
       }
     }, 200),

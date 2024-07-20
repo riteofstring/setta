@@ -12,6 +12,7 @@ import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
 import { addCodeInfo } from "./codeInfo";
 import { updateKeywordRegex } from "./keywordRegex";
 import { updateCallables, updateParams } from "./sectionContents";
+import { setSectionInfoAttr } from "./sectionInfos";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   let id = selectedItem;
@@ -72,10 +73,6 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     varControlUpdate();
   }
   maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-export function setSectionInfoAttr(props) {
-  useSectionInfos.getState().setSectionInfoAttr(props);
 }
 
 export function setSectionName(sectionId, name, incrementVersion) {
