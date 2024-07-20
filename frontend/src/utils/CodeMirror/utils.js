@@ -1,4 +1,5 @@
 import { useKeywordRegex } from "models/info/keywordRegex";
+import { getSectionDBSource, getSectionInfo } from "thunks/sections/getters";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -35,6 +36,17 @@ export function computeEVReferences(project) {
     }
   }
   project["evRefs"] = evRefs;
+}
+
+export function computeEVReferencesForOneTextField({ sectionId, fullText }) {
+  const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
+  const dbSource = getSectionDBSource(sectionId);
+  const { evColId } = getSectionInfo(sectionId);
+  return {
+    dbSource,
+    evColId,
+    evRefs: findRefs(keywordRegex, fullNameToInfo, fullText),
+  };
 }
 
 export function findRefs(keywordRegex, fullNameToInfo, value) {
