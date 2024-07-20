@@ -33,9 +33,6 @@ const initialState = {
   ...initialShortcuts,
 };
 
-export const useSettings = create((set) => ({
+export const useSettings = create(() => ({
   ...initialState,
-  setSettings: (payload) => set({ ...payload, settingsLoaded: true }),
-  toggleSetting: (settingName) =>
-    set((state) => ({ [settingName]: !state[settingName] })),
 }));

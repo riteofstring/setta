@@ -15,6 +15,13 @@ export function toggleMiniMap() {
 export async function loadSettings() {
   const res = await dbLoadSettings();
   if (res.status === 200) {
-    useSettings.getState().setSettings(res.data);
+    setSettings(res.data);
   }
+}
+
+function setSettings(payload) {
+  useSettings.setState({ ...payload, settingsLoaded: true });
+}
+export function toggleSetting(settingName) {
+  useSettings.setState((state) => ({ [settingName]: !state[settingName] }));
 }

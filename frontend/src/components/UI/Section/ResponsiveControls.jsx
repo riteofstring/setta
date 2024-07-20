@@ -4,8 +4,7 @@ import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
 import { getNodes, setNodes } from "state/actions/nodeInternals";
-import { toggleMiniMap } from "state/actions/settings";
-import { useSettings } from "state/definitions/settings";
+import { toggleMiniMap, toggleSetting } from "state/actions/settings";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import { ControlButton, Controls } from "xyflow/controls";
 import "xyflow/controls/style.css";
@@ -50,9 +49,7 @@ export function ResponsiveControls() {
       <ControlButton onClick={onClickLayout}>
         <RiLayoutFill />
       </ControlButton>
-      <ControlButton
-        onClick={() => useSettings.getState().toggleSetting("snapToGrid")}
-      >
+      <ControlButton onClick={() => toggleSetting("snapToGrid")}>
         <TbGrid4X4 />
       </ControlButton>
       <ControlButton onClick={resetZoom}>
