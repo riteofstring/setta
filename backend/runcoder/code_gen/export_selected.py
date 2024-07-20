@@ -208,7 +208,6 @@ class Exporter:
         return var_name
 
     def export_args_obj(self, id):
-        print("**************export_args_obj**************", flush=True)
         var_name = maybe_create_var_name(
             id,
             None,
@@ -319,16 +318,6 @@ class Exporter:
             raise ValueError
 
     def get_ref_var_name(self, ref_section_id, ref_param_info_id, ref_is_args_obj):
-        try:
-            return self.var_name_mapping[
-                (ref_section_id, ref_param_info_id, ref_is_args_obj)
-            ]
-        except KeyError:
-            raise KeyNotInVarNameMappingError
-
-    def update_evRefs(self, evRefInfo, paramInfoId):
-        self.p["evRefs"].setdefault(evRefInfo["dbSource"], {}).setdefault(evRefInfo["evColId"], {}).setdefault("values", {})[paramInfoId] = evRefInfo["evRefs"]
-
-
-class KeyNotInVarNameMappingError(Exception):
-    pass
+        return self.var_name_mapping[
+            (ref_section_id, ref_param_info_id, ref_is_args_obj)
+        ]

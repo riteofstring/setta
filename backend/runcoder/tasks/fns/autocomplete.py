@@ -10,7 +10,6 @@ from runcoder.code_gen.python.generate_code import (
 from runcoder.code_gen.utils import process_refs
 from runcoder.tasks.task_runner import RunType
 from runcoder.utils.constants import BUILT_INS
-from runcoder.code_gen.export_selected import KeyNotInVarNameMappingError
 
 from .utils import TaskDefinition, TaskMessage
 
@@ -22,7 +21,7 @@ class CodeCompletionContent(BaseModel):
     beforeText: str
     fullText: str
     position: int
-    evRefInfo: dict
+    evRefs: list
     cached: Optional[Any] = None
 
 
@@ -99,9 +98,12 @@ async def completionHelper(message, return_name, fn):
     var_name = exporter_obj.var_name_mapping[
         (message.sectionId, message.paramInfoId, False)
     ]
-
-    fullText, position = convert_evRefs(message, exporter_obj)
-
+    fullText, position = process_refs(
+        message.fullText,
+        message.evRefs,
+        exporter_obj.get_ref_var_name,
+        message.position,
+    )
     set_line(lines, var_name_to_line_num, var_name, fullText)
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
@@ -120,31 +122,6 @@ async def completionHelper(message, return_name, fn):
         position,
     )
     return {"output": None, "name": return_name, "cache": None}
-
-
-def convert_evRefs(message, exporter_obj):
-    def fn():
-        return process_refs(
-            message.fullText,
-            message.evRefInfo["evRefs"],
-            exporter_obj.get_ref_var_name,
-            message.position,
-        )
-    
-    # if get_ref_var_name fails
-    # then regenerate code, and try again
-    # try:
-    # print(exporter_obj.p["evRefs"], flush=True)
-    return fn()
-    # except KeyNotInVarNameMappingError:
-    #     print("KeyNotInVarNameMappingError raised", flush=True)
-    #     exporter_obj.update_evRefs(message.evRefInfo, message.paramInfoId)
-    #     exporter_obj.export()
-    #     return fn()
-
-
-
-
 
 
 def read_cache(cache, message):

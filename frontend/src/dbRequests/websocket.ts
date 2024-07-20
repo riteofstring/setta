@@ -39,7 +39,7 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  // console.log(m);
+  console.log(m);
   if (m.type === "LOG") {
     updateOutput(m.data);
   } else if (m.messageType === "connection") {

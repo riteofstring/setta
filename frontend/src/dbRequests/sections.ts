@@ -1,8 +1,9 @@
 import C from "constants/constants.json";
 import { sendMessageInRoom } from "hooks/useWebsocket";
+import { useKeywordRegex } from "models/info/keywordRegex";
 import { useProjectConfig } from "models/info/projectConfig";
 import { getProjectDataToGenerateCode } from "thunks/generateCode";
-import { computeEVReferencesForOneTextField } from "utils/CodeMirror/utils";
+import { findRefs } from "utils/CodeMirror/utils";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
@@ -65,8 +66,8 @@ export async function dbTextFieldCompletion({
   messageType = "textFieldCompletion",
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const evRefInfo = computeEVReferencesForOneTextField({ sectionId, fullText });
-
+  const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
+  const evRefs = findRefs(keywordRegex, fullNameToInfo, fullText);
   return await sendMessageInRoom({
     id: `${address}-${sectionId}-${paramInfoId}`,
     messageType,
@@ -77,7 +78,7 @@ export async function dbTextFieldCompletion({
       fullText,
       beforeText,
       position,
-      evRefInfo,
+      evRefs,
     },
   });
 }

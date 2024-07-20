@@ -150,7 +150,7 @@ function getCompletionsFn(sectionId, paramInfoId) {
       position: context.pos,
     });
     setToNotWaiting();
-    // console.log("res", res);
+    console.log("res", res);
     if (res) {
       return {
         filter: true,

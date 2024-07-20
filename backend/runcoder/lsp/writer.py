@@ -16,7 +16,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
-        # print(header + request, flush=True)
+        print(header + request, flush=True)
         self.server.stdin.write(header + request)
         await self.server.stdin.drain()
 
