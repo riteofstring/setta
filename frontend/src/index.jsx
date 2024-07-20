@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import "state/subscribe";
 import { globalConstInit } from "utils/constants";
 import "../icons.css";
 import { App } from "./App";
