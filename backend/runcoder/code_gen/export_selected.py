@@ -160,7 +160,7 @@ class Exporter:
         for id in self.p["sections"].keys():
             section_type = get_section_type(self.p, id)
             if section_type == C.GLOBAL_VARIABLES:
-                self.export_section_params(id, is_global=True)
+                self.export_params(id, is_global=True)
             if section_type not in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT]:
                 to_pop.append(id)
         for id in to_pop:
@@ -187,16 +187,11 @@ class Exporter:
                 "type": type,
             }
             if type == C.SECTION:
-                (
-                    params,
-                    unused_params,
-                    positionalOnlyParams,
-                ) = self.export_section_params(id)
+                params, unused_params = self.export_params(id)
                 info["value"] = {
                     "callable": get_selected_item(self.p, id),
                     "params": params,
                     "unusedParams": unused_params,
-                    "positionalOnlyParams": positionalOnlyParams,
                 }
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT]:
@@ -218,7 +213,7 @@ class Exporter:
             is_args_obj=True,
         )
         if var_name not in self.output:
-            params, unused_params, positionalOnlyParams = self.export_section_params(id)
+            params, unused_params = self.export_params(id)
             info = {
                 "sectionId": id,
                 "name": self.p["sections"][id]["name"],
@@ -227,36 +222,25 @@ class Exporter:
                     "callable": None,
                     "params": params,
                     "unusedParams": unused_params,
-                    "positionalOnlyParams": positionalOnlyParams,
                 },
             }
             self.output[var_name] = info
         return var_name
 
-    def export_section_params(self, section_id, is_global=False):
+    def export_params(self, section_id, is_global=False):
         ids = get_param_ids(self.p, section_id)
-        return self.export_params(section_id, ids, is_global=is_global)
-
-    def export_params(self, section_id, ids, is_global=False):
         var_names = [self.export_param(section_id, x, is_global) for x in ids]
         params = []
         unused_params = []
-        positionalOnlyParams = set()
         for v in var_names:
             if no_entered_value(self.output[v]["value"]):
                 unused_params.append(v)
             else:
                 params.append(v)
-
-            curr_param_info_id = self.output[v]["paramInfoId"]
-            positionalOnly = self.p["codeInfo"][curr_param_info_id]["positionalOnly"]
-            if positionalOnly:
-                positionalOnlyParams.add(v)
-        return params, unused_params, positionalOnlyParams
+        return params, unused_params
 
     def export_param(self, section_id, id, is_global=False):
-        codeInfo = self.p["codeInfo"][id]
-        param_name = codeInfo["name"]
+        param_name = self.p["codeInfo"][id]["name"]
         var_name = maybe_create_var_name(
             section_id,
             id,
@@ -268,28 +252,16 @@ class Exporter:
         )
 
         if var_name not in self.output:
-            param_children = codeInfo["children"]
-            if len(param_children) > 0:
-                params, _, _ = self.export_params(section_id, param_children)
-                info = {
-                    "sectionId": section_id,
-                    "paramInfoId": id,
-                    "name": param_name,
-                    "type": C.NESTED_PARAM,
-                    "value": params,
-                }
-                self.output[var_name] = info
-            else:
-                value, deps = self.export_param_value(section_id, id)
-                self.output[var_name] = {
-                    "value": value,
-                    "paramInfoId": id,
-                    "sectionId": section_id,
-                    "name": param_name,
-                    "deps": deps,
-                    "type": get_param_ui_type(self.p, section_id, id),
-                    "is_global": is_global,
-                }
+            value, deps = self.export_param_value(section_id, id)
+            self.output[var_name] = {
+                "value": value,
+                "paramInfoId": id,
+                "sectionId": section_id,
+                "name": param_name,
+                "deps": deps,
+                "type": get_param_ui_type(self.p, section_id, id),
+                "is_global": is_global,
+            }
 
         return var_name
 

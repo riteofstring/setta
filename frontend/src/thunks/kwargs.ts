@@ -16,16 +16,15 @@ import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
   sectionId: string;
-  parentId: string;
+  objInfoId: string;
   name?: string;
   incrementVersion?: boolean;
 };
 
 export function addKwarg({
   sectionId,
-  parentId,
+  objInfoId,
   name = "",
-  insertIdx = null,
   incrementVersion = false,
 }: AddKwargPayload) {
   const kwargInfo = newCodeInfo({
@@ -33,8 +32,8 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  const parent = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
-  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent, insertIdx });
+  const parent = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
+  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent });
   initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
@@ -43,7 +42,7 @@ export function addKwarg({
 
 type DeleteKwargPayload = {
   sectionId: string;
-  parentId: string;
+  objInfoId: string;
   deleteLast?: boolean;
   kwargId?: string;
   incrementVersion?: boolean;
@@ -52,23 +51,23 @@ type DeleteKwargPayload = {
 export function deleteKwarg(payload: DeleteKwargPayload) {
   let {
     sectionId,
-    parentId,
+    objInfoId,
     deleteLast = false,
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
   const { evColId, uiTypeColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  parentId = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
+  objInfoId = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
   if (deleteLast) {
-    const kwargIds = getKwargIds(parentId);
+    const kwargIds = getKwargIds(objInfoId);
     const numKwargs = kwargIds.length;
     if (numKwargs === 0) {
       return;
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  useCodeInfo.getState().deleteInfo({ ids: [kwargId], parent: parentId });
+  useCodeInfo.getState().deleteInfo({ ids: [kwargId], parent: objInfoId });
   useParamInfos
     .getState()
     .deleteParamInfo({ dbSource, evColId, uiTypeColId, ids: [kwargId] });

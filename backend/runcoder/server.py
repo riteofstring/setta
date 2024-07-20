@@ -11,20 +11,23 @@ from fastapi.staticfiles import StaticFiles
 
 from runcoder.database.db_init import maybe_create_tables_and_seed
 from runcoder.database.db_objs import DBs
-from runcoder.lsp.reader import LanguageServerReader
-from runcoder.lsp.server import LanguageServer
-from runcoder.lsp.writer import LanguageServerWriter
 from runcoder.routers import (
     code_info_router,
     misc_router,
     projects_router,
     sections_router,
+    tasks_router,
     terminals_router,
     websocket_router,
 )
 from runcoder.tasks.tasks import Tasks
 from runcoder.terminals.terminals import TerminalWebsockets
 from runcoder.utils.constants import C
+from runcoder.utils.lsp import (
+    LanguageServer,
+    LanguageServerListener,
+    LanguageServerWriter,
+)
 from runcoder.utils.utils import get_absolute_path, is_dev_mode
 from runcoder.utils.websocket_manager import WebsocketManager
 
@@ -39,7 +42,7 @@ async def lifespan(app: FastAPI):
     app.state.tasks = Tasks(app.state.lsp_writer)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
-    app.state.lsp_reader = LanguageServerReader(
+    app.state.lsp_listener = LanguageServerListener(
         app.state.lsp, app.state.websocket_manager
     )
     app.state.dbs = DBs(
@@ -56,7 +59,7 @@ async def lifespan(app: FastAPI):
 
     app.state.dbs.connect()
     await app.state.lsp.start_server()
-    await app.state.lsp_reader.start_listener()
+    await app.state.lsp_listener.start_listener()
     await app.state.lsp_writer.send_initialize_request()
 
     i_path = C.I_PATH
@@ -86,7 +89,7 @@ async def lifespan(app: FastAPI):
 
     # shutdown
     app.state.terminal_websockets.delete_all_terminals()
-    app.state.lsp_reader.stop_event.set()
+    app.state.lsp_listener.stop_event.set()
     app.state.lsp.kill_server()
 
 
@@ -104,6 +107,7 @@ app.include_router(sections_router)
 app.include_router(terminals_router)
 app.include_router(websocket_router)
 app.include_router(code_info_router)
+app.include_router(tasks_router)
 app.include_router(misc_router)
 
 

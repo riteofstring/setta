@@ -45,13 +45,12 @@ def textFieldCompletionFn(return_types, lsp_writer):
         request_id,
         beforeText,
         code,
-        codeJson,
         var_name_to_line_num,
         var_name,
         referencable_var_names,
         column,
     ):
-        await lsp_writer.send_document_update(code_id, code, codeJson)
+        await lsp_writer.send_document_update(code, code_id)
         column = column + len(var_declaration(var_name, ""))
         line = var_name_to_line_num[var_name]
         await lsp_writer.send_autocomplete_request(line, column, code_id, request_id)
@@ -109,13 +108,12 @@ async def completionHelper(message, return_name, fn):
         lines, templatedCode, var_name, var_name_to_line_num
     )
     # print("completionHelper", flush=True)
-    # print("exporter_obj.output", exporter_obj.output, flush=True)
+    # print(code, flush=True)
     await fn(
         message.projectConfigId,
         request_id,
         message.beforeText,
         code,
-        exporter_obj.output,
         var_name_to_line_num,
         var_name,
         referencable_var_names,

@@ -152,8 +152,7 @@
           "description": "",
           "isPinned": false,
           "isFrozen": false,
-          "isSelected": false,
-          "positionalOnly": false
+          "isSelected": false
         },
         "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
           "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -165,8 +164,7 @@
           "description": "",
           "isPinned": false,
           "isFrozen": false,
-          "isSelected": false,
-          "positionalOnly": false
+          "isSelected": false
         },
         "9193e5d1-544b-4490-99ee-f7ba34a0ed80": {
           "id": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
@@ -178,8 +176,7 @@
           "description": "",
           "isPinned": false,
           "isFrozen": false,
-          "isSelected": false,
-          "positionalOnly": false
+          "isSelected": false
         }
       },
       "userCodeInfoMaps": {},

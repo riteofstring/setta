@@ -8,13 +8,21 @@ import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
+import { paramSelect } from "thunks/keyActivations";
+import { updateParams } from "thunks/sections/sectionContents";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
-function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
+function _ParamContainer({
+  sectionId,
+  objInfoId,
+  paramInfo,
+  isKwarg,
+  children,
+}) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
@@ -32,7 +40,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const paramIsSelected = paramInfo.isSelected;
 
   const bg = paramIsSelected
-    ? "bg-lime-400/50"
+    ? "bg-runcoder-300/20 dark:bg-runcoder-950/50"
     : "hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25";
 
   const paramChildren = useCodeInfo(
@@ -45,6 +53,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
       <article
         className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
         {...infoViewHandlers}
+        onClick={(e) => onClick(e, sectionId, paramInfo.id)}
       >
         {children}
         <ParamInput
@@ -69,12 +78,13 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     <article
       className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1  ${bg} ${border}`}
       {...infoViewHandlers}
+      onClick={(e) => onClick(e, sectionId, paramInfo.id)}
     >
       {children}
       <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">
         <GetParamSwitch
           sectionId={sectionId}
-          parentId={paramInfo.id}
+          objInfoId={objInfoId}
           infos={paramChildren}
         />
       </div>
@@ -89,6 +99,13 @@ export const ParamContainer = React.memo(
     _.isEqual(p.paramInfo, n.paramInfo) &&
     _.isEqual(p.uiType, n.uiType),
 );
+
+function onClick(e, sectionId, paramInfoId) {
+  if (paramSelect(e)) {
+    useCodeInfo.getState().toggleSelected(paramInfoId);
+    updateParams(sectionId);
+  }
+}
 
 function ErrorSection({ maybeErrorMessage }) {
   return (
@@ -153,7 +170,6 @@ const AccordionContent = React.forwardRef(
         twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-runcoder-400 dark:text-runcoder-200 hover:text-runcoder-600 dark:hover:text-white"
         bg="bg-runcoder-100/50 dark:bg-runcoder-700/50 hover:bg-runcoder-100 dark:hover:bg-runcoder-600"
         icon={<HiOutlineDuplicate />}
-        onClick={() => navigator.clipboard.writeText(children)}
       />
     </Accordion.Content>
   ),

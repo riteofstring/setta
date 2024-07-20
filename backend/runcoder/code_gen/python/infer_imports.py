@@ -28,6 +28,7 @@ def infer_imports(code):
             self.exit_scope([node.target])
 
         def visit_Assign(self, node):
+            # Track variables in simple assignments and unpacking scenarios
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     self.current_scope.add(target.id)
@@ -56,8 +57,8 @@ def infer_imports(code):
                     return node.id
             elif isinstance(node, ast.Attribute):
                 base = self.resolve_module(node.value)
-                if base and not "." in base:  # Limit to top-level modules only
-                    return base
+                if base:
+                    return f"{base}.{node.attr}"
             return None
 
         def enter_scope(self, nodes):
@@ -77,4 +78,12 @@ def infer_imports(code):
     tree = ast.parse(code)
     inferrer = ImportInferrer()
     inferrer.visit(tree)
-    return set(list(inferrer.modules))
+    # Filter out submodules if their base module is also present
+    filtered_modules = {
+        mod
+        for mod in inferrer.modules
+        if not any(
+            mod != other and mod.startswith(other + ".") for other in inferrer.modules
+        )
+    }
+    return set(list(filtered_modules))

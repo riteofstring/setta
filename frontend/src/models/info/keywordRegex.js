@@ -7,7 +7,6 @@ import {
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { create } from "../utils";
-import { useCodeInfo } from "./codeInfo";
 import { useSectionInfos } from "./sectionInfos";
 
 const ARGS_PREFIX = "__";
@@ -36,7 +35,7 @@ function getRegexAndColorMap(sectionIdsToNames) {
   const sectionState = useSectionInfos.getState().x;
   for (const sid of topLevelIds) {
     if (SINGLETON_SECTIONS.globalVariables === sid) {
-      setFullParamRegex(sid, null, names, fullNameToInfo, "", [], true);
+      setFullParamRegex(sid, names, fullNameToInfo, "", [], true);
     } else {
       const currName = sectionIdsToNames[sid];
       setFullChildrenNamesForRegex(
@@ -92,7 +91,6 @@ function setFullChildrenNamesForRegex(
   const argsParentLengths = parentLengths.map((x) => x + ARGS_PREFIX.length);
   setFullParamRegex(
     sectionId,
-    null,
     allNames,
     fullNameToInfo,
     argsFullName,
@@ -115,37 +113,22 @@ function setFullChildrenNamesForRegex(
 
 function setFullParamRegex(
   sectionId,
-  paramInfoId,
   allNames,
   fullNameToInfo,
   parentName,
   parentLengths,
   isGlobalVar = false,
 ) {
-  const codeInfoState = useCodeInfo.getState().x;
-  const childParamInfos = paramInfoId
-    ? codeInfoState[paramInfoId].children.map((x) => codeInfoState[x])
-    : getParamInfos(sectionId);
-
-  for (const p of childParamInfos) {
+  for (const p of getParamInfos(sectionId)) {
     if (!p.name) {
       continue;
     }
     const fullName = isGlobalVar ? p.name : `${parentName}["${p.name}"]`;
-    const newLengthsArray = [...parentLengths, fullName.length];
-    setFullParamRegex(
-      sectionId,
-      p.id,
-      allNames,
-      fullNameToInfo,
-      fullName,
-      newLengthsArray,
-    );
     allNames.push(escapeRegExp(fullName));
     fullNameToInfo[fullName] = {
       sectionId,
       paramInfoId: p.id,
-      componentIndices: newLengthsArray,
+      componentIndices: [...parentLengths, fullName.length],
       isArgsObj: false,
     };
   }
