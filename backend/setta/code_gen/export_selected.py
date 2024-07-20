@@ -4,11 +4,8 @@ from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
-ARG_PREFIX = "__"
-
-
 def get_args_var_name(var_name):
-    return f"{ARG_PREFIX}{var_name}"
+    return f"{C.ARGS_PREFIX}{var_name}"
 
 
 def get_section_config(p, id):

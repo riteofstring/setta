@@ -10,8 +10,6 @@ import { useCodeInfo } from "./codeInfo";
 import { useSectionInfos } from "./sectionInfos";
 import { create } from "./utils";
 
-const ARGS_PREFIX = "__";
-
 export const useKeywordRegex = create((set) => ({
   pattern: "",
   fullNameToInfo: {},
@@ -88,8 +86,8 @@ function setFullChildrenNamesForRegex(
     );
   }
   const fullName = parentName;
-  const argsFullName = `${ARGS_PREFIX}${parentName}`;
-  const argsParentLengths = parentLengths.map((x) => x + ARGS_PREFIX.length);
+  const argsFullName = `${C.ARGS_PREFIX}${parentName}`;
+  const argsParentLengths = parentLengths.map((x) => x + C.ARGS_PREFIX.length);
   setFullParamRegex(
     sectionId,
     null,
