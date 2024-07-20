@@ -1,21 +1,14 @@
 import _ from "lodash";
 import { temporal } from "zundo";
 import { immer } from "zustand/middleware/immer";
-import {
-  CodeInfoStateFrontendType,
-  CodeInfoZustandType,
-} from "z_utils/types/codeInfo";
 import { createProjectState } from "./utils";
 
 // x maps from every objInfo key to its objInfo
-const initialState: CodeInfoStateFrontendType = {
-  x: {},
-  version: 0,
-};
+const initialState = { x: {}, version: 0 };
 
 export const useCodeInfo = createProjectState(
   temporal(
-    immer<CodeInfoZustandType>((set) => ({
+    immer((set) => ({
       ...initialState,
       resetAndSetAll: (payload) => {
         set((state) => ({ ...state, x: payload }), true);

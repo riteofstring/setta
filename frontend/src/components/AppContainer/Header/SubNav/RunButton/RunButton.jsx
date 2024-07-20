@@ -1,6 +1,7 @@
 import { RiPlayMiniFill } from "react-icons/ri";
 import { runCode } from "state/actions/generateCode";
-import { constInfoViews, useSetCurrInfoView } from "state/definitions/infoView";
+import { constInfoViews } from "state/definitions/infoView";
+import { useSetCurrInfoView } from "state/hooks/useCurrInfoView";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { createNewId } from "z_utils/utils";
 

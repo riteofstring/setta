@@ -4,12 +4,12 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import React from "react";
 import { BiFilter } from "react-icons/bi";
 import { updateMapPosition } from "state/actions/updateMapPosition";
+import { constInfoViews } from "state/definitions/infoView";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import {
-  constInfoViews,
   useCurrInfoView,
   useSetCurrInfoView,
-} from "state/definitions/infoView";
-import { localStorageFns } from "state/hooks/localStorageHooks";
+} from "state/hooks/useCurrInfoView";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";

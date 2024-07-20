@@ -13,25 +13,9 @@ export const constInfoViews = {
     "Choose which arguments appear in your selected card.",
 };
 
+const initialState = { currValue: "" };
+
 export const useInfoView = createProjectState((set) => ({
-  currValue: "",
+  ...initialState,
   setCurr: (value) => set({ currValue: value }),
 }));
-
-export function useSetCurrInfoView(value) {
-  const setCurr = useInfoView((x) => x.setCurr);
-
-  function onMouseOver() {
-    setCurr(value);
-  }
-
-  function onMouseLeave() {
-    setCurr("");
-  }
-
-  return { onMouseOver, onMouseLeave };
-}
-
-export function useCurrInfoView() {
-  return useInfoView((x) => x.currValue);
-}
