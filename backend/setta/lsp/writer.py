@@ -1,4 +1,5 @@
 import json
+import platform
 import uuid
 
 from .server import LanguageServerInteractor
@@ -16,7 +17,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
-        print(header + request, flush=True)
+        # print(header + request, flush=True)
         self.server.stdin.write(header + request)
         await self.server.stdin.drain()
 
@@ -77,4 +78,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         return f"file://{self.root_path}".lower()
 
     def get_virtual_uri(self, code_id):
-        return f"file://{self.root_path / code_id}.py/".lower()
+        uri = f"file://{self.root_path / code_id}.py".lower()
+        if platform.system() == "Windows":
+            uri += "/"  # need trailing slash on Windows for some reason
+        return uri
