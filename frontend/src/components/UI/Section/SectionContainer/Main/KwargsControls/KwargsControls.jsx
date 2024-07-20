@@ -2,9 +2,9 @@ import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs";
 import { updateParams } from "state/actions/sectionContents";
+import { setSectionParamFilter } from "state/actions/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useSectionParamFilter } from "state/definitions/sectionParamFilter";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import {
   computeNewChildrenForLeftPush,
@@ -14,12 +14,10 @@ import {
 } from "./utils";
 
 export function KwargsControls({ sectionId, objInfoId }) {
-  const setParamFilter = useSectionParamFilter((x) => x.setFilter);
-
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
-    setParamFilter({ sectionId, filter: e.target.value });
+    setSectionParamFilter({ sectionId, filter: e.target.value });
   }
 
   function onPush(computeFn, processInReverse = false) {
