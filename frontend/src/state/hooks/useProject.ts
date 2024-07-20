@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
+import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProject } from "state/actions/projects";
-import { useInteractive } from "state/definitions/interactive";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
 import {
@@ -44,7 +44,7 @@ export function useLoadProject() {
       useProjectConfig.getState().setName(configName);
     }
 
-    useInteractive.getState().setCurrProjectIsInteractive(projectName);
+    setCurrProjectIsInteractive(projectName);
   }, [projectName, configName]);
 
   return doneLoading;

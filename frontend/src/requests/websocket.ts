@@ -1,6 +1,9 @@
+import {
+  setInteractiveData,
+  setInteractiveProjects,
+} from "state/actions/interactive";
 import { updateOutput } from "state/actions/outputs";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
-import { useInteractive } from "state/definitions/interactive";
 import { useTypeErrors } from "state/definitions/typeErrors";
 import {
   useWebsocketConnectionList,
@@ -47,9 +50,9 @@ function receiveMessage(message) {
   } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
   } else if (m.messageType === "interactiveProjects") {
-    useInteractive.getState().setProjects(m["content"]);
+    setInteractiveProjects(m["content"]);
   } else if (m.messageType === "interactive") {
-    useInteractive.getState().setData(m["content"]);
+    setInteractiveData(m["content"]);
   } else if (m.messageType === "diagnostics") {
     useTypeErrors.setState(m.content, true);
   } else if (m.id) {
