@@ -1,4 +1,4 @@
-from runcoder.database.utils import remap_ids
+from setta.database.utils import remap_ids
 
 
 def copy_code_info(code_info):

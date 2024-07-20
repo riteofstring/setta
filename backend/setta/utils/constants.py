@@ -8,7 +8,7 @@ CONSTANTS_FOLDER = (
     Path("../../../constants") if is_dev_mode() else Path("../static/constants")
 )
 SEED_FOLDER = Path("../../../seed") if is_dev_mode() else Path("../static/seed")
-CODE_FOLDER = "runcoder_code"
+CODE_FOLDER = ".setta_code"
 BUILT_INS = set(dir(builtins))
 
 

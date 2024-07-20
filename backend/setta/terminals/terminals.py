@@ -9,16 +9,16 @@ from collections import defaultdict, deque
 import psutil
 from fastapi import WebSocketDisconnect
 
-from runcoder.code_gen.export_selected import export_selected, get_section_type
-from runcoder.code_gen.find_placeholders import (
+from setta.code_gen.export_selected import export_selected, get_section_type
+from setta.code_gen.find_placeholders import (
     double_braces,
     needs_generated_python,
     needs_python_argparse,
     needs_yaml,
 )
-from runcoder.code_gen.python.generate_argparse import generate_argparse
-from runcoder.code_gen.python.generate_code import generate_code, replace_keywords
-from runcoder.utils.constants import C
+from setta.code_gen.python.generate_argparse import generate_argparse
+from setta.code_gen.python.generate_code import generate_code, replace_keywords
+from setta.utils.constants import C
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
@@ -144,7 +144,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
     exporter_obj = export_selected(p)
     selected = exporter_obj.output
-    folder_path = create_timestamped_folder(".runcoder_code")
+    folder_path = create_timestamped_folder(".setta_code")
 
     code_sections = {
         id: copy.deepcopy(s)
@@ -163,13 +163,13 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 )
                 curr_dependencies.append(other_s["id"])
         if needs_python_argparse(curr_code):
-            replacements["RUNCODER_PYTHON_ARGPARSE"] = generate_argparse(selected)
+            replacements["SETTA_PYTHON_ARGPARSE"] = generate_argparse(selected)
         if needs_yaml(curr_code):
-            replacements["RUNCODER_YAML_FILE"] = codePathStr(
-                folder_path, "RUNCODER_YAML", "yaml"
+            replacements["SETTA_YAML_FILE"] = codePathStr(
+                folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            replacements["RUNCODER_GENERATED_CODE"] = generate_code(
+            replacements["SETTA_GENERATED_CODE"] = generate_code(
                 selected, curr_code, replace_templated_code=False
             )[0]
 
@@ -196,7 +196,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         for sid in run_order:
             curr_section = code_sections[sid]
             bash_script += codeCallStr(folder_path, curr_section)
-        filepath = write_string_to_file(folder_path, "RUNCODER_ENTRY.sh", bash_script)
+        filepath = write_string_to_file(folder_path, "SETTA_ENTRY.sh", bash_script)
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         command = f"bash {filepath}"
     else:

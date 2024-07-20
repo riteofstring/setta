@@ -2,14 +2,14 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from runcoder.code_gen.python.generate_code import (
+from setta.code_gen.python.generate_code import (
     prepend_with_imports,
     set_line,
     var_declaration,
 )
-from runcoder.code_gen.utils import process_refs
-from runcoder.tasks.task_runner import RunType
-from runcoder.utils.constants import BUILT_INS
+from setta.code_gen.utils import process_refs
+from setta.tasks.task_runner import RunType
+from setta.utils.constants import BUILT_INS
 
 from .utils import TaskDefinition, TaskMessage
 

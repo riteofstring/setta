@@ -3,11 +3,11 @@ import requests
 from .request_utils import post
 
 
-class RuncoderLoginError(Exception):
+class SettaLoginError(Exception):
     pass
 
 
-class Runcoder:
+class Setta:
     toLocation = None
     run_id = None
 

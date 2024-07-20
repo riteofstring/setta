@@ -9,12 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from runcoder.database.db_init import maybe_create_tables_and_seed
-from runcoder.database.db_objs import DBs
-from runcoder.lsp.reader import LanguageServerReader
-from runcoder.lsp.server import LanguageServer
-from runcoder.lsp.writer import LanguageServerWriter
-from runcoder.routers import (
+from setta.database.db_init import maybe_create_tables_and_seed
+from setta.database.db_objs import DBs
+from setta.lsp.reader import LanguageServerReader
+from setta.lsp.server import LanguageServer
+from setta.lsp.writer import LanguageServerWriter
+from setta.routers import (
     code_info_router,
     misc_router,
     projects_router,
@@ -22,18 +22,18 @@ from runcoder.routers import (
     terminals_router,
     websocket_router,
 )
-from runcoder.tasks.tasks import Tasks
-from runcoder.terminals.terminals import TerminalWebsockets
-from runcoder.utils.constants import C
-from runcoder.utils.utils import get_absolute_path, is_dev_mode
-from runcoder.utils.websocket_manager import WebsocketManager
+from setta.tasks.tasks import Tasks
+from setta.terminals.terminals import TerminalWebsockets
+from setta.utils.constants import C
+from setta.utils.utils import get_absolute_path, is_dev_mode
+from setta.utils.websocket_manager import WebsocketManager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
     app.state.lsp = LanguageServer(
-        root_path=Path(os.getcwd()) / ".runcoder_code",
+        root_path=Path(os.getcwd()) / ".setta_code",
     )
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
     app.state.tasks = Tasks(app.state.lsp_writer)

@@ -2,12 +2,12 @@ import json
 
 from pydantic import BaseModel
 
-from runcoder.code_gen.export_selected import export_selected, get_code
-from runcoder.code_gen.python.generate_code import (
+from setta.code_gen.export_selected import export_selected, get_code
+from setta.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
     prepend_with_imports,
 )
-from runcoder.tasks.task_runner import RunType
+from setta.tasks.task_runner import RunType
 
 from .utils import TaskDefinition
 

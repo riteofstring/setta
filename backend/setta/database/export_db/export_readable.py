@@ -5,8 +5,8 @@ from pathlib import Path
 import yaml
 from yaml.representer import Representer
 
-from runcoder.database.db.projects.load import load_full_project
-from runcoder.utils.constants import C
+from setta.database.db.projects.load import load_full_project
+from setta.utils.constants import C
 
 
 def export_readable(dbs, filename, data):

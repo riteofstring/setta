@@ -1,6 +1,6 @@
 import itertools
 
-from runcoder.database.utils import get_children_recursively
+from setta.database.utils import get_children_recursively
 
 from ..enteredValues.load import load_evcols
 from ..paramSweeps.load import load_param_sweeps

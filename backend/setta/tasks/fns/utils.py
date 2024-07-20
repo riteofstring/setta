@@ -6,7 +6,7 @@ from typing import Any, Callable, List, Optional
 
 from pydantic import BaseModel
 
-from runcoder.tasks.task_runner import RunType
+from setta.tasks.task_runner import RunType
 
 
 def import_from_path(file_path):
@@ -36,14 +36,14 @@ def withTempFiles(write, in_file_with_suffix, then_do, auto_delete=True):
 
     temp_files = []
     try:
-        dir_name = ".runcoder_code"
+        dir_name = ".setta_code"
         os.makedirs(dir_name, exist_ok=True)
         # Create temporary files
         for w, suffix in zip(write, in_file_with_suffix):
             temp_file = tempfile.NamedTemporaryFile(
                 dir=dir_name,
                 mode="w+",
-                prefix="runcoder_temp_",
+                prefix="setta_temp_",
                 suffix=suffix,
                 delete=False,
             )

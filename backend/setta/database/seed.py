@@ -1,8 +1,8 @@
 import glob
 import json
 
-from runcoder.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER
-from runcoder.utils.utils import get_absolute_path
+from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER
+from setta.utils.utils import get_absolute_path
 
 from .db.projects.save import save_project_details
 from .db.settings.save import save_settings

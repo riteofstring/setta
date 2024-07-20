@@ -1,11 +1,11 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from runcoder.database.db.sections.copy import (
+from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
-from runcoder.utils.constants import C
+from setta.utils.constants import C
 
 router = APIRouter()
 

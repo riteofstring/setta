@@ -143,7 +143,7 @@ def prepend_with_imports(
         lines[line_num] = original_force_appear_var_str
 
     num_preceding_lines = count_lines(
-        templated_code.split(double_braces("RUNCODER_GENERATED_CODE"))[0] + imports
+        templated_code.split(double_braces("SETTA_GENERATED_CODE"))[0] + imports
     )
     new_var_name_to_line_num = {
         k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
@@ -151,7 +151,7 @@ def prepend_with_imports(
 
     generated_code = imports + "\n".join(lines)
     output = (
-        replace_keywords(templated_code, {"RUNCODER_GENERATED_CODE": generated_code})
+        replace_keywords(templated_code, {"SETTA_GENERATED_CODE": generated_code})
         if replace_templated_code
         else generated_code
     )

@@ -1,4 +1,4 @@
-from runcoder.utils.constants import C, is_section_ui_type
+from setta.utils.constants import C, is_section_ui_type
 
 
 def load_uitypes_by_condition(db, preset_types=None, ids=None):

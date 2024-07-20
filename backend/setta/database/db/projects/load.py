@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from runcoder.database.utils import aggregate_results
+from setta.database.utils import aggregate_results
 
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups

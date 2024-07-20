@@ -1,4 +1,4 @@
-from runcoder.database.utils import remap_ids, rename_keys
+from setta.database.utils import remap_ids, rename_keys
 
 
 def copy_ui_types(ui_types, code_info_id_map):

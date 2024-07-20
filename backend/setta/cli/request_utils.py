@@ -1,7 +1,7 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-from runcoder.utils.constants import C
+from setta.utils.constants import C
 
 
 def post(post_obj, address, **kwargs):

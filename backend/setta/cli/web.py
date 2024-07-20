@@ -4,7 +4,7 @@ import subprocess
 
 import websockets
 
-from runcoder.terminals.terminals import runCode
+from setta.terminals.terminals import runCode
 
 from ..utils.constants import C
 

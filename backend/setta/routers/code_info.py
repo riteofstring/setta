@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from runcoder.database.db.codeInfo.save import save_code_info
-from runcoder.utils.constants import C
+from setta.database.db.codeInfo.save import save_code_info
+from setta.utils.constants import C
 
 from .dependencies import get_dbs
 

@@ -1,5 +1,5 @@
-from runcoder.code_gen.python.extract_args_from_help import extract_args_from_help
-from runcoder.tasks.task_runner import RunType
+from setta.code_gen.python.extract_args_from_help import extract_args_from_help
+from setta.tasks.task_runner import RunType
 
 from .utils import TaskDefinition, TaskMessage
 

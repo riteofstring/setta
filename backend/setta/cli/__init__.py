@@ -1,1 +1,1 @@
-from .logger import Runcoder
+from .logger import Setta

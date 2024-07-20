@@ -29,4 +29,4 @@ def get_absolute_path(src_path, file_path):
 
 
 def is_dev_mode():
-    return os.environ.get("RUNCODER_DEV_MODE")
+    return os.environ.get("SETTA_DEV_MODE")

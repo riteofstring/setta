@@ -7,7 +7,7 @@ import click
 from requests.exceptions import RetryError
 
 from ..utils.constants import CODE_FOLDER
-from .logger import Runcoder
+from .logger import Setta
 from .request_utils import get_retry_session, post
 
 
@@ -51,8 +51,8 @@ def run(code_id):
     with open(code_file_path, "w") as f:
         f.write(code)
 
-    Runcoder.toLocation = toLocation
-    Runcoder.run_id = code_id
+    Setta.toLocation = toLocation
+    Setta.run_id = code_id
 
     # add current working directory to path
     sys.path.insert(0, cwd)

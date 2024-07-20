@@ -1,5 +1,5 @@
-from runcoder.code_gen.python.generate_code import append_to_line, var_declaration
-from runcoder.tasks.task_runner import RunType
+from setta.code_gen.python.generate_code import append_to_line, var_declaration
+from setta.tasks.task_runner import RunType
 
 from .autocomplete import completionHelper, read_cache
 from .utils import TaskDefinition

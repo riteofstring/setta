@@ -3,11 +3,11 @@ import os
 
 import click
 
-from runcoder.utils.constants import C
+from setta.utils.constants import C
 
 DEFAULT_DB_FOLDER = os.getcwd()
-DEFAULT_DB_NAME = "runcoder.db"
-CONFIG_FOLDER = click.get_app_dir("runcoder")
+DEFAULT_DB_NAME = "setta.db"
+CONFIG_FOLDER = click.get_app_dir("setta")
 
 
 def get_default_db_path():

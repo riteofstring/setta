@@ -1,7 +1,7 @@
 import queue
 import sqlite3
 
-from runcoder.utils.constants import C
+from setta.utils.constants import C
 
 from .db_path import get_db_path_from_config, validate_path
 

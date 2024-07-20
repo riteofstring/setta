@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
-from runcoder.database.db.settings.load import load_settings
-from runcoder.utils.constants import C
+from setta.database.db.settings.load import load_settings
+from setta.utils.constants import C
 
 from .dependencies import get_dbs
 

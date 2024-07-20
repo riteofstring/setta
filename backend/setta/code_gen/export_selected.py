@@ -113,7 +113,7 @@ def get_code(p):
             and needs_generated_python(s["code"])
         ):
             return s["code"]
-    return double_braces("RUNCODER_GENERATED_CODE")
+    return double_braces("SETTA_GENERATED_CODE")
 
 
 def flatten_groups(p):

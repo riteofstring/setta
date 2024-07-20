@@ -1,6 +1,6 @@
 import copy
 
-from runcoder.database.utils import create_new_id
+from setta.database.utils import create_new_id
 
 from ..sections.copy import copy_sections_and_other_info
 

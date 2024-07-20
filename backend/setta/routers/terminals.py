@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, WebSocket
 from pydantic import BaseModel
 
-from runcoder.utils.constants import C
+from setta.utils.constants import C
 
 from .dependencies import (
     get_terminal_websockets,

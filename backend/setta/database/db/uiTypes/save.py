@@ -1,4 +1,4 @@
-from runcoder.utils.constants import C, is_section_ui_type
+from setta.utils.constants import C, is_section_ui_type
 
 
 def save_ui_types(dbs, uiTypes):

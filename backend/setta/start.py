@@ -38,7 +38,7 @@ def web(websocket_id, host, port):
 
 @click.command()
 def version():
-    print(f"runcoder version {__version__}")
+    print(f"setta version {__version__}")
 
 
 @click.command()
