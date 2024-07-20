@@ -1,7 +1,4 @@
-import {
-  dbSetProjectConfigName,
-  dbSetProjectName,
-} from "dbRequests/projectName";
+import { dbSetProjectConfigName, dbSetProjectName } from "requests/projectName";
 import { constInfoViews, useSetCurrInfoView } from "state/definitions/infoView";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";

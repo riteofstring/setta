@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
-import { pseudoTemplatedStr } from "dbRequests/utils";
 import React, { useEffect, useRef } from "react";
+import { pseudoTemplatedStr } from "requests/utils";
 import { useProjectConfig } from "state/definitions/projectConfig";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { URLS } from "utils/constants";

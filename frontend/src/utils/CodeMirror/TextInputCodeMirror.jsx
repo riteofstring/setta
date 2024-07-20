@@ -7,12 +7,12 @@ import { python } from "@codemirror/lang-python";
 import { EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, keymap, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import _ from "lodash";
+import { useCallback, useRef, useState } from "react";
 import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
-} from "dbRequests/sections";
-import _ from "lodash";
-import { useCallback, useRef, useState } from "react";
+} from "requests/sections";
 import { goToSection } from "state/actions/goToSection";
 import { variableClick } from "state/actions/keyActivations";
 import { useKeywordRegex } from "state/definitions/keywordRegex";

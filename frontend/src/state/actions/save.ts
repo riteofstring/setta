@@ -1,9 +1,9 @@
+import _ from "lodash";
 import {
   dbSaveAsExistingProjectConfig,
   dbSaveAsNewProjectConfig,
   dbSaveProject,
-} from "dbRequests/projects";
-import _ from "lodash";
+} from "requests/projects";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useNotification } from "state/definitions/notification";

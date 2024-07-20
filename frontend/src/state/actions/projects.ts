@@ -1,5 +1,5 @@
-import { dbLoadFullProject } from "dbRequests/projects";
 import _ from "lodash";
+import { dbLoadFullProject } from "requests/projects";
 import { loadProjectState } from "state/actions/loadProjectState";
 import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
 

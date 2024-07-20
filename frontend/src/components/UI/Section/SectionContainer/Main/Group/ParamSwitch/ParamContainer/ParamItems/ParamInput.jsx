@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
-import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
+import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/paramInfos";
 import { useInteractive } from "state/definitions/interactive";
 import { useIdWaitingForLSPResult } from "state/definitions/lsp";

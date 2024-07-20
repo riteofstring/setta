@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
-import { dbParametersRequest } from "dbRequests/sections";
 import _ from "lodash";
+import { dbParametersRequest } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { varControlUpdate } from "state/actions/varControl";

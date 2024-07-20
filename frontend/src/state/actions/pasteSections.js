@@ -1,4 +1,4 @@
-import { dbPasteSections } from "dbRequests/pasteSections";
+import { dbPasteSections } from "requests/pasteSections";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { loadSectionIntoState } from "./createSectionOrDeck";
 

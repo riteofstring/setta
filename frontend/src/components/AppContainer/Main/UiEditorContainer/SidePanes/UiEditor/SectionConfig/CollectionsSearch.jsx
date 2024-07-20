@@ -1,9 +1,9 @@
+import _ from "lodash";
+import { useState } from "react";
 import {
   dbGetCollectionDetails,
   getCollectionsAndModulesFn,
-} from "dbRequests/sectionConfig";
-import _ from "lodash";
-import { useState } from "react";
+} from "requests/sectionConfig";
 import { setCollections } from "state/actions/setCollections";
 import { useGetSelectedCollectionsForSectionConfig } from "state/hooks/useSectionContents";
 import { groupedObjInfo } from "utils/getFullObjPath";

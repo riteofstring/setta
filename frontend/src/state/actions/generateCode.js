@@ -3,9 +3,9 @@ import {
   TERMINAL_WEBSOCKETS,
 } from "components/UI/Section/SectionContainer/TerminalArea";
 import C from "constants/constants.json";
-import { dbGetFreeTerminal } from "dbRequests/terminals";
-import { sendMessage } from "dbRequests/websocket";
 import _ from "lodash";
+import { dbGetFreeTerminal } from "requests/terminals";
+import { sendMessage } from "requests/websocket";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useUITypes } from "state/definitions/uiTypes";
 import { useWebsocketConnectionList } from "state/definitions/websocket";

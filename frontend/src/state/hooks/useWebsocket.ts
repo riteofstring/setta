@@ -1,6 +1,6 @@
-import { openWebSocket, sendLocation, sendMessage } from "dbRequests/websocket";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { openWebSocket, sendLocation, sendMessage } from "requests/websocket";
 import { useWebsocketRooms } from "state/definitions/websocket";
 import { createNewId } from "z_utils/utils";
 

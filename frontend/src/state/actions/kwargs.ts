@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { dbSaveCodeInfo } from "dbRequests/sectionConfig";
+import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useParamInfos } from "state/definitions/paramInfos";
 import { useSectionToParams } from "state/definitions/sectionToParams";

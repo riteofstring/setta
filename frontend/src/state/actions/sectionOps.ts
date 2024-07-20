@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { dbDeleteTerminals } from "dbRequests/terminals";
+import { dbDeleteTerminals } from "requests/terminals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useActiveSection } from "state/definitions/activeSection";
