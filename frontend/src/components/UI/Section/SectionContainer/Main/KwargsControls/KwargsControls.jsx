@@ -29,8 +29,10 @@ export function KwargsControls({ sectionId, objInfoId }) {
     return () => {
       const { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
       const newCodeInfoChildren = {};
+      const numSiblingsInserted = {};
       for (const p of selectedParams) {
-        computeFn(codeInfos, p, newCodeInfoChildren);
+        console.log(p);
+        computeFn(codeInfos, p, newCodeInfoChildren, numSiblingsInserted);
       }
       useCodeInfo.getState().batchUpdateChildren(newCodeInfoChildren);
       updateParams(sectionId);
@@ -138,14 +140,18 @@ function computeNewChildrenForRightPush(codeInfos, paramInfo, newChildren) {
   newChildren[siblingInfo.id] = [...newChildren[siblingInfo.id], paramInfo.id];
 }
 
-function computeNewChildrenForLeftPush(codeInfos, paramInfo, newChildren) {
+function computeNewChildrenForLeftPush(
+  codeInfos,
+  paramInfo,
+  newChildren,
+  numSiblingsInserted,
+) {
   const parentInfo = codeInfos.find((x) => x.children.includes(paramInfo.id));
   const gParentInfo = codeInfos.find((x) => x.children.includes(parentInfo.id));
   if (!gParentInfo || gParentInfo.isSelected || parentInfo.isSelected) {
     return;
   }
-  const parentSiblingList = gParentInfo.children;
-  const parentIdx = parentSiblingList.indexOf(parentInfo.id);
+
   if (!(parentInfo.id in newChildren)) {
     newChildren[parentInfo.id] = parentInfo.children;
   }
@@ -153,12 +159,21 @@ function computeNewChildrenForLeftPush(codeInfos, paramInfo, newChildren) {
     (x) => x !== paramInfo.id,
   );
 
+  const parentSiblingList = gParentInfo.children;
+  const parentIdx = parentSiblingList.indexOf(parentInfo.id);
+  if (!(parentInfo.id in numSiblingsInserted)) {
+    numSiblingsInserted[parentInfo.id] = 0;
+  }
+
+  const insertIdx = parentIdx + 1 + numSiblingsInserted[parentInfo.id];
+  console.log("insertIdx", insertIdx);
   if (!(gParentInfo.id in newChildren)) {
     newChildren[gParentInfo.id] = gParentInfo.children;
   }
   newChildren[gParentInfo.id] = [
-    ...newChildren[gParentInfo.id].slice(0, parentIdx + 1),
+    ...newChildren[gParentInfo.id].slice(0, insertIdx),
     paramInfo.id,
-    ...newChildren[gParentInfo.id].slice(parentIdx + 1),
+    ...newChildren[gParentInfo.id].slice(insertIdx),
   ];
+  numSiblingsInserted[parentInfo.id] += 1;
 }
