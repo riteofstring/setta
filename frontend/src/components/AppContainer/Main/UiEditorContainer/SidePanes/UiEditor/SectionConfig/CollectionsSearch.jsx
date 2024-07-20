@@ -65,10 +65,7 @@ function ObjCollectionDetails({ children, details, name }) {
 
 function ObjListText({ objList }) {
   return objList.map((x) => (
-    <div
-      key={`ObjListText-${x.id}`}
-      className="indent-2 dark:text-setta-200"
-    >
+    <div key={`ObjListText-${x.id}`} className="indent-2 dark:text-setta-200">
       {x.name}
     </div>
   ));

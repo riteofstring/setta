@@ -104,9 +104,7 @@ function SearchItem({
               {name}
             </p>
             {description && (
-              <p className="mt-1 text-sm dark:text-setta-200">
-                {description}
-              </p>
+              <p className="mt-1 text-sm dark:text-setta-200">{description}</p>
             )}
           </div>
         </div>
