@@ -14,6 +14,7 @@ import {
   getSectionInfo,
 } from "../getters/sectionInfo";
 import { initManyEnteredValues } from "./evCols";
+import { setManyParamUITypeIds } from "./uiTypeCols";
 
 export function initializeChildParams({
   sectionIds,
@@ -108,7 +109,7 @@ function initializeParamUIType(
     }
   }
 
-  useUITypeCols.getState().setManyUITypeIds({
+  setManyParamUITypeIds({
     collectionId: uiTypeColId,
     paramIdToUITypeId: newIds,
   });

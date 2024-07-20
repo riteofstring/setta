@@ -2,7 +2,6 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import { useUITypeCols } from "../definitions/uiTypeCols";
 import { useUITypes } from "../definitions/uiTypes";
 import { setAllCodeInfo } from "./codeInfo";
 import { setAllEVCols } from "./evCols";
@@ -15,6 +14,7 @@ import { setProjectConfig } from "./projectConfig";
 import { setAllRunGroups } from "./runGroups";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { setAllSectionInfos } from "./sectionInfos";
+import { setAllUITypeCols } from "./uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function loadProjectState({
@@ -48,7 +48,7 @@ export function loadProjectState({
   );
   useUITypes.getState().resetAndSetAll({ ...uiTypes, ...BASE_UI_TYPES });
   setAllEVCols(evCols);
-  useUITypeCols.getState().resetAndSetAll({ uiTypeCols });
+  setAllUITypeCols({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
   setAllSectionInfos({ sections });

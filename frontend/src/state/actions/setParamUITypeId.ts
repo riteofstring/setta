@@ -16,10 +16,8 @@ export function setParamUITypeId({
 }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
 
-  useUITypeCols.getState().setUITypeId({
-    collectionId: uiTypeColId,
-    paramInfoId,
-    uiTypeId,
+  useUITypeCols.setState((state) => {
+    state.y[uiTypeColId][paramInfoId].uiTypeId = uiTypeId;
   });
 
   convertValue({ sectionId, paramInfoId, uiTypeId });
