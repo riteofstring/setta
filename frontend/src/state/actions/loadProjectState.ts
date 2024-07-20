@@ -3,11 +3,9 @@ import _ from "lodash";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import { useProjectConfigCodeInfoMaps } from "../definitions/projectConfigCodeInfoMaps";
 import { useSectionInfos } from "../definitions/sectionInfos";
 import { useUITypeCols } from "../definitions/uiTypeCols";
 import { useUITypes } from "../definitions/uiTypes";
-import { useUserCodeInfoMaps } from "../definitions/userCodeInfoMaps";
 import { setAllCodeInfo } from "./codeInfo";
 import { setAllEVCols } from "./evCols";
 import { setNodes } from "./nodeInternals";
@@ -23,8 +21,6 @@ export function loadProjectState({
   project,
   projectConfig,
   codeInfo,
-  userCodeInfoMaps,
-  projectConfigCodeInfoMaps,
   sections,
   evCols,
   uiTypes,
@@ -55,10 +51,6 @@ export function loadProjectState({
   useUITypeCols.getState().resetAndSetAll({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
   useRunGroups.getState().resetAndSetAll(runGroups);
-  useUserCodeInfoMaps.getState().resetAndSetAll(userCodeInfoMaps);
-  useProjectConfigCodeInfoMaps
-    .getState()
-    .resetAndSetAll(projectConfigCodeInfoMaps);
   useSectionInfos.getState().resetAndSetAll({ sections });
   setAllOutputs(outputs);
   setAllOutputGroups(outputGroups);

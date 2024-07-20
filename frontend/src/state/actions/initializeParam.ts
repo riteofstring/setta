@@ -1,10 +1,8 @@
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useEVCols } from "state/definitions/evCols";
-import { useProjectConfigCodeInfoMaps } from "state/definitions/projectConfigCodeInfoMaps";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
-import { useUserCodeInfoMaps } from "state/definitions/userCodeInfoMaps";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "z_utils/getDescendants";
 import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
@@ -86,15 +84,6 @@ function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
   };
 }
 
-function getDefaultUIType({ mapState, paramInfo, uiTypesState }) {
-  // TODO, should paramInfo have "type"? Currently it doesn't.
-  const defaultUITypeId = _.defaultTo(
-    mapState.x[paramInfo.name]?.uiTypeId,
-    mapState.x[paramInfo.type]?.uiTypeId,
-  );
-  return uiTypesState.x[defaultUITypeId];
-}
-
 function initializeParamUIType(
   sectionId: string,
   paramInfos: ManyCodeInfoType,
@@ -105,33 +94,12 @@ function initializeParamUIType(
     paramInfos,
   );
 
-  const uiTypesState = useUITypes.getState();
-  const pCodeMaps = useProjectConfigCodeInfoMaps.getState();
-  const userCodeMaps = useUserCodeInfoMaps.getState();
-
   const newIds: UITypeColType = {};
   for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
     if (!uiTypeId) {
-      const paramInfo = paramInfos[paramId];
-      const projectDefaultUIType = getDefaultUIType({
-        mapState: pCodeMaps,
-        paramInfo,
-        uiTypesState,
-      });
-
-      const userDefaultUIType = getDefaultUIType({
-        mapState: userCodeMaps,
-        paramInfo,
-        uiTypesState,
-      });
-
       let newId: string;
       if (paramId in inputParamIdToUITypeId) {
         newId = inputParamIdToUITypeId[paramId];
-      } else if (projectDefaultUIType) {
-        newId = projectDefaultUIType.id;
-      } else if (userDefaultUIType) {
-        newId = userDefaultUIType.id;
       } else {
         newId = BASE_UI_TYPE_IDS.TEXT;
       }

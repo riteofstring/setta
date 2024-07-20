@@ -8,7 +8,6 @@ import { useCodeInfo } from "state/definitions/codeInfo";
 import { useEVCols } from "state/definitions/evCols";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useParamSweep } from "state/definitions/paramSweep";
-import { useProjectConfigCodeInfoMaps } from "state/definitions/projectConfigCodeInfoMaps";
 import { useRunGroups } from "state/definitions/runGroups";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
@@ -53,10 +52,6 @@ export function getProjectData(): ProjectSaveType {
 
   const codeInfo = useCodeInfo.getState().x;
 
-  const projectConfigCodeInfoMaps = useProjectConfigCodeInfoMaps
-    .getState()
-    .exportForDb();
-
   const output = {
     project,
     projectConfig,
@@ -67,7 +62,6 @@ export function getProjectData(): ProjectSaveType {
     runGroups,
     sections,
     codeInfo,
-    projectConfigCodeInfoMaps,
     dbSourceMapping: DB_SOURCE_MAPPING,
   };
   // console.log(output);

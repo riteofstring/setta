@@ -151,8 +151,6 @@ def load_project(dbs, project_name, config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
-        "userCodeInfoMaps": {},
-        "projectConfigCodeInfoMaps": {},
         "outputGroups": {},
         "outputs": {},
         "dbSourceMapping": dbs.db_source_mapping,

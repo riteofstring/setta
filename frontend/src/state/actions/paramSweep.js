@@ -43,7 +43,12 @@ export function deleteLastParamSweepValue({ paramSweepId, idx }) {
   });
 }
 
-export function changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId, evColId }) {
+export function changeParamSweepParamInfoId({
+  paramSweepId,
+  idx,
+  paramInfoId,
+  evColId,
+}) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep[idx] = { paramInfoId, values: [""] };
@@ -53,7 +58,11 @@ export function changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId, ev
   });
 }
 
-export function addParamSweepParamInfoId({ paramSweepId, paramInfoId, evColId }) {
+export function addParamSweepParamInfoId({
+  paramSweepId,
+  paramInfoId,
+  evColId,
+}) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep.push({ paramInfoId, values: [""] });

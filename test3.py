@@ -430,7 +430,6 @@ project = {
             ],
         },
     },
-    "projectConfigCodeInfoMaps": {},
     "dbSourceMapping": {"default": "default", "settings": "default"},
     "evRefs": {
         "default": {

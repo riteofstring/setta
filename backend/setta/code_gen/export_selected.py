@@ -4,6 +4,7 @@ from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
+
 def get_args_var_name(var_name):
     return f"{C.ARGS_PREFIX}{var_name}"
 

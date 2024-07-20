@@ -174,26 +174,6 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (childId) REFERENCES Section(id)
     );
     """,
-    # UserCodeInfoTypeMap model
-    """
-    CREATE TABLE IF NOT EXISTS UserCodeInfoTypeMap (
-        type TEXT,
-        uiTypeId TEXT,
-        PRIMARY KEY (type),
-        FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
-    );
-    """,
-    # ProjectConfigCodeInfoTypeMap model
-    """
-    CREATE TABLE IF NOT EXISTS ProjectConfigCodeInfoTypeMap (
-        projectConfigId TEXT,
-        type TEXT,
-        uiTypeId TEXT,
-        PRIMARY KEY (projectConfigId, type),
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
-        FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
-    );
-    """,
     # Run model
     """
     CREATE TABLE IF NOT EXISTS Run (
