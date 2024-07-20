@@ -3,7 +3,6 @@ import _ from "lodash";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import { useProject } from "../definitions/project";
 import { useProjectConfig } from "../definitions/projectConfig";
 import { useProjectConfigCodeInfoMaps } from "../definitions/projectConfigCodeInfoMaps";
 import { useSectionInfos } from "../definitions/sectionInfos";
@@ -16,6 +15,7 @@ import { setNodes } from "./nodeInternals";
 import { setAllOutputGroups } from "./outputGroups";
 import { setAllOutputs } from "./outputs";
 import { setAllParamSweeps } from "./paramSweep";
+import { setProject } from "./project";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -38,7 +38,7 @@ export function loadProjectState({
   setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
   if (project) {
-    useProject.getState().resetAndSetAll(project);
+    setProject(project);
   }
   useProjectConfig
     .getState()

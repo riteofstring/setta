@@ -8,7 +8,6 @@ import { useCodeInfo } from "state/definitions/codeInfo";
 import { useEVCols } from "state/definitions/evCols";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useParamSweep } from "state/definitions/paramSweep";
-import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
 import { useProjectConfigCodeInfoMaps } from "state/definitions/projectConfigCodeInfoMaps";
 import { useRunGroups } from "state/definitions/runGroups";
@@ -24,9 +23,10 @@ import { ManyUITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
 import { getNodes } from "./nodeInternals";
 import { setNotificationMessage } from "./notification";
+import { getProjectMetadata } from "./project";
 
 export function getProjectData(): ProjectSaveType {
-  const project = useProject.getState().getAll();
+  const project = getProjectMetadata();
   project.previewImgNodes = getPreviewImgNodes();
   const projectConfig = useProjectConfig.getState().getAll();
   projectConfig.viewport = getViewport();
