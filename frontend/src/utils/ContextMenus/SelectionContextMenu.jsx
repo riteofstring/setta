@@ -1,7 +1,7 @@
 import _ from "lodash";
+import { clearActiveSectionIds } from "state/actions/activeSection";
 import { createDeck } from "state/actions/createSectionOrDeck";
 import { deleteSections } from "state/actions/sectionOps";
-import { useActiveSection } from "state/definitions/activeSection";
 import { useContextMenus } from "state/definitions/contextMenus";
 import { Item } from "utils/atoms/dropdown/item";
 import { useReactFlow } from "xyflow/core/store";
@@ -14,7 +14,7 @@ export function SelectionContextMenu() {
   );
   const closeContextMenu = () => {
     useContextMenus.getState().closeAll();
-    useActiveSection.getState().clear();
+    clearActiveSectionIds();
     useReactFlow.setState({ nodesSelectionDims: null });
   };
 

@@ -1,4 +1,9 @@
 import React from "react";
+import {
+  addActiveSectionIds,
+  removeActiveSectionIds,
+  setActiveSectionIds,
+} from "state/actions/activeSection";
 import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import { getParamInfos } from "state/actions/sectionContents";
 import { setZIndices } from "state/actions/sectionPositions";
@@ -32,18 +37,18 @@ function _SectionContainerCore({ sectionId }) {
         (x) => x.isSelected,
       );
       if (!isActiveSection && atLeastOneParamSelected) {
-        useActiveSection.getState().addIds([sectionId]);
+        addActiveSectionIds([sectionId]);
       } else if (isActiveSection && !atLeastOneParamSelected) {
-        useActiveSection.getState().removeIds([sectionId]);
+        removeActiveSectionIds([sectionId]);
       }
     } else if (multiSectionSelect(e)) {
       if (isActiveSection) {
-        useActiveSection.getState().removeIds([sectionId]);
+        removeActiveSectionIds([sectionId]);
       } else {
-        useActiveSection.getState().addIds([sectionId]);
+        addActiveSectionIds([sectionId]);
       }
     } else {
-      useActiveSection.getState().setIds([sectionId]);
+      setActiveSectionIds([sectionId]);
     }
     const highestAncestor = getHighestAncestor(sectionId);
     setZIndices([highestAncestor], false);

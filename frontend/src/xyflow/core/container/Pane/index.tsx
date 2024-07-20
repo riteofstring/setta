@@ -8,7 +8,7 @@ import React, {
   ReactNode,
   useRef,
 } from "react";
-import { useActiveSection } from "state/definitions/activeSection";
+import { clearActiveSectionIds } from "state/actions/activeSection";
 import { useContextMenus } from "state/definitions/contextMenus";
 import {
   onNodesChange,
@@ -75,7 +75,7 @@ const Pane = memo(
     };
 
     const onClick = (event: ReactMouseEvent) => {
-      useActiveSection.getState().clear();
+      clearActiveSectionIds();
       REACT_FLOW_STORE.lastPaneClickLocation = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,

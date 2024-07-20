@@ -2,7 +2,6 @@ import C from "constants/constants.json";
 import { dbDeleteTerminals } from "requests/terminals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useActiveSection } from "state/definitions/activeSection";
 import { addNodes, deleteNodes } from "state/definitions/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { PANEID } from "utils/constants";
@@ -14,6 +13,7 @@ import {
   UITypeSetOneConfigPayloadType,
 } from "z_utils/types/uiType";
 import { getSectionType } from "../getters/sectionInfo";
+import { removeActiveSectionIds } from "./activeSection";
 import { setAllChildren } from "./children";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
@@ -24,7 +24,7 @@ export function deleteSections({ sectionIds, incrementVersion = false }) {
     idsToDelete.push(...getIdsToDelete(sid));
   }
 
-  useActiveSection.getState().removeIds(idsToDelete);
+  removeActiveSectionIds(idsToDelete);
   useSectionInfos.getState().removeSectionInfos(idsToDelete);
   deleteNodes(idsToDelete);
   dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections

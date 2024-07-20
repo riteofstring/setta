@@ -1,7 +1,7 @@
-import { useActiveSection } from "state/definitions/activeSection";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import { setCenter } from "xyflow/core/hooks/useViewportHelper";
 import { getSectionRect } from "xyflow/core/utils/graph";
+import { setActiveSectionIds } from "./activeSection";
 import { setZIndices } from "./sectionPositions";
 
 export function goToSection(sectionId: string) {
@@ -13,6 +13,6 @@ export function goToSection(sectionId: string) {
     zoom: 1,
     duration: 100,
   });
-  useActiveSection.getState().setIds([sectionId]);
+  setActiveSectionIds([sectionId]);
   setZIndices([sectionId]);
 }

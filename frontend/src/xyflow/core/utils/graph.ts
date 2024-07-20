@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
-import { useActiveSection } from "state/definitions/activeSection";
+import { setActiveSectionIds } from "state/actions/activeSection";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useSectionRefs } from "state/definitions/sectionRefs";
 import { localStorageFns } from "state/hooks/localStorageHooks";
@@ -112,7 +112,7 @@ export function getNodesInside(
     }
   }
 
-  useActiveSection.getState().setIds(visibleNodes);
+  setActiveSectionIds(visibleNodes);
   return visibleNodes;
 }
 
