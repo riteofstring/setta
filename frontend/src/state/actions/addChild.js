@@ -10,11 +10,6 @@ export function addChildrenToSeries({
   calledBy,
   numChildren,
   incrementVersion = false,
-}: {
-  isRoot: boolean;
-  calledBy: string;
-  numChildren: number;
-  incrementVersion?: boolean;
 }) {
   let parentId, startIdx;
   if (isRoot) {

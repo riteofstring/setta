@@ -3,10 +3,7 @@ import C from "constants/constants.json";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSettings } from "state/definitions/settings";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { newSectionInfo } from "z_utils/objs/sectionInfo";
 import { createSectionInfo } from "./createSectionInfo";
-
-type callbackBeforeExitType = (newId: string) => void;
 
 export function addSectionAtPosition({
   type,
@@ -14,13 +11,8 @@ export function addSectionAtPosition({
   incrementVersion = false,
   inputSectionProps = {},
   position,
-}: {
-  type: string;
-  callbackBeforeExit?: callbackBeforeExitType;
-  incrementVersion?: boolean;
-  inputSectionProps: any;
 }) {
-  const sectionProps: Partial<Parameters<typeof newSectionInfo>[0]> = {
+  const sectionProps = {
     ...inputSectionProps,
   };
 
