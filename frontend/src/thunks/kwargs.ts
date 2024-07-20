@@ -16,15 +16,16 @@ import { maybeIncrementProjectStateVersion } from "./undo";
 
 type AddKwargPayload = {
   sectionId: string;
-  objInfoId: string;
+  parentId: string;
   name?: string;
   incrementVersion?: boolean;
 };
 
 export function addKwarg({
   sectionId,
-  objInfoId,
+  parentId,
   name = "",
+  insertIdx = null,
   incrementVersion = false,
 }: AddKwargPayload) {
   const kwargInfo = newCodeInfo({
@@ -32,8 +33,8 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  const parent = objInfoId ?? getSectionTypeConfig(sectionId).codeInfoId;
-  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent });
+  const parent = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
+  useCodeInfo.getState().addCodeInfo({ info: kwargInfo, parent, insertIdx });
   initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);

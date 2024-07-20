@@ -20,11 +20,15 @@ export const useCodeInfo = createProjectState(
       resetAndSetAll: (payload) => {
         set((state) => ({ ...state, x: payload }), true);
       },
-      addCodeInfo: ({ info, parent }) =>
+      addCodeInfo: ({ info, parent, insertIdx }) =>
         set((state) => {
           state.x[info.id] = info;
           if (parent) {
-            state.x[parent].children.push(info.id);
+            if (insertIdx === null) {
+              state.x[parent].children.push(info.id);
+            } else {
+              state.x[parent].children.splice(insertIdx, 0, info.id);
+            }
           }
         }),
       setName: ({ id, name }) =>
@@ -61,6 +65,12 @@ export const useCodeInfo = createProjectState(
       update: (payload) =>
         set((state) => {
           state.x = { ...state.x, ...payload };
+        }),
+      batchUpdateChildren: (payload) =>
+        set((state) => {
+          for (const [id, newChildren] of Object.entries(payload)) {
+            state.x[id].children = newChildren;
+          }
         }),
     })),
   ),
