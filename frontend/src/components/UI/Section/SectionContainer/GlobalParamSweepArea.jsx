@@ -2,6 +2,12 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useState } from "react";
 import { BiFilter } from "react-icons/bi";
+import {
+  createNewRunGroup,
+  toggleRunGroup,
+  toggleRunGroupParamSweep,
+  toggleRunGroupSection,
+} from "state/actions/runGroups";
 import { useRunGroups } from "state/definitions/runGroups";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { useGetParamSweepNames } from "state/hooks/useParamSweepInfo";
@@ -53,7 +59,7 @@ function RunGroupList({
           shown={shownRunGroup === id}
           checked={x.selected}
           onChange={() => {
-            useRunGroups.getState().toggleSelected(id);
+            toggleRunGroup(id);
           }}
           onClick={() => setShownRunGroup(id)}
           onMouseOver={() => setPreviewRunGroup(id)}
@@ -108,14 +114,12 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
 
   function onSectionCheckboxChange() {
-    useRunGroups
-      .getState()
-      .toggleSection({ id: runGroupId, sectionId: sectionInfo.id });
+    toggleRunGroupSection({ id: runGroupId, sectionId: sectionInfo.id });
   }
 
   function getOnParamSweepCheckboxChange(paramSweepId) {
     return () =>
-      useRunGroups.getState().toggleParamSweep({
+      toggleRunGroupParamSweep({
         id: runGroupId,
         sectionId: sectionInfo.id,
         paramSweepId,
@@ -217,7 +221,7 @@ function FilterSection() {
 function CreateNewRunGroupButton({ setShownRunGroup }) {
   function onClick() {
     const id = createNewId();
-    useRunGroups.getState().newRunGroup({ id, name: createRandomName() });
+    createNewRunGroup({ id, name: createRandomName() });
     setShownRunGroup(id);
   }
 

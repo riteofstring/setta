@@ -1,6 +1,5 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
-import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { useSectionInfos } from "../definitions/sectionInfos";
@@ -14,6 +13,7 @@ import { setAllOutputs } from "./outputs";
 import { setAllParamSweeps } from "./paramSweep";
 import { setProject } from "./project";
 import { setProjectConfig } from "./projectConfig";
+import { setAllRunGroups } from "./runGroups";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -50,7 +50,7 @@ export function loadProjectState({
   setAllEVCols(evCols);
   useUITypeCols.getState().resetAndSetAll({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
-  useRunGroups.getState().resetAndSetAll(runGroups);
+  setAllRunGroups(runGroups);
   useSectionInfos.getState().resetAndSetAll({ sections });
   setAllOutputs(outputs);
   setAllOutputGroups(outputGroups);
