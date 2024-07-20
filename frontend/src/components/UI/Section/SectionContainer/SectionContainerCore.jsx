@@ -1,12 +1,12 @@
-import {
-  useGetSectionInfo,
-  useSectionDBSourceIsAvailable,
-} from "hooks/useSectionInfo";
 import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
 import { toggleVersionsVisible } from "hooks/useSectionVersions";
 import { useActiveSection } from "models/activeSection";
 import { useSectionRefAndInit } from "models/sectionRefs";
 import React from "react";
+import {
+  useGetSectionInfo,
+  useSectionDBSourceIsAvailable,
+} from "state/sectionInfos/hooks";
 import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { setZIndices } from "thunks/sections/sectionPositions";

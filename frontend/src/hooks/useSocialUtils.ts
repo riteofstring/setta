@@ -1,4 +1,4 @@
-import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionInfo } from "../state/sectionInfos/hooks";
 import { useIsSocial } from "./useSectionType";
 
 // youtube is 16/9. Make it 16/12 because of padding

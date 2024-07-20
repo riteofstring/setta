@@ -3,12 +3,12 @@ import _ from "lodash";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
-} from "thunks/sections/getters";
+} from "state/sectionInfos/getters";
 import { getParamInfos } from "thunks/sections/sectionContents";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { useSectionInfos } from "../../state/sectionInfos/definition";
 import { create } from "../utils";
 import { useCodeInfo } from "./codeInfo";
-import { useSectionInfos } from "./sectionInfos";
 
 const ARGS_PREFIX = "__";
 

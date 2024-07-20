@@ -1,6 +1,5 @@
 import { useGetEVColNames } from "hooks/useEnteredValue";
 import { useParamSweepInfo } from "hooks/useParamSweepInfo";
-import { useMappedSectionDBSource } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
@@ -9,6 +8,7 @@ import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
+import { useMappedSectionDBSource } from "state/sectionInfos/hooks";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";

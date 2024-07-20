@@ -1,6 +1,9 @@
 import _ from "lodash";
 import { useParamInfos } from "models/info/paramInfos";
-import { useGetSectionInfo, useMappedSectionDBSource } from "./useSectionInfo";
+import {
+  useGetSectionInfo,
+  useMappedSectionDBSource,
+} from "../state/sectionInfos/hooks";
 
 export function useGetParamEnteredValue(
   sectionId: string,

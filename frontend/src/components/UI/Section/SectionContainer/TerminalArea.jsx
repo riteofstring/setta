@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import { pseudoTemplatedStr } from "dbRequests/utils";
 import { useProjectConfig } from "models/info/projectConfig";
-import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef } from "react";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { URLS } from "utils/constants";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";

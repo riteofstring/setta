@@ -1,4 +1,4 @@
-import { getSectionIdsWithUITypeIds } from "thunks/sections/getters";
+import { getSectionIdsWithUITypeIds } from "state/sectionInfos/getters";
 import { updateManyParamsAndCallables } from "thunks/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { initializeChildParams } from "../initializeParam";

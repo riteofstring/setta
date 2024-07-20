@@ -3,7 +3,7 @@ import { useModal } from "models/modal";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
-} from "thunks/sections/getters";
+} from "state/sectionInfos/getters";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { createNewId } from "z_utils/utils";

@@ -11,8 +11,8 @@ import {
   SectionInfoStateType,
   SectionInfoZustandType,
 } from "z_utils/types/section";
-import { createProjectState } from "../utils";
-import { useKeywordRegex } from "./keywordRegex";
+import { useKeywordRegex } from "../../models/info/keywordRegex";
+import { createProjectState } from "../../models/utils";
 
 const initialState: SectionInfoStateType = {
   x: {},

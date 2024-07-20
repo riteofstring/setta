@@ -13,8 +13,8 @@ import { useOutputs } from "../models/info/outputs";
 import { useParamInfos } from "../models/info/paramInfos";
 import { useProject } from "../models/info/project";
 import { useProjectConfig } from "../models/info/projectConfig";
-import { useSectionInfos } from "../models/info/sectionInfos";
 import { useUITypes } from "../models/info/uiTypes";
+import { useSectionInfos } from "../state/sectionInfos/definition";
 import { updateManyParamsAndCallables } from "./sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 

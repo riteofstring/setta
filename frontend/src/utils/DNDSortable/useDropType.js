@@ -2,7 +2,7 @@ import {
   getSectionCanOnlyBeChildOfDeck,
   getSectionIsDeck,
   getSectionIsRoot,
-} from "thunks/sections/getters";
+} from "state/sectionInfos/getters";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";

@@ -1,4 +1,7 @@
-import { getSectionInfo, getSectionParentId } from "./getters";
+import {
+  getSectionInfo,
+  getSectionParentId,
+} from "../../state/sectionInfos/getters";
 import { deleteSections } from "./sectionOps";
 
 export function deleteChildrenFromSeries({

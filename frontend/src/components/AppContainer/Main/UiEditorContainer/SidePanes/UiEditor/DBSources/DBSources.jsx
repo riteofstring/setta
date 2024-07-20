@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
-import { useSectionDBSource } from "hooks/useSectionInfo";
 import { useParamInfos } from "models/info/paramInfos";
 import { useState } from "react";
+import { useSectionDBSource } from "state/sectionInfos/hooks";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 
 export function DBSources({ sectionId }) {

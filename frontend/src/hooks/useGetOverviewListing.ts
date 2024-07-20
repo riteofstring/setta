@@ -1,9 +1,9 @@
 import _ from "lodash";
 import { useNodeInternals } from "models/info/nodeInternals";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { getDepthListing } from "z_utils/childrenToDepth";
+import { useSectionInfoNames } from "../state/sectionInfos/hooks";
 import { useMatchSorterFilter } from "./useMatchSorterFilter";
-import { useSectionInfoNames } from "./useSectionInfo";
 import { useSectionTypeNames } from "./useSectionType";
 
 export function useGetOverviewListing(sectionTypeFilter = null) {

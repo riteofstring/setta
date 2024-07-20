@@ -1,6 +1,9 @@
 import { useParamInfos } from "models/info/paramInfos";
 import { useUITypes } from "models/info/uiTypes";
-import { getMappedSectionDBSource, getSectionInfo } from "./sections/getters";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "../state/sectionInfos/getters";
 import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { varControlUpdate } from "./varControl";

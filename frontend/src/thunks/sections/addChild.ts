@@ -1,8 +1,11 @@
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { insertIntoArray } from "utils/utils";
+import {
+  getSectionInfo,
+  getSectionParentId,
+} from "../../state/sectionInfos/getters";
 import { setAllChildren } from "./children";
 import { createChildForSeries } from "./createSectionInfo";
-import { getSectionInfo, getSectionParentId } from "./getters";
 import { updateManyParamsAndCallables } from "./sectionContents";
 
 export function addChildrenToSeries({

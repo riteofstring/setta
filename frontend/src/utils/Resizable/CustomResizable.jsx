@@ -10,7 +10,7 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "hooks/useSocialUtils";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
 import { useDndMode } from "utils/DNDSortable/dndState";
 import { ResizableWithScale } from "./ResizableWithScale";

@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { SectionType } from "../types/section";
 import { SizeType } from "../types/size";

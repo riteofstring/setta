@@ -2,9 +2,9 @@ import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
+import { useSectionInfos } from "state/sectionInfos/definition";
+import { useGetSectionInfo } from "state/sectionInfos/hooks";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 

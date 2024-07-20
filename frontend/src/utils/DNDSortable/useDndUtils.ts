@@ -1,5 +1,5 @@
+import { getSectionParentId } from "state/sectionInfos/getters";
 import colors from "tailwindcss/colors";
-import { getSectionParentId } from "thunks/sections/getters";
 import { useDndMonitor } from "utils/DNDSortable/CustomCore";
 import { useDndMode, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";

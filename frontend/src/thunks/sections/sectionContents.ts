@@ -6,7 +6,10 @@ import {
   findAllParametersOfCallables,
   findAllParametersOfCollections,
 } from "z_utils/getDescendants";
-import { getSectionInfo, getSectionTypeConfig } from "./getters";
+import {
+  getSectionInfo,
+  getSectionTypeConfig,
+} from "../../state/sectionInfos/getters";
 
 export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];

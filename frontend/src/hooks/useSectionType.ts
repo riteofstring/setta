@@ -1,13 +1,13 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { isRoot, isSeriesElement } from "z_utils/constants";
 import {
   SectionUITypeConfigType,
   SectionUITypeType,
 } from "z_utils/types/uiType";
-import { useGetSectionInfo } from "./useSectionInfo";
+import { useGetSectionInfo } from "../state/sectionInfos/hooks";
 
 export function useGetSectionTypeConfig<
   K extends keyof SectionUITypeConfigType,

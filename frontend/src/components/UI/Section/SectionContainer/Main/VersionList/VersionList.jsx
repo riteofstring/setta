@@ -6,9 +6,9 @@ import {
   useForSectionId,
   useGetParamSweepNames,
 } from "hooks/useParamSweepInfo";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useState } from "react";
+import { useSectionInfos } from "state/sectionInfos/definition";
+import { useGetSectionInfo } from "state/sectionInfos/hooks";
 import { setSectionInfoAttr } from "thunks/sections/setters";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";

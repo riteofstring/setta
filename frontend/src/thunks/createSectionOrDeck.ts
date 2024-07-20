@@ -3,11 +3,11 @@ import { sendMessageInRoom } from "hooks/useWebsocket";
 import { useCodeInfo } from "models/info/codeInfo";
 import { addNodes } from "models/info/nodeInternals";
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useUITypes } from "models/info/uiTypes";
+import { useSectionInfos } from "state/sectionInfos/definition";
+import { getSectionTypeConfig } from "state/sectionInfos/getters";
 import { initializeChildParams } from "thunks/initializeParam";
 import { addSectionAtPosition } from "thunks/sections/addSectionAtPosition";
-import { getSectionTypeConfig } from "thunks/sections/getters";
 import {
   updateManyParamsAndCallables,
   updateParams,

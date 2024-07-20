@@ -1,5 +1,4 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useSetCurrInfoView } from "models/info/infoView";
@@ -8,6 +7,7 @@ import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
+import { useGetSectionInfo } from "state/sectionInfos/hooks";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";

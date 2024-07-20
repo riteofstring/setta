@@ -1,9 +1,9 @@
 import _ from "lodash";
 import { justMoveANode } from "models/info/nodeInternals";
-import { manualDndChildrenReset } from "models/info/sectionInfos";
 import { useRef } from "react";
+import { manualDndChildrenReset } from "state/sectionInfos/definition";
+import { getSectionParentId } from "state/sectionInfos/getters";
 import { setAllChildren } from "thunks/sections/children";
-import { getSectionParentId } from "thunks/sections/getters";
 import { moveSection } from "thunks/sections/sectionOps";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";

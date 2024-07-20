@@ -1,6 +1,6 @@
 import { useAllOutputNames } from "hooks/useOutputNames";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionInfos } from "state/sectionInfos/definition";
+import { useGetSectionInfo } from "state/sectionInfos/hooks";
 import {
   setSectionInfoAttr,
   setSectionName,

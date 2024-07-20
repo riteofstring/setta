@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useCodeInfo } from "models/info/codeInfo";
-import { getSectionTypeConfig } from "thunks/sections/getters";
+import { getSectionTypeConfig } from "state/sectionInfos/getters";
+import { useGetSectionInfo } from "state/sectionInfos/hooks";
 import { updateParamsAndCallables } from "thunks/sections/sectionContents";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";

@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { dbDeleteTerminals } from "dbRequests/terminals";
 import { useActiveSection } from "models/activeSection";
 import { addNodes, deleteNodes } from "models/info/nodeInternals";
-import { useSectionInfos } from "models/info/sectionInfos";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { PANEID } from "utils/constants";
@@ -13,8 +13,8 @@ import {
   SectionUITypeConfigType,
   UITypeSetOneConfigPayloadType,
 } from "z_utils/types/uiType";
+import { getSectionType } from "../../state/sectionInfos/getters";
 import { setAllChildren } from "./children";
-import { getSectionType } from "./getters";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 

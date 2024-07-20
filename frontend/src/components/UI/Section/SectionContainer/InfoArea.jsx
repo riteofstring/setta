@@ -1,7 +1,7 @@
-import { useSectionInfos } from "models/info/sectionInfos";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 
 function _InfoArea({ sectionId }) {

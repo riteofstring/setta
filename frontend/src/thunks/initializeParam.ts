@@ -10,7 +10,10 @@ import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
 import { UITypeType } from "z_utils/types/uiType";
 import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { ManyOf } from "z_utils/types/utils";
-import { getMappedSectionDBSource, getSectionInfo } from "./sections/getters";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "../state/sectionInfos/getters";
 
 export function initializeChildParams({
   sectionIds,

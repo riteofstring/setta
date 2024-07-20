@@ -5,8 +5,8 @@ import { isAmongNonPresets } from "thunks/uiTypes/cloneUITypes";
 import { isSectionUIType, uiTypesToPretty } from "z_utils/constants";
 import { ManyUITypeType, PresetType, UITypeType } from "z_utils/types/uiType";
 import { isBasePreset, isPreset, isUserPreset } from "z_utils/uiTypeConstants";
+import { useGetSectionInfo } from "../state/sectionInfos/hooks";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
-import { useGetSectionInfo } from "./useSectionInfo";
 import { useGetSectionType } from "./useSectionType";
 
 function createName(uiType) {

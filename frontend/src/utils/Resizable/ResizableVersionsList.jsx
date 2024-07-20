@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
 import { setSectionVersionsHeight } from "hooks/useSectionVersions";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
 import { VscGrabber } from "react-icons/vsc";
+import { useSectionInfos } from "state/sectionInfos/definition";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize } from "./utils";
 

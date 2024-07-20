@@ -1,10 +1,10 @@
 import C from "constants/constants.json";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
+import { useGetSectionInfo } from "state/sectionInfos/hooks";
 
 export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
   const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");

@@ -1,7 +1,7 @@
 import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
-import { useGetSectionInfo } from "hooks/useSectionInfo";
 import { useTitleIsEditable } from "hooks/useTitleIsEditable";
-import { getSectionSiblingNames } from "thunks/sections/getters";
+import { getSectionSiblingNames } from "state/sectionInfos/getters";
+import { useGetSectionInfo } from "state/sectionInfos/hooks";
 import { setSectionName } from "thunks/sections/setters";
 import { Editable } from "utils/Editable/Editable";
 

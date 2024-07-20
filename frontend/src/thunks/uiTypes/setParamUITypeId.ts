@@ -1,5 +1,5 @@
 import { useParamInfos } from "models/info/paramInfos";
-import { getSectionInfo } from "thunks/sections/getters";
+import { getSectionInfo } from "state/sectionInfos/getters";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { convertValue } from "./convertValue";
 

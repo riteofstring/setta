@@ -2,10 +2,10 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useCodeInfo } from "models/info/codeInfo";
 import { useParamInfos } from "models/info/paramInfos";
-import { useSectionInfos } from "models/info/sectionInfos";
 import { useSectionToParams } from "models/info/sectionToParams";
+import { useSectionInfos } from "state/sectionInfos/definition";
+import { getSectionByName, getSectionType } from "state/sectionInfos/getters";
 import { setParamEnteredValue } from "thunks/paramInfos";
-import { getSectionByName, getSectionType } from "thunks/sections/getters";
 import { setSelectedItem } from "thunks/sections/setters";
 
 export function varControlUpdate() {
