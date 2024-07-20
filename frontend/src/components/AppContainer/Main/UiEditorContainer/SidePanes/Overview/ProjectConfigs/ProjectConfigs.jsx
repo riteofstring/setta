@@ -1,4 +1,5 @@
 import React from "react";
+import { setProjectConfig } from "state/actions/projectConfig";
 import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
@@ -11,7 +12,7 @@ export const ProjectConfigs = React.forwardRef(() => {
   function onMouseOver(idx) {
     const config = useOtherProjectConfigs.getState().x[idx];
     if (config.name !== useProjectConfig.getState().name) {
-      useProjectConfig.getState().resetAndSetAll(config);
+      setProjectConfig(config);
       const projectName = useProject.getState().name;
       router.navigate(`${projectName}/${config.name}`, {
         state: { pageLoadType: SWITCHING_CONFIG },

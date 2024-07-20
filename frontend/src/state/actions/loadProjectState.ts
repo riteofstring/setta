@@ -3,7 +3,6 @@ import _ from "lodash";
 import { useRunGroups } from "state/definitions/runGroups";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
 import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
-import { useProjectConfig } from "../definitions/projectConfig";
 import { useProjectConfigCodeInfoMaps } from "../definitions/projectConfigCodeInfoMaps";
 import { useSectionInfos } from "../definitions/sectionInfos";
 import { useUITypeCols } from "../definitions/uiTypeCols";
@@ -16,6 +15,7 @@ import { setAllOutputGroups } from "./outputGroups";
 import { setAllOutputs } from "./outputs";
 import { setAllParamSweeps } from "./paramSweep";
 import { setProject } from "./project";
+import { setProjectConfig } from "./projectConfig";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -40,9 +40,7 @@ export function loadProjectState({
   if (project) {
     setProject(project);
   }
-  useProjectConfig
-    .getState()
-    .resetAndSetAll(_.omit(projectConfig, ["viewport", "children"]));
+  setProjectConfig(_.omit(projectConfig, ["viewport", "children"]));
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   setNodes(
     _.map(projectConfig.children, (v, k) => ({

@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { setProjectName } from "state/actions/project";
+import { setProjectConfigName } from "state/actions/projectConfig";
 import { loadProject } from "state/actions/projects";
-import { useProjectConfig } from "state/definitions/projectConfig";
 import {
   NEW_PROJECT,
   SAME_PROJECT_NEW_PROJECT_CONFIG,
@@ -41,7 +41,7 @@ export function useLoadProject() {
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_NAME) {
       setProjectName(projectName);
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
-      useProjectConfig.getState().setName(configName);
+      setProjectConfigName(configName);
     }
 
     setCurrProjectIsInteractive(projectName);

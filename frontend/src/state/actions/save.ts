@@ -8,7 +8,6 @@ import { useCodeInfo } from "state/definitions/codeInfo";
 import { useEVCols } from "state/definitions/evCols";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useParamSweep } from "state/definitions/paramSweep";
-import { useProjectConfig } from "state/definitions/projectConfig";
 import { useProjectConfigCodeInfoMaps } from "state/definitions/projectConfigCodeInfoMaps";
 import { useRunGroups } from "state/definitions/runGroups";
 import { useSectionInfos } from "state/definitions/sectionInfos";
@@ -24,11 +23,12 @@ import { isPreset } from "z_utils/uiTypeConstants";
 import { getNodes } from "./nodeInternals";
 import { setNotificationMessage } from "./notification";
 import { getProjectMetadata } from "./project";
+import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData(): ProjectSaveType {
   const project = getProjectMetadata();
   project.previewImgNodes = getPreviewImgNodes();
-  const projectConfig = useProjectConfig.getState().getAll();
+  const projectConfig = getProjectConfigMetadata();
   projectConfig.viewport = getViewport();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {

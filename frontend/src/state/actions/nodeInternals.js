@@ -167,9 +167,7 @@ export function raiseTempZIndex(nodes) {
 }
 
 export function unselectNodesAndEdges({ nodes }) {
-  const nodesToUnselect = nodes
-    ? nodes
-    : useNodeInternals.getState().getNodes();
+  const nodesToUnselect = nodes ? nodes : getNodes();
 
   const changedNodes = nodesToUnselect.map((n) => {
     n.selected = false;
@@ -182,7 +180,7 @@ export function unselectNodesAndEdges({ nodes }) {
 }
 
 export function resetSelectedElements() {
-  const nodes = useNodeInternals.getState().getNodes();
+  const nodes = getNodes();
 
   const nodesToUnselect = nodes
     .filter((e) => e.selected)
