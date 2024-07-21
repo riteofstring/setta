@@ -12,7 +12,8 @@ import { varControlUpdate } from "./varControl";
 
 export function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
-  return useEVCols.getState().x[evColId].values[paramInfoId];
+  const dbSource = getMappedSectionDBSource(sectionId);
+  return useEVCols.getState().x[dbSource][evColId].values[paramInfoId];
 }
 
 function getParamUITypeId(sectionId, paramInfoId) {
