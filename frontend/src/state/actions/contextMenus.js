@@ -1,4 +1,4 @@
-import { useContextMenus } from "state/definitions/contextMenus";
+import { useContextMenus } from "state/definitions";
 import { NO_CONTEXT_MENU } from "utils/constants";
 
 function openContextMenu(e, name, props) {

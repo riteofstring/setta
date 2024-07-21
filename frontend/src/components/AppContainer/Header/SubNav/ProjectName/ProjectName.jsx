@@ -1,5 +1,5 @@
 import { dbSetProjectConfigName, dbSetProjectName } from "requests/projectName";
-import { constInfoViews } from "state/definitions/infoView";
+import { constInfoViews } from "utils/constants";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
 import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";

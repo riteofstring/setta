@@ -4,7 +4,7 @@ import { clearActiveSectionIds } from "state/actions/activeSection";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { createDeck } from "state/actions/createSectionOrDeck";
 import { deleteSections } from "state/actions/sectionOps";
-import { useContextMenus } from "state/definitions/contextMenus";
+import { useContextMenus } from "state/definitions";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 

@@ -1,4 +1,4 @@
-import { useEVCols } from "state/definitions/evCols";
+import { useEVCols } from "state/definitions";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import {
