@@ -67,13 +67,13 @@ export function getSectionByName(name) {
   return _.find(useSectionInfos.getState().x, (x) => x.name === name);
 }
 
-export function getSectionDBSource(sectionId) {
-  const { dbSource } = getSectionInfo(sectionId);
-  return dbSource ? dbSource : C.DEFAULT_DB_ALIAS;
+export function getSectionDBSource(sectionId, state=null) {
+  const s = state ?? useSectionInfos.getState()
+  return s.x[sectionId].dbSource || C.DEFAULT_DB_ALIAS
 }
 
-export function getMappedSectionDBSource(sectionId) {
-  return DB_SOURCE_MAPPING[getSectionDBSource(sectionId)];
+export function getMappedSectionDBSource(sectionId, state=null) {
+  return DB_SOURCE_MAPPING[getSectionDBSource(sectionId, state)];
 }
 
 export function hasParentInFlattenedStructure(sectionId) {

@@ -1,8 +1,10 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
-import { DB_SOURCE_MAPPING } from "utils/constants";
+import {
+  getMappedSectionDBSource,
+  getSectionDBSource,
+} from "state/getters/sectionInfo";
 
 export function useGetSectionInfo(sectionId, key) {
   const equalityFn = [
@@ -25,13 +27,11 @@ export function useSectionHasMultipleEVCols(sectionId) {
 }
 
 export function useSectionDBSource(sectionId) {
-  return useSectionInfos((x) => x.x[sectionId].dbSource || C.DEFAULT_DB_ALIAS);
+  return useSectionInfos((x) => getSectionDBSource(sectionId, x));
 }
 
 export function useMappedSectionDBSource(sectionId) {
-  return useSectionInfos(
-    (x) => DB_SOURCE_MAPPING[x.x[sectionId].dbSource || C.DEFAULT_DB_ALIAS],
-  );
+  return useSectionInfos((x) => getMappedSectionDBSource(sectionId, x));
 }
 
 export function useSectionDBSourceIsAvailable(sectionId) {
