@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useNodeInternals } from "state/definitions";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getDepthListing } from "utils/childrenToDepth";
 import { useSectionInfoNames } from "./useGetSectionInfo";

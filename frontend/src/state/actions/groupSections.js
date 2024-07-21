@@ -1,4 +1,4 @@
-import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useNodeInternals } from "state/definitions";
 import { createDeck } from "./createSectionOrDeck";
 
 export function groupSections() {

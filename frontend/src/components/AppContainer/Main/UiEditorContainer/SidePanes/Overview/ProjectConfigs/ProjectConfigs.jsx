@@ -1,6 +1,6 @@
 import React from "react";
 import { setProjectConfig } from "state/actions/projectConfig";
-import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
+import { useOtherProjectConfigs } from "state/definitions";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
 import { SWITCHING_CONFIG } from "utils/Routes/pageLoadTypes";

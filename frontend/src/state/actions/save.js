@@ -7,7 +7,7 @@ import {
 } from "requests/projects";
 import { useCodeInfo } from "state/definitions";
 import { useEVCols } from "state/definitions";
-import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useNodeInternals } from "state/definitions";
 import { useParamSweep } from "state/definitions/paramSweep";
 import { useRunGroups } from "state/definitions/runGroups";
 import { useSectionInfos } from "state/definitions/sectionInfos";

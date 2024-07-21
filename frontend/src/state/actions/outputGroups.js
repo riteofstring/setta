@@ -1,4 +1,4 @@
-import { useOutputGroups } from "state/definitions/outputGroups";
+import { useOutputGroups } from "state/definitions";
 
 export function setAllOutputGroups(payload) {
   useOutputGroups.setState({ x: payload });

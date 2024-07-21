@@ -1,4 +1,4 @@
-import { useNotification } from "state/definitions/notification";
+import { useNotification } from "state/definitions";
 
 export function setNotificationMessage(payload) {
   useNotification.setState((state) => {

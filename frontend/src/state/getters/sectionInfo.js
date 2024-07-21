@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useNodeInternals } from "state/definitions";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypes } from "state/definitions/uiTypes";
 import { DB_SOURCE_MAPPING } from "utils/constants";
