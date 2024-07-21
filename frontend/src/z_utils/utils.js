@@ -9,7 +9,7 @@ export function createNewId() {
   return uuidv4();
 }
 
-export function maybeNewId(x?: string) {
+export function maybeNewId(x) {
   return x ? x : createNewId();
 }
 

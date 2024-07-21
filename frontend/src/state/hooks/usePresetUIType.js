@@ -3,8 +3,12 @@ import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/cloneUITypes";
 import { useUITypes } from "state/definitions/uiTypes";
 import { isSectionUIType, uiTypesToPretty } from "z_utils/constants";
-import { ManyUITypeType, PresetType, UITypeType } from "z_utils/types/uiType";
-import { isBasePreset, isPreset, isUserPreset } from "z_utils/uiTypeConstants";
+import {
+  isBasePreset,
+  isPreset,
+  isUserPreset,
+  PresetType,
+} from "z_utils/uiTypeConstants";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionType } from "./useSectionType";
@@ -18,12 +22,12 @@ function createName(uiType) {
 }
 
 function filterUITypes(
-  uiTypes: ManyUITypeType,
+  uiTypes,
   generalFilterFn,
-  nonPresetFilterFn: (x: UITypeType) => boolean,
+  nonPresetFilterFn,
   selectedId,
 ) {
-  const output: UITypeType[] = [];
+  const output = [];
 
   const nonPresets = _.filter(uiTypes, nonPresetFilterFn);
 
@@ -56,14 +60,11 @@ function filterUITypes(
   }));
 }
 
-export function useAvailableUITypesForSection(
-  sectionId: string,
-  selectedId: string,
-) {
+export function useAvailableUITypesForSection(sectionId, selectedId) {
   const nonPresetUITypeIds = useGetSectionInfo(sectionId, "nonPresetUITypeIds");
   const currTypeName = useGetSectionType(sectionId, "type");
   const generalFilterFn = getSectionFilterFn(currTypeName);
-  const nonPresetFilterFn = (uiType: UITypeType) =>
+  const nonPresetFilterFn = (uiType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
   return useUITypes(
@@ -73,14 +74,14 @@ export function useAvailableUITypesForSection(
 }
 
 export function useAvailableUITypesForParam(
-  sectionId: string,
-  paramInfoId: string,
-  selectedId: string,
+  sectionId,
+  paramInfoId,
+  selectedId,
 ) {
   const nonPresetUITypeIds = useParamNonPresetUITypeIds(sectionId, paramInfoId);
 
   const generalFilterFn = (x) => !isSectionUIType(x);
-  const nonPresetFilterFn = (uiType: UITypeType) =>
+  const nonPresetFilterFn = (uiType) =>
     isAmongNonPresets(uiType, nonPresetUITypeIds);
 
   return useUITypes(

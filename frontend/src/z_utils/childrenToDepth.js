@@ -1,20 +1,12 @@
-import { ManyOf } from "./types/utils";
-
-type DepthType = {
-  id: string;
-  name: string;
-  depth: number;
-};
-
 export const getDepthListing = (
-  topLevelIds: string[],
-  children: { [id: string]: string[] },
-  idNames: ManyOf<string>,
-  sectionTypeNames: ManyOf<string>,
-  sectionTypeFilter: any,
+  topLevelIds,
+  children,
+  idNames,
+  sectionTypeNames,
+  sectionTypeFilter,
   startingDepth = 0,
 ) => {
-  const outputList: DepthType[] = [];
+  const outputList = [];
   for (const sectionId of topLevelIds) {
     outputList.push(
       ...getDepthListingHelper(
@@ -31,12 +23,12 @@ export const getDepthListing = (
 };
 
 const getDepthListingHelper = (
-  sectionId: string,
-  children: { [id: string]: string[] },
-  idNames: ManyOf<string>,
-  sectionTypeNames: ManyOf<string>,
-  sectionTypeFilter: any,
-  depth: number,
+  sectionId,
+  children,
+  idNames,
+  sectionTypeNames,
+  sectionTypeFilter,
+  depth,
 ) => {
   const outputList =
     !sectionTypeFilter || sectionTypeFilter(sectionTypeNames[sectionId])

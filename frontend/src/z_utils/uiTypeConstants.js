@@ -1,4 +1,7 @@
-import { PresetType } from "./types/uiType";
+export const PresetType = {
+  BASE: "BASE",
+  USER: "USER",
+};
 
 export function isBasePreset(uiType) {
   return uiType.presetType === PresetType.BASE;

@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { SectionUITypeType, UITypeType } from "./types/uiType";
 
 export function isRoot(sectionTypeName) {
   return [C.LIST_ROOT, C.DICT_ROOT, C.DECK].includes(sectionTypeName);
@@ -19,9 +18,7 @@ export const rootTypeToChildSubType = {
   [C.DECK]: null,
 };
 
-export function isSectionUIType(
-  uiType: UITypeType,
-): uiType is SectionUITypeType {
+export function isSectionUIType(uiType) {
   return !C.NON_SECTION_TYPES.includes(uiType.type);
 }
 
