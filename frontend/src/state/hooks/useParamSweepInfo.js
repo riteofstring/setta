@@ -32,7 +32,7 @@ export function useSectionHasMultipleParamSweeps(sectionId) {
   );
 }
 
-export function useGetParamSweepNames(sectionId: string) {
+export function useGetParamSweepNames(sectionId) {
   const paramSweepIds = useSectionInfos((x) => x.x[sectionId].paramSweepIds);
   return useParamSweep(
     (x) => paramSweepIds.map((e) => ({ id: e, name: x.x[e].name })),
@@ -40,7 +40,7 @@ export function useGetParamSweepNames(sectionId: string) {
   );
 }
 
-export function useCurrParamSweepId(sectionId: string) {
+export function useCurrParamSweepId(sectionId) {
   const forSectionId = useForSectionId(sectionId);
   return useGetSectionInfo(forSectionId, "paramSweepId");
 }

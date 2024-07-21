@@ -5,10 +5,7 @@ import {
   useMappedSectionDBSource,
 } from "./useGetSectionInfo";
 
-export function useGetParamEnteredValue(
-  sectionId: string,
-  paramInfoId: string,
-) {
+export function useGetParamEnteredValue(sectionId, paramInfoId) {
   const dbSource = useMappedSectionDBSource(sectionId);
   const evColId = useGetSectionInfo(sectionId, "evColId");
   const previewEVColId = useGetSectionInfo(sectionId, "previewEVColId");
@@ -25,7 +22,7 @@ export function useGetParamEnteredValue(
   });
 }
 
-export function useGetEVColNames(sectionId: string) {
+export function useGetEVColNames(sectionId) {
   const dbSource = useMappedSectionDBSource(sectionId);
   const evColIds = useGetSectionInfo(sectionId, "evColIds");
   return useEVCols((x) => {

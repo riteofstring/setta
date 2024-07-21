@@ -1,30 +1,22 @@
 import _ from "lodash";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
-import { UITypeColType } from "z_utils/types/uiTypeCol";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 
-export function useGetParamUIType(sectionId: string, paramInfoId: string) {
+export function useGetParamUIType(sectionId, paramInfoId) {
   const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
   return useUITypes((x) => x.x[uiTypeId], _.isEqual);
 }
 
-function useUITypeCol<K extends keyof UITypeColType["codeInfoId"]>(
-  sectionId: string,
-  paramInfoId: string,
-  key: K,
-) {
+function useUITypeCol(sectionId, paramInfoId, key) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
   return useUITypeCols((x) => x.y[uiTypeColId][paramInfoId][key]);
 }
 
-function useParamUITypeId(sectionId: string, paramInfoId: string) {
+function useParamUITypeId(sectionId, paramInfoId) {
   return useUITypeCol(sectionId, paramInfoId, "uiTypeId");
 }
 
-export function useParamNonPresetUITypeIds(
-  sectionId: string,
-  paramInfoId: string,
-) {
+export function useParamNonPresetUITypeIds(sectionId, paramInfoId) {
   return useUITypeCol(sectionId, paramInfoId, "nonPresetUITypeIds");
 }

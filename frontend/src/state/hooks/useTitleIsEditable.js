@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { requiresKeyInput } from "z_utils/constants";
 import { useGetSectionTypeConfig, useIsOneOfType } from "./useSectionType";
 
-export function useTitleIsEditable(sectionId: string) {
+export function useTitleIsEditable(sectionId) {
   const sectionSubType = useGetSectionTypeConfig(sectionId, "subType");
   const isUneditableType = useIsOneOfType(sectionId, [
     C.OUTPUT,

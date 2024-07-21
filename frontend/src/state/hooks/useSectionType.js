@@ -3,41 +3,26 @@ import _ from "lodash";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypes } from "state/definitions/uiTypes";
 import { isRoot, isSeriesElement } from "z_utils/constants";
-import {
-  SectionUITypeConfigType,
-  SectionUITypeType,
-} from "z_utils/types/uiType";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 
-export function useGetSectionTypeConfig<
-  K extends keyof SectionUITypeConfigType,
->(sectionId: string, key: K) {
+export function useGetSectionTypeConfig(sectionId, key) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes(
-    (x) => (x.x[uiTypeId]["config"] as SectionUITypeConfigType)[key],
-  );
+  return useUITypes((x) => x.x[uiTypeId]["config"]);
 }
 
-export function useGetSectionType<K extends keyof SectionUITypeType>(
-  sectionId: string,
-  key: K,
-) {
+export function useGetSectionType(sectionId, key) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  const nonScalars: (keyof SectionUITypeType)[] = ["config"];
+  const nonScalars = ["config"];
   const equalityFn = nonScalars.includes(key) ? _.isEqual : undefined;
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
 }
 
-export function useIsSeriesElement(sectionId: string) {
+export function useIsSeriesElement(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) =>
-    isSeriesElement(
-      (x.x[uiTypeId]["config"] as SectionUITypeConfigType).subType,
-    ),
-  );
+  return useUITypes((x) => isSeriesElement(x.x[uiTypeId]["config"].subType));
 }
 
-export function useSectionTypeName(sectionId: string) {
+export function useSectionTypeName(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) => x.x[uiTypeId].type);
 }
@@ -62,16 +47,16 @@ export function useIsOneOfType(sectionId, types) {
   return useUITypes((x) => types.includes(x.x[uiTypeId].type));
 }
 
-export function useIsRoot(sectionId: string) {
+export function useIsRoot(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   return useUITypes((x) => isRoot(x.x[uiTypeId].type));
 }
 
-export function useIsDeck(sectionId: string) {
+export function useIsDeck(sectionId) {
   return useIsType(sectionId, C.DECK);
 }
 
-export function useIsOutput(sectionId: string) {
+export function useIsOutput(sectionId) {
   return useIsType(sectionId, C.OUTPUT);
 }
 
@@ -79,11 +64,11 @@ export function useIsOutput(sectionId: string) {
 //   return useIsType(sectionId, INFO);
 // }
 
-export function useIsSocial(sectionId: string) {
+export function useIsSocial(sectionId) {
   return useIsType(sectionId, C.SOCIAL);
 }
 
-export function useIsGlobalVariables(sectionId: string) {
+export function useIsGlobalVariables(sectionId) {
   return useIsType(sectionId, C.GLOBAL_VARIABLES);
 }
 
@@ -95,6 +80,6 @@ export function useIsGlobalVariables(sectionId: string) {
 //   return useIsType(sectionId, VAR_CONTROL);
 // }
 
-export function useIsTerminal(sectionId: string) {
+export function useIsTerminal(sectionId) {
   return useIsType(sectionId, C.TERMINAL);
 }

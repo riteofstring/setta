@@ -5,7 +5,7 @@ import { useDndMode, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { useTempHasNested } from "../../state/hooks/useSectionChildren";
 
-export function useHighlightDroppable(sectionId: string) {
+export function useHighlightDroppable(sectionId) {
   const overIsSelf = useOverIsSelf(sectionId);
   const behaviorDropType = useDndState((x) =>
     overIsSelf ? x.behaviorDropType : null,
@@ -28,7 +28,7 @@ export function useHighlightDroppable(sectionId: string) {
   };
 }
 
-export function useDisableSortable(sectionId: string) {
+export function useDisableSortable(sectionId) {
   const { isSorting, isMovingFree } = useDndMode();
   const disabled = useDndState((x) => x.disabled[sectionId]);
   const setDisabled = useDndState((x) => x.setDisabled);

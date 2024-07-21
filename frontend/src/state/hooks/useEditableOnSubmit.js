@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function useEditableOnSubmit<T>(
-  initialValue: T,
-  onSetTitle: (x: T) => void,
-  condition: (x: T) => boolean = () => true,
-) {
+export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   const [inputValue, setInputValue] = useState(initialValue);
 
   function onBlur(v) {

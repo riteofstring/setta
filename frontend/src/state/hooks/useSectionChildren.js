@@ -1,10 +1,10 @@
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 
-export function useHasNested(sectionId: string) {
+export function useHasNested(sectionId) {
   return useSectionInfos((x) => x.x[sectionId].children?.length > 0);
 }
 
-export function useTempHasNested(sectionId: string) {
+export function useTempHasNested(sectionId) {
   return useDndChildren((x) => x.x[sectionId]?.length > 0);
 }

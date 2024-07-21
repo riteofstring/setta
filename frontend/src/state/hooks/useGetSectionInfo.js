@@ -3,12 +3,8 @@ import _ from "lodash";
 import { useEVCols } from "state/definitions/evCols";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { DB_SOURCE_MAPPING } from "utils/constants";
-import { SectionType } from "z_utils/types/section";
 
-export function useGetSectionInfo<K extends keyof SectionType>(
-  sectionId: string,
-  key: K,
-) {
+export function useGetSectionInfo(sectionId, key) {
   const equalityFn = [
     "children",
     "size",

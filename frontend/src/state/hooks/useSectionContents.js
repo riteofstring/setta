@@ -6,27 +6,27 @@ import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useOutputValues } from "./useOutputNames";
 import { useGetSectionTypeConfig } from "./useSectionType";
 
-export function useGetAllCallables(sectionId: string) {
+export function useGetAllCallables(sectionId) {
   return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);
 }
 
-export function useGetParamInfos(sectionId: string) {
+export function useGetParamInfos(sectionId) {
   return useSectionToParams((x) => x.params[sectionId] ?? [], _.isEqual);
 }
 
-export function useGetParamInfosThatHaveNames(sectionId: string) {
+export function useGetParamInfosThatHaveNames(sectionId) {
   return useSectionToParams(
     (x) => x.params[sectionId]?.filter((x) => x.name) ?? [],
     _.isEqual,
   );
 }
 
-function useGetSelectedCollections(sectionId: string) {
+function useGetSelectedCollections(sectionId) {
   const codeInfoId = useGetSectionTypeConfig(sectionId, "codeInfoId");
   return useCodeInfo((x) => _.pick(x.x, x.x[codeInfoId].children), _.isEqual);
 }
 
-export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
+export function useGetSelectedCollectionsForSectionConfig(sectionId) {
   const collections = useGetSelectedCollections(sectionId);
   return useCodeInfo(
     (x) => assembleCollectionsForSectionConfig(x.x, collections),
@@ -34,7 +34,7 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId: string) {
   );
 }
 
-export function useGetSelectedOutputValues(sectionId: string) {
+export function useGetSelectedOutputValues(sectionId) {
   const groupId = useGetSectionInfo(sectionId, "outputGroup");
   return useOutputValues(groupId);
 }
