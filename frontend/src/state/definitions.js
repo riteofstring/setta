@@ -165,6 +165,13 @@ export const useSectionParamFilter = createProjectState(
   })),
 );
 
+export const useSectionRefs = createProjectState(
+  immer(() => ({
+    withNested: {},
+    selfOnly: {},
+  })),
+);
+
 export const useSectionToParams = createProjectState(
   temporal(
     immer(() => ({
