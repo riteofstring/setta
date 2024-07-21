@@ -1,13 +1,7 @@
 import { matchSorter } from "match-sorter";
-import { useCodeInfo } from "./codeInfo";
-import { useSectionInfos } from "./sectionInfos";
-import { createProjectState } from "./utils";
-
-const initialState = { sections: [], codeInfo: [] };
-
-export const useProjectSearch = createProjectState((set) => ({
-  ...initialState,
-}));
+import { useCodeInfo } from "state/definitions/codeInfo";
+import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useProjectSearch } from "state/definitions/projectSearch";
 
 export function updateSearch(value) {
   if (!value) {
