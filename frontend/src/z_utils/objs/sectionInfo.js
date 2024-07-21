@@ -1,8 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { SectionType } from "../types/section";
-import { SizeType } from "../types/size";
 import { createVarName, maybeNewId } from "../utils";
 
 export function newSectionInfo({
@@ -32,9 +30,7 @@ export function newSectionInfo({
   isFrozen = false,
   dbSource = "",
   isHorizontalOrientation = false,
-}: Partial<SectionType> & {
-  size: SizeType;
-}): SectionType {
+}) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _evColId = maybeNewId(evColId);
   const _evColIds = [...evColIds, _evColId];

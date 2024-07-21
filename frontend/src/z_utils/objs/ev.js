@@ -1,15 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { EVType } from "z_utils/types/evCol";
-import { UITypeType } from "z_utils/types/uiType";
 
-export function getValueForUIType({
-  uiType,
-  currValue,
-}: {
-  uiType: UITypeType;
-  currValue?: string;
-}) {
+export function getValueForUIType({ uiType, currValue }) {
   switch (uiType.type) {
     case C.TEXT:
       return "";
@@ -23,7 +15,7 @@ export function getValueForUIType({
 }
 
 // Entered Value
-export function newEV(uiType: UITypeType): EVType {
+export function newEV(uiType) {
   return getValueForUIType({ uiType });
 }
 
