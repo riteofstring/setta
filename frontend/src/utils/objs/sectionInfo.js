@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createVarName, maybeNewId } from "../idNameCreation";
 

@@ -1,7 +1,7 @@
 import { goToSection } from "state/actions/goToSection";
 import { initParamSweep } from "state/actions/paramSweep";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { getSectionName } from "state/getters/sectionInfo";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { BASE_UI_TYPE_IDS } from "utils/constants";

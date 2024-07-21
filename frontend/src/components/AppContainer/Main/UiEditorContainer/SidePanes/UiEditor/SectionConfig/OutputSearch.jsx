@@ -1,7 +1,7 @@
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { setSectionName, setSectionSize } from "state/actions/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { useAllOutputNames } from "state/hooks/useOutputNames";
 import { INITIAL_CHART_SIZE } from "utils/constants";

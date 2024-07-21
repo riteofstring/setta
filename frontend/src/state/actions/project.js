@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useProject } from "state/definitions/project";
+import { useProject } from "state/definitions";
 
 export function setProject(payload) {
   useProject.setState(payload);

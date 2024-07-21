@@ -8,7 +8,7 @@ import {
 } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { useCodeInfo } from "state/definitions";
-import { useSectionInfos } from "../definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 
 export function updateKeywordRegex(idsToNames = null) {
   let x = idsToNames;

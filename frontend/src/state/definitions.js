@@ -1,5 +1,6 @@
 import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
+import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import {
   create,
@@ -94,4 +95,60 @@ export const useOutputGroups = createProjectState(
   immer(() => ({
     x: {},
   })),
+);
+
+export const useOutputs = createProjectState(
+  immer(() => ({
+    x: {},
+  })),
+);
+
+export const useParamSweep = createProjectState(
+  temporal(
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
+  ),
+);
+
+export const useProject = createProjectState(() => ({
+  id: "",
+  name: "",
+  defaultConfigId: null,
+}));
+
+export const useProjectConfig = createProjectState(
+  temporal(
+    immer(() => ({
+      id: "",
+      name: "",
+      version: 0,
+    })),
+  ),
+);
+
+export const useProjectSearch = createProjectState(() => ({
+  sections: [],
+  codeInfo: [],
+}));
+
+export const useRunGroups = createProjectState(
+  temporal(
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
+  ),
+);
+
+export const useSectionInfos = createProjectState(
+  temporal(
+    subscribeWithSelector(
+      immer(() => ({
+        x: {},
+        version: 0,
+      })),
+    ),
+  ),
 );

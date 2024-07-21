@@ -7,7 +7,7 @@ import {
 } from "state/actions/keywordRegex";
 import { useUITypes } from "state/definitions/uiTypes";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { useSectionInfos } from "../definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 
 function getSingletonSubscriptionFn(type) {
   return (state) => {

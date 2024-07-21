@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { getDepthListing } from "utils/childrenToDepth";
 import { useSectionInfoNames } from "./useGetSectionInfo";
 import { useMatchSorterFilter } from "./useMatchSorterFilter";

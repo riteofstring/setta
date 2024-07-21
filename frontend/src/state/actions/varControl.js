@@ -4,7 +4,7 @@ import { setParamEnteredValue } from "state/actions/paramInfos";
 import { setSelectedItem } from "state/actions/setters";
 import { useCodeInfo } from "state/definitions";
 import { useEVCols } from "state/definitions";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { useSectionToParams } from "state/definitions/sectionToParams";
 import { getSectionByName, getSectionType } from "state/getters/sectionInfo";
 

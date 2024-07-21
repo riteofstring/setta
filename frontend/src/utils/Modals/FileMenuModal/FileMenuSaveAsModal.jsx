@@ -4,8 +4,8 @@ import {
   saveAsNewProjectConfig,
   saveProject,
 } from "state/actions/save";
-import { useProject } from "state/definitions/project";
-import { useProjectConfig } from "state/definitions/projectConfig";
+import { useProject } from "state/definitions";
+import { useProjectConfig } from "state/definitions";
 import { useGetProjectsForFileMenu } from "state/hooks/useGetOrCreateProjects";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { SAME_PROJECT_NEW_PROJECT_CONFIG } from "utils/Routes/pageLoadTypes";

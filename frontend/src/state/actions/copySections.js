@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useCodeInfo } from "state/definitions";
 import { useEVCols } from "state/definitions";
 import { useNodeInternals } from "state/definitions";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { findAll } from "utils/getDescendants";

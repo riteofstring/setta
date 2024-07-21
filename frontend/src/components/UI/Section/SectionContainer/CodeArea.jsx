@@ -4,7 +4,7 @@ import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import React from "react";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 

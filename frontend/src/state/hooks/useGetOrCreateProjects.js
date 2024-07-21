@@ -6,7 +6,7 @@ import {
   dbLoadFullProject,
 } from "requests/projects";
 import { getProjectData } from "state/actions/save";
-import { useProject } from "state/definitions/project";
+import { useProject } from "state/definitions";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
