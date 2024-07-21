@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useCodeInfo } from "state/definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 import { useEVCols } from "state/definitions/evCols";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";

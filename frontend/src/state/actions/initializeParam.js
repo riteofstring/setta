@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCodeInfo } from "state/definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 import { useEVCols } from "state/definitions/evCols";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";

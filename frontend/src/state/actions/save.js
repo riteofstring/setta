@@ -5,7 +5,7 @@ import {
   dbSaveAsNewProjectConfig,
   dbSaveProject,
 } from "requests/projects";
-import { useCodeInfo } from "state/definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 import { useEVCols } from "state/definitions/evCols";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useParamSweep } from "state/definitions/paramSweep";

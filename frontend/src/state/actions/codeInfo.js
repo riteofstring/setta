@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCodeInfo } from "state/definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 
 export function setAllCodeInfo(x) {
   useCodeInfo.setState({ x });

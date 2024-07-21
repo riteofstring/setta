@@ -7,7 +7,7 @@ import {
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { useCodeInfo } from "../definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 import { useSectionInfos } from "../definitions/sectionInfos";
 
 export function updateKeywordRegex(idsToNames = null) {

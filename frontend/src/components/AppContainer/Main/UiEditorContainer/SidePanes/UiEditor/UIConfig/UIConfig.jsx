@@ -5,7 +5,7 @@ import { setCodeInfoDescription } from "state/actions/codeInfo";
 import { updateParams } from "state/actions/sectionContents";
 import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/setParamUITypeId";
-import { useCodeInfo } from "state/definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "state/hooks/useParamUIType";
 import { useGetParamInfosThatHaveNames } from "state/hooks/useSectionContents";

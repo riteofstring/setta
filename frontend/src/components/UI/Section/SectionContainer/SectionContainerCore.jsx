@@ -8,7 +8,7 @@ import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import { getParamInfos } from "state/actions/sectionContents";
 import { setZIndices } from "state/actions/sectionPositions";
 import { getHighestAncestor } from "state/actions/sectionSizes";
-import { useActiveSection } from "state/definitions/activeSection";
+import { useActiveSection } from "state/definitions";
 import { useSectionRefAndInit } from "state/definitions/sectionRefs";
 import {
   useGetSectionInfo,

@@ -1,5 +1,5 @@
 import { matchSorter } from "match-sorter";
-import { useCodeInfo } from "state/definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 import { useProjectSearch } from "state/definitions/projectSearch";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 
