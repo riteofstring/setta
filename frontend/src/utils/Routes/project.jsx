@@ -1,6 +1,5 @@
 import { HeaderContainer } from "components/AppContainer/Header/Header";
 import { MainContainer } from "components/AppContainer/Main/MainContainer";
-import { RouteObject } from "react-router-dom";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { ModalContainer } from "utils/Modals/ModalContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
@@ -18,7 +17,7 @@ function ProjectWrapper() {
   );
 }
 
-export const projectRoute: RouteObject = {
+export const projectRoute = {
   path: PATH,
   element: (
     <GlobalWrapper>

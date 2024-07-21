@@ -1,10 +1,6 @@
 import _ from "lodash";
-import { ManyCodeInfoType } from "z_utils/types/codeInfo";
 
-export function assembleCollectionsForSectionConfig(
-  allCodeInfo: ManyCodeInfoType,
-  collections,
-) {
+export function assembleCollectionsForSectionConfig(allCodeInfo, collections) {
   // keep only necessary keys
   const results = _.mapValues(collections, (x) =>
     _.pick(x, ["id", "name", "description", "path", "children"]),

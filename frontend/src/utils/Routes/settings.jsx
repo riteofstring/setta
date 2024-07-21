@@ -1,27 +1,25 @@
 import { HeaderContainer } from "components/AppContainer/Header/Header";
-import { HomePage } from "components/HomePage/HomePage";
-import { RouteObject } from "react-router-dom";
+import { Settings } from "components/Settings/Settings";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
 
-const PATH = "/";
+const PATH = "settings";
 
-function IndexWrapper() {
+function SettingsWrapper() {
   return (
     <>
       <HeaderContainer path={PATH} />
       <GridContainer>
-        <HomePage />
+        <Settings />
       </GridContainer>
     </>
   );
 }
-
-export const indexRoute: RouteObject = {
+export const settingsRoute = {
   path: PATH,
   element: (
     <GlobalWrapper>
-      <IndexWrapper />
+      <SettingsWrapper />
     </GlobalWrapper>
   ),
 };
