@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useCallback, useState } from "react";
+import { setHomePageSearch } from "state/actions/homePageSearch";
 import { constInfoViews } from "state/definitions/infoView";
 import { useHomePageSearch } from "state/definitions/useHomePageSearch";
 import { updateSearch } from "state/definitions/useProjectSearch";
@@ -67,9 +68,12 @@ function ProjectPageSearch() {
 
 function HomePageSearch() {
   const value = useHomePageSearch((x) => x.value);
-  const setValue = useHomePageSearch((x) => x.setValue);
   return (
-    <Search placeholder="Filter Projects" value={value} onChange={setValue} />
+    <Search
+      placeholder="Filter Projects"
+      value={value}
+      onChange={setHomePageSearch}
+    />
   );
 }
 
