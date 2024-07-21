@@ -6,7 +6,7 @@ import {
 } from "state/actions/keywordRegex";
 import { useUITypes } from "state/definitions/uiTypes";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { useDndChildren } from "utils/DNDSortable/dndChildren";
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useSectionInfos } from "../definitions/sectionInfos";
 
 function getSingletonSubscriptionFn(type) {

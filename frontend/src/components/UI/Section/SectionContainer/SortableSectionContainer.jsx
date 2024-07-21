@@ -1,9 +1,9 @@
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { useSortable } from "utils/DNDSortable/CustomSortable";
-import { isTempSection, useDndState } from "utils/DNDSortable/dndState";
-import { DummySection } from "utils/DNDSortable/DummySection";
-import { useDndProps, useOverIsSelf } from "utils/DNDSortable/useDndUtils";
+import { useSortable } from "forks/dnd-kit/CustomSortable";
+import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
+import { DummySection } from "forks/dnd-kit/DummySection";
+import { useDndProps, useOverIsSelf } from "forks/dnd-kit/useDndUtils";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { SectionContainer } from "./SectionContainer";
 

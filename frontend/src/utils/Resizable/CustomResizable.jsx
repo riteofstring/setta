@@ -13,7 +13,7 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "state/hooks/useSocialUtils";
-import { useDndMode } from "utils/DNDSortable/dndState";
+import { useDndMode } from "forks/dnd-kit/dndState";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 
