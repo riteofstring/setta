@@ -15,7 +15,7 @@ import {
 } from "utils/CodeMirror/utils";
 import { createNewId } from "utils/idNameCreation";
 import { getMappedSectionDBSource } from "../getters/sectionInfo";
-import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
+import { addSectionInEmptySpace } from "./addSection";
 import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {

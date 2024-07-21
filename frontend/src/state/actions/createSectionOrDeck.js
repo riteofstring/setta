@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { addSectionAtPosition } from "state/actions/addSectionAtPosition";
+import { addSectionAtPosition } from "state/actions/addSection";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import {
