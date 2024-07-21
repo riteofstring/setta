@@ -3,7 +3,7 @@ import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionParentId } from "../getters/sectionInfo";

@@ -3,7 +3,7 @@ import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { Link } from "react-router-dom";
 import { setModalOpen, setModalType } from "state/actions/modal";
 import { saveProject } from "state/actions/save";
-import { createAndGoToProject } from "state/hooks/useGetOrCreateProjects";
+import { createAndGoToProject } from "state/hooks/project";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 

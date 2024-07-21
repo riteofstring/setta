@@ -4,7 +4,7 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
-import { localStorageFns } from "state/hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorage";
 import {
   getInfoViewHandlers,
   useCurrInfoView,

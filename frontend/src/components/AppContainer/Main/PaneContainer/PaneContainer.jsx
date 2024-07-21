@@ -1,8 +1,8 @@
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
-import { useWindowSize } from "state/hooks/elementSize";
-import { localStorageFns } from "state/hooks/localStorageHooks";
+import { useWindowSize } from "state/hooks/utils";
+import { localStorageFns } from "state/hooks/localStorage";
 import { Button } from "utils/atoms/buttons/Button";
 import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";

@@ -11,7 +11,7 @@ import { useHomePageSearch } from "state/definitions";
 import {
   createAndGoToProject,
   useGetProjectsForHomePage,
-} from "state/hooks/useGetOrCreateProjects";
+} from "state/hooks/project";
 import { Badge } from "utils/atoms/badges/badge";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";

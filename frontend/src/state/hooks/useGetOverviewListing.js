@@ -2,7 +2,7 @@ import _ from "lodash";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { getDepthListing } from "utils/childrenToDepth";
 import { useSectionInfoNames } from "./useGetSectionInfo";
-import { useMatchSorterFilter } from "./useMatchSorterFilter";
+import { useMatchSorterFilter } from "./utils";
 import { useSectionTypeNames } from "./useSectionType";
 
 export function useGetOverviewListing(sectionTypeFilter = null) {
