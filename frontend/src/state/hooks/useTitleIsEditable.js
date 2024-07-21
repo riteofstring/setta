@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { requiresKeyInput } from "z_utils/constants";
+import { requiresKeyInput } from "utils/sectionTypeHelpers";
 import { useGetSectionTypeConfig, useIsOneOfType } from "./useSectionType";
 
 export function useTitleIsEditable(sectionId) {

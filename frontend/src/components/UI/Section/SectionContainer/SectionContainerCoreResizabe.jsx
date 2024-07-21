@@ -4,7 +4,7 @@ import { useSectionHasMultipleEVCols } from "state/hooks/useGetSectionInfo";
 import { useSectionHasMultipleParamSweeps } from "state/hooks/useParamSweepInfo";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
-import { isRoot } from "z_utils/constants";
+import { isRoot } from "utils/sectionTypeHelpers";
 import { CodeArea } from "./CodeArea";
 import "./dndline.css";
 import { GlobalParamSweepArea } from "./GlobalParamSweepArea";

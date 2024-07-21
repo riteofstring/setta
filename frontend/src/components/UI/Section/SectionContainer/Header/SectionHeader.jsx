@@ -5,7 +5,7 @@ import { deleteSections } from "state/actions/sectionOps";
 import { useSectionTypeName } from "state/hooks/useSectionType";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
-import { isRoot } from "z_utils/constants";
+import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";

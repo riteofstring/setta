@@ -7,7 +7,7 @@ import { varControlUpdate } from "state/actions/varControl";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { isUUID } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { getParamSweepSectionName } from "z_utils/constants";
+import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
 import { addCodeInfo } from "./codeInfo";
 import { updateKeywordRegex } from "./keywordRegex";

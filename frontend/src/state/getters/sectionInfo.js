@@ -4,7 +4,7 @@ import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypes } from "state/definitions/uiTypes";
 import { DB_SOURCE_MAPPING } from "utils/constants";
-import { isRoot } from "z_utils/constants";
+import { isRoot } from "utils/sectionTypeHelpers";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];

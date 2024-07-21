@@ -2,8 +2,11 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "state/definitions/uiTypes";
 import { createNewId } from "utils/idNameCreation";
+import {
+  isSeriesElement,
+  rootTypeToChildSubType,
+} from "utils/sectionTypeHelpers";
 import { isPreset } from "utils/uiTypeConstants";
-import { isSeriesElement, rootTypeToChildSubType } from "z_utils/constants";
 
 export function maybeCloneUIType({
   currUIType,
