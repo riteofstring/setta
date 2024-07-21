@@ -9,7 +9,7 @@ export function useAnimatedScale({
   attr,
   pixelRangeIncreases,
 }) {
-  const allValues: number[] = _.flatten(
+  const allValues = _.flatten(
     series.map((s) => s.values.map((v) => v[attr])),
   );
 

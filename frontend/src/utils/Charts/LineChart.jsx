@@ -12,16 +12,6 @@ const defaultLegendHeight = 30;
 const minHeight = 0;
 const minWidth = 0;
 
-type CurveProps = {
-  width: number;
-  height: number;
-  series;
-  curveType?: string;
-  showPoints?: boolean;
-  margin?: { top: number; right: number; bottom: number; left: number };
-  legendHeight?: number;
-};
-
 export function LineChart({
   width,
   height,
@@ -30,7 +20,7 @@ export function LineChart({
   showPoints = true,
   margin = defaultMargin,
   legendHeight = defaultLegendHeight,
-}: CurveProps) {
+}) {
   const xMax = width - margin.left - margin.right;
   const yMax = height - margin.top - margin.bottom - legendHeight;
   const svgHeight = height - legendHeight;
