@@ -1,17 +1,17 @@
 import { create } from "./utils";
 
 export const initialShortcuts = {
-  undoShortcut: "ctrl+z",
-  redoShortcut: "ctrl+shift+z",
-  groupShortcut: "ctrl+g",
-  saveShortcut: "ctrl+s",
-  saveAsShortcut: "ctrl+shift+s",
-  loadShortcut: "ctrl+l",
-  focusOnArgsFilterShortcut: "ctrl+k",
-  resetZoomShortcut: "ctrl+,",
-  copyShortcut: "ctrl+c",
-  pasteShortcut: "ctrl+v",
-  sortingShortcut: "ctrl",
+  undoShortcut: "mod+z",
+  redoShortcut: "mod+shift+z",
+  groupShortcut: "mod+g",
+  saveShortcut: "mod+s",
+  saveAsShortcut: "mod+shift+s",
+  loadShortcut: "mod+l",
+  focusOnArgsFilterShortcut: "mod+k",
+  resetZoomShortcut: "mod+,",
+  copyShortcut: "mod+c",
+  pasteShortcut: "mod+v",
+  sortingShortcut: "mod",
   movingFreeShortcut: "alt",
 };
 

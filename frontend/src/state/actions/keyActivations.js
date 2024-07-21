@@ -36,16 +36,18 @@ function parseShortcut(shortcutString) {
     .split("+")
     .map((part) => part.trim());
   return {
+    mod: parts.includes("mod"),
     ctrl: parts.includes("ctrl"),
     shift: parts.includes("shift"),
     alt: parts.includes("alt"),
-    key: parts.find((part) => !["ctrl", "shift", "alt"].includes(part)),
+    key: parts.find((part) => !["ctrl", "shift", "alt", "mod"].includes(part)),
   };
 }
 
 function isShortcutPressed(event, shortcut) {
-  const { ctrl, shift, alt, key } = parseShortcut(shortcut);
+  const { mod, ctrl, shift, alt, key } = parseShortcut(shortcut);
   return (
+    event.metaKey === (ctrl || mod) &&
     event.ctrlKey === ctrl &&
     event.shiftKey === shift &&
     event.altKey === alt &&
@@ -90,7 +92,7 @@ export function attachKeyEventListeners() {
       if (isShortcutPressed(e, keyCombo)) {
         // We don't want to prevent default if the shortcut is just Control or Alt
         // because this would prevent things like Ctrl + R for refreshing the page.
-        if (!["ctrl", "alt"].includes(keyCombo)) {
+        if (!["mod", "ctrl", "alt"].includes(keyCombo)) {
           e.preventDefault();
         }
         action();
