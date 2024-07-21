@@ -7,7 +7,7 @@ import { useGetSectionInfo } from "./useGetSectionInfo";
 
 export function useGetSectionTypeConfig(sectionId, key) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId]["config"]);
+  return useUITypes((x) => x.x[uiTypeId]["config"][key]);
 }
 
 export function useGetSectionType(sectionId, key) {

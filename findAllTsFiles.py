@@ -5,6 +5,12 @@ def find_typescript_files(directory):
     for root, _, files in os.walk(directory):
         if 'frontend/node_modules' in root:
             continue
+        if 'frontend/src/xyflow' in root:
+            continue
+        if 'frontend/src/utils/DNDSortable/CustomCore' in root:
+            continue
+        if 'frontend/src/utils/DNDSortable/CustomSortable' in root:
+            continue
         for file in files:
             if file.endswith('.ts') or file.endswith('.tsx'):
                 typescript_files.append(os.path.join(root, file))
