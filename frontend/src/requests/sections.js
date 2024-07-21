@@ -1,7 +1,6 @@
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/generateCode";
-import { useKeywordRegex } from "state/definitions";
-import { useProjectConfig } from "state/definitions";
+import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { findRefs } from "utils/CodeMirror/utils";
 import { post } from "./utils";

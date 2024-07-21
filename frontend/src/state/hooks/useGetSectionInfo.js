@@ -1,6 +1,5 @@
 import _ from "lodash";
-import { useEVCols } from "state/definitions";
-import { useSectionInfos } from "state/definitions";
+import { useEVCols, useSectionInfos } from "state/definitions";
 import {
   getMappedSectionDBSource,
   getSectionDBSource,

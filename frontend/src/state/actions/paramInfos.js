@@ -1,6 +1,4 @@
-import { useEVCols } from "state/definitions";
-import { useUITypeCols } from "state/definitions";
-import { useUITypes } from "state/definitions";
+import { useEVCols, useUITypeCols, useUITypes } from "state/definitions";
 import {
   getMappedSectionDBSource,
   getSectionInfo,

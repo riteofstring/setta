@@ -11,8 +11,7 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/paramSweep";
-import { useCodeInfo } from "state/definitions";
-import { useEVCols } from "state/definitions";
+import { useCodeInfo, useEVCols } from "state/definitions";
 import { useGetEVColNames } from "state/hooks/useEnteredValue";
 import { useMappedSectionDBSource } from "state/hooks/useGetSectionInfo";
 import { useParamSweepInfo } from "state/hooks/useParamSweepInfo";

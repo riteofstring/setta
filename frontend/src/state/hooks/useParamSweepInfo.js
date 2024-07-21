@@ -1,6 +1,5 @@
 import _ from "lodash";
-import { useParamSweep } from "state/definitions";
-import { useSectionInfos } from "state/definitions";
+import { useParamSweep, useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useGetSectionTypeConfig } from "./useSectionType";
 

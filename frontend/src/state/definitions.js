@@ -8,11 +8,7 @@ import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import {
-  create,
-  createProjectState,
-  stateWithResetFn,
-} from "./definitions/utils";
+import { create, createProjectState, stateWithResetFn } from "./utils";
 
 export const useActiveSection = createProjectState(
   temporal(() => ({

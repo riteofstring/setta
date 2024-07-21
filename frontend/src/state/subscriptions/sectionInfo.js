@@ -5,9 +5,8 @@ import {
   updateGlobalVariablesRegex,
   updateKeywordRegex,
 } from "state/actions/keywordRegex";
-import { useUITypes } from "state/definitions";
+import { useSectionInfos, useUITypes } from "state/definitions";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { useSectionInfos } from "state/definitions";
 
 function getSingletonSubscriptionFn(type) {
   return (state) => {

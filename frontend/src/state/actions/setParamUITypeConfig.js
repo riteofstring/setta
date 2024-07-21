@@ -1,10 +1,12 @@
 import C from "constants/constants.json";
 import { cloneNewUIType } from "state/actions/cloneUITypes";
-import { useCodeInfo } from "state/definitions";
-import { useEVCols } from "state/definitions";
-import { useSectionInfos } from "state/definitions";
-import { useUITypeCols } from "state/definitions";
-import { useUITypes } from "state/definitions";
+import {
+  useCodeInfo,
+  useEVCols,
+  useSectionInfos,
+  useUITypeCols,
+  useUITypes,
+} from "state/definitions";
 import {
   getMappedSectionDBSource,
   getSectionInfo,

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useUITypeCols } from "state/definitions";
-import { initValue } from "state/definitions/utils";
+import { initValue } from "state/utils";
 
 export function setAllUITypeCols({ uiTypeCols }) {
   useUITypeCols.setState({ y: uiTypeCols });

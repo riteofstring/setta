@@ -4,7 +4,6 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
-import { constInfoViews } from "utils/constants";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import {
   getInfoViewHandlers,
@@ -13,7 +12,7 @@ import {
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { OVERVIEW } from "utils/constants";
+import { constInfoViews, OVERVIEW } from "utils/constants";
 import { InfoView } from "./InfoView/InfoView";
 import { ProjectConfigs } from "./ProjectConfigs/ProjectConfigs";
 import { SectionListItems } from "./SectionList/SectionListItems";

@@ -1,6 +1,5 @@
 import _ from "lodash";
-import { useCodeInfo } from "state/definitions";
-import { useSectionToParams } from "state/definitions";
+import { useCodeInfo, useSectionToParams } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useOutputValues } from "./useOutputNames";

@@ -1,14 +1,16 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { getParamInfos } from "state/actions/sectionContents";
-import { useKeywordRegex } from "state/definitions";
+import {
+  useCodeInfo,
+  useKeywordRegex,
+  useSectionInfos,
+} from "state/definitions";
 import {
   getSectionType,
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { useCodeInfo } from "state/definitions";
-import { useSectionInfos } from "state/definitions";
 
 export function updateKeywordRegex(idsToNames = null) {
   let x = idsToNames;

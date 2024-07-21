@@ -3,9 +3,11 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { useCodeInfo } from "state/definitions";
-import { useProjectSearch } from "state/definitions";
-import { useTypeErrors } from "state/definitions";
+import {
+  useCodeInfo,
+  useProjectSearch,
+  useTypeErrors,
+} from "state/definitions";
 import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
