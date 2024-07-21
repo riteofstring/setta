@@ -5,7 +5,6 @@ import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypes } from "state/definitions/uiTypes";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { isRoot } from "z_utils/constants";
-import { SectionUITypeConfigType } from "z_utils/types/uiType";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -29,7 +28,7 @@ export function getSectionIsRoot(sectionId) {
 }
 
 export function getSectionTypeConfig(sectionId) {
-  return getSectionType(sectionId).config as SectionUITypeConfigType;
+  return getSectionType(sectionId).config;
 }
 
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
@@ -41,7 +40,7 @@ export function getSectionIsDeck(sectionId) {
 }
 
 export function getSectionIdsWithUITypeIds(uiTypeIds) {
-  const output: string[] = [];
+  const output = [];
   for (const s of Object.values(useSectionInfos.getState().x)) {
     if (uiTypeIds.includes(s.uiTypeId)) {
       output.push(s.id);
@@ -50,7 +49,7 @@ export function getSectionIdsWithUITypeIds(uiTypeIds) {
   return output;
 }
 
-export function getSectionSiblingNames(sectionId: string) {
+export function getSectionSiblingNames(sectionId) {
   const sectionName = getSectionName(sectionId);
   const parentId = getSectionParentId(sectionId);
   const siblingIds = parentId
@@ -64,20 +63,20 @@ export function getSectionSiblingNames(sectionId: string) {
   return output;
 }
 
-export function getSectionByName(name: string) {
+export function getSectionByName(name) {
   return _.find(useSectionInfos.getState().x, (x) => x.name === name);
 }
 
-export function getSectionDBSource(sectionId: string) {
+export function getSectionDBSource(sectionId) {
   const { dbSource } = getSectionInfo(sectionId);
   return dbSource ? dbSource : C.DEFAULT_DB_ALIAS;
 }
 
-export function getMappedSectionDBSource(sectionId: string) {
+export function getMappedSectionDBSource(sectionId) {
   return DB_SOURCE_MAPPING[getSectionDBSource(sectionId)];
 }
 
-export function hasParentInFlattenedStructure(sectionId: string) {
+export function hasParentInFlattenedStructure(sectionId) {
   let parentId = getSectionParentId(sectionId);
   while (parentId && getSectionIsDeck(parentId)) {
     parentId = getSectionParentId(parentId);

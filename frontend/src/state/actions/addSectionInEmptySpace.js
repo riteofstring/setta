@@ -6,9 +6,6 @@ export function addSectionInEmptySpace({
   type,
   inputSectionProps = {},
   positionOffset = { x: 0, y: 0 },
-}: {
-  type: string;
-  inputSectionProps: any;
 }) {
   const {
     transform: [_x, _y, zoom],

@@ -8,10 +8,6 @@ import { PANEID } from "utils/constants";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { isRoot, rootTypeToChildSubType } from "z_utils/constants";
-import {
-  SectionUITypeConfigType,
-  UITypeSetOneConfigPayloadType,
-} from "z_utils/types/uiType";
 import { getSectionType } from "../getters/sectionInfo";
 import { removeActiveSectionIds } from "./activeSection";
 import { setAllChildren } from "./children";
@@ -20,7 +16,7 @@ import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
-  const idsToDelete: string[] = [];
+  const idsToDelete = [];
   for (const sid of sectionIds) {
     idsToDelete.push(...getIdsToDelete(sid));
   }
@@ -131,9 +127,7 @@ function maybeChangeSectionSubtype({ newParentId, sectionId }) {
   const newParentUIType =
     newParentId === PANEID ? null : getSectionType(newParentId);
 
-  let configProps: Partial<
-    UITypeSetOneConfigPayloadType<SectionUITypeConfigType["subType"]>
-  >;
+  let configProps;
   if (newParentUIType && isRoot(newParentUIType.type)) {
     configProps = {
       configName: "subType",

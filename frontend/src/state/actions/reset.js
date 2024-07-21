@@ -1,6 +1,6 @@
 import { stateDict, STATE_TYPES } from "state/definitions/utils";
 
-function resetStores(stateType: keyof typeof STATE_TYPES) {
+function resetStores(stateType) {
   for (const resetter of stateDict[stateType].resetters) {
     resetter();
   }

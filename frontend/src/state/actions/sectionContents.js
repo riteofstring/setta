@@ -12,12 +12,12 @@ export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];
 }
 
-function computeAllCallables(sectionId: string) {
+function computeAllCallables(sectionId) {
   const { codeInfoId } = getSectionTypeConfig(sectionId);
   return findAllCallables(useCodeInfo.getState().x, [codeInfoId]);
 }
 
-function computeAllParams(sectionId: string, objInfoId: string) {
+function computeAllParams(sectionId, objInfoId) {
   const objParamInfos = objInfoId
     ? findAllParametersOfCallables(useCodeInfo.getState().x, [objInfoId])
     : [];
@@ -31,13 +31,13 @@ function computeAllParams(sectionId: string, objInfoId: string) {
   return movePinnedToFront([...objParamInfos, ...paramCollections]);
 }
 
-export function updateManyParamsAndCallables(sectionIds: string[]) {
+export function updateManyParamsAndCallables(sectionIds) {
   sectionIds.forEach((x) => updateParamsAndCallables(x, false));
   updateKeywordRegex();
 }
 
 export function updateParamsAndCallables(
-  sectionId: string,
+  sectionId,
   doUpdateKeywordRegex = true,
 ) {
   updateCallables(sectionId);
@@ -47,14 +47,14 @@ export function updateParamsAndCallables(
   }
 }
 
-export function updateCallables(sectionId: string) {
+export function updateCallables(sectionId) {
   const callables = computeAllCallables(sectionId);
   useSectionToParams.setState((state) => {
     state.callables[sectionId] = callables;
   });
 }
 
-export function updateParams(sectionId: string) {
+export function updateParams(sectionId) {
   const { selectedItem } = getSectionInfo(sectionId);
   const params = computeAllParams(sectionId, selectedItem);
   useSectionToParams.setState((state) => {

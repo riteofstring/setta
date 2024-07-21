@@ -6,7 +6,6 @@ import { addNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionInfo } from "z_utils/objs/sectionInfo";
-import { ManySectionType } from "z_utils/types/section";
 import { getSectionType, getSectionTypeConfig } from "../getters/sectionInfo";
 import { addCodeInfo } from "./codeInfo";
 import { initManyEvColIds } from "./evCols";
@@ -43,7 +42,7 @@ export function createSectionInfo({
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(sectionInfos: ManySectionType, position) {
+function addSectionsToState(sectionInfos, position) {
   addSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
   const sectionIds = _.map(sectionInfos, (x) => x.id);

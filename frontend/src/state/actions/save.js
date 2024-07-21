@@ -15,16 +15,13 @@ import { useUITypes } from "state/definitions/uiTypes";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { xnor } from "utils/utils";
 import { getViewport } from "xyflow/core/hooks/useViewportHelper";
-import { ProjectSaveType } from "z_utils/types/projectSaveLoad";
-import { ManySectionTypeSaveProjectToBackend } from "z_utils/types/section";
-import { ManyUITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
 import { getNodes } from "./nodeInternals";
 import { setNotificationMessage } from "./notification";
 import { getProjectMetadata } from "./project";
 import { getProjectConfigMetadata } from "./projectConfig";
 
-export function getProjectData(): ProjectSaveType {
+export function getProjectData() {
   const project = getProjectMetadata();
   project.previewImgNodes = getPreviewImgNodes();
   const projectConfig = getProjectConfigMetadata();
@@ -45,9 +42,8 @@ export function getProjectData(): ProjectSaveType {
   }));
 
   const sectionInfosState = useSectionInfos.getState();
-  const sections: ManySectionTypeSaveProjectToBackend = _.mapValues(
-    sectionInfosState.x,
-    (x) => _.omit(x, ["parentId"]),
+  const sections = _.mapValues(sectionInfosState.x, (x) =>
+    _.omit(x, ["parentId"]),
   );
 
   const codeInfo = useCodeInfo.getState().x;
@@ -101,10 +97,7 @@ function assembleProject() {
   return { project: getProjectData() };
 }
 
-export function assembleUITypes(
-  s: ManyUITypeType,
-  _isPreset: boolean,
-): ManyUITypeType {
+export function assembleUITypes(s, _isPreset) {
   return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
 }
 

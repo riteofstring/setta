@@ -15,20 +15,13 @@ import { updateParams } from "./sectionContents";
 import { deleteParamInfoFromUITypeCol } from "./uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
-type AddKwargPayload = {
-  sectionId: string;
-  parentId: string;
-  name?: string;
-  incrementVersion?: boolean;
-};
-
 export function addKwarg({
   sectionId,
   parentId,
   name = "",
   insertIdx = null,
   incrementVersion = false,
-}: AddKwargPayload) {
+}) {
   const kwargInfo = newCodeInfo({
     name,
     rcType: C.PARAMETER,
@@ -42,15 +35,7 @@ export function addKwarg({
   return kwargInfo.id;
 }
 
-type DeleteKwargPayload = {
-  sectionId: string;
-  parentId: string;
-  deleteLast?: boolean;
-  kwargId?: string;
-  incrementVersion?: boolean;
-};
-
-export function deleteKwarg(payload: DeleteKwargPayload) {
+export function deleteKwarg(payload) {
   let {
     sectionId,
     parentId,

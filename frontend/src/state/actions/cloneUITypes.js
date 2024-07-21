@@ -2,7 +2,6 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "state/definitions/uiTypes";
 import { isSeriesElement, rootTypeToChildSubType } from "z_utils/constants";
-import { UITypeType } from "z_utils/types/uiType";
 import { isPreset } from "z_utils/uiTypeConstants";
 import { createNewId } from "z_utils/utils";
 
@@ -56,7 +55,7 @@ export function cloneNewUIType({
   name = "",
   config,
   presetType = null,
-}: Partial<UITypeType> & { uiType: UITypeType }) {
+}) {
   const newUIType = _.cloneDeep(uiType);
   newUIType.id = createNewId();
   newUIType.name = name;
@@ -67,7 +66,7 @@ export function cloneNewUIType({
   return newUIType;
 }
 
-export function isAmongNonPresets(v: UITypeType, nonPresetUITypeIds: string[]) {
+export function isAmongNonPresets(v, nonPresetUITypeIds) {
   return nonPresetUITypeIds.includes(v.id);
 }
 

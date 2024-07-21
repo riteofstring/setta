@@ -6,7 +6,7 @@ export function deleteChildrenFromSeries({
   calledBy,
   numChildren = 1,
   incrementVersion = false,
-}: DeleteChildFnType) {
+}) {
   if (isRoot) {
     const { children } = getSectionInfo(calledBy);
     deleteSections({
@@ -23,11 +23,3 @@ export function deleteChildrenFromSeries({
     });
   }
 }
-
-// if sectionId is null, then startId must be specified
-type DeleteChildFnType = {
-  isRoot: boolean;
-  calledBy: string;
-  numChildren?: number;
-  incrementVersion?: boolean;
-};

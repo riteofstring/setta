@@ -1,7 +1,6 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
-import { ProjectLoadType } from "z_utils/types/projectSaveLoad";
 import { setAllCodeInfo } from "./codeInfo";
 import { setAllEVCols } from "./evCols";
 import { setNodes } from "./nodeInternals";
@@ -30,7 +29,7 @@ export function loadProjectState({
   outputs,
   outputGroups,
   dbSourceMapping,
-}: ProjectLoadType) {
+}) {
   setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
   if (project) {
