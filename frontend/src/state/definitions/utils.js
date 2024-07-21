@@ -1,10 +1,9 @@
-import { StateCreator } from "zustand";
 import { createWithEqualityFn as _create } from "zustand/traditional";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
 
-export const create = (<T>(f: StateCreator<T> | undefined) => {
+export const create = (f) => {
   if (f === undefined) {
     return create;
   }
@@ -12,14 +11,14 @@ export const create = (<T>(f: StateCreator<T> | undefined) => {
   addResetter(store, STATE_TYPES.BASE_STATE);
   addStatePointer(store, STATE_TYPES.BASE_STATE);
   return store;
-}) as typeof _create;
+};
 
-export const createProjectState = (<T>(f: StateCreator<T>) => {
+export const createProjectState = (f) => {
   const store = create(f);
   addResetter(store, STATE_TYPES.PROJECT_STATE);
   addStatePointer(store, STATE_TYPES.PROJECT_STATE);
   return store;
-}) as typeof _create;
+};
 
 function createSubStateDict() {
   return { resetters: [], statePointers: [] };
@@ -28,7 +27,7 @@ function createSubStateDict() {
 export const STATE_TYPES = {
   PROJECT_STATE: "PROJECT_STATE",
   BASE_STATE: "BASE_STATE",
-} as const;
+};
 
 export const stateDict = {
   [STATE_TYPES.BASE_STATE]: createSubStateDict(),
@@ -45,11 +44,11 @@ function createResetter(state) {
   };
 }
 
-function addResetter(state, stateType: keyof typeof STATE_TYPES) {
+function addResetter(state, stateType) {
   stateDict[stateType].resetters.push(createResetter(state));
 }
 
-function addStatePointer(state, stateType: keyof typeof STATE_TYPES) {
+function addStatePointer(state, stateType) {
   stateDict[stateType].statePointers.push(state);
 }
 

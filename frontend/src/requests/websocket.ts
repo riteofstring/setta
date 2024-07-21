@@ -4,11 +4,9 @@ import {
 } from "state/actions/interactive";
 import { updateOutput } from "state/actions/outputs";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
+import { setWebsocketRoomMessage } from "state/actions/websocketRooms";
 import { useTypeErrors } from "state/definitions/typeErrors";
-import {
-  useWebsocketConnectionList,
-  useWebsocketRooms,
-} from "state/definitions/websocket";
+import { useWebsocketConnectionList } from "state/definitions/websocketConnectionList";
 import { URLS } from "utils/constants";
 
 let wss;
@@ -56,7 +54,7 @@ function receiveMessage(message) {
   } else if (m.messageType === "diagnostics") {
     useTypeErrors.setState(m.content, true);
   } else if (m.id) {
-    useWebsocketRooms.getState().setMessage(m.id, m.content);
+    setWebsocketRoomMessage(m.id, m.content);
   }
 }
 

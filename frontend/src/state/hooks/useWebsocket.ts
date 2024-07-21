@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { openWebSocket, sendLocation, sendMessage } from "requests/websocket";
-import { useWebsocketRooms } from "state/definitions/websocket";
+import { deleteWebsocketRoom } from "state/actions/websocketRooms";
+import { useWebsocketRooms } from "state/definitions/websocketRooms";
 import { createNewId } from "z_utils/utils";
 
 export function useOpenCloseWebsocket() {
@@ -24,7 +25,7 @@ export async function sendMessageInRoom({ id, messageType, content }) {
       (x) => {
         unsub();
         resolve(x);
-        useWebsocketRooms.getState().deleteRoom(actualId);
+        deleteWebsocketRoom(actualId);
       },
     );
 
