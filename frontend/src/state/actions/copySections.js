@@ -4,8 +4,8 @@ import { useCodeInfo } from "state/definitions";
 import { useEVCols } from "state/definitions";
 import { useNodeInternals } from "state/definitions";
 import { useSectionInfos } from "state/definitions";
-import { useUITypeCols } from "state/definitions/uiTypeCols";
-import { useUITypes } from "state/definitions/uiTypes";
+import { useUITypeCols } from "state/definitions";
+import { useUITypes } from "state/definitions";
 import { findAll } from "utils/getDescendants";
 import { getSectionTypeConfig } from "../getters/sectionInfo";
 

@@ -1,4 +1,4 @@
-import { useStateVersion } from "state/definitions/stateVersion";
+import { useStateVersion } from "state/definitions";
 import { stateDict, STATE_TYPES } from "state/definitions/utils";
 
 export function undoProjectState() {

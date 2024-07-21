@@ -1,4 +1,4 @@
-import { useWebsocketConnectionList } from "state/definitions/websocketConnectionList";
+import { useWebsocketConnectionList } from "state/definitions";
 import { Badge } from "utils/atoms/badges/badge";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";

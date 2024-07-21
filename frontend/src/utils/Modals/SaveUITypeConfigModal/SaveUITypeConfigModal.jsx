@@ -3,7 +3,7 @@ import { cloneNewUIType } from "state/actions/cloneUITypes";
 import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes";
-import { useUITypes } from "state/definitions/uiTypes";
+import { useUITypes } from "state/definitions";
 import { isPreset, isUserPreset } from "utils/sectionTypeHelpers";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 

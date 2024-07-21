@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { openWebSocket, sendLocation, sendMessage } from "requests/websocket";
 import { deleteWebsocketRoom } from "state/actions/websocketRooms";
-import { useWebsocketRooms } from "state/definitions/websocketRooms";
+import { useWebsocketRooms } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 export function useOpenCloseWebsocket() {

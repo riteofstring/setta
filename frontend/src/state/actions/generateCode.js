@@ -7,8 +7,8 @@ import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
 import { useCodeInfo } from "state/definitions";
-import { useUITypes } from "state/definitions/uiTypes";
-import { useWebsocketConnectionList } from "state/definitions/websocketConnectionList";
+import { useUITypes } from "state/definitions";
+import { useWebsocketConnectionList } from "state/definitions";
 import {
   computeEVReferences,
   computeInfoToFullName,

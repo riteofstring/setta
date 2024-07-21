@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useWebsocketRooms } from "state/definitions/websocketRooms";
+import { useWebsocketRooms } from "state/definitions";
 
 export function createWebsocketRoom(id) {
   useWebsocketRooms.setState({ [id]: "" });

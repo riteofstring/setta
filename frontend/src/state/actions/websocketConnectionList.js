@@ -1,4 +1,4 @@
-import { useWebsocketConnectionList } from "state/definitions/websocketConnectionList";
+import { useWebsocketConnectionList } from "state/definitions";
 
 export function updateConnectedTo(message) {
   const { connections } = message;

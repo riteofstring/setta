@@ -2,18 +2,17 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { FiEdit3 } from "react-icons/fi";
 import { setUIEditorTab } from "state/actions/uiEditor";
-import { useActiveSection } from "state/definitions";
+import { useActiveSection, useUIEditor } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorageHooks";
+import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   tabNameToPretty,
   UI_CONFIG_TAB,
-  useUIEditor,
-} from "state/definitions/uiEditor";
-import { localStorageFns } from "state/hooks/localStorageHooks";
-import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
-import { UI_EDITOR } from "utils/constants";
+  UI_EDITOR,
+} from "utils/constants";
 import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";

@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions";
 import { useSectionInfos } from "state/definitions";
-import { useUITypes } from "state/definitions/uiTypes";
+import { useUITypes } from "state/definitions";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
 

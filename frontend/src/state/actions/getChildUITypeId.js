@@ -1,4 +1,4 @@
-import { useUITypes } from "state/definitions/uiTypes";
+import { useUITypes } from "state/definitions";
 import { cloneRootUIType } from "./cloneUITypes";
 import { addUIType, setOneUITypeConfig } from "./uiTypes";
 

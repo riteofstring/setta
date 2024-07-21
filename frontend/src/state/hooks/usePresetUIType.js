@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/cloneUITypes";
-import { useUITypes } from "state/definitions/uiTypes";
+import { useUITypes } from "state/definitions";
 import {
   isBasePreset,
   isPreset,
