@@ -1,0 +1,19 @@
+{
+    "TEXT": "Text",
+    "SLIDER": "Slider",
+    "SWITCH": "Switch",
+    "SECTION": "Object",
+    "LIST_ROOT": "List of Objects",
+    "DICT_ROOT": "Dict of Objects",
+    "DECK": "Deck",
+    "OUTPUT": "Program Output",
+    "INFO": "Info",
+    "SOCIAL": "Social",
+    "GLOBAL_VARIABLES": "Global Variables",
+    "CODE": "Code",
+    "VAR_CONTROL": "Variable Control",
+    "PARAM_SWEEP": "Parameter Sweep",
+    "TERMINAL": "Terminal",
+    "GLOBAL_PARAM_SWEEP": "Global Param Sweep"
+  }
+  

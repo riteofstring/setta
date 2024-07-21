@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/cloneUITypes";
 import { useUITypes } from "state/definitions/uiTypes";
-import { isSectionUIType, uiTypesToPretty } from "utils/sectionTypeHelpers";
+import { isSectionUIType } from "utils/sectionTypeHelpers";
 import {
   isBasePreset,
   isPreset,
@@ -12,9 +12,10 @@ import {
 import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionType } from "./useSectionType";
+import UI_TYPE_DISPLAY_NAMES from "constants/uiTypeDisplayNames.json"
 
 function createName(uiType) {
-  const x = uiTypesToPretty.get(uiType.type);
+  const x = UI_TYPE_DISPLAY_NAMES[uiType.type];
   if (isUserPreset(uiType)) {
     return `${uiType.name} - (${x})`;
   }
