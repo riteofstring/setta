@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { CodeInfoType } from "z_utils/types/codeInfo";
 
 export function groupedObjInfo(infos) {
   return _.groupBy(infos, (x) => {
@@ -7,7 +6,7 @@ export function groupedObjInfo(infos) {
   });
 }
 
-function getFullObjPath(codeInfo: CodeInfoType, skipLast = 0) {
+function getFullObjPath(codeInfo, skipLast = 0) {
   if (skipLast === 0) {
     return codeInfo.name;
   }

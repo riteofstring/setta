@@ -5,10 +5,6 @@ import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "z_utils/getDescendants";
-import { CodeInfoType, ManyCodeInfoType } from "z_utils/types/codeInfo";
-import { UITypeType } from "z_utils/types/uiType";
-import { UITypeColType } from "z_utils/types/uiTypeCol";
-import { ManyOf } from "z_utils/types/utils";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
@@ -21,11 +17,6 @@ export function initializeChildParams({
   codeInfoIds,
   childFinder = findAllParameters,
   inputParamIdToUITypeId = {},
-}: {
-  sectionIds: string[];
-  codeInfoIds: string[];
-  childFinder: any;
-  inputParamIdToUITypeId: any;
 }) {
   console.log("initializeChildParams");
   const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
@@ -35,8 +26,8 @@ export function initializeChildParams({
 }
 
 export function initializeParam(
-  sectionId: string,
-  paramInfos: CodeInfoType[],
+  sectionId,
+  paramInfos,
   inputParamIdToUITypeId = {},
 ) {
   const paramInfosAsObj = _.keyBy(paramInfos, "id");
@@ -48,18 +39,14 @@ export function initializeParam(
   initializeParamEnteredValue(sectionId, paramInfosAsObj, paramIdToUITypeId);
 }
 
-function initializeParamEnteredValue(
-  sectionId: string,
-  paramInfos: ManyCodeInfoType,
-  paramIdToUITypeId: { [id: string]: string },
-) {
+function initializeParamEnteredValue(sectionId, paramInfos, paramIdToUITypeId) {
   const { evColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
   const evCol = useEVCols.getState().x[dbSource][evColId];
   const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
 
   const uiTypeState = useUITypes.getState();
-  const paramIdsToUITypes: ManyOf<UITypeType> = {};
+  const paramIdsToUITypes = {};
   for (const [paramId, ev] of Object.entries(paramIdToEv)) {
     if (_.isNil(ev)) {
       paramIdsToUITypes[paramId] = uiTypeState.x[paramIdToUITypeId[paramId]];
@@ -73,7 +60,7 @@ function initializeParamEnteredValue(
   });
 }
 
-function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
+function getParamUITypeIds(sectionId, paramInfos) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const uiTypeCol = useUITypeCols.getState().y[uiTypeColId];
   return {
@@ -86,8 +73,8 @@ function getParamUITypeIds(sectionId: string, paramInfos: ManyCodeInfoType) {
 }
 
 function initializeParamUIType(
-  sectionId: string,
-  paramInfos: ManyCodeInfoType,
+  sectionId,
+  paramInfos,
   inputParamIdToUITypeId = {},
 ) {
   const { paramIdToUITypeId, uiTypeColId } = getParamUITypeIds(
@@ -95,10 +82,10 @@ function initializeParamUIType(
     paramInfos,
   );
 
-  const newIds: UITypeColType = {};
+  const newIds = {};
   for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
     if (!uiTypeId) {
-      let newId: string;
+      let newId;
       if (paramId in inputParamIdToUITypeId) {
         newId = inputParamIdToUITypeId[paramId];
       } else {

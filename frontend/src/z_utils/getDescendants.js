@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { CodeInfoType } from "./types/codeInfo";
 
 function _findAllDescendants(
   allCodeInfo,
@@ -7,7 +6,7 @@ function _findAllDescendants(
   outputCondition,
   stackCondition,
 ) {
-  const output: CodeInfoType[] = [];
+  const output = [];
   const idStack = codeInfoIds.filter((x) => stackCondition(allCodeInfo[x]));
   const visited = new Set();
   while (idStack.length > 0) {
