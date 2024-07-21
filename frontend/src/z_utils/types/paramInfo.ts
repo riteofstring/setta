@@ -1,17 +1,16 @@
-import { ManyEVColType } from "./evCol";
 import { UITypeType } from "./uiType";
 import { ManyUITypeColType, UITypeColType } from "./uiTypeCol";
 import { ManyOf } from "./utils";
 
 export type ParamInfoStateType = {
-  x: ManyEVColType;
+  x;
   y: ManyUITypeColType;
   version: number;
 };
 
 export type ParamInfoActionType = {
   resetAndSetAll: (payload: {
-    evCols: ManyEVColType;
+    evCols;
     uiTypeCols: ManyUITypeColType;
   }) => void;
 
