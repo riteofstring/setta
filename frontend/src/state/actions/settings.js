@@ -1,5 +1,5 @@
 import { dbLoadSettings } from "requests/settings";
-import { useSettings } from "state/definitions/settings";
+import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 
 export function toggleDarkMode() {

@@ -1,9 +1,6 @@
 import _ from "lodash";
-import {
-  jsonSettings,
-  otherConfigurableSettings,
-  useSettings,
-} from "state/definitions/settings";
+import { useSettings } from "state/definitions";
+import { jsonSettings, otherConfigurableSettings } from "utils/constants";
 
 const settingNames = Object.keys({
   ...jsonSettings,

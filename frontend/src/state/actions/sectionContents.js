@@ -1,5 +1,5 @@
 import { useCodeInfo } from "state/definitions";
-import { useSectionToParams } from "state/definitions/sectionToParams";
+import { useSectionToParams } from "state/definitions";
 import {
   findAllCallables,
   findAllParametersOfCallables,

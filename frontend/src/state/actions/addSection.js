@@ -2,7 +2,7 @@ import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContai
 import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSettings } from "state/definitions/settings";
+import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorageHooks";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { insertIntoArray } from "utils/utils";

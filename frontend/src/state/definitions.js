@@ -1,3 +1,8 @@
+import {
+  initialShortcuts,
+  jsonSettings,
+  otherConfigurableSettings,
+} from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -152,3 +157,25 @@ export const useSectionInfos = createProjectState(
     ),
   ),
 );
+
+export const useSectionParamFilter = createProjectState(
+  immer(() => ({
+    x: {},
+  })),
+);
+
+export const useSectionToParams = createProjectState(
+  temporal(
+    immer(() => ({
+      callables: {},
+      params: {},
+    })),
+  ),
+);
+
+export const useSettings = create(() => ({
+  settingsLoaded: false,
+  ...jsonSettings,
+  ...otherConfigurableSettings,
+  ...initialShortcuts,
+}));
