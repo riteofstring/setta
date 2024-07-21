@@ -118,3 +118,15 @@ export function flowToScreenPosition(position: XYPosition) {
     y: rendererPosition.y + domY,
   };
 }
+
+export function updateMapPosition(widthDiff) {
+  const {
+    transform: [x, y, zoom],
+  } = useReactFlow.getState();
+  setViewport(
+    { x: x + widthDiff, y, zoom },
+    {
+      duration: 100,
+    },
+  );
+}
