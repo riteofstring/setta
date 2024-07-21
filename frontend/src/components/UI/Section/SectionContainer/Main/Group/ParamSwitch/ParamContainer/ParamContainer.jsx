@@ -8,8 +8,8 @@ import {
   useProjectSearch,
   useTypeErrors,
 } from "state/definitions";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
+import { getInfoViewHandlers } from "state/hooks";
+import { useGetSectionInfo } from "state/hooks";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";

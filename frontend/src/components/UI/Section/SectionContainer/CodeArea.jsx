@@ -5,7 +5,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import React from "react";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
+import { useGetSectionInfo } from "state/hooks";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 
 const javascriptExtension = javascript();

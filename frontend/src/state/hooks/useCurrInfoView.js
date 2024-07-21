@@ -16,6 +16,3 @@ export function getInfoViewHandlers(value) {
   return { onMouseOver, onMouseLeave };
 }
 
-export function useCurrInfoView() {
-  return useInfoView((x) => x.currValue);
-}

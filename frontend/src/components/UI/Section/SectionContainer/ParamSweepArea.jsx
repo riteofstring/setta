@@ -12,9 +12,9 @@ import {
   setParamSweepValue,
 } from "state/actions/paramSweep";
 import { useCodeInfo, useEVCols } from "state/definitions";
-import { useGetEVColNames } from "state/hooks/useEnteredValue";
-import { useMappedSectionDBSource } from "state/hooks/useGetSectionInfo";
-import { useParamSweepInfo } from "state/hooks/useParamSweepInfo";
+import { useGetEVColNames } from "state/hooks";
+import { useMappedSectionDBSource } from "state/hooks";
+import { useParamSweepInfo } from "state/hooks";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";

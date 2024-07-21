@@ -2,14 +2,14 @@ import C from "constants/constants.json";
 import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { useGetEVColNames } from "state/hooks/useEnteredValue";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
+import { useGetEVColNames } from "state/hooks";
+import { useGetSectionInfo } from "state/hooks";
 import {
   getForSectionId,
   useCurrParamSweepId,
   useForSectionId,
   useGetParamSweepNames,
-} from "state/hooks/useParamSweepInfo";
+} from "state/hooks";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
 

@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import React from "react";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
-import { useGetSectionType } from "state/hooks/useSectionType";
+import { getInfoViewHandlers } from "state/hooks";
+import { useGetSectionType } from "state/hooks";
 import { constInfoViews } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";

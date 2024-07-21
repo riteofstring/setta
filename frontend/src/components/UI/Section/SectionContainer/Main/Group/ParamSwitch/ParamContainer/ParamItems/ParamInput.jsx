@@ -2,11 +2,11 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { sendMessage } from "requests/websocket";
-import { useIdWaitingForLSPResult } from "state/actions/lsp";
 import { setParamEnteredValue } from "state/actions/paramInfos";
 import { useInteractive, useProject } from "state/definitions";
-import { useGetParamEnteredValue } from "state/hooks/useEnteredValue";
-import { useGetParamUIType } from "state/hooks/useParamUIType";
+import { useIdWaitingForLSPResult } from "state/hooks";
+import { useGetParamEnteredValue } from "state/hooks";
+import { useGetParamUIType } from "state/hooks";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({

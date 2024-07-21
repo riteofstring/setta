@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { setSectionSize } from "state/actions/setters";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
+import { useGetSectionInfo } from "state/hooks";
 import {
   linkIsTwitter,
   youtubeSectionAspectRatio,
-} from "state/hooks/useSocialUtils";
+} from "state/hooks";
 
 export function SocialTypeSearch({ sectionId }) {
   const url = useGetSectionInfo(sectionId, "social");

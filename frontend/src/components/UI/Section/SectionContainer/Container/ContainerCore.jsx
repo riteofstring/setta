@@ -1,8 +1,8 @@
 import _ from "lodash";
 import React from "react";
 import { openDeckContextMenu } from "state/actions/contextMenus";
-import { useTempHasNested } from "state/hooks/useSectionChildren";
-import { useSectionRefAndInit } from "state/hooks/useSectionRefAndInit";
+import { useTempHasNested } from "state/hooks";
+import { useSectionRefAndInit } from "state/hooks";
 import { SectionTitle } from "../Header/Title/SectionTitle";
 
 function _Container({
