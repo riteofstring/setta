@@ -9,8 +9,8 @@ import {
 } from "state/actions/sectionContents";
 import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { sendMessageInRoom } from "state/actions/websocketRooms";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
-import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";

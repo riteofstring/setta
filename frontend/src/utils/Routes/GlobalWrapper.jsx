@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { resetProjectStores } from "state/actions/reset";
 import { loadSettings } from "state/actions/settings";
 import { useSettings } from "state/definitions";
-import { useOpenCloseWebsocket } from "state/hooks/useWebsocket";
+import { useOpenCloseWebsocket } from "state/hooks/websocket";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
   SAME_PROJECT_NEW_PROJECT_NAME,
