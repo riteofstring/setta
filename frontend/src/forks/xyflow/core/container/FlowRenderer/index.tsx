@@ -31,7 +31,6 @@ const FlowRenderer = ({
   panOnScrollMode,
   zoomOnDoubleClick,
   panOnDrag: _panOnDrag,
-  defaultViewport,
   translateExtent,
   minZoom,
   maxZoom,
@@ -59,7 +58,6 @@ const FlowRenderer = ({
       panOnScrollMode={panOnScrollMode}
       zoomOnDoubleClick={zoomOnDoubleClick}
       panOnDrag={!selectionKeyPressed && panOnDrag}
-      defaultViewport={defaultViewport}
       translateExtent={translateExtent}
       minZoom={minZoom}
       maxZoom={maxZoom}

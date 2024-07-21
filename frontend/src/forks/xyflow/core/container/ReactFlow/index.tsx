@@ -2,13 +2,10 @@ import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
-import type { ReactFlowProps, ReactFlowRefType, Viewport } from "../../types";
+import type { ReactFlowProps, ReactFlowRefType } from "../../types";
 import { PanOnScrollMode, SelectionMode } from "../../types";
 import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
-
-const initSnapGrid: [number, number] = [15, 15];
-const initDefaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
 
 const wrapperStyle: CSSProperties = {
   width: "100%",
@@ -31,7 +28,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       nodesDraggable,
       nodesFocusable,
       elementsSelectable,
-      defaultViewport = initDefaultViewport,
       minZoom = 0.5,
       maxZoom = 2,
       translateExtent = infiniteExtent,
@@ -74,7 +70,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           panActivationKeyCode={panActivationKeyCode}
           zoomActivationKeyCode={zoomActivationKeyCode}
           selectNodesOnDrag={selectNodesOnDrag}
-          defaultViewport={defaultViewport}
           translateExtent={translateExtent}
           minZoom={minZoom}
           maxZoom={maxZoom}

@@ -23,7 +23,6 @@ export type ReactFlowProps = {
   panOnDrag?: boolean | number[];
   minZoom?: number;
   maxZoom?: number;
-  defaultViewport?: Viewport;
   translateExtent?: CoordinateExtent;
   preventScrolling?: boolean;
   zoomOnScroll?: boolean;

@@ -19,7 +19,6 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
       | "noDragClassName"
       | "noWheelClassName"
       | "noPanClassName"
-      | "defaultViewport"
     >
   >;
 
@@ -32,7 +31,6 @@ const GraphView = ({
   zoomActivationKeyCode,
   elementsSelectable,
   selectNodesOnDrag,
-  defaultViewport,
   translateExtent,
   minZoom,
   maxZoom,
@@ -64,7 +62,6 @@ const GraphView = ({
       panOnScrollSpeed={panOnScrollSpeed}
       panOnScrollMode={panOnScrollMode}
       panOnDrag={panOnDrag}
-      defaultViewport={defaultViewport}
       translateExtent={translateExtent}
       minZoom={minZoom}
       maxZoom={maxZoom}

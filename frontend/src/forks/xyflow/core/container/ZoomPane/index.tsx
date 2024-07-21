@@ -13,6 +13,7 @@ import { shallow } from "zustand/shallow";
 
 import { useReactFlow } from "forks/xyflow/core/store";
 import { closeAllContextMenus } from "state/actions/contextMenus";
+import { REACT_FLOW_STORE } from "utils/constants";
 import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";
 import { containerStyle } from "../../styles";
@@ -81,7 +82,6 @@ const ZoomPane = ({
   zoomOnDoubleClick = true,
   elementsSelectable,
   panOnDrag = true,
-  defaultViewport,
   translateExtent,
   minZoom,
   maxZoom,
@@ -116,6 +116,7 @@ const ZoomPane = ({
       const selection = select(zoomPane.current as Element).call(
         d3ZoomInstance,
       );
+      const defaultViewport = REACT_FLOW_STORE.initialViewport;
       const updatedTransform = zoomIdentity
         .translate(defaultViewport.x, defaultViewport.y)
         .scale(clamp(defaultViewport.zoom, minZoom, maxZoom));

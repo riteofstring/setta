@@ -16,7 +16,6 @@ function _SectionsPane() {
       minZoom={0.1}
       maxZoom={10}
       style={reactFlowStyle}
-      defaultViewport={REACT_FLOW_STORE.initialViewport}
       nodeDragThreshold={0}
       className="rcbg-light dark:rcbg-dark"
     />
