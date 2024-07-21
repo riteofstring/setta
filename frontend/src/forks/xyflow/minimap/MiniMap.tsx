@@ -16,7 +16,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { useNodeInternals } from "state/definitions/nodeInternals";
-import { localStorageFns } from "state/hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorage";
 import { shallow } from "zustand/shallow";
 import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
 import type { MiniMapProps } from "./types";

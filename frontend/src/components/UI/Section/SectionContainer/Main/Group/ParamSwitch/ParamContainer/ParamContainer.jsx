@@ -6,7 +6,7 @@ import { HiOutlineDuplicate } from "react-icons/hi";
 import { useCodeInfo } from "state/definitions/codeInfo";
 import { useProjectSearch } from "state/definitions/projectSearch";
 import { useTypeErrors } from "state/definitions/typeErrors";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
+import { getInfoViewHandlers } from "state/getters/infoView";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";

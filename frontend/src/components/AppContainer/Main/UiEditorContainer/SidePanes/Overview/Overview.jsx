@@ -1,15 +1,12 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
-import { updateMapPosition } from "state/actions/updateMapPosition";
-import { constInfoViews } from "state/definitions/infoView";
-import { localStorageFns } from "state/hooks/localStorageHooks";
-import {
-  getInfoViewHandlers,
-  useCurrInfoView,
-} from "state/hooks/useCurrInfoView";
+import { constInfoViews, useCurrInfoView, useInfoView } from "state/definitions/infoView";
+import { getInfoViewHandlers } from "state/getters/infoView";
+import { localStorageFns } from "state/hooks/localStorage";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
@@ -123,7 +120,7 @@ const ProjectOverview = React.forwardRef(() => {
 });
 
 const InfoViewBig = React.forwardRef(() => {
-  const currInfoView = useCurrInfoView();
+  const currInfoView = useCurrInfoView()
   return (
     <aside className="self-start overflow-clip text-setta-500 dark:text-setta-200">
       {currInfoView}
