@@ -9,7 +9,7 @@ import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { updateWithArrayMove } from "utils/utils";
-import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 

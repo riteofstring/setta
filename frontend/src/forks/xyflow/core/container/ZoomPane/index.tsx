@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
 import { shallow } from "zustand/shallow";
 
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { useReactFlow } from "xyflow/core/store";
+import { useReactFlow } from "forks/xyflow/core/store";
 import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";
 import { containerStyle } from "../../styles";

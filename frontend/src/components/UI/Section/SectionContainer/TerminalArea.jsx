@@ -8,7 +8,7 @@ import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
-import { useReactFlow } from "xyflow/core/store";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { theme } from "./Terminal/TerminalTheme";
 
 export const TERMINAL_WEBSOCKETS = {};

@@ -1,7 +1,7 @@
 import React from "react";
 import { DragOverlay } from "utils/DNDSortable/CustomCore";
 import { useDndState } from "utils/DNDSortable/dndState";
-import { useReactFlow } from "xyflow/core/store";
+import { useReactFlow } from "forks/xyflow/core/store";
 
 export const DummySection = React.forwardRef(({ forceShow }, ref) => {
   const zoom = useReactFlow((x) => x.transform[2]);

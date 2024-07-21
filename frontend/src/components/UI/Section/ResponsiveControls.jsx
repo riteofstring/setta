@@ -6,9 +6,9 @@ import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
 import { getNodes, setNodes } from "state/actions/nodeInternals";
 import { toggleMiniMap, toggleSetting } from "state/actions/settings";
 import { localStorageFns } from "state/hooks/localStorageHooks";
-import { ControlButton, Controls } from "xyflow/controls";
-import "xyflow/controls/style.css";
-import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
+import { ControlButton, Controls } from "forks/xyflow/controls";
+import "forks/xyflow/controls/style.css";
+import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 
 export function ResponsiveControls() {
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();

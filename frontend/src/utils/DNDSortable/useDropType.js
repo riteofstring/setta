@@ -6,8 +6,8 @@ import {
 import { useDndChildren } from "utils/DNDSortable/dndChildren";
 import { getDndSectionId, useDndState } from "utils/DNDSortable/dndState";
 import { BehaviorDropType } from "utils/DNDSortable/dropTypes";
-import { useReactFlow } from "xyflow/core/store";
-import { getSectionRectWithNested } from "xyflow/core/utils/graph";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);

@@ -18,7 +18,7 @@ import { variableClick } from "state/actions/keyActivations";
 import { setWaitingForLSP } from "state/actions/lsp";
 import { useKeywordRegex } from "state/definitions/keywordRegex";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
-import { useReactFlow } from "xyflow/core/store";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { roundUpIdx } from "./utils";
 

@@ -10,7 +10,7 @@ import {
 import { setZIndices } from "state/actions/sectionPositions";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useSettings } from "state/definitions/settings";
-import { useReactFlow } from "xyflow/core/store";
+import { useReactFlow } from "forks/xyflow/core/store";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";

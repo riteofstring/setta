@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { memo } from "react";
 
-import { NodesSelectionWrapper } from "xyflow/core/components/NodesSelection/NodesSelection";
+import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection/NodesSelection";
 import useGlobalKeyHandler from "../../hooks/useGlobalKeyHandler";
 import useKeyPress from "../../hooks/useKeyPress";
 import { GraphViewProps } from "../GraphView";

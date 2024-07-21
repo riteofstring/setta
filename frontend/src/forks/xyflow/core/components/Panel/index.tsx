@@ -1,6 +1,6 @@
 import cc from "classcat";
 import { type HTMLAttributes, type ReactNode } from "react";
-import { useReactFlow } from "xyflow/core/store";
+import { useReactFlow } from "forks/xyflow/core/store";
 import type { PanelPosition, ReactFlowState } from "../../types";
 
 export type PanelProps = HTMLAttributes<HTMLDivElement> & {

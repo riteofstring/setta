@@ -1,7 +1,7 @@
 import { deleteSections, moveSections } from "state/actions/sectionOps";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { PANEID } from "utils/constants";
-import { getSectionRect } from "xyflow/core/utils/graph";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 
 export function undeck(deckId) {
   const childIds = useSectionInfos.getState().x[deckId].children;

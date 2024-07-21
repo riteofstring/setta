@@ -5,7 +5,7 @@ import type {
   HTMLAttributes,
   MouseEvent,
 } from "react";
-import type { Node, PanelPosition, XYPosition } from "xyflow/core";
+import type { Node, PanelPosition, XYPosition } from "forks/xyflow/core";
 
 export type GetMiniMapNodeAttribute<NodeData = any> = (
   node: Node<NodeData>,

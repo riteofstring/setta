@@ -11,7 +11,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
-import { screenToFlowPosition } from "xyflow/core/hooks/useViewportHelper";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { newCodeInfo } from "z_utils/objs/codeInfo";
 import { newSectionPosition } from "z_utils/objs/sectionPosition";
 import { addCodeInfo, addCodeInfoBatch } from "./codeInfo";

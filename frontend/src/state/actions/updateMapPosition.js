@@ -1,5 +1,5 @@
-import { setViewport } from "xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "xyflow/core/store";
+import { setViewport } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 
 export function updateMapPosition(widthDiff) {
   const {

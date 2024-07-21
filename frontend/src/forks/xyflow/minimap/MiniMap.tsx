@@ -14,9 +14,9 @@ import {
   getNodesBounds,
   Panel,
   Rect,
-} from "xyflow/core";
-import useVisibleNodes from "xyflow/core/hooks/useVisibleNodes";
-import { useReactFlow } from "xyflow/core/store";
+} from "forks/xyflow/core";
+import useVisibleNodes from "forks/xyflow/core/hooks/useVisibleNodes";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { shallow } from "zustand/shallow";
 import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
 import type { MiniMapProps } from "./types";
