@@ -2,13 +2,14 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/cloneUITypes";
 import { useUITypes } from "state/definitions/uiTypes";
-import { isSectionUIType, uiTypesToPretty } from "utils/sectionTypeHelpers";
 import {
   isBasePreset,
   isPreset,
+  isSectionUIType,
   isUserPreset,
   PresetType,
-} from "utils/uiTypeConstants";
+  uiTypesToPretty,
+} from "utils/sectionTypeHelpers";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
 import { useGetSectionType } from "./useSectionType";

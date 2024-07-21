@@ -4,7 +4,7 @@ import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes";
 import { useUITypes } from "state/definitions/uiTypes";
-import { isPreset, isUserPreset } from "utils/uiTypeConstants";
+import { isPreset, isUserPreset } from "utils/sectionTypeHelpers";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
 export function SaveUITypeConfigModal({ open }) {

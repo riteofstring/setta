@@ -14,7 +14,7 @@ import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { DB_SOURCE_MAPPING } from "utils/constants";
-import { isPreset } from "utils/uiTypeConstants";
+import { isPreset } from "utils/sectionTypeHelpers";
 import { xnor } from "utils/utils";
 import { getNodes } from "./nodeInternals";
 import { setNotificationMessage } from "./notification";

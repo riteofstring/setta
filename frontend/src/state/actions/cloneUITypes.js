@@ -3,10 +3,10 @@ import _ from "lodash";
 import { useUITypes } from "state/definitions/uiTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
+  isPreset,
   isSeriesElement,
   rootTypeToChildSubType,
 } from "utils/sectionTypeHelpers";
-import { isPreset } from "utils/uiTypeConstants";
 
 export function maybeCloneUIType({
   currUIType,

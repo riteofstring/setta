@@ -5,7 +5,6 @@ import type {
   Node,
   PanOnScrollMode,
   SelectionMode,
-  Viewport,
 } from ".";
 
 export type ReactFlowProps = {

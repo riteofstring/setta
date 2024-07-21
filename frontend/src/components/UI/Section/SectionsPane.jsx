@@ -1,7 +1,6 @@
 import { ReactFlow } from "forks/xyflow/core";
 import "forks/xyflow/core/styles/style.css";
 import React from "react";
-import { REACT_FLOW_STORE } from "utils/constants";
 import "./react-flow-css.css";
 
 const reactFlowStyle = {
