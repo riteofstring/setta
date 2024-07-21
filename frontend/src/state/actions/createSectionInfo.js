@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import _ from "lodash";
+import { getChildUIType } from "state/actions/getChildUITypeId";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
-import { getChildUIType } from "state/getters/getChildUITypeId";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { getSectionType, getSectionTypeConfig } from "../getters/sectionInfo";

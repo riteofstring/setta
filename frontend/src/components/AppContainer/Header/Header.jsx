@@ -4,7 +4,7 @@ import { setHomePageSearch } from "state/actions/homePageSearch";
 import { updateSearch } from "state/actions/projectSearch";
 import { useHomePageSearch } from "state/definitions/homePageSearch";
 import { constInfoViews } from "state/definitions/infoView";
-import { getInfoViewHandlers } from "state/getters/infoView";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { Notification } from "./Notification/Notification";
 import { SiteLogo } from "./SiteLogo";

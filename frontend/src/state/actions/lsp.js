@@ -13,8 +13,12 @@ export function setWaitingForLSP({ sectionId, paramInfoId }) {
   };
 }
 
-export function idForLSPWaiting({ sectionId, paramInfoId }) {
+function idForLSPWaiting({ sectionId, paramInfoId }) {
   return `${sectionId}-${paramInfoId}`;
 }
 
-
+export function useIdWaitingForLSPResult({ sectionId, paramInfoId }) {
+  return useWaitingForLSPResult(
+    (x) => x[idForLSPWaiting({ sectionId, paramInfoId })],
+  );
+}

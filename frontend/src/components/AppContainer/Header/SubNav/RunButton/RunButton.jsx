@@ -1,7 +1,7 @@
 import { RiPlayMiniFill } from "react-icons/ri";
 import { runCode } from "state/actions/generateCode";
 import { constInfoViews } from "state/definitions/infoView";
-import { getInfoViewHandlers } from "state/getters/infoView";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
 import { createNewId } from "utils/idNameCreation";
 

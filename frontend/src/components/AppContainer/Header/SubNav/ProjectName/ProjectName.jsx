@@ -2,7 +2,7 @@ import { dbSetProjectConfigName, dbSetProjectName } from "requests/projectName";
 import { constInfoViews } from "state/definitions/infoView";
 import { useProject } from "state/definitions/project";
 import { useProjectConfig } from "state/definitions/projectConfig";
-import { getInfoViewHandlers } from "state/getters/infoView";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { useEditableOnSubmit } from "state/hooks/useEditableOnSubmit";
 import { Editable } from "utils/Editable/Editable";
 import {

@@ -16,7 +16,3 @@ export const constInfoViews = {
   SECTIONCONFIG_CONTENTS_SEARCH:
     "Choose which arguments appear in your selected card.",
 };
-
-export function useCurrInfoView() {
-  return useInfoView((x) => x.currValue);
-}

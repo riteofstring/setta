@@ -11,7 +11,7 @@ import {
   UI_CONFIG_TAB,
   useUIEditor,
 } from "state/definitions/uiEditor";
-import { localStorageFns } from "state/hooks/localStorage";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
 import { UI_EDITOR } from "utils/constants";
 import { DBSources } from "./DBSources/DBSources";
