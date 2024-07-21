@@ -4,7 +4,7 @@ import {
   findAllCallables,
   findAllParametersOfCallables,
   findAllParametersOfCollections,
-} from "z_utils/getDescendants";
+} from "utils/getDescendants";
 import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
 import { updateKeywordRegex } from "./keywordRegex";
 

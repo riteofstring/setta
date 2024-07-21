@@ -1,3 +1,5 @@
+import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useRef } from "react";
 import { setAllChildren } from "state/actions/children";
@@ -7,9 +9,7 @@ import { moveSection } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
-import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { updateWithArrayMove } from "utils/utils";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 

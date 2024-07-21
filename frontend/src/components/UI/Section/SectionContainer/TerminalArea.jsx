@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { useReactFlow } from "forks/xyflow/core/store";
 import React, { useEffect, useRef } from "react";
 import { pseudoTemplatedStr } from "requests/utils";
 import { useProjectConfig } from "state/definitions/projectConfig";
@@ -8,7 +9,6 @@ import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { theme } from "./Terminal/TerminalTheme";
 
 export const TERMINAL_WEBSOCKETS = {};

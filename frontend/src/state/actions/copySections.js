@@ -6,7 +6,7 @@ import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
-import { findAll } from "z_utils/getDescendants";
+import { findAll } from "utils/getDescendants";
 import { getSectionTypeConfig } from "../getters/sectionInfo";
 
 export function copySections(sectionIds) {

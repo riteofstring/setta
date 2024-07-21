@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "state/definitions/uiTypes";
+import { createNewId } from "utils/idNameCreation";
+import { isPreset } from "utils/uiTypeConstants";
 import { isSeriesElement, rootTypeToChildSubType } from "z_utils/constants";
-import { isPreset } from "z_utils/uiTypeConstants";
-import { createNewId } from "z_utils/utils";
 
 export function maybeCloneUIType({
   currUIType,

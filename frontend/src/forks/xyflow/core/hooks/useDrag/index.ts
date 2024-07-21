@@ -1,5 +1,6 @@
 import { drag } from "d3-drag";
 import { select } from "d3-selection";
+import { useReactFlow } from "forks/xyflow/core/store";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -10,7 +11,6 @@ import {
 import { setZIndices } from "state/actions/sectionPositions";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useSettings } from "state/definitions/settings";
-import { useReactFlow } from "forks/xyflow/core/store";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";

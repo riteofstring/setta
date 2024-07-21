@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useSectionToParams } from "state/definitions/sectionToParams";
-import { newCodeInfo } from "z_utils/objs/codeInfo";
+import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../getters/codeInfo";
 import {
   getMappedSectionDBSource,

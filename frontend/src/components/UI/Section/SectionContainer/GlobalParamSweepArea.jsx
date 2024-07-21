@@ -12,7 +12,7 @@ import { useRunGroups } from "state/definitions/runGroups";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { useGetParamSweepNames } from "state/hooks/useParamSweepInfo";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
-import { createNewId, createRandomName } from "z_utils/utils";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea() {
   const runGroups = useRunGroups((x) => x.x);

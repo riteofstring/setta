@@ -1,3 +1,5 @@
+import { getNodesBounds } from "forks/xyflow/core";
+import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
@@ -17,8 +19,6 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
-import { getNodesBounds } from "forks/xyflow/core";
-import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import "./homepage.css";
 
 export function HomePage() {

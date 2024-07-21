@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useSectionInfos } from "state/definitions/sectionInfos";
-import { getDepthListing } from "z_utils/childrenToDepth";
+import { getDepthListing } from "utils/childrenToDepth";
 import { useSectionInfoNames } from "./useGetSectionInfo";
 import { useMatchSorterFilter } from "./useMatchSorterFilter";
 import { useSectionTypeNames } from "./useSectionType";

@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { openWebSocket, sendLocation, sendMessage } from "requests/websocket";
 import { deleteWebsocketRoom } from "state/actions/websocketRooms";
 import { useWebsocketRooms } from "state/definitions/websocketRooms";
-import { createNewId } from "z_utils/utils";
+import { createNewId } from "utils/idNameCreation";
 
 export function useOpenCloseWebsocket() {
   const location = useLocation();

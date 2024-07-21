@@ -1,10 +1,10 @@
 import cc from "classcat";
+import useDrag from "forks/xyflow/core/hooks/useDrag";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useRef } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
-import useDrag from "forks/xyflow/core/hooks/useDrag";
-import { useReactFlow } from "forks/xyflow/core/store";
 
 function _NodesSelection({ x, y, width, height }) {
   const transformString = useReactFlow(

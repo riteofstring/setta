@@ -1,7 +1,7 @@
-import { goToSection } from "state/actions/goToSection";
-import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { DNDSortable } from "forks/dnd-kit/DNDSortable";
+import { goToSection } from "state/actions/goToSection";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
 export function ManyNestedSections({ sectionId, isDeck }) {

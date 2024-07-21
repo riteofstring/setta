@@ -5,8 +5,8 @@ import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionName } from "state/getters/sectionInfo";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getParamSweepSectionName } from "z_utils/constants";
-import { createNewId, createRandomName } from "z_utils/utils";
 import { creatAdjacentSection } from "../utils";
 
 export function MultirunButton({ sectionId }) {

@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
+import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { dbDeleteTerminals } from "requests/terminals";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { PANEID } from "utils/constants";
-import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { insertIntoArray } from "utils/utils";
 import { isRoot, rootTypeToChildSubType } from "z_utils/constants";
 import { getSectionType } from "../getters/sectionInfo";

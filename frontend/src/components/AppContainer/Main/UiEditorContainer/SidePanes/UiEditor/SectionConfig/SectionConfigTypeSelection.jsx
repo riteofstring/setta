@@ -7,7 +7,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { SectionUITypeCombobox } from "utils/Combobox/UITypeCombobox";
-import { newCodeInfo } from "z_utils/objs/codeInfo";
+import { newCodeInfo } from "utils/objs/codeInfo";
 
 export function SectionConfigTypeSelection({ sectionId }) {
   const selectedId = useGetSectionInfo(sectionId, "uiTypeId");

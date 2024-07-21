@@ -1,4 +1,4 @@
-import { maybeNewId } from "../utils";
+import { maybeNewId } from "../idNameCreation";
 
 export function newCodeInfo({
   id,

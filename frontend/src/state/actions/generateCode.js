@@ -13,7 +13,7 @@ import {
   computeEVReferences,
   computeInfoToFullName,
 } from "utils/CodeMirror/utils";
-import { createNewId } from "z_utils/utils";
+import { createNewId } from "utils/idNameCreation";
 import { getMappedSectionDBSource } from "../getters/sectionInfo";
 import { addSectionInEmptySpace } from "./addSectionInEmptySpace";
 import { assembleUITypes, getProjectData } from "./save";

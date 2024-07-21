@@ -4,7 +4,7 @@ import { useEVCols } from "state/definitions/evCols";
 import { useUITypeCols } from "state/definitions/uiTypeCols";
 import { useUITypes } from "state/definitions/uiTypes";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
-import { findAllParameters } from "z_utils/getDescendants";
+import { findAllParameters } from "utils/getDescendants";
 import {
   getMappedSectionDBSource,
   getSectionInfo,

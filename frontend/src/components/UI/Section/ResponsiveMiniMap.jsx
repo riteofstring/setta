@@ -1,6 +1,6 @@
-import { localStorageFns } from "state/hooks/localStorageHooks";
 import { MiniMap } from "forks/xyflow/minimap";
 import "forks/xyflow/minimap/style.css";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 
 export function ResponsiveMiniMap() {
   const [uiEditorWidth] = localStorageFns.uiEditorTrueWidth.hook();

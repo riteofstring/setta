@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { useDndMode } from "forks/dnd-kit/dndState";
 import { setSectionResizeEvent } from "state/actions/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sectionSizes";
 import { useSectionInfos } from "state/definitions/sectionInfos";
@@ -13,7 +14,6 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "state/hooks/useSocialUtils";
-import { useDndMode } from "forks/dnd-kit/dndState";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 

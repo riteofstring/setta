@@ -3,7 +3,7 @@ import { runCode } from "state/actions/generateCode";
 import { constInfoViews } from "state/definitions/infoView";
 import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
-import { createNewId } from "z_utils/utils";
+import { createNewId } from "utils/idNameCreation";
 
 export function RunButton() {
   const infoViewHandlers = getInfoViewHandlers(constInfoViews.BUTTON_GENERATE);

@@ -1,9 +1,9 @@
-import _ from "lodash";
-import { useNodeInternals } from "state/definitions/nodeInternals";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import { getDimensions } from "forks/xyflow/core/utils";
 import { createSelectionChange } from "forks/xyflow/core/utils/changes";
+import _ from "lodash";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 
 export function setNodes(nodes) {
   useNodeInternals.setState((state) => ({

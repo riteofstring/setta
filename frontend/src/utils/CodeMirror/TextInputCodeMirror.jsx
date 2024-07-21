@@ -7,6 +7,7 @@ import { python } from "@codemirror/lang-python";
 import { EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, keymap, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -18,7 +19,6 @@ import { variableClick } from "state/actions/keyActivations";
 import { setWaitingForLSP } from "state/actions/lsp";
 import { useKeywordRegex } from "state/definitions/keywordRegex";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { roundUpIdx } from "./utils";
 

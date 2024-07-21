@@ -2,6 +2,9 @@
  * The user selection rectangle gets displayed when a user drags the mouse while pressing shift
  */
 
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { getNodesInside } from "forks/xyflow/core/utils/graph";
 import React, {
   memo,
   MouseEvent as ReactMouseEvent,
@@ -16,9 +19,6 @@ import {
   resetSelectedElements,
 } from "state/actions/nodeInternals";
 import { REACT_FLOW_STORE } from "utils/constants";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { getNodesInside } from "forks/xyflow/core/utils/graph";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../../components/UserSelection";
 import { containerStyle } from "../../styles";

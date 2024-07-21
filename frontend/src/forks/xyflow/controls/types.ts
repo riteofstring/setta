@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
 import type { FitViewOptions, PanelPosition } from "forks/xyflow/core";
+import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
 
 export type ControlProps = HTMLAttributes<HTMLDivElement> & {
   showZoom?: boolean;

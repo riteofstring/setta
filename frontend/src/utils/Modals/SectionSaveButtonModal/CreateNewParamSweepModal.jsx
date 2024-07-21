@@ -3,8 +3,8 @@ import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions/modal";
 import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getForSectionId } from "state/hooks/useParamSweepInfo";
+import { createNewId } from "utils/idNameCreation";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
-import { createNewId } from "z_utils/utils";
 
 export function CreateNewParamSweepModal() {
   function onClickCreateNewParamSweep({ filename }) {
