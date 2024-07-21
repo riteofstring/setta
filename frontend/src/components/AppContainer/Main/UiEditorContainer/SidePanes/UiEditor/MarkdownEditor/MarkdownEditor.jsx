@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions/sectionInfos";
-import { getInitialInfoTitle } from "utils/objs/sectionInfo";
 
 const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
   const description = useSectionInfos((x) => x.x[sectionId].description);
@@ -24,7 +23,7 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
     _.debounce((v) => {
       if (v !== description) {
         setSectionInfoAttr({ sectionId, attr: "description", value: v });
-        const sectionName = getFirstHeadingOrText(v) ?? getInitialInfoTitle();
+        const sectionName = getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
         setSectionInfoAttr({ sectionId, attr: "name", value: sectionName });
         maybeIncrementProjectStateVersion(true);
       }
@@ -86,4 +85,8 @@ function getFirstHeadingOrText(markdown) {
     return output + "...";
   }
   return output;
+}
+
+export function getDefaultInfoTitle() {
+  return "Empty Info Section";
 }
