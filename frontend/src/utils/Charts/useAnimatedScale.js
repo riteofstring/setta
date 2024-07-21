@@ -9,19 +9,19 @@ export function useAnimatedScale({
   attr,
   pixelRangeIncreases,
 }) {
-  const allValues = _.flatten(
-    series.map((s) => s.values.map((v) => v[attr])),
-  );
+  const allValues = _.flatten(series.map((s) => s.values.map((v) => v[attr])));
 
   const lowerBound = useScaleMotionValue({ isMin: true, allValues });
   const upperBound = useScaleMotionValue({ isMin: false, allValues });
 
   const scale = useMemo(
     () =>
-      scaleLinear<number>({
+      scaleLinear <
+      number >
+      {
         domain: [lowerBound, upperBound],
         range: pixelRangeIncreases ? [0, maxPixelRange] : [maxPixelRange, 0],
-      }),
+      },
     [lowerBound, upperBound, maxPixelRange],
   );
 

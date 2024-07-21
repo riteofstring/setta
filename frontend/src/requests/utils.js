@@ -1,15 +1,9 @@
-import axios, { AxiosResponse } from "axios";
+import axios from "axios";
 import { URLS } from "utils/constants";
 
-export async function post<S, R>({
-  address,
-  body,
-}: {
-  address: string;
-  body: S;
-}) {
+export async function post({ address, body }) {
   return axios
-    .post<S, AxiosResponse<R>>(`${URLS.BACKEND}${address}`, body, {
+    .post(`${URLS.BACKEND}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
       },
