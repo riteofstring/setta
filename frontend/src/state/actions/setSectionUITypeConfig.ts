@@ -1,9 +1,9 @@
 import { cloneNewUIType, maybeCloneUIType } from "state/actions/cloneUITypes";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useUITypes } from "state/definitions/uiTypes";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setSectionUITypeId } from "./setSectionUITypeId";
+import { addUIType } from "./uiTypes";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function setSectionUITypeConfig({
@@ -39,7 +39,7 @@ function createNonPresetForSection({ sectionId, currUIType, defaultName }) {
     uiType: currUIType,
     name: defaultName,
   });
-  useUITypes.getState().setUIType({ uiType: newUIType });
+  addUIType({ uiType: newUIType });
   setSectionInfoAttr({
     sectionId,
     attr: "nonPresetUITypeIds",

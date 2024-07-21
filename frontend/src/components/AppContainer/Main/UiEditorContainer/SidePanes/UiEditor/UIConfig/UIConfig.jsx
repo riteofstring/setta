@@ -6,7 +6,6 @@ import { updateParams } from "state/actions/sectionContents";
 import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/setParamUITypeId";
 import { useCodeInfo } from "state/definitions/codeInfo";
-import { useUITypes } from "state/definitions/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/useMatchSorterFilter";
 import { useGetParamUIType } from "state/hooks/useParamUIType";
 import { useGetParamInfosThatHaveNames } from "state/hooks/useSectionContents";
@@ -59,8 +58,6 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
 export const UIConfig = React.memo(_UIConfig);
 
 function _UIElement({ sectionId, paramInfo }) {
-  const setUIType = useUITypes((x) => x.setUIType);
-  const deleteUIType = useUITypes((x) => x.deleteUIType);
   const paramInfoId = paramInfo.id;
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const paramName = paramInfo.name;

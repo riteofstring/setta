@@ -16,6 +16,7 @@ import { getParamUIType } from "./paramInfos";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
 import { setNonPresetUITypeIds } from "./uiTypeCols";
+import { addUIType } from "./uiTypes";
 
 export function setParamUITypeConfig({
   sectionId,
@@ -66,7 +67,7 @@ function createNonPresetForParam({
     uiType: currUIType,
     name: defaultName,
   });
-  useUITypes.getState().setUIType({ uiType: newUIType });
+  addUIType({ uiType: newUIType });
 
   const { uiTypeColId } = getSectionInfo(sectionId);
   setNonPresetUITypeIds({

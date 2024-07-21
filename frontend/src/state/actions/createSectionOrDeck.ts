@@ -8,7 +8,6 @@ import {
 } from "state/actions/sectionContents";
 import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useUITypes } from "state/definitions/uiTypes";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { sendMessageInRoom } from "state/hooks/useWebsocket";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
@@ -19,6 +18,7 @@ import { addCodeInfo, addCodeInfoBatch } from "./codeInfo";
 import { updateEVCols } from "./evCols";
 import { updateSections } from "./sectionInfos";
 import { updateUITypeCols } from "./uiTypeCols";
+import { updateUITypes } from "./uiTypes";
 
 export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
   function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
@@ -89,7 +89,7 @@ export function loadSectionIntoState({
     };
   }
 
-  useUITypes.getState().update(uiTypes);
+  updateUITypes(uiTypes);
   updateEVCols({ evCols });
   updateUITypeCols({ uiTypeCols });
   addCodeInfoBatch(codeInfo);
