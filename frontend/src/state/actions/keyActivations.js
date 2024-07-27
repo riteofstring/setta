@@ -1,12 +1,9 @@
-import {
-  openLoadModal,
-  openSaveAsModal,
-} from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
+import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
 import { focusOnArgsFilter } from "./sections/sectionParamFilter";

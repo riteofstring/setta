@@ -1,7 +1,13 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { Link } from "react-router-dom";
-import { setModalOpen, setModalType } from "state/actions/modal";
+import {
+  openExportFullJSONModal,
+  openExportJSONModal,
+  openImportJSONModal,
+  openLoadModal,
+  openSaveAsModal,
+} from "state/actions/modal";
 import { saveProject } from "state/actions/project/saveProject";
 import { createAndGoToProject } from "state/hooks/project";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
@@ -46,29 +52,4 @@ export function FileMenu() {
       </Link>
     </MenuDropdown>
   );
-}
-
-function openFileMenuModal(modalType) {
-  setModalType(modalType);
-  setModalOpen(true);
-}
-
-export function openLoadModal() {
-  openFileMenuModal("Load");
-}
-
-export function openSaveAsModal() {
-  openFileMenuModal("Save As");
-}
-
-function openExportJSONModal() {
-  openFileMenuModal("Export JSON");
-}
-
-function openExportFullJSONModal() {
-  openFileMenuModal("Export Full JSON");
-}
-
-function openImportJSONModal() {
-  openFileMenuModal("Import JSON");
 }
