@@ -200,11 +200,6 @@ function ThumbnailArea({
       <div className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150">
         <PreviewImg previewImgNodes={previewImgNodes} />
       </div>
-
-      {/* <ThumbnailLogo
-        styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
-        svgStyles="fill-setta-200"
-      /> */}
     </div>
   );
 }
