@@ -1,4 +1,4 @@
-import { useUITypes } from "state/definitions/uiTypes";
+import { useUITypes } from "state/definitions";
 
 export function setAllUITypes(payload) {
   useUITypes.setState({ x: payload });

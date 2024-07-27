@@ -1,4 +1,4 @@
-import { stateDict, STATE_TYPES } from "state/definitions/utils";
+import { stateDict, STATE_TYPES } from "state/utils";
 
 function resetStores(stateType) {
   for (const resetter of stateDict[stateType].resetters) {

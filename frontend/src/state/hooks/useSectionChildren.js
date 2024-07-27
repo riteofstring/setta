@@ -1,5 +1,5 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 
 export function useHasNested(sectionId) {
   return useSectionInfos((x) => x.x[sectionId].children?.length > 0);

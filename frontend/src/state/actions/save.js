@@ -5,14 +5,16 @@ import {
   dbSaveAsNewProjectConfig,
   dbSaveProject,
 } from "requests/projects";
-import { useCodeInfo } from "state/definitions/codeInfo";
-import { useEVCols } from "state/definitions/evCols";
-import { useNodeInternals } from "state/definitions/nodeInternals";
-import { useParamSweep } from "state/definitions/paramSweep";
-import { useRunGroups } from "state/definitions/runGroups";
-import { useSectionInfos } from "state/definitions/sectionInfos";
-import { useUITypeCols } from "state/definitions/uiTypeCols";
-import { useUITypes } from "state/definitions/uiTypes";
+import {
+  useCodeInfo,
+  useEVCols,
+  useNodeInternals,
+  useParamSweep,
+  useRunGroups,
+  useSectionInfos,
+  useUITypeCols,
+  useUITypes,
+} from "state/definitions";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { isPreset } from "utils/sectionTypeHelpers";
 import { xnor } from "utils/utils";

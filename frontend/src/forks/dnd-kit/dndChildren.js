@@ -1,4 +1,4 @@
-import { createProjectState } from "state/definitions/utils";
+import { createProjectState } from "state/utils";
 import { immer } from "zustand/middleware/immer";
 import { getDndSectionId } from "./dndState";
 

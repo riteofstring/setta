@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { addCodeInfoBatch } from "state/actions/codeInfo";
-import { useCodeInfo } from "state/definitions/codeInfo";
+import { useCodeInfo } from "state/definitions";
 import { post } from "./utils";
 
 async function dbGetCollectionsAndModules({ searchTerm }) {

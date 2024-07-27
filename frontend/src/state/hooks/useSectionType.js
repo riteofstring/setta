@@ -1,7 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions/sectionInfos";
-import { useUITypes } from "state/definitions/uiTypes";
+import { useSectionInfos, useUITypes } from "state/definitions";
 import { isRoot, isSeriesElement } from "utils/sectionTypeHelpers";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 

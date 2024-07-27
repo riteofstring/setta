@@ -1,4 +1,4 @@
-import { useInteractive } from "state/definitions/interactive";
+import { useInteractive } from "state/definitions";
 
 export function setInteractiveProjects(payload) {
   useInteractive.setState({ projects: new Set(payload) });

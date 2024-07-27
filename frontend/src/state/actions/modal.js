@@ -1,4 +1,4 @@
-import { useModal } from "state/definitions/modal";
+import { useModal } from "state/definitions";
 
 export function setModalOpen(payload) {
   useModal.setState({ open: payload });

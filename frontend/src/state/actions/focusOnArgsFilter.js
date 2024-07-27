@@ -1,4 +1,4 @@
-import { useActiveSection } from "state/definitions/activeSection";
+import { useActiveSection } from "state/definitions";
 
 export function focusOnArgsFilter() {
   const sectionIds = useActiveSection.getState().ids;

@@ -54,3 +54,60 @@ export function globalConstInit() {
     BASE_UI_TYPE_IDS[v.type] = k;
   }
 }
+
+export const constInfoViews = {
+  OVERVIEW: "Click on a section name to pan to it.",
+  NAVBAR_SEARCH: "Search your entire project from one location.",
+  BUTTON_GENERATE: "Generate command to run your project.",
+  OVERVIEW_PROJNAME:
+    "Your Project's Name and Config Name, editable all in one spot!",
+  OVERVIEW_SEARCH: "Search through your project's cards.",
+  SECTIONCONFIG_CARDTYPES_SEARCH:
+    "Select your card's type. Options include: Object, List of Objects, Dictionary of Objects, and Info. The Info Card only takes in Markdown text.",
+  SECTIONCONFIG_CONTENTS_SEARCH:
+    "Choose which arguments appear in your selected card.",
+};
+
+export const initialShortcuts = {
+  undoShortcut: "mod+z",
+  redoShortcut: "mod+shift+z",
+  groupShortcut: "mod+g",
+  saveShortcut: "mod+s",
+  saveAsShortcut: "mod+shift+s",
+  loadShortcut: "mod+l",
+  focusOnArgsFilterShortcut: "mod+k",
+  resetZoomShortcut: "mod+,",
+  copyShortcut: "mod+c",
+  pasteShortcut: "mod+v",
+  sortingShortcut: "mod",
+  movingFreeShortcut: "alt",
+};
+
+export const jsonSettings = {
+  defaultCodeSectionSize: { width: 500, height: "auto" },
+  defaultTerminalSectionSize: { width: 700, height: "auto" },
+  defaultSectionSize: { width: "auto", height: "auto" },
+};
+
+export const otherConfigurableSettings = {
+  snapToGrid: false,
+  snapGrid: [15, 15],
+};
+
+export const SECTION_CONFIG_TAB = "SectionConfig";
+export const UI_CONFIG_TAB = "UIConfig";
+export const INFO_CONFIG_TAB = "InfoConfig";
+export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
+export const DB_SOURCES_TAB = "DBSourcesConfig";
+
+export const tabNameToPretty = Object.freeze(
+  new Map(
+    Object.entries({
+      [UI_CONFIG_TAB]: "Parameters",
+      [SECTION_CONFIG_TAB]: "Card",
+      [INFO_CONFIG_TAB]: "Info",
+      // [RUNTIME_CONFIG_TAB]: "Runtime",
+      [DB_SOURCES_TAB]: "DB",
+    }),
+  ),
+);

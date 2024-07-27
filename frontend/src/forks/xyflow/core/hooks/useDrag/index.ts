@@ -9,8 +9,7 @@ import {
   updateNodePositions,
 } from "state/actions/nodeInternals";
 import { setZIndices } from "state/actions/sectionPositions";
-import { useNodeInternals } from "state/definitions/nodeInternals";
-import { useSettings } from "state/definitions/settings";
+import { useNodeInternals, useSettings } from "state/definitions";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";

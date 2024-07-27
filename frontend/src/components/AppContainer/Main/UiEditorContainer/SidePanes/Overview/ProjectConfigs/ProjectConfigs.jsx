@@ -1,8 +1,10 @@
 import React from "react";
 import { setProjectConfig } from "state/actions/projectConfig";
-import { useOtherProjectConfigs } from "state/definitions/otherProjectConfigs";
-import { useProject } from "state/definitions/project";
-import { useProjectConfig } from "state/definitions/projectConfig";
+import {
+  useOtherProjectConfigs,
+  useProject,
+  useProjectConfig,
+} from "state/definitions";
 import { SWITCHING_CONFIG } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 

@@ -1,6 +1,5 @@
 import _ from "lodash";
-import { useOutputGroups } from "state/definitions/outputGroups";
-import { useOutputs } from "state/definitions/outputs";
+import { useOutputGroups, useOutputs } from "state/definitions";
 
 export function useAllOutputNames() {
   const outputNames = useOutputs(

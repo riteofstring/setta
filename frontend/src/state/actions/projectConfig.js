@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useProjectConfig } from "state/definitions/projectConfig";
+import { useProjectConfig } from "state/definitions";
 
 export function setProjectConfig(payload) {
   useProjectConfig.setState((state) => ({ ...state, ...payload }), true);

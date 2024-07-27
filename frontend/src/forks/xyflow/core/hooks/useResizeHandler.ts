@@ -1,6 +1,6 @@
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
-import { localStorageFns } from "state/hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../store";
 import { devWarn, getDimensions } from "../utils";
 

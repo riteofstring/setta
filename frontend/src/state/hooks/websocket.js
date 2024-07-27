@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { openWebSocket, sendLocation, sendMessage } from "requests/websocket";
-import { deleteWebsocketRoom } from "state/actions/websocketRooms";
-import { useWebsocketRooms } from "state/definitions/websocketRooms";
-import { createNewId } from "utils/idNameCreation";
+import { openWebSocket, sendLocation } from "requests/websocket";
 
 export function useOpenCloseWebsocket() {
   const location = useLocation();
@@ -15,26 +12,6 @@ export function useOpenCloseWebsocket() {
   useEffect(() => {
     sendLocation(location.pathname);
   }, [location.pathname]);
-}
-
-export async function sendMessageInRoom({ id, messageType, content }) {
-  return new Promise((resolve) => {
-    const actualId = id ? id : createNewId();
-    const unsub = useWebsocketRooms.subscribe(
-      (x) => x[actualId],
-      (x) => {
-        unsub();
-        resolve(x);
-        deleteWebsocketRoom(actualId);
-      },
-    );
-
-    sendMessage({
-      id: actualId,
-      messageType,
-      content,
-    });
-  });
 }
 
 // function useWebsocketRoom(messageType) {

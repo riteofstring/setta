@@ -1,6 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import { isListRoot } from "utils/sectionTypeHelpers";
 
 export function setAllSectionInfos({ sections }) {

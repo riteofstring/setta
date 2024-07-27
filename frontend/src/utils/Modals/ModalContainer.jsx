@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect } from "react";
 import { setModalData, setModalOpen } from "state/actions/modal";
-import { useModal } from "state/definitions/modal";
+import { useModal } from "state/definitions";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import {

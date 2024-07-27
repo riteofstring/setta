@@ -1,11 +1,13 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useCodeInfo } from "state/definitions/codeInfo";
-import { useEVCols } from "state/definitions/evCols";
-import { useNodeInternals } from "state/definitions/nodeInternals";
-import { useSectionInfos } from "state/definitions/sectionInfos";
-import { useUITypeCols } from "state/definitions/uiTypeCols";
-import { useUITypes } from "state/definitions/uiTypes";
+import {
+  useCodeInfo,
+  useEVCols,
+  useNodeInternals,
+  useSectionInfos,
+  useUITypeCols,
+  useUITypes,
+} from "state/definitions";
 import { findAll } from "utils/getDescendants";
 import { getSectionTypeConfig } from "../getters/sectionInfo";
 

@@ -1,4 +1,4 @@
-import { useRunGroups } from "state/definitions/runGroups";
+import { useRunGroups } from "state/definitions";
 
 export function setAllRunGroups(payload) {
   useRunGroups.setState({ x: payload });

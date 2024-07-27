@@ -1,6 +1,5 @@
 import _ from "lodash";
-import { useUITypeCols } from "state/definitions/uiTypeCols";
-import { useUITypes } from "state/definitions/uiTypes";
+import { useUITypeCols, useUITypes } from "state/definitions";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 
 export function useGetParamUIType(sectionId, paramInfoId) {

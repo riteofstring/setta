@@ -1,5 +1,5 @@
-import { useStateVersion } from "state/definitions/stateVersion";
-import { stateDict, STATE_TYPES } from "state/definitions/utils";
+import { useStateVersion } from "state/definitions";
+import { stateDict, STATE_TYPES } from "state/utils";
 
 export function undoProjectState() {
   const pastStates = useStateVersion.temporal.getState().pastStates;

@@ -1,4 +1,4 @@
-import { useUITypeCols } from "state/definitions/uiTypeCols";
+import { useUITypeCols } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { convertValue } from "./convertValue";
 import { maybeIncrementProjectStateVersion } from "./undo";

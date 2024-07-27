@@ -1,8 +1,10 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useNodeInternals } from "state/definitions/nodeInternals";
-import { useSectionInfos } from "state/definitions/sectionInfos";
-import { useUITypes } from "state/definitions/uiTypes";
+import {
+  useNodeInternals,
+  useSectionInfos,
+  useUITypes,
+} from "state/definitions";
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
 
