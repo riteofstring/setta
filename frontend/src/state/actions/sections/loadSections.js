@@ -3,9 +3,9 @@ import { updateManyParamsAndCallables } from "state/actions/sections/sectionCont
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { addCodeInfoBatch } from "../codeInfo";
 import { updateEVCols } from "../evCols";
-import { updateSections } from "./sectionInfos";
 import { updateUITypeCols } from "../uiTypes/uiTypeCols";
 import { updateUITypes } from "../uiTypes/uiTypes";
+import { updateSections } from "./sectionInfos";
 
 export function loadSectionIntoState({
   sections,

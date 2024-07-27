@@ -14,9 +14,9 @@ import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
 } from "requests/sections";
-import { goToSection } from "state/actions/sections/sectionPositions";
 import { variableClick } from "state/actions/keyActivations";
 import { setWaitingForLSP } from "state/actions/lsp";
+import { goToSection } from "state/actions/sections/sectionPositions";
 import { useKeywordRegex } from "state/definitions";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 import { DummyCodeMirror } from "./DummyCodeMirror";

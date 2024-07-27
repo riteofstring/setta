@@ -1,5 +1,5 @@
 import { useGetSectionInfo } from "./useGetSectionInfo";
-import { useIsSocial } from "./useSectionType";
+import { useIsSocial } from "./useUITypes";
 
 // youtube is 16/9. Make it 16/12 because of padding
 export const youtubeSectionAspectRatio = 16 / 12;

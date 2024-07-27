@@ -1,10 +1,13 @@
-import { cloneNewUIType, maybeCloneUIType } from "state/actions/uiTypes/cloneUITypes";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import {
+  cloneNewUIType,
+  maybeCloneUIType,
+} from "state/actions/uiTypes/cloneUITypes";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
+import { maybeIncrementProjectStateVersion } from "../undo";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setSectionUITypeId } from "./setSectionUITypeId";
 import { addUIType } from "./uiTypes";
-import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function setSectionUITypeConfig({
   sectionId,

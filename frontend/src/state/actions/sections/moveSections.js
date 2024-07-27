@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
-import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { setSectionChildrenAndNames } from "state/actions/sections/setters";
+import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";

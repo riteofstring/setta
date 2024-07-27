@@ -3,8 +3,8 @@ import { deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
-import { removeSectionInfos } from "./sectionInfos";
 import { removeActiveSectionIds } from "./activeSections";
+import { removeSectionInfos } from "./sectionInfos";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {
   const idsToDelete = [];

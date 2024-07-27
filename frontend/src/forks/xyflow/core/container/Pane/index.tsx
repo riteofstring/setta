@@ -11,13 +11,13 @@ import React, {
   ReactNode,
   useRef,
 } from "react";
-import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import {
   getNodes,
   onNodesChange,
   resetSelectedElements,
 } from "state/actions/nodeInternals";
+import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../../components/UserSelection";

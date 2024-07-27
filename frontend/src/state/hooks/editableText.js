@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { useEffect, useState } from "react";
 import { requiresKeyInput } from "utils/sectionTypeHelpers";
-import { useGetSectionTypeConfig, useIsOneOfType } from "./useSectionType";
+import { useGetSectionTypeConfig, useIsOneOfType } from "./useUITypes";
 
 export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   const [inputValue, setInputValue] = useState(initialValue);

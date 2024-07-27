@@ -12,7 +12,7 @@ import {
 } from "utils/sectionTypeHelpers";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useParamNonPresetUITypeIds } from "./useParamUIType";
-import { useGetSectionType } from "./useSectionType";
+import { useGetSectionType } from "./useUITypes";
 
 function createName(uiType) {
   const x = uiTypesToPretty.get(uiType.type);

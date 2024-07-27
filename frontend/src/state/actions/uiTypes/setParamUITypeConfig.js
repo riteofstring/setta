@@ -12,8 +12,8 @@ import {
   getSectionInfo,
 } from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
-import { maybeCloneUIType } from "./cloneUITypes";
 import { setEnteredValue } from "../evCols";
+import { maybeCloneUIType } from "./cloneUITypes";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
 import { getParamUIType, setNonPresetUITypeIds } from "./uiTypeCols";

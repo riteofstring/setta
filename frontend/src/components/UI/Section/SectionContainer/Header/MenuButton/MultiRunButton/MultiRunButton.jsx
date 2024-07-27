@@ -1,7 +1,7 @@
-import { createAdjacentSection } from "state/actions/sections/createSections";
-import { goToSection } from "state/actions/sections/sectionPositions";
 import { initParamSweep } from "state/actions/runGroups/paramSweep";
+import { createAdjacentSection } from "state/actions/sections/createSections";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
 import { getSectionName } from "state/getters/sectionInfo";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";

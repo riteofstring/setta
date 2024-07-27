@@ -3,7 +3,7 @@ import { useCodeInfo, useSectionToParams } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useGetSectionInfo } from "./useGetSectionInfo";
 import { useOutputValues } from "./useOutputNames";
-import { useGetSectionTypeConfig } from "./useSectionType";
+import { useGetSectionTypeConfig } from "./useUITypes";
 
 export function useGetAllCallables(sectionId) {
   return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);

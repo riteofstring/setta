@@ -8,17 +8,14 @@ import {
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
+import { toggleVersionsVisible } from "state/actions/sections/setters";
 import { useActiveSection } from "state/definitions";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
 } from "state/hooks/useGetSectionInfo";
 import { useSectionRefAndInit } from "state/hooks/useSectionRefAndInit";
-import {
-  useIsSeriesElement,
-  useSectionTypeName,
-} from "state/hooks/useSectionType";
-import { toggleVersionsVisible } from "state/actions/sections/setters";
+import { useIsSeriesElement, useSectionTypeName } from "state/hooks/useUITypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
