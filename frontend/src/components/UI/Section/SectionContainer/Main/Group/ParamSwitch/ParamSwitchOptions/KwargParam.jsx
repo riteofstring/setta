@@ -31,6 +31,8 @@ export function KwargParam(props) {
       />
       <ParamContainer {...props} isKwarg={true}>
         <ParamNameInput
+          sectionId={sectionId}
+          paramInfoId={kwargInfo.id}
           value={kwargInfo.name}
           hasChildren={kwargInfo.children.length > 0}
           onBlur={onBlur}

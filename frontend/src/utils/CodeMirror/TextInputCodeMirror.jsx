@@ -180,6 +180,7 @@ export function TextInputCodeMirror({
   value,
   defaultVal,
   onChange,
+  onBlur,
   className,
   singleLine,
   onEnter,
@@ -191,9 +192,10 @@ export function TextInputCodeMirror({
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const pattern = useKeywordRegex((x) => x.pattern, _.isEqual);
 
-  function onBlur() {
+  function localOnBlur() {
     setActivationEvent(null);
     setRealIsInitialized(false);
+    onBlur?.();
   }
 
   function onMouseDown(event) {
@@ -229,7 +231,7 @@ export function TextInputCodeMirror({
           className={`cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] ${className} ${variants ? variants : ""} ${area}`}
           singleLine={singleLine}
           onEnter={onEnter}
-          onBlur={onBlur}
+          onBlur={localOnBlur}
           initialEvent={activationEvent}
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}

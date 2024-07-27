@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import { StandardInput } from "utils/atoms/input/StandardInput";
+import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
 
-export function ParamNameInput({ value, onBlur, hasChildren, onClick }) {
+export function ParamNameInput({
+  sectionId,
+  paramInfoId,
+  value,
+  onBlur,
+  hasChildren,
+  onClick,
+}) {
   const [liveValue, setLiveValue] = useState(value);
 
   useEffect(() => {
@@ -9,13 +16,17 @@ export function ParamNameInput({ value, onBlur, hasChildren, onClick }) {
   }, [value]);
 
   return (
-    <StandardInput
-      placeholder="Please Enter Key"
-      twClasses={`min-w-0 min-h-[20px] mb-0 placeholder:text-setta-300 dark:placeholder:text-setta-600 h-[calc(100%_-_1px)] truncate ${hasChildren ? "card-value-full" : "card-key"} row-span-1 dark:focus-visible:border-blue-400 font-mono`}
+    <TextInputCodeMirror
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
       value={liveValue}
-      onChange={(v) => setLiveValue(v.target.value)}
-      onBlur={(v) => onBlur(v.target.value)}
-      onClick={onClick}
+      defaultVal={"Please Enter Key"}
+      onChange={setLiveValue}
+      onBlur={() => onBlur(liveValue)}
+      className={`mb-0 h-[calc(100%_-_1px)] min-h-[20px] min-w-0 truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "card-value-full" : "card-key"} row-span-1 font-mono dark:focus-visible:border-blue-400`}
+      // variants="bg-white dark:bg-transparent"
+      // classes={classes}
+      // area={area}
     />
   );
 }
