@@ -2,18 +2,18 @@ import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
 import { useSectionToParams } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { getKwargIds } from "../getters/codeInfo";
+import { getKwargIds } from "../../getters/codeInfo";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
   getSectionTypeConfig,
-} from "../getters/sectionInfo";
-import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "./codeInfo";
-import { deleteParamInfoFromEVCol } from "./evCols";
-import { initializeParam } from "./initializeParam";
-import { updateParams } from "./sections/sectionContents";
-import { deleteParamInfoFromUITypeCol } from "./uiTypes/uiTypeCols";
-import { maybeIncrementProjectStateVersion } from "./undo";
+} from "../../getters/sectionInfo";
+import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
+import { deleteParamInfoFromEVCol } from "../evCols";
+import { initializeParam } from "../initializeParam";
+import { updateParams } from "../sections/sectionContents";
+import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
+import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function addKwarg({
   sectionId,
