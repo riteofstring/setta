@@ -47,7 +47,6 @@ function SearchSwitch({ path }) {
 
 function ProjectPageSearch() {
   const [value, setValue] = useState("");
-  const infoViewHandlers = getInfoViewHandlers(constInfoViews.NAVBAR_SEARCH);
 
   function onChange(v) {
     setValue(v);
@@ -61,7 +60,7 @@ function ProjectPageSearch() {
       placeholder="Search Project"
       value={value}
       onChange={onChange}
-      {...infoViewHandlers}
+      {...getInfoViewHandlers(constInfoViews.NAVBAR_SEARCH)}
     />
   );
 }

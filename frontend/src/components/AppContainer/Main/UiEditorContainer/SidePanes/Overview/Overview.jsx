@@ -89,10 +89,6 @@ function TabContent(props) {
 
 const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
-  const infoViewHandlers = getInfoViewHandlers(constInfoViews.OVERVIEW);
-  const infoViewHandlersSearch = getInfoViewHandlers(
-    constInfoViews.OVERVIEW_SEARCH,
-  );
   return (
     <>
       <ProjectName />
@@ -106,11 +102,14 @@ const ProjectOverview = React.forwardRef(() => {
         }
         onChange={(e) => setFilter(e.target.value)}
         aria-label="Overview Search"
-        {...infoViewHandlersSearch}
+        {...getInfoViewHandlers(constInfoViews.OVERVIEW_SEARCH)}
       />
 
       <ScrollingArea styles="flex-grow -mx-2 px-2 overflow-hidden min-h-0">
-        <ul className="min-h-0 flex-grow" {...infoViewHandlers}>
+        <ul
+          className="min-h-0 flex-grow"
+          {...getInfoViewHandlers(constInfoViews.OVERVIEW)}
+        >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </ScrollingArea>

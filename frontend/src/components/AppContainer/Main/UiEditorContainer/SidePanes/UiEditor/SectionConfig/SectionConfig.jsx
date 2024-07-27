@@ -16,20 +16,15 @@ const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
-  const infoViewHandlersCard = getInfoViewHandlers(
-    constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
-  );
-  const infoViewHandlersContents = getInfoViewHandlers(
-    constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH,
-  );
-
   // pass infoViewHandlersContents down?
   return (
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
       <div className="flex justify-between">
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
-          {...infoViewHandlersCard}
+          {...getInfoViewHandlers(
+            constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
+          )}
         >
           Card Types
         </p>
@@ -40,7 +35,7 @@ function SectionConfigCore({ sectionId }) {
 
       <p
         className="mt-4 text-xs font-semibold uppercase text-setta-400"
-        {...infoViewHandlersContents}
+        {...getInfoViewHandlers(constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH)}
       >
         Contents
       </p>

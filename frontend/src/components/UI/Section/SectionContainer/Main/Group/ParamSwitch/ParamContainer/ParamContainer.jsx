@@ -18,7 +18,6 @@ import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const infoViewHandlers = getInfoViewHandlers(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isSearchResult = useProjectSearch((x) =>
     x.codeInfo.includes(paramInfo.id),
@@ -46,7 +45,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     <>
       <article
         className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
-        {...infoViewHandlers}
+        {...getInfoViewHandlers(paramInfo.description)}
       >
         {children}
         <ParamInput

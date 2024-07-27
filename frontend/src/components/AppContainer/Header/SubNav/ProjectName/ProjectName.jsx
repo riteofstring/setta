@@ -13,14 +13,10 @@ const notEditing =
   "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
 
 export function ProjectName() {
-  const infoViewHandlers = getInfoViewHandlers(
-    constInfoViews.OVERVIEW_PROJNAME,
-  );
-
   return (
     <header
       className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
-      {...infoViewHandlers}
+      {...getInfoViewHandlers(constInfoViews.OVERVIEW_PROJNAME)}
     >
       <ProjectNameOnly />
       <ProjectConfigNameOnly />
