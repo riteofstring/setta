@@ -20,8 +20,8 @@ import { isPreset } from "utils/sectionTypeHelpers";
 import { xnor } from "utils/utils";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
-import { getProjectMetadata } from "../project";
-import { getProjectConfigMetadata } from "../projectConfig";
+import { getProjectMetadata } from "./project";
+import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData() {
   const project = getProjectMetadata();
