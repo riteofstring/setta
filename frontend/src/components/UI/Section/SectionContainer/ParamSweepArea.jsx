@@ -10,11 +10,11 @@ import {
   deleteLastParamSweepValue,
   deleteParamSweepValue,
   setParamSweepValue,
-} from "state/actions/paramSweep";
+} from "state/actions/runGroups/paramSweep";
 import { useCodeInfo, useEVCols } from "state/definitions";
-import { useGetEVColNames } from "state/hooks/useEnteredValue";
-import { useMappedSectionDBSource } from "state/hooks/useGetSectionInfo";
-import { useParamSweepInfo } from "state/hooks/useParamSweepInfo";
+import { useGetEVColNames } from "state/hooks/ev";
+import { useParamSweepInfo } from "state/hooks/paramSweep";
+import { useMappedSectionDBSource } from "state/hooks/sections";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";

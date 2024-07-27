@@ -4,12 +4,10 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
+import { getInfoViewHandlers } from "state/actions/infoView";
+import { useCurrInfoView } from "state/hooks/infoView";
 import { localStorageFns } from "state/hooks/localStorage";
-import {
-  getInfoViewHandlers,
-  useCurrInfoView,
-} from "state/hooks/useCurrInfoView";
-import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
+import { useGetOverviewListing } from "state/hooks/overview";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { constInfoViews, OVERVIEW } from "utils/constants";
@@ -44,10 +42,10 @@ function TabsVisible() {
       // defaultValue={SECTION_CONFIG_TAB}
       // value={tab}
       // onValueChange={setTab}
-      className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pr-2"
+      className="flex min-h-0 flex-1 flex-col"
     >
       <Tabs.List>
-        <nav className="flex gap-4 overflow-x-auto">
+        <nav className="flex gap-4">
           <TabItem name="Overview" value="tab1" />
           <TabItem name="Info" value="tab2" />
           <TabItem name="Configs" value="tab3" />
@@ -83,7 +81,7 @@ function TabItem({ name, value }) {
 function TabContent(props) {
   const { children, value } = props;
   return (
-    <Tabs.Content value={value} asChild className="overflow-x-auto">
+    <Tabs.Content value={value} asChild>
       {children}
     </Tabs.Content>
   );
@@ -91,15 +89,11 @@ function TabContent(props) {
 
 const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
-  const infoViewHandlers = getInfoViewHandlers(constInfoViews.OVERVIEW);
-  const infoViewHandlersSearch = getInfoViewHandlers(
-    constInfoViews.OVERVIEW_SEARCH,
-  );
   return (
     <>
       <ProjectName />
       <StandardSearch
-        inputStyles="flex-grow outline-0 min-w-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1 truncate"
+        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
         placeholder="Filter"
@@ -108,11 +102,14 @@ const ProjectOverview = React.forwardRef(() => {
         }
         onChange={(e) => setFilter(e.target.value)}
         aria-label="Overview Search"
-        {...infoViewHandlersSearch}
+        {...getInfoViewHandlers(constInfoViews.OVERVIEW_SEARCH)}
       />
 
-      <ScrollingArea styles="flex-grow min-h-0">
-        <ul className="min-h-0 flex-grow" {...infoViewHandlers}>
+      <ScrollingArea styles="flex-grow -mx-2 px-2 overflow-hidden min-h-0">
+        <ul
+          className="min-h-0 flex-grow"
+          {...getInfoViewHandlers(constInfoViews.OVERVIEW)}
+        >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </ScrollingArea>

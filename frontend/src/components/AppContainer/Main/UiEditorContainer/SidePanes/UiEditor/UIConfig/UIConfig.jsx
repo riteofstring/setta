@@ -2,12 +2,12 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";
 import { setCodeInfoDescription } from "state/actions/codeInfo";
-import { updateParams } from "state/actions/sectionContents";
-import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";
-import { setParamUITypeId } from "state/actions/setParamUITypeId";
+import { updateParams } from "state/actions/sections/sectionContents";
+import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
+import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useCodeInfo } from "state/definitions";
-import { useGetParamUIType } from "state/hooks/useParamUIType";
-import { useGetParamInfosThatHaveNames } from "state/hooks/useSectionContents";
+import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
+import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
@@ -28,10 +28,10 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
   );
 
   const inputStyles =
-    "flex-grow outline-0 min-w-0 w-full cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-7 py-1 truncate";
+    "flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-7 py-1";
 
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
+    <>
       <StandardSearch
         inputStyles={inputStyles}
         leftElementStyles="pl-1"
@@ -41,7 +41,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <ScrollingArea styles="mt-4 flex flex-col gap-2">
+      <ScrollingArea styles="mt-4 -mx-2 px-2 flex flex-col gap-2">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -51,7 +51,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
             />
           ))}
       </ScrollingArea>
-    </div>
+    </>
   );
 });
 

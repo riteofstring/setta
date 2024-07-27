@@ -1,5 +1,5 @@
 import React from "react";
-import { setProjectConfig } from "state/actions/projectConfig";
+import { setProjectConfig } from "state/actions/project/projectConfig";
 import {
   useOtherProjectConfigs,
   useProject,
@@ -28,7 +28,7 @@ export const ProjectConfigs = React.forwardRef(() => {
       <p className="text-xs text-setta-600 dark:text-setta-300">
         Hover over an item to preview another version of your project
       </p>
-      <section className=" mt-2 flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
+      <section className="-mx-1 mt-2 flex h-full overflow-visible overflow-y-scroll rounded-lg bg-white/50 p-1 dark:bg-setta-950">
         <div className="mt-1 flex w-full flex-col gap-1">
           {configNames.map((name, idx) => (
             <p

@@ -1,24 +1,21 @@
 import React from "react";
+import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
   setActiveSectionIds,
-} from "state/actions/activeSection";
-import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
-import { getParamInfos } from "state/actions/sectionContents";
-import { setZIndices } from "state/actions/sectionPositions";
-import { getHighestAncestor } from "state/actions/sectionSizes";
+} from "state/actions/sections/activeSections";
+import { getParamInfos } from "state/actions/sections/sectionContents";
+import { setZIndices } from "state/actions/sections/sectionPositions";
+import { getHighestAncestor } from "state/actions/sections/sectionSizes";
+import { toggleVersionsVisible } from "state/actions/sections/setters";
 import { useActiveSection } from "state/definitions";
+import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
-} from "state/hooks/useGetSectionInfo";
-import { useSectionRefAndInit } from "state/hooks/useSectionRefAndInit";
-import {
-  useIsSeriesElement,
-  useSectionTypeName,
-} from "state/hooks/useSectionType";
-import { toggleVersionsVisible } from "state/hooks/useSectionVersions";
+} from "state/hooks/sections";
+import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 

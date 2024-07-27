@@ -8,7 +8,7 @@ import {
   unselectNodesAndEdges,
   updateNodePositions,
 } from "state/actions/nodeInternals";
-import { setZIndices } from "state/actions/sectionPositions";
+import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useNodeInternals, useSettings } from "state/definitions";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";

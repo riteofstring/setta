@@ -1,13 +1,13 @@
 import C from "constants/constants.json";
 import { useEffect, useState } from "react";
 import { requiresKeyInput } from "utils/sectionTypeHelpers";
-import { useGetSectionTypeConfig, useIsOneOfType } from "./useSectionType";
+import { useGetSectionTypeConfig, useIsOneOfType } from "./uiTypes";
 
 export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   const [inputValue, setInputValue] = useState(initialValue);
 
-  function onBlur(v) {
-    if (v != "" && v != initialValue && condition(v)) {
+  async function onBlur(v) {
+    if (v != "" && v != initialValue && (await condition(v))) {
       onSetTitle(v);
     } else {
       setInputValue(initialValue);

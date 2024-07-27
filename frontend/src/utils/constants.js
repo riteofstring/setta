@@ -92,6 +92,8 @@ export const jsonSettings = {
 export const otherConfigurableSettings = {
   snapToGrid: false,
   snapGrid: [15, 15],
+  minZoom: 0.1,
+  maxZoom: 10,
 };
 
 export const SECTION_CONFIG_TAB = "SectionConfig";
@@ -111,3 +113,18 @@ export const tabNameToPretty = Object.freeze(
     }),
   ),
 );
+
+export const projectPreviewImgColors = [
+  "bg-red-500/60 dark:bg-red-600/30",
+  "bg-pink-500/60 dark:bg-pink-600/30",
+  "bg-purple-500/60 dark:bg-purple-600/30",
+  "bg-indigo-500/60 dark:bg-indigo-600/30",
+  "bg-blue-500/60 dark:bg-blue-600/30",
+  "bg-green-500/60 dark:bg-green-600/30",
+  "bg-yellow-500/60 dark:bg-yellow-600/30",
+  "bg-orange-500/60 dark:bg-orange-600/30",
+];
+
+export const ROOT_ROUTER_PATH = "/"
+export const PROJECT_ROUTER_PATH = ":projectName/:configName";
+export const SETTINGS_ROUTER_PATH = "settings";

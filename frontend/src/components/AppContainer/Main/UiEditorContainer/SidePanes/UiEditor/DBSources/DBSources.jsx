@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import { useState } from "react";
 import { duplicateDbSource } from "state/actions/evCols";
-import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useSectionDBSource } from "state/hooks/useGetSectionInfo";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useSectionDBSource } from "state/hooks/sections";
 
 export function DBSources({ sectionId }) {
   const dbSource = useSectionDBSource(sectionId);
@@ -27,7 +27,7 @@ export function DBSources({ sectionId }) {
       value={localVal}
       onChange={onChange}
       onBlur={onBlur}
-      className="rounded bg-setta-400 px-4 py-2 text-white dark:bg-setta-800"
+      className="rounded bg-gray-800 p-2 text-white"
     />
   );
 }

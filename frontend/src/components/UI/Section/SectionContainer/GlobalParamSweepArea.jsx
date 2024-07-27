@@ -7,10 +7,10 @@ import {
   toggleRunGroup,
   toggleRunGroupParamSweep,
   toggleRunGroupSection,
-} from "state/actions/runGroups";
+} from "state/actions/runGroups/runGroups";
 import { useRunGroups } from "state/definitions";
-import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
-import { useGetParamSweepNames } from "state/hooks/useParamSweepInfo";
+import { useGetOverviewListing } from "state/hooks/overview";
+import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 

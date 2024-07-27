@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useGetParamUIType } from "state/hooks/useParamUIType";
+import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput/SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput/SwitchInput";
 import { TextInput, TextInputConfig } from "./TextInput";

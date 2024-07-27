@@ -59,9 +59,31 @@ export function stateWithResetFn(initialState) {
   });
 }
 
+function resetStores(stateType) {
+  for (const resetter of stateDict[stateType].resetters) {
+    resetter();
+  }
+}
+
+export function resetAllStores() {
+  resetStores(STATE_TYPES.BASE_STATE);
+}
+
+export function resetProjectStores() {
+  resetStores(STATE_TYPES.PROJECT_STATE);
+}
+
 export function initValue(state, id, value) {
   if (!(id in state)) {
     state[id] = value;
   }
   return state[id];
+}
+
+export function pauseTemporal() {
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
+    if (s.temporal) {
+      s.temporal.getState().pause();
+    }
+  }
 }

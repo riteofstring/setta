@@ -1,9 +1,9 @@
-import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { setSectionName, setSectionSize } from "state/actions/setters";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setSectionName, setSectionSize } from "state/actions/sections/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
-import { useAllOutputNames } from "state/hooks/useOutputNames";
+import { useAllOutputNames } from "state/hooks/outputs";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { INITIAL_CHART_SIZE } from "utils/constants";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";

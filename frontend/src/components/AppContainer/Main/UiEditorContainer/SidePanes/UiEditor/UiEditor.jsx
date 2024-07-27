@@ -4,7 +4,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { setUIEditorTab } from "state/actions/uiEditor";
 import { useActiveSection, useUIEditor } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
+import { useRequiredUIEditorTabs } from "state/hooks/uiTypes";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
@@ -46,13 +46,13 @@ function TabsVisible({ sectionId }) {
 
   return (
     <Tabs.Root
-      className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pl-2"
+      className="contents"
       defaultValue={SECTION_CONFIG_TAB}
       value={tab}
       onValueChange={setUIEditorTab}
     >
       <Tabs.List asChild>
-        <nav className="flex gap-4 overflow-x-auto">
+        <nav className="flex gap-4">
           {requiredTabs.map((x) => (
             <TabItem name={tabNameToPretty.get(x)} value={x} key={x} />
           ))}
@@ -91,10 +91,10 @@ function TabContent(props) {
 
 function Placeholder() {
   return (
-    <aside className="grid h-full min-h-0 w-[calc(100%_-_2rem)]">
+    <aside className="grid min-h-[60vh] flex-grow flex-col">
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-setta-300 dark:text-setta-700 " />
-        <h4 className="text-center text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">
+        <h4 className="text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">
           Select A Card to Edit
         </h4>
       </div>

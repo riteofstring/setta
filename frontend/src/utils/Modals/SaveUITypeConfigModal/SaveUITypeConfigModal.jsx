@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { cloneNewUIType } from "state/actions/cloneUITypes";
-import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";
-import { setParamUITypeId } from "state/actions/setParamUITypeId";
-import { deleteUIType } from "state/actions/uiTypes";
+import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
+import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
+import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
+import { deleteUIType } from "state/actions/uiTypes/uiTypes";
 import { useUITypes } from "state/definitions";
 import { isPreset, isUserPreset } from "utils/sectionTypeHelpers";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";

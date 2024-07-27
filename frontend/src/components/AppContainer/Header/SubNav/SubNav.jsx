@@ -16,7 +16,7 @@ export function SubNav() {
 function NavSwitch() {
   const { projectName, configName } = useParams();
 
-  return projectName && configName ? <UiEditorSubNav /> : null;
+  return projectName && configName && <UiEditorSubNav />;
 }
 
 function UiEditorSubNav() {

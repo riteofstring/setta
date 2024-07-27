@@ -27,18 +27,6 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>(
         },
       }));
     },
-    setMinZoom: (minZoom: number) => {
-      const { d3Zoom, maxZoom } = get();
-      d3Zoom?.scaleExtent([minZoom, maxZoom]);
-
-      set({ minZoom });
-    },
-    setMaxZoom: (maxZoom: number) => {
-      const { d3Zoom, minZoom } = get();
-      d3Zoom?.scaleExtent([minZoom, maxZoom]);
-
-      set({ maxZoom });
-    },
     setTranslateExtent: (translateExtent: CoordinateExtent) => {
       get().d3Zoom?.translateExtent(translateExtent);
 
