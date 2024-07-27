@@ -1,8 +1,8 @@
 import React from "react";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { ParamGroupContainer } from "../../Main/Group/GroupContainer";
-import { KwargsControls } from "../../SectionParts/KwargsControls";
-import { SectionSearch } from "../../SectionParts/Search";
+import { ParamGroupContainer } from ".././Main/Group/GroupContainer";
+import { KwargsControls } from "../SectionParts/KwargsControls";
+import { SectionSearch } from "../SectionParts/Search";
 
 function _InputArea({ sectionId }) {
   const selectedItem = useGetSectionInfo(sectionId, "selectedItem");

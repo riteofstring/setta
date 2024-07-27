@@ -9,15 +9,15 @@ import { SectionHeader } from "../Header/SectionHeader";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { VersionList } from "../SectionParts/VersionList";
 import "./dndline.css";
-import { CodeArea } from "./Layouts/CodeArea";
-import { GlobalParamSweepArea } from "./Layouts/GlobalParamSweepArea";
-import { GlobalVariablesArea } from "./Layouts/GlobalVariablesArea";
-import { InfoArea } from "./Layouts/InfoArea";
-import { InputArea } from "./Layouts/InputArea";
-import { OutputArea } from "./Layouts/OutputArea";
-import { ParamSweepArea } from "./Layouts/ParamSweepArea";
-import { SocialArea } from "./Layouts/SocialArea";
-import { TerminalArea } from "./Layouts/TerminalArea";
+import { CodeArea } from "../Layouts/CodeArea";
+import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
+import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
+import { InfoArea } from "../Layouts/InfoArea";
+import { InputArea } from "../Layouts/InputArea";
+import { OutputArea } from "../Layouts/OutputArea";
+import { ParamSweepArea } from "../Layouts/ParamSweepArea";
+import { SocialArea } from "../Layouts/SocialArea";
+import { TerminalArea } from "../Layouts/TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,
