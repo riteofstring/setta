@@ -68,11 +68,11 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     </>
   ) : (
     <article
-      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
+      className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
       {children}
-      <div className="card-args-list-nested -ml-2 pb-1 pt-2 [&>article]:!gap-[0_0.25rem]">
+      <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}
