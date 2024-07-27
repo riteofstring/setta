@@ -1,6 +1,7 @@
 import _ from "lodash";
-import { useUITypeCols } from "state/definitions";
+import { useUITypeCols, useUITypes } from "state/definitions";
 import { initValue } from "state/utils";
+import { getSectionInfo } from "../getters/sectionInfo";
 
 export function setAllUITypeCols({ uiTypeCols }) {
   useUITypeCols.setState({ y: uiTypeCols });
@@ -43,4 +44,14 @@ export function updateUITypeCols({ uiTypeCols }) {
   useUITypeCols.setState((state) => {
     state.y = { ...state.y, ...uiTypeCols };
   });
+}
+
+function getParamUITypeId(sectionId, paramInfoId) {
+  const { uiTypeColId } = getSectionInfo(sectionId);
+  return useUITypeCols.getState().y[uiTypeColId][paramInfoId].uiTypeId;
+}
+
+export function getParamUIType(sectionId, paramInfoId) {
+  const uiTypeId = getParamUITypeId(sectionId, paramInfoId);
+  return useUITypes.getState().x[uiTypeId];
 }

@@ -14,10 +14,9 @@ import {
 import { getValueForUIType } from "utils/objs/ev";
 import { maybeCloneUIType } from "./cloneUITypes";
 import { setEnteredValue } from "./evCols";
-import { getParamUIType } from "./paramInfos";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
-import { setNonPresetUITypeIds } from "./uiTypeCols";
+import { getParamUIType, setNonPresetUITypeIds } from "./uiTypeCols";
 import { addUIType } from "./uiTypes";
 
 export function setParamUITypeConfig({

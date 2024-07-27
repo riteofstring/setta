@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { setParamEnteredValue } from "state/actions/paramInfos";
+import { setParamEnteredValue } from "state/actions/evCols";
 import { setSelectedItem } from "state/actions/setters";
 import {
   useCodeInfo,
