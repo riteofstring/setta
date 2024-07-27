@@ -5,11 +5,11 @@ import {
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
-import { copy } from "./copyPaste/copy";
-import { paste } from "./copyPaste/paste";
-import { saveProject } from "./project/saveProject";
-import { groupSections } from "./sections/groupSections";
-import { focusOnArgsFilter } from "./sections/sectionParamFilter";
+import { copy } from "./copy";
+import { focusOnArgsFilter } from "./focusOnArgsFilter";
+import { groupSections } from "./groupSections";
+import { paste } from "./paste";
+import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 
 function attachKeyDownListener(action) {

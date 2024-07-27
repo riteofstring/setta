@@ -3,7 +3,7 @@ import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
   saveProject,
-} from "state/actions/project/saveProject";
+} from "state/actions/save";
 import { useProject, useProjectConfig } from "state/definitions";
 import { useGetProjectsForFileMenu } from "state/hooks/project";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";

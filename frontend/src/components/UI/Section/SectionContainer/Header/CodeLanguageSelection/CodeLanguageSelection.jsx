@@ -1,7 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import C from "constants/constants.json";
 import { PiBracketsCurlyBold } from "react-icons/pi";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";

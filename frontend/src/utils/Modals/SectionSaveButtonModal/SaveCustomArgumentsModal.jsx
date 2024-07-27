@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { saveKwargsAsCollection } from "state/actions/kwargs/kwargs";
+import { saveKwargsAsCollection } from "state/actions/kwargs";
 import { useModal } from "state/definitions";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 

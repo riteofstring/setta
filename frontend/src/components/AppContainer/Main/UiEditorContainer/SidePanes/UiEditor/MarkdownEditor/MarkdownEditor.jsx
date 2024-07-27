@@ -1,6 +1,6 @@
 import _ from "lodash";
 import React, { useCallback, useEffect, useState } from "react";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 

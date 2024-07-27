@@ -1,6 +1,6 @@
 import { useUITypes } from "state/definitions";
-import { cloneRootUIType } from "../actions/uiTypes/cloneUITypes";
-import { addUIType, setOneUITypeConfig } from "../actions/uiTypes/uiTypes";
+import { cloneRootUIType } from "../actions/cloneUITypes";
+import { addUIType, setOneUITypeConfig } from "../actions/uiTypes";
 
 export function getChildUIType(parentUIType, parentId) {
   const uiTypesState = useUITypes.getState();

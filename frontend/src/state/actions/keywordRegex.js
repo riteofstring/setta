@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getParamInfos } from "state/actions/sections/sectionContents";
+import { getParamInfos } from "state/actions/sectionContents";
 import {
   useCodeInfo,
   useKeywordRegex,
