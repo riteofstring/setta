@@ -1,4 +1,4 @@
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 
 export function ParamOptionsButton({ variants = "" }) {
   //hover:!bg-white dark:hover:!bg-setta-900

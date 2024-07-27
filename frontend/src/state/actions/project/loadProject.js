@@ -6,8 +6,8 @@ import {
   REACT_FLOW_STORE,
   setDbSourceMapping,
 } from "utils/constants";
-import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
-import { router } from "utils/Routes/router";
+import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
+import { router } from "components/Pages/router";
 import { setAllCodeInfo } from "../codeInfo";
 import { setAllEVCols } from "../evCols";
 import { setNodes } from "../nodeInternals";

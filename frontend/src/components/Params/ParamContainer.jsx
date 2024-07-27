@@ -11,7 +11,7 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton";
