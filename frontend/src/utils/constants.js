@@ -92,6 +92,8 @@ export const jsonSettings = {
 export const otherConfigurableSettings = {
   snapToGrid: false,
   snapGrid: [15, 15],
+  minZoom: 0.1,
+  maxZoom: 10,
 };
 
 export const SECTION_CONFIG_TAB = "SectionConfig";

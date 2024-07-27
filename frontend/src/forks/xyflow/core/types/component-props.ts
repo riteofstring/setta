@@ -20,8 +20,6 @@ export type ReactFlowProps = {
   elementsSelectable?: boolean;
   selectNodesOnDrag?: boolean;
   panOnDrag?: boolean | number[];
-  minZoom?: number;
-  maxZoom?: number;
   translateExtent?: CoordinateExtent;
   preventScrolling?: boolean;
   zoomOnScroll?: boolean;

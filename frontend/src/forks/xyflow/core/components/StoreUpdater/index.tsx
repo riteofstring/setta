@@ -14,8 +14,6 @@ type StoreUpdaterProps = Pick<
   | "nodes"
   | "nodesDraggable"
   | "nodesFocusable"
-  | "minZoom"
-  | "maxZoom"
   | "elementsSelectable"
   | "translateExtent"
   | "fitView"
@@ -59,8 +57,6 @@ function useDirectStoreUpdater(
 const StoreUpdater = ({
   nodesDraggable,
   nodesFocusable,
-  minZoom,
-  maxZoom,
   elementsSelectable,
   translateExtent,
   fitView,
@@ -117,8 +113,6 @@ const StoreUpdater = ({
     useReactFlow.setState,
   );
 
-  useStoreUpdater<number>(minZoom, setMinZoom);
-  useStoreUpdater<number>(maxZoom, setMaxZoom);
   useStoreUpdater<CoordinateExtent>(translateExtent, setTranslateExtent);
 
   return null;
