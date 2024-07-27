@@ -1,5 +1,5 @@
-import { getSectionInfo, getSectionParentId } from "../getters/sectionInfo";
-import { deleteSections } from "./sectionOps";
+import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
+import { deleteSections } from "../sectionOps";
 
 export function deleteChildrenFromSeries({
   isRoot,
