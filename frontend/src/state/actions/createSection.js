@@ -1,0 +1,235 @@
+import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/MarkdownEditor/MarkdownEditor";
+import C from "constants/constants.json";
+import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
+import { getChildUIType } from "state/actions/getChildUITypeId";
+import { initializeChildParams } from "state/actions/initializeParam";
+import { addNodes } from "state/actions/nodeInternals";
+import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useNodeInternals, useSettings } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
+import { newCodeInfo } from "utils/objs/codeInfo";
+import { newSectionInfo } from "utils/objs/sectionInfo";
+import { insertIntoArray } from "utils/utils";
+import {
+  getSectionInfo,
+  getSectionParentId,
+  getSectionType,
+  getSectionTypeConfig,
+} from "../getters/sectionInfo";
+import { setAllChildren } from "./children";
+import { addCodeInfo } from "./codeInfo";
+import { initManyEvColIds } from "./evCols";
+import { updateManyParamsAndCallables } from "./sectionContents";
+import { addSectionInfo } from "./sectionInfos";
+import { initManyUITypeColIds } from "./uiTypeCols";
+
+export function addSectionInEmptySpace({
+  type,
+  inputSectionProps = {},
+  positionOffset = { x: 0, y: 0 },
+}) {
+  const {
+    transform: [_x, _y, zoom],
+  } = useReactFlow.getState();
+  const [overviewWidth] = localStorageFns.overviewTrueWidth.state();
+
+  const x = (overviewWidth - _x) / zoom;
+  const y = -_y / zoom;
+
+  const position = { x: x + positionOffset.x, y: y + positionOffset.y };
+
+  return addSectionAtPosition({
+    type,
+    inputSectionProps,
+    position,
+    incrementVersion: true,
+  });
+}
+
+export function addSectionAtPosition({
+  type,
+  callbackBeforeExit = () => undefined,
+  incrementVersion = false,
+  inputSectionProps = {},
+  position,
+}) {
+  const sectionProps = {
+    ...inputSectionProps,
+  };
+
+  const settings = useSettings.getState();
+  sectionProps.size = settings.defaultSectionSize;
+  if (type === C.DECK) {
+  } else if (type === C.GLOBAL_VARIABLES) {
+    sectionProps.name = "Global Variables";
+  } else if (type === C.CODE) {
+    sectionProps.name = "Code";
+    sectionProps.size = settings.defaultCodeSectionSize;
+  } else if (type === C.VAR_CONTROL) {
+    sectionProps.name = "Var Control";
+    sectionProps.size = settings.defaultCodeSectionSize;
+  } else if (type === C.TERMINAL) {
+    sectionProps.size = settings.defaultTerminalSectionSize;
+  } else if (type === C.GLOBAL_PARAM_SWEEP) {
+    sectionProps.name = "Global Param Sweep";
+  } else if (type === C.INFO) {
+    sectionProps.name = getDefaultInfoTitle();
+  }
+
+  sectionProps.uiTypeId = BASE_UI_TYPE_IDS[type];
+
+  const [newId] = createSectionInfo({ sectionProps, position });
+  callbackBeforeExit(newId);
+  maybeIncrementProjectStateVersion(incrementVersion);
+  return newId;
+}
+
+export function addChildrenToSeries({
+  isRoot,
+  calledBy,
+  numChildren,
+  incrementVersion = false,
+}) {
+  let parentId, startIdx;
+  if (isRoot) {
+    parentId = calledBy;
+    startIdx = 0;
+  } else {
+    parentId = getSectionParentId(calledBy);
+    startIdx = getSectionInfo(parentId).children.indexOf(calledBy) + 1;
+  }
+
+  const newIds = createChildForSeries({
+    parentId,
+    numChildren,
+  });
+
+  setAllChildren(parentId, (x) => insertIntoArray(x, startIdx, ...newIds));
+  updateManyParamsAndCallables(newIds);
+  maybeIncrementProjectStateVersion(incrementVersion);
+
+  return newIds;
+}
+
+export function createChildForSeries({ parentId, numChildren }) {
+  // const { name: parentName } = useSectionInfos.getState().x[parentId];
+  const parentUIType = getSectionType(parentId);
+  const uiType = getChildUIType(parentUIType, parentId);
+  const nonPresetUITypeIds = !uiType.presetType ? [uiType.id] : [];
+
+  return createSectionInfo({
+    sectionProps: {
+      parentId,
+      uiTypeId: uiType.id,
+      nonPresetUITypeIds,
+    },
+    numSections: numChildren,
+  });
+}
+
+export function createSectionInfo({
+  sectionProps = {},
+  numSections = 1,
+  position,
+}) {
+  const newInfos = {};
+  for (let i = 0; i < numSections; i++) {
+    const sectionInfo = newSectionInfo(sectionProps);
+    newInfos[sectionInfo.id] = sectionInfo;
+  }
+  addSectionsToState(newInfos, position);
+  return Object.keys(newInfos);
+}
+
+function addSectionsToState(sectionInfos, position) {
+  addSectionInfo((x) => ({ ...x, ...sectionInfos }));
+
+  const sectionIds = _.map(sectionInfos, (x) => x.id);
+
+  initManyEvColIds({
+    dbSource: C.DEFAULT_DB_ALIAS,
+    collectionIds: _.map(sectionInfos, (x) => x.evColId),
+  });
+
+  initManyUITypeColIds({
+    collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
+  });
+
+  const topLevelSectionIds = [];
+
+  for (const s of sectionIds) {
+    initializeNewSectionConfig(s);
+    const { codeInfoId } = getSectionTypeConfig(s);
+    initializeChildParams({ sectionIds: [s], codeInfoIds: [codeInfoId] });
+    if (!sectionInfos[s].parentId) {
+      topLevelSectionIds.push(s);
+    }
+  }
+
+  if (topLevelSectionIds.length > 0) {
+    addNodes(
+      topLevelSectionIds.map((s) => ({
+        id: s,
+        position,
+        zIndex: 0,
+        tempZIndex: 0,
+      })),
+    );
+  }
+}
+
+function initializeNewSectionConfig(sectionId) {
+  const collection = newCodeInfo({
+    name: "Contents",
+    rcType: C.COLLECTION,
+  });
+  addCodeInfo({ info: collection });
+  setSectionUITypeConfig({
+    sectionId,
+    configProps: {
+      configName: "codeInfoId",
+      newValueFn: () => collection.id,
+    },
+  });
+}
+
+export function createAdjacentSection(sectionId, sectionProps) {
+  const { position: sectionPosition, width: sectionWidth } = useNodeInternals
+    .getState()
+    .x.get(sectionId);
+
+  const position = {
+    x: sectionPosition.x + sectionWidth,
+    y: sectionPosition.y,
+  };
+
+  createSectionInfo({ sectionProps, position });
+}
+
+export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
+  function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
+    return (deckId) => {
+      moveSections({
+        oldParentId: PANEID,
+        newParentId: deckId,
+        sectionIds: nodeIds,
+      });
+      callbackBeforeExit?.(deckId);
+    };
+  }
+
+  onClickAddSection({
+    type: C.DECK,
+    x,
+    y,
+    callbackBeforeExit: getCallbackBeforeExit({
+      nodeIds,
+      callbackBeforeExit,
+    }),
+    projectXY,
+    incrementVersion: true,
+  });
+}

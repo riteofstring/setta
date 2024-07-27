@@ -1,17 +1,16 @@
 import C from "constants/constants.json";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { addSectionAtPosition } from "state/actions/addSection";
+import { addSectionAtPosition } from "state/actions/createSection";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import {
   updateManyParamsAndCallables,
   updateParams,
 } from "state/actions/sectionContents";
-import { moveSections } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { sendMessageInRoom } from "state/actions/websocketRooms";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
-import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";
 import { addCodeInfo, addCodeInfoBatch } from "./codeInfo";
@@ -19,31 +18,6 @@ import { updateEVCols } from "./evCols";
 import { updateSections } from "./sectionInfos";
 import { updateUITypeCols } from "./uiTypeCols";
 import { updateUITypes } from "./uiTypes";
-
-export function createDeck({ nodeIds, x, y, callbackBeforeExit, projectXY }) {
-  function getCallbackBeforeExit({ nodeIds, callbackBeforeExit }) {
-    return (deckId) => {
-      moveSections({
-        oldParentId: PANEID,
-        newParentId: deckId,
-        sectionIds: nodeIds,
-      });
-      callbackBeforeExit?.(deckId);
-    };
-  }
-
-  onClickAddSection({
-    type: C.DECK,
-    x,
-    y,
-    callbackBeforeExit: getCallbackBeforeExit({
-      nodeIds,
-      callbackBeforeExit,
-    }),
-    projectXY,
-    incrementVersion: true,
-  });
-}
 
 export function onClickAddSection({
   type,
