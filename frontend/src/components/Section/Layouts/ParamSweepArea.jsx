@@ -15,9 +15,9 @@ import { useCodeInfo, useEVCols } from "state/definitions";
 import { useGetEVColNames } from "state/hooks/ev";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { IconButton } from "utils/atoms/buttons/IconButton";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
 import { ParamUI } from "../../Params/ParamUIs/ParamUI";
 
 function _ParamSweepArea({ sectionId }) {

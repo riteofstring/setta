@@ -11,7 +11,7 @@ import {
 import { useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea() {

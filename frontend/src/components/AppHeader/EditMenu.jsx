@@ -5,8 +5,8 @@ import { HiPlus } from "react-icons/hi";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
-import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function EditMenu() {
   return (
