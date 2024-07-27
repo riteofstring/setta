@@ -1,4 +1,3 @@
-import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs";
 import { updateParams } from "state/actions/sectionContents";
@@ -45,37 +44,37 @@ export function KwargsControls({ sectionId, objInfoId }) {
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-setta-600 text-setta-300";
 
-  const buttonClass =
-    "focus-visible:ring-2 grid grid-cols-[1fr] grid-rows-[1fr] place-items-center nodrag cursor-pointer flex bg-transparent hover:bg-setta-100 dark:hover:bg-setta-950/50 text-setta-500 dark:hover:text-setta-300 rounded-full ";
+  const classes =
+    "focus-visible:ring-2 grid grid-cols-[1fr] grid-rows-[1fr] place-items-center nodrag cursor-pointer bg-transparent hover:bg-setta-100 dark:hover:bg-setta-950/50 text-setta-500 dark:hover:text-setta-300 rounded-full h-6 w-6";
 
   return (
     <>
-      <section className="card-args-control flex min-w-0  rounded-xl border-b border-solid border-white px-5  pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
-        <div className="flex min-w-0 flex-grow flex-col @[12rem]:flex-row">
-          <article className="flex items-center">
-            <h3 className="pr-1  font-heading text-xs font-bold uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3>
-            <button className={buttonClass} onClick={onClickDeleteKwarg}>
-              <i className="gg-math-minus col-start-1 row-start-1" />
+      <section className="card-args-control flex min-w-0  rounded-xl border-b border-solid border-white px-2  pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
+        <div className="flex min-w-0 flex-grow flex-col items-center @[12rem]:flex-row @[12rem]:items-start">
+          <article className="mb-1 flex w-full items-center justify-center rounded-xl bg-setta-850/50 @[12rem]:mb-0 @[12rem]:w-auto @[12rem]:justify-start @[12rem]:bg-transparent">
+            {/* <h3 className="pr-1 font-heading text-xs uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3> */}
+            <button className={classes} onClick={onClickDeleteKwarg}>
+              <i className="gg-math-minus w-full" />
             </button>
-            <button className={buttonClass} onClick={onClickAddKwarg}>
-              <i className="gg-math-plus col-start-1 row-start-1" />
+            <button className={classes} onClick={onClickAddKwarg}>
+              <i className="gg-math-plus" />
             </button>
-            <button className={buttonClass} onClick={onPushLeft}>
-              <i className="gg-push-left col-start-1 row-start-1" />
+            <button className={classes} onClick={onPushLeft}>
+              <i className="gg-push-left ml-[2px]" />
             </button>
-            <button className={buttonClass} onClick={onPushRight}>
-              <i className="gg-push-right col-start-1 row-start-1" />
+            <button className={classes} onClick={onPushRight}>
+              <i className="gg-push-right mr-[2px]" />
             </button>
-            <button className={buttonClass} onClick={onPushUp}>
-              <CgPushUp />
+            <button className={classes} onClick={onPushUp}>
+              <i className="gg-push-up mt-[2px]" />
             </button>
-            <button className={buttonClass} onClick={onPushDown}>
-              <CgPushDown />
+            <button className={classes} onClick={onPushDown}>
+              <i className="gg-push-down mb-[2px]" />
             </button>
-            <VerticalLine inputStyles="ml-2 mr-3 self-stretch invisible @[12rem]:visible" />
+            <VerticalLine inputStyles="ml-2 mr-3 self-stretch hidden @[12rem]:block" />
           </article>
 
-          <search className="nodrag relative flex w-full min-w-0 items-center">
+          <search className="nodrag mx- relative flex w-full min-w-0 items-center @[12rem]:mx-0">
             <i className="gg-sort-az -mr-4 text-setta-300 dark:text-setta-600" />
             <input
               id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
