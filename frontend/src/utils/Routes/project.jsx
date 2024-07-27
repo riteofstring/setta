@@ -1,5 +1,5 @@
-import { HeaderContainer } from "components/AppContainer/Header/Header";
-import { MainContainer } from "components/AppContainer/MainContainer";
+import { HeaderContainer } from "components/AppHeader/Header";
+import { MainContainer } from "components/UI/MainContainer";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { PROJECT_ROUTER_PATH } from "utils/constants";
 import { ModalContainer } from "utils/Modals/ModalContainer";

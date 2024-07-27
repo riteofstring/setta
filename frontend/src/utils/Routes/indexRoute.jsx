@@ -1,4 +1,4 @@
-import { HeaderContainer } from "components/AppContainer/Header/Header";
+import { HeaderContainer } from "components/AppHeader/Header";
 import { HomePage } from "components/HomePage/HomePage";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
 import { ROOT_ROUTER_PATH } from "utils/constants";
