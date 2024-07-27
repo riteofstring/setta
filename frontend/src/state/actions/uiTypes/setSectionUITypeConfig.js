@@ -3,7 +3,7 @@ import { setSectionInfoAttr } from "state/actions/sectionInfos";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setSectionUITypeId } from "./setSectionUITypeId";
-import { addUIType } from "../uiTypes";
+import { addUIType } from "./uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function setSectionUITypeConfig({

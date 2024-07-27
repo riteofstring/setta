@@ -16,8 +16,8 @@ import { maybeCloneUIType } from "./cloneUITypes";
 import { setEnteredValue } from "../evCols";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
-import { getParamUIType, setNonPresetUITypeIds } from "../uiTypeCols";
-import { addUIType } from "../uiTypes";
+import { getParamUIType, setNonPresetUITypeIds } from "./uiTypeCols";
+import { addUIType } from "./uiTypes";
 
 export function setParamUITypeConfig({
   sectionId,

@@ -4,8 +4,8 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { addCodeInfoBatch } from "../codeInfo";
 import { updateEVCols } from "../evCols";
 import { updateSections } from "../sectionInfos";
-import { updateUITypeCols } from "../uiTypeCols";
-import { updateUITypes } from "../uiTypes";
+import { updateUITypeCols } from "../uiTypes/uiTypeCols";
+import { updateUITypes } from "../uiTypes/uiTypes";
 
 export function loadSectionIntoState({
   sections,
