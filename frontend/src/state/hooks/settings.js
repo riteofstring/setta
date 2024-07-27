@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import { loadSettings } from "state/actions/settings";
 import { useSettings } from "state/definitions";
 import {
   initialShortcuts,
@@ -131,4 +132,10 @@ export function useSimpleSettings() {
   };
 
   return [settings, handleInputChange];
+}
+
+export function useLoadSettings() {
+  useEffect(() => {
+    loadSettings();
+  }, []);
 }

@@ -1,39 +1,12 @@
-import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { loadSettings } from "state/actions/settings";
 import { useSettings } from "state/definitions";
+import { useResetProjectState } from "state/hooks/project";
+import { useLoadSettings } from "state/hooks/settings";
 import { useOpenCloseWebsocket } from "state/hooks/websocket";
-import { resetProjectStores } from "state/utils";
-import {
-  SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
-  SAME_PROJECT_NEW_PROJECT_NAME,
-  SWITCHING_CONFIG,
-} from "./pageLoadTypes";
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useResetProjectState();
+  useLoadSettings();
   const settingsLoaded = useSettings((x) => x.settingsLoaded);
-
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   return settingsLoaded && children;
-}
-
-function useResetProjectState() {
-  const { pathname, state } = useLocation();
-  useEffect(() => {
-    if (
-      [
-        SAME_PROJECT_NEW_PROJECT_NAME,
-        SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
-        SWITCHING_CONFIG,
-      ].includes(state?.pageLoadType)
-    ) {
-      return;
-    }
-    resetProjectStores();
-  }, [pathname]);
 }

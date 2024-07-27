@@ -1,3 +1,10 @@
+import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
+import { Badge } from "components/Utils/atoms/badges/badge";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
+import { StandardDropdown } from "components/Utils/atoms/dropdown/dropdown";
+import { Item } from "components/Utils/atoms/dropdown/item";
+import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
@@ -9,14 +16,11 @@ import { Link } from "react-router-dom";
 import { dbDeleteProjects } from "requests/projects";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
-import { useGetProjectsForHomePage } from "state/hooks/project";
-import { Badge } from "components/Utils/atoms/badges/badge";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
-import { StandardDropdown } from "components/Utils/atoms/dropdown/dropdown";
-import { Item } from "components/Utils/atoms/dropdown/item";
-import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
-import { GridWrapper } from "components/Utils/GridWrapper";
+import {
+  useConfigAddress,
+  useDefaultConfigAddress,
+  useGetProjectsForHomePage,
+} from "state/hooks/project";
 import "./homepage.css";
 
 export function HomePage() {
@@ -230,16 +234,6 @@ function DefaultConfigBadge({ isDefault }) {
       </Badge>
     )
   );
-}
-
-function useConfigAddress({ project, configId }) {
-  const configName = project.configs.find((x) => x.id === configId).name;
-  return `${project.name}/${configName}`;
-}
-
-function useDefaultConfigAddress(project) {
-  const configId = project.defaultConfigId;
-  return useConfigAddress({ project, configId });
 }
 
 function PreviewImg({ previewImgNodes }) {
