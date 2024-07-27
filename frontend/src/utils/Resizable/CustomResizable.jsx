@@ -8,12 +8,12 @@ import {
   useMaxSectionWidth,
   useMinSectionHeight,
   useMinSectionWidth,
-} from "state/hooks/useSectionSizeBounds";
+} from "state/hooks/sectionSizes";
 import {
   useIsTwitter,
   useIsYouTube,
   youtubeSectionAspectRatio,
-} from "state/hooks/useSocialUtils";
+} from "state/hooks/social";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 

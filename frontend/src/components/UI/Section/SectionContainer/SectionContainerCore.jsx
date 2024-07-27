@@ -15,7 +15,7 @@ import {
   useSectionDBSourceIsAvailable,
 } from "state/hooks/sections";
 import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
-import { useSectionRefAndInit } from "state/hooks/useSectionRefAndInit";
+import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 

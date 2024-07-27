@@ -4,7 +4,7 @@ import React from "react";
 import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
 import { useSectionInfos } from "state/definitions";
-import { linkIsTwitter, linkIsYouTube } from "state/hooks/useSocialUtils";
+import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
   const size = useSectionInfos((x) => x.x[sectionId].size);

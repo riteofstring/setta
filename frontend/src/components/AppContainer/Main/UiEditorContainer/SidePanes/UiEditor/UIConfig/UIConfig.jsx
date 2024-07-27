@@ -7,7 +7,7 @@ import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useCodeInfo } from "state/definitions";
 import { useGetParamUIType } from "state/hooks/uiTypes";
-import { useGetParamInfosThatHaveNames } from "state/hooks/useSectionContents";
+import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "utils/atoms/popover/textareapopover";

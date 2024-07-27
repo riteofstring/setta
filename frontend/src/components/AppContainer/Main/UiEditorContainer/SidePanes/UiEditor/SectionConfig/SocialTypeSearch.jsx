@@ -5,7 +5,7 @@ import { useGetSectionInfo } from "state/hooks/sections";
 import {
   linkIsTwitter,
   youtubeSectionAspectRatio,
-} from "state/hooks/useSocialUtils";
+} from "state/hooks/social";
 
 export function SocialTypeSearch({ sectionId }) {
   const url = useGetSectionInfo(sectionId, "social");
