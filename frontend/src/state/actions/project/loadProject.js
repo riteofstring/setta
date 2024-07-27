@@ -1,7 +1,13 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
-import { dbLoadFullProject } from "requests/projects";
-import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
+import { dbCreateProject, dbLoadFullProject } from "requests/projects";
+import {
+  projectPreviewImgColors,
+  REACT_FLOW_STORE,
+  setDbSourceMapping,
+} from "utils/constants";
+import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
+import { router } from "utils/Routes/router";
 import { setAllCodeInfo } from "../codeInfo";
 import { setAllEVCols } from "../evCols";
 import { setNodes } from "../nodeInternals";
@@ -81,3 +87,29 @@ export function loadProjectState({
   maybeIncrementProjectStateVersion(true, false);
   return true;
 }
+
+export async function createAndGoToProject({ name }) {
+  const previewImgColor = getRandomProjectPreviewImgColor();
+  const { data: newProject } = await dbCreateProject({ name, previewImgColor });
+  goToDefaultConfig(newProject);
+}
+
+function goToProject({ project, configId }) {
+  const configName = project.configs.find((x) => x.id === configId).name;
+  const address = `${project.name}/${configName}`;
+  router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });
+}
+
+function goToDefaultConfig(project) {
+  goToProject({
+    project,
+    configId: project.defaultConfigId,
+  });
+}
+
+const getRandomProjectPreviewImgColor = () => {
+  const randomIndex = Math.floor(
+    Math.random() * projectPreviewImgColors.length,
+  );
+  return projectPreviewImgColors[randomIndex];
+};

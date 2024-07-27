@@ -8,8 +8,8 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "state/actions/modal";
+import { createAndGoToProject } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
-import { createAndGoToProject } from "state/hooks/project";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
