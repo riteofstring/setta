@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useGetProjectsForFileMenu } from "state/hooks/project";
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
-import { router } from "utils/Routes/router";
+import { NEW_PROJECT } from "utils/Pages/pageLoadTypes";
+import { router } from "utils/Pages/router";
 
 export function FileMenuLoadModal({ open }) {
   const { projects, getProjects } = useGetProjectsForFileMenu();

@@ -1,16 +1,16 @@
 import { HeaderContainer } from "components/AppHeader/Header";
-import { Settings } from "components/SettingsPage/Settings";
+import { HomePage } from "utils/Pages/Home/HomePage";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
-import { SETTINGS_ROUTER_PATH } from "utils/constants";
+import { HOME_ROUTER_PATH } from "utils/constants";
 import { GlobalWrapper } from "./GlobalWrapper";
 
-export const settingsRoute = {
-  path: SETTINGS_ROUTER_PATH,
+export const homeRoute = {
+  path: HOME_ROUTER_PATH,
   element: (
     <GlobalWrapper>
-      <HeaderContainer path={SETTINGS_ROUTER_PATH} />
+      <HeaderContainer path={HOME_ROUTER_PATH} />
       <GridContainer>
-        <Settings />
+        <HomePage />
       </GridContainer>
     </GlobalWrapper>
   ),

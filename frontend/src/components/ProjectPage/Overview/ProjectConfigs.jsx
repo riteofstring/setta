@@ -5,8 +5,8 @@ import {
   useProject,
   useProjectConfig,
 } from "state/definitions";
-import { SWITCHING_CONFIG } from "utils/Routes/pageLoadTypes";
-import { router } from "utils/Routes/router";
+import { SWITCHING_CONFIG } from "utils/Pages/pageLoadTypes";
+import { router } from "utils/Pages/router";
 
 export const ProjectConfigs = React.forwardRef(() => {
   const configNames = useOtherProjectConfigs((x) => x.x.map((c) => c.name));
