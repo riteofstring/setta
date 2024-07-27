@@ -2,7 +2,7 @@ import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useRef } from "react";
-import { setAllChildren } from "state/actions/children";
+import { setSectionChildrenAndNames } from "state/actions/setters";
 import { justMoveANode } from "state/actions/nodeInternals";
 import { manualDndChildrenReset } from "state/actions/sectionInfos";
 import { moveSection } from "state/actions/sectionOps";
@@ -15,7 +15,7 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
-    setAllChildren(
+    setSectionChildrenAndNames(
       active.data.current.sortable?.containerId,
       updateWithArrayMove(active, over),
     );

@@ -22,7 +22,7 @@ import {
   getSectionType,
   getSectionTypeConfig,
 } from "../getters/sectionInfo";
-import { setAllChildren } from "./children";
+import { setSectionChildrenAndNames } from "state/actions/setters";
 import { addCodeInfo } from "./codeInfo";
 import { initManyEvColIds } from "./evCols";
 import { updateManyParamsAndCallables } from "./sectionContents";
@@ -109,7 +109,7 @@ export function addChildrenToSeries({
     numChildren,
   });
 
-  setAllChildren(parentId, (x) => insertIntoArray(x, startIdx, ...newIds));
+  setSectionChildrenAndNames(parentId, (x) => insertIntoArray(x, startIdx, ...newIds));
   updateManyParamsAndCallables(newIds);
   maybeIncrementProjectStateVersion(incrementVersion);
 

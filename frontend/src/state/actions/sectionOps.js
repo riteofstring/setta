@@ -10,7 +10,7 @@ import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";
 import { getSectionType } from "../getters/sectionInfo";
 import { removeActiveSectionIds } from "./activeSection";
-import { setAllChildren } from "./children";
+import { setSectionChildrenAndNames } from "state/actions/setters";
 import { removeSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
@@ -110,14 +110,14 @@ function setChildrenAndParent({
     // This means it was a top level section
     deleteNodes([sectionId]);
   } else {
-    setAllChildren(oldParentId, (x) => x.filter((y) => y !== sectionId));
+    setSectionChildrenAndNames(oldParentId, (x) => x.filter((y) => y !== sectionId));
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
     addNodes([{ id: sectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
-    setAllChildren(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
+    setSectionChildrenAndNames(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
   }
 
   setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
