@@ -22,13 +22,13 @@ import {
   getSectionParentId,
   getSectionType,
   getSectionTypeConfig,
-} from "../getters/sectionInfo";
-import { addCodeInfo } from "./codeInfo";
-import { initManyEvColIds } from "./evCols";
-import { updateManyParamsAndCallables } from "./sectionContents";
-import { addSectionInfo } from "./sectionInfos";
-import { moveSections } from "./sectionOps";
-import { initManyUITypeColIds } from "./uiTypeCols";
+} from "../../getters/sectionInfo";
+import { addCodeInfo } from "../codeInfo";
+import { initManyEvColIds } from "../evCols";
+import { updateManyParamsAndCallables } from "../sectionContents";
+import { addSectionInfo } from "../sectionInfos";
+import { moveSections } from "../sectionOps";
+import { initManyUITypeColIds } from "../uiTypeCols";
 
 export function addSectionInEmptySpace({
   type,

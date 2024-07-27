@@ -11,7 +11,7 @@ import React, {
   ReactNode,
   useRef,
 } from "react";
-import { clearActiveSectionIds } from "state/actions/activeSection";
+import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import {
   getNodes,

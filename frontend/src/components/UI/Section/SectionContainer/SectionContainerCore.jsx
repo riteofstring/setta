@@ -3,7 +3,7 @@ import {
   addActiveSectionIds,
   removeActiveSectionIds,
   setActiveSectionIds,
-} from "state/actions/activeSection";
+} from "state/actions/sections/activeSections";
 import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import { getParamInfos } from "state/actions/sectionContents";
 import { setZIndices } from "state/actions/sectionPositions";

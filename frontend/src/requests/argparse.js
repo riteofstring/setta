@@ -1,4 +1,4 @@
-import { createSectionsFromArgparse } from "state/actions/createSection";
+import { createSectionsFromArgparse } from "state/actions/sections/createSections";
 import { sendMessageInRoom } from "state/actions/websocketRooms";
 
 export async function extractArgparseArgs({ pathToScript, ...props }) {

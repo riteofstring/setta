@@ -9,7 +9,7 @@ import { PANEID } from "utils/constants";
 import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";
 import { getSectionType } from "../getters/sectionInfo";
-import { removeActiveSectionIds } from "./activeSection";
+import { removeActiveSectionIds } from "./sections/activeSections";
 import { setSectionChildrenAndNames } from "state/actions/setters";
 import { removeSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
