@@ -1,28 +1,28 @@
 import _ from "lodash";
-import { closeAllContextMenus } from "state/actions/contextMenus";
-import { toggleSectionOrientation } from "state/actions/sectionInfos";
-import { undeck } from "state/actions/undeck";
-import { useContextMenus } from "state/definitions";
+import { useContextMenus } from "models/contextMenus";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { undeck } from "thunks/undeck";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function DeckContextMenu() {
   const { isOpen, x, y, sectionId } = useContextMenus((x) => x.deck, _.isEqual);
+  const closeContextMenu = () => useContextMenus.getState().closeAll();
   function onClickUndeck() {
     undeck(sectionId);
-    closeAllContextMenus();
+    closeContextMenu();
   }
 
   function onClickToggleOrientation() {
-    toggleSectionOrientation({ sectionId });
-    closeAllContextMenus();
+    useSectionInfos.getState().toggleOrientation({ sectionId });
+    closeContextMenu();
   }
 
   return (
     <ContextMenuCore
       x={x}
       y={y}
-      closeContextMenu={closeAllContextMenus}
+      closeContextMenu={closeContextMenu}
       isOpen={isOpen}
     >
       <Item onClick={onClickUndeck}>Undeck</Item>

@@ -1,6 +1,7 @@
-import { ReactFlow } from "forks/xyflow/core";
-import "forks/xyflow/core/styles/style.css";
 import React from "react";
+import { REACT_FLOW_STORE } from "utils/constants";
+import { ReactFlow } from "xyflow/core";
+import "xyflow/core/styles/style.css";
 import "./react-flow-css.css";
 
 const reactFlowStyle = {
@@ -15,6 +16,7 @@ function _SectionsPane() {
       minZoom={0.1}
       maxZoom={10}
       style={reactFlowStyle}
+      defaultViewport={REACT_FLOW_STORE.initialViewport}
       nodeDragThreshold={0}
       className="rcbg-light dark:rcbg-dark"
     />

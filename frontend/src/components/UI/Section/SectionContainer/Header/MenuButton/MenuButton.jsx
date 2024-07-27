@@ -1,6 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import C from "constants/constants.json";
-import { useGetSectionType } from "state/hooks/useSectionType";
+import { useGetSectionType } from "hooks/useSectionType";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { HeaderIcon } from "../HeaderIcon/HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";
@@ -9,7 +9,7 @@ import { FreezeButton } from "./FreezeButton/FreezeButton";
 import { MultirunButton } from "./MultiRunButton/MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton/SaveCustomArgumentsButton";
 function MenuButton({ sectionId, sectionTypeName }) {
-  // hover:bg-setta-100 dark:hover:bg-setta-900
+  // hover:bg-runcoder-100 dark:hover:bg-runcoder-900
   const sectionType = useGetSectionType(sectionId, "type");
   console.log("sectionTypeName: ", sectionTypeName);
 
@@ -26,7 +26,7 @@ function MenuButton({ sectionId, sectionTypeName }) {
       <MenuDropdown
         padding={"p-1 mx-1"}
         rounded="rounded-full"
-        triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-setta-600 hover:text-white"} `}
+        triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-runcoder-600 hover:text-white"} `}
         trigger={
           <HeaderIcon
             sectionId={sectionId}

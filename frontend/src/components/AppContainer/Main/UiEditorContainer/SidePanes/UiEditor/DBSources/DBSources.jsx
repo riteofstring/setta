@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
+import { useSectionDBSource } from "hooks/useSectionInfo";
+import { useParamInfos } from "models/info/paramInfos";
 import { useState } from "react";
-import { duplicateDbSource } from "state/actions/evCols";
-import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useSectionDBSource } from "state/hooks/useGetSectionInfo";
+import { setSectionInfoAttr } from "thunks/sections/setters";
 
 export function DBSources({ sectionId }) {
   const dbSource = useSectionDBSource(sectionId);
@@ -15,7 +15,7 @@ export function DBSources({ sectionId }) {
   function onBlur() {
     setSectionInfoAttr({ sectionId, attr: "dbSource", value: localVal });
     // update evCol dbsource params if necessary
-    duplicateDbSource({
+    useParamInfos.getState().duplicateDbSource({
       oldDbSource: C.DEFAULT_DB_ALIAS,
       newDbSource: localVal,
     });

@@ -1,7 +1,7 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { DNDSortable } from "forks/dnd-kit/DNDSortable";
-import { goToSection } from "state/actions/goToSection";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { goToSection } from "thunks/goToSection";
+import { useDndChildren } from "utils/DNDSortable/dndChildren";
+import { DNDSortable } from "utils/DNDSortable/DNDSortable";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 
 export function ManyNestedSections({ sectionId, isDeck }) {
@@ -32,7 +32,7 @@ function NestedSectionsWithMargin({ childIds, sectionId, isDeck }) {
     <div className="flex items-stretch">
       {!isDeck && (
         <div
-          className={`mr-2 mt-2 min-h-full w-2 rounded-full bg-white opacity-[.16] transition-all duration-75 hover:cursor-pointer hover:opacity-[.36] dark:bg-setta-700`}
+          className={`mr-2 mt-2 min-h-full w-2 rounded-full bg-white opacity-[.16] transition-all duration-75 hover:cursor-pointer hover:opacity-[.36] dark:bg-runcoder-700`}
           onClick={onClick}
         />
       )}

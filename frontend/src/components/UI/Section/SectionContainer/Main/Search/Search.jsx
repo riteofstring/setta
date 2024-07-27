@@ -1,7 +1,7 @@
+import { useCodeInfo } from "models/info/codeInfo";
+import { useIdWaitingForLSPResult } from "models/lsp";
 import { useState } from "react";
-import { useIdWaitingForLSPResult } from "state/actions/lsp";
-import { setSelectedItem } from "state/actions/setters";
-import { useCodeInfo } from "state/definitions";
+import { setSelectedItem } from "thunks/sections/setters";
 import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
 
 export function SectionSearch({ sectionId, initialSelection }) {
@@ -64,7 +64,7 @@ export function SectionSearch({ sectionId, initialSelection }) {
         paramInfoId={null}
         value={value}
         onChange={setValue}
-        className="card-search rounded-2xl border border-solid border-setta-100 bg-white py-[.33rem] focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900"
+        className="card-search rounded-2xl border border-solid border-runcoder-100 bg-white py-[.33rem] focus-visible:border-white focus-visible:ring-2 dark:border-runcoder-800 dark:bg-runcoder-900 dark:focus-visible:border-runcoder-900"
         variants="[&_.cm-line]:pl-3 [&_.cm-line]:pr-3 [&_.cm-activeLine]:!bg-inherit"
         classes="px-3"
         singleLine={true}

@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "state/definitions";
-import { getSectionTypeConfig } from "state/getters/sectionInfo";
-import { findAll } from "utils/getDescendants";
+import { useCodeInfo } from "models/info/codeInfo";
+import { getSectionTypeConfig } from "thunks/sections/getters";
+import { findAll } from "z_utils/getDescendants";
 
 export function getAllSelectedParams(sectionId) {
   const codeInfos = findAll(useCodeInfo.getState().x, [

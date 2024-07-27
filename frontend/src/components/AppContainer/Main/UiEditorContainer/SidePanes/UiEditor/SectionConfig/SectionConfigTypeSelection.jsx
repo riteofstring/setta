@@ -1,13 +1,13 @@
 import C from "constants/constants.json";
-import { addCodeInfo } from "state/actions/codeInfo";
-import { updateParamsAndCallables } from "state/actions/sectionContents";
-import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
-import { setSectionUITypeId } from "state/actions/setSectionUITypeId";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { getSectionTypeConfig } from "state/getters/sectionInfo";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
+import { useCodeInfo } from "models/info/codeInfo";
+import { getSectionTypeConfig } from "thunks/sections/getters";
+import { updateParamsAndCallables } from "thunks/sections/sectionContents";
+import { setSectionUITypeConfig } from "thunks/uiTypes/setSectionUITypeConfig";
+import { setSectionUITypeId } from "thunks/uiTypes/setSectionUITypeId";
+import { maybeIncrementProjectStateVersion } from "thunks/undo";
 import { SectionUITypeCombobox } from "utils/Combobox/UITypeCombobox";
-import { newCodeInfo } from "utils/objs/codeInfo";
+import { newCodeInfo } from "z_utils/objs/codeInfo";
 
 export function SectionConfigTypeSelection({ sectionId }) {
   const selectedId = useGetSectionInfo(sectionId, "uiTypeId");
@@ -21,7 +21,7 @@ export function SectionConfigTypeSelection({ sectionId }) {
           name: "Section Contents",
           rcType: C.COLLECTION,
         });
-        addCodeInfo({ info: codeInfo });
+        useCodeInfo.getState().addCodeInfo({ info: codeInfo });
         setSectionUITypeConfig({
           sectionId,
           configProps: {

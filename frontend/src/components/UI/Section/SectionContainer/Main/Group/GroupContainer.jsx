@@ -1,7 +1,7 @@
+import { useGetParamInfos } from "hooks/useSectionContents";
+import { useSectionHasMultipleEVCols } from "hooks/useSectionInfo";
+import { useSectionInfos } from "models/info/sectionInfos";
 import React, { useEffect, useRef, useState } from "react";
-import { useSectionInfos } from "state/definitions";
-import { useSectionHasMultipleEVCols } from "state/hooks/useGetSectionInfo";
-import { useGetParamInfos } from "state/hooks/useSectionContents";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 
@@ -10,7 +10,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
-  // border-b border-solid border-setta-100
+  // border-b border-solid border-runcoder-100
   return (
     // <ScrollingArea
     //   styles={`card-args-list py-1 ${noWheel} ${

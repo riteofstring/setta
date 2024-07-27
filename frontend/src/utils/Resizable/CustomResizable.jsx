@@ -1,19 +1,18 @@
 import C from "constants/constants.json";
-import { useDndMode } from "forks/dnd-kit/dndState";
-import { setSectionResizeEvent } from "state/actions/sectionInfos";
-import { setSelfParentSiblingChildrenWidths } from "state/actions/sectionSizes";
-import { useSectionInfos } from "state/definitions";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
   useMinSectionWidth,
-} from "state/hooks/useSectionSizeBounds";
-import { useGetSectionType } from "state/hooks/useSectionType";
+} from "hooks/useSectionSizeBounds";
+import { useGetSectionType } from "hooks/useSectionType";
 import {
   useIsTwitter,
   useIsYouTube,
   youtubeSectionAspectRatio,
-} from "state/hooks/useSocialUtils";
+} from "hooks/useSocialUtils";
+import { useSectionInfos } from "models/info/sectionInfos";
+import { setSelfParentSiblingChildrenWidths } from "thunks/sections/sectionSizes";
+import { useDndMode } from "utils/DNDSortable/dndState";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 
@@ -50,7 +49,9 @@ function CustomResizableCore({
   const aspectRatio = useAspectRatio(sectionId);
 
   function onResizeStart() {
-    setSectionResizeEvent({ sectionId, resizeEvent: "start" });
+    useSectionInfos
+      .getState()
+      .setResizeEvent({ sectionId, resizeEvent: "start" });
   }
 
   function onResizeStop(...props) {
@@ -61,7 +62,9 @@ function CustomResizableCore({
       sizeMode,
     });
     setSelfParentSiblingChildrenWidths({ sectionId, size: { width, height } });
-    setSectionResizeEvent({ sectionId, resizeEvent: "end" });
+    useSectionInfos
+      .getState()
+      .setResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
   const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;

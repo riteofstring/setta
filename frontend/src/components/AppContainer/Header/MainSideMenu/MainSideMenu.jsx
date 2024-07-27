@@ -6,13 +6,13 @@ export function MainSideMenu() {
   return (
     <DropdownMenu.Root asChild>
       <section className="flex content-center">
-        <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-setta-500 transition-colors duration-150 hover:bg-setta-200 focus-visible:ring-2 dark:text-setta-50 dark:hover:bg-setta-900">
+        <DropdownMenu.Trigger className="place-items0center nodrag grid h-4 w-4 cursor-pointer rounded-full bg-transparent p-1 text-runcoder-500 transition-colors duration-150 hover:bg-runcoder-200 focus-visible:ring-2 dark:text-runcoder-50 dark:hover:bg-runcoder-900">
           <FiMenu />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
             align="start"
-            className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white px-4 py-2 drop-shadow dark:bg-setta-800"
+            className="z-[1000] flex select-none flex-col gap-1 rounded-md bg-white px-4 py-2 drop-shadow dark:bg-runcoder-800"
           >
             <Items />
           </DropdownMenu.Content>

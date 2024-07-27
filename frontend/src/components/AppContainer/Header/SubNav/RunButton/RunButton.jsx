@@ -1,12 +1,11 @@
+import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import { RiPlayMiniFill } from "react-icons/ri";
-import { runCode } from "state/actions/generateCode";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
+import { runCode } from "thunks/generateCode";
 import { MenuBarButton } from "utils/atoms/buttons/MenuBarButton";
-import { constInfoViews } from "utils/constants";
-import { createNewId } from "utils/idNameCreation";
+import { createNewId } from "z_utils/utils";
 
 export function RunButton() {
-  const infoViewHandlers = getInfoViewHandlers(constInfoViews.BUTTON_GENERATE);
+  const infoViewHandlers = useSetCurrInfoView(constInfoViews.BUTTON_GENERATE);
   const runExport = async () => {
     const codeId = createNewId();
     runCode({ codeId });

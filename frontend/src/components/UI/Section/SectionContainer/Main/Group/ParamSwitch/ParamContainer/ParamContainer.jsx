@@ -1,15 +1,13 @@
 import * as Accordion from "@radix-ui/react-accordion";
+import { useGetSectionInfo } from "hooks/useSectionInfo";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
+import { useSetCurrInfoView } from "models/info/infoView";
+import { useTypeErrors } from "models/typeErrors";
+import { useProjectSearch } from "models/useProjectSearch";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import {
-  useCodeInfo,
-  useProjectSearch,
-  useTypeErrors,
-} from "state/definitions";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
@@ -18,7 +16,7 @@ import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const infoViewHandlers = getInfoViewHandlers(paramInfo.description);
+  const infoViewHandlers = useSetCurrInfoView(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isSearchResult = useProjectSearch((x) =>
     x.codeInfo.includes(paramInfo.id),
@@ -35,7 +33,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
 
   const bg = paramIsSelected
     ? "bg-lime-400/50"
-    : "hover:bg-setta-200/20 dark:hover:bg-setta-700/25";
+    : "hover:bg-runcoder-200/20 dark:hover:bg-runcoder-700/25";
 
   const paramChildren = useCodeInfo(
     (x) => paramInfo.children.map((c) => x.x[c]),
@@ -144,16 +142,16 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-2 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mx-2 overflow-hidden rounded-md bg-white text-xs dark:bg-runcoder-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
+      <aside className=" h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-runcoder-100">
         {children}
       </aside>
       <IconButton
-        twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-setta-400 dark:text-setta-200 hover:text-setta-600 dark:hover:text-white"
-        bg="bg-setta-100/50 dark:bg-setta-700/50 hover:bg-setta-100 dark:hover:bg-setta-600"
+        twClasses="absolute right-2 bottom-2 h-3 w-3 cursor-pointer text-runcoder-400 dark:text-runcoder-200 hover:text-runcoder-600 dark:hover:text-white"
+        bg="bg-runcoder-100/50 dark:bg-runcoder-700/50 hover:bg-runcoder-100 dark:hover:bg-runcoder-600"
         icon={<HiOutlineDuplicate />}
         onClick={() => navigator.clipboard.writeText(children)}
       />
@@ -162,4 +160,4 @@ const AccordionContent = React.forwardRef(
 );
 
 // for AccordionContent animated version:
-// className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-setta-950"
+// className="nowheel nodrag relative -mx-2 h-36 overflow-hidden rounded-md bg-white text-xs data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-runcoder-950"

@@ -239,7 +239,7 @@ project = {
             "description": "",
             "versionsHeight": 100,
             "versionsVisible": 0,
-            "code": "{{ SETTA_GENERATED_CODE }}",
+            "code": "{{ RUNCODER_GENERATED_CODE }}",
             "codeLanguage": "python",
             "isFrozen": 0,
             "dbSource": None,
@@ -430,6 +430,7 @@ project = {
             ],
         },
     },
+    "projectConfigCodeInfoMaps": {},
     "dbSourceMapping": {"default": "default", "settings": "default"},
     "evRefs": {
         "default": {
@@ -457,10 +458,10 @@ project = {
 }
 
 
-from backend.setta.utils.constants import load_constants
-from backend.setta.code_gen.export_selected import export_selected
-from backend.setta.code_gen.python.generate_code import generate_code
-from backend.setta.code_gen.find_placeholders import double_braces
+from backend.runcoder.utils.constants import load_constants
+from backend.runcoder.code_gen.export_selected import export_selected
+from backend.runcoder.code_gen.python.generate_code import generate_code
+from backend.runcoder.code_gen.find_placeholders import double_braces
 from pprint import pprint
 
 load_constants()
@@ -468,4 +469,4 @@ x = export_selected(project)
 
 pprint(x.output)
 
-print(generate_code(x.output, double_braces("SETTA_GENERATED_CODE"))[0])
+print(generate_code(x.output, double_braces("RUNCODER_GENERATED_CODE"))[0])

@@ -1,15 +1,15 @@
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
 import React from "react";
-import { toggleCodeInfoSelected } from "state/actions/codeInfo";
-import { paramSelect } from "state/actions/keyActivations";
-import { updateParams } from "state/actions/sectionContents";
+import { paramSelect } from "thunks/keyActivations";
+import { updateParams } from "thunks/sections/sectionContents";
 import { KwargParam } from "./ParamSwitchOptions/KwargParam";
 import { RegularParam } from "./ParamSwitchOptions/RegularParam";
 
 function _ParamSwitch(props) {
   function onNameClick(e) {
     if (paramSelect(e)) {
-      toggleCodeInfoSelected(props.paramInfo.id);
+      useCodeInfo.getState().toggleSelected(props.paramInfo.id);
       updateParams(props.sectionId);
     }
   }

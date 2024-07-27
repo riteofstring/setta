@@ -26,7 +26,7 @@ export const StandardSearch = React.forwardRef(
             className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
           >
             {leftElement || (
-              <i className="gg-sort-az ml-[.4rem] !scale-75 text-setta-300 dark:text-setta-600" />
+              <i className="gg-sort-az ml-[.4rem] !scale-75 text-runcoder-300 dark:text-runcoder-600" />
             )}
           </div>
         )}
@@ -49,7 +49,7 @@ export const StandardSearch = React.forwardRef(
 );
 
 function MaybeForm({ onFormSubmit, children, outerClasses }) {
-  const styles = `flex min-w-0 items-center relative nodrag dark:text-setta-200  ${outerClasses}`;
+  const styles = `flex min-w-0 items-center relative nodrag dark:text-runcoder-200  ${outerClasses}`;
   return onFormSubmit ? (
     <form className={styles} onSubmit={onFormSubmit}>
       {children}

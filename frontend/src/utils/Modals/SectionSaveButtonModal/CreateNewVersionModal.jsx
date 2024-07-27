@@ -1,12 +1,12 @@
-import { duplicateEvCol } from "state/actions/evCols";
-import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useModal } from "state/definitions";
+import { useParamInfos } from "models/info/paramInfos";
+import { useModal } from "models/modal";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
-} from "state/getters/sectionInfo";
-import { createNewId } from "utils/idNameCreation";
+} from "thunks/sections/getters";
+import { setSectionInfoAttr } from "thunks/sections/setters";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+import { createNewId } from "z_utils/utils";
 
 export function CreateNewVersionModal() {
   function onClickCreateNewVersion({ filename }) {
@@ -14,7 +14,9 @@ export function CreateNewVersionModal() {
     const currId = getSectionInfo(sectionId).evColId;
     const dbSource = getMappedSectionDBSource(sectionId);
     const newId = createNewId();
-    duplicateEvCol({ dbSource, id: currId, newId, newName: filename });
+    useParamInfos
+      .getState()
+      .duplicateEvCol({ dbSource, id: currId, newId, newName: filename });
     setSectionInfoAttr({ sectionId, attr: "evColId", value: newId });
     setSectionInfoAttr({
       sectionId,

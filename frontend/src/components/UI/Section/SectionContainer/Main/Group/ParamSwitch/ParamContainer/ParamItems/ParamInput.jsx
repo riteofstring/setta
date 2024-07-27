@@ -1,12 +1,13 @@
 import C from "constants/constants.json";
+import { sendMessage } from "dbRequests/websocket";
+import { useGetParamEnteredValue } from "hooks/useEnteredValue";
+import { useGetParamUIType } from "hooks/useParamUIType";
 import _ from "lodash";
+import { useProject } from "models/info/project";
+import { useInteractive } from "models/interactive";
+import { useIdWaitingForLSPResult } from "models/lsp";
 import { useCallback, useEffect, useState } from "react";
-import { sendMessage } from "requests/websocket";
-import { useIdWaitingForLSPResult } from "state/actions/lsp";
-import { setParamEnteredValue } from "state/actions/paramInfos";
-import { useInteractive, useProject } from "state/definitions";
-import { useGetParamEnteredValue } from "state/hooks/useEnteredValue";
-import { useGetParamUIType } from "state/hooks/useParamUIType";
+import { setParamEnteredValue } from "thunks/paramInfos";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({
@@ -74,7 +75,7 @@ export function ParamInput({
       {isText && (
         <>
           <LoadingSpinner sectionId={sectionId} paramInfoId={paramInfoId} />
-          <span className="card-value border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
+          <span className="card-value border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-700" />
         </>
       )}
     </div>

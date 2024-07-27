@@ -47,7 +47,7 @@ function Search({ onSubmit }) {
   }
 
   const inputStyles =
-    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-300 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1 ";
+    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-runcoder-300 dark:border-runcoder-800  focus-visible:!border-blue-300 pl-7 py-1 ";
 
   return (
     <StandardSearch inputStyles={inputStyles} onFormSubmit={onFormSubmit} />
@@ -80,13 +80,13 @@ function SearchItem({
   //  [&:has(input:checked)]:text-white
   return (
     <li
-      className={`edit-list-item box-border flex select-none rounded-lg border-2 border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md dark:hover:bg-setta-700 [&:has(input:checked)]:bg-blue-100 hover:[&:has(input:checked)]:bg-white dark:[&:has(input:checked)]:bg-blue-900 dark:hover:[&:has(input:checked)]:bg-setta-800 [&:has(input:focus-visible)]:ring-2 [&:has(input:not:checked)]:text-setta-500 dark:[&:has(input:not:checked)]:text-setta-300 [&:hover_*]:text-black dark:[&:hover_*]:text-setta-100 hover:[&>input:checked]:accent-setta-500 ${
+      className={`edit-list-item box-border flex select-none rounded-lg border-2 border-solid border-transparent px-3 py-2 transition hover:bg-white hover:shadow-md dark:hover:bg-runcoder-700 [&:has(input:checked)]:bg-blue-100 hover:[&:has(input:checked)]:bg-white dark:[&:has(input:checked)]:bg-blue-900 dark:hover:[&:has(input:checked)]:bg-runcoder-800 [&:has(input:focus-visible)]:ring-2 [&:has(input:not:checked)]:text-runcoder-500 dark:[&:has(input:not:checked)]:text-runcoder-300 [&:hover_*]:text-black dark:[&:hover_*]:text-runcoder-100 hover:[&>input:checked]:accent-runcoder-500 ${
         vCenter && "items-center"
       }`}
     >
       <input
         type={isCheckbox ? "checkbox" : "radio"}
-        className={`${checked ? "bg-blue-900" : "ring-1 ring-setta-300"} ${
+        className={`${checked ? "bg-blue-900" : "ring-1 ring-runcoder-300"} ${
           !vCenter && "mt-1"
         } mr-3 h-4 w-4 flex-shrink-0 cursor-pointer ${
           isCheckbox ? "rounded-md" : "rounded-full"
@@ -100,11 +100,13 @@ function SearchItem({
       <DetailsComponent id={id} details={details} checked={checked} name={name}>
         <div className="w-full">
           <div className="flex cursor-pointer flex-col self-stretch">
-            <p className="text-md font-semibold text-setta-800 dark:text-setta-100">
+            <p className="text-md font-semibold text-runcoder-800 dark:text-runcoder-100">
               {name}
             </p>
             {description && (
-              <p className="mt-1 text-sm dark:text-setta-200">{description}</p>
+              <p className="mt-1 text-sm dark:text-runcoder-200">
+                {description}
+              </p>
             )}
           </div>
         </div>

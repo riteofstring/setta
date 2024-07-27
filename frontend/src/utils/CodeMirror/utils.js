@@ -1,4 +1,4 @@
-import { useKeywordRegex } from "state/definitions";
+import { useKeywordRegex } from "models/info/keywordRegex";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;

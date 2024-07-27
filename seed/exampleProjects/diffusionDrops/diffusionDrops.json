@@ -25,6 +25,8 @@
       "paramSweeps": {},
       "runGroups": {},
       "codeInfo": {},
+      "userCodeInfoMaps": {},
+      "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
       "outputs": {},
       "dbSourceMapping": {
@@ -1525,6 +1527,8 @@
           "positionalOnly": false
         }
       },
+      "userCodeInfoMaps": {},
+      "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
       "outputs": {},
       "dbSourceMapping": {

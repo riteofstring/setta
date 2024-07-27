@@ -1,7 +1,7 @@
 ./cleanup.sh && \
 cd frontend && pnpm build && cd .. && \
-mkdir backend/setta/static && \
-cp -r frontend/dist backend/setta/static/frontend && \
-cp -r seed backend/setta/static/seed && \
-cp -r constants backend/setta/static/constants && \
+mkdir backend/runcoder/static && \
+cp -r frontend/dist backend/runcoder/static/frontend && \
+cp -r seed backend/runcoder/static/seed && \
+cp -r constants backend/runcoder/static/constants && \
 python -m build

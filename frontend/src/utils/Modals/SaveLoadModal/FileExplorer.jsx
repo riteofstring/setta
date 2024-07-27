@@ -15,7 +15,7 @@ export function FileExplorer({
 }) {
   return (
     <>
-      <Dialog.Title className=" mb-4 font-bold uppercase tracking-widest text-setta-400">
+      <Dialog.Title className=" mb-4 font-bold uppercase tracking-widest text-runcoder-400">
         {title}
       </Dialog.Title>
 
@@ -29,11 +29,11 @@ export function FileExplorer({
         </Button>
       ))}
 
-      <div className="mb-2 flex justify-between border-b border-solid border-setta-200 pb-2">
-        <Button twClasses="text-xs text-setta-400 hover:text-setta-900 dark:hover:text-setta-200 rounded-md ring-0">
+      <div className="mb-2 flex justify-between border-b border-solid border-runcoder-200 pb-2">
+        <Button twClasses="text-xs text-runcoder-400 hover:text-runcoder-900 dark:hover:text-runcoder-200 rounded-md ring-0">
           Name
         </Button>
-        <Button twClasses="text-xs text-setta-400 dark:hover:text-setta-200 hover:text-setta-900 rounded-md ring-0">
+        <Button twClasses="text-xs text-runcoder-400 dark:hover:text-runcoder-200 hover:text-runcoder-900 rounded-md ring-0">
           Last Modified
         </Button>
       </div>

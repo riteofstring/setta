@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
+import { setSectionVersionsHeight } from "hooks/useSectionVersions";
+import { useSectionInfos } from "models/info/sectionInfos";
 import { useEffect, useRef, useState } from "react";
 import { VscGrabber } from "react-icons/vsc";
-import { useSectionInfos } from "state/definitions";
-import { setSectionVersionsHeight } from "state/hooks/useSectionVersions";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize } from "./utils";
 
@@ -95,6 +95,6 @@ function MotionDiv({ sectionId, height, children }) {
 
 function Handle() {
   return (
-    <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-setta-400" />
+    <VscGrabber className="absolute bottom-0 left-1/2 z-0 mx-auto mb-3 -translate-x-1/2 select-none text-runcoder-400" />
   );
 }

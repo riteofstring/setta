@@ -1,8 +1,8 @@
+import { localStorageFns } from "hooks/localStorageHooks";
+import { useWindowSize } from "hooks/useWindowSize";
 import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
-import { localStorageFns } from "state/hooks/localStorage";
-import { useWindowSize } from "state/hooks/utils";
 import { Button } from "utils/atoms/buttons/Button";
 import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
@@ -88,13 +88,13 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1 flex min-h-0 min-w-0 flex-grow  flex-col border-setta-200 bg-setta-50 px-12 py-8 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${rightCondition}`}
+      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1 flex min-h-0 min-w-0 flex-grow  flex-col border-runcoder-200 bg-runcoder-50 px-12 py-8 shadow-md transition-transform dark:border-runcoder-800 dark:bg-runcoder-900 ${rightCondition}`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
       aria-label={`${paneTitle} Pane`}
     >
       {children}
       <Button
-        twClasses={`text-setta-500 hover:bg-setta-100 dark:hover:bg-setta-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+        twClasses={`text-runcoder-500 hover:bg-runcoder-100 dark:hover:bg-runcoder-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
         tabIndex="-1"
         onClick={uiToggle}
       >

@@ -1,9 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
+import { useExportProjectJson } from "hooks/useGetOrCreateProjects";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { loadProjectState } from "state/actions/loadProjectState";
-import { useExportProjectJson } from "state/hooks/project";
+import { loadProjectState } from "thunks/loadProjectState";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function ExportJSONModal({ modalType, open }) {
@@ -65,13 +65,13 @@ function TextAreaModal({
 }) {
   return (
     <div className="flex h-full flex-grow flex-col  ">
-      <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-setta-400">
+      <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-runcoder-400">
         {title}
       </Dialog.Title>
-      <article className="relative flex flex-grow overflow-hidden rounded-lg border border-setta-100 bg-setta-50 p-4  dark:border-setta-700/50 dark:bg-setta-900 dark:text-setta-300">
+      <article className="relative flex flex-grow overflow-hidden rounded-lg border border-runcoder-100 bg-runcoder-50 p-4  dark:border-runcoder-700/50 dark:bg-runcoder-900 dark:text-runcoder-300">
         {copyBtn && (
           <HiOutlineDuplicate
-            className="absolute right-8 top-4 h-5 w-5 cursor-pointer text-setta-300 hover:text-setta-600 dark:hover:text-white"
+            className="absolute right-8 top-4 h-5 w-5 cursor-pointer text-runcoder-300 hover:text-runcoder-600 dark:hover:text-white"
             onClick={onClickCopyBtn}
           />
         )}

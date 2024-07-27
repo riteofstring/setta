@@ -1,4 +1,4 @@
-# setta
+# runcoder
 
 Dev setup:
 

@@ -215,7 +215,7 @@
           "description": "",
           "versionsHeight": 100,
           "versionsVisible": 0,
-          "code": "import numpy as np\n\n{{ SETTA_GENERATED_CODE }}\n\nprint(\"here\")",
+          "code": "import numpy as np\n\n{{ RUNCODER_GENERATED_CODE }}\n\nprint(\"here\")",
           "codeLanguage": "python",
           "isFrozen": 0,
           "nonPresetUITypeIds": ["90ad65be-05c6-4f5b-81c4-ca7b4344db49"],
@@ -1113,6 +1113,8 @@
           "positionalOnly": false
         }
       },
+      "userCodeInfoMaps": {},
+      "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
       "outputs": {},
       "dbSourceMapping": {

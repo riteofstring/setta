@@ -19,13 +19,13 @@ export function MenuDropdown({
   return (
     <Menubar.Menu>
       <Menubar.Trigger
-        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 ${rounded} ${padding} text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 ${triggerStyle}`}
+        className={`nodrag flex cursor-pointer select-none items-center justify-between gap-1 ${rounded} ${padding} text-xs font-semibold leading-none text-runcoder-700 outline-none transition-colors duration-150 hover:bg-runcoder-100 focus-visible:ring-2 dark:text-runcoder-200 dark:hover:bg-runcoder-800 ${triggerStyle}`}
       >
         {trigger}
       </Menubar.Trigger>
       <Menubar.Portal>
         <Menubar.Content
-          className={`z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850 ${contentStyle}`}
+          className={`z-20 min-w-[200px] rounded-md border border-solid border-runcoder-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-runcoder-700/50  dark:bg-runcoder-850 ${contentStyle}`}
           align={align}
           sideOffset={sideOffset}
           alignOffset={alignOffset}

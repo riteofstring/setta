@@ -1,12 +1,12 @@
-import _ from "lodash";
-import { useState } from "react";
 import {
   dbGetCollectionDetails,
   getCollectionsAndModulesFn,
-} from "requests/sectionConfig";
-import { setCollections } from "state/actions/setCollections";
-import { useGetSelectedCollectionsForSectionConfig } from "state/hooks/useSectionContents";
-import { groupedObjInfo } from "utils/codeInfoUtils";
+} from "dbRequests/sectionConfig";
+import { useGetSelectedCollectionsForSectionConfig } from "hooks/useSectionContents";
+import _ from "lodash";
+import { useState } from "react";
+import { setCollections } from "thunks/uiTypes/setCollections";
+import { groupedObjInfo } from "utils/getFullObjPath";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";
 
@@ -54,7 +54,7 @@ function ObjCollectionDetails({ children, details, name }) {
       <div className="select-text rounded-md px-1 py-1">
         {Object.entries(groupedDetails).map(([k, v]) => (
           <div key={`ObjCollectionDetails-${k}`}>
-            <p className="text-sm font-bold dark:text-setta-200">{k}</p>
+            <p className="text-sm font-bold dark:text-runcoder-200">{k}</p>
             <ObjListText objList={v} />
           </div>
         ))}
@@ -65,7 +65,10 @@ function ObjCollectionDetails({ children, details, name }) {
 
 function ObjListText({ objList }) {
   return objList.map((x) => (
-    <div key={`ObjListText-${x.id}`} className="indent-2 dark:text-setta-200">
+    <div
+      key={`ObjListText-${x.id}`}
+      className="indent-2 dark:text-runcoder-200"
+    >
       {x.name}
     </div>
   ));

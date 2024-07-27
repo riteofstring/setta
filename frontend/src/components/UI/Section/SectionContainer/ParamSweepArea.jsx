@@ -1,20 +1,14 @@
+import { useGetEVColNames } from "hooks/useEnteredValue";
+import { useParamSweepInfo } from "hooks/useParamSweepInfo";
+import { useMappedSectionDBSource } from "hooks/useSectionInfo";
 import _ from "lodash";
+import { useCodeInfo } from "models/info/codeInfo";
+import { useParamInfos } from "models/info/paramInfos";
+import { useParamSweep } from "models/paramSweep";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
-import {
-  addParamSweepParamInfoId,
-  addParamSweepValue,
-  changeParamSweepParamInfoId,
-  deleteLastParamSweepValue,
-  deleteParamSweepValue,
-  setParamSweepValue,
-} from "state/actions/paramSweep";
-import { useCodeInfo, useEVCols } from "state/definitions";
-import { useGetEVColNames } from "state/hooks/useEnteredValue";
-import { useMappedSectionDBSource } from "state/hooks/useGetSectionInfo";
-import { useParamSweepInfo } from "state/hooks/useParamSweepInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
@@ -42,12 +36,12 @@ export const ParamSweepArea = React.memo(_ParamSweepArea);
 function FilterSection() {
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1";
-  // bg-gradient-to-t from-setta-50
+  // bg-gradient-to-t from-runcoder-50
   return (
     <>
-      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
+      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-runcoder-700 dark:from-transparent">
         <StandardSearch
-          leftElement={<BiFilter className="text-setta-400" />}
+          leftElement={<BiFilter className="text-runcoder-400" />}
           placeholder="Filter"
           inputStyles={inputStyles}
           outerClasses="flex-1"
@@ -96,26 +90,33 @@ function ArgItem({
 
   function getOnChange(valueIdx) {
     return (v) =>
-      setParamSweepValue({ paramSweepId, idx, valueIdx, value: _.toString(v) });
+      useParamSweep
+        .getState()
+        .setValue({ paramSweepId, idx, valueIdx, value: _.toString(v) });
   }
 
   function getOnDelete(valueIdx) {
-    return () => deleteParamSweepValue({ paramSweepId, idx, valueIdx });
+    return () =>
+      useParamSweep.getState().deleteValue({ paramSweepId, idx, valueIdx });
   }
 
   function onPlus() {
-    addParamSweepValue({ paramSweepId, idx });
+    useParamSweep.getState().addValue({ paramSweepId, idx });
   }
 
   function onMinus() {
-    deleteLastParamSweepValue({ paramSweepId, idx });
+    useParamSweep.getState().deleteLastValue({ paramSweepId, idx });
   }
 
   function onSelectedItemChange(v) {
     if (v in useCodeInfo.getState().x) {
-      changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
+      useParamSweep
+        .getState()
+        .changeParamInfoId({ paramSweepId, idx, paramInfoId: v });
     } else {
-      changeParamSweepParamInfoId({ paramSweepId, idx, evColId: v });
+      useParamSweep
+        .getState()
+        .changeParamInfoId({ paramSweepId, idx, evColId: v });
     }
   }
 
@@ -153,11 +154,11 @@ function ArgItem({
           />
         ))
       ) : (
-        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-setta-100 px-4 py-3 dark:bg-setta-850">
-          <p className="col-start-1 text-xs font-bold text-setta-300 dark:text-setta-600">
+        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-runcoder-100 px-4 py-3 dark:bg-runcoder-850">
+          <p className="col-start-1 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
             Name
           </p>
-          <p className="col-start-2 text-xs font-bold text-setta-300 dark:text-setta-600">
+          <p className="col-start-2 text-xs font-bold text-runcoder-300 dark:text-runcoder-600">
             Value
           </p>
 
@@ -174,7 +175,7 @@ function ArgItem({
 
 function ShowEVCol({ forSectionId, objInfoId, evColId }) {
   const dbSource = useMappedSectionDBSource(forSectionId);
-  const evCol = useEVCols((x) => x.x[dbSource][evColId]);
+  const evCol = useParamInfos((x) => x.x[dbSource][evColId]);
   const paramsWithValues = useCodeInfo((x) => {
     const output = [];
     for (const c of x.x[objInfoId].children) {
@@ -194,7 +195,7 @@ function EVColItem({ name, value }) {
   // TODO: show value next to name, like
   // name value
   return (
-    <dl className="col-span-2 grid grid-cols-subgrid font-mono text-xs text-setta-500 dark:text-setta-200">
+    <dl className="col-span-2 grid grid-cols-subgrid font-mono text-xs text-runcoder-500 dark:text-runcoder-200">
       <dt className="col-start-1 truncate">{name}</dt>
       <dd className="col-start-2 truncate">{value}</dd>
     </dl>
@@ -209,9 +210,9 @@ function PlaceholderArgItem({
 }) {
   function onSelectedItemChange(v, changeByUser, setSelection) {
     if (v in useCodeInfo.getState().x) {
-      addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
+      useParamSweep.getState().addParamInfoId({ paramSweepId, paramInfoId: v });
     } else {
-      addParamSweepParamInfoId({ paramSweepId, evColId: v });
+      useParamSweep.getState().addParamInfoId({ paramSweepId, evColId: v });
     }
 
     setSelection(null);
@@ -273,7 +274,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
       <IconButton
         icon={<IoClose />}
         bg="bg-transparent"
-        color="text-setta-400 hover:text-setta-600 dark:hover:text-setta-200"
+        color="text-runcoder-400 hover:text-runcoder-600 dark:hover:text-runcoder-200"
         twClasses="card-close-arg-group place-self-center ml-1"
         padding=""
         size="h-[.66rem] w-[.66rem]"
@@ -289,7 +290,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
           area="card-value-full"
         />
         <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
-        <span className="card-value-full border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
+        <span className="card-value-full border-box self-end border-b border-runcoder-300 group-focus-within/textinput:border-blue-400 dark:border-runcoder-800" />
       </article>
     </>
   );

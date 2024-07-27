@@ -93,12 +93,12 @@ export function SliderInput({
       disabled={isDisabled}
       onValueChange={(v) => onChange(v[0])}
     >
-      <Slider.Track className="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700">
+      <Slider.Track className="relative flex-grow rounded-full bg-runcoder-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-runcoder-700">
         <Slider.Range className="absolute h-full rounded-full bg-blue-500" />
       </Slider.Track>
       <Slider.Thumb
         className="block h-3 w-3 cursor-pointer
-      rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600"
+      rounded-full border-2 border-runcoder-300 bg-white shadow-sm drop-shadow-md hover:bg-runcoder-100 focus:border-blue-500 focus-visible:outline-none dark:border-runcoder-400 dark:bg-runcoder-600"
       />
     </Slider.Root>
   );

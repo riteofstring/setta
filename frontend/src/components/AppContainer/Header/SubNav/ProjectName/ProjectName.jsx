@@ -1,8 +1,11 @@
-import { dbSetProjectConfigName, dbSetProjectName } from "requests/projectName";
-import { useProject, useProjectConfig } from "state/definitions";
-import { useEditableOnSubmit } from "state/hooks/editableText";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
-import { constInfoViews } from "utils/constants";
+import {
+  dbSetProjectConfigName,
+  dbSetProjectName,
+} from "dbRequests/projectName";
+import { useEditableOnSubmit } from "hooks/useEditableOnSubmit";
+import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
+import { useProject } from "models/info/project";
+import { useProjectConfig } from "models/info/projectConfig";
 import { Editable } from "utils/Editable/Editable";
 import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
@@ -13,9 +16,7 @@ import { router } from "utils/Routes/router";
 export function ProjectName() {
   const name = useProject((x) => x.name);
   const configName = useProjectConfig((x) => x.name);
-  const infoViewHandlers = getInfoViewHandlers(
-    constInfoViews.OVERVIEW_PROJNAME,
-  );
+  const infoViewHandlers = useSetCurrInfoView(constInfoViews.OVERVIEW_PROJNAME);
 
   async function setName(v) {
     await dbSetProjectName(v);
@@ -46,16 +47,16 @@ export function ProjectName() {
         name={name}
         setName={setName}
         titleProps={{
-          editing: `${editing} text-xl text-setta-900 dark:text-setta-50 font-bold `,
-          notEditing: `${notEditing} text-xl text-setta-900 dark:text-setta-50 font-bold `,
+          editing: `${editing} text-xl text-runcoder-900 dark:text-runcoder-50 font-bold `,
+          notEditing: `${notEditing} text-xl text-runcoder-900 dark:text-runcoder-50 font-bold `,
         }}
       />
       <ProjectNameCore
         name={configName}
         setName={setConfigName}
         titleProps={{
-          editing: `${editing} text-md text-setta-600 dark:text-setta-300 mt-1 mb-2 font-medium`,
-          notEditing: `${notEditing} text-md text-setta-600 dark:text-setta-300 mt-1 mb-2 font-medium`,
+          editing: `${editing} text-md text-runcoder-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
+          notEditing: `${notEditing} text-md text-runcoder-600 dark:text-runcoder-300 mt-1 mb-2 font-medium`,
         }}
       />
     </header>

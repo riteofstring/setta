@@ -1,18 +1,18 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
-import { FiEdit3 } from "react-icons/fi";
-import { setUIEditorTab } from "state/actions/uiEditor";
-import { useActiveSection, useUIEditor } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
-import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
+import { localStorageFns } from "hooks/localStorageHooks";
+import { useRequiredUIEditorTabs } from "hooks/useUITypes";
+import { useActiveSection } from "models/activeSection";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   tabNameToPretty,
   UI_CONFIG_TAB,
-  UI_EDITOR,
-} from "utils/constants";
+  useUIEditor,
+} from "models/uiEditor";
+import { FiEdit3 } from "react-icons/fi";
+import { UI_EDITOR } from "utils/constants";
 import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
@@ -40,6 +40,7 @@ export function UiEditor() {
 
 function TabsVisible({ sectionId }) {
   const rawTab = useUIEditor((x) => x.tab);
+  const setTab = useUIEditor((x) => x.setTab);
   const requiredTabs = useRequiredUIEditorTabs(sectionId);
   // when sectionId changes, the requiredTabs might not include the previously active tab
   const tab = requiredTabs.includes(rawTab) ? rawTab : requiredTabs[0];
@@ -49,7 +50,7 @@ function TabsVisible({ sectionId }) {
       className="contents"
       defaultValue={SECTION_CONFIG_TAB}
       value={tab}
-      onValueChange={setUIEditorTab}
+      onValueChange={setTab}
     >
       <Tabs.List asChild>
         <nav className="flex gap-4">
@@ -70,7 +71,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out]  hover:text-blue-800 focus-visible:ring-2 dark:text-setta-400 dark:hover:text-blue-500 [&[data-state='active']]:border-setta-500 [&[data-state='active']]:font-bold"
+      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out]  hover:text-blue-800 focus-visible:ring-2 dark:text-runcoder-400 dark:hover:text-blue-500 [&[data-state='active']]:border-runcoder-500 [&[data-state='active']]:font-bold"
       value={value}
       data-testid={`UiEditor ${name} Button`}
       tab-index="0"
@@ -93,8 +94,8 @@ function Placeholder() {
   return (
     <aside className="grid min-h-[60vh] flex-grow flex-col">
       <div className="flex flex-col items-center gap-4 place-self-center">
-        <FiEdit3 className="h-20 w-20 text-setta-300 dark:text-setta-700 " />
-        <h4 className="text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">
+        <FiEdit3 className="h-20 w-20 text-runcoder-300 dark:text-runcoder-700 " />
+        <h4 className="text-lg font-bold tracking-widest text-runcoder-300 dark:text-runcoder-600">
           Select A Card to Edit
         </h4>
       </div>

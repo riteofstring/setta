@@ -1,17 +1,15 @@
-import { getNodesBounds } from "forks/xyflow/core";
-import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
+import { dbDeleteProjects } from "dbRequests/projects";
+import {
+  createAndGoToProject,
+  useGetProjectsForHomePage,
+} from "hooks/useGetOrCreateProjects";
 import { matchSorter } from "match-sorter";
+import { useHomePageSearch } from "models/useHomePageSearch";
 import { forwardRef, useEffect, useState } from "react";
 import { BiGitBranch, BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
-import { dbDeleteProjects } from "requests/projects";
-import { useHomePageSearch } from "state/definitions";
-import {
-  createAndGoToProject,
-  useGetProjectsForHomePage,
-} from "state/hooks/project";
 import { Badge } from "utils/atoms/badges/badge";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
@@ -19,6 +17,8 @@ import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
+import { getNodesBounds } from "xyflow/core";
+import { getXYWidthHeight, MinimapSvg } from "xyflow/minimap/MiniMap";
 import "./homepage.css";
 
 export function HomePage() {
@@ -33,7 +33,7 @@ export function HomePage() {
   }, [doRefresh]);
 
   return (
-    <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-900">
+    <GridWrapper gridStyles="bg-runcoder-100 dark:bg-runcoder-900">
       <RightColumn projects={projects} setDoRefresh={setDoRefresh} />
     </GridWrapper>
   );
@@ -67,14 +67,14 @@ function RightColumn({ projects, setDoRefresh }) {
       <div className="flex justify-between gap-4">
         <div className="flex gap-4">
           <StandardButton
-            twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-setta-600  hover:bg-blue-500 gap-2"
+            twClasses="py-2 px-4 rounded-full font-bold font-heading text-white bg-runcoder-600  hover:bg-blue-500 gap-2"
             onClick={onClick}
           >
             <BiPlus />
             New Project
           </StandardButton>
           <StandardButton
-            twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"
+            twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-runcoder-500/25 hover:bg-red-500 hover:text-white gap-2"
             onClick={onClickDelete}
           >
             <IoClose />
@@ -83,7 +83,7 @@ function RightColumn({ projects, setDoRefresh }) {
         </div>
         <Link
           to="settings"
-          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-heading font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 "
+          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-runcoder-600 px-4 py-2 font-heading font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 "
         >
           <IoSettingsOutline />
           Settings
@@ -136,7 +136,7 @@ const ProjectItem = forwardRef(
     // bg-[url('https://via.placeholder.com/400')]
 
     const itemStyles =
-      "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
+      "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-runcoder-600 gap-0";
 
     return (
       <div ref={forwardedRef} className={itemStyles}>
@@ -152,8 +152,8 @@ const ProjectItem = forwardRef(
             isSelected={isSelected}
             onSelectProject={onSelectProject}
           />
-          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800 ">
-            <p className="font-heading text-sm text-setta-600 dark:text-setta-100">
+          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-runcoder-800 ">
+            <p className="font-heading text-sm text-runcoder-600 dark:text-runcoder-100">
               {name}
             </p>
           </div>
@@ -187,7 +187,7 @@ function ThumbnailArea({
         <StandardDropdown
           trigger={
             <div
-              className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-xs  hover:bg-setta-50 dark:bg-black/20 dark:text-setta-300 dark:hover:bg-setta-950/50"
+              className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-xs  hover:bg-runcoder-50 dark:bg-black/20 dark:text-runcoder-300 dark:hover:bg-runcoder-950/50"
               onClick={onClickConfigsButton}
             >
               <BiGitBranch />
@@ -205,7 +205,7 @@ function ThumbnailArea({
 
       {/* <ThumbnailLogo
         styles="place-self-center w-7 col-start-1 col-end-2 row-start-1 row-end-2"
-        svgStyles="fill-setta-200"
+        svgStyles="fill-runcoder-200"
       /> */}
     </div>
   );

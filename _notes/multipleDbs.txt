@@ -3,16 +3,16 @@ Purpose of multiple dbs:
 1. Allow a global settings db to override project settings
 One approach is a CLI command like:
 
-setta --global_db <path>
+runcoder --global_db <path>
 
-For greater convenience, the global db path could be saved in the setta db alias and path settings file, which is a json file stored in the default location determined by the click package.
+For greater convenience, the global db path could be saved in the runcoder db alias and path settings file, which is a json file stored in the default location determined by the click package.
 Then --global_db would be optional.
 
-Related thought: should setta be stored in json files rather than in db files?
-Then each project would have a setta.db and a setta.json.
+Related thought: should runcoder be stored in json files rather than in db files?
+Then each project would have a runcoder.db and a runcoder.json.
 
-Another thought: an interesting demo would be to use setta to configure itself.
-So the project would consist of a section with setta settings. 
+Another thought: an interesting demo would be to use runcoder to configure itself.
+So the project would consist of a section with runcoder settings. 
 Running the project would export the settings to the settings json file.
 
 
@@ -27,9 +27,9 @@ For a section, there could be a setting that let's you set the db name from whic
 For example, let's say we have a section called API_Keys and we want to fill it in differently for each team member.
 In the right-side pane, there can be a "db sources" tab, where we enter the alias for a db we want to grab config values from.
 Let's say the team sets the alias to "api_keys".
-Then when starting setta at the command line, each team member would do:
+Then when starting runcoder at the command line, each team member would do:
 
-setta --api_keys <path>
+runcoder --api_keys <path>
 
 This could be done at the parameter level too. In the same "db sources" tab, there could be a db source per parameter (assuming the section-level one isn't set).
 

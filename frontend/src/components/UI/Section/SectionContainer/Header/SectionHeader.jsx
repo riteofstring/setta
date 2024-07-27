@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
+import { useSectionTypeName } from "hooks/useSectionType";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
-import { deleteSections } from "state/actions/sectionOps";
-import { useSectionTypeName } from "state/hooks/useSectionType";
+import { deleteSections } from "thunks/sections/sectionOps";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
-import { isRoot } from "utils/sectionTypeHelpers";
+import { isRoot } from "z_utils/constants";
 import { Incrementer } from "../Incrementer/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
@@ -65,14 +65,14 @@ function _SectionHeader({
                 popover={true}
               />
             }
-            arrowClasses="fill-white dark:fill-setta-800"
+            arrowClasses="fill-white dark:fill-runcoder-800"
             inputClasses="rounded-lg"
             trigger={
               <IconButton
-                twClasses="[&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
+                twClasses="[&_*]:hover:text-runcoder-500 [&_*]:dark:hover:text-runcoder-400"
                 bg="bg-transparent"
               >
-                <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
+                <TbSortDescending2 className="text-runcoder-300 dark:text-runcoder-700" />
               </IconButton>
             }
             header={"Description for Infoview"}
@@ -114,7 +114,7 @@ export const SectionHeader = React.memo(_SectionHeader);
 function getTitleStyles({ isActiveSection, isGlobalVariables, sectionId }) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const editing =
-    "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-setta-200 dark:bg-setta-900 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
+    "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-runcoder-200 dark:bg-runcoder-900 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
 
   const notEditing = `transition-colors font-heading leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
     isActiveSection
@@ -124,8 +124,8 @@ function getTitleStyles({ isActiveSection, isGlobalVariables, sectionId }) {
           ? "text-blue-400"
           : "text-blue-600 dark:text-blue-400"
       : sectionTypeName === C.TERMINAL
-        ? "text-setta-300"
-        : "text-setta-700 dark:text-setta-300"
+        ? "text-runcoder-300"
+        : "text-runcoder-700 dark:text-runcoder-300"
   } ${isGlobalVariables ? "uppercase font-bold" : "font-bold"}`;
 
   if (isGlobalVariables) {
@@ -133,7 +133,7 @@ function getTitleStyles({ isActiveSection, isGlobalVariables, sectionId }) {
   }
 
   const fixed =
-    "select-none italic font-heading tracking-tighter text-xs text-setta-400";
+    "select-none italic font-heading tracking-tighter text-xs text-runcoder-400";
 
   return { editing, notEditing, fixed };
 }

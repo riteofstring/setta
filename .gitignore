@@ -23,7 +23,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-setta.db
+runcoder.db
 
 __pycache__/
 *.py[cod]
@@ -33,10 +33,10 @@ dist/
 *.egg-info/
 site/
 venv/
-setta_code/
+runcoder_code/
 abcde_env
 .DS_Store
 .mypy_cache/
 .dmypy.json
-backend/setta/frontend
-.setta_code
+backend/runcoder/frontend
+.runcoder_code
