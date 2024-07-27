@@ -27,7 +27,7 @@ export function DBSources({ sectionId }) {
       value={localVal}
       onChange={onChange}
       onBlur={onBlur}
-      className="rounded bg-gray-800 p-2 text-white"
+      className="rounded bg-setta-400 px-4 py-2 text-white dark:bg-setta-800"
     />
   );
 }

@@ -341,3 +341,14 @@ body {
   /* outline: 1px solid green; */
   /* background: hsla(0, 100%, 50%, 0.1); */
 }
+
+.single-cell-container {
+  display:grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.single-cell-child {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+}

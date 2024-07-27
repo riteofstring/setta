@@ -12,7 +12,7 @@ export function PaneContainer({
   onResizeStop = null,
   paneProps,
   children,
-  minimumWidth = 325,
+  minimumWidth = 350,
 }) {
   const size = useWindowSize();
   const { right, paneName } = paneProps;
@@ -66,10 +66,12 @@ export function PaneContainer({
   const style = `${!right ? "-" : ""}${width - 40}px`;
 
   const rightCondition = right
-    ? "justify-self-end right-0 left-auto border-l"
-    : "justify-self-start right-auto left-0 border-r";
+    ? "justify-self-end right-0 left-auto border-l pr-12 justify-items-end"
+    : "justify-self-start right-auto left-0 border-r pl-12";
 
-  const rightButtonCon = right ? "left-0 right-auto" : "left-auto right-0";
+  const rightButtonCon = right ? "justify-self-start" : "justify-self-end";
+
+  // flex flex-grow flex-col
 
   return (
     <Resizable
@@ -88,13 +90,13 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1 flex min-h-0 min-w-0 flex-grow  flex-col border-setta-200 bg-setta-50 px-12 py-8 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${rightCondition}`}
+      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1  min-h-0 min-w-0 border-setta-200 bg-setta-50 py-8 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${rightCondition} overflow-clip`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
       aria-label={`${paneTitle} Pane`}
     >
       {children}
       <Button
-        twClasses={`text-setta-500 hover:bg-setta-100 dark:hover:bg-setta-800 rounded-md px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_-_.66rem)] absolute`}
+        twClasses={`single-cell-child text-setta-500 hover:bg-setta-100/75 dark:hover:bg-setta-800/75 rounded-md self-center px-1 ${rightButtonCon} top-0 m-[0.33rem] self-center h-[calc(100%_+_3.33rem)] bottom-0 absolute`}
         tabIndex="-1"
         onClick={uiToggle}
       >

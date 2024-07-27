@@ -14,7 +14,7 @@ export function SectionConfigSearch({
 }) {
   return (
     <div
-      className="flex h-[inherit] flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0"
+      className="flex h-full min-h-0 flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0"
       data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSearch} />
@@ -47,7 +47,7 @@ function Search({ onSubmit }) {
   }
 
   const inputStyles =
-    "flex-grow text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-300 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1 ";
+    "flex-grow min-w-0 w-full text-sm outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-300 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1 truncate";
 
   return (
     <StandardSearch inputStyles={inputStyles} onFormSubmit={onFormSubmit} />
