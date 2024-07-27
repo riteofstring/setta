@@ -1,22 +1,21 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { ControlButton, Controls } from "forks/xyflow/controls";
+import "forks/xyflow/controls/style.css";
+import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useNodeInternals } from "models/info/nodeInternals";
-import { useSettings } from "models/settings";
 import potpack from "potpack";
 import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
-import { toggleMiniMap } from "thunks/user/settings";
-import { ControlButton, Controls } from "xyflow/controls";
-import "xyflow/controls/style.css";
-import { resetZoom } from "xyflow/core/hooks/useViewportHelper";
+import { getNodes, setNodes } from "state/actions/nodeInternals";
+import { toggleMiniMap, toggleSetting } from "state/actions/settings";
+import { localStorageFns } from "state/hooks/localStorage";
 
 export function ResponsiveControls() {
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
 
   function onClickLayout() {
     const margin = 50;
-    const nodeInternals = useNodeInternals.getState().getNodes();
+    const nodeInternals = getNodes();
 
     let sizes = nodeInternals.map((x) => ({
       id: x.id,
@@ -36,7 +35,7 @@ export function ResponsiveControls() {
       return node;
     });
 
-    useNodeInternals.getState().setNodes(newNodes);
+    setNodes(newNodes);
   }
 
   // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
@@ -45,14 +44,12 @@ export function ResponsiveControls() {
   return (
     <Controls
       style={{ transform: `translateX(${overviewWidth}px)` }}
-      className="transition-transform [&>button]:bg-runcoder-50 dark:[&>button]:border-runcoder-800 dark:[&>button]:bg-runcoder-700 dark:[&>button]:text-runcoder-300 dark:[&_svg]:fill-runcoder-300"
+      className="transition-transform [&>button]:bg-setta-50 dark:[&>button]:border-setta-800 dark:[&>button]:bg-setta-700 dark:[&>button]:text-setta-300 dark:[&_svg]:fill-setta-300"
     >
       <ControlButton onClick={onClickLayout}>
         <RiLayoutFill />
       </ControlButton>
-      <ControlButton
-        onClick={() => useSettings.getState().toggleSetting("snapToGrid")}
-      >
+      <ControlButton onClick={() => toggleSetting("snapToGrid")}>
         <TbGrid4X4 />
       </ControlButton>
       <ControlButton onClick={resetZoom}>

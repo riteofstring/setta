@@ -104,7 +104,7 @@
           "description": "",
           "versionsHeight": 100,
           "versionsVisible": 0,
-          "code": "printf \"***START***\\n\\n\"\n\npython {{ Code }} {{ RUNCODER_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
+          "code": "printf \"***START***\\n\\n\"\n\npython {{ Code }} {{ SETTA_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
           "codeLanguage": "bash",
           "isFrozen": 0,
           "nonPresetUITypeIds": ["1748d396-9558-466a-9e3b-05b2e7f4b63b"],
@@ -452,8 +452,6 @@
           "positionalOnly": false
         }
       },
-      "userCodeInfoMaps": {},
-      "projectConfigCodeInfoMaps": {},
       "outputGroups": {},
       "outputs": {},
       "dbSourceMapping": {

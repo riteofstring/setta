@@ -1,4 +1,4 @@
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useNodeInternals } from "state/definitions";
 import { SectionContainer } from "./SectionContainer";
 
 export function SectionContainerNode({ id }) {

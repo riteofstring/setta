@@ -50,7 +50,7 @@ function CardCollapsible({ heading, value, open, children }) {
   return (
     <StandardCollapsible
       rootStyles="w-full"
-      triggerStyles="group flex outline-none transition-all hover:cursor-pointer hover:bg-runcoder-200 dark:hover:bg-runcoder-700  hover:shadow-sm hover:text-white rounded-full"
+      triggerStyles="group flex outline-none transition-all hover:cursor-pointer hover:bg-setta-200 dark:hover:bg-setta-700  hover:shadow-sm hover:text-white rounded-full"
       contentStyles="rounded-xl text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp"
       heading={heading}
       value={value}

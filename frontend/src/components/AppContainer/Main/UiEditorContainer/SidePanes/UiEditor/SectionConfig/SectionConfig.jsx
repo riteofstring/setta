@@ -1,7 +1,8 @@
 import C from "constants/constants.json";
-import { useGetSectionType } from "hooks/useSectionType";
-import { constInfoViews, useSetCurrInfoView } from "models/info/infoView";
 import React from "react";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
+import { useGetSectionType } from "state/hooks/useSectionType";
+import { constInfoViews } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { OutputsSearch } from "./OutputSearch";
@@ -15,10 +16,10 @@ const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
-  const infoViewHandlersCard = useSetCurrInfoView(
+  const infoViewHandlersCard = getInfoViewHandlers(
     constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
   );
-  const infoViewHandlersContents = useSetCurrInfoView(
+  const infoViewHandlersContents = getInfoViewHandlers(
     constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH,
   );
 
@@ -27,7 +28,7 @@ function SectionConfigCore({ sectionId }) {
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
       <div className="flex justify-between">
         <p
-          className="mt-2 text-xs font-semibold uppercase text-runcoder-400"
+          className="mt-2 text-xs font-semibold uppercase text-setta-400"
           {...infoViewHandlersCard}
         >
           Card Types
@@ -38,7 +39,7 @@ function SectionConfigCore({ sectionId }) {
       <SectionConfigTypeSelection sectionId={sectionId} />
 
       <p
-        className="mt-4 text-xs font-semibold uppercase text-runcoder-400"
+        className="mt-4 text-xs font-semibold uppercase text-setta-400"
         {...infoViewHandlersContents}
       >
         Contents

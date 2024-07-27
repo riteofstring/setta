@@ -2,7 +2,7 @@ import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
-import { useKeywordRegex } from "models/info/keywordRegex";
+import { useKeywordRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
 
 const lineWrapStyle = {

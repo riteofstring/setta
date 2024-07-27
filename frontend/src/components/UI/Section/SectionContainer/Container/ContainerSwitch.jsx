@@ -1,4 +1,4 @@
-import { useNodeInternals } from "models/info/nodeInternals";
+import { useNodeInternals } from "state/definitions";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 

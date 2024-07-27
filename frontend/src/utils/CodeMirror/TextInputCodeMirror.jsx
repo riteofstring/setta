@@ -7,18 +7,18 @@ import { python } from "@codemirror/lang-python";
 import { EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, keymap, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
+import { useCallback, useRef, useState } from "react";
 import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
-} from "dbRequests/sections";
-import _ from "lodash";
-import { useKeywordRegex } from "models/info/keywordRegex";
-import { setWaitingForLSP } from "models/lsp";
-import { useCallback, useRef, useState } from "react";
-import { goToSection } from "thunks/goToSection";
-import { variableClick } from "thunks/keyActivations";
+} from "requests/sections";
+import { goToSection } from "state/actions/goToSection";
+import { variableClick } from "state/actions/keyActivations";
+import { setWaitingForLSP } from "state/actions/lsp";
+import { useKeywordRegex } from "state/definitions";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
-import { useReactFlow } from "xyflow/core/store";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { roundUpIdx } from "./utils";
 

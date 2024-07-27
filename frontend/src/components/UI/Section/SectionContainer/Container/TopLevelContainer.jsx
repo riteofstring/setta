@@ -1,6 +1,6 @@
-import { useDraggable, useDroppable } from "utils/DNDSortable/CustomCore";
-import { useDndState } from "utils/DNDSortable/dndState";
-import { useDndProps } from "utils/DNDSortable/useDndUtils";
+import { useDraggable, useDroppable } from "forks/dnd-kit/CustomCore";
+import { useDndState } from "forks/dnd-kit/dndState";
+import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
 export function TopLevelContainer({ isDeck, sectionId, children }) {

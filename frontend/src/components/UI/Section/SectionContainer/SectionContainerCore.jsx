@@ -1,16 +1,24 @@
+import React from "react";
+import {
+  addActiveSectionIds,
+  removeActiveSectionIds,
+  setActiveSectionIds,
+} from "state/actions/activeSection";
+import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
+import { getParamInfos } from "state/actions/sectionContents";
+import { setZIndices } from "state/actions/sectionPositions";
+import { getHighestAncestor } from "state/actions/sectionSizes";
+import { useActiveSection } from "state/definitions";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
-} from "hooks/useSectionInfo";
-import { useIsSeriesElement, useSectionTypeName } from "hooks/useSectionType";
-import { toggleVersionsVisible } from "hooks/useSectionVersions";
-import { useActiveSection } from "models/activeSection";
-import { useSectionRefAndInit } from "models/sectionRefs";
-import React from "react";
-import { multiSectionSelect, paramSelect } from "thunks/keyActivations";
-import { getParamInfos } from "thunks/sections/sectionContents";
-import { setZIndices } from "thunks/sections/sectionPositions";
-import { getHighestAncestor } from "thunks/sections/sectionSizes";
+} from "state/hooks/useGetSectionInfo";
+import { useSectionRefAndInit } from "state/hooks/useSectionRefAndInit";
+import {
+  useIsSeriesElement,
+  useSectionTypeName,
+} from "state/hooks/useSectionType";
+import { toggleVersionsVisible } from "state/hooks/useSectionVersions";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
@@ -29,18 +37,18 @@ function _SectionContainerCore({ sectionId }) {
         (x) => x.isSelected,
       );
       if (!isActiveSection && atLeastOneParamSelected) {
-        useActiveSection.getState().addIds([sectionId]);
+        addActiveSectionIds([sectionId]);
       } else if (isActiveSection && !atLeastOneParamSelected) {
-        useActiveSection.getState().removeIds([sectionId]);
+        removeActiveSectionIds([sectionId]);
       }
     } else if (multiSectionSelect(e)) {
       if (isActiveSection) {
-        useActiveSection.getState().removeIds([sectionId]);
+        removeActiveSectionIds([sectionId]);
       } else {
-        useActiveSection.getState().addIds([sectionId]);
+        addActiveSectionIds([sectionId]);
       }
     } else {
-      useActiveSection.getState().setIds([sectionId]);
+      setActiveSectionIds([sectionId]);
     }
     const highestAncestor = getHighestAncestor(sectionId);
     setZIndices([highestAncestor], false);
@@ -52,7 +60,7 @@ function _SectionContainerCore({ sectionId }) {
 
   return (
     <section
-      className={`group/card-section rounded-xl border border-white bg-white dark:border-runcoder-700 dark:bg-runcoder-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
+      className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
       data-testid={`${sectionId} section core`}
       ref={refForPosition}

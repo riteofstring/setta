@@ -1,16 +1,15 @@
-import { getForSectionId } from "hooks/useParamSweepInfo";
-import { useSectionInfos } from "models/info/sectionInfos";
-import { useModal } from "models/modal";
-import { useParamSweep } from "models/paramSweep";
-import { setSectionInfoAttr } from "thunks/sections/setters";
+import { initParamSweep } from "state/actions/paramSweep";
+import { setSectionInfoAttr } from "state/actions/sectionInfos";
+import { useModal, useSectionInfos } from "state/definitions";
+import { getForSectionId } from "state/hooks/useParamSweepInfo";
+import { createNewId } from "utils/idNameCreation";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
-import { createNewId } from "z_utils/utils";
 
 export function CreateNewParamSweepModal() {
   function onClickCreateNewParamSweep({ filename }) {
     const sectionId = useModal.getState().modalData;
     const newId = createNewId();
-    useParamSweep.getState().initParamSweep({ id: newId, name: filename });
+    initParamSweep({ id: newId, name: filename });
     const forSectionId = getForSectionId(
       useSectionInfos.getState().x,
       sectionId,

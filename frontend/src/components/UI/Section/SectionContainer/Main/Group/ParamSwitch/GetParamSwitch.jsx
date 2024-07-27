@@ -1,5 +1,5 @@
 import { matchSorter } from "match-sorter";
-import { useSectionParamFilter } from "models/info/sectionParamFilter";
+import { useSectionParamFilter } from "state/definitions";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({ sectionId, parentId, infos }) {

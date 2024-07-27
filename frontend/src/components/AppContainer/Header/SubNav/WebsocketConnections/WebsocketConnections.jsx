@@ -1,4 +1,4 @@
-import { useWebsocketConnectionList } from "models/websocket";
+import { useWebsocketConnectionList } from "state/definitions";
 import { Badge } from "utils/atoms/badges/badge";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
@@ -25,7 +25,6 @@ function ConnectionList() {
 
 function ConnectionItem({ info }) {
   const connectedTo = useWebsocketConnectionList((x) => x.connectedTo);
-  const setConnectedTo = useWebsocketConnectionList((x) => x.setConnectedTo);
 
   const twClasses =
     connectedTo === info.websocketId
@@ -33,7 +32,7 @@ function ConnectionItem({ info }) {
       : "bg-grey-100 dark:bg-grey-800 text-grey-800 dark:text-grey-100";
 
   return (
-    <MenuItem onClick={() => setConnectedTo(info.websocketId)}>
+    <MenuItem onClick={() => setWebsocketConnectedTo(info.websocketId)}>
       <Badge twClasses={twClasses}>{"CLI"}</Badge>
       {info.websocketId}
     </MenuItem>

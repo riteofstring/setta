@@ -1,8 +1,5 @@
+import { BehaviorDropType, behaviorToPretty } from "forks/dnd-kit/dropTypes";
 import { RiDragDropFill } from "react-icons/ri";
-import {
-  BehaviorDropType,
-  behaviorToPretty,
-} from "utils/DNDSortable/dropTypes";
 
 export function DndSlot({ behaviorDropType, children, isDeck }) {
   const text = behaviorToPretty[behaviorDropType];

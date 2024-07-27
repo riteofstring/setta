@@ -10,7 +10,7 @@ export const StandardSearchRightBtn = React.forwardRef(
         size={size || "w-10 h-10"}
         padding="p-0"
         grid={true}
-        twClasses="absolute right-0 hover:bg-blue-500 dark:hover:bg-blue-700 hover:text-white dark:text-runcoder-500 dark:hover:text-runcoder-100"
+        twClasses="absolute right-0 hover:bg-blue-500 dark:hover:bg-blue-700 hover:text-white dark:text-setta-500 dark:hover:text-setta-100"
         aria-label="toggle menu"
         icon={icon}
         {...props}

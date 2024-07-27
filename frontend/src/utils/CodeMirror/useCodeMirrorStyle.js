@@ -1,5 +1,5 @@
 import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
-import { localStorageFns } from "hooks/localStorageHooks";
+import { localStorageFns } from "state/hooks/localStorage";
 
 const githubDarkTheme = githubDarkInit({
   settings: {

@@ -48,5 +48,6 @@
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
   "ROUTE_GET_FREE_TERMINAL": "/terminal/getFreeTerminal/{projectConfigId}",
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
-  "NESTED_PARAM": "NESTED_PARAM"
+  "NESTED_PARAM": "NESTED_PARAM",
+  "ARGS_PREFIX": "__"
 }

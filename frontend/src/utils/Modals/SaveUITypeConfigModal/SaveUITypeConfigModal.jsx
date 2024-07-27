@@ -1,9 +1,10 @@
-import { useUITypes } from "models/info/uiTypes";
 import { useEffect, useState } from "react";
-import { cloneNewUIType } from "thunks/uiTypes/cloneUITypes";
-import { setParamUITypeConfig } from "thunks/uiTypes/setParamUITypeConfig";
-import { setParamUITypeId } from "thunks/uiTypes/setParamUITypeId";
-import { isPreset, isUserPreset } from "z_utils/uiTypeConstants";
+import { cloneNewUIType } from "state/actions/cloneUITypes";
+import { setParamUITypeConfig } from "state/actions/setParamUITypeConfig";
+import { setParamUITypeId } from "state/actions/setParamUITypeId";
+import { deleteUIType } from "state/actions/uiTypes";
+import { useUITypes } from "state/definitions";
+import { isPreset, isUserPreset } from "utils/sectionTypeHelpers";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
 export function SaveUITypeConfigModal({ open }) {

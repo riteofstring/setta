@@ -17,7 +17,7 @@ export function TextAreaPopover({
   return (
     <StandardPopover
       trigger={trigger}
-      contentClasses="bg-runcoder-200 dark:bg-runcoder-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm"
+      contentClasses="bg-setta-200 dark:bg-setta-700 p-3 rounded-lg shadow-md drop-shadow-md text-sm"
       popoverContent={
         <Content
           header={header}
@@ -38,7 +38,7 @@ function Content({ header, footer, onChange, onClick, value }) {
   return (
     <>
       {header && (
-        <p className="bg:text-runcoder-100 mb-2 text-xs font-bold uppercase text-runcoder-600">
+        <p className="bg:text-setta-100 mb-2 text-xs font-bold uppercase text-setta-600">
           {header}
         </p>
       )}
@@ -64,10 +64,10 @@ function Body({ onChange, onClick, value }) {
       <div className="mt-2 flex gap-1 self-end">
         <Popover.Close asChild>
           <Button
-            twClasses="gap-1 border border-solid border-white dark:border-runcoder-900 py-1 px-3 rounded-full hover:bg-white dark:hover:bg-runcoder-800 text-xs transition-all"
+            twClasses="gap-1 border border-solid border-white dark:border-setta-900 py-1 px-3 rounded-full hover:bg-white dark:hover:bg-setta-800 text-xs transition-all"
             onClick={onClick}
           >
-            Save <BiSave className="text-runcoder-600 dark:text-runcoder-300" />
+            Save <BiSave className="text-setta-600 dark:text-setta-300" />
           </Button>
         </Popover.Close>
       </div>

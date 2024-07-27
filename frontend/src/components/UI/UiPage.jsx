@@ -1,10 +1,10 @@
-import { localStorageFns } from "hooks/localStorageHooks";
+import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
 import { useEffect } from "react";
-import { attachKeyEventListeners } from "thunks/keyActivations";
+import { attachKeyEventListeners } from "state/actions/keyActivations";
+import { localStorageFns } from "state/hooks/localStorage";
 import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
-import { GlobalDndContext } from "utils/DNDSortable/GlobalDndContext";
 import { ResponsiveControls } from "./Section/ResponsiveControls";
 import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
 import { SectionsPane } from "./Section/SectionsPane";
