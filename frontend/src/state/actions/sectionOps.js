@@ -1,51 +1,16 @@
 import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
-import { dbDeleteTerminals } from "requests/terminals";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
+import { setSectionChildrenAndNames } from "state/actions/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";
 import { getSectionType } from "../getters/sectionInfo";
-import { removeActiveSectionIds } from "./sections/activeSections";
-import { setSectionChildrenAndNames } from "state/actions/setters";
-import { removeSectionInfos } from "./sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
-
-export function deleteSections({ sectionIds, incrementVersion = false }) {
-  const idsToDelete = [];
-  for (const sid of sectionIds) {
-    idsToDelete.push(...getIdsToDelete(sid));
-  }
-
-  removeActiveSectionIds(idsToDelete);
-  removeSectionInfos(idsToDelete);
-  deleteNodes(idsToDelete);
-  dbDeleteTerminals(idsToDelete); // delete any terminals associated with the sections
-
-  maybeIncrementProjectStateVersion(incrementVersion);
-}
-
-function getIdsToDelete(sectionId) {
-  const sectionInfosState = useSectionInfos.getState();
-  const idsToDelete = [sectionId];
-  let idx = 0;
-  while (idx < idsToDelete.length) {
-    const { children: idxChildren, paramSweepSectionId } =
-      sectionInfosState.x[idsToDelete[idx]];
-    if (idxChildren) {
-      idsToDelete.push(...idxChildren);
-    }
-    if (paramSweepSectionId) {
-      idsToDelete.push(paramSweepSectionId);
-    }
-    idx += 1;
-  }
-  return idsToDelete;
-}
 
 export function moveSections({
   sectionIds,
@@ -110,14 +75,18 @@ function setChildrenAndParent({
     // This means it was a top level section
     deleteNodes([sectionId]);
   } else {
-    setSectionChildrenAndNames(oldParentId, (x) => x.filter((y) => y !== sectionId));
+    setSectionChildrenAndNames(oldParentId, (x) =>
+      x.filter((y) => y !== sectionId),
+    );
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
     addNodes([{ id: sectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
-    setSectionChildrenAndNames(newParentId, (x) => insertIntoArray(x, newIndex, sectionId));
+    setSectionChildrenAndNames(newParentId, (x) =>
+      insertIntoArray(x, newIndex, sectionId),
+    );
   }
 
   setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);

@@ -1,9 +1,9 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
+import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { createDeck } from "state/actions/sections/createSections";
-import { deleteSections } from "state/actions/sectionOps";
+import { deleteSections } from "state/actions/sections/deleteSections";
 import { useContextMenus } from "state/definitions";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
