@@ -8,7 +8,7 @@ import {
   PROJECT_ROUTER_PATH,
   ROOT_ROUTER_PATH,
 } from "utils/constants";
-import { ColorModeSwitch } from "./ColorModeSwitch";
+import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
 import { SiteLogo } from "./SiteLogo";
@@ -22,7 +22,7 @@ export function HeaderContainer({ path }) {
       <ProjectNav />
       <SearchSwitch path={path} />
       <Notification />
-      <ColorModeSwitch />
+      <DarkModeSwitch />
     </header>
   );
 }

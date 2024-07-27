@@ -4,7 +4,7 @@ import { toggleDarkMode } from "state/actions/settings";
 import { useDarkMode } from "state/hooks/localStorage";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
-export function ColorModeSwitch() {
+export function DarkModeSwitch() {
   const darkMode = useDarkMode();
 
   return (
