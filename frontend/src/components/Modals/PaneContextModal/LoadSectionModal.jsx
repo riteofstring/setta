@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { dbGetSections, dbLoadSection } from "requests/sections";
 import { loadSectionIntoState } from "state/actions/sections/loadSections";
 import { useModal } from "state/definitions";
-import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
 export function LoadSectionModal({ open }) {
   const [sections, setSections] = useState([]);

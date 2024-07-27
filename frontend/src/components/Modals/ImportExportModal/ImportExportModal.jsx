@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { useExportProjectJson } from "state/hooks/project";
-import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+import { Footer } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
 export function ExportJSONModal({ modalType, open }) {
   const { projectJson, exportProjectJson, exportFullProjectJson } =

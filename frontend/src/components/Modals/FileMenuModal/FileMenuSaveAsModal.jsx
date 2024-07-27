@@ -6,7 +6,7 @@ import {
 } from "state/actions/project/saveProject";
 import { useProject, useProjectConfig } from "state/definitions";
 import { useGetProjectsForFileMenu } from "state/hooks/project";
-import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { SAME_PROJECT_NEW_PROJECT_CONFIG } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 

@@ -6,7 +6,7 @@ import {
   getSectionInfo,
 } from "state/getters/sectionInfo";
 import { createNewId } from "utils/idNameCreation";
-import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
 export function CreateNewVersionModal() {
   function onClickCreateNewVersion({ filename }) {

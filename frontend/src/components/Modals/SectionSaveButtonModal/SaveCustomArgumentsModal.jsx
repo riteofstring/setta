@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { saveKwargsAsCollection } from "state/actions/kwargs/kwargs";
 import { useModal } from "state/definitions";
-import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
 export function SaveCustomArgumentsModal({ open }) {
   const [files, setFiles] = useState([]);
