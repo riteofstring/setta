@@ -1,4 +1,4 @@
-import { setSectionName } from "state/actions/setters";
+import { setSectionName } from "state/actions/sections/setters";
 import { getSectionSiblingNames } from "state/getters/sectionInfo";
 import {
   useEditableOnSubmit,

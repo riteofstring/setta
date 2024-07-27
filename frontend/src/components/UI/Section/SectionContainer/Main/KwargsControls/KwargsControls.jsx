@@ -1,8 +1,8 @@
 import { CgPushDown, CgPushUp } from "react-icons/cg";
 import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs";
-import { updateParams } from "state/actions/sectionContents";
-import { setSectionParamFilter } from "state/actions/sectionParamFilter";
+import { updateParams } from "state/actions/sections/sectionContents";
+import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";

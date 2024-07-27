@@ -3,7 +3,7 @@ import { deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
-import { removeSectionInfos } from "../sectionInfos";
+import { removeSectionInfos } from "./sectionInfos";
 import { removeActiveSectionIds } from "./activeSections";
 
 export function deleteSections({ sectionIds, incrementVersion = false }) {

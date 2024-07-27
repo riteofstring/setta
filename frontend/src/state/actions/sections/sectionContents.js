@@ -4,8 +4,8 @@ import {
   findAllParametersOfCallables,
   findAllParametersOfCollections,
 } from "utils/getDescendants";
-import { getSectionInfo, getSectionTypeConfig } from "../getters/sectionInfo";
-import { updateKeywordRegex } from "./keywordRegex";
+import { getSectionInfo, getSectionTypeConfig } from "../../getters/sectionInfo";
+import { updateKeywordRegex } from "../keywordRegex";
 
 export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];

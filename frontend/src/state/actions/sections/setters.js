@@ -12,9 +12,9 @@ import {
   getSectionInfo,
   getSectionType,
   getSectionTypeConfig,
-} from "../getters/sectionInfo";
-import { addCodeInfo } from "./codeInfo";
-import { updateKeywordRegex } from "./keywordRegex";
+} from "../../getters/sectionInfo";
+import { addCodeInfo } from "../codeInfo";
+import { updateKeywordRegex } from "../keywordRegex";
 import { updateCallables, updateParams } from "./sectionContents";
 import {
   setSectionChildren,

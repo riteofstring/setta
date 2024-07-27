@@ -2,7 +2,7 @@ import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { localStorageFns } from "state/hooks/localStorage";
 import { setActiveSectionIds } from "./sections/activeSections";
-import { setZIndices } from "./sectionPositions";
+import { setZIndices } from "./sections/sectionPositions";
 
 export function goToSection(sectionId) {
   const [overviewWidth] = localStorageFns.overviewTrueWidth.state();

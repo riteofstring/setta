@@ -1,5 +1,5 @@
 import { cloneNewUIType, maybeCloneUIType } from "state/actions/uiTypes/cloneUITypes";
-import { setSectionInfoAttr } from "state/actions/sectionInfos";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setSectionUITypeId } from "./setSectionUITypeId";

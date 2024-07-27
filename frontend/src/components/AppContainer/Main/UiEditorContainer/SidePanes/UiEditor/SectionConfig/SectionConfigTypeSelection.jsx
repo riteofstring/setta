@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { addCodeInfo } from "state/actions/codeInfo";
-import { updateParamsAndCallables } from "state/actions/sectionContents";
+import { updateParamsAndCallables } from "state/actions/sections/sectionContents";
 import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { setSectionUITypeId } from "state/actions/uiTypes/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";

@@ -1,9 +1,9 @@
 import { addNodes } from "state/actions/nodeInternals";
-import { updateManyParamsAndCallables } from "state/actions/sectionContents";
+import { updateManyParamsAndCallables } from "state/actions/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { addCodeInfoBatch } from "../codeInfo";
 import { updateEVCols } from "../evCols";
-import { updateSections } from "../sectionInfos";
+import { updateSections } from "./sectionInfos";
 import { updateUITypeCols } from "../uiTypes/uiTypeCols";
 import { updateUITypes } from "../uiTypes/uiTypes";
 

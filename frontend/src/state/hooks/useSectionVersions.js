@@ -1,4 +1,4 @@
-import { setSectionInfoAttr } from "state/actions/sectionInfos";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 
 export function setSectionVersionsHeight({ sectionId, height }) {
   setSectionInfoAttr({

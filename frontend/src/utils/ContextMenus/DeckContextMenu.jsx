@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { toggleSectionOrientation } from "state/actions/sectionInfos";
+import { toggleSectionOrientation } from "state/actions/sections/sectionInfos";
 import { undeck } from "state/actions/sections/groupSections";
 import { useContextMenus } from "state/definitions";
 import { Item } from "utils/atoms/dropdown/item";

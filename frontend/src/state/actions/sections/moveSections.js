@@ -2,15 +2,15 @@ import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
-import { setSectionChildrenAndNames } from "state/actions/setters";
+import { setSectionChildrenAndNames } from "state/actions/sections/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";
 import { getSectionType } from "../../getters/sectionInfo";
-import { setAllChildrenWidths } from "../sectionSizes";
-import { setSectionParentId } from "../setters";
+import { setAllChildrenWidths } from "./sectionSizes";
+import { setSectionParentId } from "./setters";
 
 export function moveSections({
   sectionIds,

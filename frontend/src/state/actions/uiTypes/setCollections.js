@@ -1,4 +1,4 @@
-import { updateManyParamsAndCallables } from "state/actions/sectionContents";
+import { updateManyParamsAndCallables } from "state/actions/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionIdsWithUITypeIds } from "state/getters/sectionInfo";
 import { initializeChildParams } from "../initializeParam";

@@ -6,9 +6,9 @@ import _ from "lodash";
 import { getChildUIType } from "state/actions/uiTypes/getChildUITypeId";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
-import { updateParams } from "state/actions/sectionContents";
+import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
-import { setSectionChildrenAndNames } from "state/actions/setters";
+import { setSectionChildrenAndNames } from "state/actions/sections/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -25,8 +25,8 @@ import {
 } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import { initManyEvColIds } from "../evCols";
-import { updateManyParamsAndCallables } from "../sectionContents";
-import { addSectionInfo } from "../sectionInfos";
+import { updateManyParamsAndCallables } from "./sectionContents";
+import { addSectionInfo } from "./sectionInfos";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
 
 export function addSectionInEmptySpace({

@@ -11,7 +11,7 @@ import {
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "./codeInfo";
 import { deleteParamInfoFromEVCol } from "./evCols";
 import { initializeParam } from "./initializeParam";
-import { updateParams } from "./sectionContents";
+import { updateParams } from "./sections/sectionContents";
 import { deleteParamInfoFromUITypeCol } from "./uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
