@@ -45,7 +45,7 @@ function FilterSection() {
   // bg-gradient-to-t from-setta-50
   return (
     <>
-      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
+      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-2 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
         <StandardSearch
           leftElement={<BiFilter className="text-setta-400" />}
           placeholder="Filter"
