@@ -3,8 +3,8 @@ import { getSectionSiblingNames } from "state/getters/sectionInfo";
 import {
   useEditableOnSubmit,
   useTitleIsEditable,
-} from "state/hooks";
-import { useGetSectionInfo } from "state/hooks";
+} from "state/hooks/editableText";
+import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { Editable } from "utils/Editable/Editable";
 
 export function SectionTitle({ sectionId, titleProps }) {

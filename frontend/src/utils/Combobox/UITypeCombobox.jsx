@@ -2,7 +2,7 @@ import _ from "lodash";
 import {
   useAvailableUITypesForParam,
   useAvailableUITypesForSection,
-} from "state/hooks";
+} from "state/hooks/usePresetUIType";
 import { IdNameCombobox } from "./IdNameCombobox";
 
 function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {

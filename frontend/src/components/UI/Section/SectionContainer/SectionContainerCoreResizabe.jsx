@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { TbVersions } from "react-icons/tb";
-import { useSectionHasMultipleEVCols } from "state/hooks";
-import { useSectionHasMultipleParamSweeps } from "state/hooks";
+import { useSectionHasMultipleEVCols } from "state/hooks/useGetSectionInfo";
+import { useSectionHasMultipleParamSweeps } from "state/hooks/useParamSweepInfo";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import { isRoot } from "utils/sectionTypeHelpers";

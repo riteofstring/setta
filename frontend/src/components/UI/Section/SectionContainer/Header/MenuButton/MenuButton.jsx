@@ -1,6 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import C from "constants/constants.json";
-import { useGetSectionType } from "state/hooks";
+import { useGetSectionType } from "state/hooks/useSectionType";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { HeaderIcon } from "../HeaderIcon/HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";

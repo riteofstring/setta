@@ -9,8 +9,8 @@ import {
   toggleRunGroupSection,
 } from "state/actions/runGroups";
 import { useRunGroups } from "state/definitions";
-import { useGetOverviewListing } from "state/hooks";
-import { useGetParamSweepNames } from "state/hooks";
+import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
+import { useGetParamSweepNames } from "state/hooks/useParamSweepInfo";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 

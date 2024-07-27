@@ -8,8 +8,8 @@ import { localStorageFns } from "state/hooks/localStorage";
 import {
   getInfoViewHandlers,
   useCurrInfoView,
-} from "state/hooks";
-import { useGetOverviewListing } from "state/hooks";
+} from "state/hooks/useCurrInfoView";
+import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { constInfoViews, OVERVIEW } from "utils/constants";

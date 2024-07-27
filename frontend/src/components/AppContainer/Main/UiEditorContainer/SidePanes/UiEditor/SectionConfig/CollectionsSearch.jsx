@@ -5,7 +5,7 @@ import {
   getCollectionsAndModulesFn,
 } from "requests/sectionConfig";
 import { setCollections } from "state/actions/setCollections";
-import { useGetSelectedCollectionsForSectionConfig } from "state/hooks";
+import { useGetSelectedCollectionsForSectionConfig } from "state/hooks/useSectionContents";
 import { groupedObjInfo } from "utils/codeInfoUtils";
 import { Expandable } from "./Expandable";
 import { SectionConfigSearch } from "./SectionConfigSearch";

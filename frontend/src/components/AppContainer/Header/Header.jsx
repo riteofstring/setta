@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { setHomePageSearch } from "state/actions/homePageSearch";
 import { updateSearch } from "state/actions/projectSearch";
 import { useHomePageSearch } from "state/definitions";
-import { getInfoViewHandlers } from "state/hooks";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { constInfoViews } from "utils/constants";
 import { Notification } from "./Notification/Notification";

@@ -12,12 +12,12 @@ import { useActiveSection } from "state/definitions";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
-} from "state/hooks";
-import { useSectionRefAndInit } from "state/hooks";
+} from "state/hooks/useGetSectionInfo";
+import { useSectionRefAndInit } from "state/hooks/useSectionRefAndInit";
 import {
   useIsSeriesElement,
   useSectionTypeName,
-} from "state/hooks";
+} from "state/hooks/useSectionType";
 import { toggleVersionsVisible } from "state/hooks/useSectionVersions";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
