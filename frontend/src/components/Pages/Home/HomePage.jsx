@@ -16,7 +16,7 @@ import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "components/Utils/atoms/dropdown/dropdown";
 import { Item } from "components/Utils/atoms/dropdown/item";
 import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
-import { GridWrapper } from "components/Utils/Wrappers/GridWrapper";
+import { GridWrapper } from "components/Utils/GridWrapper";
 import "./homepage.css";
 
 export function HomePage() {

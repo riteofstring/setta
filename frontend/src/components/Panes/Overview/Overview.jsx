@@ -9,7 +9,7 @@ import { useGetOverviewListing } from "state/hooks/overview";
 import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { constInfoViews, OVERVIEW } from "utils/constants";
-import { PaneContainer } from "components/Utils/PaneContainer/PaneContainer";
+import { PaneContainer } from "components/Utils/PaneContainer";
 import { InfoView } from "./InfoView";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectName } from "./ProjectName";

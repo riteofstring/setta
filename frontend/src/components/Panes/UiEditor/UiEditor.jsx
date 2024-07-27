@@ -12,7 +12,7 @@ import {
   UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
-import { PaneContainer } from "components/Utils/PaneContainer/PaneContainer";
+import { PaneContainer } from "components/Utils/PaneContainer";
 import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
