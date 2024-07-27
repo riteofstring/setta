@@ -72,7 +72,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
       {...getInfoViewHandlers(paramInfo.description)}
     >
       {children}
-      <div className="card-args-list-nested -ml-2 pb-1 pt-2 [&>article]:!gap-[0_0.25rem]">
+      <div className="card-args-list-nested -ml-2 pb-1 pt-2 [&>article]:!gap-[0_0.5rem]">
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}
