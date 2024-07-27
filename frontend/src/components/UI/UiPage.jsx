@@ -7,9 +7,9 @@ import { localStorageFns } from "state/hooks/localStorage";
 import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
-import "./Section/react-flow-css.css";
-import { ResponsiveControls } from "./Section/ResponsiveControls";
-import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
+import "./react-flow-css.css";
+import { ResponsiveControls } from "./ResponsiveControls";
+import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
