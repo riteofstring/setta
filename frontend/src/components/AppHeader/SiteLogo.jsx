@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { ROOT_ROUTER_PATH } from "utils/constants";
+import { HOME_ROUTER_PATH } from "utils/constants";
 
 export function SiteLogo() {
   return (
-    <Link to={ROOT_ROUTER_PATH}>
+    <Link to={HOME_ROUTER_PATH}>
       <SVG styles="w-12 mt-[4px]" color="fill-[#213158] dark:fill-[#00B5D8]" />
     </Link>
   );

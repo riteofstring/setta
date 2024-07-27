@@ -6,7 +6,7 @@ import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import {
   constInfoViews,
   PROJECT_ROUTER_PATH,
-  ROOT_ROUTER_PATH,
+  HOME_ROUTER_PATH,
 } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
 import { Notification } from "./Notification";
@@ -29,7 +29,7 @@ export function HeaderContainer({ path }) {
 
 function SearchSwitch({ path }) {
   switch (path) {
-    case ROOT_ROUTER_PATH:
+    case HOME_ROUTER_PATH:
       return <HomePageSearch />;
     case PROJECT_ROUTER_PATH:
       return <ProjectPageSearch />;
