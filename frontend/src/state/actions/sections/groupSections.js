@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
 import { useNodeInternals, useSectionInfos } from "state/definitions";

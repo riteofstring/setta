@@ -197,6 +197,7 @@ body {
   grid-template-columns: subgrid;
   grid-column: 1 / span 5;
   grid-auto-rows: minmax(1rem, min-content);
+  row-gap:0.5rem;
 
 }
 

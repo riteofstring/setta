@@ -1,7 +1,4 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { Link } from "react-router-dom";
 import {
@@ -13,35 +10,26 @@ import {
 } from "state/actions/modal";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
-import { useSettings } from "state/definitions";
-import { SETTINGS_ROUTER_PATH } from "utils/constants";
+import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function FileMenu() {
-  const shortcuts = useSettings((x) =>
-    _.pick(x, [
-      "newProjectShortcut",
-      "saveShortcut",
-      "saveAsShortcut",
-      "loadShortcut",
-    ]),
-  );
-
   return (
     <MenuDropdown trigger="File">
       <MenuItem
         onClick={() => createAndGoToProject({})}
-        shortcut={shortcuts.newProjectShortcut}
+        shortcut="Ctrl + Shift + N"
       >
         New Project
       </MenuItem>
-      <MenuItem onClick={openLoadModal} shortcut={shortcuts.loadShortcut}>
+      <MenuItem onClick={openLoadModal} shortcut="Ctrl + L">
         Load
       </MenuItem>
-      <MenuItem onClick={saveProject} shortcut={shortcuts.saveShortcut}>
+      <MenuItem onClick={saveProject} shortcut="Ctrl + S">
         <VscSave />
         Save
       </MenuItem>
-      <MenuItem onClick={openSaveAsModal} shortcut={shortcuts.saveAsShortcut}>
+      <MenuItem onClick={openSaveAsModal} shortcut="Ctrl + Shift + S">
         <VscSaveAs />
         Save As
       </MenuItem>
@@ -59,7 +47,7 @@ export function FileMenu() {
         {/* <BiExport /> */}
         Export Full JSON
       </MenuItem>
-      <Link to={SETTINGS_ROUTER_PATH}>
+      <Link to="/settings">
         <MenuItem>Settings</MenuItem>
       </Link>
     </MenuDropdown>

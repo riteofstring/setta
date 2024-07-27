@@ -1,4 +1,4 @@
-import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
+import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
 
 export function TextInputConfig() {
   return null;

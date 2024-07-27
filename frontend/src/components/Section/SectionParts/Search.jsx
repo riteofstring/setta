@@ -1,8 +1,8 @@
-import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useState } from "react";
+import { useIdWaitingForLSPResult } from "state/actions/lsp";
 import { setSelectedItem } from "state/actions/sections/setters";
 import { useCodeInfo } from "state/definitions";
-import { useIdWaitingForLSPResult } from "state/hooks/lsp";
+import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
 
 export function SectionSearch({ sectionId, initialSelection }) {
   // const [completions, sendCompletionRequest] =
