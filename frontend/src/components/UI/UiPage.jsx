@@ -1,13 +1,15 @@
 import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
+import { ReactFlow } from "forks/xyflow/core";
+import "forks/xyflow/core/styles/style.css";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { localStorageFns } from "state/hooks/localStorage";
 import { DeckContextMenu } from "utils/ContextMenus/DeckContextMenu";
 import { PaneContextMenu } from "utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "utils/ContextMenus/SelectionContextMenu";
+import "./Section/react-flow-css.css";
 import { ResponsiveControls } from "./Section/ResponsiveControls";
 import { ResponsiveMiniMap } from "./Section/ResponsiveMiniMap";
-import { SectionsPane } from "./Section/SectionsPane";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
@@ -15,7 +17,11 @@ export function UIPage() {
 
   return (
     <GlobalDndContext>
-      <SectionsPane />
+      <ReactFlow
+        style={reactFlowStyle}
+        nodeDragThreshold={0}
+        className="rcbg-light dark:rcbg-dark"
+      />
       <PaneContextMenu />
       <SelectionContextMenu />
       <DeckContextMenu />
@@ -31,3 +37,9 @@ function useInitGlobalKeyEventListeners() {
     return cleanup;
   }, []);
 }
+
+const reactFlowStyle = {
+  // background: "#94a3b8",
+  height: "100%",
+  userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
+};
