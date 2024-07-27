@@ -1,4 +1,4 @@
-import { useOutputs } from "state/definitions";
+import { useOutputs } from "state/definitions/outputs";
 import { addOutputGroupsChildren } from "./outputGroups";
 
 export function setAllOutputs(payload) {

@@ -3,7 +3,7 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { loadProjectState } from "state/actions/loadProjectState";
-import { useExportProjectJson } from "state/hooks/project";
+import { useExportProjectJson } from "state/hooks/useGetOrCreateProjects";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 
 export function ExportJSONModal({ modalType, open }) {

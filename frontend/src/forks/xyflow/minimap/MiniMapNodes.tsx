@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useNodeInternals } from "state/definitions";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 import MiniMapNode from "./MiniMapNode";
 import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 

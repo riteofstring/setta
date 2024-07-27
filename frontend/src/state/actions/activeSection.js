@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useActiveSection } from "state/definitions";
+import { useActiveSection } from "state/definitions/activeSection";
 
 export function setActiveSectionIds(ids) {
   useActiveSection.setState({ ids });

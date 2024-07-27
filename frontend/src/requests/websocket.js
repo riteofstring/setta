@@ -5,7 +5,8 @@ import {
 import { updateOutput } from "state/actions/outputs";
 import { updateConnectedTo } from "state/actions/websocketConnectionList";
 import { setWebsocketRoomMessage } from "state/actions/websocketRooms";
-import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
+import { useTypeErrors } from "state/definitions/typeErrors";
+import { useWebsocketConnectionList } from "state/definitions/websocketConnectionList";
 import { URLS } from "utils/constants";
 
 let wss;

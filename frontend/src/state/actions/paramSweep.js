@@ -1,4 +1,4 @@
-import { useParamSweep } from "state/definitions";
+import { useParamSweep } from "state/definitions/paramSweep";
 
 export function setAllParamSweeps(payload) {
   useParamSweep.setState({ x: payload });

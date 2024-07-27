@@ -8,7 +8,7 @@ import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
 import { getNodes, setNodes } from "state/actions/nodeInternals";
 import { toggleMiniMap, toggleSetting } from "state/actions/settings";
-import { localStorageFns } from "state/hooks/localStorage";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 
 export function ResponsiveControls() {
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();

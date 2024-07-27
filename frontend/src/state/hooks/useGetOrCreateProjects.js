@@ -1,24 +1,13 @@
-import { useEffect, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useState } from "react";
 import {
   dbCreateProject,
   dbGetProjectsForFileMenu,
   dbGetProjectsForHomePage,
   dbLoadFullProject,
 } from "requests/projects";
-import { setCurrProjectIsInteractive } from "state/actions/interactive";
-import { setProjectName } from "state/actions/project";
-import { setProjectConfigName } from "state/actions/projectConfig";
-import { loadProject } from "state/actions/projects";
 import { getProjectData } from "state/actions/save";
-import { useProject } from "state/definitions";
-import {
-  NEW_PROJECT,
-  SAME_PROJECT_NEW_PROJECT_CONFIG,
-  SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
-  SAME_PROJECT_NEW_PROJECT_NAME,
-  SWITCHING_CONFIG,
-} from "utils/Routes/pageLoadTypes";
+import { useProject } from "state/definitions/project";
+import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";
 
 function useGetProjects(getter) {
@@ -91,41 +80,3 @@ const getRandomPastelColor = () => {
   const randomIndex = Math.floor(Math.random() * pastelColors.length);
   return pastelColors[randomIndex];
 };
-
-export function useLoadProject() {
-  const { projectName, configName } = useParams();
-  const { state } = useLocation();
-  const pageLoadType = state?.pageLoadType;
-  const [doneLoading, setDoneLoading] = useState(false);
-
-  useEffect(() => {
-    async function loadAllProjectData() {
-      setDoneLoading(false);
-      const res = await loadProject({
-        projectName,
-        configName,
-      });
-      setDoneLoading(res);
-    }
-
-    if (pageLoadType === SWITCHING_CONFIG) {
-      return;
-    }
-
-    // The first if-statement triggers for a page refresh or navigating to a different project
-    if (
-      !doneLoading ||
-      [NEW_PROJECT, SAME_PROJECT_NEW_PROJECT_CONFIG].includes(pageLoadType)
-    ) {
-      loadAllProjectData();
-    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_NAME) {
-      setProjectName(projectName);
-    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
-      setProjectConfigName(configName);
-    }
-
-    setCurrProjectIsInteractive(projectName);
-  }, [projectName, configName]);
-
-  return doneLoading;
-}

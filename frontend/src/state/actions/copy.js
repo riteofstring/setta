@@ -1,4 +1,4 @@
-import { useActiveSection } from "state/definitions";
+import { useActiveSection } from "state/definitions/activeSection";
 import { copySections } from "./copySections";
 
 export async function copy() {

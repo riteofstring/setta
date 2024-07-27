@@ -4,7 +4,7 @@ import { dbParametersRequest } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { varControlUpdate } from "state/actions/varControl";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { isUUID } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";

@@ -1,4 +1,4 @@
-import { useWaitingForLSPResult } from "state/definitions";
+import { useWaitingForLSPResult } from "state/definitions/lsp";
 
 export function setWaitingForLSP({ sectionId, paramInfoId }) {
   const id = idForLSPWaiting({ sectionId, paramInfoId });

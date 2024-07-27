@@ -6,18 +6,16 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
-import {
-  useCodeInfo,
-  useUITypes,
-  useWebsocketConnectionList,
-} from "state/definitions";
+import { useCodeInfo } from "state/definitions/codeInfo";
+import { useUITypes } from "state/definitions/uiTypes";
+import { useWebsocketConnectionList } from "state/definitions/websocketConnectionList";
 import {
   computeEVReferences,
   computeInfoToFullName,
 } from "utils/CodeMirror/utils";
 import { createNewId } from "utils/idNameCreation";
 import { getMappedSectionDBSource } from "../getters/sectionInfo";
-import { addSectionInEmptySpace } from "./createSection";
+import { addSectionInEmptySpace } from "./addSection";
 import { assembleUITypes, getProjectData } from "./save";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {

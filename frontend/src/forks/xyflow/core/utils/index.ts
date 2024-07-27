@@ -4,7 +4,7 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
-import { localStorageFns } from "state/hooks/localStorage";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 import type {
   Box,
   CoordinateExtent,

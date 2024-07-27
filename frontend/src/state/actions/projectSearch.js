@@ -1,9 +1,7 @@
 import { matchSorter } from "match-sorter";
-import {
-  useCodeInfo,
-  useProjectSearch,
-  useSectionInfos,
-} from "state/definitions";
+import { useCodeInfo } from "state/definitions/codeInfo";
+import { useProjectSearch } from "state/definitions/projectSearch";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 
 export function updateSearch(value) {
   if (!value) {

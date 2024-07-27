@@ -1,8 +1,8 @@
 import _ from "lodash";
-import { useEVCols } from "state/definitions";
+import { useEVCols } from "state/definitions/evCols";
 import { createRandomName } from "utils/idNameCreation";
 import { newEV } from "utils/objs/ev";
-import { initValue } from "../utils";
+import { initValue } from "../definitions/utils";
 
 export function setAllEVCols(x) {
   useEVCols.setState({ x });

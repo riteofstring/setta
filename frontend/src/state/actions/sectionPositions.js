@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useNodeInternals } from "state/definitions";
+import { useNodeInternals } from "state/definitions/nodeInternals";
 
 export function setZIndices(sectionIds, incrementVersion) {
   const nodeInternals = useNodeInternals.getState().x;

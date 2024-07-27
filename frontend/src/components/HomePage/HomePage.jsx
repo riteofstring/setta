@@ -7,11 +7,11 @@ import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { dbDeleteProjects } from "requests/projects";
-import { useHomePageSearch } from "state/definitions";
+import { useHomePageSearch } from "state/definitions/homePageSearch";
 import {
   createAndGoToProject,
   useGetProjectsForHomePage,
-} from "state/hooks/project";
+} from "state/hooks/useGetOrCreateProjects";
 import { Badge } from "utils/atoms/badges/badge";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";

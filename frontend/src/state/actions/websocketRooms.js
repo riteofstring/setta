@@ -1,7 +1,5 @@
 import _ from "lodash";
-import { sendMessage } from "requests/websocket";
-import { useWebsocketRooms } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
+import { useWebsocketRooms } from "state/definitions/websocketRooms";
 
 export function createWebsocketRoom(id) {
   useWebsocketRooms.setState({ [id]: "" });
@@ -13,24 +11,4 @@ export function deleteWebsocketRoom(id) {
 
 export function setWebsocketRoomMessage(id, message) {
   useWebsocketRooms.setState({ [id]: message });
-}
-
-export async function sendMessageInRoom({ id, messageType, content }) {
-  return new Promise((resolve) => {
-    const actualId = id ? id : createNewId();
-    const unsub = useWebsocketRooms.subscribe(
-      (x) => x[actualId],
-      (x) => {
-        unsub();
-        resolve(x);
-        deleteWebsocketRoom(actualId);
-      },
-    );
-
-    sendMessage({
-      id: actualId,
-      messageType,
-      content,
-    });
-  });
 }

@@ -1,6 +1,6 @@
 import { dbLoadSettings } from "requests/settings";
-import { useSettings } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
+import { useSettings } from "state/definitions/settings";
+import { localStorageFns } from "state/hooks/localStorageHooks";
 
 export function toggleDarkMode() {
   const [value, setValue] = localStorageFns.darkMode.state();

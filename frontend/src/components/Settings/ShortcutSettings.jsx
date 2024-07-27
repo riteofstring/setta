@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { useSettings } from "state/definitions";
-import { initialShortcuts } from "utils/constants";
+import { initialShortcuts, useSettings } from "state/definitions/settings";
 
 const settingNames = Object.keys(initialShortcuts);
 

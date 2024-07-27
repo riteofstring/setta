@@ -1,6 +1,6 @@
 import { ParentSize } from "@visx/responsive";
 import React from "react";
-import { useInteractive } from "state/definitions";
+import { useInteractive } from "state/definitions/interactive";
 import { LineChart } from "utils/Charts/LineChart";
 
 function _OutputArea({ sectionId }) {

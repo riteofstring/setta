@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { useGetEVColNames } from "state/hooks/useEnteredValue";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import {

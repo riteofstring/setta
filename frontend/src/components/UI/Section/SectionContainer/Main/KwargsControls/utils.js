@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useCodeInfo } from "state/definitions";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { findAll } from "utils/getDescendants";
 

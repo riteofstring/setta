@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useSectionToParams } from "state/definitions";
+import { useSectionToParams } from "state/definitions/sectionToParams";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../getters/codeInfo";
 import {

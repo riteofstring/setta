@@ -1,6 +1,6 @@
 import { duplicateEvCol } from "state/actions/evCols";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useModal } from "state/definitions";
+import { useModal } from "state/definitions/modal";
 import {
   getMappedSectionDBSource,
   getSectionInfo,

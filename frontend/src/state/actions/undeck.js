@@ -1,6 +1,6 @@
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { deleteSections, moveSections } from "state/actions/sectionOps";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { PANEID } from "utils/constants";
 
 export function undeck(deckId) {

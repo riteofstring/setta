@@ -4,7 +4,7 @@ import { dbDeleteTerminals } from "requests/terminals";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { PANEID } from "utils/constants";
 import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";

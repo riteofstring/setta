@@ -1,5 +1,5 @@
 import { zoomIdentity } from "d3-zoom";
-import { useSettings } from "state/definitions";
+import { useSettings } from "state/definitions/settings";
 import { useReactFlow } from "../store";
 import type { XYPosition } from "../types";
 import {

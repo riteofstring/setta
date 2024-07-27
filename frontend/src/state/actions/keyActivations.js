@@ -4,7 +4,7 @@ import {
 } from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useSettings } from "state/definitions";
+import { useSettings } from "state/definitions/settings";
 import { copy } from "./copy";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { groupSections } from "./groupSections";

@@ -1,13 +1,13 @@
-import { createAdjacentSection } from "state/actions/createSection";
 import { goToSection } from "state/actions/goToSection";
 import { initParamSweep } from "state/actions/paramSweep";
 import { setSectionInfoAttr } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getSectionName } from "state/getters/sectionInfo";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
+import { creatAdjacentSection } from "../utils";
 
 export function MultirunButton({ sectionId }) {
   function onClick(e) {
@@ -41,7 +41,7 @@ function addParamSweepSection(sectionId) {
     value: newSectionId,
   });
 
-  createAdjacentSection(sectionId, {
+  creatAdjacentSection(sectionId, {
     id: newSectionId,
     name: getParamSweepSectionName(getSectionName(sectionId)),
     uiTypeId: BASE_UI_TYPE_IDS.PARAM_SWEEP,

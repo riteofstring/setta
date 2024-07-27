@@ -1,10 +1,8 @@
 import _ from "lodash";
-import {
-  useCodeInfo,
-  useEVCols,
-  useUITypeCols,
-  useUITypes,
-} from "state/definitions";
+import { useCodeInfo } from "state/definitions/codeInfo";
+import { useEVCols } from "state/definitions/evCols";
+import { useUITypeCols } from "state/definitions/uiTypeCols";
+import { useUITypes } from "state/definitions/uiTypes";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "utils/getDescendants";
 import {

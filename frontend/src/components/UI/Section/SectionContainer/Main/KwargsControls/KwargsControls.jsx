@@ -4,7 +4,7 @@ import { addKwarg, deleteKwarg } from "state/actions/kwargs";
 import { updateParams } from "state/actions/sectionContents";
 import { setSectionParamFilter } from "state/actions/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useCodeInfo } from "state/definitions";
+import { useCodeInfo } from "state/definitions/codeInfo";
 import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import {
   computeNewChildrenForLeftPush,

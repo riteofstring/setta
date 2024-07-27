@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import React from "react";
+import { constInfoViews } from "state/definitions/infoView";
 import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { useGetSectionType } from "state/hooks/useSectionType";
-import { constInfoViews } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { OutputsSearch } from "./OutputSearch";

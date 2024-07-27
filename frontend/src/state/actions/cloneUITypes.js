@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useUITypes } from "state/definitions";
+import { useUITypes } from "state/definitions/uiTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
   isPreset,

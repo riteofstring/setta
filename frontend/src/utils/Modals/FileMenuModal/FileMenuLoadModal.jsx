@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useGetProjectsForFileMenu } from "state/hooks/project";
+import { useGetProjectsForFileMenu } from "state/hooks/useGetOrCreateProjects";
 import { SaveLoadModal } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
 import { router } from "utils/Routes/router";

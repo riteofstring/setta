@@ -1,4 +1,4 @@
-import { useInfoView } from "state/definitions";
+import { useInfoView } from "state/definitions/infoView";
 
 function setCurrInfoView(value) {
   useInfoView.setState({ currValue: value });

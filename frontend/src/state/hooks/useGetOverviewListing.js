@@ -1,9 +1,10 @@
 import _ from "lodash";
-import { useNodeInternals, useSectionInfos } from "state/definitions";
+import { useNodeInternals } from "state/definitions/nodeInternals";
+import { useSectionInfos } from "state/definitions/sectionInfos";
 import { getDepthListing } from "utils/childrenToDepth";
 import { useSectionInfoNames } from "./useGetSectionInfo";
+import { useMatchSorterFilter } from "./useMatchSorterFilter";
 import { useSectionTypeNames } from "./useSectionType";
-import { useMatchSorterFilter } from "./utils";
 
 export function useGetOverviewListing(sectionTypeFilter = null) {
   const topLevelSectionIds = useNodeInternals(
