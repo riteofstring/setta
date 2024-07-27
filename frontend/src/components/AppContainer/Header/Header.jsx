@@ -9,8 +9,8 @@ import {
   ROOT_ROUTER_PATH,
 } from "utils/constants";
 import { Notification } from "./Notification";
-import { ColorModeSwitch } from "./ProjectNav/ColorModeSwitch";
-import { ProjectNav } from "./ProjectNav/ProjectNav";
+import { ColorModeSwitch } from "./ColorModeSwitch";
+import { ProjectNav } from "./ProjectNav";
 import { SiteLogo } from "./SiteLogo";
 
 export function HeaderContainer({ path }) {
