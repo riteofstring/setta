@@ -1,19 +1,19 @@
 import C from "constants/constants.json";
 import { useDndMode } from "forks/dnd-kit/dndState";
-import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
-import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
+import { setSectionResizeEvent } from "state/actions/sectionInfos";
+import { setSelfParentSiblingChildrenWidths } from "state/actions/sectionSizes";
 import { useSectionInfos } from "state/definitions";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
   useMinSectionWidth,
-} from "state/hooks/sectionSizes";
+} from "state/hooks/useSectionSizeBounds";
+import { useGetSectionType } from "state/hooks/useSectionType";
 import {
   useIsTwitter,
   useIsYouTube,
   youtubeSectionAspectRatio,
-} from "state/hooks/social";
-import { useGetSectionType } from "state/hooks/uiTypes";
+} from "state/hooks/useSocialUtils";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 

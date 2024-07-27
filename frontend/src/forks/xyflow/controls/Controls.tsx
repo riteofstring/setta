@@ -1,5 +1,5 @@
 import cc from "classcat";
-import { Panel } from "forks/xyflow/core";
+import { Panel, type ReactFlowState } from "forks/xyflow/core";
 import { zoomIn, zoomOut } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
@@ -10,7 +10,6 @@ import {
   type FC,
   type PropsWithChildren,
 } from "react";
-import { useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import ControlButton from "./ControlButton";
 import FitviewIcon from "./Icons/FitView";
@@ -20,22 +19,11 @@ import PlusIcon from "./Icons/Plus";
 import UnlockIcon from "./Icons/Unlock";
 import type { ControlProps } from "./types";
 
-function useZoomReached() {
-  const { minZoom, maxZoom } = useSettings(
-    (x) => ({
-      minZoom: x.minZoom,
-      maxZoom: x.maxZoom,
-    }),
-    shallow,
-  );
-  return useReactFlow(
-    (x) => ({
-      minZoomReached: x.transform[2] <= minZoom,
-      maxZoomReached: x.transform[2] >= maxZoom,
-    }),
-    shallow,
-  );
-}
+const selector = (s: ReactFlowState) => ({
+  isInteractive: s.nodesDraggable || s.elementsSelectable,
+  minZoomReached: s.transform[2] <= s.minZoom,
+  maxZoomReached: s.transform[2] >= s.maxZoom,
+});
 
 const Controls: FC<PropsWithChildren<ControlProps>> = ({
   style,
@@ -52,9 +40,8 @@ const Controls: FC<PropsWithChildren<ControlProps>> = ({
   position = "bottom-left",
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
-  const { minZoomReached, maxZoomReached } = useZoomReached();
-  const isInteractive = useReactFlow(
-    (s) => s.nodesDraggable || s.elementsSelectable,
+  const { isInteractive, minZoomReached, maxZoomReached } = useReactFlow(
+    selector,
     shallow,
   );
   useEffect(() => {

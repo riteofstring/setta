@@ -1,7 +1,6 @@
-import sqlite3
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from setta.database.db.projects.delete import delete_projects
@@ -122,19 +121,13 @@ def route_delete_projects(x: DeleteProjectsRequest, dbs=Depends(get_dbs)):
 
 @router.post(C.ROUTE_SET_PROJECT_NAME)
 def route_set_project_name(x: SetProjectNameRequest, dbs=Depends(get_dbs)):
-    try:
-        with dbs:
-            save_project_name(dbs, x.currProjectName, x.newProjectName)
-    except sqlite3.IntegrityError as e:
-        raise HTTPException(status_code=422, detail=repr(e))
+    with dbs:
+        save_project_name(dbs, x.currProjectName, x.newProjectName)
 
 
 @router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
 def route_set_project_config_name(x: SetProjectConfigNameRequest, dbs=Depends(get_dbs)):
-    try:
-        with dbs:
-            save_project_config_name(
-                dbs, x.projectId, x.currProjectConfigName, x.newProjectConfigName
-            )
-    except sqlite3.IntegrityError as e:
-        raise HTTPException(status_code=422, detail=repr(e))
+    with dbs:
+        save_project_config_name(
+            dbs, x.projectId, x.currProjectConfigName, x.newProjectConfigName
+        )

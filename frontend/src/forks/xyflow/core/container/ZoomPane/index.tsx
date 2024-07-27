@@ -13,7 +13,6 @@ import { shallow } from "zustand/shallow";
 
 import { useReactFlow } from "forks/xyflow/core/store";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { useSettings } from "state/definitions";
 import { REACT_FLOW_STORE } from "utils/constants";
 import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";
@@ -84,6 +83,8 @@ const ZoomPane = ({
   elementsSelectable,
   panOnDrag = true,
   translateExtent,
+  minZoom,
+  maxZoom,
   zoomActivationKeyCode,
   preventScrolling = true,
   children,
@@ -108,7 +109,6 @@ const ZoomPane = ({
     if (zoomPane.current) {
       const bbox = zoomPane.current.getBoundingClientRect();
       // .interpolate(interpolate) makes the interpolations linear instead of curved
-      const { minZoom, maxZoom } = useSettings.getState();
       const d3ZoomInstance = zoom()
         .interpolate(interpolate)
         .scaleExtent([minZoom, maxZoom])

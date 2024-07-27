@@ -1,13 +1,14 @@
 import { HeaderContainer } from "components/AppContainer/Header/Header";
 import { HomePage } from "components/HomePage/HomePage";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
-import { ROOT_ROUTER_PATH } from "utils/constants";
 import { GlobalWrapper } from "./GlobalWrapper";
+
+const PATH = "/";
 
 function IndexWrapper() {
   return (
     <>
-      <HeaderContainer path={ROOT_ROUTER_PATH} />
+      <HeaderContainer path={PATH} />
       <GridContainer>
         <HomePage />
       </GridContainer>
@@ -16,7 +17,7 @@ function IndexWrapper() {
 }
 
 export const indexRoute = {
-  path: ROOT_ROUTER_PATH,
+  path: PATH,
   element: (
     <GlobalWrapper>
       <IndexWrapper />

@@ -53,9 +53,8 @@ export function getViewport() {
 }
 
 export function setCenter(x, y, options) {
-  const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
-  const { maxZoom } = useSettings.getState();
-
+  const { width, height, maxZoom, d3Zoom, d3Selection } =
+    useReactFlow.getState();
   const nextZoom =
     typeof options?.zoom !== "undefined" ? options.zoom : maxZoom;
   const centerX = width / 2 - x * nextZoom;
@@ -66,8 +65,8 @@ export function setCenter(x, y, options) {
 }
 
 export function fitBounds(bounds, options) {
-  const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
-  const { minZoom, maxZoom } = useSettings.getState();
+  const { width, height, minZoom, maxZoom, d3Zoom, d3Selection } =
+    useReactFlow.getState();
   const { x, y, zoom } = getViewportForBounds(
     bounds,
     width,

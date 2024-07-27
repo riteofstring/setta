@@ -28,6 +28,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       nodesDraggable,
       nodesFocusable,
       elementsSelectable,
+      minZoom = 0.5,
+      maxZoom = 2,
       translateExtent = infiniteExtent,
       preventScrolling = true,
       zoomOnScroll = true,
@@ -69,6 +71,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           zoomActivationKeyCode={zoomActivationKeyCode}
           selectNodesOnDrag={selectNodesOnDrag}
           translateExtent={translateExtent}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
           preventScrolling={preventScrolling}
           zoomOnScroll={zoomOnScroll}
           zoomOnPinch={zoomOnPinch}
@@ -85,6 +89,8 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           nodesDraggable={nodesDraggable}
           nodesFocusable={nodesFocusable}
           elementsSelectable={elementsSelectable}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
           translateExtent={translateExtent}
           fitView={fitView}
           fitViewOptions={fitViewOptions}

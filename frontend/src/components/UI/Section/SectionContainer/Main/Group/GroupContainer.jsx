@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import { useGetParamInfos } from "state/hooks/sectionContents";
-import { useSectionHasMultipleEVCols } from "state/hooks/sections";
+import { useSectionHasMultipleEVCols } from "state/hooks/useGetSectionInfo";
+import { useGetParamInfos } from "state/hooks/useSectionContents";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
 

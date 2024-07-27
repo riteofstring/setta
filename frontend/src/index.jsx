@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { subscribe } from "state/subscriptions";
-import { pauseTemporal } from "state/utils";
+import { pauseTemporal } from "state/pauseTemporal";
+import { subscribe } from "state/subscribe";
 import { globalConstInit } from "utils/constants";
 import "../icons.css";
 import { App } from "./App";

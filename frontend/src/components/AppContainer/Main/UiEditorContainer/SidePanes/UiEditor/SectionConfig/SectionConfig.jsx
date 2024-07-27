@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import React from "react";
-import { getInfoViewHandlers } from "state/actions/infoView";
-import { useGetSectionType } from "state/hooks/uiTypes";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
+import { useGetSectionType } from "state/hooks/useSectionType";
 import { constInfoViews } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
@@ -16,15 +16,20 @@ const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function SectionConfigCore({ sectionId }) {
+  const infoViewHandlersCard = getInfoViewHandlers(
+    constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
+  );
+  const infoViewHandlersContents = getInfoViewHandlers(
+    constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH,
+  );
+
   // pass infoViewHandlersContents down?
   return (
     <div className="flex flex-grow flex-col gap-1 overflow-y-hidden">
       <div className="flex justify-between">
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
-          {...getInfoViewHandlers(
-            constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
-          )}
+          {...infoViewHandlersCard}
         >
           Card Types
         </p>
@@ -35,7 +40,7 @@ function SectionConfigCore({ sectionId }) {
 
       <p
         className="mt-4 text-xs font-semibold uppercase text-setta-400"
-        {...getInfoViewHandlers(constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH)}
+        {...infoViewHandlersContents}
       >
         Contents
       </p>

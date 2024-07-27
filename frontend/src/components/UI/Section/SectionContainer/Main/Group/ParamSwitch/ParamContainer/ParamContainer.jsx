@@ -3,13 +3,13 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useCodeInfo,
   useProjectSearch,
   useTypeErrors,
 } from "state/definitions";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
+import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";
@@ -18,6 +18,7 @@ import { PinButton } from "./ParamUIs/PinButton/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
+  const infoViewHandlers = getInfoViewHandlers(paramInfo.description);
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isSearchResult = useProjectSearch((x) =>
     x.codeInfo.includes(paramInfo.id),
@@ -45,7 +46,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     <>
       <article
         className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
-        {...getInfoViewHandlers(paramInfo.description)}
+        {...infoViewHandlers}
       >
         {children}
         <ParamInput
@@ -69,7 +70,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   ) : (
     <article
       className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1  ${bg} ${border}`}
-      {...getInfoViewHandlers(paramInfo.description)}
+      {...infoViewHandlers}
     >
       {children}
       <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">

@@ -2,10 +2,10 @@ import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useRef } from "react";
+import { setAllChildren } from "state/actions/children";
 import { justMoveANode } from "state/actions/nodeInternals";
-import { moveSection } from "state/actions/sections/moveSections";
-import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
-import { setSectionChildrenAndNames } from "state/actions/sections/setters";
+import { manualDndChildrenReset } from "state/actions/sectionInfos";
+import { moveSection } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
@@ -15,7 +15,7 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
-    setSectionChildrenAndNames(
+    setAllChildren(
       active.data.current.sortable?.containerId,
       updateWithArrayMove(active, over),
     );

@@ -4,7 +4,7 @@ import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
-import { useGetSectionInfo } from "state/hooks/sections";
+import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 
 export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
   const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");

@@ -1,11 +1,19 @@
+import { useEffect } from "react";
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
 import { toggleDarkMode } from "state/actions/settings";
-import { useDarkMode } from "state/hooks/localStorage";
+import { localStorageFns } from "state/hooks/localStorage";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {
-  const darkMode = useDarkMode();
+  const [darkMode] = localStorageFns.darkMode.hook();
+  useEffect(() => {
+    if (darkMode) {
+      document.querySelector("html").classList.add("dark");
+    } else {
+      document.querySelector("html").classList.remove("dark");
+    }
+  }, [darkMode]);
 
   return (
     <div className="flex flex-1 content-center justify-end">

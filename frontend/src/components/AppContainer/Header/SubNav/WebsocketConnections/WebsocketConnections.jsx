@@ -1,6 +1,4 @@
-import { setWebsocketConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
-import { useCLIWebsocketConnectionList } from "state/hooks/websocket";
 import { Badge } from "utils/atoms/badges/badge";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
 import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
@@ -14,19 +12,20 @@ export function WebsocketConnections() {
 }
 
 function ConnectionList() {
-  const connections = useCLIWebsocketConnectionList();
-  const connectedTo = useWebsocketConnectionList((x) => x.connectedTo);
+  const connections = useWebsocketConnectionList((x) =>
+    x.connections.filter((c) => c.isCLI),
+  );
 
   return connections.length > 0 ? (
-    connections.map((x) => (
-      <ConnectionItem info={x} key={x.websocketId} connectedTo={connectedTo} />
-    ))
+    connections.map((x) => <ConnectionItem info={x} key={x.websocketId} />)
   ) : (
     <MenuItem>No CLI connections</MenuItem>
   );
 }
 
-function ConnectionItem({ info, connectedTo }) {
+function ConnectionItem({ info }) {
+  const connectedTo = useWebsocketConnectionList((x) => x.connectedTo);
+
   const twClasses =
     connectedTo === info.websocketId
       ? "bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100"

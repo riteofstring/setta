@@ -1,8 +1,6 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ROOT_ROUTER_PATH } from "utils/constants";
 
 export function useMatchSorterFilter(completeList, keys, delay) {
   const [filter, setFilter] = useState("");
@@ -50,15 +48,4 @@ export function useWindowSize() {
   }, []); // Empty array ensures that effect is only run on mount
 
   return windowSize;
-}
-
-export function useGoBackOrToHome() {
-  const navigate = useNavigate();
-  return () => {
-    if (window.history?.length && window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate(ROOT_ROUTER_PATH, { replace: true });
-    }
-  };
 }

@@ -4,7 +4,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { setUIEditorTab } from "state/actions/uiEditor";
 import { useActiveSection, useUIEditor } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import { useRequiredUIEditorTabs } from "state/hooks/uiTypes";
+import { useRequiredUIEditorTabs } from "state/hooks/useUITypes";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,

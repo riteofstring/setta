@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { CLOSED_PANE_WIDTH } from "utils/constants";
 
 export const localStorageFns = {
@@ -100,18 +100,4 @@ function useLocalStorage(key, initialValue) {
   }, [key, initialValue]);
 
   return [store ? JSON.parse(store) : initialValue, setState];
-}
-
-export function useDarkMode() {
-  const [darkMode] = localStorageFns.darkMode.hook();
-
-  useEffect(() => {
-    if (darkMode) {
-      document.querySelector("html").classList.add("dark");
-    } else {
-      document.querySelector("html").classList.remove("dark");
-    }
-  }, [darkMode]);
-
-  return darkMode;
 }

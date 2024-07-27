@@ -2,7 +2,6 @@ import { zoomIdentity } from "d3-zoom";
 import type { StoreApi } from "zustand";
 
 import { getNodes } from "state/actions/nodeInternals";
-import { useSettings } from "state/definitions";
 import type { FitViewOptions, ReactFlowState } from "../types";
 import {
   getD3Transition,
@@ -21,14 +20,13 @@ export function fitView(
   const {
     width,
     height,
+    minZoom,
+    maxZoom,
     d3Zoom,
     d3Selection,
     fitViewOnInitDone,
     fitViewOnInit,
   } = get();
-
-  const { minZoom, maxZoom } = useSettings.getState();
-
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
   const d3initialized = d3Zoom && d3Selection;

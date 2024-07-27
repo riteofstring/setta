@@ -4,10 +4,12 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
-import { getInfoViewHandlers } from "state/actions/infoView";
-import { useCurrInfoView } from "state/hooks/infoView";
 import { localStorageFns } from "state/hooks/localStorage";
-import { useGetOverviewListing } from "state/hooks/overview";
+import {
+  getInfoViewHandlers,
+  useCurrInfoView,
+} from "state/hooks/useCurrInfoView";
+import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { constInfoViews, OVERVIEW } from "utils/constants";
@@ -89,6 +91,10 @@ function TabContent(props) {
 
 const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
+  const infoViewHandlers = getInfoViewHandlers(constInfoViews.OVERVIEW);
+  const infoViewHandlersSearch = getInfoViewHandlers(
+    constInfoViews.OVERVIEW_SEARCH,
+  );
   return (
     <>
       <ProjectName />
@@ -102,14 +108,11 @@ const ProjectOverview = React.forwardRef(() => {
         }
         onChange={(e) => setFilter(e.target.value)}
         aria-label="Overview Search"
-        {...getInfoViewHandlers(constInfoViews.OVERVIEW_SEARCH)}
+        {...infoViewHandlersSearch}
       />
 
       <ScrollingArea styles="flex-grow -mx-2 px-2 overflow-hidden min-h-0">
-        <ul
-          className="min-h-0 flex-grow"
-          {...getInfoViewHandlers(constInfoViews.OVERVIEW)}
-        >
+        <ul className="min-h-0 flex-grow" {...infoViewHandlers}>
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
       </ScrollingArea>

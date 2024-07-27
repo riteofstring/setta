@@ -12,7 +12,7 @@ import {
   getSectionInfo,
 } from "../getters/sectionInfo";
 import { initManyEnteredValues } from "./evCols";
-import { setManyParamUITypeIds } from "./uiTypes/uiTypeCols";
+import { setManyParamUITypeIds } from "./uiTypeCols";
 
 export function initializeChildParams({
   sectionIds,

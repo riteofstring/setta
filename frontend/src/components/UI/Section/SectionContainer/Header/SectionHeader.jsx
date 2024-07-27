@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
-import { deleteSections } from "state/actions/sections/deleteSections";
-import { useSectionTypeName } from "state/hooks/uiTypes";
+import { deleteSections } from "state/actions/sectionOps";
+import { useSectionTypeName } from "state/hooks/useSectionType";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
 import { isRoot } from "utils/sectionTypeHelpers";

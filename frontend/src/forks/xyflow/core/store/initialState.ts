@@ -12,6 +12,8 @@ const initialState: ReactFlowStore = {
   d3Zoom: null,
   d3Selection: null,
   d3ZoomHandler: undefined,
+  minZoom: 0.5,
+  maxZoom: 2,
   translateExtent: infiniteExtent,
   nodesSelectionDims: null,
   userSelectionActive: false,

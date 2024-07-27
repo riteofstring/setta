@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useIdWaitingForLSPResult } from "state/actions/lsp";
-import { setSelectedItem } from "state/actions/sections/setters";
+import { setSelectedItem } from "state/actions/setters";
 import { useCodeInfo } from "state/definitions";
 import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
 

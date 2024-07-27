@@ -1,5 +1,5 @@
 import React from "react";
-import { setProjectConfig } from "state/actions/project/projectConfig";
+import { setProjectConfig } from "state/actions/projectConfig";
 import {
   useOtherProjectConfigs,
   useProject,

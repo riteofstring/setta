@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { loadProjectState } from "state/actions/project/loadProject";
+import { loadProjectState } from "state/actions/loadProjectState";
 import { useExportProjectJson } from "state/hooks/project";
 import { Footer } from "utils/Modals/SaveLoadModal/SaveLoadModal";
 

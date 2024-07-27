@@ -1,4 +1,4 @@
-import { useGoBackOrToHome } from "state/hooks/utils";
+import { useNavigate } from "react-router-dom";
 import { ShortcutSettings } from "./ShortcutSettings";
 import { SimpleSettings } from "./SimpleSettings";
 
@@ -31,4 +31,15 @@ export function Settings() {
       </section>
     </div>
   );
+}
+
+function useGoBackOrToHome() {
+  const navigate = useNavigate();
+  return () => {
+    if (window.history?.length && window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
 }
