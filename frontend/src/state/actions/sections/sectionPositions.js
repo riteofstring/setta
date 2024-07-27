@@ -1,9 +1,11 @@
 import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
+import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import { getNodes, setNodes } from "../nodeInternals";
 import { setActiveSectionIds } from "./activeSections";
 
 export function setZIndices(sectionIds, incrementVersion) {
@@ -45,4 +47,29 @@ export function goToSection(sectionId) {
   });
   setActiveSectionIds([sectionId]);
   setZIndices([sectionId]);
+}
+
+export function autoLayout() {
+  const margin = 50;
+  const nodeInternals = getNodes();
+
+  let sizes = nodeInternals.map((x) => ({
+    id: x.id,
+    w: x.width + margin,
+    h: x.height + margin,
+  }));
+  potpack(sizes); // mutates input
+  sizes = _.keyBy(sizes, "id");
+
+  const minX = Math.min(...nodeInternals.map((n) => n.position.x));
+  const minY = Math.min(...nodeInternals.map((n) => n.position.y));
+  const newNodes = nodeInternals.map((node) => {
+    node.position = {
+      x: sizes[node.id].x + minX,
+      y: sizes[node.id].y + minY,
+    };
+    return node;
+  });
+
+  setNodes(newNodes);
 }
