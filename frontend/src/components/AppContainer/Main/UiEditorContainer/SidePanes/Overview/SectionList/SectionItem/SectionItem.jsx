@@ -1,25 +1,6 @@
 import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
 
-export function SectionListItems({
-  listOfSectionIdsAndNames = [],
-  checkbox = false,
-}) {
-  return listOfSectionIdsAndNames.map((e, idx) => (
-    <li
-      // className="-mx-3"
-      style={{ paddingLeft: `${0.75 * e.depth}rem` }}
-      key={`SectionItem-${e.id}-${idx}`}
-    >
-      <SectionItem
-        sectionId={e.id}
-        sectionHeading={e.name}
-        checkbox={checkbox}
-      />
-    </li>
-  ));
-}
-
 function _SectionItem({ sectionId, sectionHeading, checkbox }) {
   const onClick = () => {
     goToSection(sectionId);
@@ -52,4 +33,4 @@ function _SectionItem({ sectionId, sectionHeading, checkbox }) {
   );
 }
 
-const SectionItem = React.memo(_SectionItem);
+export const SectionItem = React.memo(_SectionItem);

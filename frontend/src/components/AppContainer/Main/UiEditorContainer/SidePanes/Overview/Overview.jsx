@@ -1,5 +1,6 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { ProjectName } from "components/AppContainer/Header/ProjectName";
+import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
+import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
@@ -10,10 +11,9 @@ import { useGetOverviewListing } from "state/hooks/overview";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { constInfoViews, OVERVIEW } from "utils/constants";
-import { PaneContainer } from "utils/PaneContainer/PaneContainer";
-import { InfoView } from "./InfoView";
-import { ProjectConfigs } from "./ProjectConfigs";
-import { SectionListItems } from "./SectionListItems";
+import { InfoView } from "./InfoView/InfoView";
+import { ProjectConfigs } from "./ProjectConfigs/ProjectConfigs";
+import { SectionListItems } from "./SectionList/SectionListItems";
 
 const paneProps = {
   right: false,
