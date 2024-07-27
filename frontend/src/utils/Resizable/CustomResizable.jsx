@@ -3,6 +3,7 @@ import { useDndMode } from "forks/dnd-kit/dndState";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
+import { useGetSectionType } from "state/hooks/uiTypes";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
@@ -13,7 +14,6 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "state/hooks/useSocialUtils";
-import { useGetSectionType } from "state/hooks/useUITypes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 

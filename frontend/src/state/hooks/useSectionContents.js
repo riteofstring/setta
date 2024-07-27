@@ -1,9 +1,9 @@
 import _ from "lodash";
 import { useCodeInfo, useSectionToParams } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
-import { useGetSectionInfo } from "./useGetSectionInfo";
-import { useOutputValues } from "./useOutputNames";
-import { useGetSectionTypeConfig } from "./useUITypes";
+import { useOutputValues } from "./outputs";
+import { useGetSectionInfo } from "./sections";
+import { useGetSectionTypeConfig } from "./uiTypes";
 
 export function useGetAllCallables(sectionId) {
   return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);

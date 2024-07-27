@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos, useUITypes } from "state/definitions";
+import { useSectionInfos, useUITypeCols, useUITypes } from "state/definitions";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
@@ -8,7 +8,25 @@ import {
   UI_CONFIG_TAB,
 } from "utils/constants";
 import { isRoot, isSeriesElement } from "utils/sectionTypeHelpers";
-import { useGetSectionInfo } from "./useGetSectionInfo";
+import { useGetSectionInfo } from "./sections";
+
+export function useGetParamUIType(sectionId, paramInfoId) {
+  const uiTypeId = useParamUITypeId(sectionId, paramInfoId);
+  return useUITypes((x) => x.x[uiTypeId], _.isEqual);
+}
+
+function useUITypeCol(sectionId, paramInfoId, key) {
+  const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
+  return useUITypeCols((x) => x.y[uiTypeColId][paramInfoId][key]);
+}
+
+function useParamUITypeId(sectionId, paramInfoId) {
+  return useUITypeCol(sectionId, paramInfoId, "uiTypeId");
+}
+
+export function useParamNonPresetUITypeIds(sectionId, paramInfoId) {
+  return useUITypeCol(sectionId, paramInfoId, "nonPresetUITypeIds");
+}
 
 export function useGetSectionTypeConfig(sectionId, key) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
@@ -65,10 +83,6 @@ export function useIsOutput(sectionId) {
   return useIsType(sectionId, C.OUTPUT);
 }
 
-// export function useIsInfo(sectionId: string) {
-//   return useIsType(sectionId, INFO);
-// }
-
 export function useIsSocial(sectionId) {
   return useIsType(sectionId, C.SOCIAL);
 }
@@ -76,14 +90,6 @@ export function useIsSocial(sectionId) {
 export function useIsGlobalVariables(sectionId) {
   return useIsType(sectionId, C.GLOBAL_VARIABLES);
 }
-
-// export function useIsCode(sectionId: string) {
-//   return useIsType(sectionId, CODE);
-// }
-
-// export function useIsVarControl(sectionId: string) {
-//   return useIsType(sectionId, VAR_CONTROL);
-// }
 
 export function useIsTerminal(sectionId) {
   return useIsType(sectionId, C.TERMINAL);

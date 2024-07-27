@@ -9,7 +9,7 @@ import {
   useProjectSearch,
   useTypeErrors,
 } from "state/definitions";
-import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
 import { ParamInput } from "./ParamItems/ParamInput";

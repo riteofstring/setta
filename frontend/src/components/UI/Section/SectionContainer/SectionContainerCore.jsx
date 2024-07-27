@@ -13,9 +13,9 @@ import { useActiveSection } from "state/definitions";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
-} from "state/hooks/useGetSectionInfo";
+} from "state/hooks/sections";
+import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
 import { useSectionRefAndInit } from "state/hooks/useSectionRefAndInit";
-import { useIsSeriesElement, useSectionTypeName } from "state/hooks/useUITypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 

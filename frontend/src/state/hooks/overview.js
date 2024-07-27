@@ -1,8 +1,8 @@
 import _ from "lodash";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { getDepthListing } from "utils/childrenToDepth";
-import { useSectionInfoNames } from "./useGetSectionInfo";
-import { useSectionTypeNames } from "./useUITypes";
+import { useSectionInfoNames } from "./sections";
+import { useSectionTypeNames } from "./uiTypes";
 import { useMatchSorterFilter } from "./utils";
 
 export function useGetOverviewListing(sectionTypeFilter = null) {

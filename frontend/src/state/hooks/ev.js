@@ -1,9 +1,6 @@
 import _ from "lodash";
 import { useEVCols } from "state/definitions";
-import {
-  useGetSectionInfo,
-  useMappedSectionDBSource,
-} from "./useGetSectionInfo";
+import { useGetSectionInfo, useMappedSectionDBSource } from "./sections";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
   const dbSource = useMappedSectionDBSource(sectionId);

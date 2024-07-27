@@ -1,3 +1,4 @@
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useEVCols, useSectionInfos } from "state/definitions";
 import {
@@ -36,4 +37,12 @@ export function useMappedSectionDBSource(sectionId) {
 export function useSectionDBSourceIsAvailable(sectionId) {
   const dbSource = useMappedSectionDBSource(sectionId);
   return useEVCols((x) => dbSource in x.x);
+}
+
+export function useHasNested(sectionId) {
+  return useSectionInfos((x) => x.x[sectionId].children?.length > 0);
+}
+
+export function useTempHasNested(sectionId) {
+  return useDndChildren((x) => x.x[sectionId]?.length > 0);
 }

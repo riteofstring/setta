@@ -1,7 +1,7 @@
 import { SECTIONWIDTH } from "utils/constants";
+import { useIsOutput, useIsRoot } from "./uiTypes";
 import { useGetAllCallables } from "./useSectionContents";
 import { useIsTwitter } from "./useSocialUtils";
-import { useIsOutput, useIsRoot } from "./useUITypes";
 
 export function useMinSectionHeight(sectionId) {
   const isOutput = useIsOutput(sectionId);

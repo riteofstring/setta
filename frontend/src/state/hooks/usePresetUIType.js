@@ -10,9 +10,8 @@ import {
   PresetType,
   uiTypesToPretty,
 } from "utils/sectionTypeHelpers";
-import { useGetSectionInfo } from "./useGetSectionInfo";
-import { useParamNonPresetUITypeIds } from "./useParamUIType";
-import { useGetSectionType } from "./useUITypes";
+import { useGetSectionInfo } from "./sections";
+import { useGetSectionType, useParamNonPresetUITypeIds } from "./uiTypes";
 
 function createName(uiType) {
   const x = uiTypesToPretty.get(uiType.type);

@@ -5,8 +5,8 @@ import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/evCols";
 import { useIdWaitingForLSPResult } from "state/actions/lsp";
 import { useInteractive, useProject } from "state/definitions";
-import { useGetParamEnteredValue } from "state/hooks/useEnteredValue";
-import { useGetParamUIType } from "state/hooks/useParamUIType";
+import { useGetParamEnteredValue } from "state/hooks/ev";
+import { useGetParamUIType } from "state/hooks/uiTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({

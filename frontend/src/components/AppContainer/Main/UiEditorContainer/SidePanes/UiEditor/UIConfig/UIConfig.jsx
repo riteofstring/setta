@@ -6,7 +6,7 @@ import { updateParams } from "state/actions/sections/sectionContents";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useCodeInfo } from "state/definitions";
-import { useGetParamUIType } from "state/hooks/useParamUIType";
+import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useGetParamInfosThatHaveNames } from "state/hooks/useSectionContents";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { IconButton } from "utils/atoms/buttons/IconButton";

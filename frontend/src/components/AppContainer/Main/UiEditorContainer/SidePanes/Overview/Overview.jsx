@@ -7,7 +7,7 @@ import { BiFilter } from "react-icons/bi";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import { useCurrInfoView } from "state/hooks/infoView";
 import { localStorageFns } from "state/hooks/localStorage";
-import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
+import { useGetOverviewListing } from "state/hooks/overview";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { constInfoViews, OVERVIEW } from "utils/constants";

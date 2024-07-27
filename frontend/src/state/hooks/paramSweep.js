@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useParamSweep, useSectionInfos } from "state/definitions";
-import { useGetSectionInfo } from "./useGetSectionInfo";
-import { useGetSectionTypeConfig } from "./useUITypes";
+import { useGetSectionInfo } from "./sections";
+import { useGetSectionTypeConfig } from "./uiTypes";
 
 export function useParamSweepInfo(sectionId) {
   const forSectionId = useForSectionId(sectionId);
