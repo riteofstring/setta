@@ -18,8 +18,8 @@ import {
   SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
   SAME_PROJECT_NEW_PROJECT_NAME,
   SWITCHING_CONFIG,
-} from "utils/Pages/pageLoadTypes";
-import { router } from "utils/Pages/router";
+} from "components/Pages/pageLoadTypes";
+import { router } from "components/Pages/router";
 import { useEditableOnSubmit } from "./editableText";
 
 function useGetProjects(getter) {

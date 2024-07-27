@@ -7,8 +7,8 @@ import {
   PROJECT_ROUTER_PATH,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { HomePage } from "utils/Pages/Home/HomePage";
-import { Settings } from "utils/Pages/Settings/Settings";
+import { HomePage } from "components/Pages/Home/HomePage";
+import { Settings } from "components/Pages/Settings/Settings";
 import { GlobalWrapper } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
 

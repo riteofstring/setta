@@ -15,7 +15,7 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardButton } from "utils/atoms/buttons/StandardButton";
 import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
 import { Item } from "utils/atoms/dropdown/item";
-import { NEW_PROJECT } from "utils/Pages/pageLoadTypes";
+import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
 import { GridWrapper } from "utils/Wrappers/GridWrapper";
 import "./homepage.css";
 
