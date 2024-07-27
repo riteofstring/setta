@@ -8,10 +8,10 @@ import {
   PROJECT_ROUTER_PATH,
   ROOT_ROUTER_PATH,
 } from "utils/constants";
-import { ColorModeSwitch } from "./ColorModeSwitch";
-import { Notification } from "./Notification";
-import { ProjectNav } from "./ProjectNav";
+import { Notification } from "./Notification/Notification";
 import { SiteLogo } from "./SiteLogo";
+import { ColorModeSwitch } from "./SubNav/ColorMode/ColorModeSwitch";
+import { SubNav } from "./SubNav/SubNav";
 
 export function HeaderContainer({ path }) {
   return (
@@ -19,10 +19,11 @@ export function HeaderContainer({ path }) {
       className={`z-20 flex h-12 min-h-12 w-[100vw] flex-row items-center bg-white px-11 shadow-md dark:bg-setta-800`}
     >
       <SiteLogo />
-      <ProjectNav />
+      <SubNav />
       <SearchSwitch path={path} />
       <Notification />
       <ColorModeSwitch />
+      {/* <MainSideMenu /> */}
     </header>
   );
 }
