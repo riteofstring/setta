@@ -12,7 +12,7 @@ import { setSectionChildrenAndNames } from "state/actions/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";
@@ -27,7 +27,6 @@ import { addCodeInfo } from "../codeInfo";
 import { initManyEvColIds } from "../evCols";
 import { updateManyParamsAndCallables } from "../sectionContents";
 import { addSectionInfo } from "../sectionInfos";
-import { moveSections } from "./moveSections";
 import { initManyUITypeColIds } from "../uiTypeCols";
 
 export function addSectionInEmptySpace({
@@ -213,24 +212,6 @@ export function createAdjacentSection(sectionId, sectionProps) {
   createSectionInfo({ sectionProps, position });
 }
 
-export function createDeck({ nodeIds, x, y, projectXY }) {
-  const deckId = onClickAddSection({
-    type: C.DECK,
-    x,
-    y,
-    projectXY,
-    incrementVersion: false,
-  });
-
-  moveSections({
-    oldParentId: PANEID,
-    newParentId: deckId,
-    sectionIds: nodeIds,
-  });
-
-  maybeIncrementProjectStateVersion(true);
-}
-
 export function onClickAddSection({
   type,
   x,
@@ -289,17 +270,4 @@ export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
       script: `python ${pathToScript} {{ SETTA_PYTHON_ARGPARSE }}`,
     },
   });
-}
-
-export function groupSections() {
-  const selectedNodes = [...useNodeInternals.getState().x].filter(
-    (x) => x[1].selected,
-  );
-  const numSelected = selectedNodes.length;
-  if (numSelected > 0) {
-    const nodeIds = selectedNodes.map((x) => x[1].id);
-    const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
-    const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    createDeck({ nodeIds, x, y, projectXY: false });
-  }
 }

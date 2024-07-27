@@ -6,7 +6,7 @@ import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
-import { groupSections } from "./sections/createSections";
+import { groupSections } from "./sections/groupSections";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { paste } from "./copyPaste/paste";
 import { saveProject } from "./project/saveProject";
