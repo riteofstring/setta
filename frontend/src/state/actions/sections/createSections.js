@@ -27,7 +27,7 @@ import { addCodeInfo } from "../codeInfo";
 import { initManyEvColIds } from "../evCols";
 import { updateManyParamsAndCallables } from "../sectionContents";
 import { addSectionInfo } from "../sectionInfos";
-import { moveSections } from "../sectionOps";
+import { moveSections } from "./moveSections";
 import { initManyUITypeColIds } from "../uiTypeCols";
 
 export function addSectionInEmptySpace({

@@ -8,9 +8,9 @@ import { useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";
-import { getSectionType } from "../getters/sectionInfo";
-import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
+import { getSectionType } from "../../getters/sectionInfo";
+import { setAllChildrenWidths } from "../sectionSizes";
+import { setSectionParentId } from "../setters";
 
 export function moveSections({
   sectionIds,

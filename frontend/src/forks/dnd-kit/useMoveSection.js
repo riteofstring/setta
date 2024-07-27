@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { setSectionChildrenAndNames } from "state/actions/setters";
 import { justMoveANode } from "state/actions/nodeInternals";
 import { manualDndChildrenReset } from "state/actions/sectionInfos";
-import { moveSection } from "state/actions/sectionOps";
+import { moveSection } from "state/actions/sections/moveSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
