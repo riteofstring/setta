@@ -1,11 +1,11 @@
 import { addNodes } from "state/actions/nodeInternals";
 import { updateManyParamsAndCallables } from "state/actions/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { addCodeInfoBatch } from "./codeInfo";
-import { updateEVCols } from "./evCols";
-import { updateSections } from "./sectionInfos";
-import { updateUITypeCols } from "./uiTypeCols";
-import { updateUITypes } from "./uiTypes";
+import { addCodeInfoBatch } from "../codeInfo";
+import { updateEVCols } from "../evCols";
+import { updateSections } from "../sectionInfos";
+import { updateUITypeCols } from "../uiTypeCols";
+import { updateUITypes } from "../uiTypes";
 
 export function loadSectionIntoState({
   sections,
