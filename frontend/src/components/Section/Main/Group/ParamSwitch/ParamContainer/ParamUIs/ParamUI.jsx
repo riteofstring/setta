@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { useGetParamUIType } from "state/hooks/uiTypes";
-import { SliderInput, SliderInputConfig } from "./SliderInput/SliderInput";
-import { SwitchInput, SwitchInputConfig } from "./SwitchInput/SwitchInput";
+import { SliderInput, SliderInputConfig } from "./SliderInput";
+import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
 import { TextInput, TextInputConfig } from "./TextInput";
 
 export function ParamUIConfig({ name, ...props }) {

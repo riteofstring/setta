@@ -13,8 +13,8 @@ import {
 import { useGetSectionInfo } from "state/hooks/sections";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { ParamInput } from "./ParamItems/ParamInput";
-import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton/ParamOptionsButton";
-import { PinButton } from "./ParamUIs/PinButton/PinButton";
+import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
+import { PinButton } from "./ParamUIs/PinButton";
 
 function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
