@@ -1,10 +1,12 @@
 import { getDefaultInfoTitle } from "components/AppContainer/Main/UiEditorContainer/SidePanes/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { getChildUIType } from "state/actions/getChildUITypeId";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
+import { updateParams } from "state/actions/sectionContents";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
@@ -12,6 +14,7 @@ import { localStorageFns } from "state/hooks/localStorage";
 import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionInfo } from "utils/objs/sectionInfo";
+import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
 import {
   getSectionInfo,
@@ -21,7 +24,6 @@ import {
 } from "../getters/sectionInfo";
 import { setAllChildren } from "./children";
 import { addCodeInfo } from "./codeInfo";
-import { onClickAddSection } from "./createSectionOrDeck";
 import { initManyEvColIds } from "./evCols";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { addSectionInfo } from "./sectionInfos";
@@ -225,4 +227,64 @@ export function createDeck({ nodeIds, x, y, projectXY }) {
   });
 
   maybeIncrementProjectStateVersion(true);
+}
+
+export function onClickAddSection({
+  type,
+  x,
+  y,
+  projectXY,
+  incrementVersion,
+  inputSectionProps = {},
+}) {
+  const position = projectXY
+    ? screenToFlowPosition({ x, y })
+    : newSectionPosition({ x, y });
+
+  return addSectionAtPosition({
+    type,
+    incrementVersion,
+    inputSectionProps,
+    position,
+  });
+}
+
+export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
+  const varSectionId = onClickAddSection({
+    type: C.GLOBAL_VARIABLES,
+    ...props,
+    incrementVersion: false,
+  });
+
+  const sectionCodeInfoId = getSectionTypeConfig(varSectionId).codeInfoId;
+
+  const paramIdToUITypeId = {};
+  for (const arg of args) {
+    const info = newCodeInfo({
+      name: arg.name,
+      rcType: C.PARAMETER,
+      editable: true,
+    });
+    addCodeInfo({ info, parent: sectionCodeInfoId });
+    if (arg.type === "store_true") {
+      paramIdToUITypeId[info.id] = BASE_UI_TYPE_IDS.SWITCH;
+    }
+  }
+
+  initializeChildParams({
+    sectionIds: [varSectionId],
+    codeInfoIds: [sectionCodeInfoId],
+    inputParamIdToUITypeId: paramIdToUITypeId,
+  });
+  updateParams(varSectionId);
+
+  onClickAddSection({
+    type: C.CODE,
+    ...props,
+    x: props.x + 600,
+    incrementVersion: false,
+    inputSectionProps: {
+      script: `python ${pathToScript} {{ SETTA_PYTHON_ARGPARSE }}`,
+    },
+  });
 }
