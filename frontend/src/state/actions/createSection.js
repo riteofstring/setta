@@ -8,6 +8,7 @@ import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { updateParams } from "state/actions/sectionContents";
 import { setSectionUITypeConfig } from "state/actions/setSectionUITypeConfig";
+import { setSectionChildrenAndNames } from "state/actions/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -22,7 +23,6 @@ import {
   getSectionType,
   getSectionTypeConfig,
 } from "../getters/sectionInfo";
-import { setSectionChildrenAndNames } from "state/actions/setters";
 import { addCodeInfo } from "./codeInfo";
 import { initManyEvColIds } from "./evCols";
 import { updateManyParamsAndCallables } from "./sectionContents";
@@ -109,7 +109,9 @@ export function addChildrenToSeries({
     numChildren,
   });
 
-  setSectionChildrenAndNames(parentId, (x) => insertIntoArray(x, startIdx, ...newIds));
+  setSectionChildrenAndNames(parentId, (x) =>
+    insertIntoArray(x, startIdx, ...newIds),
+  );
   updateManyParamsAndCallables(newIds);
   maybeIncrementProjectStateVersion(incrementVersion);
 
@@ -287,4 +289,17 @@ export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
       script: `python ${pathToScript} {{ SETTA_PYTHON_ARGPARSE }}`,
     },
   });
+}
+
+export function groupSections() {
+  const selectedNodes = [...useNodeInternals.getState().x].filter(
+    (x) => x[1].selected,
+  );
+  const numSelected = selectedNodes.length;
+  if (numSelected > 0) {
+    const nodeIds = selectedNodes.map((x) => x[1].id);
+    const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
+    const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
+    createDeck({ nodeIds, x, y, projectXY: false });
+  }
 }
