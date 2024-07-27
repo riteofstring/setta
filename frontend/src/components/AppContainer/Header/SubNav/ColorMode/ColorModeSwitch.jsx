@@ -1,7 +1,7 @@
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
 import { toggleDarkMode } from "state/actions/settings";
-import { useDarkMode } from "state/hooks/useDarkMode";
+import { useDarkMode } from "state/hooks/localStorage";
 import { Toggle } from "utils/atoms/toggles/Toggle";
 
 export function ColorModeSwitch() {

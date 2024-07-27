@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import React from "react";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
+import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetSectionType } from "state/hooks/useSectionType";
 import { constInfoViews } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";

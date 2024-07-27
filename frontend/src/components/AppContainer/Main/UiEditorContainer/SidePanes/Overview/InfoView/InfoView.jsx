@@ -2,7 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import classNames from "classnames";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
-import { useCurrInfoView } from "state/hooks/useCurrInfoView";
+import { useCurrInfoView } from "state/hooks/infoView";
 
 export function InfoView() {
   const currInfoView = useCurrInfoView();

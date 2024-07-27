@@ -4,11 +4,9 @@ import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneCo
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
+import { getInfoViewHandlers } from "state/actions/infoView";
 import { localStorageFns } from "state/hooks/localStorage";
-import {
-  getInfoViewHandlers,
-  useCurrInfoView,
-} from "state/hooks/useCurrInfoView";
+import { useCurrInfoView } from "state/hooks/infoView";
 import { useGetOverviewListing } from "state/hooks/useGetOverviewListing";
 import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";

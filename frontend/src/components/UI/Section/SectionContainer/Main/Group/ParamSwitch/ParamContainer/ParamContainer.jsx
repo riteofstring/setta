@@ -3,12 +3,12 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
+import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useCodeInfo,
   useProjectSearch,
   useTypeErrors,
 } from "state/definitions";
-import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { useGetSectionInfo } from "state/hooks/useGetSectionInfo";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { GetParamSwitch } from "../GetParamSwitch";
