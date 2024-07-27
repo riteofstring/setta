@@ -1,7 +1,7 @@
 import { useLoadProject } from "state/hooks/project";
-import { GridWrapper } from "../../utils/Wrappers/GridWrapper";
-import { Overview } from "./Overview/Overview";
-import { UiEditor } from "./UiEditor/UiEditor";
+import { GridWrapper } from "../../Wrappers/GridWrapper";
+import { Overview } from "../../../components/ProjectPage/Overview/Overview";
+import { UiEditor } from "../../../components/ProjectPage/UiEditor/UiEditor";
 import { UIPage } from "./UiPage";
 
 export function MainContainer() {
