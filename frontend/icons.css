@@ -5,10 +5,10 @@ main {
 .gg-math-plus {
   box-sizing: border-box;
   position: relative;
-  /* display: inline-grid;
+  display: inline-grid;
   place-items: center;
   grid-template-columns: 1fr;
-  grid-template-rows: 1fr; */
+  grid-template-rows: 1fr;
   transform: scale(var(--ggs, 1));
   width: 22px;
   height: 22px;
@@ -19,8 +19,8 @@ main {
 .gg-math-plus::after,
 .gg-math-plus::before {
   content: "";
-  /* grid-column: 1/2;
-  grid-row: 1/2; */
+  grid-column: 1/2;
+  grid-row: 1/2;
   display: block;
   box-sizing: border-box;
   position: absolute;
@@ -40,10 +40,10 @@ main {
 .gg-math-minus {
   box-sizing: border-box;
   position: relative;
-  /* display: inline-grid;
+  display: inline-grid;
   place-items: center;
   grid-template-columns: 1fr;
-  grid-template-rows: 1fr; */
+  grid-template-rows: 1fr;
   transform: scale(var(--ggs, 1));
   width: 22px;
   height: 22px;
@@ -53,8 +53,8 @@ main {
 
 .gg-math-minus::before {
   content: "";
-  /* grid-column: 1/2;
-  grid-row: 1/2; */
+  grid-column: 1/2;
+  grid-row: 1/2;
   display: block;
   box-sizing: border-box;
   position: absolute;
@@ -66,135 +66,6 @@ main {
   top: 8px;
   left: 1px;
 }
-
-.gg-push-left {
-  box-sizing: border-box;
-  position: relative;
-  display: block;
-  transform: scale(var(--ggs,1));
-  width: 16px;
-  height: 2px;
-  background: currentColor;
- }
- 
- .gg-push-left::after,
- .gg-push-left::before {
-  content: "";
-  display: block;
-  box-sizing: border-box;
-  position: absolute;
-  width: 2px;
-  height: 12px;
-  border-left: 2px solid;
-  left: -5px;
-  top: -5px
- }
- 
- .gg-push-left::after {
-  width: 8px;
-  height: 8px;
-  border-bottom: 2px solid;
-  transform: rotate(45deg);
-  top: -3px;
-  left: 0
- } 
-
-
- .gg-push-right {
-  box-sizing: border-box;
-  position: relative;
-  display: block;
-  transform: scale(var(--ggs,1));
-  width: 16px;
-  height: 2px;
-  background: currentColor;
- }
- 
- .gg-push-right::after,
- .gg-push-right::before {
-  content: "";
-  display: block;
-  box-sizing: border-box;
-  position: absolute;
-  width: 2px;
-  height: 12px;
-  border-right: 2px solid;
-  right: -5px;
-  top: -5px
- }
- 
- .gg-push-right::after {
-  width: 8px;
-  height: 8px;
-  border-top: 2px solid;
-  transform: rotate(45deg);
-  top: -3px;
-  right: 0
- } 
-
- .gg-push-down {
-  box-sizing: border-box;
-  position: relative;
-  display: block;
-  transform: scale(var(--ggs,1));
-  width: 2px;
-  height: 16px;
-  background: currentColor;
- }
- 
- .gg-push-down::after,
- .gg-push-down::before {
-  content: "";
-  display: block;
-  box-sizing: border-box;
-  position: absolute;
-  width: 12px;
-  height: 2px;
-  border-bottom: 2px solid;
-  bottom: -5px;
-  left: -5px
- }
- 
- .gg-push-down::after {
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid;
-  transform: rotate(45deg);
-  left: -3px;
-  bottom: 0
- } 
-
- .gg-push-up {
-  box-sizing: border-box;
-  position: relative;
-  display: block;
-  transform: scale(var(--ggs,1));
-  width: 2px;
-  height: 16px;
-  background: currentColor;
- }
- 
- .gg-push-up::after,
- .gg-push-up::before {
-  content: "";
-  display: block;
-  box-sizing: border-box;
-  position: absolute;
-  width: 12px;
-  height: 2px;
-  border-top: 2px solid;
-  top: -5px;
-  left: -5px
- }
- 
- .gg-push-up::after {
-  width: 8px;
-  height: 8px;
-  border-left: 2px solid;
-  transform: rotate(45deg);
-  left: -3px;
-  top: 0
- } 
 
 .gg-chevron-up {
   box-sizing: border-box;
@@ -589,3 +460,67 @@ main {
 
 
 
+.gg-push-left {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs,1));
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+ }
+ 
+ .gg-push-left::after,
+ .gg-push-left::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 2px;
+  height: 12px;
+  border-left: 2px solid;
+  left: -5px;
+  top: -5px
+ }
+ 
+ .gg-push-left::after {
+  width: 8px;
+  height: 8px;
+  border-bottom: 2px solid;
+  transform: rotate(45deg);
+  top: -3px;
+  left: 0
+ } 
+
+
+ .gg-push-right {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs,1));
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+ }
+ 
+ .gg-push-right::after,
+ .gg-push-right::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  width: 2px;
+  height: 12px;
+  border-right: 2px solid;
+  right: -5px;
+  top: -5px
+ }
+ 
+ .gg-push-right::after {
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid;
+  transform: rotate(45deg);
+  top: -3px;
+  right: 0
+ } 

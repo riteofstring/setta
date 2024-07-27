@@ -1,6 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { DNDSortable } from "forks/dnd-kit/DNDSortable";
-import { goToSection } from "state/actions/goToSection";
+import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
 import { SortableSectionContainer } from "../SectionContainer/SortableSectionContainer";
 

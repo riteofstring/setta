@@ -1,5 +1,5 @@
 import React from "react";
-import { goToSection } from "state/actions/goToSection";
+import { goToSection } from "state/actions/sections/sectionPositions";
 
 function _SectionItem({ sectionId, sectionHeading, checkbox }) {
   const onClick = () => {

@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useCallback, useState } from "react";
-import { setHomePageSearch } from "state/actions/homePageSearch";
-import { updateSearch } from "state/actions/projectSearch";
+import { setHomePageSearch } from "state/actions/search/homePageSearch";
+import { updateSearch } from "state/actions/search/projectSearch";
 import { useHomePageSearch } from "state/definitions";
 import { getInfoViewHandlers } from "state/hooks/useCurrInfoView";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";

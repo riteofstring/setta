@@ -1,8 +1,15 @@
 import _ from "lodash";
-import { useEVCols } from "state/definitions";
+import { useEVCols, useUITypes } from "state/definitions";
 import { createRandomName } from "utils/idNameCreation";
-import { newEV } from "utils/objs/ev";
+import { getValueForUIType, newEV } from "utils/objs/ev";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "../getters/sectionInfo";
 import { initValue } from "../utils";
+import { debouncedRequestTypeCheck } from "./typeCheck";
+import { maybeIncrementProjectStateVersion } from "./undo";
+import { varControlUpdate } from "./varControl";
 
 export function setAllEVCols(x) {
   useEVCols.setState({ x });
@@ -73,4 +80,32 @@ export function updateEVCols({ evCols }) {
   useEVCols.setState((state) => {
     state.x = { ...state.x, ...evCols };
   });
+}
+
+export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
+  const uiType = useUITypes.getState().x[uiTypeId];
+  const currValue = getParamEV(sectionId, paramInfoId);
+  const value = getValueForUIType({ uiType, currValue });
+  setParamEnteredValue({ sectionId, paramInfoId, value });
+}
+
+function getParamEV(sectionId, paramInfoId) {
+  const { evColId } = getSectionInfo(sectionId);
+  const dbSource = getMappedSectionDBSource(sectionId);
+  return useEVCols.getState().x[dbSource][evColId].values[paramInfoId];
+}
+export function setParamEnteredValue({
+  sectionId,
+  paramInfoId,
+  value,
+  incrementVersion = false,
+}) {
+  const { evColId } = getSectionInfo(sectionId);
+  const dbSource = getMappedSectionDBSource(sectionId);
+  setEnteredValue({ dbSource, collectionId: evColId, paramInfoId, value });
+  if (incrementVersion) {
+    varControlUpdate();
+  }
+  maybeIncrementProjectStateVersion(incrementVersion);
+  debouncedRequestTypeCheck();
 }

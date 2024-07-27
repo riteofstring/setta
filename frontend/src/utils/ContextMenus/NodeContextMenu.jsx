@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { undeck } from "state/actions/undeck";
+import { undeck } from "state/actions/sections/groupSections";
 import { useGetSectionType } from "state/hooks/useSectionType";
 import { Item } from "utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
