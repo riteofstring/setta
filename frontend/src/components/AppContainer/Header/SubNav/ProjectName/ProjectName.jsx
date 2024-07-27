@@ -17,30 +17,18 @@ export function ProjectName() {
     constInfoViews.OVERVIEW_PROJNAME,
   );
 
-  async function condition(v) {
-    const res = await dbSetProjectName(v);
-    return res.status === 200;
-  }
-
   async function setName(v) {
-    if (res.status === 200) {
-      router.navigate(`${v}/${configName}`, {
-        state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
-      });
-      return true;
-    }
-    return false;
+    await dbSetProjectName(v);
+    router.navigate(`${v}/${configName}`, {
+      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
+    });
   }
 
   async function setConfigName(v) {
     await dbSetProjectConfigName(v);
-    if (res.status === 200) {
-      router.navigate(`${name}/${v}`, {
-        state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
-      });
-      return true;
-    }
-    return false;
+    router.navigate(`${name}/${v}`, {
+      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
+    });
   }
 
   const editing =
