@@ -1,4 +1,4 @@
-import { initParamSweep } from "state/actions/paramSweep";
+import { initParamSweep } from "state/actions/runGroups/paramSweep";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useModal, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/useParamSweepInfo";

@@ -1,6 +1,6 @@
 import { createAdjacentSection } from "state/actions/sections/createSections";
 import { goToSection } from "state/actions/goToSection";
-import { initParamSweep } from "state/actions/paramSweep";
+import { initParamSweep } from "state/actions/runGroups/paramSweep";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { getSectionName } from "state/getters/sectionInfo";

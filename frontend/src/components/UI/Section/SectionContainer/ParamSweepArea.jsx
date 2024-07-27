@@ -10,7 +10,7 @@ import {
   deleteLastParamSweepValue,
   deleteParamSweepValue,
   setParamSweepValue,
-} from "state/actions/paramSweep";
+} from "state/actions/runGroups/paramSweep";
 import { useCodeInfo, useEVCols } from "state/definitions";
 import { useGetEVColNames } from "state/hooks/useEnteredValue";
 import { useMappedSectionDBSource } from "state/hooks/useGetSectionInfo";
