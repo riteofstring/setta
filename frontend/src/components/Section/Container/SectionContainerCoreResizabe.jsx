@@ -6,9 +6,6 @@ import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
-import { Incrementer } from "../SectionParts/Incrementer";
-import { VersionList } from "../SectionParts/VersionList";
-import "./dndline.css";
 import { CodeArea } from "../Layouts/CodeArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
@@ -18,6 +15,9 @@ import { OutputArea } from "../Layouts/OutputArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
+import { Incrementer } from "../SectionParts/Incrementer";
+import { VersionList } from "../SectionParts/VersionList";
+import "./dndline.css";
 
 export function SectionContainerCoreResizable({
   sectionId,
