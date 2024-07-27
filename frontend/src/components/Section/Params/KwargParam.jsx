@@ -1,7 +1,7 @@
 import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
 import { IconButton } from "utils/atoms/buttons/IconButton";
-import { ParamContainer } from "../ParamContainer/ParamContainer";
-import { ParamNameInput } from "../ParamContainer/ParamItems/ParamNameInput";
+import { ParamContainer } from "../Main/Group/ParamSwitch/ParamContainer/ParamContainer";
+import { ParamNameInput } from "../Main/Group/ParamSwitch/ParamContainer/ParamItems/ParamNameInput";
 
 export function KwargParam(props) {
   const { sectionId, parentId, paramInfo: kwargInfo } = props;

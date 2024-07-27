@@ -3,7 +3,7 @@ import { useSectionInfos } from "state/definitions";
 import { useGetParamInfos } from "state/hooks/sectionContents";
 import { useSectionHasMultipleEVCols } from "state/hooks/sections";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { GetParamSwitch } from "./ParamSwitch/GetParamSwitch";
+import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
   const { overflow, ref, setDidUpdate } = useOverflow(sectionId);

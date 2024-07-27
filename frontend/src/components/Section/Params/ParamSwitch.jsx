@@ -3,8 +3,8 @@ import React from "react";
 import { toggleCodeInfoSelected } from "state/actions/codeInfo";
 import { paramSelect } from "state/actions/keyActivations";
 import { updateParams } from "state/actions/sections/sectionContents";
-import { KwargParam } from "./ParamSwitchOptions/KwargParam";
-import { RegularParam } from "./ParamSwitchOptions/RegularParam";
+import { KwargParam } from "./KwargParam";
+import { RegularParam } from "./RegularParam";
 
 function _ParamSwitch(props) {
   function onNameClick(e) {
