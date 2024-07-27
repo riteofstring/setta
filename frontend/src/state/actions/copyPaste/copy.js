@@ -10,7 +10,7 @@ import {
   useUITypes,
 } from "state/definitions";
 import { findAll } from "utils/getDescendants";
-import { getSectionTypeConfig } from "../getters/sectionInfo";
+import { getSectionTypeConfig } from "../../getters/sectionInfo";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;

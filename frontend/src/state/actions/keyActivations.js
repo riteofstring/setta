@@ -5,10 +5,10 @@ import {
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useSettings } from "state/definitions";
-import { copy } from "./copy";
+import { copy } from "./copyPaste/copy";
 import { groupSections } from "./sections/createSections";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
-import { paste } from "./paste";
+import { paste } from "./copyPaste/paste";
 import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 

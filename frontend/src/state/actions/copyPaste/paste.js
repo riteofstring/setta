@@ -1,6 +1,6 @@
 import { dbPasteSections } from "requests/pasteSections";
 import { REACT_FLOW_STORE } from "utils/constants";
-import { loadSectionIntoState } from "./createSectionOrDeck";
+import { loadSectionIntoState } from "../createSectionOrDeck";
 
 export async function paste() {
   let x;
