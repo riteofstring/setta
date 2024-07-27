@@ -1,4 +1,4 @@
-import { setOneUITypeConfig } from "./uiTypes";
+import { setOneUITypeConfig } from "../uiTypes";
 
 export function setConfigAndChildConfig(uiType, configProps) {
   setOneUITypeConfig({ uiTypeId: uiType.id, ...configProps });

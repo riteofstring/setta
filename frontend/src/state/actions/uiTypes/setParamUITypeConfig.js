@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { cloneNewUIType } from "state/actions/cloneUITypes";
+import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import {
   useCodeInfo,
   useEVCols,
@@ -13,11 +13,11 @@ import {
 } from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
 import { maybeCloneUIType } from "./cloneUITypes";
-import { setEnteredValue } from "./evCols";
+import { setEnteredValue } from "../evCols";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
-import { getParamUIType, setNonPresetUITypeIds } from "./uiTypeCols";
-import { addUIType } from "./uiTypes";
+import { getParamUIType, setNonPresetUITypeIds } from "../uiTypeCols";
+import { addUIType } from "../uiTypes";
 
 export function setParamUITypeConfig({
   sectionId,
