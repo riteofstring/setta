@@ -1,4 +1,4 @@
-import { getDefaultInfoTitle } from "components/UI/UiEditor/MarkdownEditor/MarkdownEditor";
+import { getDefaultInfoTitle } from "components/ProjectPage/UiEditor/MarkdownEditor/MarkdownEditor";
 import C from "constants/constants.json";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
