@@ -42,10 +42,10 @@ function TabsVisible() {
       // defaultValue={SECTION_CONFIG_TAB}
       // value={tab}
       // onValueChange={setTab}
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pr-2"
     >
       <Tabs.List>
-        <nav className="flex gap-4">
+        <nav className="flex gap-4 overflow-x-auto">
           <TabItem name="Overview" value="tab1" />
           <TabItem name="Info" value="tab2" />
           <TabItem name="Configs" value="tab3" />
@@ -81,7 +81,7 @@ function TabItem({ name, value }) {
 function TabContent(props) {
   const { children, value } = props;
   return (
-    <Tabs.Content value={value} asChild>
+    <Tabs.Content value={value} asChild className="overflow-x-auto">
       {children}
     </Tabs.Content>
   );
@@ -93,7 +93,7 @@ const ProjectOverview = React.forwardRef(() => {
     <>
       <ProjectName />
       <StandardSearch
-        inputStyles="flex-grow outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1"
+        inputStyles="flex-grow outline-0 min-w-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-7 py-1 truncate"
         outerClasses="pb-4"
         leftElementStyles="pl-1"
         placeholder="Filter"
@@ -105,7 +105,7 @@ const ProjectOverview = React.forwardRef(() => {
         {...getInfoViewHandlers(constInfoViews.OVERVIEW_SEARCH)}
       />
 
-      <ScrollingArea styles="flex-grow -mx-2 px-2 overflow-hidden min-h-0">
+      <ScrollingArea styles="flex-grow min-h-0">
         <ul
           className="min-h-0 flex-grow"
           {...getInfoViewHandlers(constInfoViews.OVERVIEW)}

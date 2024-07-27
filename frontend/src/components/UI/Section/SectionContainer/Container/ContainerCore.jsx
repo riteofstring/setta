@@ -38,7 +38,7 @@ function _Container({
           <DeckSectionTitle sectionId={sectionId} />
         </div>
         {!hasNested && (
-          <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-slate-300 px-4 py-3 text-setta-300 dark:border-setta-800 dark:text-white">
+          <div className="z-10 -mx-4 mt-4 flex flex-row items-center justify-center rounded-xl border-4 border-dashed border-setta-300 px-4 py-3 text-setta-300 dark:border-setta-800 dark:text-white">
             Drop A Card Here.
           </div>
         )}
@@ -71,7 +71,7 @@ function DeckSectionTitle({ sectionId }) {
       "nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] dark:bg-setta-850 px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
 
     notEditing:
-      "-mx-4 w-full truncate px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-700",
+      "-mx-4 w-full truncate px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-700 cursor-pointer",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;
