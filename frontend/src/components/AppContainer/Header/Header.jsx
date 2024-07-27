@@ -8,8 +8,8 @@ import {
   PROJECT_ROUTER_PATH,
   ROOT_ROUTER_PATH,
 } from "utils/constants";
-import { Notification } from "./Notification";
 import { ColorModeSwitch } from "./ColorModeSwitch";
+import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
 import { SiteLogo } from "./SiteLogo";
 
@@ -23,7 +23,6 @@ export function HeaderContainer({ path }) {
       <SearchSwitch path={path} />
       <Notification />
       <ColorModeSwitch />
-      {/* <MainSideMenu /> */}
     </header>
   );
 }

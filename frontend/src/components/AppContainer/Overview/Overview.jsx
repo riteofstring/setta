@@ -1,5 +1,4 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { ProjectName } from "components/AppContainer/Header/ProjectName";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
@@ -13,6 +12,7 @@ import { constInfoViews, OVERVIEW } from "utils/constants";
 import { PaneContainer } from "utils/PaneContainer/PaneContainer";
 import { InfoView } from "./InfoView";
 import { ProjectConfigs } from "./ProjectConfigs";
+import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
 const paneProps = {
