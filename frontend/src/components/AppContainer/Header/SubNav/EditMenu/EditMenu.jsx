@@ -19,7 +19,6 @@ export function EditMenu() {
 function Items() {
   const addSection = () => addSectionInEmptySpace({ type: C.SECTION });
   const addGroup = () => addSectionInEmptySpace({ type: C.DECK });
-  const typeCheck = () => requestTypeCheck();
 
   return (
     <>
@@ -30,7 +29,7 @@ function Items() {
         <AiOutlineGroup className="h-4 w-4" />
         Group
       </MenuItem>
-      <MenuItem onClick={typeCheck} shortcut="Ctrl + Shift + T">
+      <MenuItem onClick={requestTypeCheck} shortcut="Ctrl + Shift + T">
         Type Check
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />

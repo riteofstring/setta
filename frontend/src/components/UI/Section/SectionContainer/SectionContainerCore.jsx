@@ -10,12 +10,12 @@ import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
 import { toggleVersionsVisible } from "state/actions/sections/setters";
 import { useActiveSection } from "state/definitions";
+import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
 } from "state/hooks/sections";
 import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
-import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
