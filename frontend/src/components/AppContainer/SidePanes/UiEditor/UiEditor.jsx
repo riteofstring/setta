@@ -1,5 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { PaneContainer } from "components/AppContainer/SidePanes/PaneContainer";
 import { FiEdit3 } from "react-icons/fi";
 import { setUIEditorTab } from "state/actions/uiEditor";
 import { useActiveSection, useUIEditor } from "state/definitions";

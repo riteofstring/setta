@@ -1,6 +1,6 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { ProjectName } from "components/AppContainer/Header/SubNav/ProjectName/ProjectName";
-import { PaneContainer } from "components/AppContainer/Main/PaneContainer/PaneContainer";
+import { ProjectName } from "components/AppContainer/Header/ProjectNav/ProjectName";
+import { PaneContainer } from "components/AppContainer/SidePanes/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
