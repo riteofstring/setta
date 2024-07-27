@@ -2,12 +2,12 @@ import * as Menubar from "@radix-ui/react-menubar";
 import C from "constants/constants.json";
 import { useGetSectionType } from "state/hooks/uiTypes";
 import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { HeaderIcon } from "../HeaderIcon/HeaderIcon";
-import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton/CreateNewParamSweepButton";
-import { CreateNewVersionButton } from "./CreateNewVersionButton/CreateNewVersionButton";
-import { FreezeButton } from "./FreezeButton/FreezeButton";
-import { MultirunButton } from "./MultiRunButton/MultiRunButton";
-import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton/SaveCustomArgumentsButton";
+import { HeaderIcon } from "../HeaderIcon";
+import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
+import { CreateNewVersionButton } from "./CreateNewVersionButton";
+import { FreezeButton } from "./FreezeButton";
+import { MultirunButton } from "./MultiRunButton";
+import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 function MenuButton({ sectionId, sectionTypeName }) {
   // hover:bg-setta-100 dark:hover:bg-setta-900
   const sectionType = useGetSectionType(sectionId, "type");

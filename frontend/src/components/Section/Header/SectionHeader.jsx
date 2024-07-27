@@ -7,9 +7,9 @@ import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
-import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
+import { CustomCloseButton } from "./CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
-import { SectionTitle } from "./Title/SectionTitle";
+import { SectionTitle } from "./SectionTitle";
 
 function _SectionHeader({
   sectionId,
