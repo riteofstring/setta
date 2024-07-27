@@ -124,3 +124,7 @@ export const projectPreviewImgColors = [
   "bg-yellow-500/60 dark:bg-yellow-600/30",
   "bg-orange-500/60 dark:bg-orange-600/30",
 ];
+
+export const ROOT_ROUTER_PATH = "/"
+export const PROJECT_ROUTER_PATH = ":projectName/:configName";
+export const SETTINGS_ROUTER_PATH = "settings";

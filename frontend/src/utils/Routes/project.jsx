@@ -1,15 +1,14 @@
 import { HeaderContainer } from "components/AppContainer/Header/Header";
 import { MainContainer } from "components/AppContainer/Main/MainContainer";
 import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
+import { PROJECT_ROUTER_PATH } from "utils/constants";
 import { ModalContainer } from "utils/Modals/ModalContainer";
 import { GlobalWrapper } from "./GlobalWrapper";
-
-const PATH = ":projectName/:configName";
 
 function ProjectWrapper() {
   return (
     <ModalContainer>
-      <HeaderContainer path={PATH} />
+      <HeaderContainer path={PROJECT_ROUTER_PATH} />
       <GridContainer>
         <MainContainer />
       </GridContainer>
@@ -18,7 +17,7 @@ function ProjectWrapper() {
 }
 
 export const projectRoute = {
-  path: PATH,
+  path: PROJECT_ROUTER_PATH,
   element: (
     <GlobalWrapper>
       <ProjectWrapper />
