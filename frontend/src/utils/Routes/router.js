@@ -1,10 +1,10 @@
 import { createBrowserRouter } from "react-router-dom";
-import { homeRoute } from "./home";
+import { indexRoute } from "./indexRoute";
 import { projectRoute } from "./project";
 import { settingsRoute } from "./settings";
 
 export const router = createBrowserRouter([
-  homeRoute,
+  indexRoute,
   projectRoute,
   settingsRoute,
 ]);

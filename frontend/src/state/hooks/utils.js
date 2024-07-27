@@ -2,7 +2,7 @@ import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { HOME_ROUTER_PATH } from "utils/constants";
+import { ROOT_ROUTER_PATH } from "utils/constants";
 
 export function useMatchSorterFilter(completeList, keys, delay) {
   const [filter, setFilter] = useState("");
@@ -58,7 +58,7 @@ export function useGoBackOrToHome() {
     if (window.history?.length && window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate(HOME_ROUTER_PATH, { replace: true });
+      navigate(ROOT_ROUTER_PATH, { replace: true });
     }
   };
 }

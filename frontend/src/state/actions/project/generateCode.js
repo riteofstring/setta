@@ -1,7 +1,7 @@
 import {
   INITIAL_MESSAGE,
   TERMINAL_WEBSOCKETS,
-} from "components/Section/Layouts/TerminalArea";
+} from "components/UI/Section/SectionContainer/TerminalArea";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";

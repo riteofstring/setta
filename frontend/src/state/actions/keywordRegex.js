@@ -54,24 +54,16 @@ function getRegexAndColorMap(sectionIdsToNames) {
     }
   }
 
-  const pattern =
-    names.length > 0
-      ? new RegExp(`(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`, "g")
-      : dummyRegExpObject();
+  const pattern = new RegExp(
+    `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`,
+    "g",
+  );
 
   return { pattern, fullNameToInfo };
 }
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function dummyRegExpObject() {
-  return {
-    exec: function () {
-      return null;
-    },
-  };
 }
 
 function setFullChildrenNamesForRegex(
