@@ -37,14 +37,15 @@ export function useSetShorcutSetting(setting) {
 
       event.preventDefault();
       const keys = [];
-      if (event.ctrlKey) keys.push("ctrl");
-      if (event.shiftKey) keys.push("shift");
-      if (event.altKey) keys.push("alt");
-      if (!["Control", "Shift", "Alt"].includes(event.key)) {
-        keys.push(event.key.toLowerCase());
+      if (event.ctrlKey) keys.push("Ctrl");
+      if (event.shiftKey) keys.push("Shift");
+      if (event.altKey) keys.push("Alt");
+      if (event.metaKey) keys.push("Mod");
+      if (!["Control", "Shift", "Alt", "Meta"].includes(event.key)) {
+        keys.push(event.key.toUpperCase());
       }
 
-      const shortcutString = keys.join("+");
+      const shortcutString = keys.join(" + ");
       setTempShortcut(shortcutString);
     };
 

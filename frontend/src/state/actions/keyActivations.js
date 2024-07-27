@@ -27,11 +27,9 @@ function attachKeyUpListener(action) {
   };
 }
 
+// shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
-  const parts = shortcutString
-    .toLowerCase()
-    .split("+")
-    .map((part) => part.trim());
+  const parts = shortcutString.split("+").map((part) => part.trim());
   return {
     mod: parts.includes("mod"),
     ctrl: parts.includes("ctrl"),
@@ -82,14 +80,15 @@ export function attachKeyEventListeners() {
   const keyUpActions = [];
   for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
     let cleanup;
+    let lowercaseKeyCombo = keyCombo.toLowerCase();
     // if (typeof condition === "string") {
     //   cleanup = attachBuiltInListener(condition, action);
     // } else {
     cleanup = attachKeyDownListener((e) => {
-      if (isShortcutPressed(e, keyCombo)) {
+      if (isShortcutPressed(e, lowercaseKeyCombo)) {
         // We don't want to prevent default if the shortcut is just Control or Alt
         // because this would prevent things like Ctrl + R for refreshing the page.
-        if (!["mod", "ctrl", "alt"].includes(keyCombo)) {
+        if (!["mod", "ctrl", "alt"].includes(lowercaseKeyCombo)) {
           e.preventDefault();
         }
         action();

@@ -69,18 +69,18 @@ export const CONST_INFO_VIEWS = {
 };
 
 export const initialShortcuts = {
-  undoShortcut: "mod+z",
-  redoShortcut: "mod+shift+z",
-  groupShortcut: "mod+g",
-  saveShortcut: "mod+s",
-  saveAsShortcut: "mod+shift+s",
-  loadShortcut: "mod+l",
-  focusOnArgsFilterShortcut: "mod+k",
-  resetZoomShortcut: "mod+,",
-  copyShortcut: "mod+c",
-  pasteShortcut: "mod+v",
-  sortingShortcut: "mod",
-  movingFreeShortcut: "alt",
+  undoShortcut: "Mod + Z",
+  redoShortcut: "Mod + Shift + Z",
+  groupShortcut: "Mod + G",
+  saveShortcut: "Mod + S",
+  saveAsShortcut: "Mod + Shift + S",
+  loadShortcut: "Mod + L",
+  focusOnArgsFilterShortcut: "Mod + K",
+  resetZoomShortcut: "Mod + ,",
+  copyShortcut: "Mod + C",
+  pasteShortcut: "Mod + V",
+  sortingShortcut: "Mod",
+  movingFreeShortcut: "Alt",
 };
 
 export const jsonSettings = {
