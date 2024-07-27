@@ -1,5 +1,5 @@
-import { ParamContainer } from "../Section/Main/Group/ParamSwitch/ParamContainer/ParamContainer";
-import { ParamTextLabel } from "../Section/Main/Group/ParamSwitch/ParamContainer/ParamItems/ParamTextLabel";
+import { ParamContainer } from "./ParamContainer";
+import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
 export function RegularParam(props) {
   return (
