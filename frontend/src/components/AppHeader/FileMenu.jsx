@@ -14,6 +14,7 @@ import {
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
 import { useSettings } from "state/definitions";
+import { SETTINGS_ROUTER_PATH } from "utils/constants";
 
 export function FileMenu() {
   const shortcuts = useSettings((x) =>
@@ -58,7 +59,7 @@ export function FileMenu() {
         {/* <BiExport /> */}
         Export Full JSON
       </MenuItem>
-      <Link to="/settings">
+      <Link to={SETTINGS_ROUTER_PATH}>
         <MenuItem>Settings</MenuItem>
       </Link>
     </MenuDropdown>
