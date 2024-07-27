@@ -2,7 +2,7 @@ import {
   setInteractiveData,
   setInteractiveProjects,
 } from "state/actions/interactive";
-import { updateOutput } from "state/actions/outputs";
+import { updateOutput } from "state/actions/outputs/outputs";
 import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
 import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
