@@ -1,6 +1,10 @@
+import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
+import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
+import { setActiveSectionIds } from "./activeSections";
 
 export function setZIndices(sectionIds, incrementVersion) {
   const nodeInternals = useNodeInternals.getState().x;
@@ -28,4 +32,17 @@ export function setZIndices(sectionIds, incrementVersion) {
   useNodeInternals.setState({ x: newValues });
 
   maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+export function goToSection(sectionId) {
+  const [overviewWidth] = localStorageFns.overviewTrueWidth.state();
+  const { x, y, width, height } = getSectionRect(sectionId);
+  const newX = x + width / 2 - overviewWidth;
+  const newY = y + height / 2 + 100;
+  setCenter(newX, newY, {
+    zoom: 1,
+    duration: 100,
+  });
+  setActiveSectionIds([sectionId]);
+  setZIndices([sectionId]);
 }

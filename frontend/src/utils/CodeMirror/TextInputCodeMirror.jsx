@@ -14,7 +14,7 @@ import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
 } from "requests/sections";
-import { goToSection } from "state/actions/goToSection";
+import { goToSection } from "state/actions/sections/sectionPositions";
 import { variableClick } from "state/actions/keyActivations";
 import { setWaitingForLSP } from "state/actions/lsp";
 import { useKeywordRegex } from "state/definitions";
