@@ -15,15 +15,21 @@ export function PaneContextMenu() {
   const commonProps = {
     x,
     y,
-    callbackBeforeExit: closeAllContextMenus,
     projectXY: true,
     incrementVersion: true,
   };
 
   function openLoadModal(_modalType) {
     setModalType(_modalType);
-    setModalData(_.omit(commonProps, ["callbackBeforeExit"]));
+    setModalData(commonProps);
     closeAllContextMenus();
+  }
+
+  function getOnClickFn(specificProps) {
+    return () => {
+      onClickAddSection({ ...commonProps, ...specificProps });
+      closeAllContextMenus();
+    };
   }
 
   return (
@@ -33,78 +39,40 @@ export function PaneContextMenu() {
       closeContextMenu={closeAllContextMenus}
       isOpen={isOpen}
     >
-      <Item
-        onClick={() => onClickAddSection({ type: C.SECTION, ...commonProps })}
-      >
-        New Section
-      </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: C.LIST_ROOT, ...commonProps })}
-      >
-        New List
-      </Item>
-      <Item
-        onClick={() => onClickAddSection({ type: C.DICT_ROOT, ...commonProps })}
-      >
-        New Dict
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: C.DECK, ...commonProps })}>
-        New Group
-      </Item>
-      <Item onClick={() => onClickAddSection({ type: C.INFO, ...commonProps })}>
-        New Info
-      </Item>
+      <Item onClick={getOnClickFn({ type: C.SECTION })}>New Section</Item>
+      <Item onClick={getOnClickFn({ type: C.LIST_ROOT })}>New List</Item>
+      <Item onClick={getOnClickFn({ type: C.DICT_ROOT })}>New Dict</Item>
+      <Item onClick={getOnClickFn({ type: C.DECK })}>New Group</Item>
+      <Item onClick={getOnClickFn({ type: C.INFO })}>New Info</Item>
       {!SINGLETON_SECTIONS.globalVariables && (
-        <Item
-          onClick={() =>
-            onClickAddSection({ type: C.GLOBAL_VARIABLES, ...commonProps })
-          }
-        >
+        <Item onClick={getOnClickFn({ type: C.GLOBAL_VARIABLES })}>
           New Global Variables
         </Item>
       )}
       <Item
-        onClick={() =>
-          onClickAddSection({
-            type: C.CODE,
-            ...commonProps,
-            inputSectionProps: { codeLanguage: "python" },
-          })
-        }
+        onClick={getOnClickFn({
+          type: C.CODE,
+          inputSectionProps: { codeLanguage: "python" },
+        })}
       >
         New Python Script
       </Item>
       <Item
-        onClick={() =>
-          onClickAddSection({
-            type: C.CODE,
-            ...commonProps,
-            inputSectionProps: { codeLanguage: "bash" },
-          })
-        }
+        onClick={getOnClickFn({
+          type: C.CODE,
+          inputSectionProps: { codeLanguage: "bash" },
+        })}
       >
         New Bash Script
       </Item>
       {!SINGLETON_SECTIONS.varControl && (
-        <Item
-          onClick={() =>
-            onClickAddSection({ type: C.VAR_CONTROL, ...commonProps })
-          }
-        >
+        <Item onClick={getOnClickFn({ type: C.VAR_CONTROL })}>
           New Variable Control
         </Item>
       )}
-      <Item
-        onClick={() => onClickAddSection({ type: C.TERMINAL, ...commonProps })}
-      >
-        New Terminal
-      </Item>
+      <Item onClick={getOnClickFn({ type: C.TERMINAL })}>New Terminal</Item>
       {!SINGLETON_SECTIONS.globalParamSweep && (
-        <Item
-          onClick={() =>
-            onClickAddSection({ type: C.GLOBAL_PARAM_SWEEP, ...commonProps })
-          }
-        >
+        <Item onClick={getOnClickFn({ type: C.GLOBAL_PARAM_SWEEP })}>
           New Global Param Sweep
         </Item>
       )}

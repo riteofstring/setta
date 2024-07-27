@@ -23,7 +23,6 @@ export function onClickAddSection({
   type,
   x,
   y,
-  callbackBeforeExit,
   projectXY,
   incrementVersion,
   inputSectionProps = {},
@@ -34,7 +33,6 @@ export function onClickAddSection({
 
   return addSectionAtPosition({
     type,
-    callbackBeforeExit,
     incrementVersion,
     inputSectionProps,
     position,
@@ -51,7 +49,6 @@ export function loadSectionIntoState({
   topLevelIds,
   x,
   y,
-  callbackBeforeExit,
   incrementVersion,
 }) {
   const topLevelMapping = {};
@@ -79,10 +76,6 @@ export function loadSectionIntoState({
     });
   }
   addNodes(nodes);
-
-  if (callbackBeforeExit) {
-    callbackBeforeExit();
-  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

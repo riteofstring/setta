@@ -19,13 +19,15 @@ export function SelectionContextMenu() {
     useReactFlow.setState({ nodesSelectionDims: null });
   };
 
-  const onClickProps = {
-    nodeIds,
-    x,
-    y,
-    callbackBeforeExit: closeContextMenu,
-    projectXY: true,
-  };
+  function onClickCreate() {
+    createDeck({
+      nodeIds,
+      x,
+      y,
+      projectXY: true,
+    });
+    closeContextMenu();
+  }
 
   function onClickDelete() {
     deleteSections({ sectionIds: nodeIds, incrementVersion: true });
@@ -39,7 +41,7 @@ export function SelectionContextMenu() {
       isOpen={isOpen}
       closeContextMenu={closeContextMenu}
     >
-      <Item onClick={() => createDeck(onClickProps)}>Create Group</Item>
+      <Item onClick={onClickCreate}>Create Group</Item>
       <Item onClick={onClickDelete}>Delete</Item>
     </ContextMenuCore>
   );
