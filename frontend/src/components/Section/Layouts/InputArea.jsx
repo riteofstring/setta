@@ -1,6 +1,6 @@
 import React from "react";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { ParamGroupContainer } from "../Params/GroupContainer";
+import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
 

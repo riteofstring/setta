@@ -1,5 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import { GetParamSwitch } from "components/Section/Params/GetParamSwitch";
+import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
