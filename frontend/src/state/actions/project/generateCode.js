@@ -34,7 +34,8 @@ export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   return project;
 }
 
-export async function runCode({ codeId }) {
+export async function runCode() {
+  const codeId = createNewId();
   const project = getProjectDataToGenerateCode({ includeEVReferences: false });
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {

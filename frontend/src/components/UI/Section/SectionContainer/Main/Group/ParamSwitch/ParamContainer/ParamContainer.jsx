@@ -69,7 +69,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   ) : (
     <article
       className={`card-arg-group group/arg-group -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1  ${bg} ${border}`}
-      {...infoViewHandlers}
+      {...getInfoViewHandlers(paramInfo.description)}
     >
       {children}
       <div className="card-args-list-nested pb-1 pt-2 [&>article]:!gap-2">
