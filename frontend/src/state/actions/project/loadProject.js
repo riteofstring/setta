@@ -14,7 +14,7 @@ import { setAllSectionInfos } from "../sectionInfos";
 import { setAllUITypeCols } from "../uiTypeCols";
 import { setAllUITypes } from "../uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { setOtherProjectConfigs } from "../otherProjectConfigs";
+import { setOtherProjectConfigs } from "./otherProjectConfigs";
 import { setProject } from "./project";
 import { setProjectConfig } from "./projectConfig";
 
