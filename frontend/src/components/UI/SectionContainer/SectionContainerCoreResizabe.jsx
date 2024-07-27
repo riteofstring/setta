@@ -5,19 +5,19 @@ import { useSectionHasMultipleEVCols } from "state/hooks/sections";
 import { Button } from "utils/atoms/buttons/Button";
 import { CustomResizable } from "utils/Resizable/CustomResizable";
 import { isRoot } from "utils/sectionTypeHelpers";
-import { CodeArea } from "./CodeArea";
+import { CodeArea } from "./Layouts/CodeArea"
 import "./dndline.css";
-import { GlobalParamSweepArea } from "./GlobalParamSweepArea";
-import { GlobalVariablesArea } from "./GlobalVariablesArea";
-import { SectionHeader } from "./Header/SectionHeader";
-import { Incrementer } from "./Incrementer/Incrementer";
-import { InfoArea } from "./InfoArea";
-import { InputArea } from "./InputArea";
-import { VersionList } from "./Main/VersionList/VersionList";
-import { OutputArea } from "./OutputArea";
-import { ParamSweepArea } from "./ParamSweepArea";
-import { SocialArea } from "./SocialArea";
-import { TerminalArea } from "./TerminalArea";
+import { GlobalParamSweepArea } from "./Layouts/GlobalParamSweepArea";
+import { GlobalVariablesArea } from "./Layouts/GlobalVariablesArea";
+import { SectionHeader } from "../Section/SectionContainer/Header/SectionHeader";
+import { Incrementer } from "../Section/SectionContainer/Incrementer/Incrementer";
+import { InfoArea } from "./Layouts/InfoArea";
+import { InputArea } from "./Layouts/InputArea";
+import { VersionList } from "../Section/SectionContainer/Main/VersionList/VersionList";
+import { OutputArea } from "./Layouts/OutputArea";
+import { ParamSweepArea } from "./Layouts/ParamSweepArea";
+import { SocialArea } from "./Layouts/SocialArea";
+import { TerminalArea } from "./Layouts/TerminalArea";
 
 export function SectionContainerCoreResizable({
   sectionId,

@@ -8,7 +8,7 @@ import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
-import { theme } from "./Terminal/TerminalTheme";
+import { theme } from "../../Section/SectionContainer/Terminal/TerminalTheme";
 
 export const TERMINAL_WEBSOCKETS = {};
 export const INITIAL_MESSAGE = {};

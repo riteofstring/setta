@@ -1,8 +1,8 @@
 import React from "react";
 import { useTempHasNested } from "state/hooks/sections";
 import { useIsDeck } from "state/hooks/uiTypes";
-import { ManyNestedSections } from "../NestedSection/ManyNestedSections";
-import { ContainerSwitch } from "./Container/ContainerSwitch";
+import { ManyNestedSections } from "./ManyNestedSections";
+import { ContainerSwitch } from "../Section/SectionContainer/Container/ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
 
 function _SectionContainer({ sectionId, dragListeners }) {
