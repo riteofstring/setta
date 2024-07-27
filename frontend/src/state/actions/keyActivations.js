@@ -85,7 +85,7 @@ export function attachKeyEventListeners() {
     //   cleanup = attachBuiltInListener(condition, action);
     // } else {
     cleanup = attachKeyDownListener((e) => {
-      if (isShortcutPressed(e, lowercaseKeyCombo)) {
+      if (lowercaseKeyCombo && isShortcutPressed(e, lowercaseKeyCombo)) {
         // We don't want to prevent default if the shortcut is just Control or Alt
         // because this would prevent things like Ctrl + R for refreshing the page.
         if (!["mod", "ctrl", "alt"].includes(lowercaseKeyCombo)) {

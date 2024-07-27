@@ -17,14 +17,19 @@ import { useSettings } from "state/definitions";
 
 export function FileMenu() {
   const shortcuts = useSettings((x) =>
-    _.pick(x, ["saveShortcut", "saveAsShortcut", "loadShortcut"]),
+    _.pick(x, [
+      "newProjectShortcut",
+      "saveShortcut",
+      "saveAsShortcut",
+      "loadShortcut",
+    ]),
   );
 
   return (
     <MenuDropdown trigger="File">
       <MenuItem
         onClick={() => createAndGoToProject({})}
-        shortcut="Ctrl + Shift + N"
+        shortcut={shortcuts.newProjectShortcut}
       >
         New Project
       </MenuItem>

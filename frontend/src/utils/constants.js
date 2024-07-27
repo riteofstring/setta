@@ -69,6 +69,10 @@ export const CONST_INFO_VIEWS = {
 };
 
 export const initialShortcuts = {
+  newCardShortcut: "",
+  newGroupShortcut: "",
+  typeCheckShortcut: "",
+  newProjectShortcut: "",
   undoShortcut: "Mod + Z",
   redoShortcut: "Mod + Shift + Z",
   groupShortcut: "Mod + G",
