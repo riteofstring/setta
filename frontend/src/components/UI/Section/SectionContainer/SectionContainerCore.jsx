@@ -1,10 +1,10 @@
 import React from "react";
+import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
   setActiveSectionIds,
 } from "state/actions/sections/activeSections";
-import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
@@ -18,7 +18,7 @@ import {
   useIsSeriesElement,
   useSectionTypeName,
 } from "state/hooks/useSectionType";
-import { toggleVersionsVisible } from "state/hooks/useSectionVersions";
+import { toggleVersionsVisible } from "state/actions/sections/setters";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 

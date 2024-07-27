@@ -112,3 +112,19 @@ export function setSectionSize(sectionId, size) {
 export function setSectionParentId(sectionId, parentId) {
   setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
 }
+
+export function setSectionVersionsHeight({ sectionId, height }) {
+  setSectionInfoAttr({
+    sectionId,
+    attr: "versionsHeight",
+    value: height,
+  });
+}
+
+export function toggleVersionsVisible(sectionId) {
+  setSectionInfoAttr({
+    sectionId,
+    attr: "versionsVisible",
+    newValueFn: (x) => !x,
+  });
+}
