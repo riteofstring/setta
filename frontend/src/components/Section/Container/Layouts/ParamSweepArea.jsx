@@ -18,7 +18,7 @@ import { useMappedSectionDBSource } from "state/hooks/sections";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
-import { ParamUI } from "../../Section/SectionContainer/Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
+import { ParamUI } from "../../Main/Group/ParamSwitch/ParamContainer/ParamUIs/ParamUI";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =

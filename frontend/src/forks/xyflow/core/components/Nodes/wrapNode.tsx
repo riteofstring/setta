@@ -1,5 +1,5 @@
 import cc from "classcat";
-import { SectionContainerNode } from "components/UI/SectionContainer/SectionContainerNode";
+import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import useDrag from "../../hooks/useDrag";
