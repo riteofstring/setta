@@ -68,8 +68,6 @@ export function ParamInput({
         defaultVal={defaultVal}
         onChange={onChange}
         isDisabled={isDisabled}
-        className="nodrag"
-        area="card-value"
       />
       {isText && (
         <>

@@ -64,9 +64,8 @@ export function SectionSearch({ sectionId, initialSelection }) {
         paramInfoId={null}
         value={value}
         onChange={setValue}
-        className="card-search rounded-2xl border border-solid border-setta-100 bg-white py-[.33rem] focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900"
-        variants="[&_.cm-line]:pl-3 [&_.cm-line]:pr-3 [&_.cm-activeLine]:!bg-inherit"
-        classes="px-3"
+        dummyCodeClassName="card-search rounded-2xl border border-solid border-setta-100 bg-white py-[.33rem] focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-3 font-mono text-xs [tab-size:4] [word-break:break-word]"
+        realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] card-search rounded-2xl border border-solid border-setta-100 bg-white py-[.33rem] focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:pl-3 [&_.cm-line]:pr-3 [&_.cm-activeLine]:!bg-inherit"
         singleLine={true}
         onEnter={onEnter}
       />

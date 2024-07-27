@@ -181,12 +181,10 @@ export function TextInputCodeMirror({
   defaultVal,
   onChange,
   onBlur,
-  className,
+  dummyCodeClassName,
+  realCodeClassName,
   singleLine,
   onEnter,
-  classes,
-  variants,
-  area,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -214,7 +212,7 @@ export function TextInputCodeMirror({
         <DummyCodeMirror
           code={value}
           onMouseDown={onMouseDown}
-          className={`${className} nodrag cursor-text select-text break-words ${classes ? classes : "pl-[6px] pr-[2px]"} font-mono text-xs [tab-size:4] [word-break:break-word] ${area}`}
+          className={dummyCodeClassName}
           theme={theme}
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}
@@ -228,7 +226,7 @@ export function TextInputCodeMirror({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          className={`cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] ${className} ${variants ? variants : ""} ${area}`}
+          className={realCodeClassName}
           singleLine={singleLine}
           onEnter={onEnter}
           onBlur={localOnBlur}
@@ -324,7 +322,7 @@ function CoreCodeMirror({
   return (
     <CodeMirror
       id={divId}
-      className={`nodrag [&_*]:!outline-0 ${className} ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{

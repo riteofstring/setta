@@ -11,10 +11,6 @@ export function TextInput({
   defaultVal,
   onChange,
   isDisabled,
-  className,
-  classes,
-  variants,
-  area = "card-value",
 }) {
   return (
     <TextInputCodeMirror
@@ -23,10 +19,8 @@ export function TextInput({
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
-      className="card-value"
-      // variants="bg-white dark:bg-transparent"
-      classes={classes}
-      area={area}
+      dummyCodeClassName="card-value nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
+      realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] card-value"
     />
   );
 }
