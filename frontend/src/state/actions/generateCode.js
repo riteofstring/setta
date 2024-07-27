@@ -18,7 +18,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { getMappedSectionDBSource } from "../getters/sectionInfo";
 import { addSectionInEmptySpace } from "./sections/createSections";
-import { assembleUITypes, getProjectData } from "./save";
+import { assembleUITypes, getProjectData } from "./project/saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   const project = getProjectData();

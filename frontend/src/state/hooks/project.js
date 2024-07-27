@@ -10,7 +10,7 @@ import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { setProjectName } from "state/actions/project";
 import { setProjectConfigName } from "state/actions/projectConfig";
 import { loadProject } from "state/actions/projects";
-import { getProjectData } from "state/actions/save";
+import { getProjectData } from "state/actions/project/saveProject";
 import { useProject } from "state/definitions";
 import {
   NEW_PROJECT,

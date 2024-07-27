@@ -1,20 +1,20 @@
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { REACT_FLOW_STORE, setDbSourceMapping } from "utils/constants";
-import { setAllCodeInfo } from "./codeInfo";
-import { setAllEVCols } from "./evCols";
-import { setNodes } from "./nodeInternals";
-import { setAllOutputGroups } from "./outputGroups";
-import { setAllOutputs } from "./outputs";
-import { setAllParamSweeps } from "./paramSweep";
-import { setProject } from "./project";
-import { setProjectConfig } from "./projectConfig";
-import { setAllRunGroups } from "./runGroups";
-import { updateManyParamsAndCallables } from "./sectionContents";
-import { setAllSectionInfos } from "./sectionInfos";
-import { setAllUITypeCols } from "./uiTypeCols";
-import { setAllUITypes } from "./uiTypes";
-import { maybeIncrementProjectStateVersion } from "./undo";
+import { setAllCodeInfo } from "../codeInfo";
+import { setAllEVCols } from "../evCols";
+import { setNodes } from "../nodeInternals";
+import { setAllOutputGroups } from "../outputGroups";
+import { setAllOutputs } from "../outputs";
+import { setAllParamSweeps } from "../paramSweep";
+import { setProject } from "../project";
+import { setProjectConfig } from "../projectConfig";
+import { setAllRunGroups } from "../runGroups";
+import { updateManyParamsAndCallables } from "../sectionContents";
+import { setAllSectionInfos } from "../sectionInfos";
+import { setAllUITypeCols } from "../uiTypeCols";
+import { setAllUITypes } from "../uiTypes";
+import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function loadProjectState({
   project,

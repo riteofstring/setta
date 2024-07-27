@@ -9,7 +9,7 @@ import { copy } from "./copyPaste/copy";
 import { groupSections } from "./sections/createSections";
 import { focusOnArgsFilter } from "./focusOnArgsFilter";
 import { paste } from "./copyPaste/paste";
-import { saveProject } from "./save";
+import { saveProject } from "./project/saveProject";
 import { redoProjectState, undoProjectState } from "./undo";
 
 function attachKeyDownListener(action) {

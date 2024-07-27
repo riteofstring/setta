@@ -18,10 +18,10 @@ import {
 import { DB_SOURCE_MAPPING } from "utils/constants";
 import { isPreset } from "utils/sectionTypeHelpers";
 import { xnor } from "utils/utils";
-import { getNodes } from "./nodeInternals";
-import { setNotificationMessage } from "./notification";
-import { getProjectMetadata } from "./project";
-import { getProjectConfigMetadata } from "./projectConfig";
+import { getNodes } from "../nodeInternals";
+import { setNotificationMessage } from "../notification";
+import { getProjectMetadata } from "../project";
+import { getProjectConfigMetadata } from "../projectConfig";
 
 export function getProjectData() {
   const project = getProjectMetadata();
