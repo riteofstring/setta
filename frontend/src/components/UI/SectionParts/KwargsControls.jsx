@@ -10,7 +10,7 @@ import {
   computeNewChildrenForRightPush,
   computeNewChildrenForVerticalPush,
   getAllSelectedParams,
-} from "../../../../../../state/actions/kwargs/utils";
+} from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({ sectionId, objInfoId }) {
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);

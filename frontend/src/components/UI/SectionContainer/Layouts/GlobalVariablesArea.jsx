@@ -1,6 +1,6 @@
 import React from "react";
 import { ParamGroupContainer } from "../../Section/SectionContainer/Main/Group/GroupContainer";
-import { KwargsControls } from "../../Section/SectionContainer/Main/KwargsControls/KwargsControls";
+import { KwargsControls } from "../../SectionParts/KwargsControls";
 
 function _GlobalVariablesArea({ sectionId }) {
   return (

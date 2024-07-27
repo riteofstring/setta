@@ -6,7 +6,7 @@ import { useSectionTypeName } from "state/hooks/uiTypes";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardPopover } from "utils/atoms/popover/standardpopover";
 import { isRoot } from "utils/sectionTypeHelpers";
-import { Incrementer } from "../Incrementer/Incrementer";
+import { Incrementer } from "../../../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton/CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
 import { SectionTitle } from "./Title/SectionTitle";
@@ -41,11 +41,6 @@ function _SectionHeader({
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
           />
-
-          {/* <CodeLanguageSelection
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-          /> */}
         </>
       )}
 
