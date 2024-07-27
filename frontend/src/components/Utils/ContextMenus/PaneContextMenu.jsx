@@ -4,8 +4,8 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { setModalData, setModalType } from "state/actions/modal";
 import { onClickAddSection } from "state/actions/sections/createSections";
 import { useContextMenus } from "state/definitions";
-import { DialogDropdownTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
-import { Item } from "utils/atoms/dropdown/item";
+import { DialogDropdownTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
+import { Item } from "components/Utils/atoms/dropdown/item";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 

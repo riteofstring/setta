@@ -2,7 +2,7 @@ import { getInfoViewHandlers } from "state/actions/infoView";
 import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
   constInfoViews,
   PROJECT_ROUTER_PATH,

@@ -1,5 +1,5 @@
-import { StandardAccordion } from "utils/atoms/accordion/accordion";
-import { StandardCollapsible } from "utils/atoms/collapsible/collapsible";
+import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
+import { StandardCollapsible } from "components/Utils/atoms/collapsible/collapsible";
 
 export function Expandable({
   heading,

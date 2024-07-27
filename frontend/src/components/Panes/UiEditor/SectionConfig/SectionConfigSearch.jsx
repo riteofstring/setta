@@ -1,5 +1,5 @@
-import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { checkboxChangeFn, radioChangeFn } from "utils/utils";
 
 export function SectionConfigSearch({

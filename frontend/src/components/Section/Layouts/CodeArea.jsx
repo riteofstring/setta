@@ -6,7 +6,7 @@ import React from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 
 const javascriptExtension = javascript();
 const pythonExtension = python();

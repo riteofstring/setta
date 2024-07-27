@@ -10,8 +10,8 @@ import {
 } from "state/actions/modal";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
-import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
+import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 
 export function FileMenu() {
   return (

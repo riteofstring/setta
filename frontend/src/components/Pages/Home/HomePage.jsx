@@ -10,13 +10,13 @@ import { dbDeleteProjects } from "requests/projects";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetProjectsForHomePage } from "state/hooks/project";
-import { Badge } from "utils/atoms/badges/badge";
-import { IconButton } from "utils/atoms/buttons/IconButton";
-import { StandardButton } from "utils/atoms/buttons/StandardButton";
-import { StandardDropdown } from "utils/atoms/dropdown/dropdown";
-import { Item } from "utils/atoms/dropdown/item";
+import { Badge } from "components/Utils/atoms/badges/badge";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
+import { StandardDropdown } from "components/Utils/atoms/dropdown/dropdown";
+import { Item } from "components/Utils/atoms/dropdown/item";
 import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
-import { GridWrapper } from "utils/Wrappers/GridWrapper";
+import { GridWrapper } from "components/Utils/Wrappers/GridWrapper";
 import "./homepage.css";
 
 export function HomePage() {

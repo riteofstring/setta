@@ -3,7 +3,7 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { undeck } from "state/actions/sections/groupSections";
 import { toggleSectionOrientation } from "state/actions/sections/sectionInfos";
 import { useContextMenus } from "state/definitions";
-import { Item } from "utils/atoms/dropdown/item";
+import { Item } from "components/Utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function DeckContextMenu() {

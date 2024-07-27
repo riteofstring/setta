@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useWindowSize } from "state/hooks/utils";
-import { Button } from "utils/atoms/buttons/Button";
+import { Button } from "components/Utils/atoms/buttons/Button";
 import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 

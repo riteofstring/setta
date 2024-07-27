@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
+import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 
 export function ParamNameInput({
   sectionId,

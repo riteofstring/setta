@@ -9,10 +9,10 @@ import { useCodeInfo } from "state/definitions";
 import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
-import { IconButton } from "utils/atoms/buttons/IconButton";
-import { TextAreaPopover } from "utils/atoms/popover/textareapopover";
-import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
+import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 

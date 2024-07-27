@@ -1,4 +1,4 @@
-import { Toggle } from "utils/atoms/toggles/Toggle";
+import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 
 export function SwitchInputConfig() {
   return null;

@@ -1,7 +1,7 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { createBrowserRouter } from "react-router-dom";
-import { GridContainer } from "utils/atoms/gridContainer/GridContainer";
+import { GridContainer } from "components/Utils/atoms/gridContainer/GridContainer";
 import {
   HOME_ROUTER_PATH,
   PROJECT_ROUTER_PATH,

@@ -14,7 +14,7 @@ import {
 import {
   computeEVReferences,
   computeInfoToFullName,
-} from "utils/CodeMirror/utils";
+} from "components/Utils/CodeMirror/utils";
 import { createNewId } from "utils/idNameCreation";
 import { getMappedSectionDBSource } from "../../getters/sectionInfo";
 import { addSectionInEmptySpace } from "../sections/createSections";

@@ -4,7 +4,7 @@ import {
   useEditableProjectName,
 } from "state/hooks/project";
 import { constInfoViews } from "utils/constants";
-import { Editable } from "utils/Editable/Editable";
+import { Editable } from "components/Utils/Editable/Editable";
 
 const editing =
   "flex-1 box-border border-solid border-transparent bg-transparent px-1 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";

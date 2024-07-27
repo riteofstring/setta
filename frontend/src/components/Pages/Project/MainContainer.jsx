@@ -1,5 +1,5 @@
 import { useLoadProject } from "state/hooks/project";
-import { GridWrapper } from "utils/Wrappers/GridWrapper";
+import { GridWrapper } from "components/Utils/Wrappers/GridWrapper";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { UIPage } from "./UiPage";
