@@ -3,7 +3,7 @@ import {
   useEditableProjectConfigName,
   useEditableProjectName,
 } from "state/hooks/project";
-import { constInfoViews } from "utils/constants";
+import { CONST_INFO_VIEWS } from "utils/constants";
 import { Editable } from "components/Utils/Editable";
 
 const editing =
@@ -16,7 +16,7 @@ export function ProjectName() {
   return (
     <header
       className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
-      {...getInfoViewHandlers(constInfoViews.OVERVIEW_PROJNAME)}
+      {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_PROJNAME)}
     >
       <ProjectNameOnly />
       <ProjectConfigNameOnly />

@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import React from "react";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetSectionType } from "state/hooks/uiTypes";
-import { constInfoViews } from "utils/constants";
+import { CONST_INFO_VIEWS } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
 import { OutputsSearch } from "./OutputSearch";
@@ -23,7 +23,7 @@ function SectionConfigCore({ sectionId }) {
         <p
           className="mt-2 text-xs font-semibold uppercase text-setta-400"
           {...getInfoViewHandlers(
-            constInfoViews.SECTIONCONFIG_CARDTYPES_SEARCH,
+            CONST_INFO_VIEWS.SECTIONCONFIG_CARDTYPES_SEARCH,
           )}
         >
           Card Types
@@ -35,7 +35,7 @@ function SectionConfigCore({ sectionId }) {
 
       <p
         className="mt-4 text-xs font-semibold uppercase text-setta-400"
-        {...getInfoViewHandlers(constInfoViews.SECTIONCONFIG_CONTENTS_SEARCH)}
+        {...getInfoViewHandlers(CONST_INFO_VIEWS.SECTIONCONFIG_CONTENTS_SEARCH)}
       >
         Contents
       </p>

@@ -4,7 +4,7 @@ import { useHomePageSearch } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
-  constInfoViews,
+  CONST_INFO_VIEWS,
   PROJECT_ROUTER_PATH,
   HOME_ROUTER_PATH,
 } from "utils/constants";
@@ -46,7 +46,7 @@ function ProjectPageSearch() {
       placeholder="Search Project"
       value={value}
       onChange={onChange}
-      {...getInfoViewHandlers(constInfoViews.NAVBAR_SEARCH)}
+      {...getInfoViewHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
     />
   );
 }

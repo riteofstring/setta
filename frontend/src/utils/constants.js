@@ -55,7 +55,7 @@ export function globalConstInit() {
   }
 }
 
-export const constInfoViews = {
+export const CONST_INFO_VIEWS = {
   OVERVIEW: "Click on a section name to pan to it.",
   NAVBAR_SEARCH: "Search your entire project from one location.",
   BUTTON_GENERATE: "Generate command to run your project.",

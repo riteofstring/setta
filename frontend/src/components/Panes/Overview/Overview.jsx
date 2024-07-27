@@ -8,7 +8,7 @@ import { localStorageFns } from "state/hooks/localStorage";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { constInfoViews, OVERVIEW } from "utils/constants";
+import { CONST_INFO_VIEWS, OVERVIEW } from "utils/constants";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { InfoView } from "./InfoView";
 import { ProjectConfigs } from "./ProjectConfigs";
@@ -102,13 +102,13 @@ const ProjectOverview = React.forwardRef(() => {
         }
         onChange={(e) => setFilter(e.target.value)}
         aria-label="Overview Search"
-        {...getInfoViewHandlers(constInfoViews.OVERVIEW_SEARCH)}
+        {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_SEARCH)}
       />
 
       <ScrollingArea styles="flex-grow min-h-0">
         <ul
           className="min-h-0 flex-grow"
-          {...getInfoViewHandlers(constInfoViews.OVERVIEW)}
+          {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW)}
         >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
