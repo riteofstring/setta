@@ -43,11 +43,11 @@ export const BASE_UI_TYPE_IDS = {};
 export function globalConstInit() {
   const DEV_MODE = import.meta.env.DEV;
   if (DEV_MODE) {
-    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
+    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
+    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
   } else {
-    URLS.BACKEND = `http://${location.host}`;
-    URLS.WEBSOCKET = `ws://${location.host}`;
+    URLS.BACKEND = `http://${location.host}${C.ROUTE_PREFIX}`;
+    URLS.WEBSOCKET = `ws://${location.host}${C.ROUTE_PREFIX}`;
   }
 
   for (const [k, v] of Object.entries(BASE_UI_TYPES)) {
