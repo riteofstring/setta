@@ -18,6 +18,8 @@ export function KwargParam(props) {
     });
   };
 
+  const hasChildren = kwargInfo.children.length > 0;
+
   return (
     <>
       <IconButton
@@ -34,9 +36,12 @@ export function KwargParam(props) {
           sectionId={sectionId}
           paramInfoId={kwargInfo.id}
           value={kwargInfo.name}
-          hasChildren={kwargInfo.children.length > 0}
+          hasChildren={hasChildren}
           onBlur={onBlur}
           onClick={props.onNameClick}
+        />
+        <span
+          className={`${hasChildren ? "card-value-full" : "card-key"} border-box self-end border-b border-setta-300 peer-focus-within:border-blue-400 dark:border-setta-700`}
         />
       </ParamContainer>
     </>
