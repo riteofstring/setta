@@ -11,8 +11,8 @@ function _TerminalArea({ sectionId }) {
   return (
     <div
       ref={terminalRef}
-      className="nodrag nowheel card-terminal"
-      style={{ width: `${width - 48}px`, height: `${height - 64}px` }}
+      className="nodrag nowheel section-row-search-gutter section-key-value"
+      style={{ width: `${width - 24}px`, height: `${height - 32}px` }}
     />
   );
 }

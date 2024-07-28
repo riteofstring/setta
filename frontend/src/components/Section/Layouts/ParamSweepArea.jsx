@@ -1,3 +1,6 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
@@ -15,10 +18,6 @@ import { useCodeInfo, useEVCols } from "state/definitions";
 import { useGetEVColNames } from "state/hooks/ev";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import { ParamUI } from "../../Params/ParamUIs/ParamUI";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -45,7 +44,7 @@ function FilterSection() {
   // bg-gradient-to-t from-setta-50
   return (
     <>
-      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
+      <search className="section-args flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-3 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
         <StandardSearch
           leftElement={<BiFilter className="text-setta-400" />}
           placeholder="Filter"
@@ -61,7 +60,7 @@ function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
   const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.evColId);
 
   return (
-    <section className="card-sweep-list overflow-y-auto overflow-x-clip">
+    <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
       {paramSweep.map((x, idx) => (
         <ArgItem
           key={idx}
@@ -118,10 +117,11 @@ function ArgItem({
       changeParamSweepParamInfoId({ paramSweepId, idx, evColId: v });
     }
   }
+  // <article className="nodrag nowheel section-key-value auto-rows-min grid grid-cols-subgrid py-1">
 
   return (
-    <article className="nodrag nowheel card-sweep-group py-1">
-      <div className="col-start-2 col-end-6 flex min-w-0 items-center">
+    <>
+      <div className="section-key-value mt-1 flex min-w-0 items-center">
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
@@ -153,7 +153,7 @@ function ArgItem({
           />
         ))
       ) : (
-        <div className="col-start-2 col-end-6 grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-setta-100 px-4 py-3 dark:bg-setta-850">
+        <div className="section-key-value min-h-auto grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-setta-100 px-4 py-3 dark:bg-setta-850">
           <p className="col-start-1 text-xs font-bold text-setta-300 dark:text-setta-600">
             Name
           </p>
@@ -168,7 +168,7 @@ function ArgItem({
           />
         </div>
       )}
-    </article>
+    </>
   );
 }
 
@@ -218,15 +218,13 @@ function PlaceholderArgItem({
   }
 
   return (
-    <div className="col-start-2 col-end-6 flex items-center">
-      <ParamCombobox
-        objInfoId={objInfoId}
-        paramInfoId={null}
-        onSelectedItemChange={onSelectedItemChange}
-        alreadySelected={alreadySelected}
-        forSectionId={forSectionId}
-      />
-    </div>
+    <ParamCombobox
+      objInfoId={objInfoId}
+      paramInfoId={null}
+      onSelectedItemChange={onSelectedItemChange}
+      alreadySelected={alreadySelected}
+      forSectionId={forSectionId}
+    />
   );
 }
 
@@ -263,6 +261,8 @@ function ParamCombobox({
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
+      outerDivClasses="section-key-value justify-center"
+      small={true}
     />
   );
 }
@@ -274,22 +274,19 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         icon={<IoClose />}
         bg="bg-transparent"
         color="text-setta-400 hover:text-setta-600 dark:hover:text-setta-200"
-        twClasses="card-close-arg-group place-self-center ml-1"
+        twClasses="section-left-gutter place-self-center ml-1"
         padding=""
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="card-arg-group group/arg-group group/textinput -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
-        <ParamUI
+      <article className="section-key-value group/arg-group group/textinput row rem] -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
+        <ParamSweepUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}
           value={value}
           onChange={onChange}
           className="nodrag"
-          area="card-value-full"
         />
-        <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
-        <span className="card-value-full border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
       </article>
     </>
   );

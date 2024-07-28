@@ -58,26 +58,15 @@ export function ParamInput({
   }, [enteredValue]);
 
   return (
-    <div
-      className={`group/textinput contents ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""}`}
-    >
-      <ParamUI
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        value={value}
-        defaultVal={defaultVal}
-        onChange={onChange}
-        isDisabled={isDisabled}
-        className="nodrag"
-        area="card-value"
-      />
-      {isText && (
-        <>
-          <LoadingSpinner sectionId={sectionId} paramInfoId={paramInfoId} />
-          <span className="card-value border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
-        </>
-      )}
-    </div>
+    <ParamUI
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      isDisabled={isDisabled}
+      maybeErrorMessage={maybeErrorMessage}
+    />
   );
 }
 
@@ -85,7 +74,7 @@ function LoadingSpinner({ sectionId, paramInfoId }) {
   const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
   return (
     waitingForResult && (
-      <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
+      <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
     )
   );
 }

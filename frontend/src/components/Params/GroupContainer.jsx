@@ -10,16 +10,9 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
 
-  // border-b border-solid border-setta-100
   return (
-    // <ScrollingArea
-    //   styles={`card-args-list py-1 ${noWheel} ${
-    //     hasVersions ? "last:[&>div]:mb-12" : ""
-    //   }`}
-    //   ref={ref}
-    // >
     <div
-      className={`card-args-list py-1 ${overflow ? "nowheel overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""}`}
+      className={`section-args-list section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 py-1 ${overflow ? "nowheel overflow-x-clip overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""} min-w-0 !max-w-full`}
       ref={ref}
     >
       <GetParams

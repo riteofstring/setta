@@ -9,21 +9,20 @@ export function SwitchInput({
   defaultVal,
   onChange,
   isDisabled,
-  className,
-  area = "card-value",
+  outerDivClassName,
+  twRootClasses,
+  twThumbClasses,
 }) {
   const valueBool = value === "true";
 
   return (
-    <div
-      className={`${area} flex ${area ? "place-self-center" : "justify-end"}`}
-    >
+    <div className={outerDivClassName}>
       <Toggle
         checked={valueBool}
         disabled={isDisabled}
         onCheckedChange={onChange}
-        twRootClasses={`SwitchRoot ${className}`}
-        twThumbClasses="SwitchThumb"
+        twRootClasses={twRootClasses}
+        twThumbClasses={twThumbClasses}
       />
     </div>
   );

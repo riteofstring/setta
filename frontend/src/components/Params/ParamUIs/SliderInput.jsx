@@ -77,13 +77,16 @@ export function SliderInput({
   max,
   step,
   isDisabled,
-  area = "card-value",
+  sliderRootClassName,
+  sliderTrackClassName,
+  sliderRangeClassName,
+  sliderThumbClassName,
 }) {
   const valueNum = _.toNumber(value);
 
   return (
     <Slider.Root
-      className={`${area} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-40 touch-none select-none items-center data-[orientation='horizontal']:h-5`}
+      className={sliderRootClassName}
       aria-label="slider"
       value={[valueNum]}
       defaultValue={[defaultVal]}
@@ -93,13 +96,10 @@ export function SliderInput({
       disabled={isDisabled}
       onValueChange={(v) => onChange(v[0])}
     >
-      <Slider.Track className="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700">
-        <Slider.Range className="absolute h-full rounded-full bg-blue-500" />
+      <Slider.Track className={sliderTrackClassName}>
+        <Slider.Range className={sliderRangeClassName} />
       </Slider.Track>
-      <Slider.Thumb
-        className="block h-3 w-3 cursor-pointer
-      rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600"
-      />
+      <Slider.Thumb className={sliderThumbClassName} />
     </Slider.Root>
   );
 }
