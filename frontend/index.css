@@ -3,6 +3,89 @@
 @tailwind utilities;
 
 @layer utilities {
+  .section-title {
+    grid-area: title;
+    /* grid-column: key / value; */
+  }
+  .section-search {
+    grid-area: search;
+  }
+  .section-args {
+    grid-area: args;
+  }
+  .section-key {
+    grid-column: key / key;
+    grid-row: 1 / 2;
+  }
+  .section-value {
+    grid-column: value / value;
+    grid-row: 1 / 2;
+  }
+  .section-key-value {
+    grid-column: key / value;
+  }
+  .section-w-full {
+    grid-column: left-gutter / right-gutter;
+  }
+
+  .section-row-search-gutter {
+    grid-row: search / left-gutter;
+  }
+
+  .section-full {
+    grid-row: title / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
+  .section-full-no-title {
+    grid-row: search / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
+
+  .section-min-rows {
+    grid-auto-rows: min-content;
+  }
+
+  .section-main {
+    grid-row: search / left-gutter;
+    grid-column: key / value;
+  }
+  .section-row-main {
+    grid-row: left-gutter;
+  }
+
+  .section-left-gutter {
+    grid-column: left-gutter / span 1;
+  }
+
+  .section-bottom-gutter {
+    grid-row: bottom-gutter;
+  }
+
+  .grid-row-reset {
+    grid-row-start: -1;
+  }
+
+  .grid-row-start-1 {
+    grid-row-start: 1;
+  }
+
+  .single-row {
+    grid-template-rows: 1fr;
+  }
+  .single-row-area {
+    grid-row: 1 / 2;
+  }
+
+  .single-cell-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+  }
+
+  .single-cell-child {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+  }
 }
 
 button,
@@ -124,93 +207,7 @@ body {
 }
 
 /* utility classes */
-.section-title {
-  grid-area: title;
-  /* grid-column: key / value; */
-}
-.section-search {
-  grid-area: search;
-}
-.section-args {
-  grid-area: args;
-}
-.section-key {
-  grid-column: key / key;
-  grid-row: 1 / 2;
-}
-.section-value {
-  grid-column: value / value;
-  grid-row: 1 / 2;
-}
-.section-key-value {
-  grid-column: key / value;
-}
-.section-w-full {
-  grid-column: left-gutter / right-gutter;
-}
 
-.section-row-search-gutter {
-  grid-row: search / left-gutter;
-}
-
-.section-full {
-  grid-row: title / left-gutter;
-  grid-column: left-gutter / right-gutter;
-}
-.section-full-no-title {
-  grid-row: search / left-gutter;
-  grid-column: left-gutter / right-gutter;
-}
-
-.section-min-rows {
-  grid-auto-rows: min-content;
-}
-
-/* .section-parent-template {
-  grid-template-rows: 1.5rem min-content;
-} */
-
-.section-main {
-  grid-row: search / left-gutter;
-  grid-column: key / value;
-}
-.section-row-main {
-  grid-row: left-gutter;
-}
-
-.section-left-gutter {
-  grid-column: left-gutter / span 1;
-}
-
-.section-bottom-gutter {
-  grid-row: bottom-gutter;
-}
-
-.grid-row-reset {
-  grid-row-start: -1;
-}
-
-.grid-row-start-1 {
-  grid-row-start: 1;
-}
-
-.single-row {
-  grid-template-rows: 1fr;
-}
-.single-row-area {
-  grid-row: 1 / 2;
-}
-
-.single-cell-container {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr;
-}
-
-.single-cell-child {
-  grid-column: 1 / 2;
-  grid-row: 1 / 2;
-}
 /* utility classes */
 
 .section-args-nested {

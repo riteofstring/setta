@@ -6,13 +6,14 @@ import { UIPage } from "./UiPage";
 
 export function MainContainer() {
   return (
-    <LoadingSpinner>
+    <>
+      <LoadingSpinner />
       <Overview />
       <UiEditor />
       <GridWrapper>
         <UIPage />
       </GridWrapper>
-    </LoadingSpinner>
+    </>
   );
 }
 
@@ -20,9 +21,9 @@ function LoadingSpinner({ children }) {
   const doneLoading = useLoadProject();
 
   return !doneLoading ? (
-    <div className="relative h-full w-full">
+    <div className="single-cell-container absolute h-full w-full">
       <div
-        className={`absolute inset-0 block flex items-center justify-center bg-black bg-opacity-50`}
+        className={`single-cell-child inset-0 place-self-center bg-transparent bg-opacity-50`}
       >
         <div className="loader h-16 w-16 animate-spin rounded-full border-t-4 border-solid border-blue-500"></div>
       </div>
