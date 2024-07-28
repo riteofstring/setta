@@ -130,5 +130,5 @@ export const projectPreviewImgColors = [
 ];
 
 export const HOME_ROUTER_PATH = "/";
-export const PROJECT_ROUTER_PATH = "/:projectName/:configName";
+export const PROJECT_ROUTER_PATH = "/:projectName";
 export const SETTINGS_ROUTER_PATH = "/settings";

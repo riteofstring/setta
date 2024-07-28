@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { post, pseudoTemplatedStr } from "./utils";
+import { post } from "./utils";
 
 export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
   return await post({
@@ -15,20 +15,10 @@ export async function dbGetProjectsForHomePage() {
   });
 }
 
-export async function dbLoadProject({ projectName, configName }) {
+export async function dbLoadFullProject() {
   return await post({
     body: {},
-    address: pseudoTemplatedStr(C.ROUTE_LOAD_PROJECT, {
-      projectName,
-      configName,
-    }),
-  });
-}
-
-export async function dbLoadFullProject({ projectName }) {
-  return await post({
-    body: {},
-    address: pseudoTemplatedStr(C.ROUTE_LOAD_FULL_PROJCT, { projectName }),
+    address: C.ROUTE_LOAD_FULL_PROJECT,
   });
 }
 

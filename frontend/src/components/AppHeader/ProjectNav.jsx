@@ -14,11 +14,10 @@ export function ProjectNav() {
 }
 
 function ProjectNavSwitch() {
-  const { projectName, configName } = useParams();
+  const { projectName } = useParams();
 
   return (
-    projectName &&
-    configName && (
+    projectName && (
       <div className="ml-4 flex gap-1">
         <Menubar.Root className="contents">
           <FileMenu />

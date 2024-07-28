@@ -24,18 +24,7 @@ def load_all_projects(dbs):
     return [dict(row) for row in db.fetchall()]
 
 
-def load_project_metadata(dbs, project_name):
-    db = dbs.default
-    query = """
-        SELECT * FROM Project
-        WHERE name = :name
-    """
-    query_params = {"name": project_name}
-    db.execute(query, query_params)
-    return dict(db.fetchone())
-
-
-def load_project_config_metadata(dbs, project_id, config_name):
+def load_project_config_metadata(dbs, config_name):
     db = dbs.default
     query = """
         SELECT
@@ -55,12 +44,10 @@ def load_project_config_metadata(dbs, project_id, config_name):
         ON
             ProjectConfig.id = ProjectConfigChildren.parentId
         WHERE
-            ProjectConfig.projectId = :projectId
-        AND
             name = :name
     """
 
-    query_params = {"projectId": project_id, "name": config_name}
+    query_params = { "name": config_name}
     db.execute(query, query_params)
     out = aggregate_results(
         db.fetchall(), "id", ["childId", "childX", "childY", "childZIndex"]
@@ -85,9 +72,8 @@ def load_project_config_metadata(dbs, project_id, config_name):
     }
 
 
-def load_project(dbs, project_name, config_name):
-    project = load_project_metadata(dbs, project_name)
-    projectConfig = load_project_config_metadata(dbs, project["id"], config_name)
+def load_project(dbs, project_name):
+    projectConfig = load_project_config_metadata(dbs, project_name)
     runGroups = load_run_groups(dbs, projectConfig["id"])
     sections_data = load_sections(dbs, list(projectConfig["children"].keys()))
     sections = sections_data["sections"]
@@ -98,7 +84,6 @@ def load_project(dbs, project_name, config_name):
     codeInfo = load_code_info_for_sections(dbs, uiTypes)
 
     return {
-        "project": project,
         "projectConfig": projectConfig,
         "sections": sections,
         "evCols": evCols,
@@ -113,29 +98,20 @@ def load_project(dbs, project_name, config_name):
     }
 
 
-def load_full_project(dbs, project_name):
+def load_full_project(dbs):
     query = """
         SELECT
-            ProjectConfig.name as configName
+            name
         FROM
             ProjectConfig
-        JOIN
-            Project
-        ON
-            ProjectConfig.projectId = Project.id
-        WHERE
-            Project.name = :projectName
     """
     db = dbs.default
-    db.execute(query, {"projectName": project_name})
+    db.execute(query)
 
     config_names = [r[0] for r in db.fetchall()]
     configs = []
-    project = None
     for c in config_names:
-        p = load_project(dbs, project_name, c)
-        project = p.pop("project")
+        p = load_project(dbs, c)
         configs.append(p)
 
-    output = {**project, "configs": configs}
-    return output
+    return configs

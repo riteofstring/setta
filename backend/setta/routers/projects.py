@@ -66,16 +66,11 @@ def route_projects(dbs=Depends(get_dbs)):
         return load_all_projects(dbs)
 
 
-@router.post(C.ROUTE_LOAD_PROJECT)
-def route_load_project(projectName, configName, dbs=Depends(get_dbs)):
-    with dbs:
-        return load_project(dbs, projectName, configName)
 
-
-@router.post(C.ROUTE_LOAD_FULL_PROJCT)
-def route_load_full_project(projectName, dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_LOAD_FULL_PROJECT)
+def route_load_full_project(dbs=Depends(get_dbs)):
     with dbs:
-        return load_full_project(dbs, projectName)
+        return load_full_project(dbs)
 
 
 @router.post(C.ROUTE_SAVE_PROJECT)

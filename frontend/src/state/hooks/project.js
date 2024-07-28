@@ -60,7 +60,7 @@ export function useExportProjectJson() {
 }
 
 export function useLoadProject() {
-  const { projectName, configName } = useParams();
+  const { projectName } = useParams();
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
@@ -68,10 +68,7 @@ export function useLoadProject() {
   useEffect(() => {
     async function loadAllProjectData() {
       setDoneLoading(false);
-      const res = await loadProject({
-        projectName,
-        configName,
-      });
+      const res = await loadProject({ projectName });
       setDoneLoading(res);
     }
 
@@ -92,7 +89,7 @@ export function useLoadProject() {
     }
 
     setCurrProjectIsInteractive(projectName);
-  }, [projectName, configName]);
+  }, [projectName]);
 
   return doneLoading;
 }

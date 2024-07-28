@@ -1,3 +1,5 @@
+import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
+import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { dbCreateProject, dbLoadFullProject } from "requests/projects";
@@ -6,8 +8,6 @@ import {
   REACT_FLOW_STORE,
   setDbSourceMapping,
 } from "utils/constants";
-import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
-import { router } from "components/Pages/router";
 import { setAllCodeInfo } from "../codeInfo";
 import { setAllEVCols } from "../evCols";
 import { setNodes } from "../nodeInternals";
@@ -21,25 +21,21 @@ import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
 import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setOtherProjectConfigs } from "./otherProjectConfigs";
-import { setProject } from "./project";
 import { setProjectConfig } from "./projectConfig";
 
-export async function loadProject({ projectName, configName }) {
-  const res = await dbLoadFullProject({ projectName });
+export async function loadProject({ projectName }) {
+  const res = await dbLoadFullProject();
+  console.log("loadProject", res)
   if (res.status === 200) {
-    const projectConfig = res.data.configs.find(
-      (x) => x.projectConfig.name === configName,
+    const projectConfig = res.data.find(
+      (x) => x.projectConfig.name === projectName,
     ).projectConfig;
     const configsMerged = _.merge(
       {},
-      ...res.data.configs.map((x) => _.omit(x, ["projectConfig"])),
+      ...res.data.map((x) => _.omit(x, ["projectConfig"])),
     );
-    const projectState = {
-      project: _.omit(res.data, ["configs"]),
-      projectConfig,
-      ...configsMerged,
-    };
-    setOtherProjectConfigs(res.data.configs.map((x) => x.projectConfig));
+    const projectState = { projectConfig, ...configsMerged };
+    setOtherProjectConfigs(res.data.map((x) => x.projectConfig));
     return loadProjectState(projectState);
   } else {
     return false;
@@ -47,7 +43,6 @@ export async function loadProject({ projectName, configName }) {
 }
 
 export function loadProjectState({
-  project,
   projectConfig,
   codeInfo,
   sections,
@@ -62,9 +57,6 @@ export function loadProjectState({
 }) {
   setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
-  if (project) {
-    setProject(project);
-  }
   setProjectConfig(_.omit(projectConfig, ["viewport", "children"]));
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   setNodes(
