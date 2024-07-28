@@ -11,7 +11,7 @@ import {
 } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ResizableVersionsList } from "components/Utils/Resizable/ResizableVersionsList";
+import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
 
 export function VersionList({ sectionId, sectionTypeName }) {
   function onMouseLeave() {

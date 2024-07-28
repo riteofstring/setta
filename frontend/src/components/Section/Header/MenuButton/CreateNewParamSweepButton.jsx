@@ -1,5 +1,5 @@
 import { setModalData, setModalType } from "state/actions/modal";
-import { DialogMenuBarTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
+import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 
 export function CreateNewParamSweepButton({ sectionId }) {
   function openModal() {

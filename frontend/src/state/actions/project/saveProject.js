@@ -20,12 +20,14 @@ import { isPreset } from "utils/sectionTypeHelpers";
 import { xnor } from "utils/utils";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
+import { getProjectMetadata } from "./project";
 import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData() {
+  const project = getProjectMetadata();
+  project.previewImgNodes = getPreviewImgNodes();
   const projectConfig = getProjectConfigMetadata();
   projectConfig.viewport = getViewport();
-  projectConfig.previewImgNodes = getPreviewImgNodes();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {
     children[c.id] = { x: c.position.x, y: c.position.y, zIndex: c.zIndex };
@@ -49,6 +51,7 @@ export function getProjectData() {
   const codeInfo = useCodeInfo.getState().x;
 
   const output = {
+    project,
     projectConfig,
     evCols,
     uiTypes,
@@ -59,6 +62,7 @@ export function getProjectData() {
     codeInfo,
     dbSourceMapping: DB_SOURCE_MAPPING,
   };
+  // console.log(output);
 
   return output;
 }

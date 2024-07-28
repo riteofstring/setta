@@ -69,3 +69,8 @@ def remap_ids(x):
     id_map = create_id_map(old_ids)
     new_ids = rename_keys(x, id_map)
     return new_ids, id_map
+
+
+def convert_to_backend_format(p):
+    p_metadata = p.pop("project")
+    return {**p_metadata, "configs": [{**p}]}

@@ -15,10 +15,10 @@ import { useCodeInfo, useEVCols } from "state/definitions";
 import { useGetEVColNames } from "state/hooks/ev";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import { ParamUI } from "../../Params/ParamUIs/ParamUI";
+import { IconButton } from "utils/atoms/buttons/IconButton";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
+import { ParamSweepUI } from "../../Params/ParamUIs/ParamUI";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -45,7 +45,7 @@ function FilterSection() {
   // bg-gradient-to-t from-setta-50
   return (
     <>
-      <search className="card-args-control flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-6 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
+      <search className="section-argsflex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-2 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
         <StandardSearch
           leftElement={<BiFilter className="text-setta-400" />}
           placeholder="Filter"
@@ -279,17 +279,14 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="card-arg-group group/arg-group group/textinput -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
-        <ParamUI
+      <article className="section-key-value single-row group/arg-group group/textinput row -mx-2 -my-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 py-1">
+        <ParamSweepUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}
           value={value}
           onChange={onChange}
           className="nodrag"
-          area="card-value-full"
         />
-        <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
-        <span className="card-value-full border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
       </article>
     </>
   );
