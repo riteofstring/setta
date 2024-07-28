@@ -87,3 +87,11 @@ export function pauseTemporal() {
     }
   }
 }
+
+export function versionMiddleware(fn) {
+  return (set, get, store) => {
+    store.version = 0;
+    console.log("versionMiddleware", store)
+    return initializer(set, get, store);
+  };
+}
