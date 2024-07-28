@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useSectionInfos } from "state/definitions";
+import React from "react";
 import { useGetParamInfos } from "state/hooks/sectionContents";
 import { useSectionHasMultipleEVCols } from "state/hooks/sections";
+import { useOverflow } from "state/hooks/sectionSizes";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { GetParamSwitch } from "./GetParamSwitch";
 
@@ -45,35 +45,3 @@ function GetParams({ sectionId, objInfoId, setDidUpdate }) {
 }
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
-
-function useOverflow(sectionId) {
-  const ref = useRef();
-  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
-  const [didUpdate, setDidUpdate] = useState(false);
-  const [overflow, setOverflow] = useState(false);
-
-  // Add overflow whenever resizing.
-  // Add the end of resizing, compare scrollHeight to clientHeight and remove overflow if scrollHeight <= clientHeight
-  useEffect(() => {
-    if (resizeEvent === "start") {
-      setOverflow(true);
-    } else if (resizeEvent === "end") {
-      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
-    }
-  }, [resizeEvent]);
-
-  // If params update (didUpdate goes from false->true), overflow may be needed. So set overflow to true
-  // Then set didUpdate to false.
-  // Then detect didUpdate going from true->false and check if overflow is actually needed
-  // TODO: find better way to do this?
-  useEffect(() => {
-    if (didUpdate) {
-      setOverflow(true);
-      setDidUpdate(false);
-    } else {
-      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
-    }
-  }, [didUpdate]);
-
-  return { overflow, ref, setDidUpdate };
-}

@@ -43,11 +43,11 @@ export const BASE_UI_TYPE_IDS = {};
 export function globalConstInit() {
   const DEV_MODE = import.meta.env.DEV;
   if (DEV_MODE) {
-    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
+    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
+    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
   } else {
-    URLS.BACKEND = `http://${location.host}`;
-    URLS.WEBSOCKET = `ws://${location.host}`;
+    URLS.BACKEND = `http://${location.host}${C.ROUTE_PREFIX}`;
+    URLS.WEBSOCKET = `ws://${location.host}${C.ROUTE_PREFIX}`;
   }
 
   for (const [k, v] of Object.entries(BASE_UI_TYPES)) {
@@ -55,7 +55,7 @@ export function globalConstInit() {
   }
 }
 
-export const constInfoViews = {
+export const CONST_INFO_VIEWS = {
   OVERVIEW: "Click on a section name to pan to it.",
   NAVBAR_SEARCH: "Search your entire project from one location.",
   BUTTON_GENERATE: "Generate command to run your project.",
@@ -69,18 +69,22 @@ export const constInfoViews = {
 };
 
 export const initialShortcuts = {
-  undoShortcut: "mod+z",
-  redoShortcut: "mod+shift+z",
-  groupShortcut: "mod+g",
-  saveShortcut: "mod+s",
-  saveAsShortcut: "mod+shift+s",
-  loadShortcut: "mod+l",
-  focusOnArgsFilterShortcut: "mod+k",
-  resetZoomShortcut: "mod+,",
-  copyShortcut: "mod+c",
-  pasteShortcut: "mod+v",
-  sortingShortcut: "mod",
-  movingFreeShortcut: "alt",
+  newCardShortcut: "",
+  newGroupShortcut: "",
+  typeCheckShortcut: "",
+  newProjectShortcut: "",
+  undoShortcut: "Mod + Z",
+  redoShortcut: "Mod + Shift + Z",
+  groupShortcut: "Mod + G",
+  saveShortcut: "Mod + S",
+  saveAsShortcut: "Mod + Shift + S",
+  loadShortcut: "Mod + L",
+  focusOnArgsFilterShortcut: "Mod + K",
+  resetZoomShortcut: "Mod + ,",
+  copyShortcut: "Mod + C",
+  pasteShortcut: "Mod + V",
+  sortingShortcut: "Mod",
+  movingFreeShortcut: "Alt",
 };
 
 export const jsonSettings = {
@@ -126,5 +130,5 @@ export const projectPreviewImgColors = [
 ];
 
 export const HOME_ROUTER_PATH = "/";
-export const PROJECT_ROUTER_PATH = ":projectName/:configName";
-export const SETTINGS_ROUTER_PATH = "settings";
+export const PROJECT_ROUTER_PATH = "/:projectName/:configName";
+export const SETTINGS_ROUTER_PATH = "/settings";
