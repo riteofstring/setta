@@ -21,20 +21,9 @@ import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setProjectConfig } from "./projectConfig";
 
-export async function loadProject({ projectConfigName }) {
+export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
-  console.log("loadProject", res);
   if (res.status === 200) {
-    // const projectConfig = res.data.find(
-    //   (x) => x.projectConfig.name === projectConfigName,
-    // ).projectConfig;
-    // const configsMerged = _.merge(
-    //   {},
-    //   ...res.data.map((x) => _.omit(x, ["projectConfig"])),
-    // );
-    // const projectState = { projectConfig, ...configsMerged };
-    // setOtherProjectConfigs(res.data.map((x) => x.projectConfig));
-    console.log(res.data);
     return loadProjectState(res.data);
   } else {
     return false;
