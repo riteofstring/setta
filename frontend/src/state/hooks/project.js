@@ -135,3 +135,9 @@ export function useDefaultConfigAddress(project) {
   const configId = project.defaultConfigId;
   return useConfigAddress({ project, configId });
 }
+
+export function useProjectNameIsLoading() {
+  const projectNameLoading = useProject((x) => x.isLoading);
+  const projectConfigNameLoading = useProjectConfig((x) => x.isLoading);
+  return projectNameLoading || projectConfigNameLoading;
+}

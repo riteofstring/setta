@@ -1,9 +1,9 @@
 import { Editable } from "components/Utils/Editable";
 import { getInfoViewHandlers } from "state/actions/infoView";
-import { useProject, useProjectConfig } from "state/definitions";
 import {
   useEditableProjectConfigName,
   useEditableProjectName,
+  useProjectNameIsLoading,
 } from "state/hooks/project";
 import { CONST_INFO_VIEWS } from "utils/constants";
 
@@ -14,24 +14,29 @@ const notEditing =
   "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
 
 export function ProjectName() {
+  const isLoading = useProjectNameIsLoading();
+
   return (
     <header
       className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
       {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_PROJNAME)}
     >
-      <ProjectNameOnly />
-      <ProjectConfigNameOnly />
+      {isLoading ? (
+        <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
+      ) : (
+        <>
+          <ProjectNameOnly />
+          <ProjectConfigNameOnly />
+        </>
+      )}
     </header>
   );
 }
 
 function ProjectNameOnly() {
   const [localName, setLocalName, onBlur, onCancel] = useEditableProjectName();
-  const isLoading = useProject((x) => x.isLoading);
 
-  return isLoading ? (
-    <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
-  ) : (
+  return (
     <Editable
       titleProps={{
         editing: `${editing} text-xl text-setta-900 dark:text-setta-50 font-bold `,
@@ -48,11 +53,8 @@ function ProjectNameOnly() {
 function ProjectConfigNameOnly() {
   const [localName, setLocalName, onBlur, onCancel] =
     useEditableProjectConfigName();
-  const isLoading = useProjectConfig((x) => x.isLoading);
 
-  return isLoading ? (
-    <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
-  ) : (
+  return (
     <Editable
       titleProps={{
         editing: `${editing} text-md text-setta-600 dark:text-setta-300 mt-1 mb-2 font-medium`,

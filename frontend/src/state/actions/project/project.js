@@ -12,14 +12,3 @@ export function setProjectName(name) {
 export function getProjectMetadata() {
   return _.pick(useProject.getState(), ["id", "name", "defaultConfigId"]);
 }
-
-export function setProjectIsLoading() {
-  const timeoutId = setTimeout(() => {
-    useProject.setState({ isLoading: true });
-  }, 500); // Delay of 500 ms
-
-  return () => {
-    clearTimeout(timeoutId);
-    useProject.setState({ isLoading: false });
-  };
-}

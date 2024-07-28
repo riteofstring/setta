@@ -3,6 +3,7 @@ import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { dbCreateProject, dbLoadFullProject } from "requests/projects";
+import { setIsLoading } from "state/utils";
 import {
   projectPreviewImgColors,
   REACT_FLOW_STORE,
@@ -21,15 +22,12 @@ import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
 import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setOtherProjectConfigs } from "./otherProjectConfigs";
-import { setProject, setProjectIsLoading } from "./project";
-import { setProjectConfig, setProjectConfigIsLoading } from "./projectConfig";
+import { setProject } from "./project";
+import { setProjectConfig } from "./projectConfig";
 
 export async function loadProject({ projectName, configName }) {
-  const doneCallback1 = setProjectIsLoading();
-  const doneCallback2 = setProjectConfigIsLoading();
+  const doneCallback = setIsLoading();
   const res = await dbLoadFullProject({ projectName });
-  doneCallback1();
-  doneCallback2();
   if (res.status === 200) {
     const projectConfig = res.data.configs.find(
       (x) => x.projectConfig.name === configName,
@@ -44,9 +42,8 @@ export async function loadProject({ projectName, configName }) {
       ...configsMerged,
     };
     setOtherProjectConfigs(res.data.configs.map((x) => x.projectConfig));
-    return loadProjectState(projectState);
-  } else {
-    return false;
+    loadProjectState(projectState);
+    doneCallback();
   }
 }
 
