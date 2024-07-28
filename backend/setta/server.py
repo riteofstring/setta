@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 
     maybe_create_tables_and_seed(
         app.state.dbs,
-        with_example_projects=C.WITH_EXAMPLE_PROJECTS,
+        with_examples=C.WITH_EXAMPLES,
         with_base_ui_types=True,
         with_settings=True,
     )
