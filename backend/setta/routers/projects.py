@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from setta.database.db.projects.delete import delete_projects
 from setta.database.db.projects.load import (
-    load_all_projects,
+    load_all_project_config_metadata,
     load_full_project,
     load_project,
 )
@@ -60,10 +60,10 @@ class SetProjectConfigNameRequest(BaseModel):
     newProjectConfigName: str
 
 
-@router.post(C.ROUTE_PROJECTS)
-def route_projects(dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_ALL_PROJECT_CONFIG_METADATA)
+def route_all_project_config_metadata(dbs=Depends(get_dbs)):
     with dbs:
-        return load_all_projects(dbs)
+        return load_all_project_config_metadata(dbs)
 
 
 

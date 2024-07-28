@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { dbSetProjectName } from "requests/projectName";
 import {
-  dbGetProjectConfigMetadatas,
+  dbGetAllProjectConfigMetadata,
   dbLoadFullProject,
 } from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
@@ -21,24 +21,24 @@ import { useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { useEditableOnSubmit } from "./editableText";
 
-export function useGetProjectConfigMetadatas() {
+export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
-  async function getProjectConfigMetadatas() {
-    const res = await dbGetProjectConfigMetadatas();
+  async function getAllProjectConfigMetadata() {
+    const res = await dbGetAllProjectConfigMetadata();
     if (res.status === 200) {
       setProjects(res.data);
     }
   }
-  return { projects, getProjectConfigMetadatas };
+  return { projects, getAllProjectConfigMetadata };
 }
 
-export function useGetProjectConfigMetadatasForFileMenu(open) {
-  const { projects, getProjectConfigMetadatas } =
-    useGetProjectConfigMetadatas();
+export function useGetAllProjectConfigMetadataForFileMenu(open) {
+  const { projects, getAllProjectConfigMetadata } =
+    useGetAllProjectConfigMetadata();
 
   useEffect(() => {
     if (open) {
-      getProjectConfigMetadatas();
+      getAllProjectConfigMetadata();
     }
   }, [open]);
 

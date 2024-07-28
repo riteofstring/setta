@@ -1,10 +1,10 @@
 import C from "constants/constants.json";
 import { post } from "./utils";
 
-export async function dbGetProjectConfigMetadatas() {
+export async function dbGetAllProjectConfigMetadata() {
   return await post({
     body: {},
-    address: C.ROUTE_PROJECTS,
+    address: C.ROUTE_ALL_PROJECT_CONFIG_METADATA,
   });
 }
 

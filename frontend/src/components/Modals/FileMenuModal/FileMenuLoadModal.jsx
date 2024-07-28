@@ -1,10 +1,10 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
-import { useGetProjectConfigMetadatasForFileMenu } from "state/hooks/project";
+import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 
 export function FileMenuLoadModal({ open }) {
-  const projects = useGetProjectConfigMetadatasForFileMenu(open);
+  const projects = useGetAllProjectConfigMetadataForFileMenu(open);
 
   function onClickLoadProject({ selected }) {
     const configInfo = projects.find((x) => x.id === selected);

@@ -7,7 +7,7 @@ from ..runGroups.load import load_run_groups
 from ..sections.load import load_sections
 
 
-def load_all_projects(dbs):
+def load_all_project_config_metadata(dbs):
     query = """
         SELECT
             id,

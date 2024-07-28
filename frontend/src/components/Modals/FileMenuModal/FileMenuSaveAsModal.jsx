@@ -7,10 +7,10 @@ import {
   saveProject,
 } from "state/actions/project/saveProject";
 import { useProjectConfig } from "state/definitions";
-import { useGetProjectConfigMetadatasForFileMenu } from "state/hooks/project";
+import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 
 export function FileMenuSaveAsModal({ open }) {
-  const projects = useGetProjectConfigMetadatasForFileMenu(open);
+  const projects = useGetAllProjectConfigMetadataForFileMenu(open);
 
   async function onClickSaveAsProject({ selected, filename }) {
     if (selected === useProjectConfig.getState().id) {

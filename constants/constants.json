@@ -30,7 +30,7 @@
   "ROUTE_SWAGGER_DOCS": "/docs",
   "ROUTE_OPENAPI_DOCS": "/openapi.json",
   "ROUTE_REDOC_DOCS": "/redoc",
-  "ROUTE_PROJECTS": "/projects",
+  "ROUTE_ALL_PROJECT_CONFIG_METADATA": "/all_project_config_metadata",
   "ROUTE_LOAD_FULL_PROJECT": "/projects/load",
   "ROUTE_SAVE_PROJECT": "/projects/save",
   "ROUTE_CREATE_PROJECT": "/projects/createProject",

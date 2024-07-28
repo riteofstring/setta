@@ -13,18 +13,18 @@ import { Link } from "react-router-dom";
 import { dbDeleteProjects } from "requests/projects";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
-import { useGetProjectConfigMetadatas } from "state/hooks/project";
+import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
 import "./homepage.css";
 
 export function HomePage() {
   const [doRefresh, setDoRefresh] = useState(true);
-  const { projects, getProjectConfigMetadatas } =
-    useGetProjectConfigMetadatas();
+  const { projects, getAllProjectConfigMetadata } =
+    useGetAllProjectConfigMetadata();
 
   useEffect(() => {
     if (doRefresh) {
-      getProjectConfigMetadatas();
+      getAllProjectConfigMetadata();
       setDoRefresh(false);
     }
   }, [doRefresh]);
