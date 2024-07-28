@@ -8,14 +8,15 @@ import {
   saveProject,
 } from "state/actions/project/saveProject";
 import { useProjectConfig } from "state/definitions";
-import { useGetProjects } from "state/hooks/project";
+import { useGetProjectConfigMetadatas } from "state/hooks/project";
 
 export function FileMenuSaveAsModal({ open }) {
-  const { projects, getProjects } = useGetProjects();
+  const { projects, getProjectConfigMetadatas } =
+    useGetProjectConfigMetadatas();
 
   useEffect(() => {
     if (open) {
-      getProjects({});
+      getProjectConfigMetadatas();
     }
   }, [open]);
 

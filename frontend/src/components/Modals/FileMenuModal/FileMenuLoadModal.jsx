@@ -2,14 +2,15 @@ import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import { useEffect } from "react";
-import { useGetProjects } from "state/hooks/project";
+import { useGetProjectConfigMetadatas } from "state/hooks/project";
 
 export function FileMenuLoadModal({ open }) {
-  const { projects, getProjects } = useGetProjects();
+  const { projects, getProjectConfigMetadatas } =
+    useGetProjectConfigMetadatas();
 
   useEffect(() => {
     if (open) {
-      getProjects({});
+      getProjectConfigMetadatas();
     }
   }, [open]);
 

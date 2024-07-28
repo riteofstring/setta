@@ -9,7 +9,10 @@ import { router } from "components/Pages/router";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { dbSetProjectName } from "requests/projectName";
-import { dbGetProjectsForHomePage, dbLoadFullProject } from "requests/projects";
+import {
+  dbGetProjectConfigMetadatas,
+  dbLoadFullProject,
+} from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProject } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
@@ -18,15 +21,15 @@ import { useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { useEditableOnSubmit } from "./editableText";
 
-export function useGetProjects() {
+export function useGetProjectConfigMetadatas() {
   const [projects, setProjects] = useState([]);
-  async function getProjects(props) {
-    const res = await dbGetProjectsForHomePage(props);
+  async function getProjectConfigMetadatas() {
+    const res = await dbGetProjectConfigMetadatas();
     if (res.status === 200) {
       setProjects(res.data);
     }
   }
-  return { projects, getProjects };
+  return { projects, getProjectConfigMetadatas };
 }
 
 export function useExportProjectJson() {

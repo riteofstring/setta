@@ -13,17 +13,18 @@ import { Link } from "react-router-dom";
 import { dbDeleteProjects } from "requests/projects";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
-import { useGetProjects } from "state/hooks/project";
+import { useGetProjectConfigMetadatas } from "state/hooks/project";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
 import "./homepage.css";
 
 export function HomePage() {
   const [doRefresh, setDoRefresh] = useState(true);
-  const { projects, getProjects } = useGetProjects();
+  const { projects, getProjectConfigMetadatas } =
+    useGetProjectConfigMetadatas();
 
   useEffect(() => {
     if (doRefresh) {
-      getProjects();
+      getProjectConfigMetadatas();
       setDoRefresh(false);
     }
   }, [doRefresh]);
@@ -67,7 +68,7 @@ function RightColumn({ projects, setDoRefresh }) {
             onClick={onClick}
           >
             <BiPlus />
-            New Project
+            New Config
           </StandardButton>
           <StandardButton
             twClasses="py-2 px-4 rounded-full font-medium font-heading text-white/75 bg-setta-500/25 hover:bg-red-500 hover:text-white gap-2"

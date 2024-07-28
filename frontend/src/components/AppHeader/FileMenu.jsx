@@ -32,7 +32,7 @@ export function FileMenu() {
         onClick={() => createAndGoToProject({})}
         shortcut={shortcuts.newProjectShortcut}
       >
-        New Project
+        New Config
       </MenuItem>
       <MenuItem onClick={openLoadModal} shortcut={shortcuts.loadShortcut}>
         Load
