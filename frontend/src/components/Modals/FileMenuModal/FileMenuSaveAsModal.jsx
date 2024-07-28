@@ -1,5 +1,4 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import {
   saveAsExistingProjectConfig,
@@ -8,6 +7,7 @@ import {
 } from "state/actions/project/saveProject";
 import { useProjectConfig } from "state/definitions";
 import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
+import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export function FileMenuSaveAsModal({ open, modalType }) {
   const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
@@ -25,7 +25,7 @@ export function FileMenuSaveAsModal({ open, modalType }) {
           });
 
       router.navigate(filename, {
-        state: { pageLoadType: LOAD_PROJECT_CONFIG },
+        state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
       });
     }
   }

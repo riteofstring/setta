@@ -1,8 +1,8 @@
-import { PREVIEW_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import React from "react";
 import { setProjectConfig } from "state/actions/project/projectConfig";
 import { useOtherProjectConfigs, useProjectConfig } from "state/definitions";
+import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
   const configNames = useOtherProjectConfigs((x) => x.x.map((c) => c.name));
@@ -12,7 +12,7 @@ export const ProjectConfigs = React.forwardRef(() => {
     if (config.name !== useProjectConfig.getState().name) {
       setProjectConfig(config);
       router.navigate(config.name, {
-        state: { pageLoadType: PREVIEW_PROJECT_CONFIG },
+        state: { pageLoadType: PAGE_LOAD_TYPES.PREVIEW_PROJECT_CONFIG },
       });
     }
   }

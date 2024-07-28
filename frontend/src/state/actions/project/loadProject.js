@@ -1,9 +1,9 @@
-import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { dbCreateProjectConfig, dbLoadFullProject } from "requests/projects";
 import {
+  PAGE_LOAD_TYPES,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
   REACT_FLOW_STORE,
   setDbSourceMapping,
@@ -86,7 +86,9 @@ export async function createAndGoToProjectConfig({ name }) {
     name,
     previewImgColor,
   });
-  router.navigate(newProjectName, { state: { pageLoadType: LOAD_PROJECT_CONFIG } });
+  router.navigate(newProjectName, {
+    state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+  });
 }
 
 function getRandomProjectConfigPreviewImgColor() {

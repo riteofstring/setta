@@ -1,4 +1,3 @@
-import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
@@ -14,7 +13,7 @@ import { dbDeleteProjects } from "requests/projects";
 import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
-import { SETTINGS_ROUTER_PATH } from "utils/constants";
+import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import "./homepage.css";
 
 export function HomePage() {
@@ -127,7 +126,7 @@ const ProjectItem = forwardRef(
       <div ref={forwardedRef} className={itemStyles}>
         <Link
           to={project.name}
-          state={{ pageLoadType: LOAD_PROJECT_CONFIG }}
+          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
           className="contents"
         >
           <ThumbnailArea
