@@ -136,29 +136,18 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
     );
     """,
-    # Project model
-    """
-    CREATE TABLE IF NOT EXISTS Project (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        defaultConfigId TEXT UNIQUE,
-        previewImgNodes TEXT DEFAULT '[]',
-        previewImgColor TEXT,
-        UNIQUE (name),
-        FOREIGN KEY (defaultConfigId) REFERENCES ProjectConfig(id)
-    );
-    """,
     # ProjectConfig model
     """
     CREATE TABLE IF NOT EXISTS ProjectConfig (
         id TEXT PRIMARY KEY,
         name TEXT,
-        projectId TEXT,
         x REAL DEFAULT 0,
         y REAL DEFAULT 0,
         zoom REAL DEFAULT 1,
-        UNIQUE (name, projectId),
-        FOREIGN KEY (projectId) REFERENCES Project(id) ON DELETE CASCADE
+        isDefault BOOLEAN DEFAULT 0,
+        previewImgNodes TEXT DEFAULT '[]',
+        previewImgColor TEXT,
+        UNIQUE (name)
     );
     """,
     # ProjectConfigChildren model
@@ -291,7 +280,7 @@ def maybe_create_tables_and_seed(
             if not tables_exist(db):
                 create_tables(db)
         do_seed_projects = with_example_projects and not seed_data_exist(
-            dbs.default, ["Project", "UIType"]
+            dbs.default, ["UIType"]
         )
         do_seed_base_ui_types = with_base_ui_types and not seed_data_exist(
             dbs.default, ["UIType"]
