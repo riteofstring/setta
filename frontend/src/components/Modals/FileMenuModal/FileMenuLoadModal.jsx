@@ -1,11 +1,11 @@
-import { useEffect } from "react";
-import { useGetProjectsForFileMenu } from "state/hooks/project";
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
+import { useEffect } from "react";
+import { useGetProjects } from "state/hooks/project";
 
 export function FileMenuLoadModal({ open }) {
-  const { projects, getProjects } = useGetProjectsForFileMenu();
+  const { projects, getProjects } = useGetProjects();
 
   useEffect(() => {
     if (open) {
@@ -16,8 +16,7 @@ export function FileMenuLoadModal({ open }) {
   function onClickLoadProject({ selected }) {
     const configInfo = projects.find((x) => x.id === selected);
     if (configInfo) {
-      const { name, projectName } = configInfo;
-      router.navigate(`${projectName}/${name}`, {
+      router.navigate(configInfo.name, {
         state: { pageLoadType: NEW_PROJECT },
       });
     }

@@ -1,21 +1,21 @@
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import { SAME_PROJECT_NEW_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
+import { router } from "components/Pages/router";
 import { useEffect } from "react";
 import {
   saveAsExistingProjectConfig,
   saveAsNewProjectConfig,
   saveProject,
 } from "state/actions/project/saveProject";
-import { useProject, useProjectConfig } from "state/definitions";
-import { useGetProjectsForFileMenu } from "state/hooks/project";
-import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { SAME_PROJECT_NEW_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
-import { router } from "components/Pages/router";
+import { useProjectConfig } from "state/definitions";
+import { useGetProjects } from "state/hooks/project";
 
 export function FileMenuSaveAsModal({ open }) {
-  const { projects, getProjects } = useGetProjectsForFileMenu();
+  const { projects, getProjects } = useGetProjects();
 
   useEffect(() => {
     if (open) {
-      getProjects({ projectId: useProject.getState().id });
+      getProjects({});
     }
   }, [open]);
 
@@ -31,8 +31,7 @@ export function FileMenuSaveAsModal({ open }) {
             newConfigName: filename,
           });
 
-      const projectName = useProject.getState().name;
-      router.navigate(`${projectName}/${filename}`, {
+      router.navigate(filename, {
         state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
       });
     }

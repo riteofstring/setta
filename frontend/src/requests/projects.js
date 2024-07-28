@@ -1,13 +1,6 @@
 import C from "constants/constants.json";
 import { post } from "./utils";
 
-export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
-  return await post({
-    body: { projectId, format: "fileMenu" },
-    address: C.ROUTE_PROJECTS,
-  });
-}
-
 export async function dbGetProjectsForHomePage() {
   return await post({
     body: {},
