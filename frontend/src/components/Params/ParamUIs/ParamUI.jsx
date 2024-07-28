@@ -1,7 +1,7 @@
+import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import { useIdWaitingForLSPResult } from "state/actions/lsp";
+import { useIdWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
-import { TextInputCodeMirror } from "utils/CodeMirror/TextInputCodeMirror";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
 import { TextInputConfig } from "./TextInput";
