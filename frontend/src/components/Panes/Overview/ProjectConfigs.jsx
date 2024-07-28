@@ -1,12 +1,8 @@
-import React from "react";
-import { setProjectConfig } from "state/actions/project/projectConfig";
-import {
-  useOtherProjectConfigs,
-  useProject,
-  useProjectConfig,
-} from "state/definitions";
 import { SWITCHING_CONFIG } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
+import React from "react";
+import { setProjectConfig } from "state/actions/project/projectConfig";
+import { useOtherProjectConfigs, useProjectConfig } from "state/definitions";
 
 export const ProjectConfigs = React.forwardRef(() => {
   const configNames = useOtherProjectConfigs((x) => x.x.map((c) => c.name));
@@ -15,8 +11,7 @@ export const ProjectConfigs = React.forwardRef(() => {
     const config = useOtherProjectConfigs.getState().x[idx];
     if (config.name !== useProjectConfig.getState().name) {
       setProjectConfig(config);
-      const projectName = useProject.getState().name;
-      router.navigate(`${projectName}/${config.name}`, {
+      router.navigate(config.name, {
         state: { pageLoadType: SWITCHING_CONFIG },
       });
     }

@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/evCols";
-import { useInteractive, useProject } from "state/definitions";
+import { useInteractive, useProjectConfig } from "state/definitions";
 import { useGetParamEnteredValue } from "state/hooks/ev";
 import { useIdWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
@@ -29,7 +29,7 @@ export function ParamInput({
       sendMessage({
         id: interactive_state.id,
         content: value,
-        messageType: useProject.getState().name,
+        messageType: useProjectConfig.getState().name,
       });
     }
   }
