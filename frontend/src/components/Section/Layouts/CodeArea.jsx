@@ -6,7 +6,7 @@ import React from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 
 const javascriptExtension = javascript();
 const pythonExtension = python();
@@ -28,7 +28,7 @@ function _CodeArea({ sectionId }) {
   }
 
   return (
-    <article className="nodrag nowheel card-code mb-2 cursor-auto overflow-clip">
+    <article className="nodrag nowheel section-main mb-2 cursor-auto overflow-clip">
       <Editor
         sectionId={sectionId}
         value={value}

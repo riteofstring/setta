@@ -1,11 +1,11 @@
-import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { initParamSweep } from "state/actions/runGroups/paramSweep";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useModal, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { createNewId } from "utils/idNameCreation";
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
-export function CreateNewParamSweepModal({ modalType }) {
+export function CreateNewParamSweepModal() {
   function onClickCreateNewParamSweep({ filename }) {
     const sectionId = useModal.getState().modalData;
     const newId = createNewId();
@@ -28,11 +28,11 @@ export function CreateNewParamSweepModal({ modalType }) {
 
   return (
     <SaveLoadModal
-      modalPurpose={modalType.purpose}
+      modalType={"Save"}
       files={[]} // TODO
       onClickActionButton={onClickCreateNewParamSweep}
-      title={modalType.title}
-      buttonText={modalType.buttonText}
+      title="Save Param Sweep As"
+      buttonText="Save As"
       placeholder="Param Sweep Name"
     />
   );

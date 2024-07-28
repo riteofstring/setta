@@ -1,13 +1,13 @@
-import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
-import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
-import { dbCreateProjectConfig, dbLoadFullProject } from "requests/projects";
+import { dbCreateProject, dbLoadFullProject } from "requests/projects";
 import {
-  PROJECT_CONFIG_PREVIEW_IMG_COLORS,
+  projectPreviewImgColors,
   REACT_FLOW_STORE,
   setDbSourceMapping,
 } from "utils/constants";
+import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
+import { router } from "utils/Routes/router";
 import { setAllCodeInfo } from "../codeInfo";
 import { setAllEVCols } from "../evCols";
 import { setNodes } from "../nodeInternals";
@@ -21,21 +21,25 @@ import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
 import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setOtherProjectConfigs } from "./otherProjectConfigs";
+import { setProject } from "./project";
 import { setProjectConfig } from "./projectConfig";
 
-export async function loadProject({ projectConfigName }) {
-  const res = await dbLoadFullProject();
-  console.log("loadProject", res);
+export async function loadProject({ projectName, configName }) {
+  const res = await dbLoadFullProject({ projectName });
   if (res.status === 200) {
-    const projectConfig = res.data.find(
-      (x) => x.projectConfig.name === projectConfigName,
+    const projectConfig = res.data.configs.find(
+      (x) => x.projectConfig.name === configName,
     ).projectConfig;
     const configsMerged = _.merge(
       {},
-      ...res.data.map((x) => _.omit(x, ["projectConfig"])),
+      ...res.data.configs.map((x) => _.omit(x, ["projectConfig"])),
     );
-    const projectState = { projectConfig, ...configsMerged };
-    setOtherProjectConfigs(res.data.map((x) => x.projectConfig));
+    const projectState = {
+      project: _.omit(res.data, ["configs"]),
+      projectConfig,
+      ...configsMerged,
+    };
+    setOtherProjectConfigs(res.data.configs.map((x) => x.projectConfig));
     return loadProjectState(projectState);
   } else {
     return false;
@@ -43,6 +47,7 @@ export async function loadProject({ projectConfigName }) {
 }
 
 export function loadProjectState({
+  project,
   projectConfig,
   codeInfo,
   sections,
@@ -57,6 +62,9 @@ export function loadProjectState({
 }) {
   setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
+  if (project) {
+    setProject(project);
+  }
   setProjectConfig(_.omit(projectConfig, ["viewport", "children"]));
   REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
   setNodes(
@@ -80,18 +88,28 @@ export function loadProjectState({
   return true;
 }
 
-export async function createAndGoToProjectConfig({ name }) {
-  const previewImgColor = getRandomProjectConfigPreviewImgColor();
-  const { data: newProjectName } = await dbCreateProjectConfig({
-    name,
-    previewImgColor,
-  });
-  router.navigate(newProjectName, { state: { pageLoadType: LOAD_PROJECT_CONFIG } });
+export async function createAndGoToProject({ name }) {
+  const previewImgColor = getRandomProjectPreviewImgColor();
+  const { data: newProject } = await dbCreateProject({ name, previewImgColor });
+  goToDefaultConfig(newProject);
 }
 
-function getRandomProjectConfigPreviewImgColor() {
-  const randomIndex = Math.floor(
-    Math.random() * PROJECT_CONFIG_PREVIEW_IMG_COLORS.length,
-  );
-  return PROJECT_CONFIG_PREVIEW_IMG_COLORS[randomIndex];
+function goToProject({ project, configId }) {
+  const configName = project.configs.find((x) => x.id === configId).name;
+  const address = `${project.name}/${configName}`;
+  router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });
 }
+
+function goToDefaultConfig(project) {
+  goToProject({
+    project,
+    configId: project.defaultConfigId,
+  });
+}
+
+const getRandomProjectPreviewImgColor = () => {
+  const randomIndex = Math.floor(
+    Math.random() * projectPreviewImgColors.length,
+  );
+  return projectPreviewImgColors[randomIndex];
+};

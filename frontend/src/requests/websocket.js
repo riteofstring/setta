@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import {
   setInteractiveData,
   setInteractiveProjects,
@@ -13,7 +12,7 @@ let wss;
 
 export function openWebSocket(pathname) {
   if (!wss) {
-    wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
+    wss = new WebSocket(URLS.WEBSOCKET);
   }
 
   wss.addEventListener("open", () => {
