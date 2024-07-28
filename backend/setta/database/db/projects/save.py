@@ -22,12 +22,16 @@ def save_project_details(dbs, p):
 def save_project(dbs, project):
     db = dbs.default
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgNodes)
-        VALUES (:id, :name, :previewImgNodes)
+        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom)
+        VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
-        previewImgNodes = :previewImgNodes
+        previewImgNodes = :previewImgNodes,
+        isDefault = :isDefault,
+        x = :x,
+        y = :y,
+        zoom = :zoom
     """
 
     query_params = {
@@ -48,7 +52,6 @@ def save_project(dbs, project):
         db.execute(
             query, {"id": project["id"], "previewImgColor": project["previewImgColor"]}
         )
-
 
     query = f"""
         DELETE FROM ProjectConfigChildren
