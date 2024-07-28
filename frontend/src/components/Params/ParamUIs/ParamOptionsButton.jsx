@@ -6,7 +6,9 @@ export function ParamOptionsButton({ variants = "" }) {
     <IconButton
       twClasses={`section-value justify-self-end self-center ${variants}`}
       size="h-3 w-3"
-      icon={<i className="gg-options"></i>}
+      icon={
+        <i className="gg-check after:border-transparent after:hover:border-setta-600 group-hover/arg-group:after:border-setta-400 dark:after:hover:border-setta-300 dark:group-hover/arg-group:after:border-setta-500"></i>
+      }
       color={`[&>*]:text-transparent group-hover/arg-group:[&>*]:text-setta-400 dark:group-hover/arg-group:[&>*]:text-setta-400 hover:[&>*]:!text-setta-800 dark:hover:[&>*]:!text-setta-100`}
       bg="bg-transparent dark:group-hover/arg-group:bg-setta-800/75 group-hover/arg-group:bg-setta-200/50 p-1 transition-colors duration-150 focus-visible:ring-2"
       // onClick={onClick}

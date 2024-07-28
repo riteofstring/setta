@@ -71,14 +71,14 @@ main {
   box-sizing: border-box;
   position: relative;
   display: block;
-  transform: scale(var(--ggs,1));
+  transform: scale(var(--ggs, 1));
   width: 16px;
   height: 2px;
   background: currentColor;
- }
- 
- .gg-push-left::after,
- .gg-push-left::before {
+}
+
+.gg-push-left::after,
+.gg-push-left::before {
   content: "";
   display: block;
   box-sizing: border-box;
@@ -87,31 +87,30 @@ main {
   height: 12px;
   border-left: 2px solid;
   left: -5px;
-  top: -5px
- }
- 
- .gg-push-left::after {
+  top: -5px;
+}
+
+.gg-push-left::after {
   width: 8px;
   height: 8px;
   border-bottom: 2px solid;
   transform: rotate(45deg);
   top: -3px;
-  left: 0
- } 
+  left: 0;
+}
 
-
- .gg-push-right {
+.gg-push-right {
   box-sizing: border-box;
   position: relative;
   display: block;
-  transform: scale(var(--ggs,1));
+  transform: scale(var(--ggs, 1));
   width: 16px;
   height: 2px;
   background: currentColor;
- }
- 
- .gg-push-right::after,
- .gg-push-right::before {
+}
+
+.gg-push-right::after,
+.gg-push-right::before {
   content: "";
   display: block;
   box-sizing: border-box;
@@ -120,30 +119,30 @@ main {
   height: 12px;
   border-right: 2px solid;
   right: -5px;
-  top: -5px
- }
- 
- .gg-push-right::after {
+  top: -5px;
+}
+
+.gg-push-right::after {
   width: 8px;
   height: 8px;
   border-top: 2px solid;
   transform: rotate(45deg);
   top: -3px;
-  right: 0
- } 
+  right: 0;
+}
 
- .gg-push-down {
+.gg-push-down {
   box-sizing: border-box;
   position: relative;
   display: block;
-  transform: scale(var(--ggs,1));
+  transform: scale(var(--ggs, 1));
   width: 2px;
   height: 16px;
   background: currentColor;
- }
- 
- .gg-push-down::after,
- .gg-push-down::before {
+}
+
+.gg-push-down::after,
+.gg-push-down::before {
   content: "";
   display: block;
   box-sizing: border-box;
@@ -152,30 +151,30 @@ main {
   height: 2px;
   border-bottom: 2px solid;
   bottom: -5px;
-  left: -5px
- }
- 
- .gg-push-down::after {
+  left: -5px;
+}
+
+.gg-push-down::after {
   width: 8px;
   height: 8px;
   border-right: 2px solid;
   transform: rotate(45deg);
   left: -3px;
-  bottom: 0
- } 
+  bottom: 0;
+}
 
- .gg-push-up {
+.gg-push-up {
   box-sizing: border-box;
   position: relative;
   display: block;
-  transform: scale(var(--ggs,1));
+  transform: scale(var(--ggs, 1));
   width: 2px;
   height: 16px;
   background: currentColor;
- }
- 
- .gg-push-up::after,
- .gg-push-up::before {
+}
+
+.gg-push-up::after,
+.gg-push-up::before {
   content: "";
   display: block;
   box-sizing: border-box;
@@ -184,17 +183,17 @@ main {
   height: 2px;
   border-top: 2px solid;
   top: -5px;
-  left: -5px
- }
- 
- .gg-push-up::after {
+  left: -5px;
+}
+
+.gg-push-up::after {
   width: 8px;
   height: 8px;
   border-left: 2px solid;
   transform: rotate(45deg);
   left: -3px;
-  top: 0
- } 
+  top: 0;
+}
 
 .gg-chevron-up {
   box-sizing: border-box;
@@ -578,6 +577,32 @@ main {
   opacity: 0.2;
 }
 
+.gg-check {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs, 1));
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 100px;
+}
+
+.gg-check::after {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  position: absolute;
+  left: -2px;
+  top: -1px;
+  width: 6px;
+  height: 10px;
+  border-width: 0 2px 2px 0;
+  border-style: solid;
+  transform-origin: bottom left;
+  transform: rotate(45deg);
+}
+
 @keyframes spinner {
   0% {
     transform: rotate(0deg);
@@ -586,6 +611,3 @@ main {
     transform: rotate(359deg);
   }
 }
-
-
-

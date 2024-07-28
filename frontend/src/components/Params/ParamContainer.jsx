@@ -45,7 +45,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 ${bg} ${border}`}
+        className={`param-container section-key-value group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
         {children}
