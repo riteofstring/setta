@@ -45,7 +45,7 @@ function FilterSection() {
   // bg-gradient-to-t from-setta-50
   return (
     <>
-      <search className="section-args flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-2 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
+      <search className="section-args flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-3 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
         <StandardSearch
           leftElement={<BiFilter className="text-setta-400" />}
           placeholder="Filter"
@@ -122,7 +122,7 @@ function ArgItem({
 
   return (
     <>
-      <div className="section-key-value flex min-w-0 items-center py-1">
+      <div className="section-key-value mt-1 flex min-w-0 items-center">
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}

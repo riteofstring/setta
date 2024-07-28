@@ -39,8 +39,8 @@ export function ParamUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName={`section-value group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word] mb-1`}
-            realCodeClassName={`nodrag group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-value mb-1`}
+            dummyCodeClassName={`section-value group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]`}
+            realCodeClassName={`nodrag group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-value`}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -102,8 +102,8 @@ export function ParamSweepUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName="section-key-value grid-row-start-1 nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word] mb-1"
-            realCodeClassName="section-key-value grid-row-start-1 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] mb-1"
+            dummyCodeClassName="section-key-value grid-row-start-1 nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
+            realCodeClassName="section-key-value grid-row-start-1 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

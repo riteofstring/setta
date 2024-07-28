@@ -50,7 +50,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
   return (
     <>
       <section className="section-args flex min-w-0  rounded-xl border-b border-solid border-white px-2  pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
-        <div className="flex w-full min-w-0 flex-wrap ">
+        <div className="-mx-[0.125rem] flex w-full min-w-0 flex-wrap">
           <article className=" flex items-center">
             {/* <h3 className="pr-1 font-heading text-xs uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3> */}
             <button className={classes} onClick={onClickDeleteKwarg}>
