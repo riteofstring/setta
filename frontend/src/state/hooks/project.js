@@ -8,7 +8,7 @@ import {
 import { router } from "components/Pages/router";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { dbSetProjectConfigName, dbSetProjectName } from "requests/projectName";
+import { dbSetProjectName } from "requests/projectName";
 import {
   dbGetProjectsForFileMenu,
   dbGetProjectsForHomePage,
@@ -16,7 +16,6 @@ import {
 } from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProject } from "state/actions/project/loadProject";
-import { setProjectName } from "state/actions/project/project";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
 import { useProject, useProjectConfig } from "state/definitions";
@@ -83,9 +82,7 @@ export function useLoadProject() {
     ) {
       loadAllProjectData();
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_NAME) {
-      setProjectName(projectName);
-    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
-      setProjectConfigName(configName);
+      setProjectConfigName(projectName);
     }
 
     setCurrProjectIsInteractive(projectName);
@@ -95,33 +92,17 @@ export function useLoadProject() {
 }
 
 export function useEditableProjectName() {
-  const name = useProject((x) => x.name);
+  const name = useProjectConfig((x) => x.name);
   async function condition(v) {
     const res = await dbSetProjectName(v);
     return res.status === 200;
   }
   async function onSetName(v) {
-    const configName = useProjectConfig.getState().name;
-    router.navigate(`${v}/${configName}`, {
+    router.navigate(v, {
       state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
     });
   }
 
-  return useEditableOnSubmit(name, onSetName, condition);
-}
-
-export function useEditableProjectConfigName() {
-  const name = useProjectConfig((x) => x.name);
-  async function condition(v) {
-    const res = await dbSetProjectConfigName(v);
-    return res.status === 200;
-  }
-  async function onSetName(v) {
-    const projectName = useProject.getState().name;
-    router.navigate(`${projectName}/${v}`, {
-      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
-    });
-  }
   return useEditableOnSubmit(name, onSetName, condition);
 }
 

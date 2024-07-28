@@ -114,14 +114,3 @@ def route_set_project_name(x: SetProjectNameRequest, dbs=Depends(get_dbs)):
             save_project_name(dbs, x.currProjectName, x.newProjectName)
     except sqlite3.IntegrityError as e:
         raise HTTPException(status_code=422, detail=repr(e))
-
-
-@router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
-def route_set_project_config_name(x: SetProjectConfigNameRequest, dbs=Depends(get_dbs)):
-    try:
-        with dbs:
-            save_project_config_name(
-                dbs, x.projectId, x.currProjectConfigName, x.newProjectConfigName
-            )
-    except sqlite3.IntegrityError as e:
-        raise HTTPException(status_code=422, detail=repr(e))

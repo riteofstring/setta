@@ -40,7 +40,6 @@
   "ROUTE_GET_COLLECTIONS_AND_MODULES": "/codeInfo/getCollectionsAndModules",
   "ROUTE_GET_COLLECTION_DETAILS": "/codeInfo/getCollectionDetails",
   "ROUTE_SET_PROJECT_NAME": "/projects/setProjectName",
-  "ROUTE_SET_PROJECT_CONFIG_NAME": "/projects/setProjectConfigName",
   "ROUTE_SECTIONS": "/sections",
   "ROUTE_LOAD_SETTINGS": "/settings",
   "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{id}",
