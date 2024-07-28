@@ -1,4 +1,4 @@
-import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
+import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
@@ -127,7 +127,7 @@ const ProjectItem = forwardRef(
       <div ref={forwardedRef} className={itemStyles}>
         <Link
           to={project.name}
-          state={{ pageLoadType: NEW_PROJECT }}
+          state={{ pageLoadType: LOAD_PROJECT_CONFIG }}
           className="contents"
         >
           <ThumbnailArea

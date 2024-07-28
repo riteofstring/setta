@@ -1,9 +1,7 @@
 import {
-  NEW_PROJECT,
-  SAME_PROJECT_NEW_PROJECT_CONFIG,
-  SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
-  SAME_PROJECT_NEW_PROJECT_NAME,
-  SWITCHING_CONFIG,
+  CHANGE_PROJECT_CONFIG_NAME,
+  LOAD_PROJECT_CONFIG,
+  PREVIEW_PROJECT_CONFIG,
 } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import { useEffect, useState } from "react";
@@ -74,17 +72,14 @@ export function useLoadProject() {
       setDoneLoading(res);
     }
 
-    if (pageLoadType === SWITCHING_CONFIG) {
+    if (pageLoadType === PREVIEW_PROJECT_CONFIG) {
       return;
     }
 
     // The first if-statement triggers for a page refresh or navigating to a different project
-    if (
-      !doneLoading ||
-      [NEW_PROJECT, SAME_PROJECT_NEW_PROJECT_CONFIG].includes(pageLoadType)
-    ) {
+    if (!doneLoading || pageLoadType === LOAD_PROJECT_CONFIG) {
       loadAllProjectData();
-    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_NAME) {
+    } else if (pageLoadType === CHANGE_PROJECT_CONFIG_NAME) {
       setProjectConfigName(projectConfigName);
     }
 
@@ -102,7 +97,7 @@ export function useEditableProjectName() {
   }
   async function onSetName(v) {
     router.navigate(v, {
-      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
+      state: { pageLoadType: CHANGE_PROJECT_CONFIG_NAME },
     });
   }
 
@@ -113,11 +108,9 @@ export function useResetProjectState() {
   const { pathname, state } = useLocation();
   useEffect(() => {
     if (
-      [
-        SAME_PROJECT_NEW_PROJECT_NAME,
-        SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
-        SWITCHING_CONFIG,
-      ].includes(state?.pageLoadType)
+      [CHANGE_PROJECT_CONFIG_NAME, PREVIEW_PROJECT_CONFIG].includes(
+        state?.pageLoadType,
+      )
     ) {
       return;
     }

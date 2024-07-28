@@ -1,4 +1,4 @@
-import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
+import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
@@ -86,7 +86,7 @@ export async function createAndGoToProjectConfig({ name }) {
     name,
     previewImgColor,
   });
-  router.navigate(newProjectName, { state: { pageLoadType: NEW_PROJECT } });
+  router.navigate(newProjectName, { state: { pageLoadType: LOAD_PROJECT_CONFIG } });
 }
 
 function getRandomProjectConfigPreviewImgColor() {

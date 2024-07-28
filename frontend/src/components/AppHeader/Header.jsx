@@ -55,7 +55,7 @@ function HomePageSearch() {
   const value = useHomePageSearch((x) => x.value);
   return (
     <Search
-      placeholder="Filter Projects"
+      placeholder="Filter Project Configs"
       value={value}
       onChange={setHomePageSearch}
     />
