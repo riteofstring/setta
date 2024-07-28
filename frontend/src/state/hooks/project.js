@@ -32,6 +32,19 @@ export function useGetProjectConfigMetadatas() {
   return { projects, getProjectConfigMetadatas };
 }
 
+export function useGetProjectConfigMetadatasForFileMenu(open) {
+  const { projects, getProjectConfigMetadatas } =
+    useGetProjectConfigMetadatas();
+
+  useEffect(() => {
+    if (open) {
+      getProjectConfigMetadatas();
+    }
+  }, [open]);
+
+  return projects;
+}
+
 export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});
   function exportProjectJson() {
