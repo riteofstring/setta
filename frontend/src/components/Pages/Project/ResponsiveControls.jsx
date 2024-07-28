@@ -4,8 +4,9 @@ import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
+import { toggleMiniMap } from "state/actions/localStorage";
 import { autoLayout } from "state/actions/sections/sectionPositions";
-import { toggleMiniMap, toggleSetting } from "state/actions/settings";
+import { toggleSetting } from "state/actions/settings";
 import { localStorageFns } from "state/hooks/localStorage";
 
 export function ResponsiveControls() {

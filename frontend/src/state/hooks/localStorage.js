@@ -4,6 +4,7 @@ import { CLOSED_PANE_WIDTH } from "utils/constants";
 export const localStorageFns = {
   darkMode: { init: true },
   showMinimap: { init: true },
+  projectConfigPreviewEnabled: { init: true },
   overviewVis: { init: true },
   overviewWidth: { init: 335 },
   overviewTrueWidth: { init: 335 },
