@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+}
+
 button,
 fieldset,
 input {
@@ -94,16 +97,23 @@ body {
   background-size: cover;
 }
 
-.card-grid {
+.section-grid {
   display: grid;
-  grid-template-columns: 0.5rem 1fr 1rem 1fr 0.5rem;
+  grid-template-columns: [c1] 0.5rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 0.5rem [c6];
   grid-template-rows:
+    [r1]
     0.25rem
+    [r2]
     minmax(0, min-content)
+    [r3]
     minmax(0, min-content)
+    [r4]
     minmax(0, min-content)
+    [r5]
     minmax(0, 1fr)
-    0.25rem;
+    [r6]
+    0.25rem
+    [r7];
   grid-template-areas:
     "top-gutter top-gutter top-gutter top-gutter top-gutter"
     "title title title title title"
@@ -112,6 +122,7 @@ body {
     "left-gutter key center-gutter value right-gutter"
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
 }
+
 /* utility classes */
 .section-title {
   grid-area: title;
@@ -123,23 +134,47 @@ body {
   grid-area: args;
 }
 .section-key {
-  grid-area: key;
+  grid-column: key / key;
+  grid-row: 1 / 2;
 }
 .section-value {
-  grid-area: value;
+  grid-column: value / value;
+  grid-row: 1 / 2;
 }
 .section-key-value {
-  grid-area: key / key / key / value;
+  grid-column: key / value;
+  /* grid-row: 1 / 2; */
+}
+.section-w-full {
+  grid-column: left-gutter / right-gutter;
 }
 .section-full {
   grid-area: title / value;
 }
 .section-main {
-  grid-area: search / search / search / value;
+  grid-area: search / value;
+}
+.section-row-main {
+  grid-row: left-gutter;
 }
 
-.section-row-reset {
+.section-min-rows {
+  grid-auto-rows: minmax(1.5rem, min-content);
+}
+
+.grid-row-reset {
   grid-row-start: -1;
+}
+
+.grid-row-start-1 {
+  grid-row-start: 1;
+}
+
+.single-row {
+  grid-template-rows: 1fr;
+}
+.single-row-area {
+  grid-row: 1 / 2;
 }
 
 .single-cell-container {
@@ -152,72 +187,26 @@ body {
   grid-column: 1 / 2;
   grid-row: 1 / 2;
 }
-
 /* utility classes */
-
-.card-title {
-  grid-area: title;
-}
-
-.card-search {
-  grid-area: search;
-}
-
-.card-filter-full-width {
-  grid-area: args;
-}
-
-/* .card-rungroup-overview {
-  grid-row: 4 / span 2;
-  grid-column: 3 / span 4;
-  display: grid;
-  grid-template-columns: subgrid;
-  row-gap: 0.5rem;
-} */
 
 .card-global-param-sweep {
   grid-row: 3 / span 3;
   grid-column: 3 / span 2;
 }
 
-.card-args-control {
-  grid-area: args;
-}
-
-.card-configs-btn {
-  grid-area: key / key / key / value;
-  place-self: end center;
-}
-
-/* .card-divider {
-  grid-row: 4 / 5;
-  grid-column: 1 / 7 ;
-} */
-
-.card-args-list {
-  display: grid;
-  grid-area: key / key / key / value;
-  grid-template-columns: subgrid;
-  grid-auto-rows: min-content;
-  /* gap: 0.5rem; */
-}
-
-.card-args-list-nested {
-  grid-area: key / key / key / value;
-  display: grid;
-  grid-template-columns: 0.5rem 1fr 1rem 1fr;
-  grid-auto-rows: minmax(1rem, min-content);
+.section-args-nested {
+  grid-template-columns: 0.5rem 1fr 0.75rem 1fr;
   grid-template-areas: "left-gutter key center-gutter value";
 }
 
 @supports (-moz-appearance: none) {
-  .card-args-list {
+  .section-args-list {
     overflow-x: hidden;
   }
 }
 
 .card-sweep-list {
-  grid-area: key / key / key / value;
+  grid-column: key / value;
   display: grid;
   grid-template-columns: subgrid;
   grid-auto-rows: min-content;
@@ -234,104 +223,64 @@ body {
 .card-sweep-group {
   display: grid;
   grid-template-columns: subgrid;
-  grid-area: key / key / key / value;
+  grid-column: key / value;
   grid-auto-rows: minmax(1rem, min-content);
   row-gap: 0.5rem;
 }
 
-.card-arg-group {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-area: key / key / key / value;
-  align-items: flex-start;
-  row-gap: 0;
-}
+/* grid  */
 
 .card-arg-group-error {
-  grid-area: key / key / key / value;
+  grid-column: key / value;
 }
 
 .card-incrementer {
   grid-area: value;
 }
 
-/* .card-nested-group {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / span 2;
-  grid-row: span 1;
-  align-items: flex-start;
-} */
-
-/* .card-paramsweep-item {
-  display: flex;
-  grid-column: 3 / span 2;
-  grid-row: span 1;
-} */
-
 .card-close-arg-group {
-  grid-area: key / key / key / value;
+  grid-column: left-gutter / span 1;
 }
-
-/* .card-close {
-  grid-column: 4 / 5;
-  grid-row: 2/ 3;
-} */
 
 .card-markdown {
   grid-area: title / value;
 }
 
 .card-fullsize {
-  grid-area: key / key / key / value;
-}
-
-.card-key {
-  grid-area: key;
-  grid-row-start: -1;
+  grid-column: key / value;
 }
 
 .card-value {
   grid-area: value;
-  grid-row-start: -1;
+  /* grid-row-start: -1; */
 }
 
 .card-value-full {
-  grid-area: key / key / key / value;
-  grid-row-start: -1;
+  grid-column: key / value;
+  /* grid-row-start: -1; */
 }
-
-.card-value-display {
-  grid-row-start: -1;
-}
-
-/* .card-value-combobox {
-  grid-row-start: -1;
-  grid-column: 2 / 3;
-} */
 
 .card-code {
   /* display:grid;
   grid-template-columns:subgrid; */
-  grid-area: search / search / search / value;
+  grid-area: search / value;
 }
 
 .card-terminal {
-  grid-area: search / search / search / value;
+  grid-area: search / value;
 }
 
 .card-figure {
-  grid-area: search / search / search / value;
+  grid-area: search / value;
 }
 
 .card-pin-btn {
-  grid-column: 1/2;
-  grid-row: -1 / span 1;
+  grid-area: key;
 }
 
 .card-param-options-btn {
-  grid-area: key;
-  grid-row: -1 / span 1;
+  grid-area: value;
+  /* grid-row: -1 / span 1; */
 }
 
 .version-section {
@@ -340,7 +289,7 @@ body {
 }
 
 .version-list {
-  grid-column: left-gutter / left-gutter / left-gutter / right-gutter;
+  grid-column: left-gutter / right-gutter;
   display: grid;
   grid-template-columns: subgrid;
   gap: 0.5rem 0.5rem;
@@ -373,3 +322,40 @@ body {
   /* outline: 1px solid green; */
   /* background: hsla(0, 100%, 50%, 0.1); */
 }
+
+/* .card-rungroup-overview {
+  grid-row: 4 / span 2;
+  grid-column: 3 / span 4;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: 0.5rem;
+} */
+
+/* .card-value-combobox {
+  grid-row-start: -1;
+  grid-column: 2 / 3;
+} */
+
+/* .card-nested-group {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / span 2;
+  grid-row: span 1;
+  align-items: flex-start;
+} */
+
+/* .card-paramsweep-item {
+  display: flex;
+  grid-column: 3 / span 2;
+  grid-row: span 1;
+} */
+
+/* .card-close {
+  grid-column: 4 / 5;
+  grid-row: 2/ 3;
+} */
+
+/* .card-divider {
+  grid-row: 4 / 5;
+  grid-column: 1 / 7 ;
+} */

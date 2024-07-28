@@ -55,7 +55,7 @@ export function IdNameCombobox({
 
   return (
     <search
-      className={`card-search flex ${
+      className={`section-search flex ${
         small ? "h-7" : "h-8"
       } w-full min-w-0 flex-col items-stretch overflow-visible ${outerDivClasses}`}
     >

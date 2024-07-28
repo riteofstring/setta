@@ -38,13 +38,13 @@ export function ParamUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName="card-value nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
-            realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] card-value"
+            dummyCodeClassName="section-value nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
+            realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-value"
           />
           {waitingForResult && (
-            <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
+            <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="card-value border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
+          <span className="section-value grid-row- border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
         </>
       );
     case C.SLIDER: {
@@ -58,7 +58,7 @@ export function ParamUI({
           max={max}
           step={step}
           isDisabled={isDisabled}
-          sliderRootClassName="card-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
+          sliderRootClassName="section-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
           sliderThumbClassName="block h-3 w-3 cursor-pointer
@@ -73,7 +73,7 @@ export function ParamUI({
           defaultVal={defaultVal}
           onChange={onChange}
           isDisabled={isDisabled}
-          outerDivClassName="card-value flex justify-self-start self-center"
+          outerDivClassName="section-value flex justify-self-start self-center"
           twRootClasses="nodrag"
         />
       );
@@ -101,13 +101,13 @@ export function ParamSweepUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName="card-value-full nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
-            realCodeClassName="card-value-full nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
+            dummyCodeClassName="section-key-value grid-row-start-1 nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
+            realCodeClassName="section-key-value nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
           />
           {waitingForResult && (
-            <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
+            <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="card-value-full border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
+          <span className="section-key-value border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
         </>
       );
     case C.SLIDER: {
@@ -121,7 +121,7 @@ export function ParamSweepUI({
           max={max}
           step={step}
           isDisabled={isDisabled}
-          sliderRootClassName="card-value-full data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
+          sliderRootClassName="section-key-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
           sliderThumbClassName="block h-3 w-3 cursor-pointer
@@ -136,7 +136,7 @@ export function ParamSweepUI({
           defaultVal={defaultVal}
           onChange={onChange}
           isDisabled={isDisabled}
-          outerDivClassName="card-value-full flex justify-self-start self-center"
+          outerDivClassName="section-key-value flex justify-self-start self-center"
           twRootClasses="nodrag"
         />
       );

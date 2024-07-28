@@ -31,7 +31,7 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   return (
-    <header className="card-title flex flex-row items-center">
+    <header className="section-title flex flex-row items-center">
       {!isInfo && (
         <>
           <MenuButton sectionId={sectionId} sectionTypeName={sectionTypeName} />

@@ -79,7 +79,7 @@ export function SectionContainerCoreResizable({
   const borderClasses =
     "before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border before:border-white dark:before:border-setta-700";
 
-  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} card-grid h-full rounded-xl shadow-md  ${
+  const inputClasses = `outline outline-4 ${outlineColor} [transition:_outline-color_200ms_ease] ${bgColor} section-grid h-full rounded-xl shadow-md  ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${borderClasses}`;
 
@@ -104,7 +104,7 @@ export function SectionContainerCoreResizable({
           {hasVersions && (
             <Button
               grid={false}
-              twClasses="card-configs-btn backdrop-blur-[2px] px-2 py-1 self-center text-setta-700 dark:text-setta-300 dark:bg-setta-900/40 hover:bg-white dark:hover:bg-setta-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-setta-800 text-xs bgsetta-200/25 shadow-md hover:shadow-lg z-50"
+              twClasses="section-key-value grid-row-reset justify-self-center backdrop-blur-[2px] px-2 py-1 self-center text-setta-700 dark:text-setta-300 dark:bg-setta-900/40 hover:bg-white dark:hover:bg-setta-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-setta-800 text-xs bgsetta-200/25 shadow-md hover:shadow-lg z-50"
               onClick={toggleDescVis}
             >
               <TbVersions className="z-[3] h-4 w-4" />
