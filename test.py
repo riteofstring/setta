@@ -42,7 +42,7 @@
 # import json
 # from pprint import pprint
 
-# with open("seed/exampleProjects/diffusionDrops.json") as f:
+# with open("seed/examples/diffusionDrops.json") as f:
 #     p = json.load(f)
 
 # with open("seed/BaseUITypes.json") as f:
@@ -187,7 +187,7 @@
 # from pprint import pprint
 # import yaml
 
-# with open("seed/exampleProjects/sklearn_example.json") as f:
+# with open("seed/examples/sklearn_example.json") as f:
 #     p = json.load(f)
 
 # with open("seed/BaseUITypes.json") as f:
@@ -861,7 +861,7 @@
 # import isort
 # from pprint import pprint
 
-# with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
+# with open("seed/examples/diffusionDrops/diffusionDrops.json") as f:
 #     p = json.load(f)
 
 # with open("constants/BaseUITypes.json") as f:

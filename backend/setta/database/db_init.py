@@ -279,7 +279,7 @@ def maybe_create_tables_and_seed(
         for db in dbs.values():
             if not tables_exist(db):
                 create_tables(db)
-        do_seed_projects = with_examples and not seed_data_exist(
+        do_seed_examples = with_examples and not seed_data_exist(
             dbs.default, ["UIType"]
         )
         do_seed_base_ui_types = with_base_ui_types and not seed_data_exist(
@@ -290,7 +290,7 @@ def maybe_create_tables_and_seed(
         )
         seed(
             dbs,
-            with_examples=do_seed_projects,
+            with_examples=do_seed_examples,
             with_base_ui_types=do_seed_base_ui_types,
             with_settings=do_seed_settings,
         )
