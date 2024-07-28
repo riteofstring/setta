@@ -41,7 +41,7 @@ export const ParamSweepArea = React.memo(_ParamSweepArea);
 
 function FilterSection() {
   const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1";
+    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
   // bg-gradient-to-t from-setta-50
   return (
     <>
@@ -262,7 +262,7 @@ function ParamCombobox({
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
-      outerDivClasses="section-key-value justify-center mt-3"
+      outerDivClasses="section-key-value justify-center not:last-child:mt-3"
       small={true}
     />
   );
