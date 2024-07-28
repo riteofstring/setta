@@ -19,7 +19,7 @@ export function UIPage() {
       <ReactFlow
         style={reactFlowStyle}
         nodeDragThreshold={0}
-        className="rcbg-light dark:rcbg-dark"
+        className="setta-light dark:setta-dark"
       />
       <PaneContextMenu />
       <SelectionContextMenu />

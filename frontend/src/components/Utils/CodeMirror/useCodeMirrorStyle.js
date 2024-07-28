@@ -1,4 +1,3 @@
-import { python } from "@codemirror/lang-python";
 import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
 import { localStorageFns } from "state/hooks/localStorage";
 
@@ -24,8 +23,6 @@ const githubLightTheme = githubLightInit({
   },
 });
 
-
-
 // make styles available for DummyCodeMirror
 for (const theme of [githubDarkTheme, githubLightTheme]) {
   const sheet = new CSSStyleSheet();
@@ -36,13 +33,4 @@ for (const theme of [githubDarkTheme, githubLightTheme]) {
 export function useCodeMirrorStyle() {
   const [darkMode] = localStorageFns.darkMode.hook();
   return darkMode ? githubDarkTheme : githubLightTheme;
-}
-
-export function getLanguageExtension(language) {
-  if (language === "python") {
-    return python();
-  } else if (language === "javascript") {
-    return javascript();
-  }
-  return null;
 }

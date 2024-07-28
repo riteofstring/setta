@@ -3,13 +3,11 @@ import {
   autocompletion,
   completionStatus,
 } from "@codemirror/autocomplete";
+import { python } from "@codemirror/lang-python";
 import { EditorState, Prec, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, keymap, ViewPlugin } from "@codemirror/view";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
-import {
-  getLanguageExtension,
-  useCodeMirrorStyle,
-} from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useCallback, useRef, useState } from "react";
@@ -187,7 +185,6 @@ export function TextInputCodeMirror({
   realCodeClassName,
   singleLine,
   onEnter,
-  language,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -220,7 +217,6 @@ export function TextInputCodeMirror({
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}
           placeholder={defaultVal}
-          language={language}
         />
       )}
       {activationEvent && (
@@ -239,7 +235,6 @@ export function TextInputCodeMirror({
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
           keywordRegex={pattern}
-          language={language}
         />
       )}
     </>
@@ -262,7 +257,6 @@ function CoreCodeMirror({
   theme,
   keywordRegex,
   keywordColorMap,
-  language,
 }) {
   function localOnChange(newVal) {
     if (value === newVal) {
@@ -280,24 +274,18 @@ function CoreCodeMirror({
   ]);
 
   const extensions = [
+    python(),
     autocompletion({
       override: [completionsFn],
     }),
     keywordStylizer,
     EditorView.lineWrapping,
   ];
-
   if (singleLine) {
     extensions.push(
       EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)),
     );
   }
-
-  if (language) {
-    extensions.push(getLanguageExtension(language));
-  }
-
-  console.log("extensions", extensions)
 
   const tabToAutocomplete = keymap.of([
     {

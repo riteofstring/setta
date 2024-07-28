@@ -1,12 +1,19 @@
+import { javascript } from "@codemirror/lang-javascript";
+import { python } from "@codemirror/lang-python";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
-import {
-  getLanguageExtension,
-  useCodeMirrorStyle,
-} from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import React from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/sections";
+
+const javascriptExtension = javascript();
+const pythonExtension = python();
+const codeLanguageToExtension = {
+  javascript: javascriptExtension,
+  python: pythonExtension,
+  bash: null,
+};
 
 function _CodeArea({ sectionId }) {
   const value = useGetSectionInfo(sectionId, "code");
@@ -26,7 +33,7 @@ function _CodeArea({ sectionId }) {
       <Editor
         value={value}
         onChange={onChange}
-        languageExtension={getLanguageExtension(codeLanguage)}
+        languageExtension={codeLanguageToExtension[codeLanguage]}
       />
     </article>
   );

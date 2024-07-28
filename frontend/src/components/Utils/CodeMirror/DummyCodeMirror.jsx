@@ -4,7 +4,6 @@ import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import { useKeywordRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
-// import {HighlightStyle} from "@codemirror/language"
 
 const lineWrapStyle = {
   whiteSpace: "break-spaces",
@@ -12,8 +11,6 @@ const lineWrapStyle = {
   overflowWrap: "anywhere",
   flexShrink: 1,
 };
-
-
 
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
@@ -25,7 +22,6 @@ export function DummyCodeMirror({
   keywordRegex,
   goToSectionOnNameClick,
   placeholder,
-  language,
 }) {
   return code ? (
     <HighlightedCode
@@ -35,7 +31,6 @@ export function DummyCodeMirror({
       className={className}
       keywordRegex={keywordRegex}
       goToSectionOnNameClick={goToSectionOnNameClick}
-      language={language}
     />
   ) : (
     <PlaceholderCode
@@ -66,12 +61,9 @@ function HighlightedCode({
   className,
   keywordRegex,
   goToSectionOnNameClick,
-  language,
 }) {
-  const tree = getTreeParser(code, language);
+  const tree = pythonLanguage.parser.parse(code);
   const highlightStyle = theme[1][2].value;
-
-  console.log("highlightStyle", highlightStyle)
   const markCache = {};
   const builder = new RangeSetBuilder();
 
@@ -86,18 +78,14 @@ function HighlightedCode({
     };
   }
 
-  console.log("matchedIndices", matchedIndices)
-
-  if (tree) {
-    highlightTree(tree, highlightStyle, (from, to, style) => {
-      builder.add(
-        from,
-        to,
-        markCache[style] ||
-          (markCache[style] = Decoration.mark({ class: style })),
-      );
-    });
-  }
+  highlightTree(tree, highlightStyle, (from, to, style) => {
+    builder.add(
+      from,
+      to,
+      markCache[style] ||
+        (markCache[style] = Decoration.mark({ class: style })),
+    );
+  });
 
   // just the decorations NOT the code itself
   const decorationRangeSet = builder.finish();
@@ -127,8 +115,6 @@ function HighlightedCode({
         currLineDivs.push(text.sliceString(pos, cursor.from));
       }
 
-      console.log("cursor", cursor)
-
       if (currKeyword === null && cursor.from in matchedIndices) {
         const { keyword, keywordStartIdx, keywordEndIdx } =
           matchedIndices[cursor.from];
@@ -137,8 +123,6 @@ function HighlightedCode({
         currKeywordEndIdx = keywordEndIdx;
         currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
       }
-
-      console.log("currKeyword", currKeyword)
 
       const className = `${cursor.value.spec.class} ${currKeyword ? "italic" : ""}`;
       const slicedKeyword = currKeyword
@@ -198,11 +182,4 @@ function HighlightedCode({
       {outputDivs}
     </div>
   );
-}
-
-function getTreeParser(code, language) {
-  if (language === "python") {
-    return pythonLanguage.parser.parse(code);
-  }
-  return null;
 }
