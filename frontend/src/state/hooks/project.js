@@ -10,7 +10,7 @@ import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProjectConfig } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
-import { useProjectConfig } from "state/definitions";
+import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
@@ -61,16 +61,16 @@ export function useLoadProjectConfig() {
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
 
-  useEffect(() => {
-    async function loadAllProjectData() {
-      setDoneLoading(false);
-      const res = await loadProjectConfig({ projectConfigName });
-      setDoneLoading(res);
-    }
+  async function loadFn() {
+    setDoneLoading(false);
+    const res = await loadProjectConfig({ projectConfigName });
+    setDoneLoading(res);
+  }
 
+  useEffect(() => {
     // The first if-statement triggers for a page refresh or navigating to a different project
     if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
-      loadAllProjectData();
+      loadFn();
     } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
       setProjectConfigName(projectConfigName);
     }
@@ -114,4 +114,18 @@ export function useConfigAddress({ project, configId }) {
 export function useDefaultConfigAddress(project) {
   const configId = project.defaultConfigId;
   return useConfigAddress({ project, configId });
+}
+
+export async function useLoadFullProject(currProjectConfigName) {
+  async function loadFn() {
+    const res = await dbLoadFullProject({
+      excludeProjectConfigName: currProjectConfigName,
+    });
+    if (res.status === 200) {
+      useAllProjectConfigs.setState({ x: res.data });
+    }
+  }
+  useEffect(() => {
+    loadFn();
+  }, [currProjectConfigName]);
 }

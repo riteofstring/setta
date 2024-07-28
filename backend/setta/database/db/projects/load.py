@@ -100,15 +100,19 @@ def load_project_config(dbs, project_config_name):
     }
 
 
-def load_full_project(dbs):
+def load_full_project(dbs, excludeProjectConfigName=None):
     query = """
         SELECT
             name
         FROM
             ProjectConfig
     """
+
+    if excludeProjectConfigName:
+        query += "WHERE name != :excludeProjectConfigName"
+
     db = dbs.default
-    db.execute(query)
+    db.execute(query, {"excludeProjectConfigName": excludeProjectConfigName})
 
     config_names = [r[0] for r in db.fetchall()]
     configs = []
