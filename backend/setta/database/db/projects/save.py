@@ -9,39 +9,43 @@ from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(dbs, p):
-    save_code_info(dbs, merge_configs(p, "codeInfo"), merge_configs(p, "evCols"))
-    save_ev_cols(dbs, merge_configs(p, "evCols"))
-    save_ui_types(dbs, merge_configs(p, "uiTypes"))
-    save_ui_type_cols(dbs, merge_configs(p, "uiTypeCols"))
-    save_param_sweeps(dbs, merge_configs(p, "paramSweeps"))
-    save_sections(dbs, merge_configs(p, "sections"))
-    save_project(dbs, p)
-    save_project_configs(dbs, p["id"], p["configs"])
-    save_run_groups(dbs, merge_configs(p, "runGroups"))
-    update_default_project_config(dbs, p)
+    save_code_info(dbs, p["codeInfo"], p["evCols"])
+    save_ev_cols(dbs, p["evCols"])
+    save_ui_types(dbs, p["uiTypes"])
+    save_ui_type_cols(dbs, p["uiTypeCols"])
+    save_param_sweeps(dbs, p["paramSweeps"])
+    save_sections(dbs, p["sections"])
+    save_project(dbs, p["projectConfig"])
+    save_run_groups(dbs, p["runGroups"])
 
 
 def save_project(dbs, project):
     db = dbs.default
     query = """
-        INSERT INTO Project (id, name, previewImgNodes)
-        VALUES (:id, :name, :previewImgNodes)
+        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom)
+        VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
-        previewImgNodes = :previewImgNodes
+        previewImgNodes = :previewImgNodes,
+        isDefault = :isDefault,
+        x = :x,
+        y = :y,
+        zoom = :zoom
     """
 
     query_params = {
         "id": project["id"],
         "name": project["name"],
         "previewImgNodes": project["previewImgNodes"],
+        "isDefault": project["isDefault"],
+        **project["viewport"]
     }
     db.execute(query, query_params)
 
     if "previewImgColor" in project:
         query = """
-            UPDATE Project
+            UPDATE ProjectConfig
             SET previewImgColor = :previewImgColor
             WHERE ID = :id
         """
@@ -49,82 +53,37 @@ def save_project(dbs, project):
             query, {"id": project["id"], "previewImgColor": project["previewImgColor"]}
         )
 
-
-def save_project_configs(dbs, projectId, configs):
-    db = dbs.default
-    query = """
-        INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom)
-        VALUES (:id, :name, :projectId, :x, :y, :zoom)
-        ON CONFLICT (id)
-        DO UPDATE SET
-            name = :name,
-            projectId = :projectId,
-            x = :x,
-            y = :y,
-            zoom = :zoom
-    """
-
-    query_params = []
-    for c in configs:
-        c = c["projectConfig"]
-        query_params.append(
-            {
-                "id": c["id"],
-                "name": c["name"],
-                "projectId": projectId,
-                **c["viewport"],
-            }
-        )
-    print(query_params, flush=True)
-    db.executemany(query, query_params)
-
-    placeholders = ", ".join(["?"] * len(configs))
     query = f"""
         DELETE FROM ProjectConfigChildren
-        WHERE parentId IN ({placeholders})
+        WHERE parentId = :parentId
     """
-    query_params = [c["projectConfig"]["id"] for c in configs]
-    db.execute(query, query_params)
+    db.execute(query, {"parentId": project["id"]})
 
     query = """
         INSERT INTO ProjectConfigChildren (parentId, childId, x, y, zIndex)
         VALUES (:parentId, :childId, :x, :y, :zIndex)
     """
     query_params = []
-    for c in configs:
-        c = c["projectConfig"]
-        query_params.extend(
-            [
-                {
-                    "parentId": c["id"],
-                    "childId": childId,
-                    "x": details["x"],
-                    "y": details["y"],
-                    "zIndex": details["zIndex"],
-                }
-                for childId, details in c["children"].items()
-            ]
-        )
+    query_params.extend(
+        [
+            {
+                "parentId": project["id"],
+                "childId": childId,
+                "x": details["x"],
+                "y": details["y"],
+                "zIndex": details["zIndex"],
+            }
+            for childId, details in project["children"].items()
+        ]
+    )
     db.executemany(query, query_params)
 
 
-def update_default_project_config(dbs, p):
-    db = dbs.default
-    query = """
-        UPDATE Project
-        SET defaultConfigId = :defaultConfigId
-        WHERE ID = :id
-    """
-
-    query_params = {"id": p["id"], "defaultConfigId": p["defaultConfigId"]}
-    db.execute(query, query_params)
-
-
-def create_project(dbs, name, previewImgColor):
+def create_project_config(dbs, name, previewImgColor):
     db = dbs.default
     query = """
         SELECT name
-        FROM Project
+        FROM ProjectConfig
     """
     db.execute(query)
     taken_names = [row[0] for row in db.fetchall()]
@@ -133,7 +92,7 @@ def create_project(dbs, name, previewImgColor):
         name = generate_memorable_string()
 
     query = """
-        INSERT INTO Project (id, name, previewImgColor)
+        INSERT INTO ProjectConfig (id, name, previewImgColor)
         VALUES (:id, :name, :previewImgColor)
     """
     projectId = create_new_id()
@@ -141,81 +100,25 @@ def create_project(dbs, name, previewImgColor):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ProjectConfig (id, name, projectId)
-        VALUES (:id, :name, :projectId)
-    """
-    projectConfigId = create_new_id()
-    query_params = {
-        "id": projectConfigId,
-        "name": "config1",
-        "projectId": projectId,
-    }
-    db.execute(query, query_params)
-
-    query = """
-        UPDATE Project
-        SET defaultConfigId = :defaultConfigId
-        WHERE Project.id = :projectId
-    """
-    query_params = {"projectId": projectId, "defaultConfigId": projectConfigId}
-    db.execute(query, query_params)
-
-    query = """
         SELECT
-            Project.id,
-            Project.name,
-            Project.defaultConfigId,
-            ProjectConfig.id as configId,
-            ProjectConfig.name as configName
+            name
         FROM
-            Project
-        JOIN
             ProjectConfig
-        ON
-            ProjectConfig.projectId = Project.id
         WHERE
-            Project.id = :projectId
+            id = :id
     """
-    query_params = {"projectId": projectId}
+    query_params = {"id": projectId}
     db.execute(query, query_params)
     out = dict(db.fetchone())
-    out["configs"] = [{"id": out["configId"], "name": out["configName"]}]
-    del out["configId"]
-    del out["configName"]
-    return out
+    return out["name"]
 
 
 def save_project_name(dbs, curr_name, new_name):
     db = dbs.default
     query = """
-        UPDATE Project
+        UPDATE ProjectConfig
         SET name = :new_name
         WHERE name = :curr_name
     """
     query_params = {"curr_name": curr_name, "new_name": new_name}
     db.execute(query, query_params)
-
-
-def save_project_config_name(dbs, project_id, curr_name, new_name):
-    db = dbs.default
-    query = """
-        UPDATE ProjectConfig
-        SET name = :new_name
-        WHERE
-            name = :curr_name
-        AND
-            projectId = :projectId
-    """
-    query_params = {
-        "projectId": project_id,
-        "curr_name": curr_name,
-        "new_name": new_name,
-    }
-    db.execute(query, query_params)
-
-
-def merge_configs(p, key):
-    output = {}
-    for c in p["configs"]:
-        output.update(c[key])
-    return output

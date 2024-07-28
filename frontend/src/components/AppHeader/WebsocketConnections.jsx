@@ -1,9 +1,9 @@
 import { setWebsocketConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
 import { useCLIWebsocketConnectionList } from "state/hooks/websocket";
-import { Badge } from "utils/atoms/badges/badge";
-import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
+import { Badge } from "components/Utils/atoms/badges/badge";
+import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 
 export function WebsocketConnections() {
   return (

@@ -1,24 +1,16 @@
-import { useEffect } from "react";
-import { useGetProjectsForFileMenu } from "state/hooks/project";
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { NEW_PROJECT } from "utils/Routes/pageLoadTypes";
-import { router } from "utils/Routes/router";
+import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
+import { router } from "components/Pages/router";
+import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 
 export function FileMenuLoadModal({ open }) {
-  const { projects, getProjects } = useGetProjectsForFileMenu();
+  const projects = useGetAllProjectConfigMetadataForFileMenu(open);
 
-  useEffect(() => {
-    if (open) {
-      getProjects({});
-    }
-  }, [open]);
-
-  function onClickLoadProject({ selected }) {
+  function onClickLoadProjectConfig({ selected }) {
     const configInfo = projects.find((x) => x.id === selected);
     if (configInfo) {
-      const { name, projectName } = configInfo;
-      router.navigate(`${projectName}/${name}`, {
-        state: { pageLoadType: NEW_PROJECT },
+      router.navigate(configInfo.name, {
+        state: { pageLoadType: LOAD_PROJECT_CONFIG },
       });
     }
   }
@@ -27,7 +19,7 @@ export function FileMenuLoadModal({ open }) {
     <SaveLoadModal
       modalType={"Load"}
       files={projects}
-      onClickActionButton={onClickLoadProject}
+      onClickActionButton={onClickLoadProjectConfig}
       title={"Load Project"}
       buttonText={"Load"}
       placeholder="Config Name"

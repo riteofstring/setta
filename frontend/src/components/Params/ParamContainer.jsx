@@ -11,7 +11,7 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton";
@@ -32,10 +32,9 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
   const paramIsSelected = paramInfo.isSelected;
 
-  // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
-  // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
-
-  const bg = paramIsSelected ? "bg-lime-400/50" : "";
+  const bg = paramIsSelected
+    ? "bg-lime-400/50"
+    : "hover:bg-setta-200/20 dark:hover:bg-setta-700/25";
 
   const paramChildren = useCodeInfo(
     (x) => paramInfo.children.map((c) => x.x[c]),
@@ -45,7 +44,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group -mx-3 -my-[0.125rem] grid auto-rows-min grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.125rem] ${bg} ${border}`}
+        className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
         {children}
@@ -69,11 +68,11 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     </>
   ) : (
     <article
-      className={`section-key-value group/arg-group -mx-3 -my-[0.125rem] grid auto-rows-min grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.125rem] ${bg} ${border}`}
+      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
       {children}
-      <div className="section-args-nested section-key-value ml-1 grid w-[calc(100%_-_0.25rem)]">
+      <div className="card-args-list-nested -ml-2 pb-1 pt-2 [&>article]:!gap-[0_0.5rem]">
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}

@@ -11,7 +11,7 @@ import {
 } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ResizableVersionsList } from "utils/Resizable/ResizableVersionsList";
+import { ResizableVersionsList } from "components/Utils/Resizable/ResizableVersionsList";
 
 export function VersionList({ sectionId, sectionTypeName }) {
   function onMouseLeave() {
@@ -28,10 +28,10 @@ export function VersionList({ sectionId, sectionTypeName }) {
   return (
     <ResizableVersionsList sectionId={sectionId} numListings={numListings}>
       <section
-        className="section-grid -my-4 flex-1 self-stretch pb-8 pt-6"
+        className="version-section -my-4 flex-1 self-stretch pb-8 pt-6"
         onMouseLeave={onMouseLeave}
       >
-        <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid overflow-y-auto overflow-x-clip pt-2">
+        <ul className="version-list nodrag nowheel overflow-y-auto overflow-x-clip pt-2">
           {sectionTypeName === C.PARAM_SWEEP ? (
             <ParamSweepItems
               sectionId={sectionId}
@@ -115,10 +115,10 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
     <li
       onMouseOver={() => onMouseOver(id)}
       onClick={() => onClick(id)}
-      className="section-key-value -mx-2 -my-1 grid h-min cursor-pointer auto-rows-min grid-cols-subgrid items-center justify-between rounded-xl px-2 py-1 text-xs hover:bg-setta-50/50 dark:hover:bg-setta-800/50"
+      className="version-list-item -mx-2 -my-1 cursor-pointer auto-rows-auto justify-between rounded-xl px-2 py-1 text-xs hover:bg-setta-50/50 dark:hover:bg-setta-800/50"
     >
       <p
-        className={`section-key truncate ${
+        className={`col-start-1 truncate ${
           isCurr
             ? "font-medium text-setta-800 dark:text-setta-100"
             : "text-setta-400 dark:text-setta-400"
@@ -126,7 +126,7 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
       >
         {name}
       </p>
-      <p className="section-value italic text-setta-400 dark:text-setta-500">
+      <p className="col-start-2 italic text-setta-400 dark:text-setta-500">
         01/04/2024
       </p>
     </li>
