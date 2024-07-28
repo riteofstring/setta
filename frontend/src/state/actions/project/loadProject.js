@@ -1,14 +1,13 @@
-import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
-import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { dbCreateProject, dbLoadFullProject } from "requests/projects";
-import { setIsLoading } from "state/utils";
 import {
   projectPreviewImgColors,
   REACT_FLOW_STORE,
   setDbSourceMapping,
 } from "utils/constants";
+import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
+import { router } from "components/Pages/router";
 import { setAllCodeInfo } from "../codeInfo";
 import { setAllEVCols } from "../evCols";
 import { setNodes } from "../nodeInternals";
@@ -26,7 +25,6 @@ import { setProject } from "./project";
 import { setProjectConfig } from "./projectConfig";
 
 export async function loadProject({ projectName, configName }) {
-  const doneCallback = setIsLoading();
   const res = await dbLoadFullProject({ projectName });
   if (res.status === 200) {
     const projectConfig = res.data.configs.find(
@@ -42,8 +40,9 @@ export async function loadProject({ projectName, configName }) {
       ...configsMerged,
     };
     setOtherProjectConfigs(res.data.configs.map((x) => x.projectConfig));
-    loadProjectState(projectState);
-    doneCallback();
+    return loadProjectState(projectState);
+  } else {
+    return false;
   }
 }
 

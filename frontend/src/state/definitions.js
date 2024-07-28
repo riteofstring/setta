@@ -8,7 +8,7 @@ import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { create, createProjectState, withLoading, withVersion } from "./utils";
+import { create, createProjectState, withVersion } from "./utils";
 
 export const useActiveSection = createProjectState(
   temporal(() =>
@@ -117,13 +117,11 @@ export const useParamSweep = createProjectState(
   ),
 );
 
-export const useProject = createProjectState(() =>
-  withLoading({
-    id: "",
-    name: "",
-    defaultConfigId: null,
-  }),
-);
+export const useProject = createProjectState(() => ({
+  id: "",
+  name: "",
+  defaultConfigId: null,
+}));
 
 export const useProjectConfig = createProjectState(
   temporal(
@@ -155,11 +153,9 @@ export const useSectionInfos = createProjectState(
   temporal(
     subscribeWithSelector(
       immer(() =>
-        withVersion(
-          withLoading({
-            x: {},
-          }),
-        ),
+        withVersion({
+          x: {},
+        }),
       ),
     ),
   ),

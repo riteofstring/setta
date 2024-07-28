@@ -53,10 +53,6 @@ export function withVersion(initialState) {
   return { ...initialState, version: 0 };
 }
 
-export function withLoading(initialState) {
-  return { ...initialState, isLoading: false };
-}
-
 function resetStores(stateType) {
   for (const state of stateDict[stateType]) {
     state.getState().reset();
@@ -82,28 +78,9 @@ export function pauseTemporal() {
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal) {
       s.temporal.getState().pause();
-      if (!("version" in s.getState())) {
+      if (s.getState().version === undefined) {
         throw new Error("temporal state version should not be undefined");
       }
     }
   }
-}
-
-export function setIsLoading() {
-  const timeoutId = setTimeout(() => {
-    for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-      if ("isLoading" in s.getState()) {
-        s.setState({ isLoading: true });
-      }
-    }
-  }, 10);
-
-  return () => {
-    clearTimeout(timeoutId);
-    for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-      if ("isLoading" in s.getState()) {
-        s.setState({ isLoading: false });
-      }
-    }
-  };
 }

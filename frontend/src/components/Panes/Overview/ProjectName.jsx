@@ -1,10 +1,10 @@
-import { Editable } from "components/Utils/Editable";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useEditableProjectConfigName,
   useEditableProjectName,
 } from "state/hooks/project";
 import { CONST_INFO_VIEWS } from "utils/constants";
+import { Editable } from "components/Utils/Editable";
 
 const editing =
   "flex-1 box-border border-solid border-transparent bg-transparent px-1 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";

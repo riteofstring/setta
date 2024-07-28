@@ -2,7 +2,7 @@ import _ from "lodash";
 import { useProject } from "state/definitions";
 
 export function setProject(payload) {
-  useProject.setState({ ...payload, isLoading: false });
+  useProject.setState(payload);
 }
 
 export function setProjectName(name) {
