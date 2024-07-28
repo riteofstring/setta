@@ -11,7 +11,7 @@ import {
 import { useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea() {
@@ -86,7 +86,7 @@ function SectionList({ runGroupId, runGroup }) {
   )[0];
 
   return (
-    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col gap-2 overflow-y-scroll rounded-lg bg-setta-50/40 px-3 pt-2 dark:bg-setta-875">
+    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-y-scroll rounded-lg bg-setta-50/40 px-3 pt-2 dark:bg-setta-875">
       {allSections.map((x, idx) => (
         <SectionItem
           key={idx}

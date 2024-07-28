@@ -2,7 +2,7 @@ import { MdOutlinePushPin } from "react-icons/md";
 import { toggleCodeInfoPinned } from "state/actions/codeInfo";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { useCodeInfo } from "state/definitions";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export function PinButton({ variants, sectionId, paramInfoId }) {
   const isPinned = useCodeInfo((x) => x.x[paramInfoId].isPinned);
