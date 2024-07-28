@@ -211,7 +211,7 @@ body {
 /* utility classes */
 
 .section-args-nested {
-  grid-template-columns: 0.5rem 1fr 0.75rem 1fr;
+  grid-template-columns: 0.75rem 1fr 0.75rem 1fr;
   grid-template-areas: "left-gutter key center-gutter value";
 }
 

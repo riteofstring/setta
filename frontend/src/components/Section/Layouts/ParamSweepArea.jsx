@@ -262,7 +262,7 @@ function ParamCombobox({
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
-      outerDivClasses="section-key-value justify-center"
+      outerDivClasses="section-key-value justify-center mt-3"
       small={true}
     />
   );
@@ -274,8 +274,8 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
       <IconButton
         icon={<IoClose />}
         bg="bg-transparent"
-        color="text-setta-200 dark:text-setta-600 hover:text-setta-500 dark:hover:text-setta-200"
-        twClasses="section-left-gutter place-self-center ml-1"
+        color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
+        twClasses="opacity-75 ml-2 section-left-gutter cursor-pointer place-self-center"
         padding=""
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
