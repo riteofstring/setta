@@ -1,7 +1,7 @@
 import { ParentSize } from "@visx/responsive";
+import { LineChart } from "components/Utils/Charts/LineChart";
 import React from "react";
 import { useInteractive } from "state/definitions";
-import { LineChart } from "components/Utils/Charts/LineChart";
 
 function _OutputArea({ sectionId }) {
   // const group = useGetSelectedOutputValues(sectionId);

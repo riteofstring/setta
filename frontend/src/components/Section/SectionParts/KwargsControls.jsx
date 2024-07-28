@@ -1,10 +1,10 @@
+import { VerticalLine } from "components/Utils/atoms/dividers/VerticalLine";
 import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs/kwargs";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
-import { VerticalLine } from "components/Utils/atoms/dividers/VerticalLine";
 import {
   computeNewChildrenForLeftPush,
   computeNewChildrenForRightPush,

@@ -1,10 +1,10 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";

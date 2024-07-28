@@ -1,14 +1,14 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
-import { createBrowserRouter } from "react-router-dom";
+import { HomePage } from "components/Pages/Home/HomePage";
+import { Settings } from "components/Pages/Settings/Settings";
 import { GridContainer } from "components/Utils/atoms/gridContainer/GridContainer";
+import { createBrowserRouter } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { HomePage } from "components/Pages/Home/HomePage";
-import { Settings } from "components/Pages/Settings/Settings";
 import { GlobalWrapper } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
 

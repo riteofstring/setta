@@ -1,5 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
@@ -11,7 +12,6 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton";

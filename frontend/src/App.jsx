@@ -7,8 +7,8 @@ import "@fontsource/work-sans";
 import "@fontsource/work-sans/500.css";
 import "@fontsource/work-sans/600.css";
 import "@fontsource/work-sans/700.css";
-import { RouterProvider } from "react-router-dom";
 import { router } from "components/Pages/router";
+import { RouterProvider } from "react-router-dom";
 
 export function App() {
   return <RouterProvider router={router} />;

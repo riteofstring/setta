@@ -39,7 +39,7 @@ def save_project(dbs, project):
         "name": project["name"],
         "previewImgNodes": project["previewImgNodes"],
         "isDefault": project["isDefault"],
-        **project["viewport"]
+        **project["viewport"],
     }
     db.execute(query, query_params)
 

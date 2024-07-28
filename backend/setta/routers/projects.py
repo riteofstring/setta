@@ -12,8 +12,8 @@ from setta.database.db.projects.load import (
 )
 from setta.database.db.projects.save import (
     create_project_config,
-    save_project_details,
     save_project_config_name,
+    save_project_details,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
@@ -60,7 +60,6 @@ def route_all_project_config_metadata(dbs=Depends(get_dbs)):
         return load_all_project_config_metadata(dbs)
 
 
-
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)
 def route_load_full_project(dbs=Depends(get_dbs)):
     with dbs:
@@ -105,6 +104,8 @@ def route_delete_project_configs(x: DeleteProjectConfigsRequest, dbs=Depends(get
 def route_set_project_config_name(x: SetProjectConfigNameRequest, dbs=Depends(get_dbs)):
     try:
         with dbs:
-            save_project_config_name(dbs, x.currProjectConfigName, x.newProjectConfigName)
+            save_project_config_name(
+                dbs, x.currProjectConfigName, x.newProjectConfigName
+            )
     except sqlite3.IntegrityError as e:
         raise HTTPException(status_code=422, detail=repr(e))

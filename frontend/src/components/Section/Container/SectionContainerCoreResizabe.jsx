@@ -1,9 +1,9 @@
+import { Button } from "components/Utils/atoms/buttons/Button";
+import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
 import { TbVersions } from "react-icons/tb";
 import { useSectionHasMultipleParamSweeps } from "state/hooks/paramSweep";
 import { useSectionHasMultipleEVCols } from "state/hooks/sections";
-import { Button } from "components/Utils/atoms/buttons/Button";
-import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";

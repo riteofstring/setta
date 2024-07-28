@@ -1,3 +1,4 @@
+import { SectionUITypeCombobox } from "components/Utils/Combobox/UITypeCombobox";
 import C from "constants/constants.json";
 import { addCodeInfo } from "state/actions/codeInfo";
 import { updateParamsAndCallables } from "state/actions/sections/sectionContents";
@@ -6,7 +7,6 @@ import { setSectionUITypeId } from "state/actions/uiTypes/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionTypeConfig } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { SectionUITypeCombobox } from "components/Utils/Combobox/UITypeCombobox";
 import { newCodeInfo } from "utils/objs/codeInfo";
 
 export function SectionConfigTypeSelection({ sectionId }) {

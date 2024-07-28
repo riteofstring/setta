@@ -1,8 +1,8 @@
+import { findRefs } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
 import { useKeywordRegex, useProjectConfig } from "state/definitions";
-import { findRefs } from "components/Utils/CodeMirror/utils";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 

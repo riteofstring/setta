@@ -1,8 +1,8 @@
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { setCodeInfoFrozen } from "state/actions/codeInfo";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionToParams } from "state/definitions";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 
 export function FreezeButton({ sectionId }) {
   function onClick() {

@@ -1,7 +1,7 @@
+import { Item } from "components/Utils/atoms/dropdown/item";
 import C from "constants/constants.json";
 import { undeck } from "state/actions/sections/groupSections";
 import { useGetSectionType } from "state/hooks/uiTypes";
-import { Item } from "components/Utils/atoms/dropdown/item";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function NodeContextMenu(props) {

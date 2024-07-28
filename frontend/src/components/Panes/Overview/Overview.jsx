@@ -1,4 +1,7 @@
 import * as Tabs from "@radix-ui/react-tabs";
+import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { PaneContainer } from "components/Utils/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
@@ -6,10 +9,7 @@ import { getInfoViewHandlers } from "state/actions/infoView";
 import { useCurrInfoView } from "state/hooks/infoView";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useGetOverviewListing } from "state/hooks/overview";
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { CONST_INFO_VIEWS, OVERVIEW } from "utils/constants";
-import { PaneContainer } from "components/Utils/PaneContainer";
 import { InfoView } from "./InfoView";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectName } from "./ProjectName";

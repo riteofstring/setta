@@ -48,7 +48,7 @@ def load_project_config_metadata(dbs, config_name):
             name = :name
     """
 
-    query_params = { "name": config_name}
+    query_params = {"name": config_name}
     db.execute(query, query_params)
     out = aggregate_results(
         db.fetchall(), "id", ["childId", "childX", "childY", "childZIndex"]

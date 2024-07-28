@@ -1,5 +1,5 @@
-import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 

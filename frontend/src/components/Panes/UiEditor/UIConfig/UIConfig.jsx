@@ -1,3 +1,7 @@
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
+import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";
@@ -9,10 +13,6 @@ import { useCodeInfo } from "state/definitions";
 import { useGetParamInfosThatHaveNames } from "state/hooks/sectionContents";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 

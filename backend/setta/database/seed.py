@@ -33,9 +33,7 @@ def seed_settings(dbs):
     save_settings(dbs, data)
 
 
-def seed(
-    dbs, with_examples=False, with_base_ui_types=False, with_settings=False
-):
+def seed(dbs, with_examples=False, with_base_ui_types=False, with_settings=False):
     if with_base_ui_types:
         seed_base_ui_types(dbs)
     if with_examples:

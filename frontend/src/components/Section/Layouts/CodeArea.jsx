@@ -2,10 +2,10 @@ import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import React from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 
 const javascriptExtension = javascript();
 const pythonExtension = python();

@@ -1,7 +1,7 @@
-import React from "react";
-import { createPortal } from "react-dom";
 import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import React from "react";
+import { createPortal } from "react-dom";
 
 export function ComboboxInput({
   getInputProps,
