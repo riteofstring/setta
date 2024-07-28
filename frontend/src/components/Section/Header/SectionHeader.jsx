@@ -3,8 +3,8 @@ import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import { IconButton } from "utils/atoms/buttons/IconButton";
+import { StandardPopover } from "utils/atoms/popover/standardpopover";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
@@ -31,7 +31,7 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   return (
-    <header className="card-title flex flex-row items-center">
+    <header className="section-title mx-2 flex flex-row items-center">
       {!isInfo && (
         <>
           <MenuButton sectionId={sectionId} sectionTypeName={sectionTypeName} />

@@ -1,12 +1,11 @@
-import { DialogCloseButton } from "components/Utils/atoms/dialog/dialogCloseButton";
 import { useEffect, useState } from "react";
 import { setModalOpen } from "state/actions/modal";
-import { MODAL_PURPOSE } from "utils/constants";
+import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
 import { FileExplorer } from "./FileExplorer";
 import { FileNameInput } from "./FileNameInput";
 
 export function SaveLoadModal({
-  modalPurpose,
+  modalType,
   files,
   onClickActionButton,
   title,
@@ -72,7 +71,7 @@ export function SaveLoadModal({
   return (
     <div className="grid flex-grow grid-rows-[min-content_min-content_1fr_min-content] overflow-hidden">
       <Body
-        modalPurpose={modalPurpose}
+        modalType={modalType}
         files={currFiles}
         selected={selected}
         onSelectedChange={onSelectedChange}
@@ -95,7 +94,7 @@ export function SaveLoadModal({
 }
 
 function Body({
-  modalPurpose,
+  modalType,
   files,
   selected,
   onSelectedChange,
@@ -120,7 +119,7 @@ function Body({
         breadCrumb={breadCrumb}
         onBreadCrumbClick={onBreadCrumbClick}
       />
-      {modalPurpose === MODAL_PURPOSE.SAVE && (
+      {modalType !== "Load" && (
         // <div className="px-3">
         <FileNameInput
           placeholder={placeholder}

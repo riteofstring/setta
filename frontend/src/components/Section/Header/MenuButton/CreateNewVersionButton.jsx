@@ -1,11 +1,10 @@
-import { DialogMenuBarTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
 import { setModalData, setModalType } from "state/actions/modal";
-import { MODAL_TYPE } from "utils/constants";
+import { DialogMenuBarTriggerItem } from "utils/atoms/dialog/dialogTriggerItem";
 
 export function CreateNewVersionButton({ sectionId }) {
   function openModal() {
     setModalData(sectionId);
-    setModalType(MODAL_TYPE.NEW_VERSION);
+    setModalType("New Version");
   }
 
   return (

@@ -1,9 +1,9 @@
-import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { useEffect, useState } from "react";
 import { saveKwargsAsCollection } from "state/actions/kwargs/kwargs";
 import { useModal } from "state/definitions";
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
-export function SaveCustomArgumentsModal({ open, modalType }) {
+export function SaveCustomArgumentsModal({ open }) {
   const [files, setFiles] = useState([]);
 
   useEffect(() => {
@@ -25,11 +25,11 @@ export function SaveCustomArgumentsModal({ open, modalType }) {
 
   return (
     <SaveLoadModal
-      modalPurpose={modalType.purpose}
+      modalType={"Save"}
       files={files}
       onClickActionButton={onClickSaveCustomArguments}
-      title={modalType.title}
-      buttonText={modalType.buttonText}
+      title="Save Collection As"
+      buttonText="Save As"
       placeholder="Collection Name"
     />
   );

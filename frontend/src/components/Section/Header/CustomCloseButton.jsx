@@ -1,4 +1,4 @@
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 
 // absolute top-1 right-1
 export function CustomCloseButton({ isInfo, onClick, ...props }) {

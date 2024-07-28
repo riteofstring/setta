@@ -1,23 +1,40 @@
 import C from "constants/constants.json";
-import { post } from "./utils";
+import { post, pseudoTemplatedStr } from "./utils";
 
-export async function dbGetAllProjectConfigMetadata() {
+export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
   return await post({
-    body: {},
-    address: C.ROUTE_ALL_PROJECT_CONFIG_METADATA,
+    body: { projectId, format: "fileMenu" },
+    address: C.ROUTE_PROJECTS,
   });
 }
 
-export async function dbLoadFullProject() {
+export async function dbGetProjectsForHomePage() {
   return await post({
-    body: {},
-    address: C.ROUTE_LOAD_FULL_PROJECT,
+    body: { format: "homePage" },
+    address: C.ROUTE_PROJECTS,
   });
 }
 
-export async function dbCreateProjectConfig({ name, previewImgColor }) {
+export async function dbLoadProject({ projectName, configName }) {
   return await post({
-    address: C.ROUTE_CREATE_PROJECT_CONFIG,
+    body: {},
+    address: pseudoTemplatedStr(C.ROUTE_LOAD_PROJECT, {
+      projectName,
+      configName,
+    }),
+  });
+}
+
+export async function dbLoadFullProject({ projectName }) {
+  return await post({
+    body: {},
+    address: pseudoTemplatedStr(C.ROUTE_LOAD_FULL_PROJCT, { projectName }),
+  });
+}
+
+export async function dbCreateProject({ name, previewImgColor }) {
+  return await post({
+    address: C.ROUTE_CREATE_PROJECT,
     body: { name, previewImgColor },
   });
 }
@@ -43,9 +60,9 @@ export async function dbSaveAsExistingProjectConfig({ project, configName }) {
   });
 }
 
-export async function dbDeleteProjectConfigs(ids) {
+export async function dbDeleteProjects({ ids }) {
   return await post({
-    address: C.ROUTE_DELETE_PROJECT_CONFIGS,
+    address: C.ROUTE_DELETE_PROJECTS,
     body: { ids },
   });
 }

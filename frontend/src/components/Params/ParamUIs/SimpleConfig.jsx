@@ -1,4 +1,4 @@
-import { StandardInput } from "components/Utils/atoms/input/StandardInput";
+import { StandardInput } from "utils/atoms/input/StandardInput";
 
 export function SimpleConfig({ options, onChange, onBlur, config }) {
   return (
