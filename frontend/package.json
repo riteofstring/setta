@@ -31,6 +31,7 @@
     "@tailwindcss/typography": "0.5.9",
     "@uiw/codemirror-theme-github": "4.21.21",
     "@uiw/react-codemirror": "4.21.21",
+    "@uiw/codemirror-themes": "4.23.0",
     "@visx/axis": "3.0.0",
     "@visx/curve": "3.0.0",
     "@visx/event": "3.0.0",

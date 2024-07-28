@@ -185,6 +185,7 @@ export function TextInputCodeMirror({
   realCodeClassName,
   singleLine,
   onEnter,
+  color,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -204,7 +205,7 @@ export function TextInputCodeMirror({
     }
   }
 
-  const theme = useCodeMirrorStyle();
+  const theme = useCodeMirrorStyle(color);
 
   return (
     <>
