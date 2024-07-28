@@ -32,7 +32,7 @@
   "ROUTE_REDOC_DOCS": "/redoc",
   "ROUTE_ALL_PROJECT_CONFIG_METADATA": "/allProjectConfigMetadata",
   "ROUTE_LOAD_PROJECT_CONFIG": "/loadProjectConfig",
-  "ROUTE_LOAD_FULL_PROJECT": "/loadFullProject",
+  "ROUTE_LOAD_FULL_PROJECT": "/projects/load",
   "ROUTE_SAVE_PROJECT": "/projects/save",
   "ROUTE_CREATE_PROJECT_CONFIG": "/projects/createProjectConfig",
   "ROUTE_DELETE_PROJECT_CONFIGS": "/deleteProjectConfigs",

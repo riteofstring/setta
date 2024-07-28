@@ -15,9 +15,9 @@ export async function dbLoadProjectConfig(projectConfigName) {
   });
 }
 
-export async function dbLoadFullProject({ excludeProjectConfigName }) {
+export async function dbLoadFullProject() {
   return await post({
-    body: { excludeProjectConfigName },
+    body: {},
     address: C.ROUTE_LOAD_FULL_PROJECT,
   });
 }

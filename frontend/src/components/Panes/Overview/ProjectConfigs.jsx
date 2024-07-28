@@ -5,18 +5,14 @@ import React from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setNodes } from "state/actions/nodeInternals";
 import { setProjectConfig } from "state/actions/project/projectConfig";
-import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
+import { useOtherProjectConfigs, useProjectConfig } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
-import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
-  const configNames = useAllProjectConfigs((x) =>
-    x.x.map((c) => c.projectConfig.name),
-  );
-  const currProjectConfigName = useProjectConfig((x) => x.name);
+  const configNames = useOtherProjectConfigs((x) => x.x.map((c) => c.name));
+  const currConfigName = useProjectConfig((x) => x.name);
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
-  useLoadFullProject(currProjectConfigName);
 
   return (
     <>
@@ -37,7 +33,7 @@ export const ProjectConfigs = React.forwardRef(() => {
           {configNames.map((name, idx) => (
             <p
               key={idx}
-              className={`${currProjectConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
+              className={`${currConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
               onMouseOver={() => {
                 previewEnabled && onMouseOver(idx);
               }}
@@ -53,7 +49,7 @@ export const ProjectConfigs = React.forwardRef(() => {
 });
 
 function onMouseOver(idx) {
-  const config = useAllProjectConfigs.getState().x[idx];
+  const config = useOtherProjectConfigs.getState().x[idx];
   if (config.name !== useProjectConfig.getState().name) {
     setProjectConfig(_.omit(config, ["viewport", "children"]));
     setNodes(
@@ -68,7 +64,7 @@ function onMouseOver(idx) {
 }
 
 function onClick(idx) {
-  const config = useAllProjectConfigs.getState().x[idx];
+  const config = useOtherProjectConfigs.getState().x[idx];
   if (config.name !== useProjectConfig.getState().name) {
     router.navigate(config.name, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
