@@ -1,15 +1,19 @@
 import React, { useEffect } from "react";
-import { CLOSED_PANE_WIDTH } from "utils/constants";
+import {
+  CLOSED_PANE_WIDTH,
+  INITIAL_OVERVIEW_WIDTH,
+  INITIAL_UI_EDITOR_WIDTH,
+} from "utils/constants";
 
 export const localStorageFns = {
   darkMode: { init: true },
   showMinimap: { init: true },
   projectConfigPreviewEnabled: { init: true },
   overviewVis: { init: true },
-  overviewWidth: { init: 335 },
-  overviewTrueWidth: { init: 335 },
+  overviewWidth: { init: INITIAL_OVERVIEW_WIDTH },
+  overviewTrueWidth: { init: INITIAL_OVERVIEW_WIDTH },
   uiEditorVis: { init: false },
-  uiEditorWidth: { init: 500 },
+  uiEditorWidth: { init: INITIAL_UI_EDITOR_WIDTH },
   uiEditorTrueWidth: { init: CLOSED_PANE_WIDTH },
 };
 
