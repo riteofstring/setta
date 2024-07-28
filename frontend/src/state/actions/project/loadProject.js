@@ -3,9 +3,14 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { dbCreateProjectConfig, dbLoadFullProject } from "requests/projects";
 import {
+  useAllProjectConfigs,
+  useNodeInternals,
+  useProjectConfig,
+  useStateVersion,
+} from "state/definitions";
+import {
   PAGE_LOAD_TYPES,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
-  REACT_FLOW_STORE,
   setDbSourceMapping,
 } from "utils/constants";
 import { setAllCodeInfo } from "../codeInfo";
@@ -20,30 +25,24 @@ import { setAllSectionInfos } from "../sections/sectionInfos";
 import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
 import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { setOtherProjectConfigs } from "./otherProjectConfigs";
+import { setAllProjectConfigs } from "./allProjectConfigs";
 import { setProjectConfig } from "./projectConfig";
 
-export async function loadProject({ projectConfigName }) {
+export async function loadFullProject() {
   const res = await dbLoadFullProject();
-  console.log("loadProject", res);
   if (res.status === 200) {
-    const projectConfig = res.data.find(
-      (x) => x.projectConfig.name === projectConfigName,
-    ).projectConfig;
     const configsMerged = _.merge(
       {},
       ...res.data.map((x) => _.omit(x, ["projectConfig"])),
     );
-    const projectState = { projectConfig, ...configsMerged };
-    setOtherProjectConfigs(res.data.map((x) => x.projectConfig));
-    return loadProjectState(projectState);
+    setAllProjectConfigs(res.data.map((x) => x.projectConfig));
+    return loadProjectState(configsMerged);
   } else {
     return false;
   }
 }
 
 export function loadProjectState({
-  projectConfig,
   codeInfo,
   sections,
   evCols,
@@ -57,16 +56,6 @@ export function loadProjectState({
 }) {
   setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
-  setProjectConfig(_.omit(projectConfig, ["viewport", "children"]));
-  REACT_FLOW_STORE.initialViewport = projectConfig.viewport;
-  setNodes(
-    _.map(projectConfig.children, (v, k) => ({
-      id: k,
-      position: { x: v.x, y: v.y },
-      zIndex: v.zIndex,
-      tempZIndex: v.zIndex,
-    })),
-  );
   setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
   setAllEVCols(evCols);
   setAllUITypeCols({ uiTypeCols });
@@ -76,8 +65,29 @@ export function loadProjectState({
   setAllOutputs(outputs);
   setAllOutputGroups(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));
-  maybeIncrementProjectStateVersion(true, false);
   return true;
+}
+
+export function loadProjectConfigState(projectConfigName) {
+  const projectConfig = useAllProjectConfigs
+    .getState()
+    .x.find((x) => x.name === projectConfigName);
+  setNodes(
+    _.map(projectConfig.children, (v, k) => ({
+      id: k,
+      position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
+    })),
+  );
+  setProjectConfig(_.omit(projectConfig, ["children"]));
+  maybeIncrementProjectStateVersion(true, false);
+}
+
+export function resetProjectConfigState() {
+  useProjectConfig.getState().reset();
+  useNodeInternals.getState().reset();
+  useStateVersion.getState().reset();
 }
 
 export async function createAndGoToProjectConfig({ name }) {

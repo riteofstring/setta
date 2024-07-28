@@ -5,12 +5,12 @@ import React from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setNodes } from "state/actions/nodeInternals";
 import { setProjectConfig } from "state/actions/project/projectConfig";
-import { useOtherProjectConfigs, useProjectConfig } from "state/definitions";
+import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
-  const configNames = useOtherProjectConfigs((x) => x.x.map((c) => c.name));
+  const configNames = useAllProjectConfigs((x) => x.x.map((c) => c.name));
   const currConfigName = useProjectConfig((x) => x.name);
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
 
@@ -49,7 +49,7 @@ export const ProjectConfigs = React.forwardRef(() => {
 });
 
 function onMouseOver(idx) {
-  const config = useOtherProjectConfigs.getState().x[idx];
+  const config = useAllProjectConfigs.getState().x[idx];
   if (config.name !== useProjectConfig.getState().name) {
     setProjectConfig(_.omit(config, ["viewport", "children"]));
     setNodes(
@@ -64,7 +64,7 @@ function onMouseOver(idx) {
 }
 
 function onClick(idx) {
-  const config = useOtherProjectConfigs.getState().x[idx];
+  const config = useAllProjectConfigs.getState().x[idx];
   if (config.name !== useProjectConfig.getState().name) {
     router.navigate(config.name, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
