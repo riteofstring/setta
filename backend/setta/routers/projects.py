@@ -12,7 +12,6 @@ from setta.database.db.projects.load import (
 )
 from setta.database.db.projects.save import (
     create_project,
-    save_project_config_name,
     save_project_details,
     save_project_name,
 )
@@ -20,7 +19,6 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from setta.database.utils import convert_to_backend_format
 from setta.utils.constants import C
 
 from .dependencies import get_dbs
