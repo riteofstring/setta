@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { setModalOpen } from "state/actions/modal";
-import { DialogCloseButton } from "utils/atoms/dialog/dialogCloseButton";
+import { DialogCloseButton } from "components/Utils/atoms/dialog/dialogCloseButton";
 import { FileExplorer } from "./FileExplorer";
 import { FileNameInput } from "./FileNameInput";
 
