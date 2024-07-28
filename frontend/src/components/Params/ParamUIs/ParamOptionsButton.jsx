@@ -1,10 +1,10 @@
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 
 export function ParamOptionsButton({ variants = "" }) {
   //hover:!bg-white dark:hover:!bg-setta-900
   return (
     <IconButton
-      twClasses={`section-value justify-self-end self-center ${variants}`}
+      twClasses={`card-param-options-btn justify-self-end self-center ${variants}`}
       size="h-3 w-3"
       icon={<i className="gg-options"></i>}
       color={`[&>*]:text-transparent group-hover/arg-group:[&>*]:text-setta-400 dark:group-hover/arg-group:[&>*]:text-setta-400 hover:[&>*]:!text-setta-800 dark:hover:[&>*]:!text-setta-100`}

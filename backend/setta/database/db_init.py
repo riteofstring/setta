@@ -31,8 +31,8 @@ CREATE_TABLES_COMMANDS = [
         childId TEXT,
         "order" INTEGER,
         PRIMARY KEY (parentId, childId),
-        FOREIGN KEY (parentId) REFERENCES CodeInfo(id),
-        FOREIGN KEY (childId) REFERENCES CodeInfo(id)
+        FOREIGN KEY (parentId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        FOREIGN KEY (childId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
     # Section model
@@ -57,13 +57,13 @@ CREATE_TABLES_COMMANDS = [
         codeLanguage TEXT,
         isFrozen BOOLEAN,
         dbSource TEXT,
-        FOREIGN KEY (evColId) REFERENCES EVColId(id),
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id),
-        FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id),
-        FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id),
-        FOREIGN KEY (uiTypeId) REFERENCES UIType(id),
-        FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id),
-        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id)
+        FOREIGN KEY (evColId) REFERENCES EVColId(id) ON DELETE CASCADE,
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
+        FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
+        FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
+        FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
+        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE
     );
     """,
     # SectionChildren model
@@ -72,8 +72,8 @@ CREATE_TABLES_COMMANDS = [
         childId TEXT PRIMARY KEY,
         parentId TEXT,
         "order" INTEGER,
-        FOREIGN KEY (childId) REFERENCES Section(id),
-        FOREIGN KEY (parentId) REFERENCES Section(id)
+        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE,
+        FOREIGN KEY (parentId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     # EVColId model
@@ -82,7 +82,7 @@ CREATE_TABLES_COMMANDS = [
         id TEXT PRIMARY KEY,
         name TEXT,
         originSectionId TEXT,
-        FOREIGN KEY (originSectionId) REFERENCES Section(id)
+        FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     # EVCol model
@@ -92,8 +92,8 @@ CREATE_TABLES_COMMANDS = [
         codeInfoId TEXT,
         value TEXT,
         PRIMARY KEY (idid, codeInfoId),
-        FOREIGN KEY (idid) REFERENCES EVColId(id),
-        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id)
+        FOREIGN KEY (idid) REFERENCES EVColId(id) ON DELETE CASCADE,
+        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
     # UIType model
@@ -112,10 +112,10 @@ CREATE_TABLES_COMMANDS = [
         asNonPresetForSectionId TEXT,
         asNonPresetForUITypeColId TEXT,
         asNonPresetForCodeInfoId TEXT,
-        FOREIGN KEY (sectionConfigCodeInfoId) REFERENCES CodeInfo(id),
-        FOREIGN KEY (sectionConfigChildUITypeId) REFERENCES UIType(id),
-        FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id),
-        FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId)
+        FOREIGN KEY (sectionConfigCodeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        FOREIGN KEY (sectionConfigChildUITypeId) REFERENCES UIType(id) ON DELETE CASCADE,
+        FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id) ON DELETE CASCADE,
+        FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId) ON DELETE CASCADE
     );
     """,
     # UITypeColId model
@@ -131,21 +131,9 @@ CREATE_TABLES_COMMANDS = [
         codeInfoId TEXT,
         uiTypeId TEXT,
         PRIMARY KEY (idid, codeInfoId),
-        FOREIGN KEY (idid) REFERENCES UITypeColId(id),
-        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id),
-        FOREIGN KEY (uiTypeId) REFERENCES UIType(id)
-    );
-    """,
-    # Project model
-    """
-    CREATE TABLE IF NOT EXISTS Project (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        defaultConfigId TEXT UNIQUE,
-        previewImgNodes TEXT DEFAULT '[]',
-        previewImgColor TEXT,
-        UNIQUE (name),
-        FOREIGN KEY (defaultConfigId) REFERENCES ProjectConfig(id)
+        FOREIGN KEY (idid) REFERENCES UITypeColId(id) ON DELETE CASCADE,
+        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE
     );
     """,
     # ProjectConfig model
@@ -153,12 +141,13 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS ProjectConfig (
         id TEXT PRIMARY KEY,
         name TEXT,
-        projectId TEXT,
         x REAL DEFAULT 0,
         y REAL DEFAULT 0,
         zoom REAL DEFAULT 1,
-        UNIQUE (name, projectId),
-        FOREIGN KEY (projectId) REFERENCES Project(id) ON DELETE CASCADE
+        isDefault BOOLEAN DEFAULT 0,
+        previewImgNodes TEXT DEFAULT '[]',
+        previewImgColor TEXT,
+        UNIQUE (name)
     );
     """,
     # ProjectConfigChildren model
@@ -171,7 +160,7 @@ CREATE_TABLES_COMMANDS = [
         zIndex REAL DEFAULT 0,
         PRIMARY KEY (parentId, childId),
         FOREIGN KEY (parentId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
-        FOREIGN KEY (childId) REFERENCES Section(id)
+        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     # Run model
@@ -191,7 +180,7 @@ CREATE_TABLES_COMMANDS = [
         name TEXT,
         runId TEXT,
         UNIQUE (name, runId),
-        FOREIGN KEY (runId) REFERENCES Run(id)
+        FOREIGN KEY (runId) REFERENCES Run(id) ON DELETE CASCADE
     );
     """,
     # Output model
@@ -201,7 +190,7 @@ CREATE_TABLES_COMMANDS = [
         name TEXT,
         "values" REAL,
         outputGroupId TEXT,
-        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id)
+        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE
     );
     """,
     """
@@ -211,7 +200,7 @@ CREATE_TABLES_COMMANDS = [
         projectConfigId TEXT,
         "order" INTEGER,
         selected BOOLEAN,
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
+        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
     );
     """,
     """
@@ -220,9 +209,9 @@ CREATE_TABLES_COMMANDS = [
         sectionId TEXT,
         paramSweepId TEXT,
         PRIMARY KEY (idid, sectionId, paramSweepId),
-        FOREIGN KEY (idid) REFERENCES RunGroupId(id),
-        FOREIGN KEY (sectionId) REFERENCES Section(id)
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id)
+        FOREIGN KEY (idid) REFERENCES RunGroupId(id) ON DELETE CASCADE,
+        FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE
     );
     """,
     """
@@ -230,7 +219,7 @@ CREATE_TABLES_COMMANDS = [
         id TEXT PRIMARY KEY,
         name TEXT,
         originSectionId TEXT,
-        FOREIGN KEY (originSectionId) REFERENCES Section(id)
+        FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     """
@@ -241,9 +230,9 @@ CREATE_TABLES_COMMANDS = [
         "order" INTEGER,
         value TEXT,
         PRIMARY KEY (idid, paramInfoId, evColId),
-        FOREIGN KEY (idid) REFERENCES ParamSweepId(id),
-        FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id)
-        FOREIGN KEY (evColId) REFERENCES EVColId(id)
+        FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
+        FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        FOREIGN KEY (evColId) REFERENCES EVColId(id) ON DELETE CASCADE,
         CHECK (paramInfoId IS NOT NULL OR evColId IS NOT NULL)
     );
     """,
@@ -291,7 +280,7 @@ def maybe_create_tables_and_seed(
             if not tables_exist(db):
                 create_tables(db)
         do_seed_projects = with_example_projects and not seed_data_exist(
-            dbs.default, ["Project", "UIType"]
+            dbs.default, ["UIType"]
         )
         do_seed_base_ui_types = with_base_ui_types and not seed_data_exist(
             dbs.default, ["UIType"]

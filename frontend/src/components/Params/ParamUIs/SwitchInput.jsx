@@ -1,4 +1,4 @@
-import { Toggle } from "utils/atoms/toggles/Toggle";
+import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 
 export function SwitchInputConfig() {
   return null;
@@ -9,20 +9,21 @@ export function SwitchInput({
   defaultVal,
   onChange,
   isDisabled,
-  outerDivClassName,
-  twRootClasses,
-  twThumbClasses,
+  className,
+  area = "card-value",
 }) {
   const valueBool = value === "true";
 
   return (
-    <div className={outerDivClassName}>
+    <div
+      className={`${area} flex ${area ? "place-self-center" : "justify-end"}`}
+    >
       <Toggle
         checked={valueBool}
         disabled={isDisabled}
         onCheckedChange={onChange}
-        twRootClasses={twRootClasses}
-        twThumbClasses={twThumbClasses}
+        twRootClasses={`SwitchRoot ${className}`}
+        twThumbClasses="SwitchThumb"
       />
     </div>
   );

@@ -12,7 +12,6 @@ from setta.database.db.projects.load import (
 )
 from setta.database.db.projects.save import (
     create_project,
-    save_project_config_name,
     save_project_details,
     save_project_name,
 )
@@ -20,17 +19,11 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from setta.database.utils import convert_to_backend_format
 from setta.utils.constants import C
 
 from .dependencies import get_dbs
 
 router = APIRouter()
-
-
-class ProjectRequest(BaseModel):
-    format: str
-    projectId: Optional[str] = None
 
 
 class ProjectSaveRequest(BaseModel):
@@ -68,28 +61,22 @@ class SetProjectConfigNameRequest(BaseModel):
 
 
 @router.post(C.ROUTE_PROJECTS)
-def route_projects(x: ProjectRequest, dbs=Depends(get_dbs)):
+def route_projects(dbs=Depends(get_dbs)):
     with dbs:
-        return load_all_projects(dbs, x.format, x.projectId)
+        return load_all_projects(dbs)
 
 
-@router.post(C.ROUTE_LOAD_PROJECT)
-def route_load_project(projectName, configName, dbs=Depends(get_dbs)):
+
+@router.post(C.ROUTE_LOAD_FULL_PROJECT)
+def route_load_full_project(dbs=Depends(get_dbs)):
     with dbs:
-        return load_project(dbs, projectName, configName)
-
-
-@router.post(C.ROUTE_LOAD_FULL_PROJCT)
-def route_load_full_project(projectName, dbs=Depends(get_dbs)):
-    with dbs:
-        return load_full_project(dbs, projectName)
+        return load_full_project(dbs)
 
 
 @router.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest, dbs=Depends(get_dbs)):
-    formatted = convert_to_backend_format(x.project)
     with dbs:
-        save_project_details(dbs, formatted)
+        save_project_details(dbs, x.project)
 
 
 @router.post(C.ROUTE_CREATE_PROJECT)
