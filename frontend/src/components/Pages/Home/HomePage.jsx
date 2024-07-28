@@ -14,6 +14,7 @@ import { dbDeleteProjects } from "requests/projects";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetProjectsForHomePage } from "state/hooks/project";
+import { SETTINGS_ROUTER_PATH } from "utils/constants";
 import "./homepage.css";
 
 export function HomePage() {
@@ -77,7 +78,7 @@ function RightColumn({ projects, setDoRefresh }) {
           </StandardButton>
         </div>
         <Link
-          to="settings"
+          to={SETTINGS_ROUTER_PATH}
           className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-heading font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 "
         >
           <IoSettingsOutline />
@@ -118,17 +119,6 @@ function ProjectItems({ projects, selectedProjects, onSelectProject }) {
 
 const ProjectItem = forwardRef(
   ({ project, isSelected, onSelectProject }, forwardedRef) => {
-    const { name, configs } = project;
-    const [openConfigs, setOpenConfigs] = useState(false);
-
-    function onClickConfigsButton(e) {
-      console.log("onClickConfigsButton");
-      e.stopPropagation();
-      setOpenConfigs(!openConfigs);
-    }
-
-    // bg-[url('https://via.placeholder.com/400')]
-
     const itemStyles =
       "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
 
@@ -140,15 +130,13 @@ const ProjectItem = forwardRef(
           className="contents"
         >
           <ThumbnailArea
-            onClickConfigsButton={onClickConfigsButton}
             project={project}
-            configs={configs}
             isSelected={isSelected}
             onSelectProject={onSelectProject}
           />
           <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-800 ">
             <p className="font-heading text-sm text-setta-600 dark:text-setta-100">
-              {name}
+              {project.name}
             </p>
           </div>
         </Link>
