@@ -129,6 +129,7 @@ export const useProjectConfig = createProjectState(
       withVersion({
         id: "",
         name: "",
+        isDefault: false,
       }),
     ),
   ),

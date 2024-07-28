@@ -33,6 +33,7 @@ def load_project_config_metadata(dbs, config_name):
             ProjectConfig.x,
             ProjectConfig.y,
             ProjectConfig.zoom,
+            ProjectConfig.isDefault,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.x as childX,
             ProjectConfigChildren.y as childY,
@@ -67,6 +68,7 @@ def load_project_config_metadata(dbs, config_name):
     return {
         "id": out["id"],
         "name": out["name"],
+        "isDefault": out["isDefault"],
         "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
         "children": children,
     }
