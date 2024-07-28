@@ -8,7 +8,7 @@ import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { create, createProjectState, withResetFn, withVersion } from "./utils";
+import { create, createProjectState, withVersion } from "./utils";
 
 export const useActiveSection = createProjectState(
   temporal(() =>
@@ -28,13 +28,11 @@ export const useCodeInfo = createProjectState(
   ),
 );
 
-export const useContextMenus = createProjectState(
-  withResetFn({
-    pane: { isOpen: false, x: 0, y: 0 },
-    deck: { isOpen: false, x: 0, y: 0, sectionId: null },
-    selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-  }),
-);
+export const useContextMenus = createProjectState(() => ({
+  pane: { isOpen: false, x: 0, y: 0 },
+  deck: { isOpen: false, x: 0, y: 0, sectionId: null },
+  selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
+}));
 
 export const useEVCols = createProjectState(
   temporal(

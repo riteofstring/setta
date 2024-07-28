@@ -8,20 +8,19 @@ export const create = (f) => {
     return create;
   }
   const store = _create(f, Object.is);
-  addResetter(store, STATE_TYPES.BASE_STATE);
+  addResetter(store);
   addStatePointer(store, STATE_TYPES.BASE_STATE);
   return store;
 };
 
 export const createProjectState = (f) => {
   const store = create(f);
-  addResetter(store, STATE_TYPES.PROJECT_STATE);
   addStatePointer(store, STATE_TYPES.PROJECT_STATE);
   return store;
 };
 
 function createSubStateDict() {
-  return { resetters: [], statePointers: [] };
+  return { statePointers: [] };
 }
 
 export const STATE_TYPES = {
@@ -34,29 +33,24 @@ export const stateDict = {
   [STATE_TYPES.PROJECT_STATE]: createSubStateDict(),
 };
 
-function createResetter(state) {
+function addResetter(state) {
   const initialState = state.getState();
-  return () => {
-    state.setState(initialState);
+  // reset function definition
+  const resetFn = () => {
+    // we have to explicitly include resetFn in initialState
+    // since the initialState defined above does not have "reset" as part of it.
+    const initialStateWithReset = { ...initialState, reset: resetFn };
+    state.setState(initialStateWithReset);
     if (state.temporal) {
       state.temporal.getState().clear();
     }
   };
-}
-
-function addResetter(state, stateType) {
-  stateDict[stateType].resetters.push(createResetter(state));
+  // add it to the state
+  state.setState({ reset: resetFn });
 }
 
 function addStatePointer(state, stateType) {
   stateDict[stateType].statePointers.push(state);
-}
-
-export function withResetFn(initialState) {
-  return {
-    ...initialState,
-    reset: () => set(initialState),
-  };
 }
 
 export function withVersion(initialState) {
@@ -64,8 +58,8 @@ export function withVersion(initialState) {
 }
 
 function resetStores(stateType) {
-  for (const resetter of stateDict[stateType].resetters) {
-    resetter();
+  for (const state of stateDict[stateType].statePointers) {
+    state.getState().reset();
   }
 }
 
