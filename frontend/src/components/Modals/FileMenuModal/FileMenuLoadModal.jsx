@@ -4,27 +4,24 @@ import { router } from "components/Pages/router";
 import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 
 export function FileMenuLoadModal({ open, modalType }) {
-  const projects = useGetAllProjectConfigMetadataForFileMenu(open);
+  const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
 
   function onClickLoadProjectConfig({ selected }) {
-    const configInfo = projects.find((x) => x.id === selected);
-    if (configInfo) {
-      router.navigate(configInfo.name, {
+    const config = projectConfigs.find((x) => x.id === selected);
+    if (config) {
+      router.navigate(config.name, {
         state: { pageLoadType: LOAD_PROJECT_CONFIG },
       });
     }
   }
 
-  console.log("modalType", modalType)
-
   return (
     <SaveLoadModal
       modalPurpose={modalType.purpose}
-      files={projects}
+      files={projectConfigs}
       onClickActionButton={onClickLoadProjectConfig}
       title={modalType.title}
       buttonText={modalType.buttonText}
-      placeholder="Project Config Name"
     />
   );
 }
