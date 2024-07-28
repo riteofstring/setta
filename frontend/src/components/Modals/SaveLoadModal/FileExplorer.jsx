@@ -33,9 +33,9 @@ export function FileExplorer({
         <Button twClasses="text-xs text-setta-400 hover:text-setta-900 dark:hover:text-setta-200 rounded-md ring-0">
           Name
         </Button>
-        <Button twClasses="text-xs text-setta-400 dark:hover:text-setta-200 hover:text-setta-900 rounded-md ring-0">
+        {/* <Button twClasses="text-xs text-setta-400 dark:hover:text-setta-200 hover:text-setta-900 rounded-md ring-0">
           Last Modified
-        </Button>
+        </Button> */}
       </div>
       <div className="overflow-scroll">
         <RadioGroup.Root
