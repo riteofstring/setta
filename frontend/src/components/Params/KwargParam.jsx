@@ -1,5 +1,5 @@
 import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 
@@ -18,25 +18,23 @@ export function KwargParam(props) {
     });
   };
 
-  const hasChildren = kwargInfo.children.length > 0;
-
   return (
     <>
       <IconButton
         onClick={onClick}
         icon={<i className="gg-close" />}
         bg="bg-transparent"
-        color="text-setta-200 dark:text-setta-600 hover:text-setta-500 dark:hover:text-setta-200"
-        twClasses={`section-left-gutter ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.6rem]" : "place-self-center"}  z-20 -ml-[0.125rem]`}
+        color="text-setta-400 dark:text-setta-700 hover:text-setta-700 dark:hover:text-setta-200"
+        twClasses={`card-close-arg-group ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[.33rem]" : "place-self-center"} ml-1 z-20`}
         padding=""
-        size="h-[.5rem] w-[.5rem]"
+        size="h-[.66rem] w-[.66rem]"
       />
       <ParamContainer {...props} isKwarg={true}>
         <ParamNameInput
           sectionId={sectionId}
           paramInfoId={kwargInfo.id}
           value={kwargInfo.name}
-          hasChildren={hasChildren}
+          hasChildren={kwargInfo.children.length > 0}
           onBlur={onBlur}
           onClick={props.onNameClick}
         />

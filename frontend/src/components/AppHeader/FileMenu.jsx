@@ -1,4 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import { Link } from "react-router-dom";
 import {
@@ -8,28 +11,37 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "state/actions/modal";
-import { createAndGoToProject } from "state/actions/project/loadProject";
+import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
-import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
-import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
+import { useSettings } from "state/definitions";
+import { SETTINGS_ROUTER_PATH } from "utils/constants";
 
 export function FileMenu() {
+  const shortcuts = useSettings((x) =>
+    _.pick(x, [
+      "newProjectConfigShortcut",
+      "saveShortcut",
+      "saveAsShortcut",
+      "loadShortcut",
+    ]),
+  );
+
   return (
     <MenuDropdown trigger="File">
       <MenuItem
-        onClick={() => createAndGoToProject({})}
-        shortcut="Ctrl + Shift + N"
+        onClick={() => createAndGoToProjectConfig({})}
+        shortcut={shortcuts.newProjectConfigShortcut}
       >
-        New Project
+        New Config
       </MenuItem>
-      <MenuItem onClick={openLoadModal} shortcut="Ctrl + L">
+      <MenuItem onClick={openLoadModal} shortcut={shortcuts.loadShortcut}>
         Load
       </MenuItem>
-      <MenuItem onClick={saveProject} shortcut="Ctrl + S">
+      <MenuItem onClick={saveProject} shortcut={shortcuts.saveShortcut}>
         <VscSave />
         Save
       </MenuItem>
-      <MenuItem onClick={openSaveAsModal} shortcut="Ctrl + Shift + S">
+      <MenuItem onClick={openSaveAsModal} shortcut={shortcuts.saveAsShortcut}>
         <VscSaveAs />
         Save As
       </MenuItem>
@@ -47,7 +59,7 @@ export function FileMenu() {
         {/* <BiExport /> */}
         Export Full JSON
       </MenuItem>
-      <Link to="/settings">
+      <Link to={SETTINGS_ROUTER_PATH}>
         <MenuItem>Settings</MenuItem>
       </Link>
     </MenuDropdown>

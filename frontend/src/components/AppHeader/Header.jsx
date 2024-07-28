@@ -2,10 +2,10 @@ import { getInfoViewHandlers } from "state/actions/infoView";
 import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
-import { StandardSearch } from "utils/atoms/search/StandardSearch";
+import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
-  constInfoViews,
-  PROJECT_ROUTER_PATH,
+  CONST_INFO_VIEWS,
+  PROJECT_CONFIG_ROUTER_PATH,
   HOME_ROUTER_PATH,
 } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
@@ -31,7 +31,7 @@ function SearchSwitch({ path }) {
   switch (path) {
     case HOME_ROUTER_PATH:
       return <HomePageSearch />;
-    case PROJECT_ROUTER_PATH:
+    case PROJECT_CONFIG_ROUTER_PATH:
       return <ProjectPageSearch />;
     default:
       return null;
@@ -46,7 +46,7 @@ function ProjectPageSearch() {
       placeholder="Search Project"
       value={value}
       onChange={onChange}
-      {...getInfoViewHandlers(constInfoViews.NAVBAR_SEARCH)}
+      {...getInfoViewHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
     />
   );
 }
@@ -55,7 +55,7 @@ function HomePageSearch() {
   const value = useHomePageSearch((x) => x.value);
   return (
     <Search
-      placeholder="Filter Projects"
+      placeholder="Filter Project Configs"
       value={value}
       onChange={setHomePageSearch}
     />

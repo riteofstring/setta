@@ -1,8 +1,8 @@
 import { HiMoon } from "react-icons/hi";
 import { RiSunFill } from "react-icons/ri";
-import { toggleDarkMode } from "state/actions/settings";
+import { toggleDarkMode } from "state/actions/localStorage";
 import { useDarkMode } from "state/hooks/localStorage";
-import { Toggle } from "utils/atoms/toggles/Toggle";
+import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 
 export function DarkModeSwitch() {
   const darkMode = useDarkMode();

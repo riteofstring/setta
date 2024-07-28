@@ -2,7 +2,7 @@ import { MdOutlinePushPin } from "react-icons/md";
 import { toggleCodeInfoPinned } from "state/actions/codeInfo";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { useCodeInfo } from "state/definitions";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 
 export function PinButton({ variants, sectionId, paramInfoId }) {
   const isPinned = useCodeInfo((x) => x.x[paramInfoId].isPinned);
@@ -15,7 +15,7 @@ export function PinButton({ variants, sectionId, paramInfoId }) {
   //hover:!bg-white dark:hover:!bg-setta-900
   return (
     <IconButton
-      twClasses={`section-key ${variants}`}
+      twClasses={`card-pin-btn ${variants}`}
       size="h-3 w-3"
       icon={<MdOutlinePushPin />}
       color={` ${
