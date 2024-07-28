@@ -78,6 +78,9 @@ export function pauseTemporal() {
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal) {
       s.temporal.getState().pause();
+      if (s.getState().version === undefined) {
+        throw new Error("temporal state version should not be undefined");
+      }
     }
   }
 }
