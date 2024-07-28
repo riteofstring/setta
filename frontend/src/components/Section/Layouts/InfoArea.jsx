@@ -6,7 +6,7 @@ import { ScrollingArea } from "utils/atoms/scrollingarea/scrollingarea";
 
 function _InfoArea({ sectionId }) {
   return (
-    <ScrollingArea styles="card-markdown pr-6 pl-2 my-4 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
+    <ScrollingArea styles="section-main pr-6 pl-2 my-4 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
       <Markdown sectionId={sectionId} />
     </ScrollingArea>
   );

@@ -22,7 +22,7 @@ export function GlobalParamSweepArea() {
 
   return (
     <>
-      <section className="card-global-param-sweep mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
+      <section className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
         <article className="flex flex-col gap-2 ">
           <FilterSection />
 

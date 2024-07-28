@@ -28,7 +28,7 @@ function _CodeArea({ sectionId }) {
   }
 
   return (
-    <article className="nodrag nowheel card-code mb-2 cursor-auto overflow-clip">
+    <article className="nodrag nowheel section-main mb-2 cursor-auto overflow-clip">
       <Editor
         sectionId={sectionId}
         value={value}
