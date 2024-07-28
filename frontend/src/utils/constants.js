@@ -12,6 +12,7 @@ export const CLOSED_PANE_WIDTH = 40;
 export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 
 export const REACT_FLOW_STORE = {
+  initialViewport: {},
   lastPaneClickLocation: {},
 };
 

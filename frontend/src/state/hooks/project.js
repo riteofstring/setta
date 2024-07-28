@@ -6,13 +6,12 @@ import {
   dbGetAllProjectConfigMetadata,
   dbLoadFullProject,
 } from "requests/projects";
-import {
-  loadFullProject,
-  loadProjectConfigState,
-  resetProjectConfigState,
-} from "state/actions/project/loadProject";
+import { setCurrProjectIsInteractive } from "state/actions/interactive";
+import { loadProject } from "state/actions/project/loadProject";
+import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
 import { useProjectConfig } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
 
@@ -56,29 +55,28 @@ export function useExportProjectJson() {
   return { projectJson, exportProjectJson, exportFullProjectJson };
 }
 
-export function useLoadFullProject() {
+export function useLoadProject() {
+  const { projectConfigName } = useParams();
+  const { state } = useLocation();
+  const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
 
   useEffect(() => {
     async function loadAllProjectData() {
-      const res = await loadFullProject();
+      setDoneLoading(false);
+      const res = await loadProject({ projectConfigName });
       setDoneLoading(res);
     }
 
-    loadAllProjectData();
-  }, []);
+    // The first if-statement triggers for a page refresh or navigating to a different project
+    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
+      loadAllProjectData();
+    } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
+      setProjectConfigName(projectConfigName);
+    }
 
-  return doneLoading;
-}
-
-export function useLoadProjectConfig() {
-  const { projectConfigName } = useParams();
-  const [doneLoading, setDoneLoading] = useState(false);
-
-  useEffect(() => {
-    loadProjectConfigState(projectConfigName);
-    setDoneLoading(true);
-  }, []);
+    setCurrProjectIsInteractive(projectConfigName);
+  }, [projectConfigName]);
 
   return doneLoading;
 }
@@ -99,15 +97,12 @@ export function useEditableProjectName() {
 }
 
 export function useResetProjectState() {
-  const { pathname } = useLocation();
-  // useEffect(() => {
-  //   if (state?.pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-  //     return;
-  //   }
-  //   resetProjectStores();
-  // }, [pathname]);
+  const { pathname, state } = useLocation();
   useEffect(() => {
-    resetProjectConfigState();
+    if (state?.pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
+      return;
+    }
+    resetProjectStores();
   }, [pathname]);
 }
 
