@@ -41,27 +41,14 @@ function _CodeArea({ sectionId }) {
 
 export const CodeArea = React.memo(_CodeArea);
 
+const scrollbarThemeOption = EditorView.theme({
+  "& .cm-gutters": {
+    height: `100% !important`,
+  },
+});
+
 function Editor({ value, onChange, languageExtension }) {
   const theme = useCodeMirrorStyle();
-  const maxHeight = "100%";
-
-  const scrollbarThemeOption = EditorView.theme({
-    "& .cm-scroller": {
-      minHeight: `${maxHeight} !important`,
-      maxHeight: `${maxHeight} !important`,
-      height: `${maxHeight} !important`,
-    },
-    "& .cm-gutters": {
-      minHeight: `${maxHeight} !important`,
-      maxHeight: `${maxHeight} !important`,
-      height: `${maxHeight} !important`,
-    },
-    "& .cm-gutter": {
-      minHeight: `${maxHeight} !important`,
-      maxHeight: `${maxHeight} !important`,
-      height: `${maxHeight} !important`,
-    },
-  });
 
   return (
     <CodeMirror
