@@ -34,8 +34,55 @@ function useGetProjects(getter) {
   return { projects, getProjects };
 }
 
-export function useGetProjectsForFileMenu() {
-  return useGetProjects(dbGetProjectsForFileMenu);
+export function useProjectsForLoadMenu(modalIsOpen) {
+  const { projects, getProjects } = useGetProjects(dbGetProjectsForFileMenu);
+
+  useEffect(() => {
+    if (modalIsOpen) {
+      getProjects({});
+    }
+  }, [modalIsOpen]);
+
+  function onClickLoadProject({ selected }) {
+    const configInfo = projects.find((x) => x.id === selected);
+    if (configInfo) {
+      const { name, projectName } = configInfo;
+      router.navigate(`${projectName}/${name}`, {
+        state: { pageLoadType: NEW_PROJECT },
+      });
+    }
+  }
+
+  return { projects, onClickLoadProject };
+}
+
+export function useProjectsForSaveMenu(modalIsOpen) {
+  const { projects, getProjects } = useGetProjects(dbGetProjectsForFileMenu);
+
+  useEffect(() => {
+    if (modalIsOpen) {
+      getProjects({ projectId: useProject.getState().id });
+    }
+  }, [modalIsOpen]);
+
+  async function onClickSaveAsProject({ selected, filename }) {
+    if (selected === useProjectConfig.getState().id) {
+      saveProject();
+    } else {
+      selected
+        ? await saveAsExistingProjectConfig({
+            configName: filename,
+          })
+        : await saveAsNewProjectConfig({
+            newConfigName: filename,
+          });
+
+      const projectName = useProject.getState().name;
+      router.navigate(`${projectName}/${filename}`, {
+        state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG },
+      });
+    }
+  }
 }
 
 export function useGetProjectsForHomePage() {
