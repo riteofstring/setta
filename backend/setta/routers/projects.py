@@ -30,10 +30,6 @@ class ProjectLoadRequest(BaseModel):
     projectConfigName: str
 
 
-class ProjectLoadFullRequest(BaseModel):
-    excludeProjectConfigName: str
-
-
 class ProjectSaveRequest(BaseModel):
     project: dict
 
@@ -75,9 +71,9 @@ def route_load_project_config(x: ProjectLoadRequest, dbs=Depends(get_dbs)):
 
 
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)
-def route_load_full_project(x: ProjectLoadFullRequest, dbs=Depends(get_dbs)):
+def route_load_full_project(dbs=Depends(get_dbs)):
     with dbs:
-        return load_full_project(dbs, excludeProjectConfigName=x.excludeProjectConfigName)
+        return load_full_project(dbs)
 
 
 @router.post(C.ROUTE_SAVE_PROJECT)
