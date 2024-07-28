@@ -1,5 +1,3 @@
-import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
-import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { dbCreateProject, dbLoadFullProject } from "requests/projects";
@@ -8,6 +6,8 @@ import {
   REACT_FLOW_STORE,
   setDbSourceMapping,
 } from "utils/constants";
+import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
+import { router } from "components/Pages/router";
 import { setAllCodeInfo } from "../codeInfo";
 import { setAllEVCols } from "../evCols";
 import { setNodes } from "../nodeInternals";
@@ -21,15 +21,11 @@ import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
 import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setOtherProjectConfigs } from "./otherProjectConfigs";
-import { setProject, setProjectIsLoading } from "./project";
-import { setProjectConfig, setProjectConfigIsLoading } from "./projectConfig";
+import { setProject } from "./project";
+import { setProjectConfig } from "./projectConfig";
 
 export async function loadProject({ projectName, configName }) {
-  const doneCallback1 = setProjectIsLoading();
-  const doneCallback2 = setProjectConfigIsLoading();
   const res = await dbLoadFullProject({ projectName });
-  doneCallback1();
-  doneCallback2();
   if (res.status === 200) {
     const projectConfig = res.data.configs.find(
       (x) => x.projectConfig.name === configName,

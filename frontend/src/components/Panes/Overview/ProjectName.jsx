@@ -1,11 +1,10 @@
-import { Editable } from "components/Utils/Editable";
 import { getInfoViewHandlers } from "state/actions/infoView";
-import { useProject, useProjectConfig } from "state/definitions";
 import {
   useEditableProjectConfigName,
   useEditableProjectName,
 } from "state/hooks/project";
 import { CONST_INFO_VIEWS } from "utils/constants";
+import { Editable } from "components/Utils/Editable";
 
 const editing =
   "flex-1 box-border border-solid border-transparent bg-transparent px-1 [border-width:0_0_2px_0] focus:outline-none focus-visible:border-blue-500";
@@ -27,11 +26,8 @@ export function ProjectName() {
 
 function ProjectNameOnly() {
   const [localName, setLocalName, onBlur, onCancel] = useEditableProjectName();
-  const isLoading = useProject((x) => x.isLoading);
 
-  return isLoading ? (
-    <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
-  ) : (
+  return (
     <Editable
       titleProps={{
         editing: `${editing} text-xl text-setta-900 dark:text-setta-50 font-bold `,
@@ -48,11 +44,8 @@ function ProjectNameOnly() {
 function ProjectConfigNameOnly() {
   const [localName, setLocalName, onBlur, onCancel] =
     useEditableProjectConfigName();
-  const isLoading = useProjectConfig((x) => x.isLoading);
 
-  return isLoading ? (
-    <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
-  ) : (
+  return (
     <Editable
       titleProps={{
         editing: `${editing} text-md text-setta-600 dark:text-setta-300 mt-1 mb-2 font-medium`,
