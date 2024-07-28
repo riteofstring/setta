@@ -113,7 +113,7 @@ def create_project_config(dbs, name, previewImgColor):
     return out["name"]
 
 
-def save_project_name(dbs, curr_name, new_name):
+def save_project_config_name(dbs, curr_name, new_name):
     db = dbs.default
     query = """
         UPDATE ProjectConfig

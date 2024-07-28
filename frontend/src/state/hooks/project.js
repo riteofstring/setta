@@ -1,7 +1,7 @@
 import { router } from "components/Pages/router";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { dbSetProjectName } from "requests/projectName";
+import { dbSetProjectConfigName } from "requests/projectName";
 import {
   dbGetAllProjectConfigMetadata,
   dbLoadFullProject,
@@ -88,7 +88,7 @@ export function useLoadProject() {
 export function useEditableProjectName() {
   const name = useProjectConfig((x) => x.name);
   async function condition(v) {
-    const res = await dbSetProjectName(v);
+    const res = await dbSetProjectConfigName(v);
     return res.status === 200;
   }
   async function onSetName(v) {

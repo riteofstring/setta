@@ -13,7 +13,7 @@ from setta.database.db.projects.load import (
 from setta.database.db.projects.save import (
     create_project_config,
     save_project_details,
-    save_project_name,
+    save_project_config_name,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
@@ -49,13 +49,7 @@ class DeleteProjectsRequest(BaseModel):
     ids: List[str]
 
 
-class SetProjectNameRequest(BaseModel):
-    currProjectName: str
-    newProjectName: str
-
-
 class SetProjectConfigNameRequest(BaseModel):
-    projectId: str
     currProjectConfigName: str
     newProjectConfigName: str
 
@@ -107,10 +101,10 @@ def route_delete_projects(x: DeleteProjectsRequest, dbs=Depends(get_dbs)):
         return delete_projects(dbs, x.ids)
 
 
-@router.post(C.ROUTE_SET_PROJECT_NAME)
-def route_set_project_name(x: SetProjectNameRequest, dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
+def route_set_project_config_name(x: SetProjectConfigNameRequest, dbs=Depends(get_dbs)):
     try:
         with dbs:
-            save_project_name(dbs, x.currProjectName, x.newProjectName)
+            save_project_config_name(dbs, x.currProjectConfigName, x.newProjectConfigName)
     except sqlite3.IntegrityError as e:
         raise HTTPException(status_code=422, detail=repr(e))
