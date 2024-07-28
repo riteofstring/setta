@@ -5,67 +5,23 @@ from setta.database.utils import aggregate_results
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
 from ..sections.load import load_sections
-from .utils import convert_to_file_menu_format
 
 
-def load_all_projects(dbs, format, input_project_id):
+def load_all_projects(dbs):
     query = """
         SELECT
-            Project.id AS projectId,
-            Project.name AS projectName,
-            Project.defaultConfigId,
-            Project.previewImgNodes,
-            Project.previewImgColor,
-            ProjectConfig.id AS configId,
-            ProjectConfig.name AS configName
+            id,
+            name,
+            previewImgNodes,
+            previewImgColor
         FROM
-            Project
-        JOIN
             ProjectConfig
-        ON
-            ProjectConfig.projectId = Project.id
         ORDER BY
-            Project.id;
+            ProjectConfig.id;
     """
     db = dbs.default
     db.execute(query)
-
-    # Using a dictionary to collect configurations per project
-    project_dict = defaultdict(
-        lambda: {
-            "id": None,
-            "name": None,
-            "defaultConfigId": None,
-            "previewImgNodes": None,
-            "configs": [],
-        }
-    )
-
-    for row in db.fetchall():
-        row_dict = dict(row)
-        project_id = row_dict.pop("projectId")
-        project_name = row_dict.pop("projectName")
-        defaultConfigId = row_dict.pop("defaultConfigId")
-        previewImgNodes = row_dict.pop("previewImgNodes")
-        previewImgColor = row_dict.pop("previewImgColor")
-        curr = project_dict[project_id]
-
-        curr["id"] = project_id
-        curr["name"] = project_name
-        curr["defaultConfigId"] = defaultConfigId
-        curr["previewImgNodes"] = previewImgNodes
-        curr["previewImgColor"] = previewImgColor
-        curr["configs"].append(
-            {"id": row_dict["configId"], "name": row_dict["configName"]}
-        )
-
-    # Convert the dictionary to a list of project dictionaries
-    projects_with_configs = list(project_dict.values())
-
-    if format == "fileMenu":
-        return convert_to_file_menu_format(projects_with_configs, input_project_id)
-
-    return projects_with_configs
+    return [dict(row) for row in db.fetchall()]
 
 
 def load_project_metadata(dbs, project_name):

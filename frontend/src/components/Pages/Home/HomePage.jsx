@@ -1,26 +1,19 @@
 import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
-import { Badge } from "components/Utils/atoms/badges/badge";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
-import { StandardDropdown } from "components/Utils/atoms/dropdown/dropdown";
-import { Item } from "components/Utils/atoms/dropdown/item";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
 import { forwardRef, useEffect, useState } from "react";
-import { BiGitBranch, BiPlus } from "react-icons/bi";
+import { BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { dbDeleteProjects } from "requests/projects";
 import { createAndGoToProject } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
-import {
-  useConfigAddress,
-  useDefaultConfigAddress,
-  useGetProjectsForHomePage,
-} from "state/hooks/project";
+import { useGetProjectsForHomePage } from "state/hooks/project";
 import "./homepage.css";
 
 export function HomePage() {
@@ -127,7 +120,6 @@ const ProjectItem = forwardRef(
   ({ project, isSelected, onSelectProject }, forwardedRef) => {
     const { name, configs } = project;
     const [openConfigs, setOpenConfigs] = useState(false);
-    const defaultConfigAddress = useDefaultConfigAddress(project);
 
     function onClickConfigsButton(e) {
       console.log("onClickConfigsButton");
@@ -143,7 +135,7 @@ const ProjectItem = forwardRef(
     return (
       <div ref={forwardedRef} className={itemStyles}>
         <Link
-          to={defaultConfigAddress}
+          to={project.name}
           state={{ pageLoadType: NEW_PROJECT }}
           className="contents"
         >
@@ -165,13 +157,7 @@ const ProjectItem = forwardRef(
   },
 );
 
-function ThumbnailArea({
-  onClickConfigsButton,
-  project,
-  configs,
-  isSelected,
-  onSelectProject,
-}) {
+function ThumbnailArea({ project, isSelected, onSelectProject }) {
   const previewImgNodes = JSON.parse(project.previewImgNodes);
 
   return (
@@ -186,53 +172,12 @@ function ThumbnailArea({
           size="w-4 h-4"
           onClick={(e) => onSelectProject(e, project.id)}
         />
-        <StandardDropdown
-          trigger={
-            <div
-              className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-xs  hover:bg-setta-50 dark:bg-black/20 dark:text-setta-300 dark:hover:bg-setta-950/50"
-              onClick={onClickConfigsButton}
-            >
-              <BiGitBranch />
-              Configs
-            </div>
-          }
-          content={<Body project={project} configs={configs} />}
-          align="end"
-        />
       </aside>
 
       <div className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150">
         <PreviewImg previewImgNodes={previewImgNodes} />
       </div>
     </div>
-  );
-}
-
-function Body({ project, configs }) {
-  return configs.map((x, idx) => (
-    <ConfigItem project={project} config={x} key={`Config ${idx}`} />
-  ));
-}
-
-function ConfigItem({ project, config }) {
-  const configAddress = useConfigAddress({ project, configId: config.id });
-  return (
-    <Link to={configAddress} state={{ pageLoadType: NEW_PROJECT }}>
-      <Item className="flex flex-row">
-        {config.name}
-        <DefaultConfigBadge isDefault={project.defaultConfigId === config.id} />
-      </Item>
-    </Link>
-  );
-}
-
-function DefaultConfigBadge({ isDefault }) {
-  return (
-    isDefault && (
-      <Badge twClasses="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-100">
-        Default
-      </Badge>
-    )
   );
 }
 

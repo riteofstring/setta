@@ -10,7 +10,7 @@ export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
 
 export async function dbGetProjectsForHomePage() {
   return await post({
-    body: { format: "homePage" },
+    body: {},
     address: C.ROUTE_PROJECTS,
   });
 }
