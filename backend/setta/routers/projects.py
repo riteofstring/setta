@@ -87,9 +87,8 @@ def route_load_full_project(projectName, dbs=Depends(get_dbs)):
 
 @router.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest, dbs=Depends(get_dbs)):
-    formatted = convert_to_backend_format(x.project)
     with dbs:
-        save_project_details(dbs, formatted)
+        save_project_details(dbs, x.project)
 
 
 @router.post(C.ROUTE_CREATE_PROJECT)
