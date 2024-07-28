@@ -61,7 +61,7 @@ function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
   const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.evColId);
 
   return (
-    <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid overflow-y-auto overflow-x-clip">
+    <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
       {paramSweep.map((x, idx) => (
         <ArgItem
           key={idx}
@@ -280,7 +280,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="section-key-value group/arg-group group/textinput row -mx-2 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 rem]">
+      <article className="section-key-value group/arg-group group/textinput row rem] -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
         <ParamSweepUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}

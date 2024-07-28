@@ -12,7 +12,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 
   return (
     <div
-      className={`section-args-list section-w-full section-row-main grid auto-rows-min grid-cols-subgrid py-1 ${overflow ? "nowheel overflow-x-clip overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""} min-w-0 !max-w-full`}
+      className={`section-args-list section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 py-1 ${overflow ? "nowheel overflow-x-clip overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""} min-w-0 !max-w-full`}
       ref={ref}
     >
       <GetParams

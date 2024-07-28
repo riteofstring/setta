@@ -45,7 +45,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group section-min-rows -mx-2 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 ${bg} ${border}`}
+        className={`section-key-value group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
         {children}
@@ -69,11 +69,11 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     </>
   ) : (
     <article
-      className={`section-key-value group/arg-group section-min-rows -mx-3 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.1rem] ${bg} ${border}`}
+      className={`section-key-value group/arg-group section-min-rows -mx-3 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg px-3 ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
       {children}
-      <div className="section-args-nested section-key-value ml-1 grid w-[calc(100%_-_0.25rem)]">
+      <div className="section-args-nested section-key-value ml-1 grid w-[calc(100%_-_0.25rem)] gap-y-1">
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}
