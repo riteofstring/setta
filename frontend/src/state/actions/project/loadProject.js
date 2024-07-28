@@ -21,9 +21,9 @@ import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { setProjectConfig } from "./projectConfig";
 
-export async function loadProjectConfig({ projectConfigName }) {
+export async function loadProject({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
-  console.log("loadProjectConfig", res);
+  console.log("loadProject", res);
   if (res.status === 200) {
     // const projectConfig = res.data.find(
     //   (x) => x.projectConfig.name === projectConfigName,

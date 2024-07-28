@@ -7,7 +7,7 @@ import {
   dbLoadFullProject,
 } from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
-import { loadProjectConfig } from "state/actions/project/loadProject";
+import { loadProject } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
 import { useProjectConfig } from "state/definitions";
@@ -55,7 +55,7 @@ export function useExportProjectJson() {
   return { projectJson, exportProjectJson, exportFullProjectJson };
 }
 
-export function useLoadProjectConfig() {
+export function useLoadProject() {
   const { projectConfigName } = useParams();
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
@@ -64,7 +64,7 @@ export function useLoadProjectConfig() {
   useEffect(() => {
     async function loadAllProjectData() {
       setDoneLoading(false);
-      const res = await loadProjectConfig({ projectConfigName });
+      const res = await loadProject({ projectConfigName });
       setDoneLoading(res);
     }
 

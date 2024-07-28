@@ -1,5 +1,5 @@
 import { GridWrapper } from "components/Utils/GridWrapper";
-import { useLoadProjectConfig } from "state/hooks/project";
+import { useLoadProject } from "state/hooks/project";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { UIPage } from "./UiPage";
@@ -18,7 +18,7 @@ export function MainContainer() {
 }
 
 function LoadingSpinner({ children }) {
-  const doneLoading = useLoadProjectConfig();
+  const doneLoading = useLoadProject();
 
   return !doneLoading ? (
     <div className="single-cell-container absolute h-full w-full">
