@@ -60,7 +60,7 @@ function _TerminalArea({ sectionId }) {
   return (
     <div
       ref={terminalRef}
-      className="nodrag nowheel card-terminal"
+      className="nodrag nowheel section-full-no-title"
       style={{ width: `${width - 48}px`, height: `${height - 64}px` }}
     />
   );

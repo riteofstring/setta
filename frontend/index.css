@@ -151,6 +151,11 @@ body {
   grid-row: title / left-gutter;
   grid-column: left-gutter / right-gutter;
 }
+.section-full-no-title {
+  grid-row: search / left-gutter;
+  grid-column: left-gutter / right-gutter;
+}
+
 .section-main {
   grid-row: search / left-gutter;
   grid-column: key / value;
@@ -194,11 +199,6 @@ body {
 }
 /* utility classes */
 
-/* .card-global-param-sweep {
-  grid-row: 3 / span 3;
-  grid-column: 3 / span 2;
-} */
-
 .section-args-nested {
   grid-template-columns: 0.5rem 1fr 0.75rem 1fr;
   grid-template-areas: "left-gutter key center-gutter value";
@@ -209,14 +209,6 @@ body {
     overflow-x: hidden;
   }
 }
-
-/* .card-sweep-list {
-  grid-column: key / value;
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-auto-rows: min-content;
-  row-gap: 0.5rem;
-} */
 
 @supports (-moz-appearance: none) {
   .card-sweep-list {
@@ -234,67 +226,6 @@ body {
 .card-incrementer {
   grid-area: value;
 }
-
-/* .card-markdown { 
-  grid-area: title / value;
-}
-
-.card-fullsize {
-  grid-column: key / value;
-}
-
-.card-value {
-  grid-area: value;
-  grid-row-start: -1;
-}
-
-.card-value-full {
-  grid-column: key / value;
-  grid-row-start: -1;
-}
-
- .card-code {
-  grid-area: search / value;
-}
-
-.card-terminal {
-  grid-area: search / value;
-}
-
-.card-figure {
-  grid-area: search / value;
-}
-
-.card-pin-btn {
-  grid-area: key;
-}
-
-.card-param-options-btn {
-  grid-area: value;
-  grid-row: -1 / span 1;
-}
-
-.version-section {
-  display: grid;
-  grid-template-columns: 0 0.5rem 1fr min-content 0.5rem 0;
-}
-
-.version-list {
-  grid-column: left-gutter / right-gutter;
-  display: grid;
-  grid-template-columns: subgrid;
-  gap: 0.5rem 0.5rem;
-  grid-auto-rows: 1rem;
-}
-
-.version-list-item {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-template-rows: subgrid;
-  grid-area: value;
-  gap: 0.5rem 1.5rem;
-} 
-*/
 
 @keyframes blink {
   0%,

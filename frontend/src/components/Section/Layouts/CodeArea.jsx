@@ -28,7 +28,7 @@ function _CodeArea({ sectionId }) {
   }
 
   return (
-    <article className="nodrag nowheel section-main mb-2 cursor-auto overflow-clip">
+    <article className="nodrag nowheel section-full-no-title cursor-auto overflow-clip [&_*]:!outline-0 ">
       <Editor
         sectionId={sectionId}
         value={value}
@@ -49,7 +49,8 @@ function Editor({ sectionId, value, onChange, languageExtension }) {
     <CodeMirror
       value={value}
       theme={theme}
-      height={`${height}px`}
+      // height={`${height}px`}
+      maxHeight={`${height - 36}px`}
       width={`${width}px`}
       extensions={
         languageExtension
