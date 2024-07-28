@@ -74,8 +74,8 @@ def load_project_config_metadata(dbs, config_name):
     }
 
 
-def load_project_config(dbs, project_config_name):
-    projectConfig = load_project_config_metadata(dbs, project_config_name)
+def load_project(dbs, project_name):
+    projectConfig = load_project_config_metadata(dbs, project_name)
     runGroups = load_run_groups(dbs, projectConfig["id"])
     sections_data = load_sections(dbs, list(projectConfig["children"].keys()))
     sections = sections_data["sections"]
@@ -113,7 +113,7 @@ def load_full_project(dbs):
     config_names = [r[0] for r in db.fetchall()]
     configs = []
     for c in config_names:
-        p = load_project_config(dbs, c)
+        p = load_project(dbs, c)
         configs.append(p)
 
     return configs

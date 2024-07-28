@@ -8,7 +8,7 @@ from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
     load_all_project_config_metadata,
     load_full_project,
-    load_project_config,
+    load_project,
 )
 from setta.database.db.projects.save import (
     create_project_config,
@@ -64,10 +64,10 @@ def route_all_project_config_metadata(dbs=Depends(get_dbs)):
         return load_all_project_config_metadata(dbs)
 
 
-@router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
-def route_load_project_config(x: ProjectLoadRequest, dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_LOAD_PROJECT)
+def route_load_project(x: ProjectLoadRequest, dbs=Depends(get_dbs)):
     with dbs:
-        return load_project_config(dbs, x.projectConfigName)
+        return load_project(dbs, x.projectConfigName)
 
 
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)
