@@ -19,18 +19,14 @@ export const createProjectState = (f) => {
   return store;
 };
 
-function createSubStateDict() {
-  return { statePointers: [] };
-}
-
 export const STATE_TYPES = {
   PROJECT_STATE: "PROJECT_STATE",
   BASE_STATE: "BASE_STATE",
 };
 
 export const stateDict = {
-  [STATE_TYPES.BASE_STATE]: createSubStateDict(),
-  [STATE_TYPES.PROJECT_STATE]: createSubStateDict(),
+  [STATE_TYPES.BASE_STATE]: [],
+  [STATE_TYPES.PROJECT_STATE]: [],
 };
 
 function addResetter(state) {
@@ -50,7 +46,7 @@ function addResetter(state) {
 }
 
 function addStatePointer(state, stateType) {
-  stateDict[stateType].statePointers.push(state);
+  stateDict[stateType].push(state);
 }
 
 export function withVersion(initialState) {
@@ -58,7 +54,7 @@ export function withVersion(initialState) {
 }
 
 function resetStores(stateType) {
-  for (const state of stateDict[stateType].statePointers) {
+  for (const state of stateDict[stateType]) {
     state.getState().reset();
   }
 }
@@ -79,7 +75,7 @@ export function initValue(state, id, value) {
 }
 
 export function pauseTemporal() {
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal) {
       s.temporal.getState().pause();
     }
