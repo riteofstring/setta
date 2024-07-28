@@ -45,6 +45,7 @@
   "ROUTE_SECTIONS": "/sections",
   "ROUTE_LOAD_SETTINGS": "/settings",
   "ROUTE_TERMINAL": "/terminal/{projectConfigId}/{id}",
+  "ROUTE_WEBSOCKET_MANAGER": "/manager",
   "ROUTE_PARAMETERS_REQUEST": "/parametersRequest",
   "ROUTE_TEXT_FIELD_INITIALIZE_CODE": "/textFieldInitializeCode",
   "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
