@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect } from "react";
 import { setModalData, setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
+import { MODAL_TYPE } from "utils/constants";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import {
@@ -45,28 +46,28 @@ function ModalContent({ open }) {
     return null;
   }
 
-  switch (modalType) {
-    case "Load":
-      return <FileMenuLoadModal open={open} />;
-    case "Save As":
-      return <FileMenuSaveAsModal open={open} />;
-    case "Export JSON":
-    case "Export Full JSON":
-      return <ExportJSONModal modalType={modalType} open={open} />;
-    case "Import JSON":
-      return <ImportJSONModal />;
-    case "Create From Argparse":
-      return <CreateFromArgparseModal />;
-    case "Load Section":
-      return <LoadSectionModal open={open} />;
-    case "SaveUITypeConfig":
-      return <SaveUITypeConfigModal open={open} />;
-    case "Custom Arguments":
-      return <SaveCustomArgumentsModal open={open} />;
-    case "New Version":
-      return <CreateNewVersionModal />;
-    case "New Param Sweep":
-      return <CreateNewParamSweepModal />;
+  switch (modalType.title) {
+    case MODAL_TYPE.LOAD_PROJECT_CONFIG.title:
+      return <FileMenuLoadModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.SAVE_PROJECT_CONFIG_AS.title:
+      return <FileMenuSaveAsModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.EXPORT_JSON.title:
+    case MODAL_TYPE.EXPORT_FULL_JSON.title:
+      return <ExportJSONModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.IMPORT_JSON.title:
+      return <ImportJSONModal modalType={modalType} />;
+    case MODAL_TYPE.CREATE_FROM_ARGPARSE.title:
+      return <CreateFromArgparseModal modalType={modalType} />;
+    case MODAL_TYPE.LOAD_SECTION.title:
+      return <LoadSectionModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
+      return <SaveUITypeConfigModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS.title:
+      return <SaveCustomArgumentsModal open={open} modalType={modalType} />;
+    case MODAL_TYPE.NEW_VERSION.title:
+      return <CreateNewVersionModal modalType={modalType} />;
+    case MODAL_TYPE.NEW_PARAM_SWEEP.title:
+      return <CreateNewParamSweepModal modalType={modalType} />;
     default:
       return null;
   }

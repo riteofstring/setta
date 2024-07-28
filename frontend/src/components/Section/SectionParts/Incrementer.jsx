@@ -36,7 +36,7 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
     //   <Tooltip.Root>
     //     <Tooltip.Trigger asChild>
     <div
-      className={`section-key-value section-row-main -mx-2 flex items-center gap-1 rounded-lg  bg-setta-100 pl-2 pr-1 dark:bg-setta-950 ${popover ? "border border-solid border-white py-1 shadow-lg dark:border-setta-800" : ""}`}
+      className={`card-incrementer -mx-2 flex items-center gap-1 rounded-lg  bg-setta-100 pl-2 pr-1 dark:bg-setta-950 ${popover ? "border border-solid border-white py-1 shadow-lg dark:border-setta-800" : ""}`}
     >
       {isRoot ? (
         <>

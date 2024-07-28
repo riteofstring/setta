@@ -1,40 +1,23 @@
 import C from "constants/constants.json";
-import { post, pseudoTemplatedStr } from "./utils";
+import { post } from "./utils";
 
-export async function dbGetProjectsForFileMenu({ projectId = undefined }) {
-  return await post({
-    body: { projectId, format: "fileMenu" },
-    address: C.ROUTE_PROJECTS,
-  });
-}
-
-export async function dbGetProjectsForHomePage() {
-  return await post({
-    body: { format: "homePage" },
-    address: C.ROUTE_PROJECTS,
-  });
-}
-
-export async function dbLoadProject({ projectName, configName }) {
+export async function dbGetAllProjectConfigMetadata() {
   return await post({
     body: {},
-    address: pseudoTemplatedStr(C.ROUTE_LOAD_PROJECT, {
-      projectName,
-      configName,
-    }),
+    address: C.ROUTE_ALL_PROJECT_CONFIG_METADATA,
   });
 }
 
-export async function dbLoadFullProject({ projectName }) {
+export async function dbLoadFullProject() {
   return await post({
     body: {},
-    address: pseudoTemplatedStr(C.ROUTE_LOAD_FULL_PROJCT, { projectName }),
+    address: C.ROUTE_LOAD_FULL_PROJECT,
   });
 }
 
-export async function dbCreateProject({ name, previewImgColor }) {
+export async function dbCreateProjectConfig({ name, previewImgColor }) {
   return await post({
-    address: C.ROUTE_CREATE_PROJECT,
+    address: C.ROUTE_CREATE_PROJECT_CONFIG,
     body: { name, previewImgColor },
   });
 }
