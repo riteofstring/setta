@@ -27,7 +27,7 @@ export function KwargParam(props) {
         icon={<i className="gg-close" />}
         bg="bg-transparent"
         color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-        twClasses={`section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"}  z-20 -ml-[0.125rem]`}
+        twClasses={`opacity-75 section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
         padding=""
         size="h-[.5rem] w-[.5rem]"
       />
