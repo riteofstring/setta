@@ -9,7 +9,7 @@ import { BiPlus } from "react-icons/bi";
 import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
-import { dbDeleteProjects } from "requests/projects";
+import { dbDeleteProjectConfigs } from "requests/projects";
 import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
@@ -52,7 +52,7 @@ function RightColumn({ projects, setDoRefresh }) {
   }
 
   async function onClickDelete() {
-    const res = await dbDeleteProjects({ ids: selectedProjects });
+    const res = await dbDeleteProjectConfigs(selectedProjects);
     if (res.status === 200) {
       setDoRefresh(true);
     }

@@ -43,9 +43,9 @@ export async function dbSaveAsExistingProjectConfig({ project, configName }) {
   });
 }
 
-export async function dbDeleteProjects({ ids }) {
+export async function dbDeleteProjectConfigs(ids) {
   return await post({
-    address: C.ROUTE_DELETE_PROJECTS,
+    address: C.ROUTE_DELETE_PROJECT_CONFIGS,
     body: { ids },
   });
 }

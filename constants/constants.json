@@ -34,7 +34,7 @@
   "ROUTE_LOAD_FULL_PROJECT": "/projects/load",
   "ROUTE_SAVE_PROJECT": "/projects/save",
   "ROUTE_CREATE_PROJECT_CONFIG": "/projects/createProjectConfig",
-  "ROUTE_DELETE_PROJECTS": "/projects/deleteProjects",
+  "ROUTE_DELETE_PROJECT_CONFIGS": "/deleteProjectConfigs",
   "ROUTE_SAVE_AS_NEW_PROJECT_CONFIG": "/projects/saveAsNewProjectConfig",
   "ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG": "/projects/saveAsExistingProjectConfig",
   "ROUTE_GET_COLLECTIONS_AND_MODULES": "/codeInfo/getCollectionsAndModules",

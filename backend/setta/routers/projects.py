@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from setta.database.db.projects.delete import delete_projects
+from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
     load_all_project_config_metadata,
     load_full_project,
@@ -45,7 +45,7 @@ class CreateProjectConfigRequest(BaseModel):
     previewImgColor: str
 
 
-class DeleteProjectsRequest(BaseModel):
+class DeleteProjectConfigsRequest(BaseModel):
     ids: List[str]
 
 
@@ -95,10 +95,10 @@ def route_save_as_existing_project_config(
         return save_as_existing_project_config(dbs, x.project, x.configName)
 
 
-@router.post(C.ROUTE_DELETE_PROJECTS)
-def route_delete_projects(x: DeleteProjectsRequest, dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_DELETE_PROJECT_CONFIGS)
+def route_delete_project_configs(x: DeleteProjectConfigsRequest, dbs=Depends(get_dbs)):
     with dbs:
-        return delete_projects(dbs, x.ids)
+        return delete_project_configs(dbs, x.ids)
 
 
 @router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
