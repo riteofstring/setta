@@ -7,7 +7,7 @@ import { useUITypes } from "state/definitions";
 import { isPreset, isUserPreset } from "utils/sectionTypeHelpers";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
-export function SaveUITypeConfigModal({ open }) {
+export function SaveUITypeConfigModal({ open, modalType }) {
   const [files, setFiles] = useState([]);
 
   useEffect(() => {
@@ -39,11 +39,11 @@ export function SaveUITypeConfigModal({ open }) {
 
   return (
     <SaveLoadModal
-      modalType={"Save"}
+      modalPurpose={modalType.purpose}
       files={files}
       onClickActionButton={onSaveAsSubmit}
-      title="Save UI Type As"
-      buttonText="Save As"
+      title={modalType.title}
+      buttonText={modalType.buttonText}
       placeholder="Preset Name"
     />
   );

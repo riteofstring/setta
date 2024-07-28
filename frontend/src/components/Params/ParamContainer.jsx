@@ -11,7 +11,7 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { IconButton } from "utils/atoms/buttons/IconButton";
+import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton";
@@ -32,10 +32,9 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
   const paramIsSelected = paramInfo.isSelected;
 
-  // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
-  // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
-
-  const bg = paramIsSelected ? "bg-lime-400/50" : "";
+  const bg = paramIsSelected
+    ? "bg-lime-400/50"
+    : "hover:bg-setta-200/20 dark:hover:bg-setta-700/25";
 
   const paramChildren = useCodeInfo(
     (x) => paramInfo.children.map((c) => x.x[c]),
@@ -45,30 +44,23 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group section-min-rows mb-1 flex flex-col items-center justify-between rounded-lg ${bg} ${border}`}
+        className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
-        <div className="flex w-full min-w-0 flex-row gap-4 px-4">
-          <div className="single-cell-container flex-1">
-            {children}
-            <PinButton
-              sectionId={sectionId}
-              paramInfoId={paramInfo.id}
-              variants="single-cell-child justify-self-end"
-            />
-          </div>
-          <div className="single-cell-container flex-1">
-            <ParamInput
-              sectionId={sectionId}
-              paramInfoId={paramInfo.id}
-              defaultVal={paramInfo.defaultVal}
-              isDisabled={!paramInfo.name}
-              maybeErrorMessage={maybeErrorMessage}
-            />
-            <ParamOptionsButton variants="absolute right-0 top-0" />
-          </div>
-        </div>
-
+        {children}
+        <ParamInput
+          sectionId={sectionId}
+          paramInfoId={paramInfo.id}
+          defaultVal={paramInfo.defaultVal}
+          isDisabled={!paramInfo.name}
+          maybeErrorMessage={maybeErrorMessage}
+        />
+        <PinButton
+          sectionId={sectionId}
+          paramInfoId={paramInfo.id}
+          variants="justify-self-end self-center"
+        />
+        <ParamOptionsButton />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -76,18 +68,16 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     </>
   ) : (
     <article
-      className={`section-key-value group/arg-group section-min-rows -mx-3 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.1rem] ${bg} ${border}`}
+      className={`card-arg-group group/arg-group -mx-3 -my-1 items-center justify-between rounded-lg px-3 py-1 ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
-      <div className="w-full min-w-0">
-        {children}
-        <div className="section-args-nested section-key-value ml-1 grid w-[calc(100%_-_0.25rem)]">
-          <GetParamSwitch
-            sectionId={sectionId}
-            parentId={paramInfo.id}
-            infos={paramChildren}
-          />
-        </div>
+      {children}
+      <div className="card-args-list-nested -ml-2 pb-1 pt-2 [&>article]:!gap-[0_0.5rem]">
+        <GetParamSwitch
+          sectionId={sectionId}
+          parentId={paramInfo.id}
+          infos={paramChildren}
+        />
       </div>
     </article>
   );
@@ -153,11 +143,11 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-2 -mb-1 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mx-2 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
+      <aside className=" h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
         {children}
       </aside>
       <IconButton

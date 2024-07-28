@@ -1,4 +1,5 @@
-import { SECTIONWIDTH } from "utils/constants";
+import { useEffect, useRef, useState } from "react";
+import { useSectionInfos } from "state/definitions";
 import { useGetAllCallables } from "./sectionContents";
 import { useIsTwitter } from "./social";
 import { useIsOutput, useIsRoot } from "./uiTypes";
@@ -33,7 +34,7 @@ export function useMinSectionWidth(sectionId) {
     return 400;
   }
 
-  return SECTIONWIDTH;
+  return 200;
 }
 
 export function useMaxSectionWidth(sectionId) {
@@ -44,4 +45,36 @@ export function useMaxSectionWidth(sectionId) {
     return 650;
   }
   return undefined;
+}
+
+export function useOverflow(sectionId) {
+  const ref = useRef();
+  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
+  const [didUpdate, setDidUpdate] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+
+  // Add overflow whenever resizing.
+  // Add the end of resizing, compare scrollHeight to clientHeight and remove overflow if scrollHeight <= clientHeight
+  useEffect(() => {
+    if (resizeEvent === "start") {
+      setOverflow(true);
+    } else if (resizeEvent === "end") {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [resizeEvent]);
+
+  // If params update (didUpdate goes from false->true), overflow may be needed. So set overflow to true
+  // Then set didUpdate to false.
+  // Then detect didUpdate going from true->false and check if overflow is actually needed
+  // TODO: find better way to do this?
+  useEffect(() => {
+    if (didUpdate) {
+      setOverflow(true);
+      setDidUpdate(false);
+    } else {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [didUpdate]);
+
+  return { overflow, ref, setDidUpdate };
 }

@@ -8,7 +8,7 @@ export function undoProjectState() {
   }
 
   const version = useStateVersion.getState().version;
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal && version === s.getState().version) {
       s.temporal.getState().undo(2);
       undoSetPastAndFutureStates(s);
@@ -38,7 +38,7 @@ function filterPastOrFutureStates(states) {
 
 export function redoProjectState() {
   const version = useStateVersion.getState().version;
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal && version === s.getState().version) {
       s.temporal.getState().redo();
       redoSetPastAndFutureStates(s);
@@ -53,9 +53,9 @@ function redoSetPastAndFutureStates(s) {
   }));
 }
 
-function incrementStateVersion(statePointers) {
+function incrementStateVersion(states) {
   const version = useStateVersion.getState().version;
-  for (const s of statePointers) {
+  for (const s of states) {
     if (s.temporal) {
       s.setState({ version: version + 1 });
       resumeThenPauseTemporal(s, () => s.setState({})); //trigger a zundo update without actually changing state
@@ -74,7 +74,7 @@ export function maybeIncrementProjectStateVersion(
   doAutoSave = true,
 ) {
   if (doIncrementVersion) {
-    incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE].statePointers);
+    incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE]);
     if (doAutoSave) {
       autoSave();
     }
