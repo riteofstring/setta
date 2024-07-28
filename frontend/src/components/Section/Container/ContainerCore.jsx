@@ -4,7 +4,6 @@ import { openDeckContextMenu } from "state/actions/contextMenus";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { useTempHasNested } from "state/hooks/sections";
 import { SectionTitle } from "../Header/SectionTitle";
-import {useEffect} from "react"
 
 function _Container({
   isDeck,
@@ -25,10 +24,6 @@ function _Container({
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
-
-  useEffect(() => {
-    console.log("containercore", sectionId);
-  }, []);
 
   // transition-all active:shadow-lg
   if (isDeck) {

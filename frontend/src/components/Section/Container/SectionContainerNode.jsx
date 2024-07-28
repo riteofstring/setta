@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useNodeInternals } from "state/definitions";
 import { SectionContainer } from "./SectionContainer";
 
@@ -7,8 +6,5 @@ export function SectionContainerNode({ id }) {
   // So we have to double check here if id actually exists in the state.
   // For example, id might have been deleted, but topLevelSectionPositions hasn't yet updated.
   const sectionIsTopLevel = useNodeInternals((x) => x.x.has(id));
-  useEffect(() => {
-    console.log("sectioncontainernode", id);
-  }, []);
   return sectionIsTopLevel && <SectionContainer sectionId={id} />;
 }

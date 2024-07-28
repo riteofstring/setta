@@ -19,7 +19,6 @@ export function MainContainer() {
 
 function LoadingSpinner({ children }) {
   const doneLoading = useLoadProject();
-  console.log("doneLoading", doneLoading)
 
   return !doneLoading ? (
     <div className="single-cell-container absolute h-full w-full">
