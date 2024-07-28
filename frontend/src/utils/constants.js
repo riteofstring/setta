@@ -2,14 +2,13 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
+export const SECTIONWIDTH = 200;
 export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 
-export const INITIAL_OVERVIEW_WIDTH = 335;
-export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 40;
-export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
+export const INITIAL_CHART_SIZE = { width: SECTIONWIDTH, height: SECTIONWIDTH };
 
 export const REACT_FLOW_STORE = {
   initialViewport: {},
@@ -44,11 +43,11 @@ export const BASE_UI_TYPE_IDS = {};
 export function globalConstInit() {
   const DEV_MODE = import.meta.env.DEV;
   if (DEV_MODE) {
-    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
-    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
+    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
+    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
   } else {
-    URLS.BACKEND = `http://${location.host}${C.ROUTE_PREFIX}`;
-    URLS.WEBSOCKET = `ws://${location.host}${C.ROUTE_PREFIX}`;
+    URLS.BACKEND = `http://${location.host}`;
+    URLS.WEBSOCKET = `ws://${location.host}`;
   }
 
   for (const [k, v] of Object.entries(BASE_UI_TYPES)) {
@@ -56,7 +55,7 @@ export function globalConstInit() {
   }
 }
 
-export const CONST_INFO_VIEWS = {
+export const constInfoViews = {
   OVERVIEW: "Click on a section name to pan to it.",
   NAVBAR_SEARCH: "Search your entire project from one location.",
   BUTTON_GENERATE: "Generate command to run your project.",
@@ -70,22 +69,18 @@ export const CONST_INFO_VIEWS = {
 };
 
 export const initialShortcuts = {
-  newCardShortcut: "",
-  newGroupShortcut: "",
-  typeCheckShortcut: "",
-  newProjectConfigShortcut: "",
-  undoShortcut: "Mod + Z",
-  redoShortcut: "Mod + Shift + Z",
-  groupShortcut: "Mod + G",
-  saveShortcut: "Mod + S",
-  saveAsShortcut: "Mod + Shift + S",
-  loadShortcut: "Mod + L",
-  focusOnArgsFilterShortcut: "Mod + K",
-  resetZoomShortcut: "Mod + ,",
-  copyShortcut: "Mod + C",
-  pasteShortcut: "Mod + V",
-  sortingShortcut: "Mod",
-  movingFreeShortcut: "Alt",
+  undoShortcut: "mod+z",
+  redoShortcut: "mod+shift+z",
+  groupShortcut: "mod+g",
+  saveShortcut: "mod+s",
+  saveAsShortcut: "mod+shift+s",
+  loadShortcut: "mod+l",
+  focusOnArgsFilterShortcut: "mod+k",
+  resetZoomShortcut: "mod+,",
+  copyShortcut: "mod+c",
+  pasteShortcut: "mod+v",
+  sortingShortcut: "mod",
+  movingFreeShortcut: "alt",
 };
 
 export const jsonSettings = {
@@ -119,7 +114,7 @@ export const tabNameToPretty = Object.freeze(
   ),
 );
 
-export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
+export const projectPreviewImgColors = [
   "bg-red-500/60 dark:bg-red-600/30",
   "bg-pink-500/60 dark:bg-pink-600/30",
   "bg-purple-500/60 dark:bg-purple-600/30",
@@ -131,70 +126,5 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 ];
 
 export const HOME_ROUTER_PATH = "/";
-export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
-export const SETTINGS_ROUTER_PATH = "/settings";
-
-export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
-
-export const MODAL_TYPE = {
-  LOAD_PROJECT_CONFIG: {
-    purpose: MODAL_PURPOSE.LOAD,
-    title: "Load Project Config",
-    buttonText: "Load",
-  },
-  SAVE_PROJECT_CONFIG_AS: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save Project Config As",
-    buttonText: "Save As",
-  },
-  EXPORT_JSON: {
-    purpose: null,
-    title: "Export JSON",
-    buttonText: null,
-  },
-  EXPORT_FULL_JSON: {
-    purpose: null,
-    title: "Export Full JSON",
-    buttonText: null,
-  },
-  IMPORT_JSON: {
-    purpose: null,
-    title: "Import JSON",
-    buttonText: "Import",
-  },
-  CREATE_FROM_ARGPARSE: {
-    purpose: null,
-    title: "Create From Argparse",
-    buttonText: "Create",
-  },
-  LOAD_SECTION: {
-    purpose: MODAL_PURPOSE.LOAD,
-    title: "Load Section",
-    buttonText: "Load",
-  },
-  SAVE_UI_TYPE_CONFIG: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save UI Type Config",
-    buttonText: "Save",
-  },
-  SAVE_CUSTOM_ARGUMENTS: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save Custom Arguments",
-    buttonText: "Save",
-  },
-  NEW_VERSION: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save New Version",
-    buttonText: "Save",
-  },
-  NEW_PARAM_SWEEP: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save New Param Sweep",
-    buttonText: "Save",
-  },
-};
-
-export const PAGE_LOAD_TYPES = {
-  LOAD_PROJECT_CONFIG: "LOAD_PROJECT_CONFIG",
-  CHANGE_PROJECT_CONFIG_NAME: "CHANGE_PROJECT_CONFIG_NAME",
-};
+export const PROJECT_ROUTER_PATH = ":projectName/:configName";
+export const SETTINGS_ROUTER_PATH = "settings";

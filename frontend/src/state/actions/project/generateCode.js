@@ -1,7 +1,7 @@
 import {
-  computeEVReferences,
-  computeInfoToFullName,
-} from "components/Utils/CodeMirror/utils";
+  INITIAL_MESSAGE,
+  TERMINAL_WEBSOCKETS,
+} from "components/Section/Layouts/TerminalArea";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
@@ -11,7 +11,10 @@ import {
   useUITypes,
   useWebsocketConnectionList,
 } from "state/definitions";
-import { INITIAL_MESSAGE, TERMINAL_WEBSOCKETS } from "state/hooks/terminal";
+import {
+  computeEVReferences,
+  computeInfoToFullName,
+} from "utils/CodeMirror/utils";
 import { createNewId } from "utils/idNameCreation";
 import { getMappedSectionDBSource } from "../../getters/sectionInfo";
 import { addSectionInEmptySpace } from "../sections/createSections";

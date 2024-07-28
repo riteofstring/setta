@@ -1,4 +1,4 @@
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { IconButton } from "utils/atoms/buttons/IconButton";
 
 export function MinimizeButton({ twClasses, ...props }) {
   return (

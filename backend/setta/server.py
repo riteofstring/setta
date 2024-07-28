@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 
     maybe_create_tables_and_seed(
         app.state.dbs,
-        with_examples=C.WITH_EXAMPLES,
+        with_example_projects=C.WITH_EXAMPLE_PROJECTS,
         with_base_ui_types=True,
         with_settings=True,
     )
@@ -90,12 +90,7 @@ async def lifespan(app: FastAPI):
     app.state.lsp.kill_server()
 
 
-app = FastAPI(
-    lifespan=lifespan,
-    openapi_url=f"{C.ROUTE_PREFIX}{C.ROUTE_OPENAPI_DOCS}",
-    docs_url=f"{C.ROUTE_PREFIX}{C.ROUTE_SWAGGER_DOCS}",
-    redoc_url=f"{C.ROUTE_PREFIX}{C.ROUTE_REDOC_DOCS}",
-)
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,13 +99,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-kwargs = {"prefix": C.ROUTE_PREFIX}
-app.include_router(projects_router, **kwargs)
-app.include_router(sections_router, **kwargs)
-app.include_router(terminals_router, **kwargs)
-app.include_router(websocket_router, **kwargs)
-app.include_router(code_info_router, **kwargs)
-app.include_router(misc_router, **kwargs)
+app.include_router(projects_router)
+app.include_router(sections_router)
+app.include_router(terminals_router)
+app.include_router(websocket_router)
+app.include_router(code_info_router)
+app.include_router(misc_router)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

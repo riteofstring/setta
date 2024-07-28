@@ -4,7 +4,7 @@ import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
-import { VerticalLine } from "components/Utils/atoms/dividers/VerticalLine";
+import { VerticalLine } from "utils/atoms/dividers/VerticalLine";
 import {
   computeNewChildrenForLeftPush,
   computeNewChildrenForRightPush,
@@ -49,7 +49,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
 
   return (
     <>
-      <section className="card-args-control flex min-w-0  rounded-xl border-b border-solid border-white px-2  pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
+      <section className="section-args flex min-w-0  rounded-xl border-b border-solid border-white px-2  pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
         <div className="flex w-full min-w-0 flex-wrap ">
           <article className=" flex items-center">
             {/* <h3 className="pr-1 font-heading text-xs uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3> */}
