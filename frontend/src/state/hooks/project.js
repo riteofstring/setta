@@ -1,42 +1,44 @@
-import { router } from "components/Pages/router";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { dbSetProjectConfigName } from "requests/projectName";
+import { dbSetProjectConfigName, dbSetProjectName } from "requests/projectName";
 import {
-  dbGetAllProjectConfigMetadata,
+  dbGetProjectsForFileMenu,
+  dbGetProjectsForHomePage,
   dbLoadFullProject,
 } from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProject } from "state/actions/project/loadProject";
+import { setProjectName } from "state/actions/project/project";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
-import { useProjectConfig } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import { PAGE_LOAD_TYPES } from "utils/constants";
+import { useProject, useProjectConfig } from "state/definitions";
+import {
+  NEW_PROJECT,
+  SAME_PROJECT_NEW_PROJECT_CONFIG,
+  SAME_PROJECT_NEW_PROJECT_CONFIG_NAME,
+  SAME_PROJECT_NEW_PROJECT_NAME,
+  SWITCHING_CONFIG,
+} from "utils/Routes/pageLoadTypes";
+import { router } from "utils/Routes/router";
 import { useEditableOnSubmit } from "./editableText";
 
-export function useGetAllProjectConfigMetadata() {
+function useGetProjects(getter) {
   const [projects, setProjects] = useState([]);
-  async function getAllProjectConfigMetadata() {
-    const res = await dbGetAllProjectConfigMetadata();
+  async function getProjects(props) {
+    const res = await getter(props);
     if (res.status === 200) {
       setProjects(res.data);
     }
   }
-  return { projects, getAllProjectConfigMetadata };
+  return { projects, getProjects };
 }
 
-export function useGetAllProjectConfigMetadataForFileMenu(open) {
-  const { projects, getAllProjectConfigMetadata } =
-    useGetAllProjectConfigMetadata();
+export function useGetProjectsForFileMenu() {
+  return useGetProjects(dbGetProjectsForFileMenu);
+}
 
-  useEffect(() => {
-    if (open) {
-      getAllProjectConfigMetadata();
-    }
-  }, [open]);
-
-  return projects;
+export function useGetProjectsForHomePage() {
+  return useGetProjects(dbGetProjectsForHomePage);
 }
 
 export function useExportProjectJson() {
@@ -46,7 +48,8 @@ export function useExportProjectJson() {
     setProjectJson(theRest);
   }
   async function exportFullProjectJson() {
-    const res = await dbLoadFullProject();
+    const projectName = useProject.getState().name;
+    const res = await dbLoadFullProject({ projectName });
     if (res.status === 200) {
       setProjectJson(res.data);
     }
@@ -56,7 +59,7 @@ export function useExportProjectJson() {
 }
 
 export function useLoadProject() {
-  const { projectConfigName } = useParams();
+  const { projectName, configName } = useParams();
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
@@ -64,63 +67,62 @@ export function useLoadProject() {
   useEffect(() => {
     async function loadAllProjectData() {
       setDoneLoading(false);
-      const res = await loadProject({ projectConfigName });
+      const res = await loadProject({
+        projectName,
+        configName,
+      });
       setDoneLoading(res);
     }
 
-    if (pageLoadType === PAGE_LOAD_TYPES.PREVIEW_PROJECT_CONFIG) {
+    if (pageLoadType === SWITCHING_CONFIG) {
       return;
     }
 
     // The first if-statement triggers for a page refresh or navigating to a different project
-    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
+    if (
+      !doneLoading ||
+      [NEW_PROJECT, SAME_PROJECT_NEW_PROJECT_CONFIG].includes(pageLoadType)
+    ) {
       loadAllProjectData();
-    } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
-      setProjectConfigName(projectConfigName);
+    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_NAME) {
+      setProjectName(projectName);
+    } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_CONFIG_NAME) {
+      setProjectConfigName(configName);
     }
 
-    setCurrProjectIsInteractive(projectConfigName);
-  }, [projectConfigName]);
+    setCurrProjectIsInteractive(projectName);
+  }, [projectName, configName]);
 
   return doneLoading;
 }
 
 export function useEditableProjectName() {
-  const name = useProjectConfig((x) => x.name);
+  const name = useProject((x) => x.name);
   async function condition(v) {
-    const res = await dbSetProjectConfigName(v);
+    const res = await dbSetProjectName(v);
     return res.status === 200;
   }
   async function onSetName(v) {
-    router.navigate(v, {
-      state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
+    const configName = useProjectConfig.getState().name;
+    router.navigate(`${v}/${configName}`, {
+      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_NAME },
     });
   }
 
   return useEditableOnSubmit(name, onSetName, condition);
 }
 
-export function useResetProjectState() {
-  const { pathname, state } = useLocation();
-  useEffect(() => {
-    if (
-      [
-        PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME,
-        PAGE_LOAD_TYPES.PREVIEW_PROJECT_CONFIG,
-      ].includes(state?.pageLoadType)
-    ) {
-      return;
-    }
-    resetProjectStores();
-  }, [pathname]);
-}
-
-export function useConfigAddress({ project, configId }) {
-  const configName = project.configs.find((x) => x.id === configId).name;
-  return `${project.name}/${configName}`;
-}
-
-export function useDefaultConfigAddress(project) {
-  const configId = project.defaultConfigId;
-  return useConfigAddress({ project, configId });
+export function useEditableProjectConfigName() {
+  const name = useProjectConfig((x) => x.name);
+  async function condition(v) {
+    const res = await dbSetProjectConfigName(v);
+    return res.status === 200;
+  }
+  async function onSetName(v) {
+    const projectName = useProject.getState().name;
+    router.navigate(`${projectName}/${v}`, {
+      state: { pageLoadType: SAME_PROJECT_NEW_PROJECT_CONFIG_NAME },
+    });
+  }
+  return useEditableOnSubmit(name, onSetName, condition);
 }

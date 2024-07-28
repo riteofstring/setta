@@ -41,7 +41,7 @@ export function subscribe() {
 
   useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.children),
-    (x) => useDndChildren.getState().update(x),
+    (x) => useDndChildren.getState().reset(x),
   );
 
   useSectionInfos.subscribe(

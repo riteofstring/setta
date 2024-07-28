@@ -4,7 +4,7 @@ import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useSectionInfos } from "state/definitions";
 import { getSectionName } from "state/getters/sectionInfo";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";

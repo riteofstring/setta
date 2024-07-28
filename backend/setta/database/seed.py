@@ -17,9 +17,9 @@ def seed_base_ui_types(dbs):
     save_ui_types(dbs, data)
 
 
-def seed_examples(dbs):
+def seed_projects(dbs):
     example_jsons = glob.glob(
-        str(get_absolute_path(__file__, SEED_FOLDER / "examples/**/*.json"))
+        str(get_absolute_path(__file__, SEED_FOLDER / "exampleProjects/**/*.json"))
     )
     for filepath in example_jsons:
         with open(filepath, "r") as f:
@@ -34,11 +34,11 @@ def seed_settings(dbs):
 
 
 def seed(
-    dbs, with_examples=False, with_base_ui_types=False, with_settings=False
+    dbs, with_example_projects=False, with_base_ui_types=False, with_settings=False
 ):
     if with_base_ui_types:
         seed_base_ui_types(dbs)
-    if with_examples:
-        seed_examples(dbs)
+    if with_example_projects:
+        seed_projects(dbs)
     if with_settings:
         seed_settings(dbs)

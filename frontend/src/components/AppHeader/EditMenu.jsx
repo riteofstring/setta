@@ -1,14 +1,12 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import C from "constants/constants.json";
-import _ from "lodash";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
-import { useSettings } from "state/definitions";
+import { MenuDropdown } from "utils/atoms/menubar/menudropdown";
+import { MenuItem } from "utils/atoms/menubar/menudropdownitem";
 
 export function EditMenu() {
   return (
@@ -21,37 +19,25 @@ export function EditMenu() {
 function Items() {
   const addSection = () => addSectionInEmptySpace({ type: C.SECTION });
   const addGroup = () => addSectionInEmptySpace({ type: C.DECK });
-  const shortcuts = useSettings((x) =>
-    _.pick(x, [
-      "newCardShortcut",
-      "newGroupShortcut",
-      "typeCheckShortcut",
-      "redoShortcut",
-      "undoShortcut",
-      "groupShortcut",
-    ]),
-  );
 
   return (
     <>
-      <MenuItem onClick={addSection} shortcut={shortcuts.newCardShortcut}>
+      <MenuItem onClick={addSection} shortcut="Ctrl + N">
         <HiPlus className="h-4 w-4" /> Card
       </MenuItem>
-      <MenuItem onClick={addGroup} shortcut={shortcuts.newGroupShortcut}>
+      <MenuItem onClick={addGroup} shortcut="Ctrl + G">
         <AiOutlineGroup className="h-4 w-4" />
         Group
       </MenuItem>
-      <MenuItem
-        onClick={requestTypeCheck}
-        shortcut={shortcuts.typeCheckShortcut}
-      >
+      <MenuItem onClick={requestTypeCheck} shortcut="Ctrl + Shift + T">
         Type Check
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
-      <MenuItem onClick={redoProjectState} shortcut={shortcuts.redoShortcut}>
+      <MenuItem onClick={redoProjectState} shortcut="Ctrl + Shift + Z">
         Redo
       </MenuItem>
-      <MenuItem onClick={undoProjectState} shortcut={shortcuts.undoShortcut}>
+
+      <MenuItem onClick={undoProjectState} shortcut="Ctrl + Z">
         Undo
       </MenuItem>
     </>
