@@ -11,15 +11,21 @@ from .utils import convert_to_file_menu_format
 def load_all_projects(dbs, format, input_project_id):
     query = """
         SELECT
-            ProjectConfig.id,
-            ProjectConfig.name,
-            ProjectConfig.previewImgNodes,
-            ProjectConfig.previewImgColor,
-            ProjectConfig.isDefault
+            Project.id AS projectId,
+            Project.name AS projectName,
+            Project.defaultConfigId,
+            Project.previewImgNodes,
+            Project.previewImgColor,
+            ProjectConfig.id AS configId,
+            ProjectConfig.name AS configName
         FROM
+            Project
+        JOIN
             ProjectConfig
+        ON
+            ProjectConfig.projectId = Project.id
         ORDER BY
-            ProjectConfig.id;
+            Project.id;
     """
     db = dbs.default
     db.execute(query)
