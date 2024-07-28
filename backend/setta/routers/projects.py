@@ -26,6 +26,10 @@ from .dependencies import get_dbs
 router = APIRouter()
 
 
+class ProjectLoadRequest(BaseModel):
+    projectConfigName: str
+
+
 class ProjectSaveRequest(BaseModel):
     project: dict
 
@@ -58,6 +62,12 @@ class SetProjectConfigNameRequest(BaseModel):
 def route_all_project_config_metadata(dbs=Depends(get_dbs)):
     with dbs:
         return load_all_project_config_metadata(dbs)
+
+
+@router.post(C.ROUTE_LOAD_PROJECT)
+def route_load_project(x: ProjectLoadRequest, dbs=Depends(get_dbs)):
+    with dbs:
+        return load_project(dbs, x.projectConfigName)
 
 
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)
