@@ -16,15 +16,19 @@ export const ProjectConfigs = React.forwardRef(() => {
 
   return (
     <>
-      <Toggle
-        checked={previewEnabled}
-        onCheckedChange={toggleProjectConfigPreviewEnabled}
-        twThumbClasses="flex"
-      />
+      <aside className="mb-2 flex items-center justify-between">
+        <p className="text-setta-500">Toggle config previews.</p>
+        <Toggle
+          checked={previewEnabled}
+          onCheckedChange={toggleProjectConfigPreviewEnabled}
+          twThumbClasses="flex"
+        />
+      </aside>
+      {/* 
       <p className="text-xs text-setta-600 dark:text-setta-300">
         Hover over an item to preview another version of your project
-      </p>
-      <section className=" mt-2 flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
+      </p> */}
+      <section className=" flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
         <div className="mt-1 flex w-full flex-col gap-1">
           {configNames.map((name, idx) => (
             <p
