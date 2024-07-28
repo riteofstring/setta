@@ -1,21 +1,29 @@
-import { router } from "components/Pages/router";
-import React from "react";
+import _ from "lodash";
+import React, { useCallback } from "react";
+import { setNodes } from "state/actions/nodeInternals";
 import { setProjectConfig } from "state/actions/project/projectConfig";
 import { useOtherProjectConfigs, useProjectConfig } from "state/definitions";
-import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
   const configNames = useOtherProjectConfigs((x) => x.x.map((c) => c.name));
 
-  function onMouseOver(idx) {
-    const config = useOtherProjectConfigs.getState().x[idx];
-    if (config.name !== useProjectConfig.getState().name) {
-      setProjectConfig(config);
-      router.navigate(config.name, {
-        state: { pageLoadType: PAGE_LOAD_TYPES.PREVIEW_PROJECT_CONFIG },
-      });
-    }
-  }
+  const onMouseOver = useCallback(
+    _.debounce((idx) => {
+      const config = useOtherProjectConfigs.getState().x[idx];
+      if (config.name !== useProjectConfig.getState().name) {
+        setProjectConfig(_.omit(config, ["viewport", "children"]));
+        setNodes(
+          _.map(config.children, (v, k) => ({
+            id: k,
+            position: { x: v.x, y: v.y },
+            zIndex: v.zIndex,
+            tempZIndex: v.zIndex,
+          })),
+        );
+      }
+    }, 50),
+    [],
+  );
   const currConfigName = useProjectConfig((x) => x.name);
 
   return (
