@@ -65,6 +65,7 @@ export function useLoadProject() {
     async function loadAllProjectData() {
       setDoneLoading(false);
       const res = await loadProject({ projectConfigName });
+      console.log("res", res)
       setDoneLoading(res);
     }
 
