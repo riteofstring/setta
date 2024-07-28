@@ -11,7 +11,6 @@ import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 function MenuButton({ sectionId, sectionTypeName }) {
   // hover:bg-setta-100 dark:hover:bg-setta-900
   const sectionType = useGetSectionType(sectionId, "type");
-  console.log("sectionTypeName: ", sectionTypeName);
 
   const isSpecial = [
     C.CODE,

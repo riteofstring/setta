@@ -8,39 +8,38 @@ import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { create, createProjectState, withVersion } from "./utils";
+import { create, createProjectState, stateWithResetFn } from "./utils";
 
 export const useActiveSection = createProjectState(
-  temporal(() =>
-    withVersion({
-      ids: [],
-    }),
-  ),
+  temporal(() => ({
+    ids: [],
+    version: 0,
+  })),
 );
 
 export const useCodeInfo = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
-export const useContextMenus = createProjectState(() => ({
-  pane: { isOpen: false, x: 0, y: 0 },
-  deck: { isOpen: false, x: 0, y: 0, sectionId: null },
-  selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-}));
+export const useContextMenus = createProjectState(
+  stateWithResetFn({
+    pane: { isOpen: false, x: 0, y: 0 },
+    deck: { isOpen: false, x: 0, y: 0, sectionId: null },
+    selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
+  }),
+);
 
 export const useEVCols = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
@@ -77,11 +76,10 @@ export const useModal = createProjectState(() => ({
 }));
 
 export const useNodeInternals = createProjectState(
-  temporal(() =>
-    withVersion({
-      x: new Map(),
-    }),
-  ),
+  temporal(() => ({
+    x: new Map(),
+    version: 0,
+  })),
 );
 
 export const useNotification = create(() => ({
@@ -109,11 +107,10 @@ export const useOutputs = createProjectState(
 
 export const useParamSweep = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
@@ -121,16 +118,17 @@ export const useProject = createProjectState(() => ({
   id: "",
   name: "",
   defaultConfigId: null,
+  isLoading: false,
 }));
 
 export const useProjectConfig = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        id: "",
-        name: "",
-      }),
-    ),
+    immer(() => ({
+      id: "",
+      name: "",
+      version: 0,
+      isLoading: false,
+    })),
   ),
 );
 
@@ -141,22 +139,20 @@ export const useProjectSearch = createProjectState(() => ({
 
 export const useRunGroups = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
 export const useSectionInfos = createProjectState(
   temporal(
     subscribeWithSelector(
-      immer(() =>
-        withVersion({
-          x: {},
-        }),
-      ),
+      immer(() => ({
+        x: {},
+        version: 0,
+      })),
     ),
   ),
 );
@@ -176,12 +172,10 @@ export const useSectionRefs = createProjectState(
 
 export const useSectionToParams = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        callables: {},
-        params: {},
-      }),
-    ),
+    immer(() => ({
+      callables: {},
+      params: {},
+    })),
   ),
 );
 
@@ -193,7 +187,9 @@ export const useSettings = create(() => ({
 }));
 
 export const useStateVersion = createProjectState(
-  temporal(() => withVersion({})),
+  temporal(() => ({
+    version: 0,
+  })),
 );
 
 // TODO: remove this hardcoded example error
@@ -210,21 +206,19 @@ export const useUIEditor = createProjectState(() => ({
 
 export const useUITypeCols = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        y: {},
-      }),
-    ),
+    immer(() => ({
+      y: {},
+      version: 0,
+    })),
   ),
 );
 
 export const useUITypes = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
