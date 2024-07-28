@@ -41,12 +41,6 @@ function _CodeArea({ sectionId }) {
 
 export const CodeArea = React.memo(_CodeArea);
 
-const scrollbarThemeOption = EditorView.theme({
-  "& .cm-gutters": {
-    height: `100% !important`,
-  },
-});
-
 function Editor({ value, onChange, languageExtension }) {
   const theme = useCodeMirrorStyle();
 
@@ -56,8 +50,8 @@ function Editor({ value, onChange, languageExtension }) {
       theme={theme}
       extensions={
         languageExtension
-          ? [languageExtension, EditorView.lineWrapping, scrollbarThemeOption]
-          : [EditorView.lineWrapping, scrollbarThemeOption]
+          ? [languageExtension, EditorView.lineWrapping]
+          : [EditorView.lineWrapping]
       }
       onChange={onChange}
     />
