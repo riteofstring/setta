@@ -4,7 +4,6 @@ import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import React from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useCodeMirrorStyle } from "utils/CodeMirror/useCodeMirrorStyle";
 
@@ -28,7 +27,7 @@ function _CodeArea({ sectionId }) {
   }
 
   return (
-    <article className="nodrag nowheel section-full-no-title cursor-auto overflow-clip [&_*]:!outline-0 ">
+    <article className="nodrag nowheel section-full-no-title cursor-auto overflow-auto [&_*]:!outline-0 ">
       <Editor
         sectionId={sectionId}
         value={value}
@@ -43,15 +42,13 @@ export const CodeArea = React.memo(_CodeArea);
 
 function Editor({ sectionId, value, onChange, languageExtension }) {
   const theme = useCodeMirrorStyle();
-  const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
 
   return (
     <CodeMirror
       value={value}
       theme={theme}
-      // height={`${height}px`}
-      maxHeight={`${height - 36}px`}
-      width={`${width}px`}
+      height="100%"
+      width="100%"
       extensions={
         languageExtension
           ? [languageExtension, EditorView.lineWrapping]
