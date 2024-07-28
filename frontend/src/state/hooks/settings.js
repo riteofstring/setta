@@ -136,7 +136,13 @@ export function useSimpleSettings() {
 }
 
 export function useLoadSettings() {
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   useEffect(() => {
-    loadSettings();
+    setSettingsLoaded(
+      (async () => {
+        await loadSettings();
+      })(),
+    );
   }, []);
+  return settingsLoaded;
 }

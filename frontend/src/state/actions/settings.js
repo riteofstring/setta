@@ -4,13 +4,11 @@ import { useSettings } from "state/definitions";
 export async function loadSettings() {
   const res = await dbLoadSettings();
   if (res.status === 200) {
-    setSettings(res.data);
+    useSettings.setState(res.data);
   }
+  return res.status === 200;
 }
 
-function setSettings(payload) {
-  useSettings.setState({ ...payload, settingsLoaded: true });
-}
 export function toggleSetting(settingName) {
   useSettings.setState((state) => ({ [settingName]: !state[settingName] }));
 }
