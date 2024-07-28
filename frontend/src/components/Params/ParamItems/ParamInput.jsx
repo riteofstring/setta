@@ -69,12 +69,6 @@ export function ParamInput({
         onChange={onChange}
         isDisabled={isDisabled}
       />
-      {isText && (
-        <>
-          <LoadingSpinner sectionId={sectionId} paramInfoId={paramInfoId} />
-          <span className="card-value border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
-        </>
-      )}
     </div>
   );
 }

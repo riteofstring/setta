@@ -18,7 +18,7 @@ import { useMappedSectionDBSource } from "state/hooks/sections";
 import { IconButton } from "utils/atoms/buttons/IconButton";
 import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "utils/Combobox/IdNameCombobox";
-import { ParamUI } from "../../Params/ParamUIs/ParamUI";
+import { ParamSweepUI } from "../../Params/ParamUIs/ParamUI";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -280,16 +280,13 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
         onClick={onDelete}
       />
       <article className="card-arg-group group/arg-group group/textinput -mx-2 -my-1 items-center justify-between rounded-lg px-2 py-1">
-        <ParamUI
+        <ParamSweepUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}
           value={value}
           onChange={onChange}
           className="nodrag"
-          area="card-value-full"
         />
-        <i className="card-value gg-spinner self-center justify-self-end text-blue-500/70" />
-        <span className="card-value-full border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
       </article>
     </>
   );
