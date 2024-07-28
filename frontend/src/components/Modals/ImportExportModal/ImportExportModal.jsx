@@ -1,20 +1,21 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { Footer } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { useExportProjectJson } from "state/hooks/project";
-import { Footer } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import { MODAL_TYPE } from "utils/constants";
 
-export function ExportJSONModal({ modalType, open }) {
+export function ExportJSONModal({ open, modalType }) {
   const { projectJson, exportProjectJson, exportFullProjectJson } =
     useExportProjectJson();
 
   useEffect(() => {
     if (open) {
-      if (modalType === "Export JSON") {
+      if (modalType.title === MODAL_TYPE.EXPORT_JSON.title) {
         exportProjectJson();
-      } else if (modalType === "Export Full JSON") {
+      } else if (modalType.title === MODAL_TYPE.EXPORT_FULL_JSON.title) {
         exportFullProjectJson();
       }
     }
@@ -25,14 +26,14 @@ export function ExportJSONModal({ modalType, open }) {
   return (
     <TextAreaModal
       value={value}
-      title="Export JSON"
+      title={modalType.title}
       copyBtn={true}
       onClickCopyBtn={() => navigator.clipboard.writeText(value)}
     />
   );
 }
 
-export function ImportJSONModal() {
+export function ImportJSONModal({ modalType }) {
   const [value, setValue] = useState("");
 
   async function onClick() {
@@ -45,9 +46,9 @@ export function ImportJSONModal() {
     <TextAreaModal
       value={value}
       setValue={setValue}
-      title="Import JSON"
+      title={modalType.title}
       disabled={false}
-      buttonText={"Import"}
+      buttonText={modalType.buttonText}
       onClick={onClick}
     />
   );

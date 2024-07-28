@@ -30,4 +30,4 @@ async function loadAndModifyJson(filePath) {
 }
 
 // Usage example (replace 'path/to/yourfile.json' with the actual file path)
-loadAndModifyJson('seed/exampleProjects/sklearn_example/sklearn_example.json').then(modifiedJson => console.log(modifiedJson));
+loadAndModifyJson('seed/examples/sklearn_example/sklearn_example.json').then(modifiedJson => console.log(modifiedJson));

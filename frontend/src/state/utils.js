@@ -8,21 +8,16 @@ export const create = (f) => {
     return create;
   }
   const store = _create(f, Object.is);
-  addResetter(store, STATE_TYPES.BASE_STATE);
+  addResetter(store);
   addStatePointer(store, STATE_TYPES.BASE_STATE);
   return store;
 };
 
 export const createProjectState = (f) => {
   const store = create(f);
-  addResetter(store, STATE_TYPES.PROJECT_STATE);
   addStatePointer(store, STATE_TYPES.PROJECT_STATE);
   return store;
 };
-
-function createSubStateDict() {
-  return { resetters: [], statePointers: [] };
-}
 
 export const STATE_TYPES = {
   PROJECT_STATE: "PROJECT_STATE",
@@ -30,38 +25,37 @@ export const STATE_TYPES = {
 };
 
 export const stateDict = {
-  [STATE_TYPES.BASE_STATE]: createSubStateDict(),
-  [STATE_TYPES.PROJECT_STATE]: createSubStateDict(),
+  [STATE_TYPES.BASE_STATE]: [],
+  [STATE_TYPES.PROJECT_STATE]: [],
 };
 
-function createResetter(state) {
+function addResetter(state) {
   const initialState = state.getState();
-  return () => {
-    state.setState(initialState);
+  // reset function definition
+  const resetFn = () => {
+    // we have to explicitly include resetFn in initialState
+    // since the initialState defined above does not have "reset" as part of it.
+    const initialStateWithReset = { ...initialState, reset: resetFn };
+    state.setState(initialStateWithReset);
     if (state.temporal) {
       state.temporal.getState().clear();
     }
   };
-}
-
-function addResetter(state, stateType) {
-  stateDict[stateType].resetters.push(createResetter(state));
+  // add it to the state
+  state.setState({ reset: resetFn });
 }
 
 function addStatePointer(state, stateType) {
-  stateDict[stateType].statePointers.push(state);
+  stateDict[stateType].push(state);
 }
 
-export function stateWithResetFn(initialState) {
-  return (set) => ({
-    ...initialState,
-    reset: () => set(initialState),
-  });
+export function withVersion(initialState) {
+  return { ...initialState, version: 0 };
 }
 
 function resetStores(stateType) {
-  for (const resetter of stateDict[stateType].resetters) {
-    resetter();
+  for (const state of stateDict[stateType]) {
+    state.getState().reset();
   }
 }
 
@@ -81,9 +75,12 @@ export function initValue(state, id, value) {
 }
 
 export function pauseTemporal() {
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE].statePointers) {
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal) {
       s.temporal.getState().pause();
+      if (s.getState().version === undefined) {
+        throw new Error("temporal state version should not be undefined");
+      }
     }
   }
 }

@@ -1,3 +1,4 @@
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { duplicateEvCol } from "state/actions/evCols";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useModal } from "state/definitions";
@@ -6,9 +7,8 @@ import {
   getSectionInfo,
 } from "state/getters/sectionInfo";
 import { createNewId } from "utils/idNameCreation";
-import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
-export function CreateNewVersionModal() {
+export function CreateNewVersionModal({ modalType }) {
   function onClickCreateNewVersion({ filename }) {
     const sectionId = useModal.getState().modalData;
     const currId = getSectionInfo(sectionId).evColId;
@@ -25,11 +25,11 @@ export function CreateNewVersionModal() {
 
   return (
     <SaveLoadModal
-      modalType={"Save"}
+      modalPurpose={modalType.purpose}
       files={[]} // TODO
       onClickActionButton={onClickCreateNewVersion}
-      title="Save Collection As"
-      buttonText="Save As"
+      title={modalType.title}
+      buttonText={modalType.buttonText}
       placeholder="Collection Name"
     />
   );

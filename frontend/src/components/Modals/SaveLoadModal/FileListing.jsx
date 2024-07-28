@@ -66,7 +66,7 @@ function File({
       </span>
       <div className="flex flex-grow justify-between">
         <label className="cursor-pointer">{name}</label>
-        <div className="text-xs text-setta-400">2023/01/01</div>
+        {/* <div className="text-xs text-setta-400">2023/01/01</div> */}
       </div>
     </RadioGroup.Item>
   ) : (

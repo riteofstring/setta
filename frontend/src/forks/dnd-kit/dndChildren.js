@@ -43,7 +43,7 @@ export const useDndChildren = createProjectState(
           state.y[id] = undefined;
         }
       }),
-    reset: (sectionIdsToChildren) =>
+    update: (sectionIdsToChildren) =>
       set((state) => {
         state.x = sectionIdsToChildren;
         for (const [id, children] of Object.entries(sectionIdsToChildren)) {
