@@ -118,6 +118,7 @@ export const useProject = createProjectState(() => ({
   id: "",
   name: "",
   defaultConfigId: null,
+  isLoading: false,
 }));
 
 export const useProjectConfig = createProjectState(
@@ -126,6 +127,7 @@ export const useProjectConfig = createProjectState(
       id: "",
       name: "",
       version: 0,
+      isLoading: false,
     })),
   ),
 );
