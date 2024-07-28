@@ -3,7 +3,6 @@ import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useEditableProjectConfigName,
   useEditableProjectName,
-  useProjectNameIsLoading,
 } from "state/hooks/project";
 import { CONST_INFO_VIEWS } from "utils/constants";
 
@@ -14,21 +13,13 @@ const notEditing =
   "flex-1 box-border border-solid border-transparent bg-transparent [border-width:0_0_2px_0] px-1 w-full truncate";
 
 export function ProjectName() {
-  const isLoading = useProjectNameIsLoading();
-
   return (
     <header
       className="mb-2 flex w-full flex-col flex-wrap font-heading  tracking-tight "
       {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_PROJNAME)}
     >
-      {isLoading ? (
-        <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
-      ) : (
-        <>
-          <ProjectNameOnly />
-          <ProjectConfigNameOnly />
-        </>
-      )}
+      <ProjectNameOnly />
+      <ProjectConfigNameOnly />
     </header>
   );
 }

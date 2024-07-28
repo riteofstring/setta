@@ -128,12 +128,10 @@ export const useProject = createProjectState(() =>
 export const useProjectConfig = createProjectState(
   temporal(
     immer(() =>
-      withVersion(
-        withLoading({
-          id: "",
-          name: "",
-        }),
-      ),
+      withVersion({
+        id: "",
+        name: "",
+      }),
     ),
   ),
 );
@@ -157,9 +155,11 @@ export const useSectionInfos = createProjectState(
   temporal(
     subscribeWithSelector(
       immer(() =>
-        withVersion({
-          x: {},
-        }),
+        withVersion(
+          withLoading({
+            x: {},
+          }),
+        ),
       ),
     ),
   ),
