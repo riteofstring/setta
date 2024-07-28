@@ -68,10 +68,6 @@ export function useLoadProject() {
       setDoneLoading(res);
     }
 
-    if (pageLoadType === PAGE_LOAD_TYPES.PREVIEW_PROJECT_CONFIG) {
-      return;
-    }
-
     // The first if-statement triggers for a page refresh or navigating to a different project
     if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
       loadAllProjectData();
@@ -103,12 +99,7 @@ export function useEditableProjectName() {
 export function useResetProjectState() {
   const { pathname, state } = useLocation();
   useEffect(() => {
-    if (
-      [
-        PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME,
-        PAGE_LOAD_TYPES.PREVIEW_PROJECT_CONFIG,
-      ].includes(state?.pageLoadType)
-    ) {
+    if (state?.pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
       return;
     }
     resetProjectStores();
