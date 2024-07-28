@@ -102,8 +102,8 @@ export function ParamSweepUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName="section-key-value grid-row-start-1 nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
-            realCodeClassName="section-key-value grid-row-start-1 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
+            dummyCodeClassName="section-key-value grid-row-start-1 py-1 nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
+            realCodeClassName="section-key-value grid-row-start-1 py-1 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -137,7 +137,7 @@ export function ParamSweepUI({
           defaultVal={defaultVal}
           onChange={onChange}
           isDisabled={isDisabled}
-          outerDivClassName="section-key-value flex justify-self-start self-center"
+          outerDivClassName="section-key-value flex justify-self-center self-center"
           twRootClasses="nodrag"
         />
       );

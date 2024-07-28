@@ -31,7 +31,7 @@ export function VersionList({ sectionId, sectionTypeName }) {
         className="section-grid -my-4 flex-1 self-stretch pb-8 pt-6"
         onMouseLeave={onMouseLeave}
       >
-        <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid overflow-y-auto overflow-x-clip pt-2">
+        <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
           {sectionTypeName === C.PARAM_SWEEP ? (
             <ParamSweepItems
               sectionId={sectionId}
@@ -115,7 +115,7 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
     <li
       onMouseOver={() => onMouseOver(id)}
       onClick={() => onClick(id)}
-      className="section-key-value -mx-2 -my-1 grid h-min cursor-pointer auto-rows-min grid-cols-subgrid items-center justify-between rounded-xl px-2 py-1 text-xs hover:bg-setta-50/50 dark:hover:bg-setta-800/50"
+      className="section-key-value -mx-2 -my-[0.125rem] grid h-min cursor-pointer auto-rows-min grid-cols-subgrid items-center justify-between rounded-xl px-2 py-[0.125rem] text-xs hover:bg-setta-50/50 dark:hover:bg-setta-800/50"
     >
       <p
         className={`section-key truncate ${
