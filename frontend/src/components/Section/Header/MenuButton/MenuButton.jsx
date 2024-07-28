@@ -24,7 +24,7 @@ function MenuButton({ sectionId, sectionTypeName }) {
   return (
     <Menubar.Root>
       <MenuDropdown
-        padding={"p-1 mx-1"}
+        padding={"p-1 mr-1"}
         rounded="rounded-full"
         triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-setta-600 hover:text-white"} `}
         trigger={

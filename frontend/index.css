@@ -126,6 +126,7 @@ body {
 /* utility classes */
 .section-title {
   grid-area: title;
+  /* grid-column: key / value; */
 }
 .section-search {
   grid-area: search;
@@ -147,6 +148,11 @@ body {
 .section-w-full {
   grid-column: left-gutter / right-gutter;
 }
+
+.section-row-search-gutter {
+  grid-row: search / left-gutter;
+}
+
 .section-full {
   grid-row: title / left-gutter;
   grid-column: left-gutter / right-gutter;
@@ -155,6 +161,14 @@ body {
   grid-row: search / left-gutter;
   grid-column: left-gutter / right-gutter;
 }
+
+.section-min-rows {
+  grid-auto-rows: min-content;
+}
+
+/* .section-parent-template {
+  grid-template-rows: 1.5rem min-content;
+} */
 
 .section-main {
   grid-row: search / left-gutter;

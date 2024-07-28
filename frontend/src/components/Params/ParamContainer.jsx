@@ -45,7 +45,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group -mx-3 -my-[0.125rem] grid auto-rows-min grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.125rem] ${bg} ${border}`}
+        className={`section-key-value group/arg-group section-min-rows -mx-2 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
         {children}
@@ -69,7 +69,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     </>
   ) : (
     <article
-      className={`section-key-value group/arg-group -mx-3 -my-[0.125rem] grid auto-rows-min grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.125rem] ${bg} ${border}`}
+      className={`section-key-value group/arg-group section-min-rows -mx-3 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.1rem] ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
       {children}
@@ -144,11 +144,11 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-2 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mx-2 -mb-1 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
+      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
         {children}
       </aside>
       <IconButton

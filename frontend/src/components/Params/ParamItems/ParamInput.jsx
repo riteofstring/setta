@@ -58,18 +58,15 @@ export function ParamInput({
   }, [enteredValue]);
 
   return (
-    <div
-      className={`group/textinput contents ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""}`}
-    >
-      <ParamUI
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        value={value}
-        defaultVal={defaultVal}
-        onChange={onChange}
-        isDisabled={isDisabled}
-      />
-    </div>
+    <ParamUI
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      defaultVal={defaultVal}
+      onChange={onChange}
+      isDisabled={isDisabled}
+      maybeErrorMessage={maybeErrorMessage}
+    />
   );
 }
 
