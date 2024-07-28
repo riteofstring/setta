@@ -72,7 +72,7 @@ export const initialShortcuts = {
   newCardShortcut: "",
   newGroupShortcut: "",
   typeCheckShortcut: "",
-  newProjectShortcut: "",
+  newProjectConfigShortcut: "",
   undoShortcut: "Mod + Z",
   redoShortcut: "Mod + Shift + Z",
   groupShortcut: "Mod + G",
@@ -118,7 +118,7 @@ export const tabNameToPretty = Object.freeze(
   ),
 );
 
-export const projectPreviewImgColors = [
+export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
   "bg-red-500/60 dark:bg-red-600/30",
   "bg-pink-500/60 dark:bg-pink-600/30",
   "bg-purple-500/60 dark:bg-purple-600/30",

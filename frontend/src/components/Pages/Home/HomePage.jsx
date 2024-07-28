@@ -11,7 +11,7 @@ import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { dbDeleteProjects } from "requests/projects";
-import { createAndGoToProject } from "state/actions/project/loadProject";
+import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
@@ -40,7 +40,7 @@ function RightColumn({ projects, setDoRefresh }) {
   const [selectedProjects, setSelectedProjects] = useState([]);
 
   async function onClick() {
-    await createAndGoToProject({});
+    await createAndGoToProjectConfig({});
   }
 
   function onSelectProject(e, projectId) {

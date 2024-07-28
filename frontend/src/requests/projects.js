@@ -15,9 +15,9 @@ export async function dbLoadFullProject() {
   });
 }
 
-export async function dbCreateProject({ name, previewImgColor }) {
+export async function dbCreateProjectConfig({ name, previewImgColor }) {
   return await post({
-    address: C.ROUTE_CREATE_PROJECT,
+    address: C.ROUTE_CREATE_PROJECT_CONFIG,
     body: { name, previewImgColor },
   });
 }

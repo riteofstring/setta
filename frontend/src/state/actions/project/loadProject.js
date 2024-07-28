@@ -2,9 +2,9 @@ import { NEW_PROJECT } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
-import { dbCreateProject, dbLoadFullProject } from "requests/projects";
+import { dbCreateProjectConfig, dbLoadFullProject } from "requests/projects";
 import {
-  projectPreviewImgColors,
+  PROJECT_CONFIG_PREVIEW_IMG_COLORS,
   REACT_FLOW_STORE,
   setDbSourceMapping,
 } from "utils/constants";
@@ -80,19 +80,18 @@ export function loadProjectState({
   return true;
 }
 
-export async function createAndGoToProject({ name }) {
-  const previewImgColor = getRandomProjectPreviewImgColor();
-  const { data: newProjectName } = await dbCreateProject({
+export async function createAndGoToProjectConfig({ name }) {
+  const previewImgColor = getRandomProjectConfigPreviewImgColor();
+  const { data: newProjectName } = await dbCreateProjectConfig({
     name,
     previewImgColor,
   });
-  console.log("createAndGoToProject", newProjectName);
   router.navigate(newProjectName, { state: { pageLoadType: NEW_PROJECT } });
 }
 
-const getRandomProjectPreviewImgColor = () => {
+function getRandomProjectConfigPreviewImgColor() {
   const randomIndex = Math.floor(
-    Math.random() * projectPreviewImgColors.length,
+    Math.random() * PROJECT_CONFIG_PREVIEW_IMG_COLORS.length,
   );
-  return projectPreviewImgColors[randomIndex];
-};
+  return PROJECT_CONFIG_PREVIEW_IMG_COLORS[randomIndex];
+}

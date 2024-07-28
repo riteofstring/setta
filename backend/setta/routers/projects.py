@@ -11,7 +11,7 @@ from setta.database.db.projects.load import (
     load_project,
 )
 from setta.database.db.projects.save import (
-    create_project,
+    create_project_config,
     save_project_details,
     save_project_name,
 )
@@ -40,7 +40,7 @@ class SaveAsExistingProjectConfigRequest(BaseModel):
     configName: str
 
 
-class CreateProjectRequest(BaseModel):
+class CreateProjectConfigRequest(BaseModel):
     name: Optional[str] = None
     previewImgColor: str
 
@@ -79,10 +79,10 @@ def route_save_project(x: ProjectSaveRequest, dbs=Depends(get_dbs)):
         save_project_details(dbs, x.project)
 
 
-@router.post(C.ROUTE_CREATE_PROJECT)
-def route_create_project(x: CreateProjectRequest, dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
+def route_create_project_config(x: CreateProjectConfigRequest, dbs=Depends(get_dbs)):
     with dbs:
-        return create_project(dbs, x.name, x.previewImgColor)
+        return create_project_config(dbs, x.name, x.previewImgColor)
 
 
 @router.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)

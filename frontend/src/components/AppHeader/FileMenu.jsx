@@ -11,7 +11,7 @@ import {
   openLoadModal,
   openSaveAsModal,
 } from "state/actions/modal";
-import { createAndGoToProject } from "state/actions/project/loadProject";
+import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
@@ -19,7 +19,7 @@ import { SETTINGS_ROUTER_PATH } from "utils/constants";
 export function FileMenu() {
   const shortcuts = useSettings((x) =>
     _.pick(x, [
-      "newProjectShortcut",
+      "newProjectConfigShortcut",
       "saveShortcut",
       "saveAsShortcut",
       "loadShortcut",
@@ -29,8 +29,8 @@ export function FileMenu() {
   return (
     <MenuDropdown trigger="File">
       <MenuItem
-        onClick={() => createAndGoToProject({})}
-        shortcut={shortcuts.newProjectShortcut}
+        onClick={() => createAndGoToProjectConfig({})}
+        shortcut={shortcuts.newProjectConfigShortcut}
       >
         New Config
       </MenuItem>

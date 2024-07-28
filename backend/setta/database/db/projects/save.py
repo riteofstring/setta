@@ -79,7 +79,7 @@ def save_project(dbs, project):
     db.executemany(query, query_params)
 
 
-def create_project(dbs, name, previewImgColor):
+def create_project_config(dbs, name, previewImgColor):
     db = dbs.default
     query = """
         SELECT name
