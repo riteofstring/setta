@@ -52,11 +52,15 @@ function addStatePointer(state, stateType) {
   stateDict[stateType].statePointers.push(state);
 }
 
-export function stateWithResetFn(initialState) {
-  return (set) => ({
+export function withResetFn(initialState) {
+  return {
     ...initialState,
     reset: () => set(initialState),
-  });
+  };
+}
+
+export function withVersion(initialState) {
+  return { ...initialState, version: 0 };
 }
 
 function resetStores(stateType) {
