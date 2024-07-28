@@ -41,6 +41,7 @@ export function ParamUI({
             isDisabled={isDisabled}
             dummyCodeClassName={`section-value group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]`}
             realCodeClassName={`nodrag group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-value`}
+            language="python"
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -104,6 +105,7 @@ export function ParamSweepUI({
             isDisabled={isDisabled}
             dummyCodeClassName="section-key-value grid-row-start-1 py-1 nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
             realCodeClassName="section-key-value grid-row-start-1 py-1 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
+            language="python"
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
