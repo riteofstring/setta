@@ -74,7 +74,7 @@ function LoadingSpinner({ sectionId, paramInfoId }) {
   const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
   return (
     waitingForResult && (
-      <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
+      <i className="single-cell-child gg-spinner self-center justify-self-end text-blue-500/70" />
     )
   );
 }

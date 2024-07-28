@@ -10,10 +10,7 @@ import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useCallback, useRef, useState } from "react";
-import {
-  dbTextFieldCompletion,
-  dbTextFieldInitializeCode,
-} from "requests/sections";
+import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
@@ -142,13 +139,18 @@ function getCompletionsFn(sectionId, paramInfoId) {
     if (!fullText.trim()) return null;
     const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
     const setToNotWaiting = setWaitingForLSP({ sectionId, paramInfoId });
-    const res = await dbTextFieldCompletion({
-      sectionId,
-      paramInfoId,
-      fullText,
-      beforeText: before.text,
-      position: context.pos,
-    });
+    // const res = await dbTextFieldCompletion({
+    //   sectionId,
+    //   paramInfoId,
+    //   fullText,
+    //   beforeText: before.text,
+    //   position: context.pos,
+    // });
+    const res = [
+      { label: "match", type: "keyword" },
+      { label: "hello", type: "variable", info: "(World)" },
+      { label: "magic", type: "text", apply: "⠁⭒*.✩.*⭒⠁", detail: "macro" },
+    ];
     setToNotWaiting();
     console.log("res", res);
     if (res) {
@@ -319,10 +321,12 @@ function CoreCodeMirror({
     fixPlaceholderCursor(divId, value, defaultVal);
   }
 
+  console.log("realIsInitialized", realIsInitialized);
+
   return (
     <CodeMirror
       id={divId}
-      className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`${className} ${true ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{

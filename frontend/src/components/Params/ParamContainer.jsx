@@ -45,23 +45,30 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group section-min-rows -mx-2 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 ${bg} ${border}`}
+        className={`section-key-value group/arg-group section-min-rows mb-1 flex flex-col items-center justify-between rounded-lg ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
-        {children}
-        <ParamInput
-          sectionId={sectionId}
-          paramInfoId={paramInfo.id}
-          defaultVal={paramInfo.defaultVal}
-          isDisabled={!paramInfo.name}
-          maybeErrorMessage={maybeErrorMessage}
-        />
-        <PinButton
-          sectionId={sectionId}
-          paramInfoId={paramInfo.id}
-          variants="justify-self-end self-center"
-        />
-        <ParamOptionsButton />
+        <div className="flex w-full min-w-0 flex-row gap-4 px-4">
+          <div className="single-cell-container flex-1">
+            {children}
+            <PinButton
+              sectionId={sectionId}
+              paramInfoId={paramInfo.id}
+              variants="single-cell-child justify-self-end"
+            />
+          </div>
+          <div className="single-cell-container flex-1">
+            <ParamInput
+              sectionId={sectionId}
+              paramInfoId={paramInfo.id}
+              defaultVal={paramInfo.defaultVal}
+              isDisabled={!paramInfo.name}
+              maybeErrorMessage={maybeErrorMessage}
+            />
+            <ParamOptionsButton variants="absolute right-0 top-0" />
+          </div>
+        </div>
+
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -72,13 +79,15 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
       className={`section-key-value group/arg-group section-min-rows -mx-3 mb-1 grid grid-cols-subgrid items-center justify-between rounded-lg px-3 py-[0.1rem] ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
-      {children}
-      <div className="section-args-nested section-key-value ml-1 grid w-[calc(100%_-_0.25rem)]">
-        <GetParamSwitch
-          sectionId={sectionId}
-          parentId={paramInfo.id}
-          infos={paramChildren}
-        />
+      <div className="w-full min-w-0">
+        {children}
+        <div className="section-args-nested section-key-value ml-1 grid w-[calc(100%_-_0.25rem)]">
+          <GetParamSwitch
+            sectionId={sectionId}
+            parentId={paramInfo.id}
+            infos={paramChildren}
+          />
+        </div>
       </div>
     </article>
   );

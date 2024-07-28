@@ -32,20 +32,22 @@ export function ParamUI({
     default:
       return (
         <>
-          <TextInputCodeMirror
-            sectionId={sectionId}
-            paramInfoId={paramInfoId}
-            value={value}
-            defaultVal={defaultVal}
-            onChange={onChange}
-            isDisabled={isDisabled}
-            dummyCodeClassName={`section-value group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word] mb-1`}
-            realCodeClassName={`nodrag group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-value mb-1`}
-          />
+          <div className="single-cell-child flex flex-col">
+            <TextInputCodeMirror
+              sectionId={sectionId}
+              paramInfoId={paramInfoId}
+              value={value}
+              defaultVal={defaultVal}
+              onChange={onChange}
+              isDisabled={isDisabled}
+              dummyCodeClassName={`group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word] `}
+              realCodeClassName={`nodrag group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]`}
+            />
+            <span className="border-box w-full min-w-0 border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
+          </div>
           {waitingForResult && (
-            <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
+            <i className="single-cell-child gg-spinner -mt-1 self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-value grid-row- border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
         </>
       );
     case C.SLIDER: {
@@ -59,7 +61,7 @@ export function ParamUI({
           max={max}
           step={step}
           isDisabled={isDisabled}
-          sliderRootClassName="section-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
+          sliderRootClassName="single-cell-child data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
           sliderThumbClassName="block h-3 w-3 cursor-pointer
@@ -74,7 +76,7 @@ export function ParamUI({
           defaultVal={defaultVal}
           onChange={onChange}
           isDisabled={isDisabled}
-          outerDivClassName="section-value flex justify-self-start self-center"
+          outerDivClassName="single-cell-child flex justify-self-start self-center"
           twRootClasses="nodrag"
         />
       );
@@ -106,7 +108,7 @@ export function ParamSweepUI({
             realCodeClassName="section-key-value grid-row-start-1 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] mb-1"
           />
           {waitingForResult && (
-            <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
+            <i className="single-cell-child gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
           <span className="section-key-value grid-row-start-1 border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
         </>

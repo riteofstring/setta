@@ -9,10 +9,10 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
   const { overflow, ref, setDidUpdate } = useOverflow(sectionId);
 
   const hasVersions = useSectionHasMultipleEVCols(sectionId);
-
+  //  grid auto-rows-min grid-cols-subgrid
   return (
     <div
-      className={`section-args-list section-w-full section-row-main grid auto-rows-min grid-cols-subgrid py-1 ${overflow ? "nowheel overflow-x-clip overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""} min-w-0 !max-w-full`}
+      className={`section-args-list section-w-full section-row-main flex flex-col py-1 ${overflow ? "nowheel overflow-x-clip overflow-y-scroll" : ""} ${hasVersions ? "last:[&>div]:mb-12" : ""} min-w-0 !max-w-full`}
       ref={ref}
     >
       <GetParams
