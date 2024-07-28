@@ -12,21 +12,18 @@ export function PinButton({ variants, sectionId, paramInfoId }) {
     updateParams(sectionId);
   }
 
-  // .container:has(> .close) ]
-
   //hover:!bg-white dark:hover:!bg-setta-900
   return (
     <IconButton
-      twClasses={`arg-pin-btn section-key ${variants}`}
+      twClasses={`section-key ${variants}`}
       size="h-3 w-3"
       icon={<MdOutlinePushPin />}
       color={` ${
         isPinned ? "[&>*]:text-setta-400" : "[&>*]:text-transparent"
-      }  hover:[&>*]:!text-setta-800 dark:hover:[&>*]:!text-setta-100`}
-      bg="bg-transparent p-1 transition-colors duration-150 focus-visible:ring-2"
+      } group-hover/arg-group:[&>*]:text-setta-400 dark:group-hover/arg-group:[&>*]:text-setta-400 hover:[&>*]:!text-setta-800 dark:hover:[&>*]:!text-setta-100`}
+      bg="bg-transparent dark:group-hover/arg-group:bg-setta-800/75 group-hover/arg-group:bg-setta-200/50 p-1 transition-colors duration-150 focus-visible:ring-2"
       onClick={onClick}
       tabIndex="-1"
     />
   );
 }
-// group-hover/arg-group:[&>*]:text-setta-400 dark:group-hover/arg-group:[&>*]:text-setta-400 dark:group-hover/arg-group:bg-setta-800/75 group-hover/arg-group:bg-setta-200/50
