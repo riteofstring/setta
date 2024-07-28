@@ -4,7 +4,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { GridContainer } from "components/Utils/atoms/gridContainer/GridContainer";
 import {
   HOME_ROUTER_PATH,
-  PROJECT_ROUTER_PATH,
+  PROJECT_CONFIG_ROUTER_PATH,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
 import { HomePage } from "components/Pages/Home/HomePage";
@@ -25,11 +25,11 @@ const homeRoute = {
 };
 
 const projectRoute = {
-  path: PROJECT_ROUTER_PATH,
+  path: PROJECT_CONFIG_ROUTER_PATH,
   element: (
     <GlobalWrapper>
       <ModalContainer>
-        <HeaderContainer path={PROJECT_ROUTER_PATH} />
+        <HeaderContainer path={PROJECT_CONFIG_ROUTER_PATH} />
         <GridContainer>
           <MainContainer />
         </GridContainer>

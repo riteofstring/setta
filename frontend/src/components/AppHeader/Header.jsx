@@ -5,7 +5,7 @@ import { useUpdateProjectSearch } from "state/hooks/search";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
   CONST_INFO_VIEWS,
-  PROJECT_ROUTER_PATH,
+  PROJECT_CONFIG_ROUTER_PATH,
   HOME_ROUTER_PATH,
 } from "utils/constants";
 import { DarkModeSwitch } from "./DarkModeSwitch";
@@ -31,7 +31,7 @@ function SearchSwitch({ path }) {
   switch (path) {
     case HOME_ROUTER_PATH:
       return <HomePageSearch />;
-    case PROJECT_ROUTER_PATH:
+    case PROJECT_CONFIG_ROUTER_PATH:
       return <ProjectPageSearch />;
     default:
       return null;

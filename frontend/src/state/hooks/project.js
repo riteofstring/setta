@@ -62,7 +62,7 @@ export function useExportProjectJson() {
 }
 
 export function useLoadProject() {
-  const { projectName } = useParams();
+  const { projectConfigName } = useParams();
   const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
@@ -70,7 +70,7 @@ export function useLoadProject() {
   useEffect(() => {
     async function loadAllProjectData() {
       setDoneLoading(false);
-      const res = await loadProject({ projectName });
+      const res = await loadProject({ projectConfigName });
       setDoneLoading(res);
     }
 
@@ -85,11 +85,11 @@ export function useLoadProject() {
     ) {
       loadAllProjectData();
     } else if (pageLoadType === SAME_PROJECT_NEW_PROJECT_NAME) {
-      setProjectConfigName(projectName);
+      setProjectConfigName(projectConfigName);
     }
 
-    setCurrProjectIsInteractive(projectName);
-  }, [projectName]);
+    setCurrProjectIsInteractive(projectConfigName);
+  }, [projectConfigName]);
 
   return doneLoading;
 }

@@ -23,12 +23,12 @@ import { maybeIncrementProjectStateVersion } from "../undo";
 import { setOtherProjectConfigs } from "./otherProjectConfigs";
 import { setProjectConfig } from "./projectConfig";
 
-export async function loadProject({ projectName }) {
+export async function loadProject({ projectConfigName }) {
   const res = await dbLoadFullProject();
   console.log("loadProject", res);
   if (res.status === 200) {
     const projectConfig = res.data.find(
-      (x) => x.projectConfig.name === projectName,
+      (x) => x.projectConfig.name === projectConfigName,
     ).projectConfig;
     const configsMerged = _.merge(
       {},
