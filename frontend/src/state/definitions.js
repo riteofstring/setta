@@ -117,12 +117,6 @@ export const useParamSweep = createProjectState(
   ),
 );
 
-export const useProject = createProjectState(() => ({
-  id: "",
-  name: "",
-  defaultConfigId: null,
-}));
-
 export const useProjectConfig = createProjectState(
   temporal(
     immer(() =>

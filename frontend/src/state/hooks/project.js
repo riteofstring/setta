@@ -14,7 +14,7 @@ import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProject } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
-import { useProject, useProjectConfig } from "state/definitions";
+import { useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { useEditableOnSubmit } from "./editableText";
 
@@ -36,8 +36,7 @@ export function useExportProjectJson() {
     setProjectJson(theRest);
   }
   async function exportFullProjectJson() {
-    const projectName = useProject.getState().name;
-    const res = await dbLoadFullProject({ projectName });
+    const res = await dbLoadFullProject();
     if (res.status === 200) {
       setProjectJson(res.data);
     }
