@@ -1,10 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { Footer } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { useRef } from "react";
 import { extractArgparseArgs } from "requests/argparse";
 import { useModal } from "state/definitions";
-import { Footer } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
-export function CreateFromArgparseModal() {
+export function CreateFromArgparseModal({ modalType }) {
   const textValue = useRef("");
 
   function onClick() {
@@ -17,7 +17,7 @@ export function CreateFromArgparseModal() {
   return (
     <>
       <Dialog.Title className="mx-3 mb-4 font-bold uppercase tracking-widest text-setta-400">
-        {"Create From Argparse"}
+        {modalType.title}
       </Dialog.Title>
       <article className="relative flex flex-grow overflow-hidden rounded-lg border border-setta-100 bg-setta-50 p-4  dark:border-setta-700/50 dark:bg-setta-900 dark:text-setta-300">
         <input
@@ -27,7 +27,7 @@ export function CreateFromArgparseModal() {
         />
       </article>
 
-      <Footer buttonText={"Create"} onClick={onClick} />
+      <Footer buttonText={modalType.buttonText} onClick={onClick} />
     </>
   );
 }

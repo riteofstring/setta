@@ -1,12 +1,12 @@
+import { DialogDropdownTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
+import { Item } from "components/Utils/atoms/dropdown/item";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { setModalData, setModalType } from "state/actions/modal";
 import { onClickAddSection } from "state/actions/sections/createSections";
 import { useContextMenus } from "state/definitions";
-import { DialogDropdownTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
-import { Item } from "components/Utils/atoms/dropdown/item";
-import { SINGLETON_SECTIONS } from "utils/constants";
+import { MODAL_TYPE, SINGLETON_SECTIONS } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
@@ -77,11 +77,13 @@ export function PaneContextMenu() {
         </Item>
       )}
       <DialogDropdownTriggerItem
-        onClick={() => openLoadModal("Create From Argparse")}
+        onClick={() => openLoadModal(MODAL_TYPE.CREATE_FROM_ARGPARSE)}
       >
         Create From Argparse
       </DialogDropdownTriggerItem>
-      <DialogDropdownTriggerItem onClick={() => openLoadModal("Load Section")}>
+      <DialogDropdownTriggerItem
+        onClick={() => openLoadModal(MODAL_TYPE.LOAD_SECTION)}
+      >
         Load Section
       </DialogDropdownTriggerItem>
     </ContextMenuCore>

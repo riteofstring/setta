@@ -1,4 +1,5 @@
 import { useModal } from "state/definitions";
+import { MODAL_TYPE } from "utils/constants";
 
 export function setModalOpen(payload) {
   useModal.setState({ open: payload });
@@ -16,21 +17,21 @@ function openFileMenuModal(modalType) {
 }
 
 export function openLoadModal() {
-  openFileMenuModal("Load");
+  openFileMenuModal(MODAL_TYPE.LOAD_PROJECT_CONFIG);
 }
 
 export function openSaveAsModal() {
-  openFileMenuModal("Save As");
+  openFileMenuModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS);
 }
 
 export function openExportJSONModal() {
-  openFileMenuModal("Export JSON");
+  openFileMenuModal(MODAL_TYPE.EXPORT_JSON);
 }
 
 export function openExportFullJSONModal() {
-  openFileMenuModal("Export Full JSON");
+  openFileMenuModal(MODAL_TYPE.EXPORT_FULL_JSON);
 }
 
 export function openImportJSONModal() {
-  openFileMenuModal("Import JSON");
+  openFileMenuModal(MODAL_TYPE.IMPORT_JSON);
 }

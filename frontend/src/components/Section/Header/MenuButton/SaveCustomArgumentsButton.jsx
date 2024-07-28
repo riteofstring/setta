@@ -1,10 +1,11 @@
-import { setModalData, setModalType } from "state/actions/modal";
 import { DialogMenuBarTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
+import { setModalData, setModalType } from "state/actions/modal";
+import { MODAL_TYPE } from "utils/constants";
 
 export function SaveCustomArgumentsButton({ sectionId }) {
   function openModal() {
     setModalData(sectionId);
-    setModalType("Custom Arguments");
+    setModalType(MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS);
   }
 
   return (

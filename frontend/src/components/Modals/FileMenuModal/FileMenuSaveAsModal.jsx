@@ -9,7 +9,7 @@ import {
 import { useProjectConfig } from "state/definitions";
 import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 
-export function FileMenuSaveAsModal({ open }) {
+export function FileMenuSaveAsModal({ open, modalType }) {
   const projects = useGetAllProjectConfigMetadataForFileMenu(open);
 
   async function onClickSaveAsProject({ selected, filename }) {
@@ -32,12 +32,12 @@ export function FileMenuSaveAsModal({ open }) {
 
   return (
     <SaveLoadModal
-      modalType={"Save Project As"}
+      modalPurpose={modalType.purpose}
       files={projects}
       onClickActionButton={onClickSaveAsProject}
-      title={"Save Project As"}
-      buttonText={"Save Project As"}
-      placeholder="Config Name"
+      title={modalType.title}
+      buttonText={modalType.buttonText}
+      placeholder="Project Config Name"
     />
   );
 }

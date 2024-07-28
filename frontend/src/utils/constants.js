@@ -132,3 +132,63 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 export const HOME_ROUTER_PATH = "/";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SETTINGS_ROUTER_PATH = "/settings";
+
+export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
+
+export const MODAL_TYPE = {
+  LOAD_PROJECT_CONFIG: {
+    purpose: MODAL_PURPOSE.LOAD,
+    title: "Load Project Config",
+    buttonText: "Load",
+  },
+  SAVE_PROJECT_CONFIG_AS: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save Project Config As",
+    buttonText: "Save As",
+  },
+  EXPORT_JSON: {
+    purpose: null,
+    title: "Export JSON",
+    buttonText: null,
+  },
+  EXPORT_FULL_JSON: {
+    purpose: null,
+    title: "Export Full JSON",
+    buttonText: null,
+  },
+  IMPORT_JSON: {
+    purpose: null,
+    title: "Import JSON",
+    buttonText: "Import",
+  },
+  CREATE_FROM_ARGPARSE: {
+    purpose: null,
+    title: "Create From Argparse",
+    buttonText: "Create",
+  },
+  LOAD_SECTION: {
+    purpose: MODAL_PURPOSE.LOAD,
+    title: "Load Section",
+    buttonText: "Load",
+  },
+  SAVE_UI_TYPE_CONFIG: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save UI Type Config",
+    buttonText: "Save",
+  },
+  SAVE_CUSTOM_ARGUMENTS: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save Custom Arguments",
+    buttonText: "Save",
+  },
+  NEW_VERSION: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save New Version",
+    buttonText: "Save",
+  },
+  NEW_PARAM_SWEEP: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save New Param Sweep",
+    buttonText: "Save",
+  },
+};

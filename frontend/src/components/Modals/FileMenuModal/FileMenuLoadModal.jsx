@@ -3,7 +3,7 @@ import { LOAD_PROJECT_CONFIG } from "components/Pages/pageLoadTypes";
 import { router } from "components/Pages/router";
 import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 
-export function FileMenuLoadModal({ open }) {
+export function FileMenuLoadModal({ open, modalType }) {
   const projects = useGetAllProjectConfigMetadataForFileMenu(open);
 
   function onClickLoadProjectConfig({ selected }) {
@@ -15,14 +15,16 @@ export function FileMenuLoadModal({ open }) {
     }
   }
 
+  console.log("modalType", modalType)
+
   return (
     <SaveLoadModal
-      modalType={"Load"}
+      modalPurpose={modalType.purpose}
       files={projects}
       onClickActionButton={onClickLoadProjectConfig}
-      title={"Load Project"}
-      buttonText={"Load"}
-      placeholder="Config Name"
+      title={modalType.title}
+      buttonText={modalType.buttonText}
+      placeholder="Project Config Name"
     />
   );
 }

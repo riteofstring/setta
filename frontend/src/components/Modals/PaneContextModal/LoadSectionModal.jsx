@@ -1,10 +1,10 @@
+import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { useEffect, useState } from "react";
 import { dbGetSections, dbLoadSection } from "requests/sections";
 import { loadSectionIntoState } from "state/actions/sections/loadSections";
 import { useModal } from "state/definitions";
-import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 
-export function LoadSectionModal({ open }) {
+export function LoadSectionModal({ open, modalType }) {
   const [sections, setSections] = useState([]);
 
   useEffect(() => {
@@ -32,10 +32,10 @@ export function LoadSectionModal({ open }) {
 
   return (
     <SaveLoadModal
-      modalType={"Load"}
+      modalPurpose={modalType.purpose}
       files={sections}
-      title={"Load Section"}
-      buttonText={"Load"}
+      title={modalType.title}
+      buttonText={modalType.buttonText}
       onClickActionButton={onClickLoadSection}
     />
   );
