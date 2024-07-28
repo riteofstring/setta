@@ -2,7 +2,6 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
-export const SECTIONWIDTH = 200;
 export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
@@ -10,7 +9,7 @@ export const UI_EDITOR = "uiEditor";
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 40;
-export const INITIAL_CHART_SIZE = { width: SECTIONWIDTH, height: SECTIONWIDTH };
+export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 
 export const REACT_FLOW_STORE = {
   initialViewport: {},

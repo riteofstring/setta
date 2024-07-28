@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import { SECTIONWIDTH } from "utils/constants";
 import { useGetAllCallables } from "./sectionContents";
 import { useIsTwitter } from "./social";
 import { useIsOutput, useIsRoot } from "./uiTypes";
@@ -35,7 +34,7 @@ export function useMinSectionWidth(sectionId) {
     return 400;
   }
 
-  return SECTIONWIDTH;
+  return 200;
 }
 
 export function useMaxSectionWidth(sectionId) {
