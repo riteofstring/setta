@@ -6,7 +6,7 @@ import { useOpenCloseWebsocket } from "state/hooks/websocket";
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useResetProjectState();
-  const settingsLoaded = useLoadSettings();
-  console.log("settingsLoaded", settingsLoaded);
+  useLoadSettings();
+  const settingsLoaded = useSettings((x) => x.settingsLoaded);
   return settingsLoaded && children;
 }

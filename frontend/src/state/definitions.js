@@ -181,6 +181,7 @@ export const useSectionToParams = createProjectState(
 );
 
 export const useSettings = create(() => ({
+  settingsLoaded: false,
   ...jsonSettings,
   ...otherConfigurableSettings,
   ...initialShortcuts,
