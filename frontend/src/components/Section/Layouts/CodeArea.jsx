@@ -56,26 +56,31 @@ function Editor({ sectionId, value, onChange, languageExtension }) {
       height: `${maxHeight} !important`,
     },
     "& .cm-theme": {
-      minHeight: `${maxHeight} !important`,
-      maxHeight: `${maxHeight} !important`,
-      height: `${maxHeight} !important`,
+      // minHeight: `${maxHeight} !important`,
+      // maxHeight: `${maxHeight} !important`,
+      // height: `${maxHeight} !important`,
     },
     "& .cm-editor": {
-      minHeight: `${maxHeight} !important`,
-      maxHeight: `${maxHeight} !important`,
-      height: `${maxHeight} !important`,
+      // minHeight: `${maxHeight} !important`,
+      // maxHeight: `${maxHeight} !important`,
+      // height: `${maxHeight} !important`,
     },
     "& .cm-focused": {
-      minHeight: `${maxHeight} !important`,
-      maxHeight: `${maxHeight} !important`,
-      height: `${maxHeight} !important`,
+      // minHeight: `${maxHeight} !important`,
+      // maxHeight: `${maxHeight} !important`,
+      // height: `${maxHeight} !important`,
     },
     "& .cm-announced": {
+      // minHeight: `${maxHeight} !important`,
+      // maxHeight: `${maxHeight} !important`,
+      // height: `${maxHeight} !important`,
+    },
+    "& .cm-gutters": {
       minHeight: `${maxHeight} !important`,
       maxHeight: `${maxHeight} !important`,
       height: `${maxHeight} !important`,
     },
-    "& .cm-gutters": {
+    "& .cm-gutter": {
       minHeight: `${maxHeight} !important`,
       maxHeight: `${maxHeight} !important`,
       height: `${maxHeight} !important`,
@@ -108,7 +113,7 @@ function Editor({ sectionId, value, onChange, languageExtension }) {
 function getMaxHeight(height) {
   const zoom = useReactFlow.getState().transform[2];
   // const output = zoom <= 1 ? `${100}%` : `${50}%`;
-  const output = zoom <= 1 ? `${height}px` : `${height}px`;
+  const output = zoom <= 1 ? `100%` : `100%`;
   console.log("getMaxHeight", output);
   return output;
 }
