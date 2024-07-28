@@ -2,9 +2,9 @@ import { getInfoViewHandlers } from "state/actions/infoView";
 import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { StandardSearch } from "utils/atoms/search/StandardSearch";
 import {
-  CONST_INFO_VIEWS,
+  constInfoViews,
   PROJECT_ROUTER_PATH,
   HOME_ROUTER_PATH,
 } from "utils/constants";
@@ -46,7 +46,7 @@ function ProjectPageSearch() {
       placeholder="Search Project"
       value={value}
       onChange={onChange}
-      {...getInfoViewHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
+      {...getInfoViewHandlers(constInfoViews.NAVBAR_SEARCH)}
     />
   );
 }

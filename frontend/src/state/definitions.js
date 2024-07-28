@@ -8,28 +8,21 @@ import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import {
-  create,
-  createProjectState,
-  stateWithResetFn,
-  versionMiddleware,
-} from "./utils";
+import { create, createProjectState, stateWithResetFn } from "./utils";
 
 export const useActiveSection = createProjectState(
-  temporal(
-    versionMiddleware(() => ({
-      ids: [],
-    })),
-  ),
+  temporal(() => ({
+    ids: [],
+    version: 0,
+  })),
 );
 
 export const useCodeInfo = createProjectState(
   temporal(
-    immer(
-      versionMiddleware(() => ({
-        x: {},
-      })),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
@@ -43,11 +36,10 @@ export const useContextMenus = createProjectState(
 
 export const useEVCols = createProjectState(
   temporal(
-    immer(
-      versionMiddleware(() => ({
-        x: {},
-      })),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
@@ -84,11 +76,10 @@ export const useModal = createProjectState(() => ({
 }));
 
 export const useNodeInternals = createProjectState(
-  temporal(
-    versionMiddleware(() => ({
-      x: new Map(),
-    })),
-  ),
+  temporal(() => ({
+    x: new Map(),
+    version: 0,
+  })),
 );
 
 export const useNotification = create(() => ({
@@ -116,11 +107,10 @@ export const useOutputs = createProjectState(
 
 export const useParamSweep = createProjectState(
   temporal(
-    immer(
-      versionMiddleware(() => ({
-        x: {},
-      })),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
@@ -132,12 +122,11 @@ export const useProject = createProjectState(() => ({
 
 export const useProjectConfig = createProjectState(
   temporal(
-    immer(
-      versionMiddleware(() => ({
-        id: "",
-        name: "",
-      })),
-    ),
+    immer(() => ({
+      id: "",
+      name: "",
+      version: 0,
+    })),
   ),
 );
 
@@ -148,22 +137,20 @@ export const useProjectSearch = createProjectState(() => ({
 
 export const useRunGroups = createProjectState(
   temporal(
-    immer(
-      versionMiddleware(() => ({
-        x: {},
-      })),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
 export const useSectionInfos = createProjectState(
   temporal(
     subscribeWithSelector(
-      immer(
-        versionMiddleware(() => ({
-          x: {},
-        })),
-      ),
+      immer(() => ({
+        x: {},
+        version: 0,
+      })),
     ),
   ),
 );
@@ -198,7 +185,9 @@ export const useSettings = create(() => ({
 }));
 
 export const useStateVersion = createProjectState(
-  temporal(versionMiddleware(() => ({}))),
+  temporal(() => ({
+    version: 0,
+  })),
 );
 
 // TODO: remove this hardcoded example error
@@ -215,21 +204,19 @@ export const useUIEditor = createProjectState(() => ({
 
 export const useUITypeCols = createProjectState(
   temporal(
-    immer(
-      versionMiddleware(() => ({
-        y: {},
-      })),
-    ),
+    immer(() => ({
+      y: {},
+      version: 0,
+    })),
   ),
 );
 
 export const useUITypes = createProjectState(
   temporal(
-    immer(
-      versionMiddleware(() => ({
-        x: {},
-      })),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
