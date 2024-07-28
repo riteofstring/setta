@@ -69,7 +69,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
     </>
   ) : (
     <article
-      className={`section-key-value group/arg-group section-min-rows -mx-3 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg px-3 ${bg} ${border}`}
+      className={`param-container section-key-value group/arg-group section-min-rows -mx-3 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg px-3 ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
       {children}

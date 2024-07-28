@@ -274,13 +274,13 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
       <IconButton
         icon={<IoClose />}
         bg="bg-transparent"
-        color="text-setta-400 hover:text-setta-600 dark:hover:text-setta-200"
+        color="text-setta-200 dark:text-setta-600 hover:text-setta-500 dark:hover:text-setta-200"
         twClasses="section-left-gutter place-self-center ml-1"
         padding=""
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
       />
-      <article className="section-key-value group/arg-group group/textinput row rem] -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
+      <article className="section-key-value group/arg-group group/textinput -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
         <ParamSweepUI
           sectionId={forSectionId}
           paramInfoId={paramInfoId}

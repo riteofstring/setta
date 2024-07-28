@@ -68,7 +68,7 @@ export function SectionContainerCoreResizable({
       // case PARAM_SWEEP:
       //   return "bg-setta-50 dark:bg-setta-850";
       default:
-        return "bg-setta-50 dark:bg-setta-875";
+        return "bg-setta-50 dark:bg-setta-860";
     }
   };
   const _isRoot = isRoot(sectionTypeName);

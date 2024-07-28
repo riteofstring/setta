@@ -39,13 +39,13 @@ export function ParamUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName={`section-value group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]`}
-            realCodeClassName={`nodrag group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-value`}
+            dummyCodeClassName={`section-value self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]`}
+            realCodeClassName={`nodrag self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-value`}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-value grid-row- border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
+          <span className="section-value grid-row- border-box self-end border-b border-setta-100 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
         </>
       );
     case C.SLIDER: {
@@ -102,13 +102,13 @@ export function ParamSweepUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName="section-key-value grid-row-start-1 py-1 nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
-            realCodeClassName="section-key-value grid-row-start-1 py-1 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
+            dummyCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] nodrag cursor-text select-text break-words pl-[6px] pr-[2px] font-mono text-xs [tab-size:4] [word-break:break-word]"
+            realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-key-value grid-row-start-1 border-box self-end border-b border-setta-300 group-focus-within/textinput:border-blue-400 dark:border-setta-700" />
+          <span className="section-key-value grid-row-start-1 border-box self-end border-b border-setta-100 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
         </>
       );
     case C.SLIDER: {
