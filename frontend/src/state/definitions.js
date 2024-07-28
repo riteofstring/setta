@@ -176,10 +176,12 @@ export const useSectionRefs = createProjectState(
 
 export const useSectionToParams = createProjectState(
   temporal(
-    immer(() => ({
-      callables: {},
-      params: {},
-    })),
+    immer(() =>
+      withVersion({
+        callables: {},
+        params: {},
+      }),
+    ),
   ),
 );
 
