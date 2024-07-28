@@ -25,7 +25,7 @@ import { setProjectConfig } from "./projectConfig";
 
 export async function loadProject({ projectName }) {
   const res = await dbLoadFullProject();
-  console.log("loadProject", res)
+  console.log("loadProject", res);
   if (res.status === 200) {
     const projectConfig = res.data.find(
       (x) => x.projectConfig.name === projectName,
@@ -82,21 +82,12 @@ export function loadProjectState({
 
 export async function createAndGoToProject({ name }) {
   const previewImgColor = getRandomProjectPreviewImgColor();
-  const { data: newProject } = await dbCreateProject({ name, previewImgColor });
-  goToDefaultConfig(newProject);
-}
-
-function goToProject({ project, configId }) {
-  const configName = project.configs.find((x) => x.id === configId).name;
-  const address = `${project.name}/${configName}`;
-  router.navigate(address, { state: { pageLoadType: NEW_PROJECT } });
-}
-
-function goToDefaultConfig(project) {
-  goToProject({
-    project,
-    configId: project.defaultConfigId,
+  const { data: newProjectName } = await dbCreateProject({
+    name,
+    previewImgColor,
   });
+  console.log("createAndGoToProject", newProjectName);
+  router.navigate(newProjectName, { state: { pageLoadType: NEW_PROJECT } });
 }
 
 const getRandomProjectPreviewImgColor = () => {

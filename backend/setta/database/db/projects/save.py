@@ -100,48 +100,17 @@ def create_project(dbs, name, previewImgColor):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ProjectConfig (id, name, projectId)
-        VALUES (:id, :name, :projectId)
-    """
-    projectConfigId = create_new_id()
-    query_params = {
-        "id": projectConfigId,
-        "name": "config1",
-        "projectId": projectId,
-    }
-    db.execute(query, query_params)
-
-    query = """
-        UPDATE Project
-        SET defaultConfigId = :defaultConfigId
-        WHERE Project.id = :projectId
-    """
-    query_params = {"projectId": projectId, "defaultConfigId": projectConfigId}
-    db.execute(query, query_params)
-
-    query = """
         SELECT
-            Project.id,
-            Project.name,
-            Project.defaultConfigId,
-            ProjectConfig.id as configId,
-            ProjectConfig.name as configName
+            name
         FROM
-            Project
-        JOIN
             ProjectConfig
-        ON
-            ProjectConfig.projectId = Project.id
         WHERE
-            Project.id = :projectId
+            id = :id
     """
-    query_params = {"projectId": projectId}
+    query_params = {"id": projectId}
     db.execute(query, query_params)
     out = dict(db.fetchone())
-    out["configs"] = [{"id": out["configId"], "name": out["configName"]}]
-    del out["configId"]
-    del out["configName"]
-    return out
+    return out["name"]
 
 
 def save_project_name(dbs, curr_name, new_name):
