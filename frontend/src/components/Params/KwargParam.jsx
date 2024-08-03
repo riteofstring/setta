@@ -4,7 +4,7 @@ import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 
 export function KwargParam(props) {
-  const { sectionId, parentId, paramInfo: kwargInfo } = props;
+  const { sectionId, parentId, paramInfo: kwargInfo, setDidUpdate } = props;
   const onBlur = (v) => {
     changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
   };
@@ -39,6 +39,7 @@ export function KwargParam(props) {
           hasChildren={hasChildren}
           onBlur={onBlur}
           onClick={props.onNameClick}
+          setDidUpdate={setDidUpdate}
         />
       </ParamContainer>
     </>
