@@ -42,23 +42,19 @@ export function loadProjectState({
   outputs,
   outputGroups,
   dbSourceMapping,
-  setNodesFn = null,
 }) {
+  console.log("dbSourceMapping", dbSourceMapping)
   setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));
-  if (setNodesFn) {
-    setNodesFn();
-  } else {
-    setNodes(
-      _.map(projectConfig.children, (v, k) => ({
-        id: k,
-        position: { x: v.x, y: v.y },
-        zIndex: v.zIndex,
-        tempZIndex: v.zIndex,
-      })),
-    );
-  }
+  setNodes(
+    _.map(projectConfig.children, (v, k) => ({
+      id: k,
+      position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
+    })),
+  );
   setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
   setAllEVCols(evCols);
   setAllUITypeCols({ uiTypeCols });

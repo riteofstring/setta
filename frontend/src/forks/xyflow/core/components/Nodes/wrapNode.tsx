@@ -2,7 +2,6 @@ import cc from "classcat";
 import { SectionContainerNode } from "components/Section/Container/SectionContainerNode";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import { useNodeInternals } from "state/definitions";
 import useDrag from "../../hooks/useDrag";
 import useUpdateNodePositions from "../../hooks/useUpdateNodePositions";
 import type { WrapNodeProps, XYPosition } from "../../types";
@@ -71,8 +70,6 @@ const _NodeWrapper = ({
     selectNodesOnDrag,
   });
 
-  const isInvisible = useNodeInternals((x) => x.x.get(id)?.isInvisible);
-
   return (
     <div
       className={cc([
@@ -89,7 +86,7 @@ const _NodeWrapper = ({
       style={{
         transform: `translate(${xPos}px,${yPos}px)`,
         pointerEvents: hasPointerEvents ? "all" : "none",
-        visibility: initialized && !isInvisible ? "visible" : "hidden",
+        visibility: initialized ? "visible" : "hidden",
         zIndex,
         ...style,
       }}

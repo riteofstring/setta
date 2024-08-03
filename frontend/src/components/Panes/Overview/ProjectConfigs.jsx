@@ -3,12 +3,12 @@ import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import _ from "lodash";
 import React from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
+import { setNodes } from "state/actions/nodeInternals";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { setProjectConfig } from "state/actions/project/projectConfig";
 import {
   useAllProjectConfigs,
   useCurrProjectBackup,
-  useNodeInternals,
   usePreviewIsLoading,
 } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -27,6 +27,8 @@ export const ProjectConfigs = React.forwardRef(() => {
     }),
     _.isEqual,
   );
+
+  console.log("configLoadingStatus", configLoadingStatus);
 
   return (
     <>
@@ -129,76 +131,19 @@ function onMouseOverHelper({
   else if (previewedProjectConfigName === currProjectConfigName) {
     const projectConfig =
       useAllProjectConfigs.getState().metadata[mousedOverName];
-    const mergedStates = useAllProjectConfigs.getState().x;
-    // load ALL sections into react-flow nodes.
-    // Any sections that are not in the current config will be marked as invisible
-    loadProjectState({
-      ...mergedStates,
-      projectConfig,
-      setNodesFn: () =>
-        updateNodeInternalsWithAllSections({
-          sections: mergedStates.sections,
-          projectConfig,
-          modifyExisting: false,
-        }),
-    });
-  }
-  // if we're looking at one of the "other" configs, then we just need to change
-  // the project config metadata because all the merged data is already loaded.
-  else {
+    loadProjectState({ ...useAllProjectConfigs.getState().x, projectConfig });
+  } else {
     const projectConfig =
       useAllProjectConfigs.getState().metadata[mousedOverName];
     setProjectConfig(_.omit(projectConfig, ["children"]));
-    const mergedStates = useAllProjectConfigs.getState().x;
-    updateNodeInternalsWithAllSections({
-      sections: mergedStates.sections,
-      projectConfig,
-      modifyExisting: true,
-    });
-  }
-}
-
-function updateNodeInternalsWithAllSections({
-  sections,
-  projectConfig,
-  modifyExisting,
-}) {
-  const nodeInternals = useNodeInternals.getState().x;
-  const newNodes = modifyExisting ? _.cloneDeep(nodeInternals) : new Map();
-  const topLevelSections = projectConfig.children;
-
-  for (const k of Object.keys(sections)) {
-    if (!newNodes.has(k) || k in topLevelSections) {
-      newNodes.set(k, {
-        ...newNodes.get(k),
-        ...getNewNodeDetails(k, topLevelSections),
-      });
-    } else if (newNodes.has(k)) {
-      newNodes.get(k).isInvisible = true;
-    }
-  }
-
-  useNodeInternals.setState({ x: newNodes });
-}
-
-function getNewNodeDetails(sectionId, topLevelSections) {
-  if (sectionId in topLevelSections) {
-    const currSection = topLevelSections[sectionId];
-    return {
-      id: sectionId,
-      position: { x: currSection.x, y: currSection.y },
-      zIndex: currSection.zIndex,
-      tempZIndex: currSection.zIndex,
-      isInvisible: false,
-    };
-  } else {
-    return {
-      id: sectionId,
-      position: { x: 0, y: 0 },
-      zIndex: 0,
-      tempZIndex: 0,
-      isInvisible: true,
-    };
+    setNodes(
+      _.map(projectConfig.children, (v, k) => ({
+        id: k,
+        position: { x: v.x, y: v.y },
+        zIndex: v.zIndex,
+        tempZIndex: v.zIndex,
+      })),
+    );
   }
 }
 
