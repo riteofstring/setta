@@ -1,8 +1,10 @@
+import { javascriptLanguage } from "@codemirror/lang-javascript";
 import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import { useKeywordRegex } from "state/definitions";
+import { goToSectionOnNameClick } from "./getOnCreateEditor";
 import { doesNotReferToSelf, roundUpIdx } from "./utils";
 
 const lineWrapStyle = {
@@ -20,10 +22,10 @@ export function DummyCodeMirror({
   onMouseDown,
   className,
   keywordRegex,
-  goToSectionOnNameClick,
   placeholder,
   sectionId,
   paramInfoId,
+  language,
 }) {
   return code ? (
     <HighlightedCode
@@ -32,9 +34,9 @@ export function DummyCodeMirror({
       onMouseDown={onMouseDown}
       className={className}
       keywordRegex={keywordRegex}
-      goToSectionOnNameClick={goToSectionOnNameClick}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
+      language={language}
     />
   ) : (
     <PlaceholderCode
@@ -64,11 +66,11 @@ function HighlightedCode({
   onMouseDown,
   className,
   keywordRegex,
-  goToSectionOnNameClick,
   sectionId,
   paramInfoId,
+  language,
 }) {
-  const tree = pythonLanguage.parser.parse(code);
+  const tree = getLanguageParser(language).parser.parse(code);
   const highlightStyle = theme[1][2].value;
   const markCache = {};
   const builder = new RangeSetBuilder();
@@ -197,4 +199,15 @@ function HighlightedCode({
       {outputDivs}
     </div>
   );
+}
+
+function getLanguageParser(language) {
+  switch (language) {
+    case "python":
+      return pythonLanguage;
+    case "javascript":
+      return javascriptLanguage;
+    default:
+      return null;
+  }
 }
