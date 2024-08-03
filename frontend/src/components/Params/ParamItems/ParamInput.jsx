@@ -15,6 +15,7 @@ export function ParamInput({
   defaultVal,
   isDisabled,
   maybeErrorMessage,
+  setDidUpdate,
 }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
@@ -32,6 +33,7 @@ export function ParamInput({
         messageType: useProjectConfig.getState().name,
       });
     }
+    setDidUpdate(true);
   }
 
   const setEnteredValue = useCallback(
@@ -54,6 +56,7 @@ export function ParamInput({
   useEffect(() => {
     if (value !== enteredValue) {
       setValue(enteredValue);
+      setDidUpdate(true);
     }
   }, [enteredValue]);
 

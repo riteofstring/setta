@@ -1,8 +1,6 @@
 import React from "react";
-import { useGetParamInfos } from "state/hooks/sectionContents";
 import { useSectionHasMultipleEVCols } from "state/hooks/sections";
-import { useOverflow } from "state/hooks/sectionSizes";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import { useOverflow, useParamsDidUpdate } from "state/hooks/sectionSizes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
@@ -26,14 +24,15 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 }
 
 function GetParams({ sectionId, objInfoId, setDidUpdate }) {
-  const params = useGetParamInfos(sectionId);
-
-  useDeepCompareEffect(() => {
-    setDidUpdate(true);
-  }, [params]);
+  const params = useParamsDidUpdate({ sectionId, setDidUpdate });
 
   return (
-    <GetParamSwitch sectionId={sectionId} parentId={objInfoId} infos={params} />
+    <GetParamSwitch
+      sectionId={sectionId}
+      parentId={objInfoId}
+      infos={params}
+      setDidUpdate={setDidUpdate}
+    />
   );
 }
 

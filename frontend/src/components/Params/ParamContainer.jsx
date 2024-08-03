@@ -16,7 +16,13 @@ import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
 import { PinButton } from "./ParamUIs/PinButton";
 
-function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
+function _ParamContainer({
+  sectionId,
+  paramInfo,
+  setDidUpdate,
+  isKwarg,
+  children,
+}) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isSearchResult = useProjectSearch((x) =>
@@ -68,6 +74,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
           defaultVal={paramInfo.defaultVal}
           isDisabled={!paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
+          setDidUpdate={setDidUpdate}
         />
         <PinButton
           sectionId={sectionId}
@@ -91,6 +98,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
           sectionId={sectionId}
           parentId={paramInfo.id}
           infos={paramChildren}
+          setDidUpdate={setDidUpdate}
         />
       </div>
     </article>

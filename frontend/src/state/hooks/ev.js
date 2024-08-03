@@ -3,14 +3,7 @@ import { useEVCols } from "state/definitions";
 import { useGetSectionInfo, useMappedSectionDBSource } from "./sections";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
-  const dbSource = useMappedSectionDBSource(sectionId);
-  const evColId = useGetSectionInfo(sectionId, "evColId");
-  const previewEVColId = useGetSectionInfo(sectionId, "previewEVColId");
-
-  // console.log("dbSource", dbSource);
-  // console.log("evColId", evColId);
-  // console.log("previewEVColId", previewEVColId);
-
+  const { dbSource, evColId, previewEVColId } = useEVColMetadataIds(sectionId);
   return useEVCols((x) => {
     if (dbSource in x.x) {
       return x.x[dbSource][previewEVColId ?? evColId].values[paramInfoId];
@@ -28,4 +21,21 @@ export function useGetEVColNames(sectionId) {
     }
     return [];
   }, _.isEqual);
+}
+
+export function useSectionEnteredValues(sectionId) {
+  const { dbSource, evColId, previewEVColId } = useEVColMetadataIds(sectionId);
+  return useEVCols((x) => {
+    if (dbSource in x.x) {
+      return Object.values(x.x[dbSource][previewEVColId ?? evColId].values);
+    }
+    return [];
+  }, _.isEqual);
+}
+
+function useEVColMetadataIds(sectionId) {
+  const dbSource = useMappedSectionDBSource(sectionId);
+  const evColId = useGetSectionInfo(sectionId, "evColId");
+  const previewEVColId = useGetSectionInfo(sectionId, "previewEVColId");
+  return { dbSource, evColId, previewEVColId };
 }

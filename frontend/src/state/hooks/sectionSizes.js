@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import { useGetAllCallables } from "./sectionContents";
+import useDeepCompareEffect from "use-deep-compare-effect";
+import { useGetAllCallables, useGetParamInfos } from "./sectionContents";
 import { useIsTwitter } from "./social";
 import { useIsOutput, useIsRoot } from "./uiTypes";
 
@@ -77,4 +78,14 @@ export function useOverflow(sectionId) {
   }, [didUpdate]);
 
   return { overflow, ref, setDidUpdate };
+}
+
+export function useParamsDidUpdate({ sectionId, setDidUpdate }) {
+  const params = useGetParamInfos(sectionId);
+
+  useDeepCompareEffect(() => {
+    setDidUpdate(true);
+  }, [params]);
+
+  return params;
 }
