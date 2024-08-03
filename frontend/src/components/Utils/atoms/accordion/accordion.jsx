@@ -61,10 +61,7 @@ const AccordionTrigger = React.forwardRef(
       >
         {/* {trigger} */}
         {children}
-        <BiChevronDown
-          className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=open]:rotate-180"
-          aria-hidden
-        />
+        <BiChevronDown className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=open]:rotate-180" />
       </Accordion.Trigger>
     </Accordion.Header>
   ),

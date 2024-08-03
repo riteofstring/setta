@@ -76,7 +76,6 @@ function _SectionHeader({
         {/* <MinimizeButton /> */}
         <CustomCloseButton
           onClick={onCustomCloseButtonClick}
-          aria-label="Delete self"
           isInfo={isInfo}
         />
       </div>

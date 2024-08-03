@@ -92,7 +92,6 @@ export function PaneContainer({
       }}
       className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 -mx-1  min-h-0 min-w-0 border-setta-200 bg-setta-50 py-8 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${rightCondition} overflow-clip`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
-      aria-label={`${paneTitle} Pane`}
     >
       {children}
       <Button

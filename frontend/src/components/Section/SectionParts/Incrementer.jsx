@@ -52,7 +52,6 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
         className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-xs focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300"
         value={numSections}
         onChange={(e) => numSectionsOnChange(e.target.value)}
-        aria-label="Number of sections"
       />
 
       {/* <div className="nodrag max-w-[3ch] cursor-auto rounded-md bg-white px-2 text-[10px] focus-visible:ring-2 dark:bg-setta-800 dark:text-setta-300">
@@ -62,14 +61,12 @@ export function Incrementer({ sectionId, isRoot, popover = false }) {
       <button
         className="nodrag gg-math-minus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={() => deleteChildren(numSections)}
-        aria-label="Delete child section"
         role="button"
       />
 
       <button
         className="nodrag gg-math-plus rounded-full focus-visible:ring-2 dark:text-setta-300"
         onClick={() => addSections(numSections)}
-        aria-label="Add child section"
         role="button"
       />
     </div>

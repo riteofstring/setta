@@ -87,7 +87,6 @@ export function SliderInput({
   return (
     <Slider.Root
       className={sliderRootClassName}
-      aria-label="slider"
       value={[valueNum]}
       defaultValue={[defaultVal]}
       min={min}

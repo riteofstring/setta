@@ -153,10 +153,7 @@ const AccordionTrigger = React.forwardRef(
       >
         <p className="w-[calc(100%-1rem)] truncate">{children}</p>
 
-        <BiChevronUp
-          className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=closed]:rotate-180"
-          aria-hidden
-        />
+        <BiChevronUp className="ease-[cubic-bezier(0.87, 0, 0.13, 1)] transition-transform duration-300 group-data-[state=closed]:rotate-180" />
       </Accordion.Trigger>
     </Accordion.Header>
   ),

@@ -101,7 +101,6 @@ const ProjectOverview = React.forwardRef(() => {
           <BiFilter className="text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
-        aria-label="Overview Search"
         {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_SEARCH)}
       />
 
