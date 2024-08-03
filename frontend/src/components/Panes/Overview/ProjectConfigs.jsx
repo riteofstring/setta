@@ -1,20 +1,30 @@
 import { router } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
-import _ from "lodash";
 import React from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
-import { setNodes } from "state/actions/nodeInternals";
-import { setProjectConfig } from "state/actions/project/projectConfig";
-import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
+import { loadProjectState } from "state/actions/project/loadProject";
+import {
+  useAllProjectConfigs,
+  useCurrProjectBackup,
+  useProjectConfig,
+} from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
-  const configNames = useAllProjectConfigs((x) => x.x.map((c) => c.name));
-  const currProjectConfigName = useProjectConfig((x) => x.name);
+  const allConfigNames = useAllProjectConfigs((x) =>
+    x.x.map((c) => c.projectConfig.name),
+  );
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
-  const doneLoading = useLoadFullProject(previewEnabled, currProjectConfigName);
+  const { doneLoading, currProjectConfigName, previewedProjectConfigName } =
+    useLoadFullProject(previewEnabled);
+
+  function onMouseLeave() {
+    if (previewEnabled) {
+      loadProjectState(useCurrProjectBackup.getState());
+    }
+  }
 
   return (
     <>
@@ -31,16 +41,19 @@ export const ProjectConfigs = React.forwardRef(() => {
         Hover over an item to preview another version of your project
       </p> */}
       <section className=" flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
-        <div className="mt-1 flex w-full flex-col gap-1">
+        <div
+          className="mt-1 flex w-full flex-col gap-1"
+          onMouseLeave={onMouseLeave}
+        >
           {doneLoading ? (
-            configNames.map((name, idx) => (
+            allConfigNames.map((name, idx) => (
               <p
                 key={idx}
-                className={`${currProjectConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
+                className={`${previewedProjectConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
                 onMouseOver={() => {
-                  previewEnabled && onMouseOver(idx);
+                  onMouseOver(previewEnabled, idx);
                 }}
-                onClick={() => onClick(idx)}
+                onClick={() => onClick(currProjectConfigName, idx)}
               >
                 {name}
               </p>
@@ -54,25 +67,20 @@ export const ProjectConfigs = React.forwardRef(() => {
   );
 });
 
-function onMouseOver(idx) {
+function onMouseOver(previewEnabled, idx) {
+  if (!previewEnabled) {
+    return;
+  }
   const config = useAllProjectConfigs.getState().x[idx];
-  if (config.name !== useProjectConfig.getState().name) {
-    setProjectConfig(_.omit(config, ["viewport", "children"]));
-    setNodes(
-      _.map(config.children, (v, k) => ({
-        id: k,
-        position: { x: v.x, y: v.y },
-        zIndex: v.zIndex,
-        tempZIndex: v.zIndex,
-      })),
-    );
+  if (config.projectConfig.name !== useProjectConfig.getState().name) {
+    loadProjectState(config);
   }
 }
 
-function onClick(idx) {
+function onClick(currProjectConfigName, idx) {
   const config = useAllProjectConfigs.getState().x[idx];
-  if (config.name !== useProjectConfig.getState().name) {
-    router.navigate(config.name, {
+  if (config.projectConfig.name !== currProjectConfigName) {
+    router.navigate(config.projectConfig.name, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   }

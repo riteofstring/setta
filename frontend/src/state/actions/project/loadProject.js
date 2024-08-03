@@ -43,6 +43,7 @@ export function loadProjectState({
   outputGroups,
   dbSourceMapping,
 }) {
+  console.log("dbSourceMapping", dbSourceMapping)
   setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));

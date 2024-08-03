@@ -9,10 +9,7 @@ import {
   dbLoadProjectConfigNames,
 } from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
-import {
-  loadProjectConfig,
-  loadProjectState,
-} from "state/actions/project/loadProject";
+import { loadProjectConfig } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
 import {
@@ -125,51 +122,51 @@ export function useDefaultConfigAddress(project) {
   return useConfigAddress({ project, configId });
 }
 
-export function useLoadFullProject(
-  previewEnabled,
-  currProjectConfigName,
-) {
+export function useLoadFullProject(previewEnabled) {
   const [doneLoading, setDoneLoading] = useState(false);
+  const previewedProjectConfigName = useProjectConfig((x) => x.name);
+  const { projectConfigName: currProjectConfigName } = useParams();
 
   async function fullLoadFn() {
     setDoneLoading(false);
-    const res = await dbLoadFullProject({
+    const fullProjectRes = await dbLoadFullProject({
       excludeProjectConfigName: currProjectConfigName,
     });
-    if (res.status === 200) {
-      const currProjectState = getProjectData();
-      useCurrProjectBackup.setState({ x: currProjectState });
-      useAllProjectConfigs.setState({
-        x: [
-          currProjectState.projectConfig,
-          ...res.data.map((x) => x.projectConfig),
-        ],
-      });
-      const configsMerged = _.merge(
-        {},
-        _.omit(currProjectState, ["projectConfig"]),
-        ...res.data.map((x) => _.omit(x, ["projectConfig"])),
+    const nameRes = await dbLoadProjectConfigNames();
+    if (fullProjectRes.status === 200 && nameRes.status === 200) {
+      const nameToIndexMap = _.zipObject(nameRes.data, _.range(nameRes.data.length));
+      console.log("nameToIndexMap", nameToIndexMap)
+      const currProjectBackup = getProjectData();
+      const fullProjectConfigList = [currProjectBackup, ...fullProjectRes.data];
+      const sortedProjectConfigList = _.sortBy(
+        fullProjectConfigList,
+        (x) => nameToIndexMap[x.projectConfig.name],
       );
-      const projectState = {
-        projectConfig: currProjectState.projectConfig,
-        ...configsMerged,
-      };
-      loadProjectState(projectState);
+      useAllProjectConfigs.setState({
+        x: sortedProjectConfigList,
+      });
+      useCurrProjectBackup.setState(currProjectBackup);
+
+      // const configsMerged = _.merge(
+      //   {},
+      //   _.omit(currProjectState, ["projectConfig"]),
+      //   ...res.data.map((x) => _.omit(x, ["projectConfig"])),
+      // );
+      // const projectState = {
+      //   projectConfig: currProjectState.projectConfig,
+      //   ...configsMerged,
+      // };
+      // loadProjectState(projectState);
       setDoneLoading(true);
     }
   }
+
   async function nameOnlyLoadFn() {
     setDoneLoading(false);
-    const res = await dbLoadProjectConfigNames({
-      excludeProjectConfigName: currProjectConfigName,
-    });
-    console.log("res", res);
+    const res = await dbLoadProjectConfigNames();
     if (res.status === 200) {
       useAllProjectConfigs.setState({
-        x: [
-          { name: useProjectConfig.getState().name },
-          ...res.data.map((d) => ({ name: d })),
-        ],
+        x: res.data.map((d) => ({ projectConfig: { name: d } })),
       });
       setDoneLoading(true);
     }
@@ -181,7 +178,7 @@ export function useLoadFullProject(
     } else {
       nameOnlyLoadFn();
     }
-  }, [previewEnabled]);
+  }, [previewEnabled, currProjectConfigName]);
 
-  return doneLoading;
+  return { doneLoading, currProjectConfigName, previewedProjectConfigName };
 }

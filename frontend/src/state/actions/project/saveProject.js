@@ -57,7 +57,7 @@ export function getProjectData() {
     runGroups,
     sections,
     codeInfo,
-    dbSourceMapping: DB_SOURCE_MAPPING,
+    dbSourceMapping: _.cloneDeep(DB_SOURCE_MAPPING),
   };
 
   return output;

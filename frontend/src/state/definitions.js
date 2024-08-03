@@ -89,17 +89,11 @@ export const useNotification = create(() => ({
   timeoutId: null,
 }));
 
-export const useCurrProjectBackup = createProjectState(
-  immer(() => ({
-    x: {},
-  })),
-);
+export const useCurrProjectBackup = createProjectState(() => ({}));
 
-export const useAllProjectConfigs = createProjectState(
-  immer(() => ({
-    x: [],
-  })),
-);
+export const useAllProjectConfigs = createProjectState(() => ({
+  x: [],
+}));
 
 export const useOutputGroups = createProjectState(
   immer(() => ({

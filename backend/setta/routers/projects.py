@@ -74,9 +74,9 @@ def route_all_project_config_metadata(dbs=Depends(get_dbs)):
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG_NAMES)
-def route_load_project_config_names(x: ProjectLoadConfigNamesRequest, dbs=Depends(get_dbs)):
+def route_load_project_config_names(dbs=Depends(get_dbs)):
     with dbs:
-        return load_project_config_names(dbs, excludeProjectConfigName=x.excludeProjectConfigName)
+        return load_project_config_names(dbs)
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
