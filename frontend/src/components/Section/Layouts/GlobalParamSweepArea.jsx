@@ -204,7 +204,7 @@ function CheckboxNextToLabel({
 
 function FilterSection() {
   const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
+    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1";
 
   return (
     <search className="flex min-w-0 items-center pb-1">

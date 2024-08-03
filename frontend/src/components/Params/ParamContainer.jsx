@@ -27,7 +27,7 @@ function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const border = maybeErrorMessage
     ? "bg-red-200 dark:bg-red-800/30"
     : isSearchResult
-      ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
+      ? "outline outline-green-400"
       : "";
   const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
   const paramIsSelected = paramInfo.isSelected;
