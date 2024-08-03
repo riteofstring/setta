@@ -47,7 +47,13 @@ export const ProjectConfigs = React.forwardRef(() => {
       <section className=" flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
         <div
           className="mt-1 flex w-full flex-col gap-1"
-          onMouseLeave={() => onMouseLeave({ previewEnabled })}
+          onMouseLeave={() =>
+            onMouseLeave({
+              previewEnabled,
+              previewedProjectConfigName,
+              currProjectConfigName,
+            })
+          }
         >
           {doneLoading ? (
             allConfigNames.map((name, idx) => (
@@ -149,13 +155,16 @@ function onClick({ currProjectConfigName, clickedOnName }) {
   }
 }
 
-function onMouseLeave({ previewEnabled }) {
-  if (previewEnabled) {
-    const toLoad = useCurrProjectBackup.getState();
+function onMouseLeave({
+  previewEnabled,
+  previewedProjectConfigName,
+  currProjectConfigName,
+}) {
+  if (previewEnabled && previewedProjectConfigName !== currProjectConfigName) {
     usePreviewIsLoading.setState({
       isLoading: true,
-      name: toLoad.projectConfig.name,
+      name: currProjectConfigName,
     });
-    setTimeout(() => loadProjectState(toLoad), 10);
+    setTimeout(() => loadProjectState(useCurrProjectBackup.getState()), 10);
   }
 }
