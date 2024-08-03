@@ -11,9 +11,7 @@ import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
-  const configNames = useAllProjectConfigs((x) =>
-    x.x.map((c) => c.projectConfig.name),
-  );
+  const configNames = useAllProjectConfigs((x) => x.x.map((c) => c.name));
   const currProjectConfigName = useProjectConfig((x) => x.name);
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
   useLoadFullProject(currProjectConfigName);

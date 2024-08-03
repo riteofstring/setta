@@ -1,4 +1,5 @@
 import { router } from "components/Pages/router";
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
@@ -7,10 +8,17 @@ import {
   dbLoadFullProject,
 } from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
-import { loadProjectConfig } from "state/actions/project/loadProject";
+import {
+  loadProjectConfig,
+  loadProjectState,
+} from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
-import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
+import {
+  useAllProjectConfigs,
+  useCurrProjectBackup,
+  useProjectConfig,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
@@ -122,10 +130,27 @@ export async function useLoadFullProject(currProjectConfigName) {
       excludeProjectConfigName: currProjectConfigName,
     });
     if (res.status === 200) {
-      useAllProjectConfigs.setState({ x: res.data });
+      const currProjectState = getProjectData();
+      useCurrProjectBackup.setState({ x: currProjectState });
+      useAllProjectConfigs.setState({
+        x: [
+          currProjectState.projectConfig,
+          ...res.data.map((x) => x.projectConfig),
+        ],
+      });
+      const configsMerged = _.merge(
+        {},
+        _.omit(currProjectState, ["projectConfig"]),
+        ...res.data.map((x) => _.omit(x, ["projectConfig"])),
+      );
+      const projectState = {
+        projectConfig: currProjectState.projectConfig,
+        ...configsMerged,
+      };
+      return loadProjectState(projectState);
     }
   }
   useEffect(() => {
     loadFn();
-  }, [currProjectConfigName]);
+  }, []);
 }
