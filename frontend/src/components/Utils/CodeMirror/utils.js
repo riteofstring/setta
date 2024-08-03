@@ -1,4 +1,5 @@
 import { useKeywordRegex } from "state/definitions";
+import { getSectionDBSource } from "state/getters/sectionInfo";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -18,39 +19,56 @@ export function roundUpIdx(numList, x) {
 }
 
 export function computeEVReferences(project) {
-  const evCols = project["evCols"];
   const evRefs = {};
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
-  for (const [dbSource, colsInSource] of Object.entries(evCols)) {
-    evRefs[dbSource] = {};
-    for (const [evColId, evColInfo] of Object.entries(colsInSource)) {
-      evRefs[dbSource][evColId] = { name: evColInfo.name, values: {} };
-      for (const [codeInfoId, value] of Object.entries(evColInfo.values)) {
-        evRefs[dbSource][evColId].values[codeInfoId] = findRefs(
-          keywordRegex,
-          fullNameToInfo,
-          value,
-        );
-      }
+  for (const [sectionId, sectionInfo] of Object.entries(project["sections"])) {
+    evRefs[sectionId] = {};
+    const dbSource = getSectionDBSource(sectionId);
+    const { evColId } = sectionInfo;
+    const evCol = project["evCols"][dbSource][evColId];
+    for (const [paramInfoId, value] of Object.entries(evCol.values)) {
+      evRefs[sectionId][paramInfoId] = findRefs({
+        sectionId,
+        paramInfoId,
+        keywordRegex,
+        fullNameToInfo,
+        value,
+      });
     }
   }
+
   project["evRefs"] = evRefs;
 }
 
-export function findRefs(keywordRegex, fullNameToInfo, value) {
+export function findRefs({
+  sectionId,
+  paramInfoId,
+  keywordRegex,
+  fullNameToInfo,
+  value,
+}) {
   let match;
   const output = [];
   while ((match = keywordRegex.exec(value))) {
     const startPos = match.index;
     const endPos = startPos + match[0].length;
-    const info = fullNameToInfo[match[0]];
-    output.push({
-      sectionId: info["sectionId"],
-      paramInfoId: info["paramInfoId"],
-      isArgsObj: info["isArgsObj"],
-      startPos,
-      endPos,
-    });
+    if (
+      doesNotReferToSelf({
+        fullNameToInfo,
+        keyword: match[0],
+        sectionId: sectionId,
+        paramInfoId: paramInfoId,
+      })
+    ) {
+      const info = fullNameToInfo[match[0]];
+      output.push({
+        sectionId: info["sectionId"],
+        paramInfoId: info["paramInfoId"],
+        isArgsObj: info["isArgsObj"],
+        startPos,
+        endPos,
+      });
+    }
   }
   return output;
 }
@@ -72,7 +90,9 @@ export function doesNotReferToSelf({
   paramInfoId,
 }) {
   return !(
-    fullNameToInfo[keyword].sectionId === sectionId &&
-    fullNameToInfo[keyword].paramInfoId === paramInfoId
+    (fullNameToInfo[keyword].sectionId === sectionId &&
+      !fullNameToInfo[keyword].paramInfoId) ||
+    (fullNameToInfo[keyword].sectionId === sectionId &&
+      fullNameToInfo[keyword].paramInfoId === paramInfoId)
   );
 }

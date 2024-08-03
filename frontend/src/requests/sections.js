@@ -66,7 +66,13 @@ export async function dbTextFieldCompletion({
 }) {
   const projectConfigId = useProjectConfig.getState().id;
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
-  const evRefs = findRefs(keywordRegex, fullNameToInfo, fullText);
+  const evRefs = findRefs({
+    sectionId,
+    paramInfoId,
+    keywordRegex,
+    fullNameToInfo,
+    fullText,
+  });
   return await sendMessageInRoom({
     id: `${address}-${sectionId}-${paramInfoId}`,
     messageType,

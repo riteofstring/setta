@@ -298,7 +298,7 @@ class Exporter:
         dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
         dbSource = self.p["dbSourceMapping"][dbSource]
         value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
-        refs = self.p["evRefs"][dbSource][ev_col_id]["values"][id]
+        refs = self.p["evRefs"][section_id][id]
         deps = []
         value = process_refs(value, refs, self.maybe_create_ref_var_name)
         return value, deps
