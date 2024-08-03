@@ -89,6 +89,11 @@ export const useNotification = create(() => ({
   timeoutId: null,
 }));
 
+export const usePreviewIsLoading = createProjectState(() => ({
+  isLoading: false,
+  name: null,
+}));
+
 export const useCurrProjectBackup = createProjectState(() => ({}));
 
 export const useAllProjectConfigs = createProjectState(() => ({

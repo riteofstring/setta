@@ -6,7 +6,11 @@ import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setNodes } from "state/actions/nodeInternals";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { setProjectConfig } from "state/actions/project/projectConfig";
-import { useAllProjectConfigs, useCurrProjectBackup } from "state/definitions";
+import {
+  useAllProjectConfigs,
+  useCurrProjectBackup,
+  usePreviewIsLoading,
+} from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
@@ -16,12 +20,15 @@ export const ProjectConfigs = React.forwardRef(() => {
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
   const { doneLoading, currProjectConfigName, previewedProjectConfigName } =
     useLoadFullProject(previewEnabled);
+  const configLoadingStatus = usePreviewIsLoading(
+    (x) => ({
+      isLoading: x.isLoading,
+      name: x.name,
+    }),
+    _.isEqual,
+  );
 
-  function onMouseLeave() {
-    if (previewEnabled) {
-      loadProjectState(useCurrProjectBackup.getState());
-    }
-  }
+  console.log("configLoadingStatus", configLoadingStatus);
 
   return (
     <>
@@ -40,7 +47,7 @@ export const ProjectConfigs = React.forwardRef(() => {
       <section className=" flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
         <div
           className="mt-1 flex w-full flex-col gap-1"
-          onMouseLeave={onMouseLeave}
+          onMouseLeave={() => onMouseLeave({ previewEnabled })}
         >
           {doneLoading ? (
             allConfigNames.map((name, idx) => (
@@ -60,6 +67,9 @@ export const ProjectConfigs = React.forwardRef(() => {
                 }
               >
                 {name}
+                {configLoadingStatus.isLoading &&
+                  configLoadingStatus.name === name &&
+                  " Loading..."}
               </p>
             ))
           ) : (
@@ -81,11 +91,33 @@ function onMouseOver({
   if (!previewEnabled || mousedOverName === previewedProjectConfigName) {
     return;
   }
+
+  usePreviewIsLoading.setState({
+    isLoading: true,
+    name: mousedOverName,
+  });
+  // Without the following hacky code, previewIsLoading will go from true to false too quickly
+  // so react will basically ignore it.
+  setTimeout(
+    () =>
+      onMouseOverHelper({
+        mousedOverName,
+        previewedProjectConfigName,
+        currProjectConfigName,
+      }),
+    10,
+  );
+}
+
+function onMouseOverHelper({
+  mousedOverName,
+  previewedProjectConfigName,
+  currProjectConfigName,
+}) {
   // if we mouse over the config for the currently loaded page
   // then load the backup state.
   if (mousedOverName === currProjectConfigName) {
     loadProjectState(useCurrProjectBackup.getState());
-    return;
   }
   // if we're looking at the data for the currently loaded page
   // and we want to preview anything else
@@ -94,7 +126,6 @@ function onMouseOver({
     const projectConfig =
       useAllProjectConfigs.getState().metadata[mousedOverName];
     loadProjectState({ ...useAllProjectConfigs.getState().x, projectConfig });
-    return;
   } else {
     const projectConfig =
       useAllProjectConfigs.getState().metadata[mousedOverName];
@@ -115,5 +146,16 @@ function onClick({ currProjectConfigName, clickedOnName }) {
     router.navigate(clickedOnName, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
+  }
+}
+
+function onMouseLeave({ previewEnabled }) {
+  if (previewEnabled) {
+    const toLoad = useCurrProjectBackup.getState();
+    usePreviewIsLoading.setState({
+      isLoading: true,
+      name: toLoad.projectConfig.name,
+    });
+    setTimeout(() => loadProjectState(toLoad), 10);
   }
 }
