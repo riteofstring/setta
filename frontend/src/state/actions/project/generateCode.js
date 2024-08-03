@@ -22,7 +22,6 @@ export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   project.codeInfo = useCodeInfo.getState().x;
   const presetUITypes = assembleUITypes(useUITypes.getState().x, true);
   project.uiTypes = { ...project.uiTypes, ...presetUITypes };
-  delete project.project.defaultConfigId;
   if (includeEVReferences) {
     computeEVReferences(project);
     computeInfoToFullName(project);
