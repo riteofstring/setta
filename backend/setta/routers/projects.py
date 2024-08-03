@@ -9,6 +9,7 @@ from setta.database.db.projects.load import (
     load_all_project_config_metadata,
     load_full_project,
     load_project_config,
+    load_project_config_names,
 )
 from setta.database.db.projects.save import (
     create_project_config,
@@ -31,6 +32,10 @@ class ProjectLoadRequest(BaseModel):
 
 
 class ProjectLoadFullRequest(BaseModel):
+    excludeProjectConfigName: str
+
+
+class ProjectLoadConfigNamesRequest(BaseModel):
     excludeProjectConfigName: str
 
 
@@ -66,6 +71,12 @@ class SetProjectConfigNameRequest(BaseModel):
 def route_all_project_config_metadata(dbs=Depends(get_dbs)):
     with dbs:
         return load_all_project_config_metadata(dbs)
+
+
+@router.post(C.ROUTE_LOAD_PROJECT_CONFIG_NAMES)
+def route_load_project_config_names(x: ProjectLoadConfigNamesRequest, dbs=Depends(get_dbs)):
+    with dbs:
+        return load_project_config_names(dbs, excludeProjectConfigName=x.excludeProjectConfigName)
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)

@@ -6,6 +6,7 @@ import { dbSetProjectConfigName } from "requests/projectName";
 import {
   dbGetAllProjectConfigMetadata,
   dbLoadFullProject,
+  dbLoadProjectConfigNames,
 } from "requests/projects";
 import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import {
@@ -124,8 +125,14 @@ export function useDefaultConfigAddress(project) {
   return useConfigAddress({ project, configId });
 }
 
-export async function useLoadFullProject(currProjectConfigName) {
-  async function loadFn() {
+export function useLoadFullProject(
+  previewEnabled,
+  currProjectConfigName,
+) {
+  const [doneLoading, setDoneLoading] = useState(false);
+
+  async function fullLoadFn() {
+    setDoneLoading(false);
     const res = await dbLoadFullProject({
       excludeProjectConfigName: currProjectConfigName,
     });
@@ -147,10 +154,34 @@ export async function useLoadFullProject(currProjectConfigName) {
         projectConfig: currProjectState.projectConfig,
         ...configsMerged,
       };
-      return loadProjectState(projectState);
+      loadProjectState(projectState);
+      setDoneLoading(true);
     }
   }
+  async function nameOnlyLoadFn() {
+    setDoneLoading(false);
+    const res = await dbLoadProjectConfigNames({
+      excludeProjectConfigName: currProjectConfigName,
+    });
+    console.log("res", res);
+    if (res.status === 200) {
+      useAllProjectConfigs.setState({
+        x: [
+          { name: useProjectConfig.getState().name },
+          ...res.data.map((d) => ({ name: d })),
+        ],
+      });
+      setDoneLoading(true);
+    }
+  }
+
   useEffect(() => {
-    loadFn();
-  }, []);
+    if (previewEnabled) {
+      fullLoadFn();
+    } else {
+      nameOnlyLoadFn();
+    }
+  }, [previewEnabled]);
+
+  return doneLoading;
 }

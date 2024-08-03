@@ -100,7 +100,7 @@ def load_project_config(dbs, project_config_name):
     }
 
 
-def load_full_project(dbs, excludeProjectConfigName=None):
+def load_project_config_names(dbs, excludeProjectConfigName=None):
     query = """
         SELECT
             name
@@ -114,7 +114,12 @@ def load_full_project(dbs, excludeProjectConfigName=None):
     db = dbs.default
     db.execute(query, {"excludeProjectConfigName": excludeProjectConfigName})
 
-    config_names = [r[0] for r in db.fetchall()]
+    return [r[0] for r in db.fetchall()]
+
+
+
+def load_full_project(dbs, excludeProjectConfigName=None):
+    config_names = load_project_config_names(dbs, excludeProjectConfigName)
     configs = []
     for c in config_names:
         p = load_project_config(dbs, c)

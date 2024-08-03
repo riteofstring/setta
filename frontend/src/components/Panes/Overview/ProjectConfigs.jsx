@@ -14,7 +14,7 @@ export const ProjectConfigs = React.forwardRef(() => {
   const configNames = useAllProjectConfigs((x) => x.x.map((c) => c.name));
   const currProjectConfigName = useProjectConfig((x) => x.name);
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
-  useLoadFullProject(currProjectConfigName);
+  const doneLoading = useLoadFullProject(previewEnabled, currProjectConfigName);
 
   return (
     <>
@@ -32,18 +32,22 @@ export const ProjectConfigs = React.forwardRef(() => {
       </p> */}
       <section className=" flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
         <div className="mt-1 flex w-full flex-col gap-1">
-          {configNames.map((name, idx) => (
-            <p
-              key={idx}
-              className={`${currProjectConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
-              onMouseOver={() => {
-                previewEnabled && onMouseOver(idx);
-              }}
-              onClick={() => onClick(idx)}
-            >
-              {name}
-            </p>
-          ))}
+          {doneLoading ? (
+            configNames.map((name, idx) => (
+              <p
+                key={idx}
+                className={`${currProjectConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
+                onMouseOver={() => {
+                  previewEnabled && onMouseOver(idx);
+                }}
+                onClick={() => onClick(idx)}
+              >
+                {name}
+              </p>
+            ))
+          ) : (
+            <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
+          )}
         </div>
       </section>
     </>
