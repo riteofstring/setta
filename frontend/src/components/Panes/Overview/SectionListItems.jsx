@@ -30,7 +30,6 @@ function _SectionItem({ sectionId, sectionHeading, checkbox }) {
       <label
         className="dark:text-rx-300 flex cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md dark:text-setta-200  dark:hover:bg-setta-700"
         // onClick={onClick}
-        data-testid={`Overview Listing ${sectionId}`}
       >
         <input
           type="checkbox"
@@ -45,7 +44,6 @@ function _SectionItem({ sectionId, sectionHeading, checkbox }) {
     <p
       className="dark:text-rx-300 cursor-pointer truncate rounded px-1 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md dark:text-setta-200  dark:hover:bg-setta-700"
       onClick={onClick}
-      data-testid={`Overview Listing ${sectionId}`}
     >
       {sectionHeading}
     </p>

@@ -59,7 +59,6 @@ function _SectionContainerCore({ sectionId }) {
     <section
       className={`group/card-section rounded-xl border border-white bg-white dark:border-setta-700 dark:bg-setta-925 ${boxShadow} dndline w-min [transition:_box-shadow_500ms_ease]`}
       onClick={onClick}
-      data-testid={`${sectionId} section core`}
       ref={refForPosition}
     >
       <SectionContainerCoreResizable

@@ -15,7 +15,6 @@ export function SectionConfigSearch({
   return (
     <div
       className="flex h-full min-h-0 flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0"
-      data-testid={`SectionConfig ${sectionId}`}
     >
       <Search onSubmit={onSearch} />
       <ScrollingArea styles="mt-4">

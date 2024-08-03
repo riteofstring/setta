@@ -76,7 +76,6 @@ function _ComboboxItem({
     <dd
       className={`mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs ${bg} ${itemStyle}`}
       {...getItemProps({ item, index })}
-      data-testid={"ComboboxListItem"}
     >
       {itemString}
     </dd>

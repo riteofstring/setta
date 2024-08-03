@@ -72,7 +72,6 @@ function TabItem({ name, value }) {
     <Tabs.Trigger
       className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out]  hover:text-blue-800 focus-visible:ring-2 dark:text-setta-400 dark:hover:text-blue-500 [&[data-state='active']]:border-setta-500 [&[data-state='active']]:font-bold"
       value={value}
-      data-testid={`UiEditor ${name} Button`}
       tab-index="0"
     >
       {name}

@@ -77,7 +77,6 @@ function _SectionHeader({
         <CustomCloseButton
           onClick={onCustomCloseButtonClick}
           aria-label="Delete self"
-          data-testid={`Delete ${sectionId}`}
           isInfo={isInfo}
         />
       </div>
