@@ -25,7 +25,7 @@ function boringTheme(darkMode, color) {
     theme: darkMode ? "dark" : "light",
     settings: { ...defaultSettingsGithub, ...commonSettings },
     styles: [
-      { tag: t.comment, color },
+      { tag: [t.comment, t.bracket], color },
       { tag: t.variableName, color },
       { tag: [t.string, t.special(t.brace)], color },
       { tag: t.number, color },
