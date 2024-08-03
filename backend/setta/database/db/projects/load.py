@@ -117,7 +117,6 @@ def load_project_config_names(dbs, excludeProjectConfigName=None):
     return [r[0] for r in db.fetchall()]
 
 
-
 def load_full_project(dbs, excludeProjectConfigName=None):
     config_names = load_project_config_names(dbs, excludeProjectConfigName)
     configs = []
