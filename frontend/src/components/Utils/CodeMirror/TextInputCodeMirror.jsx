@@ -24,6 +24,9 @@ export function TextInputCodeMirror({
   color,
   language = "python",
   tabToAutocomplete = true,
+  lineNumbers,
+  foldGutter,
+  highlightActiveLine,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -77,6 +80,9 @@ export function TextInputCodeMirror({
           keywordRegex={pattern}
           language={language}
           tabToAutocomplete={tabToAutocomplete}
+          lineNumbers={lineNumbers}
+          foldGutter={foldGutter}
+          highlightActiveLine={highlightActiveLine}
         />
       )}
     </>
@@ -100,6 +106,9 @@ function CoreCodeMirror({
   keywordRegex,
   language,
   tabToAutocomplete,
+  lineNumbers,
+  foldGutter,
+  highlightActiveLine,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
 
@@ -142,10 +151,7 @@ function CoreCodeMirror({
       className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-      }}
+      basicSetup={{ lineNumbers, foldGutter, highlightActiveLine }}
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}

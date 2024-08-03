@@ -68,6 +68,9 @@ export function SectionSearch({ sectionId, initialSelection }) {
         realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
         singleLine={true}
         onEnter={onEnter}
+        lineNumbers={false}
+        foldGutter={false}
+        highlightActiveLine={false}
       />
       <LoadingSpinner sectionId={sectionId} paramInfoId={null} />
     </>
