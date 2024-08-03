@@ -20,13 +20,18 @@ import { setWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useKeywordRegex } from "state/definitions";
 import { DummyCodeMirror } from "./DummyCodeMirror";
-import { roundUpIdx } from "./utils";
+import { doesNotReferToSelf, roundUpIdx } from "./utils";
 
 // Step 1: Define the Decoration
 const italicStyle = Decoration.mark({ class: "italic" });
 
 // Step 2: Define the Extension
-function getKeywordStylizer(keywordLocations, pattern) {
+function getKeywordStylizer({
+  keywordLocations,
+  pattern,
+  sectionId,
+  paramInfoId,
+}) {
   return ViewPlugin.fromClass(
     class {
       decorations;
@@ -44,14 +49,25 @@ function getKeywordStylizer(keywordLocations, pattern) {
       buildDecorations(view) {
         const builder = new RangeSetBuilder();
         const newKeywordLocations = [];
+        const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
         for (const { from, to } of view.visibleRanges) {
           const text = view.state.doc.sliceString(from, to);
           let match;
           while ((match = pattern.exec(text))) {
             const startPos = from + match.index;
             const endPos = startPos + match[0].length;
-            newKeywordLocations.push({ startPos, endPos, keyword: match[0] });
-            builder.add(startPos, endPos, italicStyle);
+            const keyword = match[0];
+            if (
+              doesNotReferToSelf({
+                fullNameToInfo,
+                keyword,
+                sectionId,
+                paramInfoId,
+              })
+            ) {
+              newKeywordLocations.push({ startPos, endPos, keyword });
+              builder.add(startPos, endPos, italicStyle);
+            }
           }
         }
         keywordLocations.current = newKeywordLocations;
@@ -218,6 +234,8 @@ export function TextInputCodeMirror({
           keywordRegex={pattern}
           goToSectionOnNameClick={goToSectionOnNameClick}
           placeholder={defaultVal}
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
         />
       )}
       {activationEvent && (
@@ -267,7 +285,12 @@ function CoreCodeMirror({
   }
 
   const keywordLocations = useRef([]);
-  const keywordStylizer = getKeywordStylizer(keywordLocations, keywordRegex);
+  const keywordStylizer = getKeywordStylizer({
+    keywordLocations,
+    pattern: keywordRegex,
+    sectionId,
+    paramInfoId,
+  });
 
   const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
     sectionId,

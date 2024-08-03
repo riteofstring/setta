@@ -64,3 +64,15 @@ export function computeInfoToFullName(project) {
   }
   project["infoToFullName"] = output;
 }
+
+export function doesNotReferToSelf({
+  fullNameToInfo,
+  keyword,
+  sectionId,
+  paramInfoId,
+}) {
+  return !(
+    fullNameToInfo[keyword].sectionId === sectionId &&
+    fullNameToInfo[keyword].paramInfoId === paramInfoId
+  );
+}

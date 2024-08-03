@@ -3,7 +3,7 @@ import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import { useKeywordRegex } from "state/definitions";
-import { roundUpIdx } from "./utils";
+import { doesNotReferToSelf, roundUpIdx } from "./utils";
 
 const lineWrapStyle = {
   whiteSpace: "break-spaces",
@@ -22,6 +22,8 @@ export function DummyCodeMirror({
   keywordRegex,
   goToSectionOnNameClick,
   placeholder,
+  sectionId,
+  paramInfoId,
 }) {
   return code ? (
     <HighlightedCode
@@ -31,6 +33,8 @@ export function DummyCodeMirror({
       className={className}
       keywordRegex={keywordRegex}
       goToSectionOnNameClick={goToSectionOnNameClick}
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
     />
   ) : (
     <PlaceholderCode
@@ -61,6 +65,8 @@ function HighlightedCode({
   className,
   keywordRegex,
   goToSectionOnNameClick,
+  sectionId,
+  paramInfoId,
 }) {
   const tree = pythonLanguage.parser.parse(code);
   const highlightStyle = theme[1][2].value;
@@ -118,10 +124,19 @@ function HighlightedCode({
       if (currKeyword === null && cursor.from in matchedIndices) {
         const { keyword, keywordStartIdx, keywordEndIdx } =
           matchedIndices[cursor.from];
-        currKeyword = keyword;
-        currKeywordStartIdx = keywordStartIdx;
-        currKeywordEndIdx = keywordEndIdx;
-        currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
+        if (
+          doesNotReferToSelf({
+            fullNameToInfo,
+            keyword,
+            sectionId,
+            paramInfoId,
+          })
+        ) {
+          currKeyword = keyword;
+          currKeywordStartIdx = keywordStartIdx;
+          currKeywordEndIdx = keywordEndIdx;
+          currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
+        }
       }
 
       const className = `${cursor.value.spec.class} ${currKeyword ? "italic" : ""}`;
