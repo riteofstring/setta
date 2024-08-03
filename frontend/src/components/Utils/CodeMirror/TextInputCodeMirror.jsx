@@ -136,13 +136,6 @@ function CoreCodeMirror({
     defaultVal,
   });
 
-  function localOnChange(newVal) {
-    if (value === newVal) {
-      return;
-    }
-    onChange(newVal);
-  }
-
   return (
     <CodeMirror
       id={divId}
@@ -156,7 +149,7 @@ function CoreCodeMirror({
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}
-      onChange={localOnChange}
+      onChange={onChange}
       onBlur={onBlur}
       indentWithTab={false}
     />
