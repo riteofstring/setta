@@ -92,7 +92,9 @@ export const useNotification = create(() => ({
 export const useCurrProjectBackup = createProjectState(() => ({}));
 
 export const useAllProjectConfigs = createProjectState(() => ({
-  x: [],
+  x: {},
+  names: [],
+  metadata: {},
 }));
 
 export const useOutputGroups = createProjectState(

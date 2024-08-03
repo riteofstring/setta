@@ -1,21 +1,18 @@
 import { router } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
+import _ from "lodash";
 import React from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
+import { setNodes } from "state/actions/nodeInternals";
 import { loadProjectState } from "state/actions/project/loadProject";
-import {
-  useAllProjectConfigs,
-  useCurrProjectBackup,
-  useProjectConfig,
-} from "state/definitions";
+import { setProjectConfig } from "state/actions/project/projectConfig";
+import { useAllProjectConfigs, useCurrProjectBackup } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
-  const allConfigNames = useAllProjectConfigs((x) =>
-    x.x.map((c) => c.projectConfig.name),
-  );
+  const allConfigNames = useAllProjectConfigs((x) => x.names);
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
   const { doneLoading, currProjectConfigName, previewedProjectConfigName } =
     useLoadFullProject(previewEnabled);
@@ -51,9 +48,16 @@ export const ProjectConfigs = React.forwardRef(() => {
                 key={idx}
                 className={`${previewedProjectConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
                 onMouseOver={() => {
-                  onMouseOver(previewEnabled, idx);
+                  onMouseOver({
+                    previewEnabled,
+                    mousedOverName: name,
+                    previewedProjectConfigName,
+                    currProjectConfigName,
+                  });
                 }}
-                onClick={() => onClick(currProjectConfigName, idx)}
+                onClick={() =>
+                  onClick({ currProjectConfigName, clickedOnName: name })
+                }
               >
                 {name}
               </p>
@@ -67,20 +71,48 @@ export const ProjectConfigs = React.forwardRef(() => {
   );
 });
 
-function onMouseOver(previewEnabled, idx) {
-  if (!previewEnabled) {
+function onMouseOver({
+  previewEnabled,
+  mousedOverName,
+  previewedProjectConfigName,
+  currProjectConfigName,
+}) {
+  // preview not enabled, or mousedOverName is already being previewed
+  if (!previewEnabled || mousedOverName === previewedProjectConfigName) {
     return;
   }
-  const config = useAllProjectConfigs.getState().x[idx];
-  if (config.projectConfig.name !== useProjectConfig.getState().name) {
-    loadProjectState(config);
+  // if we mouse over the config for the currently loaded page
+  // then load the backup state.
+  if (mousedOverName === currProjectConfigName) {
+    loadProjectState(useCurrProjectBackup.getState());
+    return;
+  }
+  // if we're looking at the data for the currently loaded page
+  // and we want to preview anything else
+  // then we want to load the other merged config
+  else if (previewedProjectConfigName === currProjectConfigName) {
+    const projectConfig =
+      useAllProjectConfigs.getState().metadata[mousedOverName];
+    loadProjectState({ ...useAllProjectConfigs.getState().x, projectConfig });
+    return;
+  } else {
+    const projectConfig =
+      useAllProjectConfigs.getState().metadata[mousedOverName];
+    setProjectConfig(_.omit(projectConfig, ["children"]));
+    setNodes(
+      _.map(projectConfig.children, (v, k) => ({
+        id: k,
+        position: { x: v.x, y: v.y },
+        zIndex: v.zIndex,
+        tempZIndex: v.zIndex,
+      })),
+    );
   }
 }
 
-function onClick(currProjectConfigName, idx) {
-  const config = useAllProjectConfigs.getState().x[idx];
-  if (config.projectConfig.name !== currProjectConfigName) {
-    router.navigate(config.projectConfig.name, {
+function onClick({ currProjectConfigName, clickedOnName }) {
+  if (clickedOnName !== currProjectConfigName) {
+    router.navigate(clickedOnName, {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   }

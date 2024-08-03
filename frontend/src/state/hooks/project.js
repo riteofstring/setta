@@ -134,29 +134,20 @@ export function useLoadFullProject(previewEnabled) {
     });
     const nameRes = await dbLoadProjectConfigNames();
     if (fullProjectRes.status === 200 && nameRes.status === 200) {
-      const nameToIndexMap = _.zipObject(nameRes.data, _.range(nameRes.data.length));
-      console.log("nameToIndexMap", nameToIndexMap)
-      const currProjectBackup = getProjectData();
-      const fullProjectConfigList = [currProjectBackup, ...fullProjectRes.data];
-      const sortedProjectConfigList = _.sortBy(
-        fullProjectConfigList,
-        (x) => nameToIndexMap[x.projectConfig.name],
+      const configsMerged = _.merge(
+        {},
+        ...fullProjectRes.data.map((x) => _.omit(x, ["projectConfig"])),
       );
-      useAllProjectConfigs.setState({
-        x: sortedProjectConfigList,
-      });
-      useCurrProjectBackup.setState(currProjectBackup);
 
-      // const configsMerged = _.merge(
-      //   {},
-      //   _.omit(currProjectState, ["projectConfig"]),
-      //   ...res.data.map((x) => _.omit(x, ["projectConfig"])),
-      // );
-      // const projectState = {
-      //   projectConfig: currProjectState.projectConfig,
-      //   ...configsMerged,
-      // };
-      // loadProjectState(projectState);
+      useAllProjectConfigs.setState({
+        x: configsMerged,
+        names: nameRes.data,
+        metadata: _.keyBy(
+          fullProjectRes.data.map((x) => x.projectConfig),
+          "name",
+        ),
+      });
+      useCurrProjectBackup.setState(getProjectData());
       setDoneLoading(true);
     }
   }
@@ -166,7 +157,9 @@ export function useLoadFullProject(previewEnabled) {
     const res = await dbLoadProjectConfigNames();
     if (res.status === 200) {
       useAllProjectConfigs.setState({
-        x: res.data.map((d) => ({ projectConfig: { name: d } })),
+        x: {},
+        names: res.data,
+        metadata: {},
       });
       setDoneLoading(true);
     }
