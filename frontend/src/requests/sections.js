@@ -47,6 +47,32 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   });
 }
 
+export async function dbCodeAreaInitializeCode({ sectionId }) {
+  const project = getProjectDataToGenerateCode({});
+  const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}`;
+  sendMessage({
+    id,
+    messageType: "codeAreaInitializeCode",
+    content: { project, sectionId },
+  });
+}
+
+export async function dbCodeAreaCompletion({
+  sectionId,
+  fullText,
+  beforeText,
+  line,
+  column,
+}) {
+  const projectConfigId = useProjectConfig.getState().id;
+  const id = `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`;
+  return await sendMessageInRoom({
+    id,
+    messageType: "codeAreaAutocomplete",
+    content: { projectConfigId, sectionId, fullText, beforeText, line, column },
+  });
+}
+
 export async function dbTypeCheckRequest() {
   const project = getProjectDataToGenerateCode({});
   return await post({

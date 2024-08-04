@@ -48,6 +48,8 @@
   "ROUTE_WEBSOCKET_MANAGER": "/manager",
   "ROUTE_PARAMETERS_REQUEST": "/parametersRequest",
   "ROUTE_TEXT_FIELD_INITIALIZE_CODE": "/textFieldInitializeCode",
+  "ROUTE_CODE_AREA_INITIALIZE_CODE": "/codeAreaInitializeCode",
+  "ROUTE_CODE_AREA_COMPLETION": "/codeAreaAutocomplete",
   "ROUTE_TYPE_CHECK_REQUEST": "/typeCheckRequest",
   "ROUTE_TEXT_FIELD_COMPLETION": "/textFieldCompletion",
   "ROUTE_DELETE_TERMINALS": "/terminal/deleteTerminals",
