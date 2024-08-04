@@ -71,7 +71,7 @@ export async function dbTextFieldCompletion({
     paramInfoId,
     keywordRegex,
     fullNameToInfo,
-    fullText,
+    value: fullText,
   });
   return await sendMessageInRoom({
     id: `${address}-${sectionId}-${paramInfoId}`,
