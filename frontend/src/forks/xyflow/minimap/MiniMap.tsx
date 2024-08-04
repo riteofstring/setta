@@ -15,7 +15,6 @@ import useVisibleNodes from "forks/xyflow/core/hooks/useVisibleNodes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import { getNodes } from "state/actions/nodeInternals";
 import { useNodeInternals } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { shallow } from "zustand/shallow";
@@ -131,16 +130,23 @@ function MiniMap({
       };
 
       const panHandler = (event: D3ZoomEvent<HTMLDivElement, any>) => {
-        const { transform, d3Selection, d3Zoom, width, height } =
-          useReactFlow.getState();
+        const {
+          transform,
+          d3Selection,
+          d3Zoom,
+          translateExtent,
+          width,
+          height,
+        } = useReactFlow.getState();
 
         if (event.sourceEvent.type !== "mousemove" || !d3Selection || !d3Zoom) {
           return;
         }
 
+        // @TODO: how to calculate the correct next position? Math.max(1, transform[2]) is a workaround.
         const moveScale =
           viewScaleRef.current *
-          Math.max(transform[2], Math.log(transform[2])) *
+          Math.max(1, transform[2]) *
           (inversePan ? -1 : 1);
         const position = {
           x: transform[0] - event.sourceEvent.movementX * moveScale,
@@ -149,25 +155,6 @@ function MiniMap({
         const extent: CoordinateExtent = [
           [0, 0],
           [width, height],
-        ];
-
-        const nodeBounds = getNodesBounds(getNodes());
-
-        const xExtentMargin = Math.abs(nodeBounds.width);
-        const yExtentMarign = Math.abs(nodeBounds.height);
-
-        const translateExtent = [
-          [
-            nodeBounds.x - xExtentMargin - overviewWidth / transform[2],
-            nodeBounds.y - yExtentMarign,
-          ],
-          [
-            nodeBounds.x +
-              nodeBounds.width +
-              xExtentMargin -
-              overviewWidth / transform[2],
-            nodeBounds.y + nodeBounds.height + yExtentMarign,
-          ],
         ];
 
         const nextTransform = zoomIdentity
@@ -194,7 +181,7 @@ function MiniMap({
         selection.on("zoom", null);
       };
     }
-  }, [pannable, zoomable, inversePan, zoomStep, overviewWidth]);
+  }, [pannable, zoomable, inversePan, zoomStep]);
 
   const onSvgClick = onClick
     ? (event: MouseEvent) => {
