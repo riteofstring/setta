@@ -1,7 +1,7 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { useKeywordRegex } from "state/definitions";
@@ -111,19 +111,15 @@ function CoreCodeMirror({
     paramInfoId,
   ]);
 
-  const extensions = useMemo(
-    () =>
-      getExtensions({
-        sectionId,
-        language,
-        completionsFn,
-        keywordStylizer,
-        singleLine,
-        tabToAutocomplete: true,
-        onEnter,
-      }),
-    [],
-  );
+  const extensions = getExtensions({
+    sectionId,
+    language,
+    completionsFn,
+    keywordStylizer,
+    singleLine,
+    tabToAutocomplete: true,
+    onEnter,
+  });
 
   const onCreateEditor = getOnCreateEditor({
     keywordLocations,
