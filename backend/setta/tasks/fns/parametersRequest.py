@@ -7,15 +7,7 @@ from .utils import TaskDefinition
 
 def parametersRequestFn(lsp_writer):
     async def fn(
-        code_id,
-        request_id,
-        beforeText,
-        code,
-        codeJson,
-        var_name_to_line_num,
-        var_name,
-        referencable_var_names,
-        column,
+        code_id, request_id, code, codeJson, var_name_to_line_num, var_name, column, **_
     ):
         print("parametersRequest", flush=True)
         line = var_name_to_line_num[var_name]

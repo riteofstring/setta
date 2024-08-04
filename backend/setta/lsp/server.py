@@ -5,7 +5,7 @@ class LanguageServer:
     def __init__(self, root_path):
         self.root_path = root_path
         self.msg_id_to_method = {}
-        self.msg_id_to_referencable_var_names = {}
+        self.msg_id_to_var_name_to_frontend_name = {}
         self.versions = {}
         self.server = None
 
@@ -39,8 +39,8 @@ class LanguageServerInteractor:
         return self.server.msg_id_to_method
 
     @property
-    def msg_id_to_referencable_var_names(self):
-        return self.server.msg_id_to_referencable_var_names
+    def msg_id_to_var_name_to_frontend_name(self):
+        return self.server.msg_id_to_var_name_to_frontend_name
 
     @property
     def root_path(self):

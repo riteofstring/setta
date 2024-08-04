@@ -1,4 +1,5 @@
 import copy
+import json
 
 from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
@@ -76,7 +77,8 @@ def maybe_create_var_name(
     param_name,
     var_names,
     var_name_mapping,
-    var_name_reverse_mapping,
+    var_name_to_frontend_name,
+    info_to_full_name,
     is_global=False,
     is_args_obj=False,
 ):
@@ -85,7 +87,7 @@ def maybe_create_var_name(
     if not var_name:
         var_name = param_name if is_global else get_var_name(var_names)
         var_name_mapping[mapping_key] = var_name
-        var_name_reverse_mapping[var_name] = mapping_key
+        var_name_to_frontend_name[var_name] = info_to_full_name[mapping_key]
     return var_name
 
 
@@ -146,7 +148,10 @@ class Exporter:
         self.p = copy.deepcopy(p)
         self.var_names = set()
         self.var_name_mapping = {}
-        self.var_name_reverse_mapping = {}
+        self.var_name_to_frontend_name = {}
+        self.info_to_full_name = {
+            tuple(json.loads(k)): v for k, v in self.p["infoToFullName"].items()
+        }
 
     def export(self):
         flatten_groups(self.p)
@@ -175,7 +180,8 @@ class Exporter:
             None,
             self.var_names,
             self.var_name_mapping,
-            self.var_name_reverse_mapping,
+            self.var_name_to_frontend_name,
+            self.info_to_full_name,
         )
         if var_name not in self.output:
             type = get_section_type(self.p, id)
@@ -212,7 +218,8 @@ class Exporter:
             None,
             self.var_names,
             self.var_name_mapping,
-            self.var_name_reverse_mapping,
+            self.var_name_to_frontend_name,
+            self.info_to_full_name,
             is_args_obj=True,
         )
         if var_name not in self.output:
@@ -261,7 +268,8 @@ class Exporter:
             param_name,
             self.var_names,
             self.var_name_mapping,
-            self.var_name_reverse_mapping,
+            self.var_name_to_frontend_name,
+            self.info_to_full_name,
             is_global=is_global,
         )
 
