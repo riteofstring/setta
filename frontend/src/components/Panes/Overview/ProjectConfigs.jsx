@@ -9,7 +9,7 @@ import { setProjectConfig } from "state/actions/project/projectConfig";
 import {
   useAllProjectConfigs,
   useCurrProjectBackup,
-  usePreviewIsLoading,
+  usePreviewInfo,
 } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";
@@ -20,15 +20,13 @@ export const ProjectConfigs = React.forwardRef(() => {
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
   const { doneLoading, currProjectConfigName, previewedProjectConfigName } =
     useLoadFullProject(previewEnabled);
-  const configLoadingStatus = usePreviewIsLoading(
+  const configLoadingStatus = usePreviewInfo(
     (x) => ({
       isLoading: x.isLoading,
       name: x.name,
     }),
     _.isEqual,
   );
-
-  console.log("configLoadingStatus", configLoadingStatus);
 
   return (
     <>
@@ -95,7 +93,9 @@ export const ProjectConfigs = React.forwardRef(() => {
   );
 });
 
-function onMouseOver({
+const onMouseOver = _.debounce(_onMouseOver, 50);
+
+function _onMouseOver({
   previewEnabled,
   mousedOverName,
   previewedProjectConfigName,
@@ -106,7 +106,8 @@ function onMouseOver({
     return;
   }
 
-  usePreviewIsLoading.setState({
+  usePreviewInfo.setState({
+    isPreviewing: true,
     isLoading: true,
     name: mousedOverName,
   });
@@ -168,8 +169,9 @@ function onMouseLeave({
   previewedProjectConfigName,
   currProjectConfigName,
 }) {
+  usePreviewInfo.setState({ isPreviewing: false });
   if (previewEnabled && previewedProjectConfigName !== currProjectConfigName) {
-    usePreviewIsLoading.setState({
+    usePreviewInfo.setState({
       isLoading: true,
       name: currProjectConfigName,
     });

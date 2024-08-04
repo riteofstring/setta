@@ -89,7 +89,8 @@ export const useNotification = create(() => ({
   timeoutId: null,
 }));
 
-export const usePreviewIsLoading = createProjectState(() => ({
+export const usePreviewInfo = createProjectState(() => ({
+  isPreviewing: false,
   isLoading: false,
   name: null,
 }));

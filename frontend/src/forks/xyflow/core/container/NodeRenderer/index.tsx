@@ -2,7 +2,7 @@ import { NodeWrapper } from "forks/xyflow/core/components/Nodes/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { updateNodeDimensions } from "state/actions/nodeInternals";
-import { usePreviewIsLoading, useProjectConfig } from "state/definitions";
+import { usePreviewInfo, useProjectConfig } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import useVisibleNodes from "../../hooks/useVisibleNodes";
 import { containerStyle } from "../../styles";
@@ -56,7 +56,7 @@ const NodeRenderer = (props: NodeRendererProps) => {
   }, []);
 
   useEffect(() => {
-    usePreviewIsLoading.setState({ isLoading: false, name: null });
+    usePreviewInfo.setState({ isLoading: false, name: null });
   }, [projectConfigName]);
 
   return (
