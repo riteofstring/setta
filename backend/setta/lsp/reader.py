@@ -179,6 +179,11 @@ class LanguageServerReader(LanguageServerInteractor):
                     {"label": x["label"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
                 ]
+                referencable_var_names = [
+                    {"label": x, "type": "variable"}
+                    for x in self.msg_id_to_referencable_var_names[id]
+                ]
+                content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
                 # pprint(response)

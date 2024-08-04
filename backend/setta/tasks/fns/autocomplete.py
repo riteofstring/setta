@@ -54,7 +54,9 @@ def textFieldCompletionFn(return_types, lsp_writer):
         await lsp_writer.send_document_update(code_id, code, codeJson)
         column = column + len(var_declaration(var_name, ""))
         line = var_name_to_line_num[var_name]
-        await lsp_writer.send_autocomplete_request(line, column, code_id, request_id)
+        await lsp_writer.send_autocomplete_request(
+            line, column, code_id, request_id, referencable_var_names
+        )
         # for c in results:
         #     if return_types and c.type not in return_types:
         #         continue
