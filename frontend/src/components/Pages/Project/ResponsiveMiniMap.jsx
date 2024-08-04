@@ -1,3 +1,5 @@
+import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { MiniMap } from "forks/xyflow/minimap";
 import "forks/xyflow/minimap/style.css";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -31,6 +33,9 @@ export function ResponsiveMiniMap() {
       maskStrokeColor=""
       maskStrokeWidth="1"
       pannable
+      onClick={(e, { x, y }) => {
+        setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });
+      }}
     />
   );
 }
