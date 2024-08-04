@@ -25,31 +25,22 @@ class CodeCompletionContent(BaseModel):
     cached: Optional[Any] = None
 
 
-def _codeCompletion(message, lsp_writer):
-    return completionHelper(
-        message,
-        "codeCompletion",
-        textFieldCompletionFn(["module", "class", "function"], lsp_writer),
-    )
-
-
 async def _textFieldCompletion(message, lsp_writer):
     return await completionHelper(
-        message, "textFieldCompletion", textFieldCompletionFn(None, lsp_writer)
+        message, "textFieldCompletion", textFieldCompletionFn(lsp_writer)
     )
 
-
-def textFieldCompletionFn(return_types, lsp_writer):
+def textFieldCompletionFn(lsp_writer):
     async def fn(
         code_id,
         request_id,
-        beforeText,
         code,
         codeJson,
         var_name_to_line_num,
         var_name,
         referencable_var_names,
         column,
+        **_,
     ):
         await lsp_writer.send_document_update(code_id, code, codeJson)
         column = column + len(var_declaration(var_name, ""))
@@ -57,28 +48,6 @@ def textFieldCompletionFn(return_types, lsp_writer):
         await lsp_writer.send_autocomplete_request(
             line, column, code_id, request_id, referencable_var_names
         )
-        # for c in results:
-        #     if return_types and c.type not in return_types:
-        #         continue
-        #     completion = f"{beforeText}{c.complete}"
-        #     if completion in var_name_to_line_num:
-        #         continue
-        #     to_append = {"label": completion, "type": c.type}
-        #     if c.type == "param":
-        #         params.append(to_append)
-        #     elif completion in BUILT_INS:
-        #         builtins.append(to_append)
-        #     elif c.type == "statement":
-        #         variables.append(to_append)
-        #     else:
-        #         the_rest.append(to_append)
-        # return (
-        #     params
-        #     + variables
-        #     + the_rest
-        #     + builtins
-        #     + [{"label": x, "type": None, "boost": 10} for x in referencable_var_names]
-        # )
 
     return fn
 
@@ -110,18 +79,16 @@ async def completionHelper(message, return_name, fn):
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
-    # print("completionHelper", flush=True)
-    # print("exporter_obj.output", exporter_obj.output, flush=True)
     await fn(
-        message.projectConfigId,
-        request_id,
-        message.beforeText,
-        code,
-        exporter_obj.output,
-        var_name_to_line_num,
-        var_name,
-        referencable_var_names,
-        position,
+        code_id=message.projectConfigId,
+        request_id=request_id,
+        beforeText=message.beforeText,
+        code=code,
+        codeJson=exporter_obj.output,
+        var_name_to_line_num=var_name_to_line_num,
+        var_name=var_name,
+        referencable_var_names=referencable_var_names,
+        column=position,
     )
     return {"output": None, "name": return_name, "cache": None}
 
@@ -135,14 +102,6 @@ def read_cache(cache, message):
     )
 
 
-codeCompletion = TaskDefinition(
-    name="codeCompletion",
-    fn=_codeCompletion,
-    read_cache=read_cache,
-    run_as=RunType.THREAD,
-    is_built_in=True,
-    dependencies=["lsp_writer"],
-)
 textFieldCompletion = TaskDefinition(
     name="textFieldCompletion",
     fn=_textFieldCompletion,
