@@ -1,4 +1,4 @@
-import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/useKeywordStylizer";
@@ -10,7 +10,7 @@ import {
 } from "requests/sections";
 import { setWaitingForLSP } from "state/actions/lsp";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useKeywordRegex, useSectionInfos } from "state/definitions";
+import { useKeywordRegex } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 function getCompletionsFn({ sectionId }) {
@@ -43,7 +43,6 @@ function getCompletionsFn({ sectionId }) {
 }
 
 function _CodeArea({ sectionId }) {
-  const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
   const value = useGetSectionInfo(sectionId, "code");
   const language = useGetSectionInfo(sectionId, "codeLanguage");
   const theme = useCodeMirrorStyle();
@@ -77,27 +76,9 @@ function _CodeArea({ sectionId }) {
     dbCodeAreaInitializeCode({ sectionId });
   }
 
-  // const scrollStyle = EditorView.theme({
-  //   ".cm-scroller": {
-  //     overflowX: "scroll",
-  //   },
-  //   ".cm-scroller::-webkit-scrollbar": {
-  //     background: "transparent",
-  //     width: "8px",
-  //     height: "8px",
-  //   },
-  //   ".cm-scroller::-webkit-scrollbar-thumb": {
-  //     background: "red",
-  //     borderRadius: "10px",
-  //     // webkitAppearance: 'none'
-  //   },
-  // });
-
   return (
     <article className="nodrag nowheel section-full-no-title cursor-auto overflow-auto [&_*]:!outline-0 ">
       <CodeMirror
-        // maxWidth={`${width}px`}
-        // maxHeight={`${height-32}px`}
         value={value}
         theme={theme}
         extensions={extensions}
