@@ -20,7 +20,7 @@ def parametersRequestFn(lsp_writer):
         print("parametersRequest", flush=True)
         line = var_name_to_line_num[var_name]
         code = append_to_line(code, line, "()")
-        print(code)
+        print(code, flush=True)
         await lsp_writer.send_document_update(code_id, code, codeJson)
         # the +1 below is to move the cursor into the parentheses.
         column = column + len(var_declaration(var_name, "")) + 1

@@ -56,7 +56,7 @@ def infer_imports(code):
                     return node.id
             elif isinstance(node, ast.Attribute):
                 base = self.resolve_module(node.value)
-                if base and not "." in base:  # Limit to top-level modules only
+                if base and "." not in base:  # Limit to top-level modules only
                     return base
             return None
 

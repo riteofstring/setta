@@ -8,10 +8,10 @@ from setta.code_gen.python.generate_code import (
     var_declaration,
 )
 from setta.code_gen.utils import process_refs
+from setta.tasks.fns.textFieldInitializeCode import get_cache_key
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import BUILT_INS
 
-from .utils import TaskDefinition, TaskMessage
+from .utils import TaskDefinition
 
 
 class CodeCompletionContent(BaseModel):
@@ -128,8 +128,10 @@ async def completionHelper(message, return_name, fn):
 
 def read_cache(cache, message):
     message = message.content
-    message["cached"] = cache.get(message["projectConfigId"], {}).get(
-        message["sectionId"], None
+    message["cached"] = cache.get(
+        get_cache_key(
+            message["projectConfigId"], message["sectionId"], message["paramInfoId"]
+        )
     )
 
 

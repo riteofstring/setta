@@ -64,13 +64,18 @@ async def _textFieldInitializeCode(message, lsp_writer):
     }
 
 
+def get_cache_key(projectConfigId, sectionId, paramInfoId):
+    return f"textFieldInitializeCode-{projectConfigId}-{sectionId}-{paramInfoId}"
+
+
 def write_cache(cache, message, result):
     if result["cache"] is None:
         return
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
-    project = message.project
-    sectionId = message.sectionId
-    cache.setdefault(project["projectConfig"]["id"], {})[sectionId] = result["cache"]
+    key = get_cache_key(
+        message.project["projectConfig"]["id"], message.sectionId, message.paramInfoId
+    )
+    cache[key] = result["cache"]
 
 
 textFieldInitializeCode = TaskDefinition(

@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 from setta.database.utils import aggregate_results
 
 from ..codeInfo.load import load_code_info_for_sections

@@ -53,7 +53,7 @@ def save_project(dbs, project):
             query, {"id": project["id"], "previewImgColor": project["previewImgColor"]}
         )
 
-    query = f"""
+    query = """
         DELETE FROM ProjectConfigChildren
         WHERE parentId = :parentId
     """
