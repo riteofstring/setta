@@ -93,6 +93,7 @@ export const usePreviewInfo = createProjectState(() => ({
   isPreviewing: false,
   isLoading: false,
   name: null,
+  tooLarge: false,
 }));
 
 export const useCurrProjectBackup = createProjectState(() => ({}));

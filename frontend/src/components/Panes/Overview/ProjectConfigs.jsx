@@ -6,6 +6,7 @@ import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setNodes } from "state/actions/nodeInternals";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { setProjectConfig } from "state/actions/project/projectConfig";
+import { getAllSectionChildrenIds } from "state/actions/sections/sectionSizes";
 import {
   useAllProjectConfigs,
   useCurrProjectBackup,
@@ -20,13 +21,6 @@ export const ProjectConfigs = React.forwardRef(() => {
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
   const { doneLoading, currProjectConfigName, previewedProjectConfigName } =
     useLoadFullProject(previewEnabled);
-  const configLoadingStatus = usePreviewInfo(
-    (x) => ({
-      isLoading: x.isLoading,
-      name: x.name,
-    }),
-    _.isEqual,
-  );
 
   return (
     <>
@@ -76,12 +70,7 @@ export const ProjectConfigs = React.forwardRef(() => {
                   {name}
                 </p>
 
-                {configLoadingStatus.isLoading &&
-                  configLoadingStatus.name === name && (
-                    <p className="rounded-full bg-blue-500/30 px-1 py-[0.125rem] text-xs text-setta-50 dark:text-setta-300">
-                      Loading...
-                    </p>
-                  )}
+                <Status name={name} />
               </div>
             ))
           ) : (
@@ -93,7 +82,35 @@ export const ProjectConfigs = React.forwardRef(() => {
   );
 });
 
-const onMouseOver = _.debounce(_onMouseOver, 50);
+function Status({ name }) {
+  const configLoadingStatus = usePreviewInfo(
+    (x) => ({
+      isLoading: x.isLoading,
+      name: x.name,
+      tooLarge: x.tooLarge,
+    }),
+    _.isEqual,
+  );
+
+  if (configLoadingStatus.name === name) {
+    if (configLoadingStatus.isLoading) {
+      return (
+        <p className="rounded-full bg-blue-500/30 px-1 py-[0.125rem] text-xs text-setta-50 dark:text-setta-300">
+          Loading...
+        </p>
+      );
+    } else if (configLoadingStatus.tooLarge) {
+      return (
+        <p className="rounded-full bg-blue-500/30 px-1 py-[0.125rem] text-xs text-setta-50 dark:text-setta-300">
+          Too large to preview
+        </p>
+      );
+    }
+  }
+  return null;
+}
+
+const onMouseOver = _.debounce(_onMouseOver, 20);
 
 function _onMouseOver({
   previewEnabled,
@@ -103,6 +120,22 @@ function _onMouseOver({
 }) {
   // preview not enabled, or mousedOverName is already being previewed
   if (!previewEnabled || mousedOverName === previewedProjectConfigName) {
+    usePreviewInfo.setState({
+      name: mousedOverName,
+      tooLarge: false,
+    });
+    return;
+  }
+  if (
+    projectConfigTooLargeToBePreviewed({
+      mousedOverName,
+      currProjectConfigName,
+    })
+  ) {
+    usePreviewInfo.setState({
+      name: mousedOverName,
+      tooLarge: true,
+    });
     return;
   }
 
@@ -110,6 +143,7 @@ function _onMouseOver({
     isPreviewing: true,
     isLoading: true,
     name: mousedOverName,
+    tooLarge: false,
   });
   // Without the following hacky code, previewIsLoading will go from true to false too quickly
   // so react will basically ignore it.
@@ -156,6 +190,25 @@ function onMouseOverHelper({
   }
 }
 
+function projectConfigTooLargeToBePreviewed({
+  mousedOverName,
+  currProjectConfigName,
+}) {
+  let projectConfig, sections;
+  if (mousedOverName === currProjectConfigName) {
+    const backupState = useCurrProjectBackup.getState();
+    ({ projectConfig, sections } = backupState);
+  } else {
+    projectConfig = useAllProjectConfigs.getState().metadata[mousedOverName];
+    sections = useAllProjectConfigs.getState().x.sections;
+  }
+  const sectionIds = getAllSectionChildrenIds(
+    sections,
+    Object.keys(projectConfig.children),
+  );
+  return sectionIds.length > 50;
+}
+
 function onClick({ currProjectConfigName, clickedOnName }) {
   if (clickedOnName !== currProjectConfigName) {
     router.navigate(clickedOnName, {
@@ -169,7 +222,7 @@ function onMouseLeave({
   previewedProjectConfigName,
   currProjectConfigName,
 }) {
-  usePreviewInfo.setState({ isPreviewing: false });
+  usePreviewInfo.setState({ isPreviewing: false, tooLarge: false });
   if (previewEnabled && previewedProjectConfigName !== currProjectConfigName) {
     usePreviewInfo.setState({
       isLoading: true,

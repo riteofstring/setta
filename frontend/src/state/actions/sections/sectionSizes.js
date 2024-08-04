@@ -26,14 +26,9 @@ function setAllOtherWidths({ sectionId, width }) {
 }
 
 export function setAllChildrenWidths({ sectionId, exclude, width }) {
-  const sectionIds = [sectionId];
-  const s = useSectionInfos.getState();
-  let idx = 0;
-  while (idx < sectionIds.length) {
-    const currId = sectionIds[idx];
-    sectionIds.push(...s.x[currId].children);
-    idx += 1;
-  }
+  const sectionIds = getAllSectionChildrenIds(useSectionInfos.getState().x, [
+    sectionId,
+  ]);
   setSectionInfoAttr({
     sectionIds: sectionIds.filter((x) => x !== exclude),
     attr: "size",
@@ -51,4 +46,15 @@ export function getHighestAncestor(sectionId) {
   }
 
   return highestAncestor;
+}
+
+export function getAllSectionChildrenIds(sectionInfoState, sectionIds) {
+  const ids = [...sectionIds];
+  let idx = 0;
+  while (idx < ids.length) {
+    const currId = ids[idx];
+    ids.push(...sectionInfoState[currId].children);
+    idx += 1;
+  }
+  return ids;
 }
