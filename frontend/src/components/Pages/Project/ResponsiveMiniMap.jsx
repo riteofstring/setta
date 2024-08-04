@@ -30,6 +30,7 @@ export function ResponsiveMiniMap() {
       maskColor={darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"}
       maskStrokeColor=""
       maskStrokeWidth="1"
+      pannable
     />
   );
 }
