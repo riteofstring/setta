@@ -41,6 +41,7 @@ export const ProjectConfigs = React.forwardRef(() => {
           className="mt-1 flex w-full flex-col gap-1"
           onMouseLeave={() =>
             onMouseLeave({
+              key: "leave",
               previewEnabled,
               previewedProjectConfigName,
               currProjectConfigName,
@@ -53,7 +54,8 @@ export const ProjectConfigs = React.forwardRef(() => {
                 key={idx}
                 className="grouop flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-xl px-2 py-1 hover:bg-blue-300/40 dark:hover:bg-blue-900/50"
                 onMouseOver={() => {
-                  onMouseOver({
+                  onMouse({
+                    key: "over",
                     previewEnabled,
                     mousedOverName: name,
                     previewedProjectConfigName,
@@ -110,22 +112,45 @@ function Status({ name }) {
   return null;
 }
 
-const onMouseOver = _.debounce(_onMouseOver, 20);
+const onMouse = _.debounce(_onMouse, 100);
 
-function _onMouseOver({
+function _onMouse({ key, ...props }) {
+  if (key === "over") {
+    onMouseOver(props);
+  } else if (key === "leave") {
+    onMouseLeave(props);
+  }
+}
+
+function onMouseOver({
   previewEnabled,
   mousedOverName,
   previewedProjectConfigName,
   currProjectConfigName,
 }) {
-  // preview not enabled, or mousedOverName is already being previewed
-  if (!previewEnabled || mousedOverName === previewedProjectConfigName) {
+  // preview not enabled
+  if (!previewEnabled) {
     usePreviewInfo.setState({
+      isPreviewing: false,
+      isLoading: false,
+      name: null,
+      tooLarge: false,
+    });
+    return;
+  }
+
+  // mousedOverName is already being previewed
+  if (mousedOverName === previewedProjectConfigName) {
+    usePreviewInfo.setState({
+      isPreviewing: true,
+      isLoading: false,
       name: mousedOverName,
       tooLarge: false,
     });
     return;
   }
+
+  // config too large to be previewed
   if (
     projectConfigTooLargeToBePreviewed({
       mousedOverName,
@@ -133,6 +158,8 @@ function _onMouseOver({
     })
   ) {
     usePreviewInfo.setState({
+      isPreviewing: true,
+      isLoading: false,
       name: mousedOverName,
       tooLarge: true,
     });
