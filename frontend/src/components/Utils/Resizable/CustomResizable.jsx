@@ -80,7 +80,7 @@ function CustomResizableCore({
 
   return (
     <ResizableWithScale
-      id={sectionId}
+      id={`${sectionId}-CustomResizable`} // IMPORTANT, used as parent for codemirror autocomplete
       as={as}
       size={size}
       minHeight={minHeight}

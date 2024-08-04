@@ -114,6 +114,7 @@ function CoreCodeMirror({
   const extensions = useMemo(
     () =>
       getExtensions({
+        sectionId,
         language,
         completionsFn,
         keywordStylizer,

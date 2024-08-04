@@ -6,10 +6,11 @@ import {
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { EditorState, Prec } from "@codemirror/state";
-import { keymap } from "@codemirror/view";
+import { keymap, tooltips } from "@codemirror/view";
 import { EditorView } from "@uiw/react-codemirror";
 
 export function getExtensions({
+  sectionId,
   language,
   completionsFn,
   keywordStylizer,
@@ -17,7 +18,12 @@ export function getExtensions({
   tabToAutocomplete,
   onEnter,
 }) {
-  const extensions = [EditorView.lineWrapping];
+  const extensions = [
+    EditorView.lineWrapping,
+    tooltips({
+      parent: document.getElementById(`${sectionId}-CustomResizable`),
+    }),
+  ];
 
   if (language === "python") {
     extensions.push(python());
@@ -30,6 +36,7 @@ export function getExtensions({
     extensions.push(
       autocompletion({
         override: [completionsFn],
+        tooltipClass: () => "nowheel",
       }),
     );
   }
