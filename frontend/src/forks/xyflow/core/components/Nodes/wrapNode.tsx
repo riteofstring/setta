@@ -95,6 +95,7 @@ const _NodeWrapper = ({
       onKeyDown={isFocusable ? onKeyDown : undefined}
       tabIndex={isFocusable ? 0 : undefined}
       role={isFocusable ? "button" : undefined}
+      id={`${id}-NodeWrapper`}
     >
       <SectionContainerNode id={id} />
     </div>

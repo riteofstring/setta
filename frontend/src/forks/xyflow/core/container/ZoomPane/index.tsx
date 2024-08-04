@@ -154,6 +154,7 @@ const ZoomPane = ({
           "wheel.zoom",
           (event: any) => {
             if (isWrappedWithClass(event, noWheelClassName)) {
+              console.log("noWheel")
               return false;
             }
             event.preventDefault();
@@ -224,6 +225,7 @@ const ZoomPane = ({
               !preventScrolling ||
               isWrappedWithClass(event, noWheelClassName)
             ) {
+              console.log("noWheel")
               return null;
             }
 
@@ -349,6 +351,7 @@ const ZoomPane = ({
           isWrappedWithClass(event, noWheelClassName) &&
           event.type === "wheel"
         ) {
+          console.log("noWheel")
           return false;
         }
 
@@ -417,7 +420,7 @@ const ZoomPane = ({
   ]);
 
   return (
-    <div className="react-flow__renderer" ref={zoomPane} style={containerStyle}>
+    <div className="react-flow__renderer" ref={zoomPane} style={containerStyle} id="reactflow-zoompane">
       {children}
     </div>
   );

@@ -218,6 +218,7 @@ const Pane = memo(
         onMouseLeave={hasActiveSelection ? onMouseLeave : undefined}
         ref={container}
         style={containerStyle}
+        id="reactflow-pane"
       >
         {children}
         <UserSelection />

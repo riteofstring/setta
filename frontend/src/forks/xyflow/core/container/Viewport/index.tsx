@@ -14,8 +14,9 @@ function Viewport({ children }: ViewportProps) {
 
   return (
     <div
-      className="react-flow__viewport react-flow__container"
+      className="react-flow__viewport react-flow__container nowheel"
       style={{ transform }}
+      id="reactflow-viewport"
     >
       {children}
     </div>
