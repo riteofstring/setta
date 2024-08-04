@@ -57,9 +57,9 @@ export const ProjectConfigs = React.forwardRef(() => {
         >
           {doneLoading ? (
             allConfigNames.map((name, idx) => (
-              <p
+              <div
                 key={idx}
-                className={`${previewedProjectConfigName === name ? "font-bold" : ""} min-w-full cursor-pointer rounded-xl px-2 py-1 text-setta-600 [transition:font-weight_100ms_ease-in-out] hover:bg-blue-300/40 hover:text-setta-900 dark:text-setta-400 dark:hover:bg-blue-900/50 dark:hover:text-setta-100`}
+                className="grouop flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-xl px-2 py-1 hover:bg-blue-300/40 dark:hover:bg-blue-900/50"
                 onMouseOver={() => {
                   onMouseOver({
                     previewEnabled,
@@ -72,11 +72,19 @@ export const ProjectConfigs = React.forwardRef(() => {
                   onClick({ currProjectConfigName, clickedOnName: name })
                 }
               >
-                {name}
+                <p
+                  className={`${previewedProjectConfigName === name ? "font-bold" : ""} flex-shrink truncate  text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:text-setta-900 dark:text-setta-400 dark:group-hover:text-setta-100`}
+                >
+                  {name}
+                </p>
+
                 {configLoadingStatus.isLoading &&
-                  configLoadingStatus.name === name &&
-                  " Loading..."}
-              </p>
+                  configLoadingStatus.name === name && (
+                    <p className="rounded-full bg-blue-500/30 px-1 py-[0.125rem] text-xs text-setta-50 dark:text-setta-300">
+                      Loading...
+                    </p>
+                  )}
+              </div>
             ))
           ) : (
             <i className="gg-spinner self-center justify-self-end text-blue-500/70" />
