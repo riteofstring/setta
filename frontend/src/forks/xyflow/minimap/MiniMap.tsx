@@ -146,7 +146,7 @@ function MiniMap({
         // @TODO: how to calculate the correct next position? Math.max(1, transform[2]) is a workaround.
         const moveScale =
           viewScaleRef.current *
-          Math.max(1, transform[2]) *
+          Math.max(transform[2], Math.log(transform[2])) *
           (inversePan ? -1 : 1);
         const position = {
           x: transform[0] - event.sourceEvent.movementX * moveScale,
