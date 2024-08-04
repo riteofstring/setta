@@ -26,6 +26,10 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     project = message.project
     code = project["sections"][message.sectionId]["code"]
     codeJson = None
+    gen_code = None
+    num_gen_code_lines = (None,)
+    exporter_obj = None
+    generated_var_names = set()
     if needs_generated_python(code):
         print("NEEDS GENERATED CODE", flush=True)
         exporter_obj = export_selected(project)
@@ -33,12 +37,14 @@ async def _codeAreaInitializeCode(message, lsp_writer):
         gen_code, var_name_to_line_num = generate_code(
             codeJson, code, replace_templated_code=False
         )
+        num_gen_code_lines = count_lines(gen_code)
+        generated_var_names = var_name_to_line_num.keys()
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
         }
         referencable_var_names = [
             infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
-            for v in var_name_to_line_num.keys()
+            for v in generated_var_names
         ]
 
     # print("gen_code", gen_code, flush=True)
@@ -58,7 +64,8 @@ async def _codeAreaInitializeCode(message, lsp_writer):
         "name": "codeAreaInitializeCode",
         "cache": [
             gen_code,
-            var_name_to_line_num,
+            num_gen_code_lines,
+            generated_var_names,
             referencable_var_names,
             exporter_obj,
         ],

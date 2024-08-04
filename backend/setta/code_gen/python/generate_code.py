@@ -202,3 +202,11 @@ def append_to_line(input_string, line_number, append):
     lines = input_string.split("\n")
     lines[line_number] += append
     return "\n".join(lines)
+
+
+def find_line_number(code, search_term):
+    lines = code.split("\n")
+    for i, line in enumerate(lines):
+        if search_term in line:
+            return i
+    return -1
