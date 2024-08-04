@@ -178,6 +178,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 content = [
                     {"label": x["label"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
+                    if x["label"] not in self.msg_id_to_generated_var_names[id]
                 ]
                 referencable_var_names = [
                     {"label": x, "type": "variable"}

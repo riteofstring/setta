@@ -42,7 +42,13 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_request("textDocument/didOpen", params=params)
 
     async def send_autocomplete_request(
-        self, line, character, code_id, request_id, referencable_var_names
+        self,
+        line,
+        character,
+        code_id,
+        request_id,
+        referencable_var_names,
+        generated_var_names,
     ):
         uri = self.get_virtual_uri(code_id)
         params = {
@@ -50,6 +56,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "position": {"line": line, "character": character},
         }
         self.msg_id_to_referencable_var_names[request_id] = referencable_var_names
+        self.msg_id_to_generated_var_names[request_id] = generated_var_names
         await self.send_request("textDocument/completion", params=params, id=request_id)
 
     async def send_signature_help_request(self, line, character, code_id, request_id):
