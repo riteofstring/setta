@@ -68,24 +68,6 @@ export const CONST_INFO_VIEWS = {
     "Choose which arguments appear in your selected card.",
 };
 
-export const initialShortcuts = {
-  newCardShortcut: "",
-  newGroupShortcut: "",
-  typeCheckShortcut: "",
-  newProjectConfigShortcut: "",
-  undoShortcut: "Mod + Z",
-  redoShortcut: "Mod + Shift + Z",
-  groupShortcut: "Mod + G",
-  saveShortcut: "Mod + S",
-  saveAsShortcut: "Mod + Shift + S",
-  loadShortcut: "Mod + L",
-  focusOnArgsFilterShortcut: "Mod + K",
-  resetZoomShortcut: "Mod + ,",
-  copyShortcut: "Mod + C",
-  pasteShortcut: "Mod + V",
-  sortingShortcut: "Mod",
-  movingFreeShortcut: "Alt",
-};
 
 export const jsonSettings = {
   defaultCodeSectionSize: { width: 500, height: "auto" },

@@ -2,18 +2,20 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { loadSettings } from "state/actions/settings";
 import { useSettings } from "state/definitions";
-import {
-  initialShortcuts,
-  jsonSettings,
-  otherConfigurableSettings,
-} from "utils/constants";
+import { jsonSettings, otherConfigurableSettings } from "utils/constants";
 
 export function useShortcutSettings() {
-  const settingNames = Object.keys(initialShortcuts);
-  return useSettings(
-    (x) => _.map(_.pick(x, settingNames), (v, k) => ({ name: k, value: v })),
-    _.isEqual,
-  );
+  function shortcutsOnly(x) {
+    const output = [];
+    for (const [k, v] of Object.entries(x)) {
+      // TODO: make this less hacky
+      if (k.includes("Shortcut")) {
+        output.push({ name: k, value: v });
+      }
+    }
+    return output;
+  }
+  return useSettings((x) => shortcutsOnly(x), _.isEqual);
 }
 
 export function useSetShorcutSetting(setting) {

@@ -1,5 +1,4 @@
 import {
-  initialShortcuts,
   jsonSettings,
   otherConfigurableSettings,
   SECTION_CONFIG_TAB,
@@ -194,7 +193,6 @@ export const useSettings = create(() => ({
   settingsLoaded: false,
   ...jsonSettings,
   ...otherConfigurableSettings,
-  ...initialShortcuts,
 }));
 
 export const useStateVersion = createProjectState(
