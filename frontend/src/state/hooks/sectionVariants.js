@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
+import { getMappedSectionDBSource } from "state/getters/sectionInfo";
 import { useGetSectionInfo, useMappedSectionDBSource } from "./sections";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
@@ -38,7 +39,28 @@ export function useSectionEnteredValues(sectionId) {
 function useSectionVariantMetadataIds(sectionId) {
   const dbSource = useMappedSectionDBSource(sectionId);
   const { variantId, previewVariantId } = useSectionInfos(
-    (x) => x.x[sectionId],
+    (x) => ({
+      variantId: x.x[sectionId].variantId,
+      previewVariantId: x.x[sectionId].previewVariantId,
+    }),
+    _.isEqual,
   );
   return { dbSource, variantId, previewVariantId };
+}
+
+export function useSectionIdToChildren() {
+  const sectionIdToVariantMetadata = useSectionInfos((x) =>
+    _.mapValues(x.x, (v) => ({
+      dbSource: getMappedSectionDBSource(v.id, x),
+      variantId: v.variantId,
+    })),
+  );
+  return useSectionVariants(
+    (x) =>
+      _.mapValues(
+        sectionIdToVariantMetadata,
+        (v) => x.x[v.dbSource][v.variantId].children,
+      ),
+    _.isEqual,
+  );
 }
