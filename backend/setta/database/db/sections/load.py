@@ -3,7 +3,7 @@ import itertools
 from setta.database.utils import get_children_recursively
 
 from ..paramSweeps.load import load_param_sweeps
-from ..sectionVariants.load import load_evcols
+from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
@@ -34,7 +34,7 @@ def load_sections(dbs, ids):
         SELECT
             S.*,
             U.nonPresetUITypeIds,
-            E.evColIds,
+            E.variantIds,
             P.paramSweepIds
         FROM
             Section S
@@ -52,9 +52,9 @@ def load_sections(dbs, ids):
             (
                 SELECT
                     originSectionId,
-                    GROUP_CONCAT(id) AS evColIds
+                    GROUP_CONCAT(id) AS variantIds
                 FROM
-                    EVColId
+                    SectionVariantId
                 GROUP BY
                     originSectionId
             ) AS E ON S.id = E.originSectionId
@@ -92,7 +92,7 @@ def load_sections(dbs, ids):
                 "width": convert_size(width),
                 "height": convert_size(height),
             },
-            "evColIds": v["evColIds"].split(",") if v["evColIds"] else [],
+            "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
@@ -101,12 +101,12 @@ def load_sections(dbs, ids):
             else [],
         }
 
-    evColIds = list(
-        itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])
+    variantIds = list(
+        itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
     )
-    evCols = {}
+    sectionVariants = {}
     for k, dbq in dbs.items():
-        evCols[k] = load_evcols(dbq, evColIds)
+        sectionVariants[k] = load_section_variants(dbq, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
@@ -129,7 +129,7 @@ def load_sections(dbs, ids):
 
     return {
         "sections": sections,
-        "evCols": evCols,
+        "sectionVariants": sectionVariants,
         "uiTypeCols": uiTypeCols,
         "paramSweeps": paramSweeps,
         "nonPresetUITypes": nonPresetUITypes,

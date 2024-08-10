@@ -67,7 +67,7 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
         FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
-        FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantId model

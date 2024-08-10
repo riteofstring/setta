@@ -1,7 +1,7 @@
 from setta.database.utils import remap_ids, rename_keys
 
 from ..codeInfo.copy import copy_code_info
-from ..sectionVariants.copy import copy_ev_cols
+from ..sectionVariants.copy import copy_section_variants
 from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
 
 

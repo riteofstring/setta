@@ -77,7 +77,7 @@ def load_project_config(dbs, project_config_name):
     runGroups = load_run_groups(dbs, projectConfig["id"])
     sections_data = load_sections(dbs, list(projectConfig["children"].keys()))
     sections = sections_data["sections"]
-    evCols = sections_data["evCols"]
+    sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
@@ -86,7 +86,7 @@ def load_project_config(dbs, project_config_name):
     return {
         "projectConfig": projectConfig,
         "sections": sections,
-        "evCols": evCols,
+        "sectionVariants": sectionVariants,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
         "paramSweeps": paramSweeps,
