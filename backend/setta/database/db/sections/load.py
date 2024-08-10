@@ -136,9 +136,9 @@ def get_section_ids(dbs, top_level_ids):
         for vid in variantIds:
             for c in variant_id_to_children[vid]:
                 if c not in visited:
-                    visited.add(c)
                     ids.append(c)
                     output.append(c)
+        visited.add(id)
 
     return output
 
