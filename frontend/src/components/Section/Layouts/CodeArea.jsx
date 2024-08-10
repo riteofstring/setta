@@ -3,7 +3,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/useKeywordStylizer";
 import _ from "lodash";
-import React, { useMemo } from "react";
+import React from "react";
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
