@@ -15,8 +15,9 @@ def save_project_details(dbs, p):
     save_param_sweeps(dbs, p["paramSweeps"])
     save_sections(dbs, p["sections"])
     save_section_variants(dbs, p["sections"], p["sectionVariants"])
-    # save_project(dbs, p["projectConfig"])
-    # save_run_groups(dbs, p["runGroups"])
+    save_project(dbs, p["projectConfig"])
+    save_section_configs(dbs, p["projectConfig"]["id"], p["sectionConfigs"])
+    save_run_groups(dbs, p["runGroups"])
 
 
 def save_project(dbs, project):
@@ -122,3 +123,43 @@ def save_project_config_name(dbs, curr_name, new_name):
     """
     query_params = {"curr_name": curr_name, "new_name": new_name}
     db.execute(query, query_params)
+
+
+def save_section_configs(dbs, project_config_id, section_configs):
+    db = dbs.default
+
+    query_params = []
+    for section_id in section_configs.keys():
+        query_params.extend([project_config_id, section_id])
+    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
+    query = f"""
+        DELETE FROM SectionConfig
+        WHERE (projectConfigId, sectionId) IN ({placeholders})
+    """
+    db.execute(query, query_params)
+
+    query = """
+        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, selectedItemId, versionsHeight, versionsVisible)
+        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :selectedItemId, :versionsHeight, :versionsVisible)
+    """
+
+    query_params = [
+        {
+            "projectConfigId": project_config_id,
+            "sectionId": s["id"],
+            "width": convert_size(s["size"]["width"]),
+            "height": convert_size(s["size"]["height"]),
+            "variantId": s["variantId"],
+            "paramSweepId": s["paramSweepId"],
+            "selectedItemId": s["selectedItem"],
+            "versionsHeight": s["versionsHeight"],
+            "versionsVisible": s["versionsVisible"],
+        }
+        for s in section_configs.values()
+    ]
+
+    db.executemany(query, query_params)
+
+
+def convert_size(x):
+    return -1 if x == "auto" else x

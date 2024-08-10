@@ -110,31 +110,3 @@ def save_sections(dbs, sections):
             for s in sections.values()
         ],
     )
-
-
-def convert_size(x):
-    return -1 if x == "auto" else x
-
-    # query_params = [
-    #     {
-    #         "id": s["id"],
-    #         "name": s["name"],
-    #         "width": convert_size(s["size"]["width"]),
-    #         "height": convert_size(s["size"]["height"]),
-    #         "evColId": s["evColId"],
-    #         "uiTypeId": s["uiTypeId"],
-    #         "uiTypeColId": s["uiTypeColId"],
-    #         "selectedItemId": s["selectedItem"],
-    #         "social": s["social"],
-    #         "outputGroupId": s["outputGroup"],
-    #         "description": s["description"],
-    #         "versionsHeight": s["versionsHeight"],
-    #         "versionsVisible": s["versionsVisible"],
-    #         "code": s["code"],
-    #         "codeLanguage": s["codeLanguage"],
-    #         "isFrozen": s["isFrozen"],
-    #         "paramSweepId": s["paramSweepId"],
-    #         "dbSource": s.get("dbSource"),
-    #     }
-    #     for s in sections.values()
-    # ]
