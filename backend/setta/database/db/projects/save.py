@@ -1,7 +1,7 @@
 from setta.database.utils import create_new_id, generate_memorable_string
 
 from ..codeInfo.save import save_code_info
-from ..enteredValues.save import save_ev_cols
+from ..sectionVariants.save import save_ev_cols
 from ..paramSweeps.save import save_param_sweeps
 from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections

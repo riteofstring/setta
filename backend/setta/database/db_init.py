@@ -34,60 +34,72 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS Section (
         id TEXT PRIMARY KEY,
         name TEXT,
-        width INTEGER,
-        height INTEGER,
-        evColId TEXT,
-        paramSweepId TEXT,
         paramSweepSectionId TEXT,
-        selectedItemId TEXT,
         uiTypeId TEXT,
         uiTypeColId TEXT,
         social TEXT,
         outputGroupId TEXT,
         description TEXT,
-        versionsHeight REAL,
-        versionsVisible BOOLEAN,
         code TEXT,
         codeLanguage TEXT,
         isFrozen BOOLEAN,
         dbSource TEXT,
-        FOREIGN KEY (evColId) REFERENCES EVColId(id) ON DELETE CASCADE,
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
         FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE
     );
     """,
-    # SectionChildren model
+    # SectionConfig model
     """
-    CREATE TABLE IF NOT EXISTS SectionChildren (
-        childId TEXT PRIMARY KEY,
-        parentId TEXT,
-        "order" INTEGER,
-        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (parentId) REFERENCES Section(id) ON DELETE CASCADE
+    CREATE TABLE IF NOT EXISTS SectionConfig (
+        projectConfigId TEXT,
+        sectionId TEXT,
+        width INTEGER,
+        height INTEGER,
+        variantId TEXT,
+        paramSweepId TEXT,
+        selectedItemId TEXT,
+        versionsHeight REAL,
+        versionsVisible BOOLEAN,
+        PRIMARY KEY (projectConfigId, sectionId),
+        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
+        FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
+        FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
+        FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
     );
     """,
-    # EVColId model
+    # SectionVariantId model
     """
-    CREATE TABLE IF NOT EXISTS EVColId (
+    CREATE TABLE IF NOT EXISTS SectionVariantId (
         id TEXT PRIMARY KEY,
         name TEXT,
         originSectionId TEXT,
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
-    # EVCol model
+    # SectionVariantEV model
     """
-    CREATE TABLE IF NOT EXISTS EVCol (
+    CREATE TABLE IF NOT EXISTS SectionVariantEV (
         idid TEXT,
         codeInfoId TEXT,
         value TEXT,
         PRIMARY KEY (idid, codeInfoId),
-        FOREIGN KEY (idid) REFERENCES EVColId(id) ON DELETE CASCADE,
+        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
         FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
+    );
+    """,
+    # SectionVariantChildren model
+    """
+    CREATE TABLE IF NOT EXISTS SectionVariantChildren (
+        idid TEXT,
+        childId TEXT PRIMARY KEY,
+        parentId TEXT,
+        "order" INTEGER,
+        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE,
+        FOREIGN KEY (parentId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     # UIType model
@@ -220,14 +232,14 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS ParamSweep (
         idid TEXT,
         paramInfoId TEXT,
-        evColId TEXT,
+        sectionVariantId TEXT,
         "order" INTEGER,
         value TEXT,
-        PRIMARY KEY (idid, paramInfoId, evColId),
+        PRIMARY KEY (idid, paramInfoId, sectionVariantId),
         FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
         FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-        FOREIGN KEY (evColId) REFERENCES EVColId(id) ON DELETE CASCADE,
-        CHECK (paramInfoId IS NOT NULL OR evColId IS NOT NULL)
+        FOREIGN KEY (sectionVariantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
+        CHECK (paramInfoId IS NOT NULL OR sectionVariantId IS NOT NULL)
     );
     """,
 ]
