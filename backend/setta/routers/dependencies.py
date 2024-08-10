@@ -5,6 +5,10 @@ def get_dbs(request: Request):
     return request.app.state.dbs
 
 
+def get_settings_file(request: Request):
+    return request.app.state.settings_file
+
+
 def get_terminal_websockets_from_websocket(websocket: WebSocket):
     return websocket.app.state.terminal_websockets
 

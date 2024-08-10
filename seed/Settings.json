@@ -1,1 +1,18 @@
-[{ "profileName": "default" }]
+{
+  "newCardShortcut": "",
+  "newGroupShortcut": "",
+  "typeCheckShortcut": "",
+  "newProjectConfigShortcut": "",
+  "undoShortcut": "Mod + Z",
+  "redoShortcut": "Mod + Shift + Z",
+  "groupShortcut": "Mod + G",
+  "saveShortcut": "Mod + S",
+  "saveAsShortcut": "Mod + Shift + S",
+  "loadShortcut": "Mod + L",
+  "focusOnArgsFilterShortcut": "Mod + K",
+  "resetZoomShortcut": "Mod + ,",
+  "copyShortcut": "Mod + C",
+  "pasteShortcut": "Mod + V",
+  "sortingShortcut": "Mod",
+  "movingFreeShortcut": "Alt"
+}

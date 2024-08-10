@@ -7,11 +7,16 @@ from setta.utils.constants import C
 
 DEFAULT_DB_FOLDER = os.getcwd()
 DEFAULT_DB_NAME = "setta.db"
+DEFAULT_SETTINGS_NAME = "setta-settings.json"
 CONFIG_FOLDER = click.get_app_dir("setta")
 
 
 def get_default_db_path():
     return os.path.join(DEFAULT_DB_FOLDER, DEFAULT_DB_NAME)
+
+
+def get_default_settings_path():
+    return os.path.join(DEFAULT_DB_FOLDER, DEFAULT_SETTINGS_NAME)
 
 
 def get_config_path():
@@ -59,9 +64,6 @@ def delete_alias(name):
 
 def get_db_path_from_config(name):
     config = load_config()
-    if (
-        name in [C.DEFAULT_DB_ALIAS, C.DEFAULT_SETTINGS_DB_ALIAS]
-        and name not in config["databases"]
-    ):
+    if name == C.DEFAULT_DB_ALIAS and name not in config["databases"]:
         return get_default_db_path()
     return config["databases"].get(name)

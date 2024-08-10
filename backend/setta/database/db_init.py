@@ -3,12 +3,6 @@ import re
 from .seed import seed
 
 CREATE_TABLES_COMMANDS = [
-    # Settings model
-    """
-    CREATE TABLE IF NOT EXISTS Settings (
-        profileName TEXT PRIMARY KEY
-    );
-    """,
     # CodeInfo model
     """
     CREATE TABLE IF NOT EXISTS CodeInfo (
@@ -271,9 +265,7 @@ def seed_data_exist(db, tablenames):
     return True
 
 
-def maybe_create_tables_and_seed(
-    dbs, with_examples=False, with_base_ui_types=True, with_settings=True
-):
+def maybe_create_tables_and_seed(dbs, with_examples=False, with_base_ui_types=True):
     dbs.connect()
     with dbs:
         for db in dbs.values():
@@ -285,13 +277,9 @@ def maybe_create_tables_and_seed(
         do_seed_base_ui_types = with_base_ui_types and not seed_data_exist(
             dbs.default, ["UIType"]
         )
-        do_seed_settings = with_settings and not seed_data_exist(
-            dbs.settings, ["Settings"]
-        )
         seed(
             dbs,
             with_examples=do_seed_examples,
             with_base_ui_types=do_seed_base_ui_types,
-            with_settings=do_seed_settings,
         )
     dbs.disconnect()

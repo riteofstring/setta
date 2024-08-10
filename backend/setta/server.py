@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBs
+from setta.database.settings_file import SettingsFile
 from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
@@ -46,12 +47,12 @@ async def lifespan(app: FastAPI):
         C.DB_SPECS,
         C.CREATE_IF_NOT_EXISTS,
     )
+    app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
 
     maybe_create_tables_and_seed(
         app.state.dbs,
         with_examples=C.WITH_EXAMPLES,
         with_base_ui_types=True,
-        with_settings=True,
     )
 
     app.state.dbs.connect()

@@ -127,11 +127,12 @@ class DBs:
         for db_spec in db_specs:
             output.append(self.parse_one_arg(db_spec, create_if_not_exists))
 
-        for special_key in [C.DEFAULT_DB_ALIAS, C.DEFAULT_SETTINGS_DB_ALIAS]:
-            if special_key not in [x[0] for x in output]:
-                output.append((special_key, get_db_path_from_config(special_key)))
+        if C.DEFAULT_DB_ALIAS not in [x[0] for x in output]:
+            output.append(
+                (C.DEFAULT_DB_ALIAS, get_db_path_from_config(C.DEFAULT_DB_ALIAS))
+            )
 
-        return move_default_and_settings_to_beginning(output)
+        return move_default_to_beginning(output)
 
     def parse_one_arg(self, db_spec, create_if_not_exists):
         # it's an alias
@@ -200,22 +201,16 @@ class DBs:
     def default(self):
         return self[C.DEFAULT_DB_ALIAS]
 
-    @property
-    def settings(self):
-        return self[C.DEFAULT_SETTINGS_DB_ALIAS]
 
-
-def move_default_and_settings_to_beginning(x):
+def move_default_to_beginning(x):
     def custom_sort_key(item):
         if item[0] == C.DEFAULT_DB_ALIAS:
             return 0
-        elif item[0] == C.DEFAULT_SETTINGS_DB_ALIAS:
-            return 1
         else:
-            return 2
+            return 1
 
     return sorted(x, key=custom_sort_key)
 
 
 def create_dbs_with_input_as_default(path, create_if_not_exists):
-    return DBs([f"default={path}", f"settings={path}"], create_if_not_exists)
+    return DBs([f"default={path}"], create_if_not_exists)

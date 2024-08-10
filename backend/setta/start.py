@@ -13,7 +13,11 @@ from .database.db_init import maybe_create_tables_and_seed
 from .database.db_objs import create_dbs_with_input_as_default
 from .database.db_path import create_alias
 from .database.db_path import delete_alias as _delete_alias
-from .database.db_path import get_db_path_from_config, load_config
+from .database.db_path import (
+    get_db_path_from_config,
+    get_default_settings_path,
+    load_config,
+)
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
 from .utils.constants import C, load_constants, set_constants
@@ -117,16 +121,18 @@ def delete_alias(name):
 @click.option("--reload", is_flag=True)
 @click.option("--with_examples", is_flag=True)
 @click.option("--db", "-d", type=str, multiple=True, default=[])
+@click.option("--settings", "-s", type=str, default=get_default_settings_path())
 @click.option("--i", type=str, default=None, help="interactive program path")
 @click.option("--w", is_flag=True, help="create dbs it they don't exist")
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.pass_context
-def cli(ctx, reload, with_examples, db, i, w, host, port):
+def cli(ctx, reload, with_examples, db, settings, i, w, host, port):
     if ctx.invoked_subcommand is None:
         set_constants(
             with_examples=with_examples,
             db_specs=db,
+            settings_path=settings,
             i_path=i,
             create_if_not_exists=w,
             host=host,

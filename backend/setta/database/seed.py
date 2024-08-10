@@ -5,7 +5,6 @@ from setta.utils.constants import CONSTANTS_FOLDER, SEED_FOLDER
 from setta.utils.utils import get_absolute_path
 
 from .db.projects.save import save_project_details
-from .db.settings.save import save_settings
 from .db.uiTypes.save import save_ui_types
 
 
@@ -27,16 +26,8 @@ def seed_examples(dbs):
         save_project_details(dbs, data)
 
 
-def seed_settings(dbs):
-    with open(get_absolute_path(__file__, SEED_FOLDER / "Settings.json"), "r") as f:
-        data = json.load(f)
-    save_settings(dbs, data)
-
-
-def seed(dbs, with_examples=False, with_base_ui_types=False, with_settings=False):
+def seed(dbs, with_examples=False, with_base_ui_types=False):
     if with_base_ui_types:
         seed_base_ui_types(dbs)
     if with_examples:
         seed_examples(dbs)
-    if with_settings:
-        seed_settings(dbs)
