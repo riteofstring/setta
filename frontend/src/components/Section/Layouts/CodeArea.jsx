@@ -3,14 +3,14 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/useKeywordStylizer";
 import _ from "lodash";
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
 } from "requests/sections";
 import { setWaitingForLSP } from "state/actions/lsp";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useKeywordRegex } from "state/definitions";
+import { useKeywordRegex, useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 function getCompletionsFn({ sectionId }) {
@@ -29,7 +29,7 @@ function getCompletionsFn({ sectionId }) {
       column: head - cursor.from - 1,
     });
     setToNotWaiting();
-    console.log("res", res);
+    // console.log("res", res);
     if (res) {
       return {
         filter: true,
@@ -43,6 +43,8 @@ function getCompletionsFn({ sectionId }) {
 }
 
 function _CodeArea({ sectionId }) {
+  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
+  const height = useSectionInfos((x) => x.x[sectionId].size.height);
   const value = useGetSectionInfo(sectionId, "code");
   const language = useGetSectionInfo(sectionId, "codeLanguage");
   const theme = useCodeMirrorStyle();
@@ -53,16 +55,12 @@ function _CodeArea({ sectionId }) {
     paramInfoId: null,
   });
   const completionsFn = getCompletionsFn({ sectionId });
-  const extensions = useMemo(
-    () =>
-      getExtensions({
-        sectionId,
-        language,
-        completionsFn,
-        keywordStylizer,
-      }),
-    [],
-  );
+  const extensions = getExtensions({
+    sectionId,
+    language,
+    completionsFn,
+    keywordStylizer,
+  });
 
   function onChange(v) {
     setSectionInfoAttr({
@@ -76,14 +74,40 @@ function _CodeArea({ sectionId }) {
     dbCodeAreaInitializeCode({ sectionId });
   }
 
+  const wrapperRef = useRef(null);
+  const editorRef = useRef(null);
+
+  const handleCreateEditor = useCallback((view) => {
+    editorRef.current = view;
+  }, []);
+
+  const maxHeight =
+    height === "auto" || resizeEvent === "start"
+      ? undefined
+      : `${height - 40}px`;
+  const overflow = resizeEvent === "start" ? "overflow-y-auto" : "";
+
+  const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
+
+  useEffect(() => {
+    if (resizeEvent === "start") {
+      wrapperRef.current.scrollTop = editorScrollTop;
+    }
+  }, [resizeEvent]);
+
   return (
-    <article className="nodrag nowheel section-full-no-title cursor-auto overflow-auto [&_*]:!outline-0 ">
+    <article
+      ref={wrapperRef}
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow}`}
+    >
       <CodeMirror
+        maxHeight={maxHeight}
         value={value}
         theme={theme}
         extensions={extensions}
         onMouseDown={onMouseDown}
         onChange={onChange}
+        onCreateEditor={handleCreateEditor}
       />
     </article>
   );
