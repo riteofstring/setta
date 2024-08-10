@@ -1,7 +1,7 @@
-def save_code_info(dbs, codeInfo, ev_cols):
+def save_code_info(dbs, codeInfo, section_variants):
     already_saved = set()
-    for dbSource, ev_cols_for_one_db in ev_cols.items():
-        codeInfoIds = set().union(*[x["values"] for x in ev_cols_for_one_db.values()])
+    for dbSource, variants_for_one_db in section_variants.items():
+        codeInfoIds = set().union(*[x["values"] for x in variants_for_one_db.values()])
         save_code_info_to_one_db(
             dbs[dbSource],
             {k: v for k, v in codeInfo.items() if k in codeInfoIds},

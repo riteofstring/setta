@@ -144,30 +144,6 @@ def save_sections(dbs, sections):
             query_params.append({"paramSweepId": paramSweepId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
-    # delete children
-    placeholders = ", ".join(["?"] * len(sections))
-    query = f"""
-        DELETE FROM SectionChildren
-        WHERE parentId IN ({placeholders});
-    """
-    query_params = list(sections.keys())
-    db.execute(query, query_params)
-
-    # add children
-    query = """
-        INSERT INTO SectionChildren (parentId, childId, "order")
-        VALUES (:parentId, :childId, :order)
-    """
-    query_params = []
-    for s in sections.values():
-        query_params.extend(
-            [
-                {"parentId": s["id"], "childId": x, "order": i}
-                for i, x in enumerate(s["children"])
-            ]
-        )
-    db.executemany(query, query_params)
-
     query = """
         UPDATE Section
         SET paramSweepSectionId = :paramSweepSectionId

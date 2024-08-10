@@ -95,11 +95,9 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS SectionVariantChildren (
         idid TEXT,
         childId TEXT PRIMARY KEY,
-        parentId TEXT,
         "order" INTEGER,
         FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
-        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (parentId) REFERENCES Section(id) ON DELETE CASCADE
+        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
     # UIType model

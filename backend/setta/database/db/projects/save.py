@@ -1,16 +1,16 @@
 from setta.database.utils import create_new_id, generate_memorable_string
 
 from ..codeInfo.save import save_code_info
-from ..sectionVariants.save import save_ev_cols
 from ..paramSweeps.save import save_param_sweeps
 from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
+from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(dbs, p):
-    save_code_info(dbs, p["codeInfo"], p["evCols"])
-    save_ev_cols(dbs, p["evCols"])
+    save_code_info(dbs, p["codeInfo"], p["sectionVariants"])
+    save_section_variants(dbs, p["sectionVariants"])
     save_ui_types(dbs, p["uiTypes"])
     save_ui_type_cols(dbs, p["uiTypeCols"])
     save_param_sweeps(dbs, p["paramSweeps"])

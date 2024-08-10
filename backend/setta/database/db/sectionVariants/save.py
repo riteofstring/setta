@@ -1,35 +1,61 @@
-def save_ev_cols(dbs, ev_cols):
-    for dbSource, ev_cols_for_one_db in ev_cols.items():
-        save_ev_cols_to_one_db(dbs[dbSource], ev_cols_for_one_db)
+def save_section_variants(dbs, section_variants):
+    for dbSource, variants_for_one_db in section_variants.items():
+        save_section_variants_to_one_db(dbs[dbSource], variants_for_one_db)
 
 
-def save_ev_cols_to_one_db(db, ev_cols):
+def save_section_variants_to_one_db(db, section_variants):
     query = """
-        INSERT INTO EVColId (id, name)
+        INSERT INTO SectionVariantId (id, name)
         VALUES (:id, :name)
         ON CONFLICT (id)
         DO UPDATE SET name = :name
     """
 
-    query_params = [{"id": k, "name": v["name"]} for k, v in ev_cols.items()]
+    query_params = [{"id": k, "name": v["name"]} for k, v in section_variants.items()]
     db.executemany(query, query_params)
 
-    placeholders = ", ".join(["?"] * len(ev_cols))
+    # delete entered values
+    placeholders = ", ".join(["?"] * len(section_variants))
     query = f"""
-        DELETE FROM EVCol
+        DELETE FROM SectionVariantEV
         WHERE idid IN ({placeholders})
     """
-    query_params = list(ev_cols.keys())
+    query_params = list(section_variants.keys())
     db.execute(query, query_params)
 
+    # add entered values
     query = """
-        INSERT INTO EVCol (idid, codeInfoId, value)
+        INSERT INTO SectionVariantEV (idid, codeInfoId, value)
         VALUES (:idid, :codeInfoId, :value)
     """
     query_params = []
-    for idid, ev_col in ev_cols.items():
-        for code_info_id, value in ev_col["values"].items():
+    for idid, variant in section_variants.items():
+        for code_info_id, value in variant["values"].items():
             query_params.append(
                 {"idid": idid, "codeInfoId": code_info_id, "value": value}
             )
+    db.executemany(query, query_params)
+
+    # delete children
+    placeholders = ", ".join(["?"] * len(section_variants))
+    query = f"""
+        DELETE FROM SectionVariantChildren
+        WHERE idid IN ({placeholders});
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    # add children
+    query = """
+        INSERT INTO SectionVariantChildren (idid, childId, "order")
+        VALUES (:idid, :childId, :order)
+    """
+    query_params = []
+    for idid, variant in section_variants.items():
+        query_params.extend(
+            [
+                {"idid": idid, "childId": x, "order": i}
+                for i, x in enumerate(variant["children"])
+            ]
+        )
     db.executemany(query, query_params)
