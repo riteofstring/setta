@@ -65,8 +65,11 @@ export function subscribe() {
           }
         }
       }
-      return _.mapValues(state.x, (v) => v.children);
+      return output;
     },
-    (x) => useDndChildren.getState().update(x),
+    (x) => {
+      useDndChildren.getState().update(x);
+    },
+    { equalityFn: _.isEqual },
   );
 }

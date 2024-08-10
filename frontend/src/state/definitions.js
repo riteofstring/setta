@@ -45,10 +45,12 @@ export const useSectionConfigs = createProjectState(
 
 export const useSectionVariants = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
+    subscribeWithSelector(
+      immer(() =>
+        withVersion({
+          x: {},
+        }),
+      ),
     ),
   ),
 );
