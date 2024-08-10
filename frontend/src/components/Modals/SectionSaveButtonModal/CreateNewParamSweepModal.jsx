@@ -1,5 +1,6 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { initParamSweep } from "state/actions/runGroups/paramSweep";
+import { setSectionConfigAttr } from "state/actions/sectionConfigs";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useModal, useSectionInfos } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
@@ -14,7 +15,7 @@ export function CreateNewParamSweepModal({ modalType }) {
       useSectionInfos.getState().x,
       sectionId,
     );
-    setSectionInfoAttr({
+    setSectionConfigAttr({
       sectionId: forSectionId,
       attr: "paramSweepId",
       value: newId,

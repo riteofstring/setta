@@ -2,15 +2,14 @@ import { ResizableVersionsList } from "components/Utils/Resizable/ResizableVersi
 import C from "constants/constants.json";
 import { useState } from "react";
 import { setSectionConfigAttr } from "state/actions/sectionConfigs";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionConfigs, useSectionInfos } from "state/definitions";
-import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import {
   getForSectionId,
   useCurrParamSweepId,
   useForSectionId,
   useGetParamSweepNames,
 } from "state/hooks/paramSweep";
+import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function VersionList({ sectionId, sectionTypeName }) {
@@ -79,7 +78,7 @@ function ParamSweepItems({ sectionId, setNumListings }) {
   const currParamSweepId = useCurrParamSweepId(sectionId);
   const paramSweepNames = useGetParamSweepNames(forSectionId);
   function onMouseOver(id) {
-    setSectionInfoAttr({
+    setSectionConfigAttr({
       sectionId: forSectionId,
       attr: "previewParamSweepId",
       value: id,
@@ -87,7 +86,7 @@ function ParamSweepItems({ sectionId, setNumListings }) {
   }
 
   function onClick(id) {
-    setSectionInfoAttr({
+    setSectionConfigAttr({
       sectionId: forSectionId,
       attr: "paramSweepId",
       value: id,

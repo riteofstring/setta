@@ -1,14 +1,18 @@
 import _ from "lodash";
-import { useParamSweep, useSectionInfos } from "state/definitions";
+import {
+  useParamSweep,
+  useSectionConfigs,
+  useSectionInfos,
+} from "state/definitions";
 import { useGetSectionInfo } from "./sections";
 import { useGetSectionTypeConfig } from "./uiTypes";
 
 export function useParamSweepInfo(sectionId) {
   const forSectionId = useForSectionId(sectionId);
-  const paramSweepId = useSectionInfos((x) =>
+  const paramSweepId = useSectionConfigs((x) =>
     forSectionId ? x.x[forSectionId].paramSweepId : null,
   );
-  const previewParamSweepId = useSectionInfos((x) =>
+  const previewParamSweepId = useSectionConfigs((x) =>
     forSectionId ? x.x[forSectionId].previewParamSweepId : null,
   );
   const paramSweep = useParamSweep(
@@ -41,7 +45,7 @@ export function useGetParamSweepNames(sectionId) {
 
 export function useCurrParamSweepId(sectionId) {
   const forSectionId = useForSectionId(sectionId);
-  return useGetSectionInfo(forSectionId, "paramSweepId");
+  return useSectionConfigs((x) => x.x[forSectionId].paramSweepId);
 }
 
 export function useForSectionId(sectionId) {
