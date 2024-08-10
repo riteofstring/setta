@@ -146,6 +146,11 @@ export const MODAL_TYPE = {
     title: "Save Project Config As",
     buttonText: "Save As",
   },
+  SAVE_PROJECT_CONFIG_AS_WITH_REFS: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save Project Config As (With Refs)",
+    buttonText: "Save As",
+  },
   EXPORT_JSON: {
     purpose: null,
     title: "Export JSON",

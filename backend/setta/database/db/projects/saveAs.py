@@ -1,11 +1,19 @@
-from .copy import copy_project_details
+import copy
+
+from .copy import copy_project_config, copy_project_details
 from .save import save_project_details
 
 
-def save_as_new_project_config(db, project, new_config_name):
-    project_to_save = copy_project_details(
-        project, new_config_name, do_create_new_id=True
-    )
+def save_as_new_project_config(db, project, new_config_name, with_refs):
+    if not with_refs:
+        project_to_save = copy_project_details(
+            project, new_config_name, do_create_new_id=True
+        )
+    else:
+        project_to_save = copy.deepcopy(project)
+        project_to_save["projectConfig"] = copy_project_config(
+            project_to_save["projectConfig"], new_config_name, do_create_new_id=True
+        )
     save_project_details(db, project_to_save)
     return project_to_save
 

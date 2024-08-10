@@ -24,6 +24,10 @@ export function openSaveAsModal() {
   openFileMenuModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS);
 }
 
+export function openSaveAsWithRefsModal() {
+  openFileMenuModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS);
+}
+
 export function openExportJSONModal() {
   openFileMenuModal(MODAL_TYPE.EXPORT_JSON);
 }

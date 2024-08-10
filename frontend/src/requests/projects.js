@@ -43,10 +43,14 @@ export async function dbSaveProject({ project }) {
   });
 }
 
-export async function dbSaveAsNewProjectConfig({ project, newConfigName }) {
+export async function dbSaveAsNewProjectConfig({
+  project,
+  newConfigName,
+  withRefs,
+}) {
   return await post({
     address: C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG,
-    body: { project, newConfigName },
+    body: { project, newConfigName, withRefs },
   });
 }
 

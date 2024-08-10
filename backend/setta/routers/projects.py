@@ -46,6 +46,7 @@ class ProjectSaveRequest(BaseModel):
 class SaveAsNewProjectConfigRequest(BaseModel):
     project: dict
     newConfigName: str
+    withRefs: bool
 
 
 class SaveAsExistingProjectConfigRequest(BaseModel):
@@ -110,7 +111,7 @@ def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, dbs=Depends(get_dbs)
 ):
     with dbs:
-        return save_as_new_project_config(dbs, x.project, x.newConfigName)
+        return save_as_new_project_config(dbs, x.project, x.newConfigName, x.withRefs)
 
 
 @router.post(C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG)

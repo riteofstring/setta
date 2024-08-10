@@ -72,10 +72,10 @@ export async function saveProject() {
   }
 }
 
-export async function saveAsNewProjectConfig({ newConfigName }) {
+export async function saveAsNewProjectConfig({ newConfigName, withRefs }) {
   return await saveProjectAs({
     fn: dbSaveAsNewProjectConfig,
-    otherArgs: { newConfigName },
+    otherArgs: { newConfigName, withRefs },
   });
 }
 

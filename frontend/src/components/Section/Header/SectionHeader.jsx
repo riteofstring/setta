@@ -74,10 +74,7 @@ function _SectionHeader({
           />
         )}
         {/* <MinimizeButton /> */}
-        <CustomCloseButton
-          onClick={onCustomCloseButtonClick}
-          isInfo={isInfo}
-        />
+        <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
       </div>
     </header>
   );

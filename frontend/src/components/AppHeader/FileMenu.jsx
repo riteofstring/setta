@@ -10,6 +10,7 @@ import {
   openImportJSONModal,
   openLoadModal,
   openSaveAsModal,
+  openSaveAsWithRefsModal,
 } from "state/actions/modal";
 import { createAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
@@ -44,6 +45,10 @@ export function FileMenu() {
       <MenuItem onClick={openSaveAsModal} shortcut={shortcuts.saveAsShortcut}>
         <VscSaveAs />
         Save As
+      </MenuItem>
+      <MenuItem onClick={openSaveAsWithRefsModal}>
+        <VscSaveAs />
+        Save As (With Refs)
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
 

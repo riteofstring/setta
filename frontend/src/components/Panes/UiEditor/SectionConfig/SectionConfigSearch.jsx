@@ -13,9 +13,7 @@ export function SectionConfigSearch({
   vCenter = false,
 }) {
   return (
-    <div
-      className="flex h-full min-h-0 flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0"
-    >
+    <div className="flex h-full min-h-0 flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0">
       <Search onSubmit={onSearch} />
       <ScrollingArea styles="mt-4">
         <ul className="flex flex-grow flex-col gap-4">
