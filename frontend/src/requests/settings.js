@@ -7,3 +7,10 @@ export async function dbLoadSettings() {
     body: {},
   });
 }
+
+export async function dbSaveSettings(settings) {
+  return await post({
+    address: C.ROUTE_SAVE_SETTINGS,
+    body: { settings },
+  });
+}
