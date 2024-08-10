@@ -1,10 +1,14 @@
-import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
+import { zoomIdentity } from "d3-zoom";
+import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  getD3Transition,
+  getSectionRect,
+  getViewportForBounds,
+} from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import potpack from "potpack";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals } from "state/definitions";
-import { localStorageFns } from "state/hooks/localStorage";
 import { getNodes, setNodes } from "../nodeInternals";
 import { setActiveSectionIds } from "./activeSections";
 
@@ -37,14 +41,27 @@ export function setZIndices(sectionIds, incrementVersion) {
 }
 
 export function goToSection(sectionId) {
-  const [overviewWidth] = localStorageFns.overviewTrueWidth.state();
-  const { x, y, width, height } = getSectionRect(sectionId);
-  const newX = x + width / 2 - overviewWidth;
-  const newY = y + height / 2 + 100;
-  setCenter(newX, newY, {
-    zoom: 1,
-    duration: 100,
-  });
+  const rfStore = useReactFlow.getState();
+  const {
+    x: sectionX,
+    y: sectionY,
+    width: sectionWidth,
+    height: sectionHeight,
+  } = getSectionRect(sectionId);
+  const { x, y, zoom } = getViewportForBounds(
+    { x: sectionX, y: sectionY, width: sectionWidth, height: sectionHeight },
+    rfStore.width,
+    rfStore.height,
+    0,
+    1,
+  );
+
+  const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
+  rfStore.d3Zoom.transform(
+    getD3Transition(rfStore.d3Selection, 100),
+    nextTransform,
+  );
+
   setActiveSectionIds([sectionId]);
   setZIndices([sectionId]);
 }

@@ -24,8 +24,6 @@ type StoreUpdaterProps = Pick<
 >;
 
 const selector = (s: ReactFlowState) => ({
-  setMinZoom: s.setMinZoom,
-  setMaxZoom: s.setMaxZoom,
   setTranslateExtent: s.setTranslateExtent,
   reset: s.reset,
 });
@@ -65,7 +63,7 @@ const StoreUpdater = ({
   autoPanOnNodeDrag,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
-  const { setMinZoom, setMaxZoom, setTranslateExtent, reset } = useReactFlow(
+  const { setTranslateExtent, reset } = useReactFlow(
     selector,
     shallow,
   );
