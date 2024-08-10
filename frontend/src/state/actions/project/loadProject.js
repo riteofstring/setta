@@ -13,7 +13,6 @@ import { setAllOutputGroups } from "../outputs/outputGroups";
 import { setAllOutputs } from "../outputs/outputs";
 import { setAllParamSweeps } from "../runGroups/paramSweep";
 import { setAllRunGroups } from "../runGroups/runGroups";
-import { setAllSectionConfigs } from "../sectionConfigs";
 import { updateManyParamsAndCallables } from "../sections/sectionContents";
 import { setAllSectionInfos } from "../sections/sectionInfos";
 import { setAllSectionVariants } from "../sectionVariants";
@@ -58,12 +57,11 @@ export function loadProjectState({
     })),
   );
   setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
-  setAllSectionConfigs(sectionConfigs);
   setAllSectionVariants(sectionVariants);
   setAllUITypeCols({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
-  setAllSectionInfos({ sections });
+  setAllSectionInfos({ sections, sectionConfigs });
   setAllOutputs(outputs);
   setAllOutputGroups(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));

@@ -154,8 +154,7 @@ function* getProjectVariants(project) {
         const forSectionId = Object.values(project.sections).find((x) =>
           x.paramSweepIds.includes(paramSweepId),
         ).id;
-        const { variantId: sectionVariantId } =
-          project.sectionConfigs[forSectionId];
+        const { variantId: sectionVariantId } = project.sections[forSectionId];
         const dbSource = getMappedSectionDBSource(forSectionId);
         const sectionVariant =
           variant.sectionVariants[dbSource][sectionVariantId];
@@ -172,7 +171,7 @@ function* getProjectVariants(project) {
       const forSectionId = Object.values(project.sections).find((x) =>
         x.paramSweepIds.includes(paramSweepId),
       ).id;
-      variant.sectionConfigs[forSectionId].variantId = variantId;
+      variant.sections[forSectionId].variantId = variantId;
       yield variant;
     }
   }

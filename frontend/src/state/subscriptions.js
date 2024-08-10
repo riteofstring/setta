@@ -6,7 +6,6 @@ import {
   updateKeywordRegex,
 } from "state/actions/keywordRegex";
 import {
-  useSectionConfigs,
   useSectionInfos,
   useSectionVariants,
   useUITypes,
@@ -53,15 +52,12 @@ export function subscribe() {
   useSectionVariants.subscribe(
     (state) => {
       const output = {};
-      const sConfigState = useSectionConfigs.getState().x;
+      const s = useSectionInfos.getState().x;
       for (const [dbSource, variants] of Object.entries(state.x)) {
         for (const [variantId, variantInfo] of Object.entries(variants)) {
-          const sConfig = _.find(
-            sConfigState,
-            (obj) => obj.variantId === variantId,
-          );
-          if (sConfig) {
-            output[sConfig.id] = variantInfo.children;
+          const sInfo = _.find(s, (obj) => obj.variantId === variantId);
+          if (sInfo) {
+            output[sInfo.id] = variantInfo.children;
           }
         }
       }

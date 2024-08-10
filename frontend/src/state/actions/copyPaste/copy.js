@@ -4,7 +4,6 @@ import {
   useActiveSection,
   useCodeInfo,
   useNodeInternals,
-  useSectionConfigs,
   useSectionInfos,
   useSectionVariants,
   useUITypeCols,
@@ -85,9 +84,8 @@ function getCodeInfo(sections) {
 
 function getSectionVariants(sections) {
   const variantIds = [];
-  const sConfigState = useSectionConfigs.getState().x;
   for (const s of Object.values(sections)) {
-    variantIds.push(sConfigState[s.id].variantId);
+    variantIds.push(s.variantId);
     variantIds.push(...s.variantIds);
   }
   return _.pick(useSectionVariants.getState().x, variantIds);

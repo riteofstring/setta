@@ -1,7 +1,7 @@
 import _ from "lodash";
 import {
   useCodeInfo,
-  useSectionConfigs,
+  useSectionInfos,
   useSectionVariants,
   useUITypeCols,
   useUITypes,
@@ -43,7 +43,7 @@ export function initializeParam(
 }
 
 function initializeParamEnteredValue(sectionId, paramInfos, paramIdToUITypeId) {
-  const { variantId } = useSectionConfigs.getState().x[sectionId];
+  const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
   const sectionVariant = useSectionVariants.getState().x[dbSource][variantId];
   const paramIdToEv = _.mapValues(

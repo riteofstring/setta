@@ -3,8 +3,9 @@ import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { isListRoot } from "utils/sectionTypeHelpers";
 
-export function setAllSectionInfos({ sections }) {
-  useSectionInfos.setState({ x: sections });
+export function setAllSectionInfos({ sections, sectionConfigs }) {
+  const x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  useSectionInfos.setState({ x });
 }
 
 export function addSectionInfo(payload) {

@@ -1,6 +1,5 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { initParamSweep } from "state/actions/runGroups/paramSweep";
-import { setSectionConfigAttr } from "state/actions/sectionConfigs";
 import { createAdjacentSection } from "state/actions/sections/createSections";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
@@ -30,7 +29,7 @@ function addParamSweepSection(sectionId) {
 
   initParamSweep({ id: paramSweepId, name: createRandomName() });
 
-  setSectionConfigAttr({
+  setSectionInfoAttr({
     sectionId,
     attr: "paramSweepId",
     value: paramSweepId,

@@ -105,8 +105,6 @@ export function setSectionName(sectionId, name, incrementVersion) {
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-
-
 export function setSectionParentId(sectionId, parentId) {
   setSectionInfoAttr({ sectionId, attr: "parentId", value: parentId });
 }
@@ -125,4 +123,8 @@ export function toggleVersionsVisible(sectionId) {
     attr: "versionsVisible",
     newValueFn: (x) => !x,
   });
+}
+
+export function setSectionSize(sectionId, size) {
+  setSectionInfoAttr({ sectionId, attr: "size", value: size });
 }

@@ -3,11 +3,11 @@ import _ from "lodash";
 import React from "react";
 import { Tweet } from "react-twitter-widgets";
 import YouTube from "react-youtube";
-import { useSectionConfigs, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
-  const size = useSectionConfigs((x) => x.x[sectionId].size);
+  const size = useSectionInfos((x) => x.x[sectionId].size);
   const url = useSectionInfos((x) => x.x[sectionId].social);
 
   if (linkIsYouTube(url)) {

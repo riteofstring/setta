@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useSectionConfigs, useSectionToParams } from "state/definitions";
+import { useSectionInfos, useSectionToParams } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
 import {
@@ -44,7 +44,7 @@ export function deleteKwarg(payload) {
   } = payload;
   let { kwargId = "" } = payload;
   const { uiTypeColId } = getSectionInfo(sectionId);
-  const { variantId } = useSectionConfigs.getState().x[sectionId];
+  const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
   parentId = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
   if (deleteLast) {

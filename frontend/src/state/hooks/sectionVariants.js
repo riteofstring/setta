@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useSectionConfigs, useSectionVariants } from "state/definitions";
+import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { useGetSectionInfo, useMappedSectionDBSource } from "./sections";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
@@ -37,7 +37,8 @@ export function useSectionEnteredValues(sectionId) {
 
 function useSectionVariantMetadataIds(sectionId) {
   const dbSource = useMappedSectionDBSource(sectionId);
-  const { variantId, previewVariantId } =
-    useSectionConfigs.getState().x[sectionId];
+  const { variantId, previewVariantId } = useSectionInfos(
+    (x) => x.x[sectionId],
+  );
   return { dbSource, variantId, previewVariantId };
 }

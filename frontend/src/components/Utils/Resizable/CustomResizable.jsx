@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { useDndMode } from "forks/dnd-kit/dndState";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
-import { useSectionConfigs } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
@@ -46,7 +46,7 @@ function CustomResizableCore({
 }) {
   const { isSorting, isMovingFree } = useDndMode();
   const sizeMode = useSizeMode(sectionId);
-  const size = useSectionConfigs((x) => x.x[sectionId].size);
+  const size = useSectionInfos((x) => x.x[sectionId].size);
   const aspectRatio = useAspectRatio(sectionId);
 
   function onResizeStart() {

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { setSectionSize } from "state/actions/sectionConfigs";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setSectionSize } from "state/actions/sections/setters";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { linkIsTwitter, youtubeSectionAspectRatio } from "state/hooks/social";
 

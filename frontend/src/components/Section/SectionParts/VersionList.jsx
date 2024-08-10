@@ -1,8 +1,8 @@
 import { ResizableVersionsList } from "components/Utils/Resizable/ResizableVersionsList";
 import C from "constants/constants.json";
 import { useState } from "react";
-import { setSectionConfigAttr } from "state/actions/sectionConfigs";
-import { useSectionConfigs, useSectionInfos } from "state/definitions";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useSectionInfos } from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -14,8 +14,8 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function VersionList({ sectionId, sectionTypeName }) {
   function onMouseLeave() {
-    setSectionConfigAttr({ sectionId, attr: "previewVariantId", value: null });
-    setSectionConfigAttr({
+    setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: null });
+    setSectionInfoAttr({
       sectionId: getForSectionId(useSectionInfos.getState().x, sectionId),
       attr: "previewParamSweepId",
       value: null,
@@ -46,15 +46,15 @@ export function VersionList({ sectionId, sectionTypeName }) {
 }
 
 function EVItems({ sectionId, setNumListings }) {
-  const currVariantId = useSectionConfigs((x) => x.x[sectionId].variantId);
+  const currVariantId = useSectionInfos((x) => x.x[sectionId].variantId);
   const sectionVariantNames = useGetSectionVariantNames(sectionId);
 
   function onMouseOver(id) {
-    setSectionConfigAttr({ sectionId, attr: "previewVariantId", value: id });
+    setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
   }
 
   function onClick(id) {
-    setSectionConfigAttr({ sectionId, attr: "variantId", value: id });
+    setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
   }
 
   useDeepCompareEffect(() => {
@@ -78,7 +78,7 @@ function ParamSweepItems({ sectionId, setNumListings }) {
   const currParamSweepId = useCurrParamSweepId(sectionId);
   const paramSweepNames = useGetParamSweepNames(forSectionId);
   function onMouseOver(id) {
-    setSectionConfigAttr({
+    setSectionInfoAttr({
       sectionId: forSectionId,
       attr: "previewParamSweepId",
       value: id,
@@ -86,7 +86,7 @@ function ParamSweepItems({ sectionId, setNumListings }) {
   }
 
   function onClick(id) {
-    setSectionConfigAttr({
+    setSectionInfoAttr({
       sectionId: forSectionId,
       attr: "paramSweepId",
       value: id,

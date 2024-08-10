@@ -1,6 +1,6 @@
 import _ from "lodash";
 import {
-  useSectionConfigs,
+  useSectionInfos,
   useSectionVariants,
   useUITypes,
 } from "state/definitions";
@@ -96,7 +96,7 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 }
 
 function getParamEV(sectionId, paramInfoId) {
-  const { variantId } = useSectionConfigs.getState().x[sectionId];
+  const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
   return useSectionVariants.getState().x[dbSource][variantId].values[
     paramInfoId
@@ -108,7 +108,7 @@ export function setParamEnteredValue({
   value,
   incrementVersion = false,
 }) {
-  const { variantId } = useSectionConfigs.getState().x[sectionId];
+  const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
   setEnteredValue({ dbSource, collectionId: variantId, paramInfoId, value });
   if (incrementVersion) {
