@@ -1,29 +1,9 @@
-def save_section_variants(dbs, sections, section_variants):
+def save_section_variants(dbs, section_variants):
     for dbSource, variants_for_one_db in section_variants.items():
-        save_section_variants_to_one_db(dbs[dbSource], sections, variants_for_one_db)
+        save_section_variants_to_one_db(dbs[dbSource], variants_for_one_db)
 
 
-def save_section_variants_to_one_db(db, sections, section_variants):
-    ids = [s["id"] for s in sections.values()]
-    placeholders = ", ".join(["?"] * len(ids))
-    query = f"""
-        UPDATE SectionVariantId
-        SET originSectionId = null
-        WHERE originSectionId IN ({placeholders})
-    """
-    db.execute(query, ids)
-
-    query = """
-        UPDATE SectionVariantId
-        SET originSectionId = :sectionId
-        WHERE id = :variantId
-    """
-    query_params = []
-    for s in sections.values():
-        for variantId in s["variantIds"]:
-            query_params.append({"variantId": variantId, "sectionId": s["id"]})
-    db.executemany(query, query_params)
-
+def save_section_variants_to_one_db(db, section_variants):
     query = """
         INSERT INTO SectionVariantId (id, name)
         VALUES (:id, :name)

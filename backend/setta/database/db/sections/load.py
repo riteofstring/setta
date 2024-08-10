@@ -1,16 +1,17 @@
+import copy
 import itertools
+from collections import defaultdict
 
 from setta.database.utils import get_children_recursively
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
-import copy
-from collections import defaultdict
+
 
 def load_sections(dbs, ids):
     all_ids = get_section_ids(dbs, ids)
-    
+
     db = dbs.default
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""

@@ -16,4 +16,16 @@ def load_section_variants(db, ids):
         if row["value"] is not None:
             output[id]["values"][row["codeInfoId"]] = row["value"]
 
+    placeholders = ", ".join(["?"] * len(output))
+    query = f"""
+        SELECT SectionVariantId.id, SectionVariantChildren.childId, SectionVariantChildren."order"
+        FROM SectionVariantId
+        JOIN SectionVariantChildren
+        ON SectionVariantId.id = SectionVariantChildren.idid
+        WHERE SectionVariantId.id in ({placeholders})
+        ORDER BY SectionVariantChildren."order"
+    """
+    db.execute(query, ids)
+    for row in db.fetchall():
+        output[row["id"]]["children"].append(row["childId"])
     return output

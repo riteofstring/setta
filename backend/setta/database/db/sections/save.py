@@ -63,6 +63,24 @@ def save_sections(dbs, sections):
     ids = [s["id"] for s in sections.values()]
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
+        UPDATE SectionVariantId
+        SET originSectionId = null
+        WHERE originSectionId IN ({placeholders})
+    """
+    db.execute(query, ids)
+
+    query = """
+        UPDATE SectionVariantId
+        SET originSectionId = :sectionId
+        WHERE id = :variantId
+    """
+    query_params = []
+    for s in sections.values():
+        for variantId in s["variantIds"]:
+            query_params.append({"variantId": variantId, "sectionId": s["id"]})
+    db.executemany(query, query_params)
+
+    query = f"""
         UPDATE UIType
         SET asNonPresetForSectionId = null
         WHERE asNonPresetForSectionId IN ({placeholders})

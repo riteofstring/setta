@@ -24,6 +24,7 @@ import { setProjectConfig } from "./projectConfig";
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
   if (res.status === 200) {
+    console.log(res.data)
     return loadProjectState(res.data);
   } else {
     return false;
