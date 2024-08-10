@@ -2,8 +2,6 @@ import copy
 import itertools
 from collections import defaultdict
 
-from setta.database.utils import get_children_recursively
-
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
@@ -110,10 +108,6 @@ def load_sections(dbs, ids):
     }
 
 
-def convert_size(x):
-    return "auto" if x == -1 else x
-
-
 # TODO: try using a recursive sql query for this
 def get_section_ids(dbs, top_level_ids):
     section_id_to_variants = defaultdict(list)
@@ -147,3 +141,34 @@ def get_section_ids(dbs, top_level_ids):
                     output.append(c)
 
     return output
+
+
+def load_section_configs(dbs, project_config_id):
+    db = dbs.default
+    query = f"""SELECT sectionId, width, height, variantId, paramSweepId, selectedItemId, versionsHeight, versionsVisible
+        FROM SectionConfig
+        WHERE projectConfigId = :projectConfigId
+    """
+    db.execute(query, {"projectConfigId": project_config_id})
+
+    output = {}
+    for row in db.fetchall():
+        row = dict(row)
+        output[row["sectionId"]] = {
+            "id": row["sectionId"],
+            "size": {
+                "width": convert_size(row["width"]),
+                "height": convert_size(row["height"]),
+            },
+            "variantId": row["variantId"],
+            "paramSweepId": row["paramSweepId"],
+            "selectedItem": row["selectedItemId"],
+            "versionsHeight": row["versionsHeight"],
+            "versionsVisible": row["versionsVisible"],
+        }
+
+    return output
+
+
+def convert_size(x):
+    return "auto" if x == -1 else x

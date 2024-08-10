@@ -2,7 +2,7 @@ from setta.database.utils import aggregate_results
 
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
-from ..sections.load import load_sections
+from ..sections.load import load_section_configs, load_sections
 
 
 def load_all_project_config_metadata(dbs):
@@ -76,6 +76,7 @@ def load_project_config(dbs, project_config_name):
     projectConfig = load_project_config_metadata(dbs, project_config_name)
     runGroups = load_run_groups(dbs, projectConfig["id"])
     sections_data = load_sections(dbs, list(projectConfig["children"].keys()))
+    sectionConfigs = load_section_configs(dbs, projectConfig["id"])
     sections = sections_data["sections"]
     sectionVariants = sections_data["sectionVariants"]
     uiTypeCols = sections_data["uiTypeCols"]
@@ -86,6 +87,7 @@ def load_project_config(dbs, project_config_name):
     return {
         "projectConfig": projectConfig,
         "sections": sections,
+        "sectionConfigs": sectionConfigs,
         "sectionVariants": sectionVariants,
         "uiTypes": uiTypes,
         "uiTypeCols": uiTypeCols,
