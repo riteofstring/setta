@@ -117,3 +117,9 @@ export function setParamEnteredValue({
   maybeIncrementProjectStateVersion(incrementVersion);
   debouncedRequestTypeCheck();
 }
+
+export function getSectionChildren(sectionId) {
+  const { variantId } = useSectionInfos.getState().x[sectionId];
+  const dbSource = getMappedSectionDBSource(sectionId);
+  return useSectionVariants.getState().x[dbSource][variantId].children;
+}

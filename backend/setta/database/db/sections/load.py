@@ -8,7 +8,7 @@ from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
 def load_sections(dbs, ids):
-    all_ids = get_section_ids(dbs, ids)
+    all_ids, child_to_parent_id = get_section_ids(dbs, ids)
 
     db = dbs.default
     placeholders = ", ".join(["?"] * len(all_ids))
@@ -63,6 +63,7 @@ def load_sections(dbs, ids):
         outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
+            "parentId": child_to_parent_id.get(v["id"], None),
             "outputGroup": outputGroup,
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
             "nonPresetUITypeIds": (
@@ -126,6 +127,7 @@ def get_section_ids(dbs, top_level_ids):
 
     ids = copy.deepcopy(top_level_ids)
     output = copy.deepcopy(top_level_ids)
+    child_to_parent_id = {}
     visited = set()
 
     while len(ids) > 0:
@@ -138,9 +140,10 @@ def get_section_ids(dbs, top_level_ids):
                 if c not in visited:
                     ids.append(c)
                     output.append(c)
+                    child_to_parent_id[c] = id
         visited.add(id)
 
-    return output
+    return output, child_to_parent_id
 
 
 def load_section_configs(dbs, project_config_id):

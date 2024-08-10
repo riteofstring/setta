@@ -11,6 +11,7 @@ import {
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { getSectionChildren } from "./sectionVariants";
 
 export function updateKeywordRegex(idsToNames = null) {
   let x = idsToNames;
@@ -83,7 +84,7 @@ function setFullChildrenNamesForRegex(
   parentName,
   parentLengths,
 ) {
-  for (const c of sectionState[sectionId].children) {
+  for (const c of getSectionChildren(sectionId)) {
     const subType = getSectionType(c).config.subType;
     const name = sectionIdsToNames[c];
     const currComponentName = subType === C.LIST ? name : `["${name}"]`;
