@@ -1,7 +1,7 @@
 import _ from "lodash";
 import {
   useCodeInfo,
-  useEVCols,
+  useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -11,7 +11,7 @@ import {
   getMappedSectionDBSource,
   getSectionInfo,
 } from "../getters/sectionInfo";
-import { initManyEnteredValues } from "./evCols";
+import { initManyEnteredValues } from "./sectionVariants";
 import { setManyParamUITypeIds } from "./uiTypes/uiTypeCols";
 
 export function initializeChildParams({
@@ -44,7 +44,7 @@ export function initializeParam(
 function initializeParamEnteredValue(sectionId, paramInfos, paramIdToUITypeId) {
   const { evColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  const evCol = useEVCols.getState().x[dbSource][evColId];
+  const evCol = useSectionVariants.getState().x[dbSource][evColId];
   const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
 
   const uiTypeState = useUITypes.getState();

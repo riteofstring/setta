@@ -15,8 +15,8 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { useCodeInfo, useEVCols } from "state/definitions";
-import { useGetEVColNames } from "state/hooks/ev";
+import { useCodeInfo, useSectionVariants } from "state/definitions";
+import { useGetSectionVariantNames } from "state/hooks/ev";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
 
@@ -175,7 +175,7 @@ function ArgItem({
 
 function ShowEVCol({ forSectionId, objInfoId, evColId }) {
   const dbSource = useMappedSectionDBSource(forSectionId);
-  const evCol = useEVCols((x) => x.x[dbSource][evColId]);
+  const evCol = useSectionVariants((x) => x.x[dbSource][evColId]);
   const paramsWithValues = useCodeInfo((x) => {
     const output = [];
     for (const c of x.x[objInfoId].children) {
@@ -249,7 +249,7 @@ function ParamCombobox({
     return output;
   }, _.isEqual);
 
-  const evCols = useGetEVColNames(forSectionId).filter(
+  const evCols = useGetSectionVariantNames(forSectionId).filter(
     (x) => evColId === x.id || !alreadySelected.includes(x.id),
   );
 

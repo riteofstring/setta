@@ -1,6 +1,6 @@
 import { useUITypeCols } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
-import { convertValue } from "../evCols";
+import { convertValue } from "../sectionVariants";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export function setParamUITypeId({

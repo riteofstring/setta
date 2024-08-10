@@ -3,7 +3,7 @@ import _ from "lodash";
 import {
   useActiveSection,
   useCodeInfo,
-  useEVCols,
+  useSectionVariants,
   useNodeInternals,
   useSectionInfos,
   useUITypeCols,
@@ -88,7 +88,7 @@ function getEVCols(sections) {
     evColIds.push(s.evColId);
     evColIds.push(...s.evColIds);
   }
-  return _.pick(useEVCols.getState().x, evColIds);
+  return _.pick(useSectionVariants.getState().x, evColIds);
 }
 
 function getUITypeCols(sections) {

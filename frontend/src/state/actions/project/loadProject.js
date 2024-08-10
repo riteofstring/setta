@@ -8,7 +8,7 @@ import {
   setDbSourceMapping,
 } from "utils/constants";
 import { setAllCodeInfo } from "../codeInfo";
-import { setAllEVCols } from "../evCols";
+import { setAllSectionVariants } from "../sectionVariants";
 import { setNodes } from "../nodeInternals";
 import { setAllOutputGroups } from "../outputs/outputGroups";
 import { setAllOutputs } from "../outputs/outputs";
@@ -35,7 +35,8 @@ export function loadProjectState({
   projectConfig,
   codeInfo,
   sections,
-  evCols,
+  sectionConfigs,
+  sectionVariants,
   uiTypes,
   uiTypeCols,
   paramSweeps,
@@ -56,7 +57,7 @@ export function loadProjectState({
     })),
   );
   setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
-  setAllEVCols(evCols);
+  setAllSectionVariants(sectionVariants);
   setAllUITypeCols({ uiTypeCols });
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);

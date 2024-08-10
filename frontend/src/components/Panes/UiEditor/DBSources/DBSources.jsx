@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { useState } from "react";
-import { duplicateDbSource } from "state/actions/evCols";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { duplicateDbSource } from "state/actions/sectionVariants";
 import { useSectionDBSource } from "state/hooks/sections";
 
 export function DBSources({ sectionId }) {
@@ -14,7 +14,7 @@ export function DBSources({ sectionId }) {
 
   function onBlur() {
     setSectionInfoAttr({ sectionId, attr: "dbSource", value: localVal });
-    // update evCol dbsource params if necessary
+    // update sectionVariant dbsource params if necessary
     duplicateDbSource({
       oldDbSource: C.DEFAULT_DB_ALIAS,
       newDbSource: localVal,

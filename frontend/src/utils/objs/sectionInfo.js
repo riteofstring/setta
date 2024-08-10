@@ -21,7 +21,7 @@ export function newSectionInfo({
   description = "",
   versionsHeight = "auto",
   versionsVisible = false,
-  evColIds = [],
+  variantIds = [],
   paramSweepIds = [],
   paramSweepSectionId = null,
   nonPresetUITypeIds = [],
@@ -33,7 +33,7 @@ export function newSectionInfo({
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _evColId = maybeNewId(evColId);
-  const _evColIds = [...evColIds, _evColId];
+  const _variantIds = [...variantIds, _evColId];
 
   return {
     id: maybeNewId(id),
@@ -55,7 +55,7 @@ export function newSectionInfo({
     versionsVisible,
     code,
     codeLanguage,
-    evColIds: _evColIds,
+    variantIds: _variantIds,
     paramSweepIds,
     paramSweepSectionId,
     nonPresetUITypeIds,

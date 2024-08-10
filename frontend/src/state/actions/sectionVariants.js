@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useEVCols, useUITypes } from "state/definitions";
+import { useSectionVariants, useUITypes } from "state/definitions";
 import { createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import {
@@ -11,19 +11,19 @@ import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
 import { varControlUpdate } from "./varControl";
 
-export function setAllEVCols(x) {
-  useEVCols.setState({ x });
+export function setAllSectionVariants(x) {
+  useSectionVariants.setState({ x });
 }
 
-export function duplicateEvCol({ dbSource, id, newId, newName }) {
-  useEVCols.setState((state) => {
+export function duplicateSectionVariant({ dbSource, id, newId, newName }) {
+  useSectionVariants.setState((state) => {
     const dbSlice = state.x[dbSource];
     dbSlice[newId] = _.cloneDeep(dbSlice[id]);
     dbSlice[newId].name = newName;
   });
 }
 export function duplicateDbSource({ oldDbSource, newDbSource }) {
-  useEVCols.setState((state) => {
+  useSectionVariants.setState((state) => {
     if (!(newDbSource in state.x)) {
       return;
     }
@@ -36,13 +36,14 @@ export function duplicateDbSource({ oldDbSource, newDbSource }) {
     }
   });
 }
-export function initManyEvColIds({ dbSource, collectionIds }) {
-  useEVCols.setState((state) => {
+export function initManySectionVariantIds({ dbSource, collectionIds }) {
+  useSectionVariants.setState((state) => {
     _.forEach(collectionIds, (id) => {
       initValue(state.x, dbSource, {});
       initValue(state.x[dbSource], id, {
         name: createRandomName(),
         values: {},
+        children: [],
       });
     });
   });
@@ -52,7 +53,7 @@ export function initManyEnteredValues({
   collectionId,
   paramIdsToUITypes,
 }) {
-  useEVCols.setState((state) => {
+  useSectionVariants.setState((state) => {
     _.forEach(paramIdsToUITypes, (uiType, id) => {
       state.x[dbSource][collectionId].values[id] = newEV(uiType);
     });
@@ -64,21 +65,21 @@ export function setEnteredValue({
   paramInfoId,
   value,
 }) {
-  useEVCols.setState((state) => {
+  useSectionVariants.setState((state) => {
     state.x[dbSource][collectionId].values[paramInfoId] = value;
   });
 }
-export function deleteParamInfoFromEVCol({ dbSource, evColId, ids }) {
-  useEVCols.setState((state) => {
+export function deleteParamInfoFromSectionVariant({ dbSource, evColId, ids }) {
+  useSectionVariants.setState((state) => {
     state.x[dbSource][evColId].values = _.omit(
       state.x[dbSource][evColId].values,
       ids,
     );
   });
 }
-export function updateEVCols({ evCols }) {
-  useEVCols.setState((state) => {
-    state.x = { ...state.x, ...evCols };
+export function updateSectionVariants({ sectionVariants }) {
+  useSectionVariants.setState((state) => {
+    state.x = { ...state.x, ...sectionVariants };
   });
 }
 
@@ -92,7 +93,7 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 function getParamEV(sectionId, paramInfoId) {
   const { evColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  return useEVCols.getState().x[dbSource][evColId].values[paramInfoId];
+  return useSectionVariants.getState().x[dbSource][evColId].values[paramInfoId];
 }
 export function setParamEnteredValue({
   sectionId,

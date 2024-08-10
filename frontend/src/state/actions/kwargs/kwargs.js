@@ -9,7 +9,7 @@ import {
   getSectionTypeConfig,
 } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
-import { deleteParamInfoFromEVCol } from "../evCols";
+import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { initializeParam } from "../initializeParam";
 import { updateParams } from "../sections/sectionContents";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
@@ -55,7 +55,7 @@ export function deleteKwarg(payload) {
     kwargId = kwargIds[numKwargs - 1];
   }
   deleteCodeInfo({ ids: [kwargId], parent: parentId });
-  deleteParamInfoFromEVCol({ dbSource, evColId, ids: [kwargId] });
+  deleteParamInfoFromSectionVariant({ dbSource, evColId, ids: [kwargId] });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids: [kwargId] });
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);

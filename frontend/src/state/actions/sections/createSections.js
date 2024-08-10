@@ -24,7 +24,7 @@ import {
   getSectionTypeConfig,
 } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
-import { initManyEvColIds } from "../evCols";
+import { initManySectionVariantIds } from "../sectionVariants";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { addSectionInfo } from "./sectionInfos";
@@ -152,7 +152,7 @@ function addSectionsToState(sectionInfos, position) {
 
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
-  initManyEvColIds({
+  initManySectionVariantIds({
     dbSource: C.DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.evColId),
   });

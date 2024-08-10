@@ -7,7 +7,7 @@ import {
 } from "requests/projects";
 import {
   useCodeInfo,
-  useEVCols,
+  useSectionVariants,
   useNodeInternals,
   useParamSweep,
   useRunGroups,
@@ -32,7 +32,7 @@ export function getProjectData() {
   }
   projectConfig.children = children;
 
-  const evCols = useEVCols.getState().x;
+  const evCols = useSectionVariants.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useUITypeCols.getState().y;
   const paramSweeps = useParamSweep.getState().x;

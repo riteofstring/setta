@@ -4,7 +4,7 @@ import { setParamEnteredValue } from "state/actions/evCols";
 import { setSelectedItem } from "state/actions/sections/setters";
 import {
   useCodeInfo,
-  useEVCols,
+  useSectionVariants,
   useSectionInfos,
   useSectionToParams,
 } from "state/definitions";
@@ -60,7 +60,7 @@ function niceState() {
     }
     if (sectionType === C.GLOBAL_VARIABLES) {
       for (const p of useSectionToParams.getState().params[v.id]) {
-        output[p.name] = useEVCols.getState().x[v.evColId].values[p.id];
+        output[p.name] = useSectionVariants.getState().x[v.evColId].values[p.id];
       }
     } else {
       output[v.name] = v.selectedItem

@@ -2,7 +2,7 @@ import { addNodes } from "state/actions/nodeInternals";
 import { updateManyParamsAndCallables } from "state/actions/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { addCodeInfoBatch } from "../codeInfo";
-import { updateEVCols } from "../evCols";
+import { updateSectionVariants } from "../sectionVariants";
 import { updateUITypeCols } from "../uiTypes/uiTypeCols";
 import { updateUITypes } from "../uiTypes/uiTypes";
 import { updateSections } from "./sectionInfos";
@@ -10,7 +10,7 @@ import { updateSections } from "./sectionInfos";
 export function loadSectionIntoState({
   sections,
   uiTypes,
-  evCols,
+  sectionVariants,
   uiTypeCols,
   codeInfo,
   relativePositions,
@@ -29,7 +29,7 @@ export function loadSectionIntoState({
   }
 
   updateUITypes(uiTypes);
-  updateEVCols({ evCols });
+  updateSectionVariants({ sectionVariants });
   updateUITypeCols({ uiTypeCols });
   addCodeInfoBatch(codeInfo);
   updateSections(sections);

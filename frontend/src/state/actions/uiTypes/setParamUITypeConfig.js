@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import {
   useCodeInfo,
-  useEVCols,
+  useSectionVariants,
   useSectionInfos,
   useUITypeCols,
   useUITypes,
@@ -12,7 +12,7 @@ import {
   getSectionInfo,
 } from "state/getters/sectionInfo";
 import { getValueForUIType } from "utils/objs/ev";
-import { setEnteredValue } from "../evCols";
+import { setEnteredValue } from "../sectionVariants";
 import { maybeCloneUIType } from "./cloneUITypes";
 import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
@@ -88,7 +88,7 @@ function updateEVs(uiTypeId, configName) {
 
 function _updateEVs(uiType) {
   const uState = useUITypeCols.getState();
-  const eState = useEVCols.getState();
+  const eState = useSectionVariants.getState();
   for (const [colId, col] of Object.entries(uState.y)) {
     const paramsWithUITypeId = new Set();
     for (const [pid, p] of Object.entries(col)) {

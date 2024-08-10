@@ -3,7 +3,7 @@ import C from "constants/constants.json";
 import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { useGetEVColNames } from "state/hooks/ev";
+import { useGetSectionVariantNames } from "state/hooks/ev";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -48,7 +48,7 @@ export function VersionList({ sectionId, sectionTypeName }) {
 
 function EVItems({ sectionId, setNumListings }) {
   const currEVColId = useGetSectionInfo(sectionId, "evColId");
-  const evColNames = useGetEVColNames(sectionId);
+  const evColNames = useGetSectionVariantNames(sectionId);
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewEVColId", value: id });

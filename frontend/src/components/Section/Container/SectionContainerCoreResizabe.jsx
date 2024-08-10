@@ -3,7 +3,7 @@ import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
 import { TbVersions } from "react-icons/tb";
 import { useSectionHasMultipleParamSweeps } from "state/hooks/paramSweep";
-import { useSectionHasMultipleEVCols } from "state/hooks/sections";
+import { useSectionHasMultipleVariants } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
@@ -30,7 +30,7 @@ export function SectionContainerCoreResizable({
 }) {
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === C.INFO;
-  const hasEVVersions = useSectionHasMultipleEVCols(sectionId);
+  const hasEVVersions = useSectionHasMultipleVariants(sectionId);
   const hasParamSweepVersions = useSectionHasMultipleParamSweeps(sectionId);
   const hasVersions =
     (sectionTypeName === C.PARAM_SWEEP && hasParamSweepVersions) ||
