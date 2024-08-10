@@ -40,12 +40,6 @@ export function setSectionInfoAttr({
   });
 }
 
-export function setSectionChildren({ sectionId, newStateFn }) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].children = newStateFn(state.x[sectionId].children);
-  });
-}
-
 export function setSectionChildrenNames({ sectionId, sectionType }) {
   useSectionInfos.setState((state) => {
     if (isListRoot(sectionType.type)) {

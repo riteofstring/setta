@@ -15,20 +15,18 @@ import {
 } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
+import { setSectionVariantChildren } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
-import {
-  setSectionChildren,
-  setSectionChildrenNames,
-  setSectionInfoAttr,
-} from "./sectionInfos";
+import { setSectionInfoAttr } from "./sectionInfos";
 
 export function setSectionChildrenAndNames(sectionId, newStateFn) {
-  setSectionChildren({
+  setSectionVariantChildren({
     sectionId,
     newStateFn,
   });
   const sectionType = getSectionType(sectionId);
-  setSectionChildrenNames({ sectionId, sectionType });
+  // TODO: uncomment this line
+  // setSectionChildrenNames({ sectionId, sectionType });
 }
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {

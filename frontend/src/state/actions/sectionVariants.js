@@ -96,8 +96,8 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 }
 
 function getParamEV(sectionId, paramInfoId) {
-  const { variantId } = useSectionInfos.getState().x[sectionId];
-  const dbSource = getMappedSectionDBSource(sectionId);
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
   return useSectionVariants.getState().x[dbSource][variantId].values[
     paramInfoId
   ];
@@ -108,8 +108,8 @@ export function setParamEnteredValue({
   value,
   incrementVersion = false,
 }) {
-  const { variantId } = useSectionInfos.getState().x[sectionId];
-  const dbSource = getMappedSectionDBSource(sectionId);
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
   setEnteredValue({ dbSource, collectionId: variantId, paramInfoId, value });
   if (incrementVersion) {
     varControlUpdate();
@@ -119,7 +119,23 @@ export function setParamEnteredValue({
 }
 
 export function getSectionChildren(sectionId) {
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
+  return useSectionVariants.getState().x[dbSource][variantId].children;
+}
+
+function getSectionVariantIdAndMappedDBSource(sectionId) {
   const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
-  return useSectionVariants.getState().x[dbSource][variantId].children;
+  return { variantId, dbSource };
+}
+
+export function setSectionVariantChildren({ sectionId, newStateFn }) {
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
+  useSectionVariants.setState((state) => {
+    state.x[dbSource][variantId].children = newStateFn(
+      state.x[dbSource][variantId].children,
+    );
+  });
 }
