@@ -10,7 +10,11 @@ import {
 } from "requests/sections";
 import { setWaitingForLSP } from "state/actions/lsp";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useKeywordRegex, useSectionInfos } from "state/definitions";
+import {
+  useKeywordRegex,
+  useSectionConfigs,
+  useSectionInfos,
+} from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 function getCompletionsFn({ sectionId }) {
@@ -44,7 +48,7 @@ function getCompletionsFn({ sectionId }) {
 
 function _CodeArea({ sectionId }) {
   const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
-  const height = useSectionInfos((x) => x.x[sectionId].size.height);
+  const height = useSectionConfigs((x) => x.x[sectionId].size.height);
   const value = useGetSectionInfo(sectionId, "code");
   const language = useGetSectionInfo(sectionId, "codeLanguage");
   const theme = useCodeMirrorStyle();

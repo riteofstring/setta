@@ -1,12 +1,13 @@
 import _ from "lodash";
-import { useSectionVariants } from "state/definitions";
+import { useSectionConfigs, useSectionVariants } from "state/definitions";
 import { useGetSectionInfo, useMappedSectionDBSource } from "./sections";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
-  const { dbSource, evColId, previewEVColId } = useEVColMetadataIds(sectionId);
+  const { dbSource, variantId, previewVariantId } =
+    useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (dbSource in x.x) {
-      return x.x[dbSource][previewEVColId ?? evColId].values[paramInfoId];
+      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId];
     }
     return "";
   });
@@ -24,18 +25,19 @@ export function useGetSectionVariantNames(sectionId) {
 }
 
 export function useSectionEnteredValues(sectionId) {
-  const { dbSource, evColId, previewEVColId } = useEVColMetadataIds(sectionId);
+  const { dbSource, variantId, previewVariantId } =
+    useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (dbSource in x.x) {
-      return Object.values(x.x[dbSource][previewEVColId ?? evColId].values);
+      return Object.values(x.x[dbSource][previewVariantId ?? variantId].values);
     }
     return [];
   }, _.isEqual);
 }
 
-function useEVColMetadataIds(sectionId) {
+function useSectionVariantMetadataIds(sectionId) {
   const dbSource = useMappedSectionDBSource(sectionId);
-  const evColId = useGetSectionInfo(sectionId, "evColId");
-  const previewEVColId = useGetSectionInfo(sectionId, "previewEVColId");
-  return { dbSource, evColId, previewEVColId };
+  const { variantId, previewVariantId } =
+    useSectionConfigs.getState().x[sectionId];
+  return { dbSource, variantId, previewVariantId };
 }

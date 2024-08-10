@@ -1,11 +1,12 @@
 import _ from "lodash";
-import { useSectionVariants, useUITypes } from "state/definitions";
+import {
+  useSectionConfigs,
+  useSectionVariants,
+  useUITypes,
+} from "state/definitions";
 import { createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
-import {
-  getMappedSectionDBSource,
-  getSectionInfo,
-} from "../getters/sectionInfo";
+import { getMappedSectionDBSource } from "../getters/sectionInfo";
 import { initValue } from "../utils";
 import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
@@ -29,9 +30,9 @@ export function duplicateDbSource({ oldDbSource, newDbSource }) {
     }
     const oldDb = state.x[oldDbSource];
     const newDb = state.x[newDbSource];
-    for (const evColId of Object.keys(oldDb)) {
-      if (!(evColId in newDb)) {
-        newDb[evColId] = _.cloneDeep(oldDb[evColId]);
+    for (const variantId of Object.keys(oldDb)) {
+      if (!(variantId in newDb)) {
+        newDb[variantId] = _.cloneDeep(oldDb[variantId]);
       }
     }
   });
@@ -69,10 +70,14 @@ export function setEnteredValue({
     state.x[dbSource][collectionId].values[paramInfoId] = value;
   });
 }
-export function deleteParamInfoFromSectionVariant({ dbSource, evColId, ids }) {
+export function deleteParamInfoFromSectionVariant({
+  dbSource,
+  variantId,
+  ids,
+}) {
   useSectionVariants.setState((state) => {
-    state.x[dbSource][evColId].values = _.omit(
-      state.x[dbSource][evColId].values,
+    state.x[dbSource][variantId].values = _.omit(
+      state.x[dbSource][variantId].values,
       ids,
     );
   });
@@ -91,9 +96,11 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
 }
 
 function getParamEV(sectionId, paramInfoId) {
-  const { evColId } = getSectionInfo(sectionId);
+  const { variantId } = useSectionConfigs.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
-  return useSectionVariants.getState().x[dbSource][evColId].values[paramInfoId];
+  return useSectionVariants.getState().x[dbSource][variantId].values[
+    paramInfoId
+  ];
 }
 export function setParamEnteredValue({
   sectionId,
@@ -101,9 +108,9 @@ export function setParamEnteredValue({
   value,
   incrementVersion = false,
 }) {
-  const { evColId } = getSectionInfo(sectionId);
+  const { variantId } = useSectionConfigs.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
-  setEnteredValue({ dbSource, collectionId: evColId, paramInfoId, value });
+  setEnteredValue({ dbSource, collectionId: variantId, paramInfoId, value });
   if (incrementVersion) {
     varControlUpdate();
   }

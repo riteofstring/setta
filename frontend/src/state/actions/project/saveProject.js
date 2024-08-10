@@ -7,11 +7,11 @@ import {
 } from "requests/projects";
 import {
   useCodeInfo,
-  useSectionVariants,
   useNodeInternals,
   useParamSweep,
   useRunGroups,
   useSectionInfos,
+  useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -32,7 +32,7 @@ export function getProjectData() {
   }
   projectConfig.children = children;
 
-  const evCols = useSectionVariants.getState().x;
+  const sectionVariants = useSectionVariants.getState().x;
   const uiTypes = assembleUITypes(useUITypes.getState().x, false);
   const uiTypeCols = useUITypeCols.getState().y;
   const paramSweeps = useParamSweep.getState().x;
@@ -50,7 +50,7 @@ export function getProjectData() {
 
   const output = {
     projectConfig,
-    evCols,
+    sectionVariants,
     uiTypes,
     uiTypeCols,
     paramSweeps,

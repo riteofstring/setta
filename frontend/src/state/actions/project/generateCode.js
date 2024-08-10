@@ -138,7 +138,7 @@ function* getProjectVariants(project) {
           });
         }
       } else {
-        versions.push({ paramSweepId, evColId: sweep.evColId });
+        versions.push({ paramSweepId, variantId: sweep.variantId });
       }
       if (curr.length > 0) {
         allSweeps.push(curr);
@@ -154,10 +154,12 @@ function* getProjectVariants(project) {
         const forSectionId = Object.values(project.sections).find((x) =>
           x.paramSweepIds.includes(paramSweepId),
         ).id;
-        const { evColId } = project.sections[forSectionId];
+        const { variantId: sectionVariantId } =
+          project.sectionConfigs[forSectionId];
         const dbSource = getMappedSectionDBSource(forSectionId);
-        const evCol = variant.evCols[dbSource][evColId];
-        evCol.values[paramInfoId] = value;
+        const sectionVariant =
+          variant.sectionVariants[dbSource][sectionVariantId];
+        sectionVariant.values[paramInfoId] = value;
       }
       yield variant;
     }
@@ -166,11 +168,11 @@ function* getProjectVariants(project) {
   if (versions.length > 0) {
     for (const version of versions) {
       const variant = _.cloneDeep(project);
-      const { paramSweepId, evColId } = version;
+      const { paramSweepId, variantId } = version;
       const forSectionId = Object.values(project.sections).find((x) =>
         x.paramSweepIds.includes(paramSweepId),
       ).id;
-      variant.sections[forSectionId].evColId = evColId;
+      variant.sectionConfigs[forSectionId].variantId = variantId;
       yield variant;
     }
   }

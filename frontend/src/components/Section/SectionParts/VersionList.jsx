@@ -1,22 +1,22 @@
 import { ResizableVersionsList } from "components/Utils/Resizable/ResizableVersionsList";
 import C from "constants/constants.json";
 import { useState } from "react";
+import { setSectionConfigAttr } from "state/actions/sectionConfigs";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useSectionInfos } from "state/definitions";
-import { useGetSectionVariantNames } from "state/hooks/ev";
+import { useSectionConfigs, useSectionInfos } from "state/definitions";
+import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import {
   getForSectionId,
   useCurrParamSweepId,
   useForSectionId,
   useGetParamSweepNames,
 } from "state/hooks/paramSweep";
-import { useGetSectionInfo } from "state/hooks/sections";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function VersionList({ sectionId, sectionTypeName }) {
   function onMouseLeave() {
-    setSectionInfoAttr({ sectionId, attr: "previewEVColId", value: null });
-    setSectionInfoAttr({
+    setSectionConfigAttr({ sectionId, attr: "previewVariantId", value: null });
+    setSectionConfigAttr({
       sectionId: getForSectionId(useSectionInfos.getState().x, sectionId),
       attr: "previewParamSweepId",
       value: null,
@@ -47,27 +47,27 @@ export function VersionList({ sectionId, sectionTypeName }) {
 }
 
 function EVItems({ sectionId, setNumListings }) {
-  const currEVColId = useGetSectionInfo(sectionId, "evColId");
-  const evColNames = useGetSectionVariantNames(sectionId);
+  const currVariantId = useSectionConfigs((x) => x.x[sectionId].variantId);
+  const sectionVariantNames = useGetSectionVariantNames(sectionId);
 
   function onMouseOver(id) {
-    setSectionInfoAttr({ sectionId, attr: "previewEVColId", value: id });
+    setSectionConfigAttr({ sectionId, attr: "previewVariantId", value: id });
   }
 
   function onClick(id) {
-    setSectionInfoAttr({ sectionId, attr: "evColId", value: id });
+    setSectionConfigAttr({ sectionId, attr: "variantId", value: id });
   }
 
   useDeepCompareEffect(() => {
-    setNumListings(evColNames.length);
-  }, [evColNames]);
+    setNumListings(sectionVariantNames.length);
+  }, [sectionVariantNames]);
 
-  return evColNames.map((e) => (
+  return sectionVariantNames.map((e) => (
     <OneItem
       key={e.id}
       id={e.id}
       name={e.name}
-      isCurr={currEVColId === e.id}
+      isCurr={currVariantId === e.id}
       onMouseOver={onMouseOver}
       onClick={onClick}
     />

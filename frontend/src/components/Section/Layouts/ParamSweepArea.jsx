@@ -16,7 +16,7 @@ import {
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
 import { useCodeInfo, useSectionVariants } from "state/definitions";
-import { useGetSectionVariantNames } from "state/hooks/ev";
+import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
 
@@ -58,7 +58,7 @@ function FilterSection() {
 }
 
 function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
-  const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.evColId);
+  const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.variantId);
 
   return (
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
@@ -92,7 +92,7 @@ function ArgItem({
   forSectionId,
   unused = false,
 }) {
-  const { paramInfoId, values, evColId } = singleParamSweep;
+  const { paramInfoId, values, variantId } = singleParamSweep;
 
   function getOnChange(valueIdx) {
     return (v) =>
@@ -115,7 +115,7 @@ function ArgItem({
     if (v in useCodeInfo.getState().x) {
       changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
     } else {
-      changeParamSweepParamInfoId({ paramSweepId, idx, evColId: v });
+      changeParamSweepParamInfoId({ paramSweepId, idx, variantId: v });
     }
   }
   // <article className="nodrag nowheel section-key-value auto-rows-min grid grid-cols-subgrid py-1">
@@ -126,7 +126,7 @@ function ArgItem({
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
-          evColId={evColId}
+          variantId={variantId}
           onSelectedItemChange={onSelectedItemChange}
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
@@ -162,10 +162,10 @@ function ArgItem({
             Value
           </p>
 
-          <ShowEVCol
+          <ShowSectionVariant
             forSectionId={forSectionId}
             objInfoId={objInfoId}
-            evColId={evColId}
+            variantId={variantId}
           />
         </div>
       )}
@@ -173,25 +173,25 @@ function ArgItem({
   );
 }
 
-function ShowEVCol({ forSectionId, objInfoId, evColId }) {
+function ShowSectionVariant({ forSectionId, objInfoId, variantId }) {
   const dbSource = useMappedSectionDBSource(forSectionId);
-  const evCol = useSectionVariants((x) => x.x[dbSource][evColId]);
+  const sectionVariant = useSectionVariants((x) => x.x[dbSource][variantId]);
   const paramsWithValues = useCodeInfo((x) => {
     const output = [];
     for (const c of x.x[objInfoId].children) {
-      if (evCol.values[c]) {
-        output.push({ name: x.x[c].name, value: evCol.values[c] });
+      if (sectionVariant.values[c]) {
+        output.push({ name: x.x[c].name, value: sectionVariant.values[c] });
       }
     }
     return output;
   }, _.isEqual);
 
   return paramsWithValues.map((x, idx) => (
-    <EVColItem key={idx} name={x.name} value={x.value} />
+    <SectionVariantItem key={idx} name={x.name} value={x.value} />
   ));
 }
 
-function EVColItem({ name, value }) {
+function SectionVariantItem({ name, value }) {
   // TODO: show value next to name, like
   // name value
   return (
@@ -212,7 +212,7 @@ function PlaceholderArgItem({
     if (v in useCodeInfo.getState().x) {
       addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
     } else {
-      addParamSweepParamInfoId({ paramSweepId, evColId: v });
+      addParamSweepParamInfoId({ paramSweepId, variantId: v });
     }
 
     setSelection(null);
@@ -232,12 +232,12 @@ function PlaceholderArgItem({
 function ParamCombobox({
   objInfoId,
   paramInfoId,
-  evColId,
+  variantId,
   alreadySelected = [],
   onSelectedItemChange,
   forSectionId,
 }) {
-  const initialSelection = paramInfoId ?? evColId;
+  const initialSelection = paramInfoId ?? variantId;
 
   const objParams = useCodeInfo((x) => {
     const output = [];
@@ -249,15 +249,15 @@ function ParamCombobox({
     return output;
   }, _.isEqual);
 
-  const evCols = useGetSectionVariantNames(forSectionId).filter(
-    (x) => evColId === x.id || !alreadySelected.includes(x.id),
+  const sectionVariants = useGetSectionVariantNames(forSectionId).filter(
+    (x) => variantId === x.id || !alreadySelected.includes(x.id),
   );
 
   return (
     <IdNameCombobox
       allItems={[
         { group: "Args", items: objParams },
-        { group: "Versions", items: evCols },
+        { group: "Versions", items: sectionVariants },
       ]}
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}

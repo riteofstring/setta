@@ -12,7 +12,6 @@ export function newSectionInfo({
   zIndex = 0,
   parentId = null,
   uiTypeId = BASE_UI_TYPE_IDS.SECTION,
-  evColId,
   uiTypeColId,
   paramSweepId = null,
   selectedItem = null,
@@ -32,8 +31,6 @@ export function newSectionInfo({
   isHorizontalOrientation = false,
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
-  const _evColId = maybeNewId(evColId);
-  const _variantIds = [...variantIds, _evColId];
 
   return {
     id: maybeNewId(id),
@@ -44,7 +41,6 @@ export function newSectionInfo({
     zIndex,
     parentId,
     uiTypeId: maybeNewId(uiTypeId),
-    evColId: _evColId,
     uiTypeColId: maybeNewId(uiTypeColId),
     paramSweepId,
     selectedItem,
@@ -55,7 +51,7 @@ export function newSectionInfo({
     versionsVisible,
     code,
     codeLanguage,
-    variantIds: _variantIds,
+    variantIds,
     paramSweepIds,
     paramSweepSectionId,
     nonPresetUITypeIds,

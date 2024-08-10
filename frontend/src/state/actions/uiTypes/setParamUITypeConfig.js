@@ -2,8 +2,9 @@ import C from "constants/constants.json";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import {
   useCodeInfo,
-  useSectionVariants,
+  useSectionConfigs,
   useSectionInfos,
+  useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -89,6 +90,7 @@ function updateEVs(uiTypeId, configName) {
 function _updateEVs(uiType) {
   const uState = useUITypeCols.getState();
   const eState = useSectionVariants.getState();
+  const sConfigState = useSectionConfigs.getState().x;
   for (const [colId, col] of Object.entries(uState.y)) {
     const paramsWithUITypeId = new Set();
     for (const [pid, p] of Object.entries(col)) {
@@ -103,15 +105,16 @@ function _updateEVs(uiType) {
     for (const s of Object.values(useSectionInfos.getState().x)) {
       if (s.uiTypeColId === colId) {
         const dbSource = getMappedSectionDBSource(s.id);
+        const variantId = sConfigState[s.id].variantId;
         for (const [pid, currValue] of Object.entries(
-          eState.x[s.evColId].values,
+          eState.x[variantId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({ uiType, currValue });
             if (newVal !== currValue) {
               setEnteredValue({
                 dbSource,
-                collectionId: s.evColId,
+                collectionId: variantId,
                 paramInfoId: pid,
                 value: newVal,
               });

@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useSectionToParams } from "state/definitions";
+import { useSectionConfigs, useSectionToParams } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
 import {
@@ -9,9 +9,9 @@ import {
   getSectionTypeConfig,
 } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
-import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { initializeParam } from "../initializeParam";
 import { updateParams } from "../sections/sectionContents";
+import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
@@ -43,7 +43,8 @@ export function deleteKwarg(payload) {
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
-  const { evColId, uiTypeColId } = getSectionInfo(sectionId);
+  const { uiTypeColId } = getSectionInfo(sectionId);
+  const { variantId } = useSectionConfigs.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
   parentId = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
   if (deleteLast) {
@@ -55,7 +56,7 @@ export function deleteKwarg(payload) {
     kwargId = kwargIds[numKwargs - 1];
   }
   deleteCodeInfo({ ids: [kwargId], parent: parentId });
-  deleteParamInfoFromSectionVariant({ dbSource, evColId, ids: [kwargId] });
+  deleteParamInfoFromSectionVariant({ dbSource, variantId, ids: [kwargId] });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids: [kwargId] });
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);

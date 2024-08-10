@@ -1,4 +1,4 @@
-import { useKeywordRegex } from "state/definitions";
+import { useKeywordRegex, useSectionConfigs } from "state/definitions";
 import { getSectionDBSource } from "state/getters/sectionInfo";
 
 export function roundUpIdx(numList, x) {
@@ -21,12 +21,12 @@ export function roundUpIdx(numList, x) {
 export function computeEVReferences(project) {
   const evRefs = {};
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
-  for (const [sectionId, sectionInfo] of Object.entries(project["sections"])) {
+  for (const sectionId of Object.keys(project["sections"])) {
     evRefs[sectionId] = {};
     const dbSource = getSectionDBSource(sectionId);
-    const { evColId } = sectionInfo;
-    const evCol = project["evCols"][dbSource][evColId];
-    for (const [paramInfoId, value] of Object.entries(evCol.values)) {
+    const { variantId } = useSectionConfigs.getState().x[sectionId];
+    const sectionVariant = project["sectionVariants"][dbSource][variantId];
+    for (const [paramInfoId, value] of Object.entries(sectionVariant.values)) {
       evRefs[sectionId][paramInfoId] = findRefs({
         sectionId,
         paramInfoId,

@@ -9,7 +9,6 @@ import {
 export function useGetSectionInfo(sectionId, key) {
   const equalityFn = [
     "children",
-    "size",
     "variantIds",
     "nonPresetUITypeIds",
   ].includes(key)

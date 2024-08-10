@@ -47,13 +47,13 @@ export function changeParamSweepParamInfoId({
   paramSweepId,
   idx,
   paramInfoId,
-  evColId,
+  variantId,
 }) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep[idx] = { paramInfoId, values: [""] };
-    } else if (evColId) {
-      state.x[paramSweepId].sweep[idx] = { evColId };
+    } else if (variantId) {
+      state.x[paramSweepId].sweep[idx] = { variantId };
     }
   });
 }
@@ -61,13 +61,13 @@ export function changeParamSweepParamInfoId({
 export function addParamSweepParamInfoId({
   paramSweepId,
   paramInfoId,
-  evColId,
+  variantId,
 }) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep.push({ paramInfoId, values: [""] });
-    } else if (evColId) {
-      state.x[paramSweepId].sweep.push({ evColId });
+    } else if (variantId) {
+      state.x[paramSweepId].sweep.push({ variantId });
     }
   });
 }

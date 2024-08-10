@@ -8,14 +8,15 @@ import {
   setDbSourceMapping,
 } from "utils/constants";
 import { setAllCodeInfo } from "../codeInfo";
-import { setAllSectionVariants } from "../sectionVariants";
 import { setNodes } from "../nodeInternals";
 import { setAllOutputGroups } from "../outputs/outputGroups";
 import { setAllOutputs } from "../outputs/outputs";
 import { setAllParamSweeps } from "../runGroups/paramSweep";
 import { setAllRunGroups } from "../runGroups/runGroups";
+import { setAllSectionConfigs } from "../sectionConfigs";
 import { updateManyParamsAndCallables } from "../sections/sectionContents";
 import { setAllSectionInfos } from "../sections/sectionInfos";
+import { setAllSectionVariants } from "../sectionVariants";
 import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
 import { setAllUITypes } from "../uiTypes/uiTypes";
 import { maybeIncrementProjectStateVersion } from "../undo";
@@ -24,7 +25,7 @@ import { setProjectConfig } from "./projectConfig";
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
   if (res.status === 200) {
-    console.log(res.data)
+    console.log(res.data);
     return loadProjectState(res.data);
   } else {
     return false;
@@ -57,6 +58,7 @@ export function loadProjectState({
     })),
   );
   setAllUITypes({ ...uiTypes, ...BASE_UI_TYPES });
+  setAllSectionConfigs(sectionConfigs);
   setAllSectionVariants(sectionVariants);
   setAllUITypeCols({ uiTypeCols });
   setAllParamSweeps(paramSweeps);

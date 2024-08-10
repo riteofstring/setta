@@ -33,6 +33,16 @@ export const useContextMenus = createProjectState(() => ({
   selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
 }));
 
+export const useSectionConfigs = createProjectState(
+  temporal(
+    immer(() =>
+      withVersion({
+        x: {},
+      }),
+    ),
+  ),
+);
+
 export const useSectionVariants = createProjectState(
   temporal(
     immer(() =>

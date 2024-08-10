@@ -1,6 +1,7 @@
 import _ from "lodash";
 import {
   useCodeInfo,
+  useSectionConfigs,
   useSectionVariants,
   useUITypeCols,
   useUITypes,
@@ -42,10 +43,13 @@ export function initializeParam(
 }
 
 function initializeParamEnteredValue(sectionId, paramInfos, paramIdToUITypeId) {
-  const { evColId } = getSectionInfo(sectionId);
+  const { variantId } = useSectionConfigs.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
-  const evCol = useSectionVariants.getState().x[dbSource][evColId];
-  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
+  const sectionVariant = useSectionVariants.getState().x[dbSource][variantId];
+  const paramIdToEv = _.mapValues(
+    paramInfos,
+    (v) => sectionVariant.values[v.id],
+  );
 
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes = {};
@@ -57,7 +61,7 @@ function initializeParamEnteredValue(sectionId, paramInfos, paramIdToUITypeId) {
 
   initManyEnteredValues({
     dbSource: getMappedSectionDBSource(sectionId),
-    collectionId: evColId,
+    collectionId: variantId,
     paramIdsToUITypes,
   });
 }

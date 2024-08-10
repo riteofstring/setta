@@ -1,24 +1,22 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import { setSectionConfigAttr } from "state/actions/sectionConfigs";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { duplicateSectionVariant } from "state/actions/sectionVariants";
-import { useModal } from "state/definitions";
-import {
-  getMappedSectionDBSource,
-  getSectionInfo,
-} from "state/getters/sectionInfo";
+import { useModal, useSectionConfigs } from "state/definitions";
+import { getMappedSectionDBSource } from "state/getters/sectionInfo";
 import { createNewId } from "utils/idNameCreation";
 
 export function CreateNewVersionModal({ modalType }) {
   function onClickCreateNewVersion({ filename }) {
     const sectionId = useModal.getState().modalData;
-    const currId = getSectionInfo(sectionId).evColId;
+    const currId = useSectionConfigs.getState().x[sectionId].variantId;
     const dbSource = getMappedSectionDBSource(sectionId);
     const newId = createNewId();
     duplicateSectionVariant({ dbSource, id: currId, newId, newName: filename });
-    setSectionInfoAttr({ sectionId, attr: "evColId", value: newId });
+    setSectionConfigAttr({ sectionId, attr: "variantId", value: newId });
     setSectionInfoAttr({
       sectionId,
-      attr: "evColIds",
+      attr: "variantIds",
       newValueFn: (x) => [...x, newId],
     });
   }

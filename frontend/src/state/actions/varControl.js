@@ -1,12 +1,13 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { setParamEnteredValue } from "state/actions/evCols";
 import { setSelectedItem } from "state/actions/sections/setters";
+import { setParamEnteredValue } from "state/actions/sectionVariants";
 import {
   useCodeInfo,
-  useSectionVariants,
+  useSectionConfigs,
   useSectionInfos,
   useSectionToParams,
+  useSectionVariants,
 } from "state/definitions";
 import { getSectionByName, getSectionType } from "state/getters/sectionInfo";
 
@@ -53,6 +54,7 @@ export function varControlUpdate() {
 
 function niceState() {
   const output = {};
+  const sConfigState = useSectionConfigs.getState().x;
   for (const v of Object.values(useSectionInfos.getState().x)) {
     const sectionType = getSectionType(v.id).type;
     if ([C.CODE, C.VAR_CONTROL].includes(sectionType)) {
@@ -60,7 +62,10 @@ function niceState() {
     }
     if (sectionType === C.GLOBAL_VARIABLES) {
       for (const p of useSectionToParams.getState().params[v.id]) {
-        output[p.name] = useSectionVariants.getState().x[v.evColId].values[p.id];
+        output[p.name] =
+          useSectionVariants.getState().x[sConfigState[v.id].variantId].values[
+            p.id
+          ];
       }
     } else {
       output[v.name] = v.selectedItem

@@ -3,9 +3,10 @@ import _ from "lodash";
 import {
   useActiveSection,
   useCodeInfo,
-  useSectionVariants,
   useNodeInternals,
+  useSectionConfigs,
   useSectionInfos,
+  useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -29,14 +30,14 @@ function copySections(sectionIds) {
   const sections = _.pick(useSectionInfos.getState().x, sectionIds);
   const uiTypes = getUITypes(sections);
   const codeInfo = getCodeInfo(sections);
-  const evCols = getEVCols(sections);
+  const sectionVariants = getSectionVariants(sections);
   const uiTypeCols = getUITypeCols(sections);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
     uiTypes,
     codeInfo,
-    evCols,
+    sectionVariants,
     uiTypeCols,
     relativePositions,
   };
@@ -82,13 +83,14 @@ function getCodeInfo(sections) {
   return output;
 }
 
-function getEVCols(sections) {
-  const evColIds = [];
+function getSectionVariants(sections) {
+  const variantIds = [];
+  const sConfigState = useSectionConfigs.getState().x;
   for (const s of Object.values(sections)) {
-    evColIds.push(s.evColId);
-    evColIds.push(...s.evColIds);
+    variantIds.push(sConfigState[s.id].variantId);
+    variantIds.push(...s.variantIds);
   }
-  return _.pick(useSectionVariants.getState().x, evColIds);
+  return _.pick(useSectionVariants.getState().x, variantIds);
 }
 
 function getUITypeCols(sections) {
