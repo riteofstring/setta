@@ -88,10 +88,13 @@ function _CodeArea({ sectionId }) {
   const overflow = resizeEvent === "start" ? "overflow-y-auto" : "";
 
   const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
+  const wrapperScrollTop = wrapperRef.current?.scrollTop;
 
   useEffect(() => {
     if (resizeEvent === "start") {
       wrapperRef.current.scrollTop = editorScrollTop;
+    } else if (resizeEvent === "end") {
+      editorRef.current.scrollDOM.scrollTop = wrapperScrollTop;
     }
   }, [resizeEvent]);
 
