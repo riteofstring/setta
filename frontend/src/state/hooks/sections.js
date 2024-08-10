@@ -1,6 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import { useSectionVariants, useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSectionVariants } from "state/definitions";
 import {
   getMappedSectionDBSource,
   getSectionDBSource,
@@ -8,9 +8,9 @@ import {
 
 export function useGetSectionInfo(sectionId, key) {
   const equalityFn = [
-    "children",
     "variantIds",
     "nonPresetUITypeIds",
+    "paramSweepIds",
   ].includes(key)
     ? _.isEqual
     : undefined;
@@ -36,10 +36,6 @@ export function useMappedSectionDBSource(sectionId) {
 export function useSectionDBSourceIsAvailable(sectionId) {
   const dbSource = useMappedSectionDBSource(sectionId);
   return useSectionVariants((x) => dbSource in x.x);
-}
-
-export function useHasNested(sectionId) {
-  return useSectionInfos((x) => x.x[sectionId].children?.length > 0);
 }
 
 export function useTempHasNested(sectionId) {

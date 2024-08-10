@@ -5,7 +5,12 @@ import {
   updateGlobalVariablesRegex,
   updateKeywordRegex,
 } from "state/actions/keywordRegex";
-import { useSectionInfos, useUITypes } from "state/definitions";
+import {
+  useSectionConfigs,
+  useSectionInfos,
+  useSectionVariants,
+  useUITypes,
+} from "state/definitions";
 import { SINGLETON_SECTIONS } from "utils/constants";
 
 function getSingletonSubscriptionFn(type) {
@@ -40,13 +45,28 @@ export function subscribe() {
   });
 
   useSectionInfos.subscribe(
-    (state) => _.mapValues(state.x, (v) => v.children),
-    (x) => useDndChildren.getState().update(x),
-  );
-
-  useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.name),
     (x) => updateKeywordRegex(x),
     { equalityFn: _.isEqual },
+  );
+
+  useSectionVariants.subscribe(
+    (state) => {
+      const output = {};
+      const sConfigState = useSectionConfigs.getState().x;
+      for (const [dbSource, variants] of Object.entries(state.x)) {
+        for (const [variantId, variantInfo] of Object.entries(variants)) {
+          const sConfig = _.find(
+            sConfigState,
+            (obj) => obj.variantId === variantId,
+          );
+          if (sConfig) {
+            output[sConfig.id] = variantInfo.children;
+          }
+        }
+      }
+      return _.mapValues(state.x, (v) => v.children);
+    },
+    (x) => useDndChildren.getState().update(x),
   );
 }
