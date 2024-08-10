@@ -51,7 +51,7 @@ function useSectionVariantMetadataIds(sectionId) {
 export function useSectionIdToChildren() {
   const sectionIdToVariantMetadata = useSectionInfos((x) =>
     _.mapValues(x.x, (v) => ({
-      dbSource: getMappedSectionDBSource(v.id, x),
+      dbSource: getMappedSectionDBSource(v.id, x.x),
       variantId: v.variantId,
     })),
   );

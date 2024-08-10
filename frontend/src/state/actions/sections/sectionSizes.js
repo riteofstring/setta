@@ -1,6 +1,9 @@
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
-import { getSectionParentId } from "../../getters/sectionInfo";
+import { useSectionInfos, useSectionVariants } from "state/definitions";
+import {
+  getMappedSectionDBSource,
+  getSectionParentId,
+} from "../../getters/sectionInfo";
 import { setSectionInfoAttr } from "./sectionInfos";
 import { setSectionSize } from "./setters";
 
@@ -26,9 +29,11 @@ function setAllOtherWidths({ sectionId, width }) {
 }
 
 export function setAllChildrenWidths({ sectionId, exclude, width }) {
-  const sectionIds = getAllSectionChildrenIds(useSectionInfos.getState().x, [
-    sectionId,
-  ]);
+  const sectionIds = getAllSectionChildrenIds(
+    useSectionInfos.getState().x,
+    useSectionVariants.getState().x,
+    [sectionId],
+  );
   setSectionInfoAttr({
     sectionIds: sectionIds.filter((x) => x !== exclude),
     attr: "size",
@@ -48,12 +53,20 @@ export function getHighestAncestor(sectionId) {
   return highestAncestor;
 }
 
-export function getAllSectionChildrenIds(sectionInfoState, sectionIds) {
+export function getAllSectionChildrenIds(
+  sectionInfoState,
+  sectionVariantState,
+  sectionIds,
+) {
   const ids = [...sectionIds];
   let idx = 0;
   while (idx < ids.length) {
     const currId = ids[idx];
-    ids.push(...sectionInfoState[currId].children);
+    ids.push(
+      ...sectionVariantState[
+        getMappedSectionDBSource(currId, sectionInfoState)
+      ][sectionInfoState[currId].variantId].children,
+    );
     idx += 1;
   }
   return ids;

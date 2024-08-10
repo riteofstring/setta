@@ -70,8 +70,8 @@ export function getSectionByName(name) {
 }
 
 export function getSectionDBSource(sectionId, state = null) {
-  const s = state ?? useSectionInfos.getState();
-  return s.x[sectionId].dbSource || C.DEFAULT_DB_ALIAS;
+  const s = state ?? useSectionInfos.getState().x;
+  return s[sectionId].dbSource || C.DEFAULT_DB_ALIAS;
 }
 
 export function getMappedSectionDBSource(sectionId, state = null) {

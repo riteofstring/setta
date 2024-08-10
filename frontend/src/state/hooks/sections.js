@@ -26,11 +26,11 @@ export function useSectionHasMultipleVariants(sectionId) {
 }
 
 export function useSectionDBSource(sectionId) {
-  return useSectionInfos((x) => getSectionDBSource(sectionId, x));
+  return useSectionInfos((x) => getSectionDBSource(sectionId, x.x));
 }
 
 export function useMappedSectionDBSource(sectionId) {
-  return useSectionInfos((x) => getMappedSectionDBSource(sectionId, x));
+  return useSectionInfos((x) => getMappedSectionDBSource(sectionId, x.x));
 }
 
 export function useSectionDBSourceIsAvailable(sectionId) {
