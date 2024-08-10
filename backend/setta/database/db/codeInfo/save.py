@@ -1,19 +1,5 @@
-def save_code_info(dbs, codeInfo, section_variants):
-    already_saved = set()
-    for dbSource, variants_for_one_db in section_variants.items():
-        codeInfoIds = set().union(*[x["values"] for x in variants_for_one_db.values()])
-        save_code_info_to_one_db(
-            dbs[dbSource],
-            {k: v for k, v in codeInfo.items() if k in codeInfoIds},
-        )
-        already_saved = already_saved.union(codeInfoIds)
-
-    save_code_info_to_one_db(
-        dbs.default, {k: v for k, v in codeInfo.items() if k not in already_saved}
-    )
-
-
-def save_code_info_to_one_db(db, codeInfo):
+def save_code_info(dbs, codeInfo):
+    db = dbs.default
     query = """
         INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, isSelected)
         VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :isSelected)

@@ -51,6 +51,7 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     # SectionConfig model
+    # No foreign key to SectionVariantId
     """
     CREATE TABLE IF NOT EXISTS SectionConfig (
         projectConfigId TEXT,
@@ -65,39 +66,38 @@ CREATE_TABLES_COMMANDS = [
         PRIMARY KEY (projectConfigId, sectionId),
         FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
         FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (variantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
         FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
         FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantId model
+    # No foreign keys, to avoid having to store duplicate data when different db sources are used.
     """
     CREATE TABLE IF NOT EXISTS SectionVariantId (
         id TEXT PRIMARY KEY,
         name TEXT,
-        originSectionId TEXT,
-        FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
+        originSectionId TEXT
     );
     """,
     # SectionVariantEV model
+    # Only foreign key to SectionVariantId, to avoid having to store duplicate data when different db sources are used.
     """
     CREATE TABLE IF NOT EXISTS SectionVariantEV (
         idid TEXT,
         codeInfoId TEXT,
         value TEXT,
         PRIMARY KEY (idid, codeInfoId),
-        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
-        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
+        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantChildren model
+    # Only foreign key to SectionVariantId, to avoid having to store duplicate data when different db sources are used.
     """
     CREATE TABLE IF NOT EXISTS SectionVariantChildren (
         idid TEXT,
         childId TEXT PRIMARY KEY,
         "order" INTEGER,
-        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
-        FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
+        FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE
     );
     """,
     # UIType model
@@ -226,6 +226,7 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
+    # No foreign key to SectionVariantId
     """
     CREATE TABLE IF NOT EXISTS ParamSweep (
         idid TEXT,
@@ -236,7 +237,6 @@ CREATE_TABLES_COMMANDS = [
         PRIMARY KEY (idid, paramInfoId, sectionVariantId),
         FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
         FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-        FOREIGN KEY (sectionVariantId) REFERENCES SectionVariantId(id) ON DELETE CASCADE,
         CHECK (paramInfoId IS NOT NULL OR sectionVariantId IS NOT NULL)
     );
     """,

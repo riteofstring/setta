@@ -4,61 +4,40 @@ def save_sections(dbs, sections):
         INSERT INTO Section (
             id,
             name,
-            width,
-            height,
-            evColId,
             uiTypeId,
             uiTypeColId,
-            selectedItemId,
             social,
             outputGroupId,
             description,
-            versionsHeight,
-            versionsVisible,
             code,
             codeLanguage,
             isFrozen,
-            paramSweepId,
             dbSource
         )
         VALUES (
             :id,
             :name,
-            :width,
-            :height,
-            :evColId,
             :uiTypeId,
             :uiTypeColId,
-            :selectedItemId,
             :social,
             :outputGroupId,
             :description,
-            :versionsHeight,
-            :versionsVisible,
             :code,
             :codeLanguage,
             :isFrozen,
-            :paramSweepId,
             :dbSource
         )
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
-            width = :width,
-            height = :height,
-            evColId = :evColId,
             uiTypeId = :uiTypeId,
             uiTypeColId = :uiTypeColId,
-            selectedItemId = :selectedItemId,
             social = :social,
             outputGroupId = :outputGroupId,
             description = :description,
-            versionsHeight = :versionsHeight,
-            versionsVisible = :versionsVisible,
             code = :code,
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
-            paramSweepId = :paramSweepId,
             dbSource = :dbSource
     """
 
@@ -66,21 +45,14 @@ def save_sections(dbs, sections):
         {
             "id": s["id"],
             "name": s["name"],
-            "width": convert_size(s["size"]["width"]),
-            "height": convert_size(s["size"]["height"]),
-            "evColId": s["evColId"],
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
-            "selectedItemId": s["selectedItem"],
             "social": s["social"],
             "outputGroupId": s["outputGroup"],
             "description": s["description"],
-            "versionsHeight": s["versionsHeight"],
-            "versionsVisible": s["versionsVisible"],
             "code": s["code"],
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
-            "paramSweepId": s["paramSweepId"],
             "dbSource": s.get("dbSource"),
         }
         for s in sections.values()
@@ -106,24 +78,6 @@ def save_sections(dbs, sections):
     for s in sections.values():
         for uiTypeId in s["nonPresetUITypeIds"]:
             query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
-    db.executemany(query, query_params)
-
-    query = f"""
-        UPDATE EVColId
-        SET originSectionId = null
-        WHERE originSectionId IN ({placeholders})
-    """
-    db.execute(query, ids)
-
-    query = """
-        UPDATE EVColId
-        SET originSectionId = :sectionId
-        WHERE id = :evColId
-    """
-    query_params = []
-    for s in sections.values():
-        for evColId in s["evColIds"]:
-            query_params.append({"evColId": evColId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
     query = f"""
@@ -160,3 +114,27 @@ def save_sections(dbs, sections):
 
 def convert_size(x):
     return -1 if x == "auto" else x
+
+    # query_params = [
+    #     {
+    #         "id": s["id"],
+    #         "name": s["name"],
+    #         "width": convert_size(s["size"]["width"]),
+    #         "height": convert_size(s["size"]["height"]),
+    #         "evColId": s["evColId"],
+    #         "uiTypeId": s["uiTypeId"],
+    #         "uiTypeColId": s["uiTypeColId"],
+    #         "selectedItemId": s["selectedItem"],
+    #         "social": s["social"],
+    #         "outputGroupId": s["outputGroup"],
+    #         "description": s["description"],
+    #         "versionsHeight": s["versionsHeight"],
+    #         "versionsVisible": s["versionsVisible"],
+    #         "code": s["code"],
+    #         "codeLanguage": s["codeLanguage"],
+    #         "isFrozen": s["isFrozen"],
+    #         "paramSweepId": s["paramSweepId"],
+    #         "dbSource": s.get("dbSource"),
+    #     }
+    #     for s in sections.values()
+    # ]

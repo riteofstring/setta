@@ -9,14 +9,14 @@ from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(dbs, p):
-    save_code_info(dbs, p["codeInfo"], p["sectionVariants"])
-    save_section_variants(dbs, p["sectionVariants"])
+    save_code_info(dbs, p["codeInfo"])
     save_ui_types(dbs, p["uiTypes"])
     save_ui_type_cols(dbs, p["uiTypeCols"])
     save_param_sweeps(dbs, p["paramSweeps"])
     save_sections(dbs, p["sections"])
-    save_project(dbs, p["projectConfig"])
-    save_run_groups(dbs, p["runGroups"])
+    save_section_variants(dbs, p["sections"], p["sectionVariants"])
+    # save_project(dbs, p["projectConfig"])
+    # save_run_groups(dbs, p["runGroups"])
 
 
 def save_project(dbs, project):
