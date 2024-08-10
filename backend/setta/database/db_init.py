@@ -51,8 +51,6 @@ CREATE_TABLES_COMMANDS = [
         social TEXT,
         outputGroupId TEXT,
         description TEXT,
-        versionsHeight REAL,
-        versionsVisible BOOLEAN,
         code TEXT,
         codeLanguage TEXT,
         isFrozen BOOLEAN,
