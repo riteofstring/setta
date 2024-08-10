@@ -42,7 +42,9 @@ async function loadAndModifyJson(filePath) {
         console.log("dbSource", x.dbSource);
         const dbSource = x.dbSource ? x.dbSource : "default";
         const src = json.evCols[dbSource][e];
-        sectionVariants[dbSource] = {};
+        if (!(dbSource in sectionVariants)) {
+          sectionVariants[dbSource] = {};
+        }
         sectionVariants[dbSource][e] = {
           name: src.name,
           values: src.values,
@@ -68,6 +70,6 @@ async function loadAndModifyJson(filePath) {
 }
 
 // Usage example (replace 'path/to/yourfile.json' with the actual file path)
-loadAndModifyJson("seed/examples/argparse_example/argparse_example.json").then(
+loadAndModifyJson("seed/examples/sklearn_example/sklearn_example.json").then(
   (modifiedJson) => console.log(modifiedJson)
 );

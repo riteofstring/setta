@@ -437,6 +437,21 @@
   },
   "sectionVariants": {
     "default": {
+      "3dbb4893-bd44-4e67-a6c3-1148d7205d42": {
+        "name": "mathematical_magenta",
+        "values": {},
+        "children": []
+      },
+      "3ec298ce-5d49-42f8-8700-3e2efb26855b": {
+        "name": "config1",
+        "values": {},
+        "children": []
+      },
+      "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
+        "name": "config1",
+        "values": {},
+        "children": []
+      },
       "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
         "name": "config1",
         "values": {
