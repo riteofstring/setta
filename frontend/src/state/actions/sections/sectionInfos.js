@@ -2,6 +2,7 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import { isListRoot } from "utils/sectionTypeHelpers";
+import { setSectionVariantChildren } from "../sectionVariants";
 
 export function setAllSectionInfos({ sections, sectionConfigs }) {
   const x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
@@ -53,11 +54,18 @@ export function setSectionChildrenNames({ sectionId, sectionType }) {
 
 export function removeSectionInfos(payload) {
   useSectionInfos.setState((state) => {
-    payload.forEach((y) => {
-      delete state.x[y];
-    });
+    for (const id of payload) {
+      const parentId = state.x[id]?.parentId;
+      if (parentId) {
+        setSectionVariantChildren({
+          sectionId: parentId,
+          newStateFn: (children) => children.filter((x) => x !== id),
+        });
+      }
+      delete state.x[id];
+    }
+
     for (const [k, v] of Object.entries(state.x)) {
-      state.x[k].children = v.children.filter((x) => !payload.includes(x));
       if (payload.includes(v.paramSweepSectionId)) {
         state.x[k].paramSweepSectionId = null;
       }

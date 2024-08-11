@@ -124,7 +124,7 @@ export function getSectionChildren(sectionId) {
   return useSectionVariants.getState().x[dbSource][variantId].children;
 }
 
-function getSectionVariantIdAndMappedDBSource(sectionId) {
+export function getSectionVariantIdAndMappedDBSource(sectionId) {
   const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
   return { variantId, dbSource };
