@@ -1,5 +1,6 @@
 import { zoomIdentity } from "d3-zoom";
 import { useSettings } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../store";
 import type { XYPosition } from "../types";
 import {
@@ -83,7 +84,8 @@ export function fitBounds(bounds, options) {
 
 export function screenToFlowPosition(position: XYPosition, ignoreGrid = false) {
   const { transform, domNode } = useReactFlow.getState();
-  const { snapToGrid, snapGrid } = useSettings.getState();
+  const { snapGrid } = useSettings.getState();
+  const [snapToGrid] = localStorageFns.snapToGrid.state();
 
   if (!domNode) {
     return position;

@@ -6,6 +6,7 @@ import {
 } from "utils/constants";
 
 export const localStorageFns = {
+  snapToGrid: { init: true },
   darkMode: { init: true },
   showMinimap: { init: true },
   projectConfigPreviewEnabled: { init: true },

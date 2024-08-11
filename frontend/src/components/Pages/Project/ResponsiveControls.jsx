@@ -4,9 +4,8 @@ import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
-import { toggleMiniMap } from "state/actions/localStorage";
+import { toggleMiniMap, toggleSnapToGrid } from "state/actions/localStorage";
 import { autoLayout } from "state/actions/sections/sectionPositions";
-import { toggleSetting } from "state/actions/settings";
 import { localStorageFns } from "state/hooks/localStorage";
 
 export function ResponsiveControls() {
@@ -23,7 +22,7 @@ export function ResponsiveControls() {
       <ControlButton onClick={autoLayout}>
         <RiLayoutFill />
       </ControlButton>
-      <ControlButton onClick={() => toggleSetting("snapToGrid")}>
+      <ControlButton onClick={toggleSnapToGrid}>
         <TbGrid4X4 />
       </ControlButton>
       <ControlButton onClick={resetZoom}>
