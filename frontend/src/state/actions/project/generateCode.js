@@ -24,7 +24,7 @@ export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   project.uiTypes = { ...project.uiTypes, ...presetUITypes };
   if (includeEVReferences) {
     computeEVReferences(project);
-    computeInfoToFullName(project);
+    project["infoToFullName"] = computeInfoToFullName(project);
   }
   console.log(project);
   return project;
@@ -36,7 +36,7 @@ export async function runCode() {
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
     computeEVReferences(projectVariant);
-    computeInfoToFullName(projectVariant);
+    project["infoToFullName"] = computeInfoToFullName(projectVariant);
     const message = JSON.stringify({
       id: codeId,
       type: "runCode",
