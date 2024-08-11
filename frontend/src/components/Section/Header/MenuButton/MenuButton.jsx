@@ -6,8 +6,10 @@ import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { FreezeButton } from "./FreezeButton";
+import { HideShowSearchButton } from "./HideShowSearchButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
+
 function MenuButton({ sectionId, sectionTypeName }) {
   // hover:bg-setta-100 dark:hover:bg-setta-900
   const sectionType = useGetSectionType(sectionId, "type");
@@ -46,6 +48,10 @@ function MenuButton({ sectionId, sectionTypeName }) {
 
         {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionType) && (
           <MultirunButton sectionId={sectionId} />
+        )}
+
+        {[C.SECTION].includes(sectionType) && (
+          <HideShowSearchButton sectionId={sectionId} />
         )}
 
         <FreezeButton sectionId={sectionId} />
