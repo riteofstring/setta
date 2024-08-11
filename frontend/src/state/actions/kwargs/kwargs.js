@@ -6,7 +6,6 @@ import { getKwargIds } from "../../getters/codeInfo";
 import {
   getMappedSectionDBSource,
   getSectionInfo,
-  getSectionTypeConfig,
 } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
@@ -27,7 +26,7 @@ export function addKwarg({
     rcType: C.PARAMETER,
     editable: true,
   });
-  const parent = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
+  const parent = parentId ?? getSectionInfo(sectionId).codeInfoId;
   addCodeInfo({ info: kwargInfo, parent, insertIdx });
   initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
@@ -46,7 +45,7 @@ export function deleteKwarg(payload) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
-  parentId = parentId ?? getSectionTypeConfig(sectionId).codeInfoId;
+  parentId = parentId ?? getSectionInfo(sectionId).codeInfoId;
   if (deleteLast) {
     const kwargIds = getKwargIds(parentId);
     const numKwargs = kwargIds.length;

@@ -28,11 +28,6 @@ export function useParamNonPresetUITypeIds(sectionId, paramInfoId) {
   return useUITypeCol(sectionId, paramInfoId, "nonPresetUITypeIds");
 }
 
-export function useGetSectionTypeConfig(sectionId, key) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => x.x[uiTypeId]["config"][key]);
-}
-
 export function useGetSectionType(sectionId, key) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const nonScalars = ["config"];

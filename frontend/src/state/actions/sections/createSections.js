@@ -16,10 +16,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
-import {
-  getSectionParentId,
-  getSectionTypeConfig,
-} from "../../getters/sectionInfo";
+import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import {
   getSectionChildren,
@@ -151,7 +148,7 @@ function addSectionsToState(sectionInfos, position) {
 
   for (const s of sectionIds) {
     initializeNewSectionConfig(s);
-    const { codeInfoId } = getSectionTypeConfig(s);
+    const { codeInfoId } = getSectionInfo(s);
     initializeChildParams({ sectionIds: [s], codeInfoIds: [codeInfoId] });
     if (!sectionInfos[s].parentId) {
       topLevelSectionIds.push(s);
@@ -225,7 +222,7 @@ export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
     incrementVersion: false,
   });
 
-  const sectionCodeInfoId = getSectionTypeConfig(varSectionId).codeInfoId;
+  const sectionCodeInfoId = getSectionInfo(varSectionId).codeInfoId;
 
   const paramIdToUITypeId = {};
   for (const arg of args) {

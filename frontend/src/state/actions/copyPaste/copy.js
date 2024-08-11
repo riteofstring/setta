@@ -10,7 +10,7 @@ import {
   useUITypes,
 } from "state/definitions";
 import { findAll } from "utils/getDescendants";
-import { getSectionTypeConfig } from "../../getters/sectionInfo";
+import { getSectionInfo } from "../../getters/sectionInfo";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;
@@ -54,7 +54,7 @@ function getUITypes(sections) {
 function getCodeInfo(sections) {
   const sectionCodeInfoIds = _.map(
     sections,
-    (x) => getSectionTypeConfig(x.id).codeInfoId,
+    (x) => getSectionInfo(x.id).codeInfoId,
   );
   let output = [];
   for (const cid of sectionCodeInfoIds) {

@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
 import { useCodeInfo } from "state/definitions";
-import { getSectionTypeConfig } from "state/getters/sectionInfo";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { findAll } from "utils/getDescendants";
 
 export function getAllSelectedParams(sectionId) {
   const codeInfos = findAll(useCodeInfo.getState().x, [
-    getSectionTypeConfig(sectionId).codeInfoId,
+    getSectionInfo(sectionId).codeInfoId,
   ]);
   return {
     codeInfos,

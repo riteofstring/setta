@@ -29,10 +29,6 @@ export function getSectionIsRoot(sectionId) {
   return isRoot(getSectionType(sectionId).type);
 }
 
-export function getSectionTypeConfig(sectionId) {
-  return getSectionType(sectionId).config;
-}
-
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
   return [C.OUTPUT, C.INFO, C.SOCIAL].includes(getSectionType(sectionId).type);
 }

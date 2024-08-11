@@ -8,11 +8,7 @@ import { useSectionInfos } from "state/definitions";
 import { isUUID } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
-import {
-  getSectionInfo,
-  getSectionType,
-  getSectionTypeConfig,
-} from "../../getters/sectionInfo";
+import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import { setSectionVariantChildren } from "../sectionVariants";
@@ -37,7 +33,7 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
       editable: false,
       rcType: C.CALLABLE,
     });
-    const { codeInfoId } = getSectionTypeConfig(sectionId);
+    const { codeInfoId } = getSectionInfo(sectionId);
     addCodeInfo({ info, parent: codeInfoId });
     id = info.id;
     updateCallables(sectionId);

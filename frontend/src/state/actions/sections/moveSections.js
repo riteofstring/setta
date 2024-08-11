@@ -7,11 +7,7 @@ import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { insertIntoArray } from "utils/utils";
-import {
-  getSectionInfo,
-  getSectionType,
-  getSectionTypeConfig,
-} from "../../getters/sectionInfo";
+import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import { getSectionVariantIdAndMappedDBSource } from "../sectionVariants";
 import { createSectionInfo } from "./createSections";
@@ -146,7 +142,7 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
         editable: false,
         rcType: C.CALLABLE,
       });
-      const { codeInfoId } = getSectionTypeConfig(sectionId);
+      const { codeInfoId } = getSectionInfo(sectionId);
       addCodeInfo({ info, parent: codeInfoId });
 
       const [newId] = createSectionInfo({

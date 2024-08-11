@@ -5,7 +5,7 @@ import { updateParamsAndCallables } from "state/actions/sections/sectionContents
 import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { setSectionUITypeId } from "state/actions/uiTypes/setSectionUITypeId";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { getSectionTypeConfig } from "state/getters/sectionInfo";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { newCodeInfo } from "utils/objs/codeInfo";
 
@@ -16,7 +16,7 @@ export function SectionConfigTypeSelection({ sectionId }) {
     //TODO fix this horrible shit
     if (e && e !== selectedId) {
       setSectionUITypeId({ uiTypeId: e, sectionId, incrementVersion: false });
-      if (!getSectionTypeConfig(sectionId).codeInfoId) {
+      if (!getSectionInfo(sectionId).codeInfoId) {
         const codeInfo = newCodeInfo({
           name: "Section Contents",
           rcType: C.COLLECTION,
