@@ -46,7 +46,7 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
     createChildrenCodeInfo(id, res);
     setSelectedItemChildren(sectionId, id, changedByUser);
   }
-  updateKeywordRegex(_.mapValues(useSectionInfos.getState().x, (x) => x.name));
+  updateKeywordRegex();
 }
 
 function createChildrenCodeInfo(parent, params) {

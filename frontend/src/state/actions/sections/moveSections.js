@@ -1,3 +1,7 @@
+import {
+  computeInfoToFullName,
+  keyForInfoToFullName,
+} from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
@@ -8,6 +12,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
+import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   getSectionVariantIdAndMappedDBSource,
@@ -59,6 +64,9 @@ export function moveSection({
   });
 
   setSectionSize({ newParentId, sectionId });
+
+  // TODO: make this optional via input argument so that it doesn't get called unnecessarily
+  updateKeywordRegex();
 
   maybeCreateReferenceSections({ sectionId, oldParentId });
 
@@ -135,6 +143,7 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
   const { variantId: activeVariantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(oldParentId);
   const variantState = useSectionVariants.getState().x;
+  const infoToFullName = computeInfoToFullName();
   for (const variantId of variantIds) {
     if (variantId === activeVariantId) {
       continue;
@@ -143,7 +152,7 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
     const sectionIdx = children.findIndex((x) => x === sectionId);
     if (sectionIdx !== -1) {
       const info = newCodeInfo({
-        name: getSectionInfo(sectionId).name,
+        name: infoToFullName[keyForInfoToFullName({ sectionId })],
         editable: false,
         rcType: C.CALLABLE,
       });

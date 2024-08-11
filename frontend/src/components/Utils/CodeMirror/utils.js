@@ -78,9 +78,23 @@ export function computeInfoToFullName() {
   for (const [k, v] of Object.entries(
     useKeywordRegex.getState().fullNameToInfo,
   )) {
-    output[JSON.stringify([v.sectionId, v.paramInfoId, v.isArgsObj])] = k;
+    output[
+      keyForInfoToFullName({
+        sectionId: v.sectionId,
+        paramInfoId: v.paramInfoId,
+        isArgsObj: v.isArgsObj,
+      })
+    ] = k;
   }
   return output;
+}
+
+export function keyForInfoToFullName({
+  sectionId,
+  paramInfoId = null,
+  isArgsObj = false,
+}) {
+  return JSON.stringify([sectionId, paramInfoId, isArgsObj]);
 }
 
 export function doesNotReferToSelf({
