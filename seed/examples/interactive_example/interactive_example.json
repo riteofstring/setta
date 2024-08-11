@@ -33,7 +33,7 @@
       "description": "",
       "code": "",
       "codeLanguage": "",
-      "nonPresetUITypeIds": ["0ea28d59-81d3-446f-a0c2-1c3813f60112"],
+      "nonPresetUITypeIds": [],
       "variantIds": ["0723f95a-e74c-4c1e-9aea-2eacad673293"],
       "outputGroup": null,
       "isFrozen": false,
@@ -60,7 +60,7 @@
       "description": "",
       "code": "",
       "codeLanguage": "",
-      "nonPresetUITypeIds": ["9f52ec07-9bed-4a6d-ab95-c9dd6a003260"],
+      "nonPresetUITypeIds": [],
       "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
       "outputGroup": null,
       "isFrozen": false,
@@ -80,15 +80,6 @@
     }
   },
   "uiTypes": {
-    "0ea28d59-81d3-446f-a0c2-1c3813f60112": {
-      "id": "0ea28d59-81d3-446f-a0c2-1c3813f60112",
-      "name": "zesty_amber",
-      "type": "SECTION",
-      "presetType": null,
-      "config": {
-        "codeInfoId": "9193e5d1-544b-4490-99ee-f7ba34a0ed80"
-      }
-    },
     "76c639bd-eae5-4497-bf8b-0e668d8baf6c": {
       "id": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
       "name": "c",
