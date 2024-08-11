@@ -1,4 +1,4 @@
-from setta.utils.constants import C, is_section_ui_type
+from setta.utils.constants import C
 
 
 def save_ui_types(dbs, uiTypes):
@@ -18,26 +18,7 @@ def save_ui_types(dbs, uiTypes):
     query_parameters = uiTypes
     db.executemany(query, query_parameters)
 
-    save_section_types(db, uiTypes)
     save_slider_types(db, uiTypes)
-
-
-def save_section_types(db, uiTypes):
-    uiTypes = [x for x in uiTypes if is_section_ui_type(x["type"])]
-    query = """
-        UPDATE UIType
-        SET sectionConfigCodeInfoId = :sectionConfigCodeInfoId
-        WHERE id = :id
-    """
-    query_parameters = [{"id": x["id"], **parse_section_config(x)} for x in uiTypes]
-    db.executemany(query, query_parameters)
-
-
-def parse_section_config(uiType):
-    config = uiType["config"]
-    return {
-        "sectionConfigCodeInfoId": config.get("codeInfoId"),
-    }
 
 
 def save_slider_types(db, uiTypes):

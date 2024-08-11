@@ -1,4 +1,4 @@
-from setta.utils.constants import C, is_section_ui_type
+from setta.utils.constants import C
 
 
 def load_uitypes_by_condition(db, preset_types=None, ids=None):
@@ -37,17 +37,9 @@ def process_uitype(uitype):
         "presetType": uitype["presetType"],
         "config": {},
     }
-    if is_section_ui_type(uitype["type"]):
-        output["config"] = load_section_config(uitype)
     if uitype["type"] == C.SLIDER:
         output["config"] = load_slider_config(uitype)
     return output
-
-
-def load_section_config(uitype):
-    return {
-        "codeInfoId": uitype["sectionConfigCodeInfoId"],
-    }
 
 
 def load_slider_config(uitype):

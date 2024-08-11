@@ -53,7 +53,7 @@
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "name": "Global Variables",
-      "uiTypeId": "9f52ec07-9bed-4a6d-ab95-c9dd6a003260",
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
       "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
       "social": null,
       "description": "",
@@ -74,7 +74,8 @@
       "paramSweepId": null,
       "selectedItem": null,
       "versionsHeight": 100,
-      "versionsVisible": 0
+      "versionsVisible": 0,
+      "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec"
     }
   },
   "uiTypes": {
@@ -96,15 +97,6 @@
         "min": 0,
         "max": 10,
         "step": 1
-      }
-    },
-    "9f52ec07-9bed-4a6d-ab95-c9dd6a003260": {
-      "id": "9f52ec07-9bed-4a6d-ab95-c9dd6a003260",
-      "name": "Global Variables",
-      "type": "GLOBAL_VARIABLES",
-      "presetType": null,
-      "config": {
-        "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec"
       }
     }
   },

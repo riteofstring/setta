@@ -44,10 +44,12 @@ CREATE_TABLES_COMMANDS = [
         codeLanguage TEXT,
         isFrozen BOOLEAN,
         dbSource TEXT,
+        codeInfoId TEXT,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
-        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE
+        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE,
+        FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
     # SectionConfig model
@@ -108,14 +110,12 @@ CREATE_TABLES_COMMANDS = [
         name TEXT,
         type TEXT,
         presetType TEXT,
-        sectionConfigCodeInfoId TEXT,
         sliderConfigMin REAL,
         sliderConfigMax REAL,
         sliderConfigStep REAL,
         asNonPresetForSectionId TEXT,
         asNonPresetForUITypeColId TEXT,
         asNonPresetForCodeInfoId TEXT,
-        FOREIGN KEY (sectionConfigCodeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId) ON DELETE CASCADE
     );
