@@ -35,14 +35,16 @@ export function setParamUITypeConfig({
 
 function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
   const defaultName = useCodeInfo.getState().x[paramInfoId].name;
-  const { nonPresetUITypeIds } = getSectionInfo(sectionId);
+  const { uiTypeColId } = getSectionInfo(sectionId);
+  const nonPresetUITypeIds =
+    useUITypeCols.getState().y[uiTypeColId][paramInfoId].nonPresetUITypeIds;
   const currUIType = getParamUIType(sectionId, paramInfoId);
 
   const setUITypeId = (uiTypeId) =>
     setParamUITypeId({ uiTypeId, sectionId, paramInfoId });
   const createNonPreset = () =>
     createNonPresetForParam({
-      sectionId,
+      uiTypeColId,
       paramInfoId,
       currUIType,
       defaultName,
@@ -58,7 +60,7 @@ function maybeCloneParamUIType({ sectionId, paramInfoId, settingPreset }) {
 }
 
 function createNonPresetForParam({
-  sectionId,
+  uiTypeColId,
   paramInfoId,
   currUIType,
   defaultName,
@@ -69,7 +71,6 @@ function createNonPresetForParam({
   });
   addUIType({ uiType: newUIType });
 
-  const { uiTypeColId } = getSectionInfo(sectionId);
   setNonPresetUITypeIds({
     collectionId: uiTypeColId,
     paramInfoId,
@@ -104,7 +105,7 @@ function _updateEVs(uiType) {
         const dbSource = getMappedSectionDBSource(s.id);
         const variantId = s.variantId;
         for (const [pid, currValue] of Object.entries(
-          eState.x[variantId].values,
+          eState.x[dbSource][variantId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
             const newVal = getValueForUIType({ uiType, currValue });

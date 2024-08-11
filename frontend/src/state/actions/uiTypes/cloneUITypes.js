@@ -13,8 +13,8 @@ export function maybeCloneUIType({
   // If it's a preset but we're not "saving as",
   // then use existing non-preset, or copy into a new non-preset ui type.
   let maybeNewUIType = currUIType;
-  if (shouldCloneUIType(currUIType, settingPreset)) {
-    // Try using existing non-preset (uiType with same type and that belongs to section's nonPresetUITypeIds)
+  if (isPreset(currUIType) && !settingPreset) {
+    // Try using existing non-preset (uiType with same type and that belongs to nonPresetUITypeIds)
     const matches = _.filter(useUITypes.getState().x, (v) =>
       isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, currUIType.type),
     );
@@ -26,11 +26,6 @@ export function maybeCloneUIType({
   }
 
   return maybeNewUIType;
-}
-
-function shouldCloneUIType(uiType, settingPreset) {
-  // uiType is a preset, and we're not in "settingPreset" mode
-  return isPreset(uiType) && !settingPreset;
 }
 
 export function cloneNewUIType({
