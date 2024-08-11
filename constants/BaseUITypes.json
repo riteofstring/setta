@@ -45,6 +45,13 @@
     "presetType": "BASE",
     "config": {}
   },
+  "a1552a0a-f6c0-408a-844a-083538e04c55": {
+    "id": "a1552a0a-f6c0-408a-844a-083538e04c55",
+    "type": "REFERENCE_SECTION",
+    "name": "",
+    "presetType": "BASE",
+    "config": {}
+  },
   "0e050316-06ca-48f4-92c1-9845abdf85f7": {
     "id": "0e050316-06ca-48f4-92c1-9845abdf85f7",
     "type": "DECK",

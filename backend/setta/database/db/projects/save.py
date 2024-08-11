@@ -192,7 +192,7 @@ def update_linked_project_configs(dbs, project):
         other_project_configs[row["sectionId"]].add(row["projectConfigId"])
 
     to_insert = []
-    # we start with sections that are also in other project configs
+    # we start with top-level sections that are also in other project configs
     ids = set(
         k for k in project_config["children"].keys() if k in other_project_configs
     )

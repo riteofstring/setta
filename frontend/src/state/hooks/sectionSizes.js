@@ -4,7 +4,7 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { useGetAllCallables, useGetParamInfos } from "./sectionContents";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
-import { useIsOutput, useIsRoot } from "./uiTypes";
+import { useIsOutput, useIsReferenceSection, useIsRoot } from "./uiTypes";
 
 export function useMinSectionHeight(sectionId) {
   const isOutput = useIsOutput(sectionId);
@@ -15,6 +15,11 @@ export function useMinSectionHeight(sectionId) {
   const hasSearch =
     useGetAllCallables(sectionId).length > 0 && !isRoot && !hideSearch;
   const hasKwargControl = !hideParams && !isRoot;
+  const isReferenceSection = useIsReferenceSection(sectionId);
+
+  if (isReferenceSection) {
+    return 50;
+  }
 
   if (isRoot) {
     return 50;

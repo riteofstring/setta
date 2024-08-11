@@ -103,6 +103,10 @@ export function useIsTerminal(sectionId) {
   return useIsType(sectionId, C.TERMINAL);
 }
 
+export function useIsReferenceSection(sectionId) {
+  return useIsType(sectionId, C.REFERENCE_SECTION);
+}
+
 export function useRequiredUIEditorTabs(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const uiTypeType = useUITypes((x) => x.x[uiTypeId].type);

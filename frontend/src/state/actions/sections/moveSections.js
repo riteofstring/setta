@@ -163,7 +163,7 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
         sectionProps: {
           parentId: oldParentId,
           selectedItem: info.id,
-          hideParams: true,
+          uiTypeId: BASE_UI_TYPE_IDS[C.REFERENCE_SECTION],
         },
       });
 
