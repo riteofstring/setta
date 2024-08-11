@@ -95,8 +95,9 @@ CREATE_TABLES_COMMANDS = [
     """
     CREATE TABLE IF NOT EXISTS SectionVariantChildren (
         idid TEXT,
-        childId TEXT PRIMARY KEY,
+        childId TEXT,
         "order" INTEGER,
+        PRIMARY KEY (idid, childId),
         FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE
     );
     """,
