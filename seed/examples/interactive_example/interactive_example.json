@@ -39,7 +39,16 @@
       "isFrozen": false,
       "isSelected": false,
       "paramSweepIds": [],
-      "paramSweepSectionId": null
+      "paramSweepSectionId": null,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
+      "paramSweepId": null,
+      "selectedItem": null,
+      "versionsHeight": 100,
+      "versionsVisible": 0
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -56,7 +65,16 @@
       "isFrozen": false,
       "isSelected": false,
       "paramSweepIds": [],
-      "paramSweepSectionId": null
+      "paramSweepSectionId": null,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
+      "paramSweepId": null,
+      "selectedItem": null,
+      "versionsHeight": 100,
+      "versionsVisible": 0
     }
   },
   "uiTypes": {
@@ -151,32 +169,6 @@
   "dbSourceMapping": {
     "default": "default",
     "settings": "default"
-  },
-  "sectionConfigs": {
-    "1d3b6524-17bf-48f3-9954-794affcc58a8": {
-      "id": "1d3b6524-17bf-48f3-9954-794affcc58a8",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
-      "paramSweepId": null,
-      "selectedItem": null,
-      "versionsHeight": 100,
-      "versionsVisible": 0
-    },
-    "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
-      "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
-      "paramSweepId": null,
-      "selectedItem": null,
-      "versionsHeight": 100,
-      "versionsVisible": 0
-    }
   },
   "sectionVariants": {
     "default": {

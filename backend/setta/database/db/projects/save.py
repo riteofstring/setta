@@ -16,7 +16,7 @@ def save_project_details(dbs, p):
     save_param_sweeps(dbs, p["paramSweeps"])
     save_sections(dbs, p["sections"])
     save_project(dbs, p["projectConfig"])
-    save_section_configs(dbs, p["projectConfig"]["id"], p["sectionConfigs"])
+    save_section_configs(dbs, p["projectConfig"]["id"], p["sections"])
     save_run_groups(dbs, p["runGroups"])
 
 
@@ -125,11 +125,11 @@ def save_project_config_name(dbs, curr_name, new_name):
     db.execute(query, query_params)
 
 
-def save_section_configs(dbs, project_config_id, section_configs):
+def save_section_configs(dbs, project_config_id, sections):
     db = dbs.default
 
     query_params = []
-    for section_id in section_configs.keys():
+    for section_id in sections.keys():
         query_params.extend([project_config_id, section_id])
     placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
     query = f"""
@@ -155,7 +155,7 @@ def save_section_configs(dbs, project_config_id, section_configs):
             "versionsHeight": s["versionsHeight"],
             "versionsVisible": s["versionsVisible"],
         }
-        for s in section_configs.values()
+        for s in sections.values()
     ]
 
     db.executemany(query, query_params)
