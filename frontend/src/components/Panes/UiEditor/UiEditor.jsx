@@ -133,14 +133,6 @@ function DBSourcesTab({ sectionId }) {
   );
 }
 
-// function RuntimeTab({ sectionId }) {
-//   return (
-//     <TabContent value={RUNTIME_CONFIG_TAB}>
-//       <RunTimeOptions sectionId={sectionId} />
-//     </TabContent>
-//   );
-// }
-
 function TabContentSelector({ sectionId, tabName }) {
   if (tabName === SECTION_CONFIG_TAB) {
     return <SectionConfigTab sectionId={sectionId} />;
@@ -151,7 +143,4 @@ function TabContentSelector({ sectionId, tabName }) {
   } else if (tabName === DB_SOURCES_TAB) {
     return <DBSourcesTab sectionId={sectionId} />;
   }
-  // else if (tabName === RUNTIME_CONFIG_TAB) {
-  //   return <RuntimeTab sectionId={sectionId} />;
-  // }
 }
