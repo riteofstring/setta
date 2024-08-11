@@ -57,7 +57,7 @@ def save_sections(dbs, sections):
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "dbSource": s.get("dbSource"),
-            "codeInfoId": s["codeInfoId"]
+            "codeInfoId": s["codeInfoId"],
         }
         for s in sections.values()
     ]

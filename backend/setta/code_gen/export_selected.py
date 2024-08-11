@@ -9,11 +9,6 @@ def get_args_var_name(var_name):
     return f"{C.ARGS_PREFIX}{var_name}"
 
 
-def get_section_config(p, id):
-    ui_type_id = p["sections"][id]["uiTypeId"]
-    return p["uiTypes"][ui_type_id]["config"]
-
-
 def get_section_type(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
     return p["uiTypes"][ui_type_id]["type"]
@@ -30,38 +25,33 @@ def get_param_ids(p, id):
     selected_item = p["sections"][id]["selectedItem"]
     if selected_item:
         return p["codeInfo"][selected_item]["children"]
-    return p["codeInfo"][p["sections"]["codeInfoId"]]["children"]
-
-
-def get_param_ui_type_id(p, section_id, id):
-    ui_type_col_id = p["sections"][section_id]["uiTypeColId"]
-    return p["uiTypeCols"][ui_type_col_id][id]["uiTypeId"]
+    collection_id = p["sections"][id]["codeInfoId"]
+    return p["codeInfo"][collection_id]["children"]
 
 
 def get_param_ui_type(p, section_id, id):
-    ui_type_id = get_param_ui_type_id(p, section_id, id)
+    ui_type_col_id = p["sections"][section_id]["uiTypeColId"]
+    ui_type_id = p["uiTypeCols"][ui_type_col_id][id]["uiTypeId"]
     ui_type = p["uiTypes"][ui_type_id]
     return ui_type["type"]
 
 
-def get_original_param_ui_type(p, section_id, id):
-    ui_type_id = get_param_ui_type_id(p, section_id, id)
-    return p["uiTypes"][ui_type_id]["type"]
+def get_mapped_db_source_and_variant_id(p, section_id):
+    section = p["sections"][section_id]
+    variantId = section["variantId"]
+    dbSource = section["dbSource"]
+    dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
+    dbSource = p["dbSourceMapping"][dbSource]
+    return dbSource, variantId
 
 
-def get_param_var_name_for_autocomplete(section_name, param_name):
-    return f'{get_args_var_name(section_name)}["{param_name}"]'
+def get_selected_section_variant(p, section_id):
+    dbSource, variantId = get_mapped_db_source_and_variant_id(p, section_id)
+    return p["sectionVariants"][dbSource][variantId]
 
 
 def no_entered_value(value):
     return value is None or value == ""
-
-
-# def get_section_var_name(var_names):
-#     return get_var_name(var_names, "s")
-
-# def get_param_var_name(var_names):
-#     return get_var_name(var_names, "p")
 
 
 def get_var_name(var_names):
@@ -89,14 +79,6 @@ def maybe_create_var_name(
     return var_name
 
 
-def get_list_or_dict_value(p, children, type):
-    if type == C.LIST_ROOT:
-        return f"[None for _ in range({len(children)})]"
-    elif type == C.DICT_ROOT:
-        children_names = [p["sections"][id]["name"] for id in children]
-        return f"{{k:None for k in {children_names}}}"
-
-
 def export_selected(p):
     e = Exporter(p)
     e.export()
@@ -115,28 +97,30 @@ def get_code(p):
 
 
 def flatten_groups(p):
-    for sid, section in p["sections"].items():
+    for sid in p["sections"].keys():
         if get_section_type(p, sid) != C.DECK:
             continue
 
-        children = section["children"]
+        children = get_selected_section_variant(p, sid)["children"]
         if sid in p["projectConfig"]["children"]:
             for c in children:
                 p["projectConfig"]["children"][c] = {}
         else:
             parentId = None
-            for possible_parent in p["sections"].values():
-                parent_idx = possible_parent["children"].index(sid)
+            for possible_parent_id in p["sections"].keys():
+                parent_idx = get_selected_section_variant(p, possible_parent_id)[
+                    "children"
+                ].index(sid)
                 if parent_idx != -1:
-                    parentId = possible_parent["id"]
+                    parentId = possible_parent_id
                     break
             if parentId is None:
                 raise ValueError
-            parentSection = p["sections"][parentId]
-            parentSection["children"] = (
-                parentSection["children"][:parent_idx]
+            parentSelectedVariant = get_selected_section_variant(p, parentId)
+            parentSelectedVariant["children"] = (
+                parentSelectedVariant["children"][:parent_idx]
                 + children
-                + parentSection["children"][parent_idx:]
+                + parentSelectedVariant["children"][parent_idx:]
             )
 
 
@@ -198,7 +182,7 @@ class Exporter:
                 }
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT]:
-                children = self.p["sections"][id]["children"]
+                children = get_selected_section_variant(self.p, id)["children"]
                 info["value"] = self.export_sections(children)
                 self.output[var_name] = info
             else:
@@ -292,11 +276,7 @@ class Exporter:
         return var_name
 
     def export_param_value(self, section_id, id):
-        section = self.p["sections"][section_id]
-        variantId = section["variantId"]
-        dbSource = section["dbSource"]
-        dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
-        dbSource = self.p["dbSourceMapping"][dbSource]
+        dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
         value = self.p["sectionVariants"][dbSource][variantId]["values"][id]
         refs = self.p["evRefs"][section_id][id]
         deps = []
