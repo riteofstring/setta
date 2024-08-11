@@ -1,7 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { isListRoot } from "utils/sectionTypeHelpers";
 import {
   getSectionIdToChildren,
   setSectionVariantChildren,
@@ -40,17 +39,6 @@ export function setSectionInfoAttr({
         value,
         newValueFn,
       });
-    }
-  });
-}
-
-export function setSectionChildrenNames({ sectionId, sectionType }) {
-  useSectionInfos.setState((state) => {
-    if (isListRoot(sectionType.type)) {
-      const children = state.x[sectionId].children;
-      for (let idx = 0; idx < children.length; idx++) {
-        state.x[children[idx]].name = `[${idx}]`;
-      }
     }
   });
 }
