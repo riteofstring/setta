@@ -2,7 +2,10 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { isListRoot } from "utils/sectionTypeHelpers";
-import { setSectionVariantChildren } from "../sectionVariants";
+import {
+  getSectionIdToChildren,
+  setSectionVariantChildren,
+} from "../sectionVariants";
 
 export function setAllSectionInfos({ sections, sectionConfigs }) {
   const x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
@@ -120,5 +123,5 @@ function valueOrNewValueFn({ obj, attr, value, newValueFn }) {
 export function manualDndChildrenReset() {
   useDndChildren
     .getState()
-    .reset(_.mapValues(useSectionInfos.getState().x, (v) => v.children));
+    .update(getSectionIdToChildren(useSectionVariants.getState().x));
 }
