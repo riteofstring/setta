@@ -11,6 +11,7 @@ import {
   useUITypes,
 } from "state/definitions";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { getSectionIdToChildren } from "./actions/sectionVariants";
 
 function getSingletonSubscriptionFn(type) {
   return (state) => {
@@ -51,17 +52,7 @@ export function subscribe() {
 
   useSectionVariants.subscribe(
     (state) => {
-      const output = {};
-      const s = useSectionInfos.getState().x;
-      for (const [dbSource, variants] of Object.entries(state.x)) {
-        for (const [variantId, variantInfo] of Object.entries(variants)) {
-          const sInfo = _.find(s, (obj) => obj.variantId === variantId);
-          if (sInfo) {
-            output[sInfo.id] = variantInfo.children;
-          }
-        }
-      }
-      return output;
+      return getSectionIdToChildren(state.x);
     },
     (x) => {
       useDndChildren.getState().update(x);

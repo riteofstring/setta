@@ -139,3 +139,19 @@ export function setSectionVariantChildren({ sectionId, newStateFn }) {
     );
   });
 }
+
+export function getSectionIdToChildren(sectionVariantState) {
+  const output = {};
+  const s = useSectionInfos.getState().x;
+  for (const variantsInOneDbSource of Object.values(sectionVariantState)) {
+    for (const [variantId, variantInfo] of Object.entries(
+      variantsInOneDbSource,
+    )) {
+      const sInfo = _.find(s, (obj) => obj.variantId === variantId);
+      if (sInfo) {
+        output[sInfo.id] = variantInfo.children;
+      }
+    }
+  }
+  return output;
+}

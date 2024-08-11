@@ -1,6 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { isListRoot } from "utils/sectionTypeHelpers";
 import { setSectionVariantChildren } from "../sectionVariants";
 
@@ -62,7 +62,24 @@ export function removeSectionInfos(payload) {
           newStateFn: (children) => children.filter((x) => x !== id),
         });
       }
-      delete state.x[id];
+
+      let isStillUsedInAVariant = false;
+      for (const variantsInOneDbSource of Object.values(
+        useSectionVariants.getState().x,
+      )) {
+        for (const variantInfo of Object.values(variantsInOneDbSource)) {
+          if (variantInfo.children.includes(id)) {
+            isStillUsedInAVariant = true;
+            break;
+          }
+        }
+        if (isStillUsedInAVariant) {
+          break;
+        }
+      }
+      if (!isStillUsedInAVariant) {
+        delete state.x[id];
+      }
     }
 
     for (const [k, v] of Object.entries(state.x)) {

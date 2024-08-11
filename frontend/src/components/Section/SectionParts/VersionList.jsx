@@ -1,8 +1,10 @@
 import { ResizableVersionsList } from "components/Utils/Resizable/ResizableVersionsList";
 import C from "constants/constants.json";
+import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { getSectionIdToChildren } from "state/actions/sectionVariants";
+import { useSectionInfos, useSectionVariants } from "state/definitions";
 import {
   getForSectionId,
   useCurrParamSweepId,
@@ -55,6 +57,9 @@ function EVItems({ sectionId, setNumListings }) {
 
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
+    useDndChildren
+      .getState()
+      .update(getSectionIdToChildren(useSectionVariants.getState().x));
   }
 
   useDeepCompareEffect(() => {
