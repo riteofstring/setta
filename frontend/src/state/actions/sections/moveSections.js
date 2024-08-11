@@ -4,11 +4,19 @@ import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { setSectionChildrenAndNames } from "state/actions/sections/setters";
 import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { PANEID } from "utils/constants";
+import { newCodeInfo } from "utils/objs/codeInfo";
 import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";
-import { getSectionType } from "../../getters/sectionInfo";
+import {
+  getSectionInfo,
+  getSectionType,
+  getSectionTypeConfig,
+} from "../../getters/sectionInfo";
+import { addCodeInfo } from "../codeInfo";
+import { getSectionVariantIdAndMappedDBSource } from "../sectionVariants";
+import { createSectionInfo } from "./createSections";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
 
@@ -59,6 +67,8 @@ export function moveSection({
   });
 
   setSectionSize({ newParentId, sectionId });
+
+  maybeCreateReferenceSections({ sectionId, oldParentId });
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }
@@ -129,5 +139,56 @@ function setSectionSize({ newParentId, sectionId }) {
   } else {
     const width = s.x[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width });
+  }
+}
+
+function maybeCreateReferenceSections({ sectionId, oldParentId }) {
+  if (oldParentId === PANEID) {
+    return;
+  }
+
+  const { variantIds } = getSectionInfo(oldParentId);
+  if (variantIds.length <= 1) {
+    return;
+  }
+
+  // If the old parent has multiple variants,
+  // then we need to check if any of those variants
+  // have children that include sectionId.
+  // If they do include sectionId, those instances
+  // need to be replaced with a reference, to prevent
+  // the possibility of sectionId appearing in 2 places at once.
+  const { variantId: activeVariantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(oldParentId);
+  const variantState = useSectionVariants.getState().x;
+  for (const variantId of variantIds) {
+    if (variantId === activeVariantId) {
+      continue;
+    }
+    const children = variantState[dbSource][variantId].children;
+    const sectionIdx = children.findIndex((x) => x === sectionId);
+    if (sectionIdx !== -1) {
+      const info = newCodeInfo({
+        name: getSectionInfo(sectionId).name,
+        editable: false,
+        rcType: C.CALLABLE,
+      });
+      const { codeInfoId } = getSectionTypeConfig(sectionId);
+      addCodeInfo({ info, parent: codeInfoId });
+
+      const [newId] = createSectionInfo({
+        sectionProps: {
+          parentId: oldParentId,
+          selectedItem: info.id,
+          hideParams: true,
+        },
+      });
+
+      useSectionVariants.setState((state) => {
+        state.x[dbSource][variantId].children = state.x[dbSource][
+          variantId
+        ].children.toSpliced(sectionIdx, 1, newId);
+      });
+    }
   }
 }
