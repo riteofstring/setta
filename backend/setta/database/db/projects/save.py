@@ -1,3 +1,6 @@
+from collections import defaultdict
+
+from setta.code_gen.export_selected import get_selected_section_variant
 from setta.database.utils import create_new_id, generate_memorable_string
 
 from ..codeInfo.save import save_code_info
@@ -6,8 +9,6 @@ from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
-from collections import defaultdict
-from setta.code_gen.export_selected import get_selected_section_variant
 
 
 def save_project_details(dbs, p):
@@ -141,6 +142,12 @@ def save_section_configs(dbs, project_config_id, sections):
     """
     db.execute(query, query_params)
 
+    id_pairs = [(project_config_id, s) for s in sections.keys()]
+    insert_section_configs(dbs, sections, id_pairs)
+
+
+def insert_section_configs(dbs, sections, id_pairs):
+    db = dbs.default
     query = """
         INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, selectedItemId, versionsHeight, versionsVisible)
         VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :selectedItemId, :versionsHeight, :versionsVisible)
@@ -148,21 +155,20 @@ def save_section_configs(dbs, project_config_id, sections):
 
     query_params = [
         {
-            "projectConfigId": project_config_id,
-            "sectionId": s["id"],
-            "width": convert_size(s["size"]["width"]),
-            "height": convert_size(s["size"]["height"]),
-            "variantId": s["variantId"],
-            "paramSweepId": s["paramSweepId"],
-            "selectedItemId": s["selectedItem"],
-            "versionsHeight": s["versionsHeight"],
-            "versionsVisible": s["versionsVisible"],
+            "projectConfigId": projectConfigId,
+            "sectionId": sections[c]["id"],
+            "width": convert_size(sections[c]["size"]["width"]),
+            "height": convert_size(sections[c]["size"]["height"]),
+            "variantId": sections[c]["variantId"],
+            "paramSweepId": sections[c]["paramSweepId"],
+            "selectedItemId": sections[c]["selectedItem"],
+            "versionsHeight": sections[c]["versionsHeight"],
+            "versionsVisible": sections[c]["versionsVisible"],
         }
-        for s in sections.values()
+        for projectConfigId, c in id_pairs
     ]
 
     db.executemany(query, query_params)
-
 
 
 # If multiple project configs share a section,
@@ -184,11 +190,12 @@ def update_linked_project_configs(dbs, project):
     for row in db.fetchall():
         row = dict(row)
         other_project_configs[row["sectionId"]].add(row["projectConfigId"])
-    
-    
-    to_save = []
+
+    to_insert = []
     # we start with sections that are also in other project configs
-    ids = set(k for k in project_config["children"].keys() if k in other_project_configs)
+    ids = set(
+        k for k in project_config["children"].keys() if k in other_project_configs
+    )
     while len(ids) > 0:
         curr = ids.pop()
         children = get_selected_section_variant(project, curr)["children"]
@@ -196,18 +203,15 @@ def update_linked_project_configs(dbs, project):
             # The parent (curr) is in other project configs, but the child is not.
             # So we need to add the child to all the other project configs.
             if c not in other_project_configs:
-                to_save.extend([(p, c) for p in other_project_configs[curr]])
+                to_insert.extend([(p, c) for p in other_project_configs[curr]])
             # Both the parent (curr) and the child are in other project configs.
             # We don't need to add the child to the other project configs.
             # However, we do need to recurse into the child, to see if its children
             # need to be added.
             else:
                 ids.add(c)
-    
-    print("to_save", to_save, flush=True)
 
-
-
+    insert_section_configs(dbs, project["sections"], to_insert)
 
 
 def convert_size(x):
