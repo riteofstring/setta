@@ -64,3 +64,11 @@ export function useSectionIdToChildren() {
     _.isEqual,
   );
 }
+
+export function useListElementIdx(sectionId) {
+  const parentId = useGetSectionInfo(sectionId, "parentId");
+  const { dbSource, variantId } = useSectionVariantMetadataIds(parentId);
+  return useSectionVariants((x) =>
+    x.x[dbSource][variantId].children.indexOf(sectionId),
+  );
+}

@@ -1,7 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import C from "constants/constants.json";
-import { useGetSectionType } from "state/hooks/uiTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
@@ -13,7 +12,6 @@ import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 
 function MenuButton({ sectionId, sectionTypeName }) {
   // hover:bg-setta-100 dark:hover:bg-setta-900
-  const sectionType = useGetSectionType(sectionId, "type");
 
   const isSpecial = [
     C.CODE,
@@ -37,25 +35,25 @@ function MenuButton({ sectionId, sectionTypeName }) {
           />
         }
       >
-        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionType) && (
+        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionTypeName) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
         )}
 
-        {sectionType === C.PARAM_SWEEP ? (
+        {sectionTypeName === C.PARAM_SWEEP ? (
           <CreateNewParamSweepButton sectionId={sectionId} />
         ) : (
           <CreateNewVersionButton sectionId={sectionId} />
         )}
 
-        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionType) && (
+        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionTypeName) && (
           <MultirunButton sectionId={sectionId} />
         )}
 
-        {[C.SECTION].includes(sectionType) && (
+        {[C.SECTION].includes(sectionTypeName) && (
           <HideShowSearchButton sectionId={sectionId} />
         )}
 
-        {[C.SECTION].includes(sectionType) && (
+        {[C.SECTION].includes(sectionTypeName) && (
           <HideShowParamsButton sectionId={sectionId} />
         )}
 

@@ -5,16 +5,22 @@ import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration } from "react-icons/tb";
 import { useGetSectionInfo } from "state/hooks/sections";
+import { useListElementIdx } from "state/hooks/sectionVariants";
+import { useIsListElement } from "state/hooks/uiTypes";
 
 export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
-  const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
+  const isListElement = useIsListElement(sectionId);
+
+  if (isListElement) {
+    return <ListElementIcon sectionId={sectionId} />;
+  }
 
   switch (sectionTypeName) {
     case C.CODE:
     case C.VAR_CONTROL:
       return (
         <CodeLanguageIcon
-          codeLanguage={codeLanguage}
+          sectionId={sectionId}
           classes="text-setta-300 dark:text-setta-400/50 group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-setta-500  transition-colors"
         />
       );
@@ -38,7 +44,8 @@ export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
   }
 }
 
-function CodeLanguageIcon({ codeLanguage, classes }) {
+function CodeLanguageIcon({ sectionId, classes }) {
+  const codeLanguage = useGetSectionInfo(sectionId, "codeLanguage");
   switch (codeLanguage) {
     case "python":
       return <SiPython className={classes} />;
@@ -49,4 +56,9 @@ function CodeLanguageIcon({ codeLanguage, classes }) {
     default:
       return null;
   }
+}
+
+function ListElementIcon({ sectionId }) {
+  const idx = useListElementIdx(sectionId);
+  return `[${idx}]`;
 }
