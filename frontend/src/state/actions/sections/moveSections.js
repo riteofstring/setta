@@ -9,7 +9,10 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
-import { getSectionVariantIdAndMappedDBSource } from "../sectionVariants";
+import {
+  getSectionChildren,
+  getSectionVariantIdAndMappedDBSource,
+} from "../sectionVariants";
 import { createSectionInfo } from "./createSections";
 import { setAllChildrenWidths } from "./sectionSizes";
 import { setSectionParentId } from "./setters";
@@ -100,7 +103,7 @@ function setSectionSize({ newParentId, sectionId }) {
 
   // if new parent is a deck and the deck has children
   if (isDeck) {
-    const deckChildren = s.x[newParentId].children;
+    const deckChildren = getSectionChildren(newParentId);
     if (deckChildren.length > 0) {
       const width = s.x[deckChildren[0]].size.width;
       setAllChildrenWidths({ sectionId, width });
