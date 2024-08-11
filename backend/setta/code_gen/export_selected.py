@@ -293,11 +293,11 @@ class Exporter:
 
     def export_param_value(self, section_id, id):
         section = self.p["sections"][section_id]
-        ev_col_id = section["evColId"]
+        variantId = section["variantId"]
         dbSource = section["dbSource"]
         dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
         dbSource = self.p["dbSourceMapping"][dbSource]
-        value = self.p["evCols"][dbSource][ev_col_id]["values"][id]
+        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]
         refs = self.p["evRefs"][section_id][id]
         deps = []
         value = process_refs(value, refs, self.maybe_create_ref_var_name)

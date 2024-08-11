@@ -16,9 +16,9 @@ import {
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
 import { useCodeInfo, useSectionVariants } from "state/definitions";
-import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
+import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =

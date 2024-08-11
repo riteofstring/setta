@@ -63,10 +63,7 @@ const StoreUpdater = ({
   autoPanOnNodeDrag,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
-  const { setTranslateExtent, reset } = useReactFlow(
-    selector,
-    shallow,
-  );
+  const { setTranslateExtent, reset } = useReactFlow(selector, shallow);
 
   useEffect(() => {
     return () => {

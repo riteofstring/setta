@@ -68,7 +68,6 @@ export const CONST_INFO_VIEWS = {
     "Choose which arguments appear in your selected card.",
 };
 
-
 export const jsonSettings = {
   defaultCodeSectionSize: { width: 500, height: "auto" },
   defaultTerminalSectionSize: { width: 700, height: "auto" },
