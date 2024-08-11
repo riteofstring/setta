@@ -13,8 +13,6 @@ def save_section_variants_to_one_db(db, section_variants):
         selectedItemId = :selectedItemId
     """
 
-    print("section_variants", section_variants)
-
     query_params = [
         {"id": k, "name": v["name"], "selectedItemId": v["selectedItem"]}
         for k, v in section_variants.items()

@@ -15,16 +15,23 @@ def get_section_type(p, id):
 
 
 def get_selected_item(p, id):
-    selected_item = p["sections"][id]["selectedItem"]
+    selected_item = get_selected_section_variant(p, id)["selectedItem"]
     if selected_item:
-        return p["codeInfo"][selected_item]["name"]
+        return p["codeInfo"][selected_item]
+    return None
+
+
+def get_selected_item_name(p, id):
+    selected_item = get_selected_item(p, id)
+    if selected_item:
+        return selected_item["name"]
     return None
 
 
 def get_param_ids(p, id):
-    selected_item = p["sections"][id]["selectedItem"]
+    selected_item = get_selected_item(p, id)
     if selected_item:
-        return p["codeInfo"][selected_item]["children"]
+        return selected_item["children"]
     collection_id = p["sections"][id]["codeInfoId"]
     return p["codeInfo"][collection_id]["children"]
 
@@ -175,7 +182,7 @@ class Exporter:
                     positionalOnlyParams,
                 ) = self.export_section_params(id)
                 info["value"] = {
-                    "callable": get_selected_item(self.p, id),
+                    "callable": get_selected_item_name(self.p, id),
                     "params": params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,

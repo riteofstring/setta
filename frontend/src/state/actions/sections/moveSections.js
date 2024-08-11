@@ -162,9 +162,9 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
       const [newId] = createSectionInfo({
         sectionProps: {
           parentId: oldParentId,
-          selectedItem: info.id,
           hideParams: true,
         },
+        variantProps: { selectedItem: info.id },
       });
 
       useSectionVariants.setState((state) => {

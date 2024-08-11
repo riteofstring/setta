@@ -1,16 +1,16 @@
 import C from "constants/constants.json";
-import _ from "lodash";
 import { dbParametersRequest } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { varControlUpdate } from "state/actions/varControl";
-import { useSectionInfos } from "state/definitions";
+import { useSectionVariants } from "state/definitions";
 import { isUUID } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
+import { setSectionVariantSelectedItem } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
 
@@ -28,11 +28,7 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
     updateCallables(sectionId);
   }
 
-  setSectionInfoAttr({
-    sectionId,
-    attr: "selectedItem",
-    value: id,
-  });
+  setSectionVariantSelectedItem(sectionId, id);
 
   if (isUUID(selectedItem)) {
     setSelectedItemChildren(sectionId, id, changedByUser);

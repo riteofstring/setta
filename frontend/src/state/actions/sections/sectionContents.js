@@ -6,6 +6,7 @@ import {
 } from "utils/getDescendants";
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { updateKeywordRegex } from "../keywordRegex";
+import { getSectionSelectedItem } from "../sectionVariants";
 
 export function getParamInfos(sectionId) {
   return useSectionToParams.getState().params[sectionId] ?? [];
@@ -54,7 +55,7 @@ export function updateCallables(sectionId) {
 }
 
 export function updateParams(sectionId) {
-  const { selectedItem } = getSectionInfo(sectionId);
+  const selectedItem = getSectionSelectedItem(sectionId);
   const params = computeAllParams(sectionId, selectedItem);
   useSectionToParams.setState((state) => {
     state.params[sectionId] = params;

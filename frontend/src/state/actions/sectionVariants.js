@@ -37,14 +37,19 @@ export function duplicateDbSource({ oldDbSource, newDbSource }) {
     }
   });
 }
-export function initManySectionVariantIds({ dbSource, collectionIds }) {
+export function initManySectionVariantIds({
+  dbSource,
+  collectionIds,
+  variantProps,
+}) {
   useSectionVariants.setState((state) => {
     _.forEach(collectionIds, (id) => {
       initValue(state.x, dbSource, {});
       initValue(state.x[dbSource], id, {
         name: createRandomName(),
-        values: {},
-        children: [],
+        values: variantProps.values ?? {},
+        children: variantProps.children ?? [],
+        selectedItem: variantProps.selectedItem ?? null,
       });
     });
   });
@@ -154,4 +159,18 @@ export function getSectionIdToChildren(sectionVariantState) {
     }
   }
   return output;
+}
+
+export function getSectionSelectedItem(sectionId) {
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
+  return useSectionVariants.getState().x[dbSource][variantId].selectedItem;
+}
+
+export function setSectionVariantSelectedItem(sectionId, selectedItem) {
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
+  useSectionVariants.setState((x) => {
+    x.x[dbSource][variantId].selectedItem = selectedItem;
+  });
 }

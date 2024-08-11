@@ -72,3 +72,12 @@ export function useListElementIdx(sectionId) {
     x.x[dbSource][variantId].children.indexOf(sectionId),
   );
 }
+
+export function useSectionSelectedItem(sectionId) {
+  const { dbSource, variantId, previewVariantId } =
+    useSectionVariantMetadataIds(sectionId);
+
+  return useSectionVariants(
+    (x) => x.x[dbSource][previewVariantId ?? variantId].selectedItem,
+  );
+}

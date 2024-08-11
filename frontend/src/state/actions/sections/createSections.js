@@ -119,6 +119,7 @@ export function addChildrenToSeries({
 
 export function createSectionInfo({
   sectionProps = {},
+  variantProps = {},
   numSections = 1,
   position,
 }) {
@@ -127,16 +128,17 @@ export function createSectionInfo({
     const sectionInfo = newSectionInfo(sectionProps);
     newInfos[sectionInfo.id] = sectionInfo;
   }
-  addSectionsToState(newInfos, position);
+  addSectionsToState(newInfos, variantProps, position);
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(sectionInfos, position) {
+function addSectionsToState(sectionInfos, variantProps, position,) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
   initManySectionVariantIds({
     dbSource: C.DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.variantId),
+    variantProps,
   });
 
   initManyUITypeColIds({

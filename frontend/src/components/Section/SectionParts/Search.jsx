@@ -1,10 +1,10 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { setSelectedItem } from "state/actions/sections/setters";
 import { useCodeInfo } from "state/definitions";
 import { useIdWaitingForLSPResult } from "state/hooks/lsp";
 
-export function SectionSearch({ sectionId, initialSelection }) {
+export function SectionSearch({ sectionId, selectedItem }) {
   // const [completions, sendCompletionRequest] =
   //   useCodeCompletionWebsocketRoom(sectionId);
   // const _searchableItems = useGetAllCallables(sectionId);
@@ -49,9 +49,15 @@ export function SectionSearch({ sectionId, initialSelection }) {
   //   />
   // );
 
-  const [value, setValue] = useState(
-    initialSelection ? useCodeInfo.getState().x[initialSelection].name : "",
+  const codeInfoName = useCodeInfo((x) =>
+    selectedItem ? x.x[selectedItem].name : "",
   );
+
+  const [value, setValue] = useState(codeInfoName);
+
+  useEffect(() => {
+    setValue(codeInfoName);
+  }, [codeInfoName]);
 
   function onEnter() {
     setSelectedItem(sectionId, value, true);
