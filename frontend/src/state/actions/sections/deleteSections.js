@@ -2,7 +2,8 @@ import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { getSectionInfo, getSectionParentId } from "../../getters/sectionInfo";
+import { getSectionParentId } from "../../getters/sectionInfo";
+import { getSectionChildren } from "../sectionVariants";
 import { removeActiveSectionIds } from "./activeSections";
 import { removeSectionInfos } from "./sectionInfos";
 
@@ -45,14 +46,14 @@ export function deleteChildrenFromSeries({
   incrementVersion = false,
 }) {
   if (isRoot) {
-    const { children } = getSectionInfo(calledBy);
+    const children = getSectionChildren(calledBy);
     deleteSections({
       sectionIds: children.slice(0, numChildren),
       incrementVersion,
     });
   } else {
     const parentId = getSectionParentId(calledBy);
-    const { children: siblings } = getSectionInfo(parentId);
+    const siblings = getSectionChildren(parentId);
     const startIdx = siblings.indexOf(calledBy) + 1;
     deleteSections({
       sectionIds: siblings.slice(startIdx, startIdx + numChildren),
