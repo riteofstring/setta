@@ -1,7 +1,6 @@
 import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
-import { setSectionChildrenAndNames } from "state/actions/sections/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { PANEID } from "utils/constants";
@@ -12,6 +11,7 @@ import { addCodeInfo } from "../codeInfo";
 import {
   getSectionChildren,
   getSectionVariantIdAndMappedDBSource,
+  setSectionVariantChildren,
 } from "../sectionVariants";
 import { createSectionInfo } from "./createSections";
 import { setAllChildrenWidths } from "./sectionSizes";
@@ -77,18 +77,20 @@ function setChildrenAndParent({
     // This means it was a top level section
     deleteNodes([sectionId]);
   } else {
-    setSectionChildrenAndNames(oldParentId, (x) =>
-      x.filter((y) => y !== sectionId),
-    );
+    setSectionVariantChildren({
+      sectionId: oldParentId,
+      newStateFn: (x) => x.filter((y) => y !== sectionId),
+    });
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
     addNodes([{ id: sectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
-    setSectionChildrenAndNames(newParentId, (x) =>
-      insertIntoArray(x, newIndex, sectionId),
-    );
+    setSectionVariantChildren({
+      sectionId: newParentId,
+      newStateFn: (x) => insertIntoArray(x, newIndex, sectionId),
+    });
   }
 
   setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);

@@ -8,22 +8,11 @@ import { useSectionInfos } from "state/definitions";
 import { isUUID } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
-import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
+import { getSectionInfo } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
-import { setSectionVariantChildren } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
-
-export function setSectionChildrenAndNames(sectionId, newStateFn) {
-  setSectionVariantChildren({
-    sectionId,
-    newStateFn,
-  });
-  const sectionType = getSectionType(sectionId);
-  // TODO: uncomment this line
-  // setSectionChildrenNames({ sectionId, sectionType });
-}
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   let id = selectedItem;

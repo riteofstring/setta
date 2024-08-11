@@ -6,7 +6,6 @@ import _ from "lodash";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { updateParams } from "state/actions/sections/sectionContents";
-import { setSectionChildrenAndNames } from "state/actions/sections/setters";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -20,6 +19,7 @@ import { addCodeInfo } from "../codeInfo";
 import {
   getSectionChildren,
   initManySectionVariantIds,
+  setSectionVariantChildren,
 } from "../sectionVariants";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
 import { updateManyParamsAndCallables } from "./sectionContents";
@@ -106,9 +106,11 @@ export function addChildrenToSeries({
     numSections: numChildren,
   });
 
-  setSectionChildrenAndNames(parentId, (x) =>
-    insertIntoArray(x, startIdx, ...newIds),
-  );
+  setSectionVariantChildren({
+    sectionId: parentId,
+    newStateFn: (x) => insertIntoArray(x, startIdx, ...newIds),
+  });
+
   updateManyParamsAndCallables(newIds);
   maybeIncrementProjectStateVersion(incrementVersion);
 

@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
 import { moveSection } from "state/actions/sections/moveSections";
 import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
-import { setSectionChildrenAndNames } from "state/actions/sections/setters";
+import { setSectionVariantChildren } from "state/actions/sectionVariants";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
@@ -15,10 +15,10 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
-    setSectionChildrenAndNames(
-      active.data.current.sortable?.containerId,
-      updateWithArrayMove(active, over),
-    );
+    setSectionVariantChildren({
+      sectionId: active.data.current.sortable?.containerId,
+      newStateFn: updateWithArrayMove(active, over),
+    });
 
     maybeIncrementProjectStateVersion(true);
   }
