@@ -6,6 +6,8 @@ from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
+from collections import defaultdict
+from setta.code_gen.export_selected import get_selected_section_variant
 
 
 def save_project_details(dbs, p):
@@ -17,6 +19,7 @@ def save_project_details(dbs, p):
     save_sections(dbs, p["sections"])
     save_project(dbs, p["projectConfig"])
     save_section_configs(dbs, p["projectConfig"]["id"], p["sections"])
+    update_linked_project_configs(dbs, p)
     save_run_groups(dbs, p["runGroups"])
 
 
@@ -159,6 +162,52 @@ def save_section_configs(dbs, project_config_id, sections):
     ]
 
     db.executemany(query, query_params)
+
+
+
+# If multiple project configs share a section,
+# and that section has children,
+# then if a new child is added in one of those project configs,
+# an entry in SectionConfig needs to be added for ALL project configs.
+# Otherwise when loading those other project configs,
+# the data for the new child will be missing.
+def update_linked_project_configs(dbs, project):
+    db = dbs.default
+    query = """
+        SELECT projectConfigId, sectionId
+        FROM SectionConfig
+        WHERE projectConfigId != ?
+    """
+    project_config = project["projectConfig"]
+    db.execute(query, (project_config["id"],))
+    other_project_configs = defaultdict(set)
+    for row in db.fetchall():
+        row = dict(row)
+        other_project_configs[row["sectionId"]].add(row["projectConfigId"])
+    
+    
+    to_save = []
+    # we start with sections that are also in other project configs
+    ids = set(k for k in project_config["children"].keys() if k in other_project_configs)
+    while len(ids) > 0:
+        curr = ids.pop()
+        children = get_selected_section_variant(project, curr)["children"]
+        for c in children:
+            # The parent (curr) is in other project configs, but the child is not.
+            # So we need to add the child to all the other project configs.
+            if c not in other_project_configs:
+                to_save.extend([(p, c) for p in other_project_configs[curr]])
+            # Both the parent (curr) and the child are in other project configs.
+            # We don't need to add the child to the other project configs.
+            # However, we do need to recurse into the child, to see if its children
+            # need to be added.
+            else:
+                ids.add(c)
+    
+    print("to_save", to_save, flush=True)
+
+
+
 
 
 def convert_size(x):
