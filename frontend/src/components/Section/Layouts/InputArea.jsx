@@ -7,14 +7,19 @@ import { SectionSearch } from "../SectionParts/Search";
 function _InputArea({ sectionId }) {
   const selectedItem = useGetSectionInfo(sectionId, "selectedItem");
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
+  const hideParams = useGetSectionInfo(sectionId, "hideParams");
 
   return (
     <>
       {!hideSearch && (
         <SectionSearch sectionId={sectionId} initialSelection={selectedItem} />
       )}
-      <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
-      <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+      {!hideParams && (
+        <>
+          <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
+          <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+        </>
+      )}
     </>
   );
 }

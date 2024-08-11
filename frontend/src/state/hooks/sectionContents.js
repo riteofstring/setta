@@ -37,3 +37,7 @@ export function useGetSelectedOutputValues(sectionId) {
   const groupId = useGetSectionInfo(sectionId, "outputGroup");
   return useOutputValues(groupId);
 }
+
+export function useHasParams(sectionId) {
+  return useSectionToParams((x) => (x.params[sectionId] ?? []).length > 0);
+}

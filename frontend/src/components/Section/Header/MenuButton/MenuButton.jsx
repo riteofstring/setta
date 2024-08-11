@@ -6,6 +6,7 @@ import { HeaderIcon } from "../HeaderIcon";
 import { CreateNewParamSweepButton } from "./CreateNewParamSweepButton";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { FreezeButton } from "./FreezeButton";
+import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
@@ -52,6 +53,10 @@ function MenuButton({ sectionId, sectionTypeName }) {
 
         {[C.SECTION].includes(sectionType) && (
           <HideShowSearchButton sectionId={sectionId} />
+        )}
+
+        {[C.SECTION].includes(sectionType) && (
+          <HideShowParamsButton sectionId={sectionId} />
         )}
 
         <FreezeButton sectionId={sectionId} />
