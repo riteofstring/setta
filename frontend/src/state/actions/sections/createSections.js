@@ -148,18 +148,18 @@ export function createSectionInfo({
 }
 
 function addSectionsToState(sectionInfos, position) {
-  addSectionInfo((x) => ({ ...x, ...sectionInfos }));
-
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
   initManySectionVariantIds({
     dbSource: C.DEFAULT_DB_ALIAS,
-    collectionIds: _.map(sectionInfos, (x) => x.evColId),
+    collectionIds: _.map(sectionInfos, (x) => x.variantId),
   });
 
   initManyUITypeColIds({
     collectionIds: _.map(sectionInfos, (x) => x.uiTypeColId),
   });
+
+  addSectionInfo((x) => ({ ...x, ...sectionInfos }));
 
   const topLevelSectionIds = [];
 
