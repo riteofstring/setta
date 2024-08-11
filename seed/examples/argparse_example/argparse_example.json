@@ -46,7 +46,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3dbb4893-bd44-4e67-a6c3-1148d7205d42"],
+      "variantIds": [
+        "3dbb4893-bd44-4e67-a6c3-1148d7205d42"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -56,7 +58,6 @@
       },
       "variantId": "3dbb4893-bd44-4e67-a6c3-1148d7205d42",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": 100,
       "versionsVisible": 0,
       "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b"
@@ -73,7 +74,9 @@
       "codeLanguage": "python",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3ec298ce-5d49-42f8-8700-3e2efb26855b"],
+      "variantIds": [
+        "3ec298ce-5d49-42f8-8700-3e2efb26855b"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -83,7 +86,6 @@
       },
       "variantId": "3ec298ce-5d49-42f8-8700-3e2efb26855b",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": 100,
       "versionsVisible": 0,
       "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa"
@@ -100,7 +102,9 @@
       "codeLanguage": "bash",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["40fd1a3c-6fca-4b87-b427-5bee353cef09"],
+      "variantIds": [
+        "40fd1a3c-6fca-4b87-b427-5bee353cef09"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -110,7 +114,6 @@
       },
       "variantId": "40fd1a3c-6fca-4b87-b427-5bee353cef09",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": 100,
       "versionsVisible": 0,
       "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc"
@@ -127,7 +130,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["dc1879dd-4591-46c0-8fc6-f733c6b177ca"],
+      "variantIds": [
+        "dc1879dd-4591-46c0-8fc6-f733c6b177ca"
+      ],
       "paramSweepIds": [
         "e30db601-cda1-4b31-bafe-a8dd047af670",
         "4fe62be1-f939-4d84-9c3f-f20412754e0c"
@@ -141,7 +146,6 @@
       },
       "variantId": "dc1879dd-4591-46c0-8fc6-f733c6b177ca",
       "paramSweepId": "e30db601-cda1-4b31-bafe-a8dd047af670",
-      "selectedItem": null,
       "versionsHeight": 100,
       "versionsVisible": 0,
       "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e"
@@ -193,7 +197,10 @@
       "sweep": [
         {
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-          "values": ["Kevin", "Jeff"]
+          "values": [
+            "Kevin",
+            "Jeff"
+          ]
         }
       ]
     },
@@ -202,7 +209,10 @@
       "sweep": [
         {
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-          "values": ["Aaron", "Joseph"]
+          "values": [
+            "Aaron",
+            "Joseph"
+          ]
         }
       ]
     }
@@ -248,7 +258,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["80b6429e-fbb9-4070-a574-b32e0e061ab4"],
+      "children": [
+        "80b6429e-fbb9-4070-a574-b32e0e061ab4"
+      ],
       "positionalOnly": false
     },
     "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
@@ -274,7 +286,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["0eac6e6f-6f26-47af-a9a3-89d9c365b26b"],
+      "children": [
+        "0eac6e6f-6f26-47af-a9a3-89d9c365b26b"
+      ],
       "positionalOnly": false
     },
     "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
@@ -385,17 +399,20 @@
       "3dbb4893-bd44-4e67-a6c3-1148d7205d42": {
         "name": "mathematical_magenta",
         "values": {},
-        "children": []
+        "children": [],
+        "selectedItem": null
       },
       "3ec298ce-5d49-42f8-8700-3e2efb26855b": {
         "name": "config1",
         "values": {},
-        "children": []
+        "children": [],
+        "selectedItem": null
       },
       "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
         "name": "config1",
         "values": {},
-        "children": []
+        "children": [],
+        "selectedItem": null
       },
       "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
         "name": "config1",
@@ -409,7 +426,8 @@
           "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": "false",
           "b1318655-3495-4d2d-8fef-89a138386641": "1000"
         },
-        "children": []
+        "children": [],
+        "selectedItem": null
       }
     }
   }

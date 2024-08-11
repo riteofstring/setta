@@ -62,14 +62,12 @@ CREATE_TABLES_COMMANDS = [
         height INTEGER,
         variantId TEXT,
         paramSweepId TEXT,
-        selectedItemId TEXT,
         versionsHeight REAL,
         versionsVisible BOOLEAN,
         PRIMARY KEY (projectConfigId, sectionId),
         FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
         FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
-        FOREIGN KEY (selectedItemId) REFERENCES CodeInfo(id) ON DELETE CASCADE
+        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE
     );
     """,
     # SectionVariantId model
@@ -78,6 +76,7 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS SectionVariantId (
         id TEXT PRIMARY KEY,
         name TEXT,
+        selectedItemId TEXT,
         originSectionId TEXT
     );
     """,

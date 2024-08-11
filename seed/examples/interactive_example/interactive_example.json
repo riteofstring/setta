@@ -34,7 +34,9 @@
       "code": "",
       "codeLanguage": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["0723f95a-e74c-4c1e-9aea-2eacad673293"],
+      "variantIds": [
+        "0723f95a-e74c-4c1e-9aea-2eacad673293"
+      ],
       "outputGroup": null,
       "isFrozen": false,
       "isSelected": false,
@@ -46,7 +48,6 @@
       },
       "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": 100,
       "versionsVisible": 0,
       "codeInfoId": null
@@ -61,7 +62,9 @@
       "code": "",
       "codeLanguage": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
+      "variantIds": [
+        "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
+      ],
       "outputGroup": null,
       "isFrozen": false,
       "isSelected": false,
@@ -73,7 +76,6 @@
       },
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": 100,
       "versionsVisible": 0,
       "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec"
@@ -97,7 +99,9 @@
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
-        "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
+        "nonPresetUITypeIds": [
+          "76c639bd-eae5-4497-bf8b-0e668d8baf6c"
+        ]
       }
     }
   },
@@ -121,7 +125,9 @@
       "editable": 0,
       "rcType": "collection",
       "defaultVal": null,
-      "children": ["20512036-3e0f-41f3-9738-6573ee71bdaf"],
+      "children": [
+        "20512036-3e0f-41f3-9738-6573ee71bdaf"
+      ],
       "description": "",
       "isPinned": false,
       "isFrozen": false,
@@ -155,14 +161,16 @@
       "0723f95a-e74c-4c1e-9aea-2eacad673293": {
         "name": "intensive_ivory",
         "values": {},
-        "children": []
+        "children": [],
+        "selectedItem": null
       },
       "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
         "name": "acceptable_purple",
         "values": {
           "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
         },
-        "children": []
+        "children": [],
+        "selectedItem": null
       }
     }
   }

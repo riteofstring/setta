@@ -47,7 +47,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["9b39ad4c-8887-43ea-b759-a1fc067ac3ef"],
+      "variantIds": [
+        "9b39ad4c-8887-43ea-b759-a1fc067ac3ef"
+      ],
       "paramSweepIds": [],
       "parentId": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
       "outputGroup": null,
@@ -57,7 +59,6 @@
       },
       "variantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "6cf98492-2d4c-426e-beff-4b5a500e615a"
@@ -75,7 +76,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["4253da34-9a1a-43eb-b80f-c6708e339024"],
+      "variantIds": [
+        "4253da34-9a1a-43eb-b80f-c6708e339024"
+      ],
       "paramSweepIds": [],
       "parentId": "04a2d718-6476-446f-bda7-4b7fc22f8972",
       "outputGroup": null,
@@ -85,7 +88,6 @@
       },
       "variantId": "4253da34-9a1a-43eb-b80f-c6708e339024",
       "paramSweepId": null,
-      "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "cdb23914-0147-4fad-9219-94d170315f34"
@@ -103,7 +105,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["9083beca-25c9-4a31-885a-fb19064efd3d"],
+      "variantIds": [
+        "9083beca-25c9-4a31-885a-fb19064efd3d"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -113,7 +117,6 @@
       },
       "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d",
       "paramSweepId": null,
-      "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "acd91249-b338-43d4-8808-fc0a68525daf"
@@ -131,7 +134,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["fb08c4e1-9809-46ef-bfa5-52a4a944ef74"],
+      "variantIds": [
+        "fb08c4e1-9809-46ef-bfa5-52a4a944ef74"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -141,7 +146,6 @@
       },
       "variantId": "fb08c4e1-9809-46ef-bfa5-52a4a944ef74",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "2a349a39-6990-48d2-8fe9-292d4735efd7"
@@ -159,7 +163,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["dbb76902-0b6c-46fa-a765-46bdfcf92d92"],
+      "variantIds": [
+        "dbb76902-0b6c-46fa-a765-46bdfcf92d92"
+      ],
       "paramSweepIds": [],
       "parentId": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
       "outputGroup": null,
@@ -169,7 +175,6 @@
       },
       "variantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92",
       "paramSweepId": null,
-      "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "ad4803fd-0052-40ad-a83d-7c4bea0501ef"
@@ -187,7 +192,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["c1873fea-a24d-4367-97b1-88614045a575"],
+      "variantIds": [
+        "c1873fea-a24d-4367-97b1-88614045a575"
+      ],
       "paramSweepIds": [],
       "parentId": "04a2d718-6476-446f-bda7-4b7fc22f8972",
       "outputGroup": null,
@@ -197,7 +204,6 @@
       },
       "variantId": "c1873fea-a24d-4367-97b1-88614045a575",
       "paramSweepId": null,
-      "selectedItem": "199d8d34-21f9-4c7e-b6b0-dd938a9736d0",
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "afd777fb-53e3-411c-a284-e7cb157e794e"
@@ -215,7 +221,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["756e7bb0-ac13-4790-a05c-f10425d508e9"],
+      "variantIds": [
+        "756e7bb0-ac13-4790-a05c-f10425d508e9"
+      ],
       "paramSweepIds": [],
       "parentId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
       "outputGroup": null,
@@ -225,7 +233,6 @@
       },
       "variantId": "756e7bb0-ac13-4790-a05c-f10425d508e9",
       "paramSweepId": null,
-      "selectedItem": "b9bf393b-96d9-4264-ad9f-bad777e6777a",
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134"
@@ -243,7 +250,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["8481e81d-f417-4914-b5d8-2797202392ab"],
+      "variantIds": [
+        "8481e81d-f417-4914-b5d8-2797202392ab"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -253,7 +262,6 @@
       },
       "variantId": "8481e81d-f417-4914-b5d8-2797202392ab",
       "paramSweepId": null,
-      "selectedItem": null,
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "1451f3ab-4361-4aba-82c4-625a96cdffff"
@@ -271,7 +279,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["c58d323d-382a-47b2-919f-a7f06bcac760"],
+      "variantIds": [
+        "c58d323d-382a-47b2-919f-a7f06bcac760"
+      ],
       "paramSweepIds": [],
       "parentId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
       "outputGroup": null,
@@ -281,7 +291,6 @@
       },
       "variantId": "c58d323d-382a-47b2-919f-a7f06bcac760",
       "paramSweepId": null,
-      "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1",
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c"
@@ -299,7 +308,9 @@
       "isFrozen": 0,
       "dbSource": "",
       "nonPresetUITypeIds": [],
-      "variantIds": ["a853185e-5b0d-400a-a94c-6c14a9c9809e"],
+      "variantIds": [
+        "a853185e-5b0d-400a-a94c-6c14a9c9809e"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -309,7 +320,6 @@
       },
       "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e",
       "paramSweepId": null,
-      "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
       "versionsHeight": "auto",
       "versionsVisible": 0,
       "codeInfoId": "d015737a-8207-4d29-86bf-d3e80c8c6e72"
@@ -547,7 +557,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["3fdec365-9d3f-4f5b-94fe-75adbb767d08"],
+      "children": [
+        "3fdec365-9d3f-4f5b-94fe-75adbb767d08"
+      ],
       "positionalOnly": false
     },
     "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
@@ -647,7 +659,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["10aeb934-d614-4b88-a15a-890c825860e1"],
+      "children": [
+        "10aeb934-d614-4b88-a15a-890c825860e1"
+      ],
       "positionalOnly": false
     },
     "2a349a39-6990-48d2-8fe9-292d4735efd7": {
@@ -764,7 +778,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["0a62f48a-54e6-4871-afa6-95c09bc49d61"],
+      "children": [
+        "0a62f48a-54e6-4871-afa6-95c09bc49d61"
+      ],
       "positionalOnly": false
     },
     "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
@@ -929,7 +945,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["b9bf393b-96d9-4264-ad9f-bad777e6777a"],
+      "children": [
+        "b9bf393b-96d9-4264-ad9f-bad777e6777a"
+      ],
       "positionalOnly": false
     },
     "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
@@ -1007,7 +1025,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["4c97d0f4-0221-4640-b5c8-6067d47fc131"],
+      "children": [
+        "4c97d0f4-0221-4640-b5c8-6067d47fc131"
+      ],
       "positionalOnly": false
     },
     "ad4803fd-0052-40ad-a83d-7c4bea0501ef": {
@@ -1020,7 +1040,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["c8a7d3aa-02d6-456c-8247-efc02bf86332"],
+      "children": [
+        "c8a7d3aa-02d6-456c-8247-efc02bf86332"
+      ],
       "positionalOnly": false
     },
     "afd777fb-53e3-411c-a284-e7cb157e794e": {
@@ -1033,7 +1055,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["199d8d34-21f9-4c7e-b6b0-dd938a9736d0"],
+      "children": [
+        "199d8d34-21f9-4c7e-b6b0-dd938a9736d0"
+      ],
       "positionalOnly": false
     },
     "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
@@ -1140,7 +1164,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["50b81980-75f1-4de8-bb0d-5042c44ecbd2"],
+      "children": [
+        "50b81980-75f1-4de8-bb0d-5042c44ecbd2"
+      ],
       "positionalOnly": false
     },
     "d015737a-8207-4d29-86bf-d3e80c8c6e72": {
@@ -1153,7 +1179,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["ea138acc-58d2-4cfb-a2db-b5c44061f10f"],
+      "children": [
+        "ea138acc-58d2-4cfb-a2db-b5c44061f10f"
+      ],
       "positionalOnly": false
     },
     "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
@@ -1297,7 +1325,8 @@
         "children": [
           "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
           "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3"
-        ]
+        ],
+        "selectedItem": null
       },
       "4253da34-9a1a-43eb-b80f-c6708e339024": {
         "name": "substantial_brown",
@@ -1311,14 +1340,16 @@
           "e5a2037f-60a7-4052-bb72-0763319f6000": "25",
           "ffeb5e40-5c66-4e31-a47a-6eac10385294": ""
         },
-        "children": []
+        "children": [],
+        "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2"
       },
       "9083beca-25c9-4a31-885a-fb19064efd3d": {
         "name": "yeasty_magenta",
         "values": {
           "0a62f48a-54e6-4871-afa6-95c09bc49d61": "list_of_transforms"
         },
-        "children": []
+        "children": [],
+        "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131"
       },
       "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
         "name": "marginal_coral",
@@ -1326,7 +1357,8 @@
         "children": [
           "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
           "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
-        ]
+        ],
+        "selectedItem": null
       },
       "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
         "name": "horizontal_green",
@@ -1343,7 +1375,8 @@
           "d9a35253-835b-425d-abdf-2a678ddc1924": "",
           "f807b59d-a434-41b6-a54c-9b35ffb61c8d": "model.parameters()"
         },
-        "children": []
+        "children": [],
+        "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332"
       },
       "c1873fea-a24d-4367-97b1-88614045a575": {
         "name": "wet_teal",
@@ -1357,7 +1390,8 @@
           "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": "",
           "fc3182cc-369b-4a19-811f-b5e8c6d182c3": ""
         },
-        "children": []
+        "children": [],
+        "selectedItem": "199d8d34-21f9-4c7e-b6b0-dd938a9736d0"
       },
       "756e7bb0-ac13-4790-a05c-f10425d508e9": {
         "name": "secure_jade",
@@ -1366,7 +1400,8 @@
           "7a9b411c-e319-4813-8bf2-f341cf05df4a": "\"lr\" in __optimizer",
           "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": "[0.5,0.5,0.5]"
         },
-        "children": []
+        "children": [],
+        "selectedItem": "b9bf393b-96d9-4264-ad9f-bad777e6777a"
       },
       "8481e81d-f417-4914-b5d8-2797202392ab": {
         "name": "fast_gray",
@@ -1374,14 +1409,16 @@
         "children": [
           "04a2d718-6476-446f-bda7-4b7fc22f8972",
           "93b410c0-33e9-4d66-95be-37d223d99c0a"
-        ]
+        ],
+        "selectedItem": null
       },
       "c58d323d-382a-47b2-919f-a7f06bcac760": {
         "name": "secure_tan",
         "values": {
           "3fdec365-9d3f-4f5b-94fe-75adbb767d08": "224"
         },
-        "children": []
+        "children": [],
+        "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1"
       },
       "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
         "name": "vivid_moccasin",
@@ -1395,7 +1432,8 @@
           "aa45a0fa-bc33-420a-9b1b-88792303e0a7": "",
           "f2098038-2341-47cc-95d1-c4653b1ba1d3": ""
         },
-        "children": []
+        "children": [],
+        "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f"
       }
     }
   }
