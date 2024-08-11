@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { dbSaveSettings } from "requests/settings";
 import { useSettings } from "state/definitions";
 import { useGoBackOrToHome } from "state/hooks/utils";
@@ -8,7 +7,7 @@ import { SimpleSettings } from "./SimpleSettings";
 export function Settings() {
   const goBackOrToHome = useGoBackOrToHome();
   function saveSettings() {
-    dbSaveSettings(_.omit(useSettings.getState(), ["settingsLoaded"]));
+    dbSaveSettings(useSettings.getState());
   }
 
   return (

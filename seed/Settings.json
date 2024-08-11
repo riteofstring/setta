@@ -14,5 +14,12 @@
   "copyShortcut": "Mod + C",
   "pasteShortcut": "Mod + V",
   "sortingShortcut": "Mod",
-  "movingFreeShortcut": "Alt"
+  "movingFreeShortcut": "Alt",
+  "defaultCodeSectionSize": { "width": 500, "height": "auto" },
+  "defaultTerminalSectionSize": { "width": 700, "height": "auto" },
+  "defaultSectionSize": { "width": "auto", "height": "auto" },
+  "snapToGrid": false,
+  "snapGrid": [15, 15],
+  "minZoom": 0.1,
+  "maxZoom": 10
 }

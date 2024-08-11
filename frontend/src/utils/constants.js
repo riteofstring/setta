@@ -68,19 +68,6 @@ export const CONST_INFO_VIEWS = {
     "Choose which arguments appear in your selected card.",
 };
 
-export const jsonSettings = {
-  defaultCodeSectionSize: { width: 500, height: "auto" },
-  defaultTerminalSectionSize: { width: 700, height: "auto" },
-  defaultSectionSize: { width: "auto", height: "auto" },
-};
-
-export const otherConfigurableSettings = {
-  snapToGrid: false,
-  snapGrid: [15, 15],
-  minZoom: 0.1,
-  maxZoom: 10,
-};
-
 export const SECTION_CONFIG_TAB = "SectionConfig";
 export const UI_CONFIG_TAB = "UIConfig";
 export const INFO_CONFIG_TAB = "InfoConfig";

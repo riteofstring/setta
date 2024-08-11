@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { loadSettings } from "state/actions/settings";
 import { useSettings } from "state/definitions";
-import { jsonSettings, otherConfigurableSettings } from "utils/constants";
 
 export function useShortcutSettings() {
   function shortcutsOnly(x) {
@@ -95,11 +94,6 @@ export function useSetShorcutSetting(setting) {
 }
 
 export function useSimpleSettings() {
-  const settingNames = Object.keys({
-    ...jsonSettings,
-    ...otherConfigurableSettings,
-  });
-
   function processStoredValue(value) {
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       return JSON.stringify(value);
@@ -110,22 +104,28 @@ export function useSimpleSettings() {
   function processEnteredValue(name, value) {
     if (name === "snapGrid") {
       return value.split(",");
-    } else if (name in jsonSettings) {
+    } else {
       try {
         return JSON.parse(value);
       } catch (error) {
         return value; // Or any other appropriate error handling or default value
       }
     }
-    return value;
   }
 
   const settings = useSettings(
     (x) =>
-      _.map(_.pick(x, settingNames), (v, k) => ({
-        name: k,
-        value: processStoredValue(v),
-      })),
+      // TODO: make this less hacky
+      _.map(
+        _.pickBy(
+          x,
+          (v, k) => typeof v !== "function" && !k.includes("Shortcut"),
+        ),
+        (v, k) => ({
+          name: k,
+          value: processStoredValue(v),
+        }),
+      ),
     _.isEqual,
   );
 
@@ -138,7 +138,16 @@ export function useSimpleSettings() {
 }
 
 export function useLoadSettings() {
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  async function fn() {
+    await loadSettings();
+    setSettingsLoaded(true);
+  }
+
   useEffect(() => {
-    loadSettings();
+    fn();
   }, []);
+
+  return settingsLoaded;
 }

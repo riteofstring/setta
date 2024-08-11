@@ -1,8 +1,4 @@
-import {
-  jsonSettings,
-  otherConfigurableSettings,
-  SECTION_CONFIG_TAB,
-} from "utils/constants";
+import { SECTION_CONFIG_TAB } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -191,11 +187,7 @@ export const useSectionToParams = createProjectState(
   ),
 );
 
-export const useSettings = create(() => ({
-  settingsLoaded: false,
-  ...jsonSettings,
-  ...otherConfigurableSettings,
-}));
+export const useSettings = create(() => ({}));
 
 export const useStateVersion = createProjectState(
   temporal(() => withVersion({})),
