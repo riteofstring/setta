@@ -3,7 +3,10 @@ import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
 import { TbVersions } from "react-icons/tb";
 import { useSectionHasMultipleParamSweeps } from "state/hooks/paramSweep";
-import { useSectionHasMultipleVariants } from "state/hooks/sections";
+import {
+  useGetSectionInfo,
+  useSectionHasMultipleVariants,
+} from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
@@ -35,6 +38,10 @@ export function SectionContainerCoreResizable({
   const hasVersions =
     (sectionTypeName === C.PARAM_SWEEP && hasParamSweepVersions) ||
     hasEVVersions;
+  const isInOtherProjectConfigs = useGetSectionInfo(
+    sectionId,
+    "isInOtherProjectConfigs",
+  );
 
   const getOutlineColor = () => {
     if (!dbSourceIsAvailable) {
@@ -48,6 +55,9 @@ export function SectionContainerCoreResizable({
     }
     if (isActiveSection) {
       return "outline-blue-600 dark:outline-blue-700";
+    }
+    if (isInOtherProjectConfigs) {
+      return "outline-purple-600 dark:outline-purple-700";
     }
 
     return "outline-transparent active:outline-cyan-300";

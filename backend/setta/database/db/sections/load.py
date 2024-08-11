@@ -10,6 +10,8 @@ from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 def load_sections(dbs, ids):
     all_ids, child_to_parent_id = get_section_ids(dbs, ids)
 
+    section_id_to_config_count = num_projects_each_section_exists_in(dbs, all_ids)
+
     db = dbs.default
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
@@ -63,6 +65,7 @@ def load_sections(dbs, ids):
         outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
+            "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
             "outputGroup": outputGroup,
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
@@ -175,3 +178,22 @@ def load_section_configs(dbs, project_config_id):
 
 def convert_size(x):
     return "auto" if x == -1 else x
+
+
+def num_projects_each_section_exists_in(dbs, section_ids):
+    db = dbs.default
+    placeholders = ", ".join(["?"] * len(section_ids))
+    query = f"""
+        SELECT sectionId, COUNT(DISTINCT projectConfigId) as projectConfigCount
+        FROM SectionConfig
+        WHERE sectionId IN ({placeholders})
+        GROUP BY sectionId
+    """
+
+    db.execute(query, section_ids)
+    output = {}
+    for row in db.fetchall():
+        output[row[0]] = row[1]
+
+    return output
+
