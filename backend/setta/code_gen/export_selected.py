@@ -30,7 +30,7 @@ def get_param_ids(p, id):
     selected_item = p["sections"][id]["selectedItem"]
     if selected_item:
         return p["codeInfo"][selected_item]["children"]
-    return p["codeInfo"][get_section_config(p, id)["codeInfoId"]]["children"]
+    return p["codeInfo"][p["sections"]["codeInfoId"]]["children"]
 
 
 def get_param_ui_type_id(p, section_id, id):

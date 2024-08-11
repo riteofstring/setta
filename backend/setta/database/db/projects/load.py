@@ -82,7 +82,7 @@ def load_project_config(dbs, project_config_name):
     uiTypeCols = sections_data["uiTypeCols"]
     paramSweeps = sections_data["paramSweeps"]
     uiTypes = sections_data["nonPresetUITypes"]
-    codeInfo = load_code_info_for_sections(dbs, uiTypes)
+    codeInfo = load_code_info_for_sections(dbs, sections)
 
     return {
         "projectConfig": projectConfig,

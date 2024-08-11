@@ -12,7 +12,8 @@ def save_sections(dbs, sections):
             code,
             codeLanguage,
             isFrozen,
-            dbSource
+            dbSource,
+            codeInfoId
         )
         VALUES (
             :id,
@@ -25,7 +26,8 @@ def save_sections(dbs, sections):
             :code,
             :codeLanguage,
             :isFrozen,
-            :dbSource
+            :dbSource,
+            :codeInfoId
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -38,7 +40,8 @@ def save_sections(dbs, sections):
             code = :code,
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
-            dbSource = :dbSource
+            dbSource = :dbSource,
+            codeInfoId = :codeInfoId
     """
 
     query_params = [
@@ -54,6 +57,7 @@ def save_sections(dbs, sections):
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "dbSource": s.get("dbSource"),
+            "codeInfoId": s["codeInfoId"]
         }
         for s in sections.values()
     ]

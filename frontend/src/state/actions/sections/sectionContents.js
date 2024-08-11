@@ -4,10 +4,7 @@ import {
   findAllParametersOfCallables,
   findAllParametersOfCollections,
 } from "utils/getDescendants";
-import {
-  getSectionInfo,
-  getSectionTypeConfig,
-} from "../../getters/sectionInfo";
+import { getSectionInfo } from "../../getters/sectionInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 
 export function getParamInfos(sectionId) {
@@ -15,7 +12,7 @@ export function getParamInfos(sectionId) {
 }
 
 function computeAllCallables(sectionId) {
-  const { codeInfoId } = getSectionTypeConfig(sectionId);
+  const { codeInfoId } = getSectionInfo(sectionId);
   return findAllCallables(useCodeInfo.getState().x, [codeInfoId]);
 }
 
@@ -24,7 +21,7 @@ function computeAllParams(sectionId, objInfoId) {
     ? findAllParametersOfCallables(useCodeInfo.getState().x, [objInfoId])
     : [];
 
-  const { codeInfoId } = getSectionTypeConfig(sectionId);
+  const { codeInfoId } = getSectionInfo(sectionId);
   const paramCollections = findAllParametersOfCollections(
     useCodeInfo.getState().x,
     [codeInfoId],

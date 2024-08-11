@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { useParamSweep, useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "./sections";
-import { useGetSectionTypeConfig } from "./uiTypes";
 
 export function useParamSweepInfo(sectionId) {
   const forSectionId = useForSectionId(sectionId);
@@ -14,7 +13,7 @@ export function useParamSweepInfo(sectionId) {
   const paramSweep = useParamSweep(
     (x) => x.x[previewParamSweepId ?? paramSweepId].sweep,
   );
-  const codeInfoId = useGetSectionTypeConfig(forSectionId, "codeInfoId");
+  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
   const selectedItem = useGetSectionInfo(forSectionId, "selectedItem");
   return {
     paramSweepId,

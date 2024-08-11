@@ -1,13 +1,9 @@
 from setta.database.utils import get_children_recursively
-from setta.utils.constants import is_section_ui_type
 
 
-def load_code_info_for_sections(dbs, ui_types):
+def load_code_info_for_sections(dbs, sections):
     db = dbs.default
-    section_ui_types = {
-        k: v for k, v in ui_types.items() if is_section_ui_type(v["type"])
-    }
-    collection_ids = [v["config"]["codeInfoId"] for v in section_ui_types.values()]
+    collection_ids = [v["codeInfoId"] for v in sections.values()]
     return load_code_info(db, collection_ids)
 
 

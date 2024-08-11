@@ -3,7 +3,6 @@ import { useCodeInfo, useSectionToParams } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useOutputValues } from "./outputs";
 import { useGetSectionInfo } from "./sections";
-import { useGetSectionTypeConfig } from "./uiTypes";
 
 export function useGetAllCallables(sectionId) {
   return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);
@@ -21,7 +20,7 @@ export function useGetParamInfosThatHaveNames(sectionId) {
 }
 
 function useGetSelectedCollections(sectionId) {
-  const codeInfoId = useGetSectionTypeConfig(sectionId, "codeInfoId");
+  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
   return useCodeInfo((x) => _.pick(x.x, x.x[codeInfoId].children), _.isEqual);
 }
 
