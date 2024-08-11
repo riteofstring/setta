@@ -17,12 +17,14 @@ import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionPosition } from "utils/objs/sectionPosition";
 import { insertIntoArray } from "utils/utils";
 import {
-  getSectionInfo,
   getSectionParentId,
   getSectionTypeConfig,
 } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
-import { initManySectionVariantIds } from "../sectionVariants";
+import {
+  getSectionChildren,
+  initManySectionVariantIds,
+} from "../sectionVariants";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
 import { updateManyParamsAndCallables } from "./sectionContents";
 import { addSectionInfo } from "./sectionInfos";
@@ -98,7 +100,7 @@ export function addChildrenToSeries({
     startIdx = 0;
   } else {
     parentId = getSectionParentId(calledBy);
-    startIdx = getSectionInfo(parentId).children.indexOf(calledBy) + 1;
+    startIdx = getSectionChildren(parentId).indexOf(calledBy) + 1;
   }
 
   const newIds = createSectionInfo({
