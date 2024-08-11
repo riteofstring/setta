@@ -5,9 +5,8 @@ import {
 } from "state/actions/uiTypes/cloneUITypes";
 import { getSectionInfo, getSectionType } from "state/getters/sectionInfo";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setSectionUITypeId } from "./setSectionUITypeId";
-import { addUIType } from "./uiTypes";
+import { addUIType, setOneUITypeConfig } from "./uiTypes";
 
 export function setSectionUITypeConfig({
   sectionId,
@@ -16,7 +15,7 @@ export function setSectionUITypeConfig({
   incrementVersion = false,
 }) {
   const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-  setConfigAndChildConfig(uiType, configProps);
+  setOneUITypeConfig({ uiTypeId: uiType.id, ...configProps });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

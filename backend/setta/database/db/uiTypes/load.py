@@ -47,7 +47,6 @@ def process_uitype(uitype):
 def load_section_config(uitype):
     return {
         "codeInfoId": uitype["sectionConfigCodeInfoId"],
-        "childUITypeId": uitype["sectionConfigChildUITypeId"],
     }
 
 

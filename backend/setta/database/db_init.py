@@ -109,7 +109,6 @@ CREATE_TABLES_COMMANDS = [
         type TEXT,
         presetType TEXT,
         sectionConfigCodeInfoId TEXT,
-        sectionConfigChildUITypeId TEXT UNIQUE,
         sliderConfigMin REAL,
         sliderConfigMax REAL,
         sliderConfigStep REAL,
@@ -117,7 +116,6 @@ CREATE_TABLES_COMMANDS = [
         asNonPresetForUITypeColId TEXT,
         asNonPresetForCodeInfoId TEXT,
         FOREIGN KEY (sectionConfigCodeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-        FOREIGN KEY (sectionConfigChildUITypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (asNonPresetForSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (asNonPresetForUITypeColId, asNonPresetForCodeInfoId) REFERENCES UITypeCol(idid, codeInfoId) ON DELETE CASCADE
     );

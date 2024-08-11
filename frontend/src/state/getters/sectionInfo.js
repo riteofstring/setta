@@ -41,16 +41,6 @@ export function getSectionIsDeck(sectionId) {
   return getSectionType(sectionId).type === C.DECK;
 }
 
-export function getSectionIdsWithUITypeIds(uiTypeIds) {
-  const output = [];
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (uiTypeIds.includes(s.uiTypeId)) {
-      output.push(s.id);
-    }
-  }
-  return output;
-}
-
 export function getSectionSiblingNames(sectionId) {
   const sectionName = getSectionName(sectionId);
   const parentId = getSectionParentId(sectionId);

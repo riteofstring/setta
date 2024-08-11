@@ -312,8 +312,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "cdb23914-0147-4fad-9219-94d170315f34",
-        "childUITypeId": null
+        "codeInfoId": "cdb23914-0147-4fad-9219-94d170315f34"
       }
     },
     "0a935cd2-1233-4b3b-a0e4-6ece1b6469e7": {
@@ -322,8 +321,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134",
-        "childUITypeId": null
+        "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134"
       }
     },
     "16a152bd-5b1a-4896-8724-22afabaa0cc7": {
@@ -332,8 +330,7 @@
       "type": "DECK",
       "presetType": null,
       "config": {
-        "codeInfoId": "1451f3ab-4361-4aba-82c4-625a96cdffff",
-        "childUITypeId": null
+        "codeInfoId": "1451f3ab-4361-4aba-82c4-625a96cdffff"
       }
     },
     "1ea2634a-940b-4dfc-b54c-a102bac95d93": {
@@ -342,8 +339,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "afd777fb-53e3-411c-a284-e7cb157e794e",
-        "childUITypeId": null
+        "codeInfoId": "afd777fb-53e3-411c-a284-e7cb157e794e"
       }
     },
     "28f787a1-bf3d-4d9b-9e54-4ea27587687e": {
@@ -352,8 +348,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c",
-        "childUITypeId": null
+        "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c"
       }
     },
     "529d86cb-d928-4ff6-8753-94ac3af9c0f6": {
@@ -362,8 +357,7 @@
       "type": "LIST_ROOT",
       "presetType": null,
       "config": {
-        "codeInfoId": "2a349a39-6990-48d2-8fe9-292d4735efd7",
-        "childUITypeId": null
+        "codeInfoId": "2a349a39-6990-48d2-8fe9-292d4735efd7"
       }
     },
     "54e4644b-d23e-4668-a15e-1271121bb5dc": {
@@ -372,8 +366,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "d015737a-8207-4d29-86bf-d3e80c8c6e72",
-        "childUITypeId": null
+        "codeInfoId": "d015737a-8207-4d29-86bf-d3e80c8c6e72"
       }
     },
     "92125b2e-779f-411b-a023-3badf08abbcb": {
@@ -382,8 +375,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "ad4803fd-0052-40ad-a83d-7c4bea0501ef",
-        "childUITypeId": null
+        "codeInfoId": "ad4803fd-0052-40ad-a83d-7c4bea0501ef"
       }
     },
     "a50e2000-414a-4167-9f35-c0bfaf408b44": {
@@ -392,8 +384,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "acd91249-b338-43d4-8808-fc0a68525daf",
-        "childUITypeId": null
+        "codeInfoId": "acd91249-b338-43d4-8808-fc0a68525daf"
       }
     },
     "b24a6565-6a82-446e-b357-f127af21d279": {
@@ -402,8 +393,7 @@
       "type": "DICT_ROOT",
       "presetType": null,
       "config": {
-        "codeInfoId": "6cf98492-2d4c-426e-beff-4b5a500e615a",
-        "childUITypeId": null
+        "codeInfoId": "6cf98492-2d4c-426e-beff-4b5a500e615a"
       }
     }
   },

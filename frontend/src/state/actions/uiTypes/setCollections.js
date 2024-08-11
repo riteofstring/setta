@@ -1,11 +1,7 @@
 import { updateManyParamsAndCallables } from "state/actions/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { getSectionIdsWithUITypeIds } from "state/getters/sectionInfo";
 import { initializeChildParams } from "../initializeParam";
-import {
-  maybeCloneSectionUIType,
-  setSectionUITypeConfig,
-} from "./setSectionUITypeConfig";
+import { setSectionUITypeConfig } from "./setSectionUITypeConfig";
 
 export function setCollections({
   sectionId,
@@ -15,12 +11,7 @@ export function setCollections({
   newValueFn,
   incrementVersion,
 }) {
-  const uiType = maybeCloneSectionUIType({ sectionId, settingPreset });
-  const sectionIds = uiType.config.childUITypeId
-    ? getSectionIdsWithUITypeIds(uiType.config.childUITypeId)
-    : [];
-
-  sectionIds.push(sectionId);
+  const sectionIds = [sectionId];
 
   if (checked) {
     initializeChildParams({ sectionIds, codeInfoIds: [id] });

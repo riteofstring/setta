@@ -150,8 +150,7 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
-        "childUITypeId": null
+        "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa"
       }
     },
     "1748d396-9558-466a-9e3b-05b2e7f4b63b": {
@@ -160,8 +159,7 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc",
-        "childUITypeId": null
+        "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc"
       }
     },
     "d3715781-7b8b-446d-a6ad-029db459ee40": {
@@ -170,8 +168,7 @@
       "type": "GLOBAL_VARIABLES",
       "presetType": null,
       "config": {
-        "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
-        "childUITypeId": null
+        "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e"
       }
     },
     "d5b6998c-c047-4ab9-8380-d8d4347173ee": {
@@ -180,8 +177,7 @@
       "type": "PARAM_SWEEP",
       "presetType": null,
       "config": {
-        "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b",
-        "childUITypeId": null
+        "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b"
       }
     }
   },

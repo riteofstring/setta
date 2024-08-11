@@ -46,7 +46,7 @@ export function newSectionInfo({
     zIndex,
     parentId,
     variantId: _variantId,
-    uiTypeId: maybeNewId(uiTypeId),
+    uiTypeId,
     uiTypeColId: maybeNewId(uiTypeColId),
     paramSweepId,
     selectedItem,

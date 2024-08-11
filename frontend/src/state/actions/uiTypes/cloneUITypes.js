@@ -66,17 +66,3 @@ export function isAmongNonPresets(v, nonPresetUITypeIds) {
 function isAmongNonPresetsAndMatchesType(v, nonPresetUITypeIds, type) {
   return isAmongNonPresets(v, nonPresetUITypeIds) && v.type === type;
 }
-
-// Root sections and child behavior:
-
-// ##### Root controlling children #####
-// The first child section causes a new ui type to be created.
-// This new ui type id is added to the root ui type's config as "childUITypeId".
-// All future child sections now use this childUITypeId.
-// So the default is that all children use the same ui type.
-// Whenever the root config changes, the child config also changes.
-// Because all the children are using the same ui type, all children's configs changes when the root config changes.
-
-// ##### Children becoming independent #####
-// Modifying a child's config makes it become independent of the root and the siblings.
-// So now if you modify the root config, the independent child is not affected.

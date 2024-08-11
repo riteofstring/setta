@@ -7,7 +7,6 @@ import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionChildrenAndNames } from "state/actions/sections/setters";
-import { getChildUIType } from "state/actions/uiTypes/getChildUITypeId";
 import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
@@ -20,7 +19,6 @@ import { insertIntoArray } from "utils/utils";
 import {
   getSectionInfo,
   getSectionParentId,
-  getSectionType,
   getSectionTypeConfig,
 } from "../../getters/sectionInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -103,9 +101,11 @@ export function addChildrenToSeries({
     startIdx = getSectionInfo(parentId).children.indexOf(calledBy) + 1;
   }
 
-  const newIds = createChildForSeries({
-    parentId,
-    numChildren,
+  const newIds = createSectionInfo({
+    sectionProps: {
+      parentId,
+    },
+    numSections: numChildren,
   });
 
   setSectionChildrenAndNames(parentId, (x) =>
@@ -115,22 +115,6 @@ export function addChildrenToSeries({
   maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
-}
-
-export function createChildForSeries({ parentId, numChildren }) {
-  // const { name: parentName } = useSectionInfos.getState().x[parentId];
-  const parentUIType = getSectionType(parentId);
-  const uiType = getChildUIType(parentUIType, parentId);
-  const nonPresetUITypeIds = !uiType.presetType ? [uiType.id] : [];
-
-  return createSectionInfo({
-    sectionProps: {
-      parentId,
-      uiTypeId: uiType.id,
-      nonPresetUITypeIds,
-    },
-    numSections: numChildren,
-  });
 }
 
 export function createSectionInfo({

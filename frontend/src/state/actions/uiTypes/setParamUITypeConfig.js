@@ -14,10 +14,9 @@ import {
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionVariants";
 import { maybeCloneUIType } from "./cloneUITypes";
-import { setConfigAndChildConfig } from "./setConfigAndChildConfig";
 import { setParamUITypeId } from "./setParamUITypeId";
 import { getParamUIType, setNonPresetUITypeIds } from "./uiTypeCols";
-import { addUIType } from "./uiTypes";
+import { addUIType, setOneUITypeConfig } from "./uiTypes";
 
 export function setParamUITypeConfig({
   sectionId,
@@ -30,7 +29,7 @@ export function setParamUITypeConfig({
     paramInfoId,
     settingPreset,
   });
-  setConfigAndChildConfig(uiType, configProps);
+  setOneUITypeConfig({ uiTypeId: uiType.id, ...configProps });
   updateEVs(uiType.id, configProps.configName);
 }
 

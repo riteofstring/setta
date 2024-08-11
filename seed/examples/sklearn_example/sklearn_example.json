@@ -335,8 +335,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2",
-        "childUITypeId": null
+        "codeInfoId": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2"
       }
     },
     "1ca993ea-0d8b-40ed-b0ba-16ef08f387dc": {
@@ -345,8 +344,7 @@
       "type": "TERMINAL",
       "presetType": null,
       "config": {
-        "codeInfoId": "b0cf185a-c31c-4c4e-9fcc-c6f6a45fd850",
-        "childUITypeId": null
+        "codeInfoId": "b0cf185a-c31c-4c4e-9fcc-c6f6a45fd850"
       }
     },
     "25add466-bd0e-48f7-b497-cbcab96b7b1d": {
@@ -355,8 +353,7 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "codeInfoId": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
-        "childUITypeId": null
+        "codeInfoId": "f4d65a12-49f4-4da5-9362-70f0df53ee10"
       }
     },
     "6237ca80-cb4e-42f7-a3f3-708401ae48ea": {
@@ -365,8 +362,7 @@
       "type": "INFO",
       "presetType": null,
       "config": {
-        "codeInfoId": "f049a26a-cdfa-4424-9795-57bfa100a3b5",
-        "childUITypeId": null
+        "codeInfoId": "f049a26a-cdfa-4424-9795-57bfa100a3b5"
       }
     },
     "74d80124-deb9-4577-8470-813cb9be4e56": {
@@ -375,8 +371,7 @@
       "type": "GLOBAL_VARIABLES",
       "presetType": null,
       "config": {
-        "codeInfoId": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
-        "childUITypeId": null
+        "codeInfoId": "a382ec28-c244-4c90-9a58-a7c83a8512ea"
       }
     },
     "80a4bb93-548a-46e3-bfb9-8737b367f1aa": {
@@ -385,8 +380,7 @@
       "type": "PARAM_SWEEP",
       "presetType": null,
       "config": {
-        "codeInfoId": "97527bec-4c63-44c9-9994-3424a5dffb7e",
-        "childUITypeId": null
+        "codeInfoId": "97527bec-4c63-44c9-9994-3424a5dffb7e"
       }
     },
     "90ad65be-05c6-4f5b-81c4-ca7b4344db49": {
@@ -395,8 +389,7 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "codeInfoId": "20619c35-a36c-4833-b329-e090c95b5af9",
-        "childUITypeId": null
+        "codeInfoId": "20619c35-a36c-4833-b329-e090c95b5af9"
       }
     },
     "aa87ed03-7b2b-4404-a246-7cd76f247697": {
@@ -405,8 +398,7 @@
       "type": "VAR_CONTROL",
       "presetType": null,
       "config": {
-        "codeInfoId": "b7c4ac1c-532c-4196-80ee-51ee87971737",
-        "childUITypeId": null
+        "codeInfoId": "b7c4ac1c-532c-4196-80ee-51ee87971737"
       }
     },
     "b40f6814-76bf-47b9-8efc-79be38d16343": {
@@ -415,8 +407,7 @@
       "type": "GLOBAL_PARAM_SWEEP",
       "presetType": null,
       "config": {
-        "codeInfoId": "36e405f7-e3c9-45ac-bfa8-07a95239078e",
-        "childUITypeId": null
+        "codeInfoId": "36e405f7-e3c9-45ac-bfa8-07a95239078e"
       }
     },
     "fd8de817-8fc1-4502-b3a5-58e3b99dc418": {
@@ -425,8 +416,7 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "codeInfoId": "b30e8ce3-35db-4b39-8ff4-9da3123ce71b",
-        "childUITypeId": null
+        "codeInfoId": "b30e8ce3-35db-4b39-8ff4-9da3123ce71b"
       }
     }
   },
