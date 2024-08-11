@@ -335,7 +335,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "7c9308a4-e6d4-47dc-84a3-3d524de3fff2",
         "childUITypeId": null
       }
@@ -346,7 +345,6 @@
       "type": "TERMINAL",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "b0cf185a-c31c-4c4e-9fcc-c6f6a45fd850",
         "childUITypeId": null
       }
@@ -357,7 +355,6 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "f4d65a12-49f4-4da5-9362-70f0df53ee10",
         "childUITypeId": null
       }
@@ -368,7 +365,6 @@
       "type": "INFO",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "f049a26a-cdfa-4424-9795-57bfa100a3b5",
         "childUITypeId": null
       }
@@ -379,7 +375,6 @@
       "type": "GLOBAL_VARIABLES",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "a382ec28-c244-4c90-9a58-a7c83a8512ea",
         "childUITypeId": null
       }
@@ -390,7 +385,6 @@
       "type": "PARAM_SWEEP",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "97527bec-4c63-44c9-9994-3424a5dffb7e",
         "childUITypeId": null
       }
@@ -401,7 +395,6 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "20619c35-a36c-4833-b329-e090c95b5af9",
         "childUITypeId": null
       }
@@ -412,7 +405,6 @@
       "type": "VAR_CONTROL",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "b7c4ac1c-532c-4196-80ee-51ee87971737",
         "childUITypeId": null
       }
@@ -423,7 +415,6 @@
       "type": "GLOBAL_PARAM_SWEEP",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "36e405f7-e3c9-45ac-bfa8-07a95239078e",
         "childUITypeId": null
       }
@@ -434,7 +425,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "b30e8ce3-35db-4b39-8ff4-9da3123ce71b",
         "childUITypeId": null
       }

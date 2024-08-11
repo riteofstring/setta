@@ -84,7 +84,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
         "childUITypeId": null
       }
@@ -106,7 +105,6 @@
       "type": "GLOBAL_VARIABLES",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
         "childUITypeId": null
       }

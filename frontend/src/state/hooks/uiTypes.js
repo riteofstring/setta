@@ -7,7 +7,7 @@ import {
   SECTION_CONFIG_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
-import { isRoot, isSeriesElement } from "utils/sectionTypeHelpers";
+import { isRoot } from "utils/sectionTypeHelpers";
 import { useGetSectionInfo } from "./sections";
 
 export function useGetParamUIType(sectionId, paramInfoId) {
@@ -40,9 +40,22 @@ export function useGetSectionType(sectionId, key) {
   return useUITypes((x) => x.x[uiTypeId][key], equalityFn);
 }
 
+function useIsSeriesElementHelper(sectionId, parentTypesToCheck) {
+  const parentId = useGetSectionInfo(sectionId, "parentId");
+  const uiTypeId = useSectionInfos((x) =>
+    parentId ? x.x[parentId].uiTypeId : null,
+  );
+  return useUITypes((x) =>
+    uiTypeId ? parentTypesToCheck.includes(x.x[uiTypeId].type) : false,
+  );
+}
+
 export function useIsSeriesElement(sectionId) {
-  const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
-  return useUITypes((x) => isSeriesElement(x.x[uiTypeId]["config"].subType));
+  return useIsSeriesElementHelper(sectionId, [C.LIST_ROOT, C.DICT_ROOT]);
+}
+
+export function useIsListElement(sectionId) {
+  return useIsSeriesElementHelper(sectionId, [C.LIST_ROOT]);
 }
 
 export function useSectionTypeName(sectionId) {

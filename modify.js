@@ -5,8 +5,8 @@ async function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = await fs.readFile(filePath, "utf8");
     const json = JSON.parse(data);
-    const sections = {};
-    for (const [k, v] of Object.entries(json.sections)) {
+    const uiTypes = {};
+    for (const [k, v] of Object.entries(json.uiTypes)) {
       sections[k] = { ...json.sections[k], ...json.sectionConfigs[k] };
     }
     json.sections = sections;

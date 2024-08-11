@@ -2,12 +2,10 @@ import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { setSectionChildrenAndNames } from "state/actions/sections/setters";
-import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
 import { PANEID } from "utils/constants";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { isRoot, rootTypeToChildSubType } from "utils/sectionTypeHelpers";
 import { insertIntoArray } from "utils/utils";
 import {
   getSectionInfo,
@@ -53,11 +51,6 @@ export function moveSection({
     return;
   }
 
-  maybeChangeSectionSubtype({
-    newParentId,
-    sectionId,
-  });
-
   setChildrenAndParent({
     oldParentId,
     newParentId,
@@ -100,26 +93,6 @@ function setChildrenAndParent({
   }
 
   setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
-}
-
-function maybeChangeSectionSubtype({ newParentId, sectionId }) {
-  const newParentUIType =
-    newParentId === PANEID ? null : getSectionType(newParentId);
-
-  let configProps;
-  if (newParentUIType && isRoot(newParentUIType.type)) {
-    configProps = {
-      configName: "subType",
-      newValueFn: () => rootTypeToChildSubType[newParentUIType.type],
-    };
-  } else {
-    configProps = {
-      configName: "subType",
-      newValueFn: () => null,
-    };
-  }
-
-  setSectionUITypeConfig({ sectionId, configProps });
 }
 
 function setSectionSize({ newParentId, sectionId }) {

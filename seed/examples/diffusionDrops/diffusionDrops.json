@@ -312,7 +312,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "cdb23914-0147-4fad-9219-94d170315f34",
         "childUITypeId": null
       }
@@ -323,7 +322,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": "LIST",
         "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134",
         "childUITypeId": null
       }
@@ -334,7 +332,6 @@
       "type": "DECK",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "1451f3ab-4361-4aba-82c4-625a96cdffff",
         "childUITypeId": null
       }
@@ -345,7 +342,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "afd777fb-53e3-411c-a284-e7cb157e794e",
         "childUITypeId": null
       }
@@ -356,7 +352,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": "LIST",
         "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c",
         "childUITypeId": null
       }
@@ -367,7 +362,6 @@
       "type": "LIST_ROOT",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "2a349a39-6990-48d2-8fe9-292d4735efd7",
         "childUITypeId": null
       }
@@ -378,7 +372,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "d015737a-8207-4d29-86bf-d3e80c8c6e72",
         "childUITypeId": null
       }
@@ -389,7 +382,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "ad4803fd-0052-40ad-a83d-7c4bea0501ef",
         "childUITypeId": null
       }
@@ -400,7 +392,6 @@
       "type": "SECTION",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "acd91249-b338-43d4-8808-fc0a68525daf",
         "childUITypeId": null
       }
@@ -411,7 +402,6 @@
       "type": "DICT_ROOT",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "6cf98492-2d4c-426e-beff-4b5a500e615a",
         "childUITypeId": null
       }

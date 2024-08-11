@@ -84,10 +84,11 @@ function setFullChildrenNamesForRegex(
   parentName,
   parentLengths,
 ) {
+  const parentSectionIsListRoot =
+    getSectionType(sectionId).type === C.LIST_ROOT;
   for (const c of getSectionChildren(sectionId)) {
-    const subType = getSectionType(c).config.subType;
     const name = sectionIdsToNames[c];
-    const currComponentName = subType === C.LIST ? name : `["${name}"]`;
+    const currComponentName = parentSectionIsListRoot ? name : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
     setFullChildrenNamesForRegex(
       sectionState,

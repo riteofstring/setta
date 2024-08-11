@@ -150,7 +150,6 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
         "childUITypeId": null
       }
@@ -161,7 +160,6 @@
       "type": "CODE",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc",
         "childUITypeId": null
       }
@@ -172,7 +170,6 @@
       "type": "GLOBAL_VARIABLES",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
         "childUITypeId": null
       }
@@ -183,7 +180,6 @@
       "type": "PARAM_SWEEP",
       "presetType": null,
       "config": {
-        "subType": null,
         "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b",
         "childUITypeId": null
       }

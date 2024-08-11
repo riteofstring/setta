@@ -2,11 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import {
-  isPreset,
-  isSeriesElement,
-  rootTypeToChildSubType,
-} from "utils/sectionTypeHelpers";
+import { isPreset } from "utils/sectionTypeHelpers";
 
 export function maybeCloneUIType({
   currUIType,
@@ -35,12 +31,7 @@ export function maybeCloneUIType({
 
 function shouldCloneUIType(uiType, settingPreset) {
   // uiType is a preset, and we're not in "settingPreset" mode
-  const isPresetNotSettingPreset = isPreset(uiType) && !settingPreset;
-  // The uiType is a list element (a child of a list root).
-  // Changing its config shouldn't affect its siblings.
-  // Plus it should become indepedent from the root config.
-  const _isSeriesElement = isSeriesElement(uiType.config.subType);
-  return isPresetNotSettingPreset || _isSeriesElement;
+  return isPreset(uiType) && !settingPreset;
 }
 
 export function cloneRootUIType(parentUIType, parentId) {
@@ -48,7 +39,6 @@ export function cloneRootUIType(parentUIType, parentId) {
   uiType.id = createNewId();
   uiType.type = C.SECTION;
   uiType.config.uiTypeColId = createNewId();
-  uiType.config.subType = rootTypeToChildSubType[parentUIType.type];
   uiType.presetType = null;
   return uiType;
 }

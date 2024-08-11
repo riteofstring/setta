@@ -4,7 +4,7 @@ import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { deleteSections } from "state/actions/sections/deleteSections";
-import { useSectionTypeName } from "state/hooks/uiTypes";
+import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
@@ -13,7 +13,6 @@ import { SectionTitle } from "./SectionTitle";
 
 function _SectionHeader({
   sectionId,
-  isSeriesElement,
   isActiveSection,
   sectionTypeName,
   isGlobalVariables,
@@ -27,6 +26,7 @@ function _SectionHeader({
   };
 
   const _isRoot = isRoot(sectionTypeName);
+  const isSeriesElement = useIsSeriesElement(sectionId);
 
   // DOM: maybe get rid of the extra div under header?
 

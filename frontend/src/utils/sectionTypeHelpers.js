@@ -8,16 +8,6 @@ export function isListRoot(sectionTypeName) {
   return sectionTypeName === C.LIST_ROOT;
 }
 
-export function isSeriesElement(sectionSubTypeName) {
-  return [C.LIST, C.DICT].includes(sectionSubTypeName);
-}
-
-export const rootTypeToChildSubType = {
-  [C.LIST_ROOT]: C.LIST,
-  [C.DICT_ROOT]: C.DICT,
-  [C.DECK]: null,
-};
-
 export function isSectionUIType(uiType) {
   return !C.NON_SECTION_TYPES.includes(uiType.type);
 }
@@ -44,10 +34,6 @@ export const uiTypesToPretty = Object.freeze(
     }),
   ),
 );
-
-export function requiresKeyInput(sectionSubTypeName) {
-  return [null, C.DICT].includes(sectionSubTypeName);
-}
 
 export function getParamSweepSectionName(sectionName) {
   return `${sectionName} Sweep`;

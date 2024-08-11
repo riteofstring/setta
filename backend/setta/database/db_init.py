@@ -110,7 +110,6 @@ CREATE_TABLES_COMMANDS = [
         presetType TEXT,
         sectionConfigCodeInfoId TEXT,
         sectionConfigChildUITypeId TEXT UNIQUE,
-        sectionConfigSubType TEXT,
         sliderConfigMin REAL,
         sliderConfigMax REAL,
         sliderConfigStep REAL,

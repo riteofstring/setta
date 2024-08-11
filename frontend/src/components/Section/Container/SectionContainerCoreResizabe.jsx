@@ -24,7 +24,6 @@ import "./dndline.css";
 
 export function SectionContainerCoreResizable({
   sectionId,
-  isSeriesElement,
   sectionTypeName,
   isActiveSection,
   toggleDescVis,
@@ -103,7 +102,6 @@ export function SectionContainerCoreResizable({
         <>
           <SectionHeader
             sectionId={sectionId}
-            isSeriesElement={isSeriesElement}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
             isInfo={isInfo}

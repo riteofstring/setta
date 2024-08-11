@@ -27,7 +27,6 @@ def save_section_types(db, uiTypes):
     query = """
         UPDATE UIType
         SET sectionConfigCodeInfoId = :sectionConfigCodeInfoId,
-            sectionConfigSubType = :sectionConfigSubType,
             sectionConfigChildUITypeId = :sectionConfigChildUITypeId
         WHERE id = :id
     """
@@ -39,7 +38,6 @@ def parse_section_config(uiType):
     config = uiType["config"]
     return {
         "sectionConfigCodeInfoId": config.get("codeInfoId"),
-        "sectionConfigSubType": config.get("subType"),
         "sectionConfigChildUITypeId": config.get("childUITypeId"),
     }
 

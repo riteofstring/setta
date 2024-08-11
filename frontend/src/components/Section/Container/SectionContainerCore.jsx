@@ -15,13 +15,12 @@ import {
   useGetSectionInfo,
   useSectionDBSourceIsAvailable,
 } from "state/hooks/sections";
-import { useIsSeriesElement, useSectionTypeName } from "state/hooks/uiTypes";
+import { useSectionTypeName } from "state/hooks/uiTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 
 function _SectionContainerCore({ sectionId }) {
   const sectionTypeName = useSectionTypeName(sectionId);
-  const isSeriesElement = useIsSeriesElement(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
@@ -63,7 +62,6 @@ function _SectionContainerCore({ sectionId }) {
     >
       <SectionContainerCoreResizable
         sectionId={sectionId}
-        isSeriesElement={isSeriesElement}
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
         toggleDescVis={() => toggleVersionsVisible(sectionId)}

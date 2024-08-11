@@ -196,4 +196,3 @@ def num_projects_each_section_exists_in(dbs, section_ids):
         output[row[0]] = row[1]
 
     return output
-
