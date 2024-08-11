@@ -186,7 +186,10 @@ function MiniMap({
   const onSvgClick = onClick
     ? (event: MouseEvent) => {
         const rfCoord = pointer(event);
-        onClick(event, { x: rfCoord[0], y: rfCoord[1] });
+        onClick(event, {
+          x: rfCoord[0] - localStorageFns.overviewTrueWidth.state()[0],
+          y: rfCoord[1],
+        });
       }
     : undefined;
 
