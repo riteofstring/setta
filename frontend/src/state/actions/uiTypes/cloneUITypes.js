@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypes } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -32,15 +31,6 @@ export function maybeCloneUIType({
 function shouldCloneUIType(uiType, settingPreset) {
   // uiType is a preset, and we're not in "settingPreset" mode
   return isPreset(uiType) && !settingPreset;
-}
-
-export function cloneRootUIType(parentUIType, parentId) {
-  const uiType = _.cloneDeep(parentUIType);
-  uiType.id = createNewId();
-  uiType.type = C.SECTION;
-  uiType.config.uiTypeColId = createNewId();
-  uiType.presetType = null;
-  return uiType;
 }
 
 export function cloneNewUIType({

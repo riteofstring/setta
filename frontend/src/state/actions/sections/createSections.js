@@ -7,7 +7,6 @@ import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionChildrenAndNames } from "state/actions/sections/setters";
-import { setSectionUITypeConfig } from "state/actions/uiTypes/setSectionUITypeConfig";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -24,7 +23,7 @@ import {
 } from "../sectionVariants";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
 import { updateManyParamsAndCallables } from "./sectionContents";
-import { addSectionInfo } from "./sectionInfos";
+import { addSectionInfo, setSectionInfoAttr } from "./sectionInfos";
 
 export function addSectionInEmptySpace({
   type,
@@ -173,12 +172,10 @@ function initializeNewSectionConfig(sectionId) {
     rcType: C.COLLECTION,
   });
   addCodeInfo({ info: collection });
-  setSectionUITypeConfig({
+  setSectionInfoAttr({
     sectionId,
-    configProps: {
-      configName: "codeInfoId",
-      newValueFn: () => collection.id,
-    },
+    attr: "codeInfoId",
+    value: collection.id,
   });
 }
 
