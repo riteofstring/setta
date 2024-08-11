@@ -1,10 +1,10 @@
 import C from "constants/constants.json";
-import { useState } from "react";
+import React, { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { duplicateDbSource } from "state/actions/sectionVariants";
 import { useSectionDBSource } from "state/hooks/sections";
 
-export function DBSources({ sectionId }) {
+export const DBSources = React.forwardRef(({ sectionId }, ref) => {
   const dbSource = useSectionDBSource(sectionId);
   const [localVal, setLocalVal] = useState(dbSource);
 
@@ -30,4 +30,4 @@ export function DBSources({ sectionId }) {
       className="rounded bg-setta-400 px-4 py-2 text-white dark:bg-setta-800"
     />
   );
-}
+});
