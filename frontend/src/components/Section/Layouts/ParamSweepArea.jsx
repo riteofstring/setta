@@ -296,6 +296,7 @@ function Input({
         padding=""
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
+        tabIndex="-1"
       />
       <article className="section-key-value group/arg-group group/textinput -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
         <ParamSweepUI
