@@ -4,6 +4,9 @@ import _ from "lodash";
 import { useCallback, useState } from "react";
 import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
+import { setActiveSectionIds } from "state/actions/sections/activeSections";
+import { setZIndices } from "state/actions/sections/sectionPositions";
+import { getHighestAncestor } from "state/actions/sections/sectionSizes";
 import { useKeywordRegex } from "state/definitions";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
@@ -22,7 +25,6 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
   onEscape,
-  onMouseDown,
   color,
   language,
 }) {
@@ -37,12 +39,14 @@ export function TextInputCodeMirror({
     onBlur?.();
   }
 
-  function localOnMouseDown(event) {
+  function onMouseDown(event) {
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
       setActivationEvent(event);
-      onMouseDown?.();
+      setActiveSectionIds([sectionId]);
+      const highestAncestor = getHighestAncestor(sectionId);
+      setZIndices([highestAncestor], false);
     }
   }
 
@@ -51,7 +55,7 @@ export function TextInputCodeMirror({
       {!realIsInitialized && (
         <DummyCodeMirror
           code={value}
-          onMouseDown={localOnMouseDown}
+          onMouseDown={onMouseDown}
           className={dummyCodeClassName}
           theme={theme}
           keywordRegex={pattern}
