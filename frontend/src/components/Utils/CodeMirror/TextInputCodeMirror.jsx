@@ -21,6 +21,7 @@ export function TextInputCodeMirror({
   realCodeClassName,
   singleLine,
   onEnter,
+  onEscape,
   color,
   language,
 }) {
@@ -68,6 +69,7 @@ export function TextInputCodeMirror({
           className={realCodeClassName}
           singleLine={singleLine}
           onEnter={onEnter}
+          onEscape={onEscape}
           onBlur={localOnBlur}
           initialEvent={activationEvent}
           realIsInitialized={realIsInitialized}
@@ -90,6 +92,7 @@ function CoreCodeMirror({
   className,
   singleLine,
   onEnter,
+  onEscape,
   onBlur,
   initialEvent,
   realIsInitialized,
@@ -119,6 +122,7 @@ function CoreCodeMirror({
     singleLine,
     tabToAutocomplete: true,
     onEnter,
+    onEscape
   });
 
   const onCreateEditor = getOnCreateEditor({

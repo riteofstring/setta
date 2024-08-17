@@ -17,6 +17,7 @@ export function getExtensions({
   singleLine,
   tabToAutocomplete,
   onEnter,
+  onEscape
 }) {
   const extensions = [
     EditorView.lineWrapping,
@@ -57,6 +58,18 @@ export function getExtensions({
         {
           key: "Enter",
           run: onEnter,
+        },
+      ]),
+    );
+    extensions.push(keyBinding);
+  }
+
+  if (onEscape) {
+    const keyBinding = Prec.highest(
+      keymap.of([
+        {
+          key: "Escape",
+          run: onEscape,
         },
       ]),
     );
