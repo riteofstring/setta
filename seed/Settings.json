@@ -15,7 +15,7 @@
   "pasteShortcut": "Mod + V",
   "drawSelectionShortcut": "Shift",
   "multiSelectionShortcut": "Mod",
-  "sortingShortcut": "Mod",
+  "sortingShortcut": "Shift",
   "movingFreeShortcut": "Alt",
   "defaultCodeSectionSize": { "width": 500, "height": "auto" },
   "defaultTerminalSectionSize": { "width": 700, "height": "auto" },

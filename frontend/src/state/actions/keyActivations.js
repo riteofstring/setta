@@ -1,3 +1,4 @@
+import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useSettings } from "state/definitions";
@@ -74,16 +75,16 @@ export function attachKeyEventListeners() {
       activateMultiSelectionPressed,
       deactivateMultiSelectionPressed,
     ],
-    // [
-    //   settings.sortingShortcut,
-    //   useDndState.getState().activateSortingMode,
-    //   useDndState.getState().deactivateSortingMode,
-    // ],
-    // [
-    //   settings.movingFreeShortcut,
-    //   useDndState.getState().activateMovingFreeMode,
-    //   useDndState.getState().deactivateMovingFreeMode,
-    // ],
+    [
+      settings.sortingShortcut,
+      useDndState.getState().activateSortingMode,
+      useDndState.getState().deactivateSortingMode,
+    ],
+    [
+      settings.movingFreeShortcut,
+      useDndState.getState().activateMovingFreeMode,
+      useDndState.getState().deactivateMovingFreeMode,
+    ],
   ];
 
   const cleanup_functions = [];
