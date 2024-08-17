@@ -224,7 +224,7 @@ class LanguageServerReader(LanguageServerInteractor):
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]
-            version_info = self.get_version(params.get("version"))
+            version_info = self.get_version(uri, params.get("version"))
             code = version_info["code"]
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")

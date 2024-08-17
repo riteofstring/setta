@@ -65,6 +65,6 @@ class LanguageServerInteractor:
             self.versions[uri][new_version] = obj
         return new_version
 
-    def get_version(self, version_num=None):
-        version_num = max(self.versions.keys()) if version_num is None else version_num
-        return self.versions[version_num]
+    def get_version(self, uri, version_num=None):
+        version_num = max(self.versions[uri].keys()) if version_num is None else version_num
+        return self.versions[uri][version_num]
