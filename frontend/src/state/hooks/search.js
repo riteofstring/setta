@@ -14,11 +14,19 @@ export function useUpdateProjectSearch() {
     doUpdateSearch(v, allVisibleParams);
   }
 
+  function onBlur() {
+    useProjectSearch.getState().reset();
+  }
+
+  function onFocus() {
+    doUpdateSearch(value, allVisibleParams);
+  }
+
   useEffect(() => {
     doUpdateSearch(value, allVisibleParams);
   }, [allVisibleParams.length]);
 
-  return [value, onChange];
+  return { value, onChange, onBlur, onFocus };
 }
 
 export function useOnEnterGoToSearchResult() {

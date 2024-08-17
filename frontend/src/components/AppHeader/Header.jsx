@@ -42,7 +42,7 @@ function SearchSwitch({ path }) {
 }
 
 function ProjectPageSearch() {
-  const [value, onChange] = useUpdateProjectSearch();
+  const { value, onChange, onBlur, onFocus } = useUpdateProjectSearch();
   const onKeyDown = useOnEnterGoToSearchResult();
 
   return (
@@ -51,6 +51,8 @@ function ProjectPageSearch() {
       value={value}
       onChange={onChange}
       onKeyDown={onKeyDown}
+      onBlur={onBlur}
+      onFocus={onFocus}
       {...getInfoViewHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
     />
   );
