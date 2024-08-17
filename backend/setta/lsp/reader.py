@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from pprint import pprint
 
 import docstring_parser
@@ -35,37 +36,32 @@ type_mapping = {
 }
 
 
+def extract_variable_name(code_string):
+    # Find potential variable names
+    potential_names = re.findall(r"\b[a-zA-Z_]\w*\b", code_string)
+
+    # Return the first valid identifier
+    return next((name for name in potential_names if name.isidentifier()), None)
+
+
 def extract_descriptions(signature):
     if "documentation" in signature:
         parsed = docstring_parser.parse(signature["documentation"]["value"])
-        return {v.arg_name: v.description for v in parsed.params}
+        return {extract_variable_name(v.arg_name): v.description for v in parsed.params}
     return {}
 
 
-def parse_signature(signature):
-    label = signature["label"]
-    # Remove any enclosing function definition or parentheses
-    if "(" in label and ")" in label:
-        label = label[label.find("(") + 1 : label.rfind(")")]
-
-    # Split parameters by commas
-    params = label.split(", ")
+def wrapper_parse_signature(signature, get_proposed_params):
+    params = get_proposed_params(signature)
     param_info_list = []
     descriptions = extract_descriptions(signature)
     positional_only_indicator_idx = -1
 
-    for idx, param in enumerate(params):
-        # Extract parameter name and default value
-        parts = param.split("=")
-        name_type = parts[0].strip()
-        default = parts[1].strip() if len(parts) > 1 else None
-
-        # Further split to separate name from type if needed (optional)
-        name = name_type.split(":")[0].strip()
+    for idx, (name, default) in enumerate(params):
         if name == "/":
             positional_only_indicator_idx = idx
             continue
-        if name == "*":
+        if name in ["*", "..."]:
             continue
 
         # Append parsed information to list
@@ -81,6 +77,43 @@ def parse_signature(signature):
     for idx in range(0, positional_only_indicator_idx):
         param_info_list[idx]["positionalOnly"] = True
 
+    return param_info_list
+
+
+def get_docstring_parser_proposals(signature):
+    parsed = docstring_parser.parse(signature["documentation"]["value"])
+    return [(extract_variable_name(v.arg_name), v.default) for v in parsed.params]
+
+
+def get_pyright_param_proposals(signature):
+    label = signature["label"]
+    # Remove any enclosing function definition or parentheses
+    if "(" in label and ")" in label:
+        label = label[label.find("(") + 1 : label.rfind(")")]
+
+    # Split parameters by commas
+    params = label.split(", ")
+    proposals = []
+
+    for param in params:
+        # Extract parameter name and default value
+        parts = param.split("=")
+        name_type = parts[0].strip()
+        default = parts[1].strip() if len(parts) > 1 else None
+
+        # Further split to separate name from type if needed (optional)
+        name = name_type.split(":")[0].strip()
+        proposals.append((name, default))
+
+    return proposals
+
+
+def parse_signature(signature):
+    param_info_list = wrapper_parse_signature(signature, get_pyright_param_proposals)
+    if len(param_info_list) == 0:
+        param_info_list = wrapper_parse_signature(
+            signature, get_docstring_parser_proposals
+        )
     return param_info_list
 
 
@@ -173,6 +206,7 @@ class LanguageServerReader(LanguageServerInteractor):
     async def process_response(self, response):
         id = response.get("id", None)
         method = response.get("method", None)
+        pprint(response)
         if id:
             method = method if method else self.msg_id_to_method[id]
             if method == "textDocument/completion":
@@ -192,21 +226,21 @@ class LanguageServerReader(LanguageServerInteractor):
                 content = parse_signature(response["result"]["signatures"][0])
                 pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
-        elif method == "textDocument/publishDiagnostics":
-            # print(response)
-            params = response["params"]
-            diagnostics = params["diagnostics"]
-            uri = params["uri"]
-            version = try_read_version(params, self.versions[uri])
-            version_info = self.versions[uri][version]
-            code = version_info["code"]
-            codeJson = version_info["codeJson"]
-            code_split = code.split("\n")
-            content = process_diagnostics(diagnostics, code_split, codeJson)
-            # print("content", content, flush=True)
-            await self.websocket_manager.broadcast(
-                {"messageType": "diagnostics", "content": content}
-            )
+        # elif method == "textDocument/publishDiagnostics":
+        #     # print(response)
+        #     params = response["params"]
+        #     diagnostics = params["diagnostics"]
+        #     uri = params["uri"]
+        #     version = try_read_version(params, self.versions[uri])
+        #     version_info = self.versions[uri][version]
+        #     code = version_info["code"]
+        #     codeJson = version_info["codeJson"]
+        #     code_split = code.split("\n")
+        #     content = process_diagnostics(diagnostics, code_split, codeJson)
+        #     # print("content", content, flush=True)
+        #     await self.websocket_manager.broadcast(
+        #         {"messageType": "diagnostics", "content": content}
+        #     )
 
         # print(self.received_messages.keys())
         # process_response(response)

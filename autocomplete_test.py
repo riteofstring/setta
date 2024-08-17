@@ -26,7 +26,7 @@ async def main():
 
     code_id = "test"
     # code = "import math\nx=math.sqrt()"
-    code = "import numpy\nnumpy.cos()"
+    code = "import torchvision\ntorchvision.models.resnet18()"
     codeJson = {}
 
     # code_id = "test"
@@ -104,7 +104,7 @@ async def main():
     # await lsp_writer.send_document_update(
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
-    await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
+    await lsp_writer.send_signature_help_request(1, 28, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
