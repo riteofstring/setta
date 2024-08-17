@@ -151,7 +151,7 @@ def get_section_ids(dbs, top_level_ids):
 
 def load_section_configs(dbs, project_config_id):
     db = dbs.default
-    query = f"""SELECT sectionId, width, height, variantId, paramSweepId
+    query = f"""SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation
         FROM SectionConfig
         WHERE projectConfigId = :projectConfigId
     """
@@ -168,6 +168,7 @@ def load_section_configs(dbs, project_config_id):
             },
             "variantId": row["variantId"],
             "paramSweepId": row["paramSweepId"],
+            "isHorizontalOrientation": row["isHorizontalOrientation"]
         }
 
     return output

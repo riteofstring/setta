@@ -149,8 +149,8 @@ def save_section_configs(dbs, project_config_id, sections):
 def insert_section_configs(dbs, sections, id_pairs):
     db = dbs.default
     query = """
-        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId)
-        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId)
+        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation)
+        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :isHorizontalOrientation)
     """
 
     query_params = [
@@ -161,6 +161,7 @@ def insert_section_configs(dbs, sections, id_pairs):
             "height": convert_size(sections[c]["size"]["height"]),
             "variantId": sections[c]["variantId"],
             "paramSweepId": sections[c]["paramSweepId"],
+            "isHorizontalOrientation": sections[c]["isHorizontalOrientation"]
         }
         for projectConfigId, c in id_pairs
     ]

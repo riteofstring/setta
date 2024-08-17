@@ -8,8 +8,7 @@ function loadAndModifyJson(filePath) {
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
     for (const [k, v] of Object.entries(json.sections)) {
-      delete v.versionsHeight
-      delete v.versionsVisible
+      v.isHorizontalOrientation = false
     }
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file
