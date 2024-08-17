@@ -2,7 +2,12 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { updateSearch } from "state/actions/search/projectSearch";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useProjectSearch, useSectionToParams } from "state/definitions";
+import {
+  useCodeInfo,
+  useProjectSearch,
+  useSectionToParams,
+} from "state/definitions";
+import { findAllParameters } from "utils/getDescendants";
 import { useSectionIdToChildren } from "./sectionVariants";
 
 export function useUpdateProjectSearch() {
@@ -75,9 +80,16 @@ function useAllVisibleParams() {
 
   return useSectionToParams((x) => {
     const output = [];
+    const cState = useCodeInfo.getState().x;
     for (const id of allIds) {
-      for (const param of x.params[id]) {
-        output.push({ sectionId: id, paramInfoId: param.id, name: param.name });
+      for (const topLevelParam of x.params[id]) {
+        for (const param of findAllParameters(cState, [topLevelParam.id])) {
+          output.push({
+            sectionId: id,
+            paramInfoId: param.id,
+            name: param.name,
+          });
+        }
       }
     }
     return output;
