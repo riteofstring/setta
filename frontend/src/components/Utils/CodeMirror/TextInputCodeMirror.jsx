@@ -22,6 +22,7 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
   onEscape,
+  onMouseDown,
   color,
   language,
 }) {
@@ -36,11 +37,12 @@ export function TextInputCodeMirror({
     onBlur?.();
   }
 
-  function onMouseDown(event) {
+  function localOnMouseDown(event) {
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
       setActivationEvent(event);
+      onMouseDown?.();
     }
   }
 
@@ -49,7 +51,7 @@ export function TextInputCodeMirror({
       {!realIsInitialized && (
         <DummyCodeMirror
           code={value}
-          onMouseDown={onMouseDown}
+          onMouseDown={localOnMouseDown}
           className={dummyCodeClassName}
           theme={theme}
           keywordRegex={pattern}
@@ -122,7 +124,7 @@ function CoreCodeMirror({
     singleLine,
     tabToAutocomplete: true,
     onEnter,
-    onEscape
+    onEscape,
   });
 
   const onCreateEditor = getOnCreateEditor({
