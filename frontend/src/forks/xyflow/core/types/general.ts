@@ -57,8 +57,6 @@ export type Viewport = {
   zoom: number;
 };
 
-export type KeyCode = string | Array<string>;
-
 export type SnapGrid = [number, number];
 
 export enum PanOnScrollMode {

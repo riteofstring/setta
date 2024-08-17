@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 import { memo } from "react";
 
 import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection/NodesSelection";
-import useGlobalKeyHandler from "../../hooks/useGlobalKeyHandler";
-import useKeyPress from "../../hooks/useKeyPress";
 import { useReactFlow } from "../../store";
 import { GraphViewProps } from "../GraphView";
 import Pane from "../Pane";
@@ -20,8 +18,6 @@ const FlowRenderer = ({
   children,
   selectionOnDrag,
   selectionMode,
-  multiSelectionKeyCode,
-  zoomActivationKeyCode,
   elementsSelectable,
   zoomOnScroll,
   zoomOnPinch,
@@ -39,8 +35,6 @@ const FlowRenderer = ({
   const isSelecting =
     selectionKeyPressed || (selectionOnDrag && panOnDrag !== true);
 
-  useGlobalKeyHandler({ multiSelectionKeyCode });
-
   return (
     <ZoomPane
       elementsSelectable={elementsSelectable}
@@ -52,7 +46,6 @@ const FlowRenderer = ({
       zoomOnDoubleClick={zoomOnDoubleClick}
       panOnDrag={!selectionKeyPressed && panOnDrag}
       translateExtent={translateExtent}
-      zoomActivationKeyCode={zoomActivationKeyCode}
       preventScrolling={preventScrolling}
       noWheelClassName={noWheelClassName}
       noPanClassName={noPanClassName}

@@ -1,5 +1,6 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
-import { multiSectionSelect, paramSelect } from "state/actions/keyActivations";
+import { paramSelect } from "state/actions/keyActivations";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
@@ -36,7 +37,7 @@ function _SectionContainerCore({ sectionId }) {
       } else if (isActiveSection && !atLeastOneParamSelected) {
         removeActiveSectionIds([sectionId]);
       }
-    } else if (multiSectionSelect(e)) {
+    } else if (useReactFlow.getState().multiSelectionActive) {
       if (isActiveSection) {
         removeActiveSectionIds([sectionId]);
       } else {

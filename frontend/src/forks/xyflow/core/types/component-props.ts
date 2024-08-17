@@ -1,7 +1,6 @@
 import type {
   CoordinateExtent,
   FitViewOptions,
-  KeyCode,
   Node,
   PanOnScrollMode,
   SelectionMode,
@@ -11,8 +10,6 @@ export type ReactFlowProps = {
   nodes?: Node[];
   selectionOnDrag?: boolean;
   selectionMode?: SelectionMode;
-  multiSelectionKeyCode?: KeyCode | null;
-  zoomActivationKeyCode?: KeyCode | null;
   nodesDraggable?: boolean;
   nodesFocusable?: boolean;
   elementsSelectable?: boolean;

@@ -14,7 +14,6 @@ import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useProjectConfig, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
-import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";
 import { containerStyle } from "../../styles";
 import {
@@ -28,9 +27,7 @@ import type { FlowRendererProps } from "../FlowRenderer";
 
 type ZoomPaneProps = Omit<
   FlowRendererProps,
-  | "multiSelectionKeyCode"
-  | "noDragClassName"
-  | "selectionOnDrag"
+  "noDragClassName" | "selectionOnDrag"
 >;
 
 const viewChanged = (
@@ -82,7 +79,6 @@ const ZoomPane = ({
   elementsSelectable,
   panOnDrag = true,
   translateExtent,
-  zoomActivationKeyCode,
   preventScrolling = true,
   children,
   noWheelClassName,
@@ -95,13 +91,12 @@ const ZoomPane = ({
   const prevTransform = useRef<Viewport>({ x: 0, y: 0, zoom: 0 });
   const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
     useReactFlow(selector, shallow);
-  const zoomActivationKeyPressed = useKeyPress(zoomActivationKeyCode);
+  // const zoomActivationKeyPressed = useKeyPress(zoomActivationKeyCode);
+  const zoomActivationKeyPressed = false;
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
   const initialViewport = useProjectConfig((x) => x.viewport, _.isEqual);
-
-  console.log("zoomActivationKeyPressed", zoomActivationKeyPressed)
 
   useResizeHandler(zoomPane);
 

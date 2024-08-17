@@ -69,6 +69,11 @@ export function attachKeyEventListeners() {
       activateSelectionKeyPressed,
       deactivateSelectionKeyPressed,
     ],
+    [
+      settings.multiSelectionShortcut,
+      activateMultiSelectionPressed,
+      deactivateMultiSelectionPressed,
+    ],
     // [
     //   settings.sortingShortcut,
     //   useDndState.getState().activateSortingMode,
@@ -124,10 +129,6 @@ export function attachKeyEventListeners() {
 
 // Below functions are used in various onClick functions
 
-export function multiSectionSelect(e) {
-  return e.ctrlKey && !e.shiftKey;
-}
-
 export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
 }
@@ -142,4 +143,12 @@ function activateSelectionKeyPressed() {
 
 function deactivateSelectionKeyPressed() {
   useReactFlow.setState({ selectionKeyPressed: false });
+}
+
+function activateMultiSelectionPressed() {
+  useReactFlow.setState({ multiSelectionActive: true });
+}
+
+function deactivateMultiSelectionPressed() {
+  useReactFlow.setState({ multiSelectionActive: false });
 }

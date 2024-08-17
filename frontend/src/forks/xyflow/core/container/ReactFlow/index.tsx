@@ -4,7 +4,6 @@ import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
 import type { ReactFlowProps, ReactFlowRefType } from "../../types";
 import { PanOnScrollMode, SelectionMode } from "../../types";
-import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
 
 const wrapperStyle: CSSProperties = {
@@ -20,8 +19,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       className,
       selectionOnDrag = false,
       selectionMode = SelectionMode.Full,
-      multiSelectionKeyCode = isMacOs() ? "Meta" : "Control",
-      zoomActivationKeyCode = isMacOs() ? "Meta" : "Control",
       selectNodesOnDrag = true,
       nodesDraggable,
       nodesFocusable,
@@ -61,8 +58,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
         <GraphView
           selectionOnDrag={selectionOnDrag}
           selectionMode={selectionMode}
-          multiSelectionKeyCode={multiSelectionKeyCode}
-          zoomActivationKeyCode={zoomActivationKeyCode}
           selectNodesOnDrag={selectNodesOnDrag}
           translateExtent={translateExtent}
           preventScrolling={preventScrolling}

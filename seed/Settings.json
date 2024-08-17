@@ -14,6 +14,7 @@
   "copyShortcut": "Mod + C",
   "pasteShortcut": "Mod + V",
   "drawSelectionShortcut": "Shift",
+  "multiSelectionShortcut": "Mod",
   "sortingShortcut": "Mod",
   "movingFreeShortcut": "Alt",
   "defaultCodeSectionSize": { "width": 500, "height": "auto" },
