@@ -9,7 +9,7 @@ export function addCodeInfo({ info, parent, insertIdx }) {
   useCodeInfo.setState((state) => {
     state.x[info.id] = info;
     if (parent) {
-      if (insertIdx === null) {
+      if (_.isNil(insertIdx)) {
         state.x[parent].children.push(info.id);
       } else {
         state.x[parent].children.splice(insertIdx, 0, info.id);
