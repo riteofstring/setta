@@ -1,29 +1,15 @@
-import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  useCodeInfo,
-  useSectionInfos,
-  useSectionToParams,
-} from "state/definitions";
+import { useCodeInfo, useSectionToParams } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useOutputValues } from "./outputs";
 import { useGetSectionInfo } from "./sections";
-import { useSectionSelectedItem } from "./sectionVariants";
 
 export function useGetAllCallables(sectionId) {
-  const codeInfoId = useSectionInfos((x) => x.x[sectionId].codeInfoId);
-  return useCodeInfo(
-    (x) => x.x[codeInfoId].children.filter((c) => c.rcType === C.CALLABLE),
-    _.isEqual,
-  );
+  return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);
 }
 
 export function useGetParamInfos(sectionId) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  return useCodeInfo(
-    (x) => x.x[selectedItem].children.filter((c) => c.rcType === C.PARAMETER),
-    _.isEqual,
-  );
+  return useSectionToParams((x) => x.params[sectionId] ?? [], _.isEqual);
 }
 
 export function useGetParamInfosThatHaveNames(sectionId) {

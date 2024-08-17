@@ -7,33 +7,8 @@ import {
 import { getSectionInfo } from "../../getters/sectionInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import { getSectionSelectedItem } from "../sectionVariants";
-import C from "constants/constants.json"
 
 export function getParamInfos(sectionId) {
-  const selectedItem = getSectionSelectedItem(sectionId)
-  const cState = useCodeInfo.getState().x
-  const objParamInfos = []
-  if (selectedItem){
-    for (const c of cState[selectedItem]){
-      if (cState[c].rcType === C.PARAMETER){
-        
-      }
-    }
-  }
-  
-  const objParamInfos = selectedItem
-  ? cState[selectedItem].children.map(c=>cState[c])
-  : [];
-
-const { codeInfoId } = getSectionInfo(sectionId);
-const paramCollections = findAllParametersOfCollections(
-  useCodeInfo.getState().x,
-  [codeInfoId],
-);
-
-return movePinnedToFront([...objParamInfos, ...paramCollections]);
-
-
   return useSectionToParams.getState().params[sectionId] ?? [];
 }
 
