@@ -1,16 +1,30 @@
-import { DialogMenuBarTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
-import { setModalData, setModalType } from "state/actions/modal";
-import { MODAL_TYPE } from "utils/constants";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { initParamSweep } from "state/actions/runGroups/paramSweep";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { useSectionInfos } from "state/definitions";
+import { getForSectionId } from "state/hooks/paramSweep";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function CreateNewParamSweepButton({ sectionId }) {
-  function openModal() {
-    setModalData(sectionId);
-    setModalType(MODAL_TYPE.NEW_PARAM_SWEEP);
+  function onClick() {
+    const newId = createNewId();
+    const name = createRandomName();
+    initParamSweep({ id: newId, name });
+    const forSectionId = getForSectionId(
+      useSectionInfos.getState().x,
+      sectionId,
+    );
+    setSectionInfoAttr({
+      sectionId: forSectionId,
+      attr: "paramSweepId",
+      value: newId,
+    });
+    setSectionInfoAttr({
+      sectionId: forSectionId,
+      attr: "paramSweepIds",
+      newValueFn: (x) => [...x, newId],
+    });
   }
 
-  return (
-    <DialogMenuBarTriggerItem onClick={openModal}>
-      New Version
-    </DialogMenuBarTriggerItem>
-  );
+  return <MenuItem onClick={onClick}>New Version</MenuItem>;
 }

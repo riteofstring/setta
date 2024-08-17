@@ -156,16 +156,6 @@ export const MODAL_TYPE = {
     title: "Save Custom Arguments",
     buttonText: "Save",
   },
-  NEW_VERSION: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save New Version",
-    buttonText: "Save",
-  },
-  NEW_PARAM_SWEEP: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save New Param Sweep",
-    buttonText: "Save",
-  },
 };
 
 export const PAGE_LOAD_TYPES = {

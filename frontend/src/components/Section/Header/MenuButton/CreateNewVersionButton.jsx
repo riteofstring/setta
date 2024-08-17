@@ -1,16 +1,26 @@
-import { DialogMenuBarTriggerItem } from "components/Utils/atoms/dialog/dialogTriggerItem";
-import { setModalData, setModalType } from "state/actions/modal";
-import { MODAL_TYPE } from "utils/constants";
+import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { duplicateSectionVariant } from "state/actions/sectionVariants";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "state/getters/sectionInfo";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function CreateNewVersionButton({ sectionId }) {
-  function openModal() {
-    setModalData(sectionId);
-    setModalType(MODAL_TYPE.NEW_VERSION);
+  function onClick() {
+    const currId = getSectionInfo(sectionId).variantId;
+    const dbSource = getMappedSectionDBSource(sectionId);
+    const newName = createRandomName();
+    const newId = createNewId();
+    duplicateSectionVariant({ dbSource, id: currId, newId, newName });
+    setSectionInfoAttr({ sectionId, attr: "variantId", value: newId });
+    setSectionInfoAttr({
+      sectionId,
+      attr: "variantIds",
+      newValueFn: (x) => [...x, newId],
+    });
   }
 
-  return (
-    <DialogMenuBarTriggerItem onClick={openModal}>
-      New Version
-    </DialogMenuBarTriggerItem>
-  );
+  return <MenuItem onClick={onClick}>New Version</MenuItem>;
 }
