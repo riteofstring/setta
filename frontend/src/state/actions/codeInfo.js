@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 
 export function setAllCodeInfo(x) {
   useCodeInfo.setState({ x });
@@ -73,4 +74,15 @@ export function batchUpdateCodeInfoChildren(idToNewChildren) {
       state.x[id].children = newChildren;
     }
   });
+}
+
+export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
+  const { codeInfoId } = getSectionInfo(sectionId);
+  const cState = useCodeInfo.getState().x;
+  for (const c of cState[codeInfoId].children) {
+    if (cState[c].name === selectedItemName) {
+      return true;
+    }
+  }
+  return false;
 }

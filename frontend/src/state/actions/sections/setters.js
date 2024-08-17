@@ -3,46 +3,42 @@ import { dbParametersRequest } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { varControlUpdate } from "state/actions/varControl";
-import { useSectionVariants } from "state/definitions";
-import { isUUID } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 import { getSectionInfo } from "../../getters/sectionInfo";
-import { addCodeInfo } from "../codeInfo";
+import { addCodeInfo, itemHasBeenSelectedBefore } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import { setSectionVariantSelectedItem } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
-  let id = selectedItem;
-  if (!isUUID(id)) {
-    const info = newCodeInfo({
-      name: selectedItem,
-      editable: false,
-      rcType: C.CALLABLE,
-    });
-    const { codeInfoId } = getSectionInfo(sectionId);
-    addCodeInfo({ info, parent: codeInfoId });
-    id = info.id;
-    updateCallables(sectionId);
+  if (itemHasBeenSelectedBefore(sectionId, selectedItem)) {
+    return;
   }
 
+  const info = newCodeInfo({
+    name: selectedItem,
+    editable: false,
+    rcType: C.CALLABLE,
+  });
+  const { codeInfoId } = getSectionInfo(sectionId);
+  addCodeInfo({ info, parent: codeInfoId });
+  updateCallables(sectionId);
+
+  const id = info.id;
   setSectionVariantSelectedItem(sectionId, id);
 
-  if (isUUID(selectedItem)) {
-    setSelectedItemChildren(sectionId, id, changedByUser);
-  } else {
-    const res = await dbParametersRequest({
-      sectionId,
-      fullText: selectedItem,
-      beforeText: "",
-      position: selectedItem.length,
-    });
-    createChildrenCodeInfo(id, res);
-    setSelectedItemChildren(sectionId, id, changedByUser);
-  }
+  const res = await dbParametersRequest({
+    sectionId,
+    fullText: selectedItem,
+    beforeText: "",
+    position: selectedItem.length,
+  });
+  createChildrenCodeInfo(id, res);
+  setSelectedItemChildren(sectionId, id, changedByUser);
   updateKeywordRegex();
+  console.log("res", res)
 }
 
 function createChildrenCodeInfo(parent, params) {
