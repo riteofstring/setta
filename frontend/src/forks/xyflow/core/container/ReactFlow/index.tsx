@@ -18,7 +18,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
   (
     {
       className,
-      selectionKeyCode = "Shift",
       selectionOnDrag = false,
       selectionMode = SelectionMode.Full,
       panActivationKeyCode = "Space",
@@ -61,7 +60,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
         id={id}
       >
         <GraphView
-          selectionKeyCode={selectionKeyCode}
           selectionOnDrag={selectionOnDrag}
           selectionMode={selectionMode}
           multiSelectionKeyCode={multiSelectionKeyCode}

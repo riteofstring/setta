@@ -1,5 +1,5 @@
-import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
@@ -65,15 +65,20 @@ export function attachKeyEventListeners() {
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
     [
-      settings.sortingShortcut,
-      useDndState.getState().activateSortingMode,
-      useDndState.getState().deactivateSortingMode,
+      settings.drawSelectionShortcut,
+      activateSelectionKeyPressed,
+      deactivateSelectionKeyPressed,
     ],
-    [
-      settings.movingFreeShortcut,
-      useDndState.getState().activateMovingFreeMode,
-      useDndState.getState().deactivateMovingFreeMode,
-    ],
+    // [
+    //   settings.sortingShortcut,
+    //   useDndState.getState().activateSortingMode,
+    //   useDndState.getState().deactivateSortingMode,
+    // ],
+    // [
+    //   settings.movingFreeShortcut,
+    //   useDndState.getState().activateMovingFreeMode,
+    //   useDndState.getState().deactivateMovingFreeMode,
+    // ],
   ];
 
   const cleanup_functions = [];
@@ -129,4 +134,12 @@ export function variableClick(e) {
 
 export function paramSelect(e) {
   return e.ctrlKey && e.shiftKey;
+}
+
+function activateSelectionKeyPressed() {
+  useReactFlow.setState({ selectionKeyPressed: true });
+}
+
+function deactivateSelectionKeyPressed() {
+  useReactFlow.setState({ selectionKeyPressed: false });
 }

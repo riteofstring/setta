@@ -9,7 +9,6 @@ import type {
 
 export type ReactFlowProps = {
   nodes?: Node[];
-  selectionKeyCode?: KeyCode | null;
   selectionOnDrag?: boolean;
   selectionMode?: SelectionMode;
   panActivationKeyCode?: KeyCode | null;

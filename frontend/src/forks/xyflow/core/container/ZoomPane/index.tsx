@@ -28,7 +28,6 @@ import type { FlowRendererProps } from "../FlowRenderer";
 
 type ZoomPaneProps = Omit<
   FlowRendererProps,
-  | "selectionKeyCode"
   | "multiSelectionKeyCode"
   | "noDragClassName"
   | "selectionOnDrag"
@@ -101,6 +100,8 @@ const ZoomPane = ({
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
   const initialViewport = useProjectConfig((x) => x.viewport, _.isEqual);
+
+  console.log("zoomActivationKeyPressed", zoomActivationKeyPressed)
 
   useResizeHandler(zoomPane);
 

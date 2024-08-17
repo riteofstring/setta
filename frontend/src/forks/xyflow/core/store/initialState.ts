@@ -26,10 +26,9 @@ const initialState: ReactFlowStore = {
   fitViewOnInit: false,
   fitViewOnInitDone: false,
   fitViewOnInitOptions: undefined,
-
   multiSelectionActive: false,
-
   autoPanOnNodeDrag: true,
+  selectionKeyPressed: false,
 };
 
 export default initialState;

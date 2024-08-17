@@ -9,7 +9,6 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
   Required<
     Pick<
       ReactFlowProps,
-      | "selectionKeyCode"
       | "multiSelectionKeyCode"
       | "translateExtent"
       | "selectNodesOnDrag"
@@ -21,7 +20,6 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
   >;
 
 const GraphView = ({
-  selectionKeyCode,
   selectionOnDrag,
   selectionMode,
   multiSelectionKeyCode,
@@ -44,7 +42,6 @@ const GraphView = ({
 }: GraphViewProps) => {
   return (
     <FlowRenderer
-      selectionKeyCode={selectionKeyCode}
       selectionOnDrag={selectionOnDrag}
       selectionMode={selectionMode}
       multiSelectionKeyCode={multiSelectionKeyCode}
