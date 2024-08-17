@@ -82,7 +82,11 @@ function useAllVisibleParams() {
     const output = [];
     const cState = useCodeInfo.getState().x;
     for (const id of allIds) {
-      for (const topLevelParam of x.params[id]) {
+      const topLevelParams = x.params[id];
+      if (!topLevelParams) {
+        continue;
+      }
+      for (const topLevelParam of topLevelParams) {
         for (const param of findAllParameters(cState, [topLevelParam.id])) {
           output.push({
             sectionId: id,
