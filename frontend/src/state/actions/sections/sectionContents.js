@@ -1,4 +1,8 @@
-import { useCodeInfo, useSectionToParams } from "state/definitions";
+import {
+  useCodeInfo,
+  useSectionInfos,
+  useSectionToParams,
+} from "state/definitions";
 import {
   findAllCallables,
   findAllParametersOfCallables,
@@ -34,6 +38,12 @@ function computeAllParams(sectionId, objInfoId) {
 export function updateManyParamsAndCallables(sectionIds) {
   sectionIds.forEach((x) => updateParamsAndCallables(x, false));
   updateKeywordRegex();
+}
+
+export function updateAllParams() {
+  for (const k of Object.keys(useSectionInfos.getState().x)) {
+    updateParams(k);
+  }
 }
 
 export function updateParamsAndCallables(
