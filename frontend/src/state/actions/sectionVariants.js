@@ -130,9 +130,10 @@ export function getSectionChildren(sectionId) {
 }
 
 export function getSectionVariantIdAndMappedDBSource(sectionId) {
-  const { variantId } = useSectionInfos.getState().x[sectionId];
+  const { variantId, previewVariantId } =
+    useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
-  return { variantId, dbSource };
+  return { variantId, previewVariantId, dbSource };
 }
 
 export function setSectionVariantChildren({ sectionId, newStateFn }) {
@@ -162,9 +163,11 @@ export function getSectionIdToChildren(sectionVariantState) {
 }
 
 export function getSectionSelectedItem(sectionId) {
-  const { variantId, dbSource } =
+  const { variantId, previewVariantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(sectionId);
-  return useSectionVariants.getState().x[dbSource][variantId].selectedItem;
+  return useSectionVariants.getState().x[dbSource][
+    previewVariantId ?? variantId
+  ].selectedItem;
 }
 
 export function setSectionVariantSelectedItem(sectionId, selectedItem) {
