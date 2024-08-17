@@ -69,6 +69,7 @@ export function ParamInput({
       onChange={onChange}
       isDisabled={isDisabled}
       maybeErrorMessage={maybeErrorMessage}
+      sectionIdToBeActive={sectionId}
     />
   );
 }

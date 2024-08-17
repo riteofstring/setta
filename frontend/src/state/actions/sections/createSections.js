@@ -132,7 +132,7 @@ export function createSectionInfo({
   return Object.keys(newInfos);
 }
 
-function addSectionsToState(sectionInfos, variantProps, position,) {
+function addSectionsToState(sectionInfos, variantProps, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
   initManySectionVariantIds({

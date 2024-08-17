@@ -32,6 +32,7 @@ function _ParamSweepArea({ sectionId }) {
         objInfoId={codeInfoId}
         paramSweep={paramSweep}
         forSectionId={forSectionId}
+        sectionId={sectionId}
       />
     </>
   );
@@ -57,7 +58,13 @@ function FilterSection() {
   );
 }
 
-function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
+function Args({
+  paramSweepId,
+  objInfoId,
+  paramSweep,
+  forSectionId,
+  sectionId,
+}) {
   const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.variantId);
 
   return (
@@ -71,6 +78,7 @@ function Args({ paramSweepId, objInfoId, paramSweep, forSectionId }) {
           singleParamSweep={x}
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
+          sectionId={sectionId}
         />
       ))}
       <PlaceholderArgItem
@@ -90,6 +98,7 @@ function ArgItem({
   singleParamSweep,
   alreadySelected,
   forSectionId,
+  sectionId,
   unused = false,
 }) {
   const { paramInfoId, values, variantId } = singleParamSweep;
@@ -151,6 +160,7 @@ function ArgItem({
             onChange={getOnChange(valueIdx)}
             onDelete={getOnDelete(valueIdx)}
             value={x}
+            sectionId={sectionId}
           />
         ))
       ) : (
@@ -268,7 +278,14 @@ function ParamCombobox({
   );
 }
 
-function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
+function Input({
+  sectionId,
+  forSectionId,
+  paramInfoId,
+  onChange,
+  onDelete,
+  value,
+}) {
   return (
     <>
       <IconButton
@@ -287,6 +304,7 @@ function Input({ forSectionId, paramInfoId, onChange, onDelete, value }) {
           value={value}
           onChange={onChange}
           className="nodrag"
+          sectionIdToBeActive={sectionId}
         />
       </article>
     </>

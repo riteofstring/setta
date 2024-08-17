@@ -4,6 +4,7 @@ import _ from "lodash";
 import { useCallback, useState } from "react";
 import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
+import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import { useKeywordRegex } from "state/definitions";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
@@ -22,9 +23,9 @@ export function TextInputCodeMirror({
   singleLine,
   onEnter,
   onEscape,
-  onMouseDown,
   color,
   language,
+  sectionIdToBeActive,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -42,7 +43,9 @@ export function TextInputCodeMirror({
     if (!variableClick(event) && event.button === 0) {
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
       setActivationEvent(event);
-      onMouseDown?.();
+      if (sectionIdToBeActive) {
+        setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
+      }
     }
   }
 

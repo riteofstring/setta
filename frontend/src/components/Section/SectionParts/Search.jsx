@@ -1,8 +1,5 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useEffect, useState } from "react";
-import { setActiveSectionIds } from "state/actions/sections/activeSections";
-import { setZIndices } from "state/actions/sections/sectionPositions";
-import { getHighestAncestor } from "state/actions/sections/sectionSizes";
 import { setSelectedItem } from "state/actions/sections/setters";
 import { useCodeInfo } from "state/definitions";
 import { useIdWaitingForLSPResult } from "state/hooks/lsp";
@@ -74,12 +71,6 @@ export function SectionSearch({ sectionId, selectedItem }) {
     setValue(codeInfoName);
   }
 
-  function onMouseDown() {
-    setActiveSectionIds([sectionId]);
-    const highestAncestor = getHighestAncestor(sectionId);
-    setZIndices([highestAncestor], false);
-  }
-
   return (
     <>
       <TextInputCodeMirror
@@ -93,8 +84,8 @@ export function SectionSearch({ sectionId, selectedItem }) {
         onEnter={onEnter}
         onEscape={onEscape}
         onBlur={onBlur}
-        onMouseDown={onMouseDown}
         language="python"
+        sectionIdToBeActive={sectionId}
       />
       <LoadingSpinner sectionId={sectionId} paramInfoId={null} />
     </>

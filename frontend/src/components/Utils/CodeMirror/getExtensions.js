@@ -17,7 +17,7 @@ export function getExtensions({
   singleLine,
   tabToAutocomplete,
   onEnter,
-  onEscape
+  onEscape,
 }) {
   const extensions = [
     EditorView.lineWrapping,
