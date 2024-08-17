@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
+import { getSectionSelectedItem } from "./sectionVariants";
 
 export function setAllCodeInfo(x) {
   useCodeInfo.setState({ x });
@@ -81,8 +82,13 @@ export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
   const cState = useCodeInfo.getState().x;
   for (const c of cState[codeInfoId].children) {
     if (cState[c].name === selectedItemName) {
-      return true;
+      return c;
     }
   }
-  return false;
+  return null;
+}
+
+export function itemIsAlreadySelected(sectionId, selectedItemName) {
+  const currSelectedItem = getSectionSelectedItem(sectionId);
+  return useCodeInfo.getState().x[currSelectedItem]?.name === selectedItemName;
 }
