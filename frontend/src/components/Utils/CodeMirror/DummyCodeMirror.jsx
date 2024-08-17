@@ -20,6 +20,7 @@ export function DummyCodeMirror({
   code,
   theme,
   onMouseDown,
+  onFocus,
   className,
   keywordRegex,
   placeholder,
@@ -32,6 +33,7 @@ export function DummyCodeMirror({
       code={code}
       theme={theme}
       onMouseDown={onMouseDown}
+      onFocus={onFocus}
       className={className}
       keywordRegex={keywordRegex}
       sectionId={sectionId}
@@ -43,17 +45,20 @@ export function DummyCodeMirror({
       className={className}
       placeholder={placeholder}
       onMouseDown={onMouseDown}
+      onFocus={onFocus}
     />
   );
 }
 
-function PlaceholderCode({ className, placeholder, onMouseDown }) {
+function PlaceholderCode({ className, placeholder, onMouseDown, onFocus }) {
   // returns <br/> if no placeholder, so that the div takes up space
   return (
     <span
-      className={`${className} text-gray-600`}
+      className={`${className} text-gray-600 outline-none`}
       style={lineWrapStyle}
       onMouseDown={onMouseDown}
+      onFocus={onFocus}
+      tabIndex="0"
     >
       {placeholder ? placeholder : <br />}
     </span>
@@ -69,6 +74,7 @@ function HighlightedCode({
   sectionId,
   paramInfoId,
   language,
+  onFocus,
 }) {
   const tree = getLanguageParser(language).parser.parse(code);
   const highlightStyle = theme[1][2].value;
@@ -192,9 +198,11 @@ function HighlightedCode({
   // TODO: the style object here seems to reduce performance
   return (
     <div
-      className={`${className} ${scopeClassName}`}
+      className={`${className} ${scopeClassName} outline-none`}
       style={lineWrapStyle}
       onMouseDown={onMouseDown}
+      onFocus={onFocus}
+      tabIndex="0"
     >
       {outputDivs}
     </div>

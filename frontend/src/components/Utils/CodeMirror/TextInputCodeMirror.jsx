@@ -49,12 +49,21 @@ export function TextInputCodeMirror({
     }
   }
 
+  // focused via tab key
+  function onFocus() {
+    if (!activationEvent) {
+      dbTextFieldInitializeCode({ sectionId, paramInfoId });
+      setActivationEvent("tab");
+    }
+  }
+
   return (
     <>
       {!realIsInitialized && (
         <DummyCodeMirror
           code={value}
           onMouseDown={localOnMouseDown}
+          onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
           keywordRegex={pattern}

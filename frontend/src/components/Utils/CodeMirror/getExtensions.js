@@ -81,7 +81,7 @@ export function getExtensions({
       keymap.of([
         {
           key: "Tab",
-          preventDefault: true,
+          preventDefault: false,
           // shift: indentLess,
           run: (e) => {
             if (completionStatus(e.state)) {

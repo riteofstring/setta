@@ -69,9 +69,11 @@ export function getOnCreateEditor({
       getContentDomEventListener(keywordLocations, view),
     );
     view.focus();
-    const { clientX, clientY } = initialEvent;
-    const pos = view.posAtCoords({ x: clientX, y: clientY });
-    view.dispatch({ selection: { anchor: pos, head: pos } });
+    if (initialEvent !== "tab") {
+      const { clientX, clientY } = initialEvent;
+      const pos = view.posAtCoords({ x: clientX, y: clientY });
+      view.dispatch({ selection: { anchor: pos, head: pos } });
+    }
 
     fixPlaceholderCursor(divId, value, defaultVal);
     setRealIsInitialized(true);
