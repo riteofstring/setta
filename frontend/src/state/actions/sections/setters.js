@@ -12,10 +12,11 @@ import {
   itemIsAlreadySelected,
 } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
+import { setParametersRequestWaitingForLSP } from "../lsp";
+import { setNotificationMessage } from "../notification";
 import { setSectionVariantSelectedItem } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
-import { setNotificationMessage } from "../notification";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   if (itemIsAlreadySelected(sectionId, selectedItem)) {
@@ -40,6 +41,8 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
     const id = info.id;
     setSectionVariantSelectedItem(sectionId, id);
 
+    const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
+
     const res = await dbParametersRequest({
       sectionId,
       fullText: selectedItem,
@@ -50,9 +53,10 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
       createChildrenCodeInfo(id, res);
       setSelectedItemChildren(sectionId, id, changedByUser);
       updateKeywordRegex();
-    } else{
-      setNotificationMessage("No parameters found")
+    } else {
+      setNotificationMessage("No parameters found");
     }
+    setToNotWaiting();
   }
 }
 

@@ -1,7 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { dbTextFieldCompletion } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
-import { setWaitingForLSP } from "state/actions/lsp";
+import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useKeywordRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
@@ -85,7 +85,10 @@ export function getCompletionsFn(sectionId, paramInfoId) {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
     const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-    const setToNotWaiting = setWaitingForLSP({ sectionId, paramInfoId });
+    const setToNotWaiting = setTextFieldWaitingForLSP({
+      sectionId,
+      paramInfoId,
+    });
     const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,

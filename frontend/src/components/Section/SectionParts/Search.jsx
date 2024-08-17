@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { useEffect, useState } from "react";
 import { setSelectedItem } from "state/actions/sections/setters";
 import { useCodeInfo } from "state/definitions";
-import { useIdWaitingForLSPResult } from "state/hooks/lsp";
+import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 
 export function SectionSearch({ sectionId, selectedItem }) {
   // const [completions, sendCompletionRequest] =
@@ -87,7 +87,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
         language="python"
         sectionIdToBeActive={sectionId}
       />
-      <LoadingSpinner sectionId={sectionId} paramInfoId={null} />
+      <LoadingSpinner sectionId={sectionId} />
     </>
   );
 }
@@ -100,8 +100,11 @@ function mergeCompletionsAndHistory(completions, history) {
   return [...filteredCompletions, ...history];
 }
 
-function LoadingSpinner({ sectionId, paramInfoId }) {
-  const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
+function LoadingSpinner({ sectionId }) {
+  const waitingForResult = useTextFieldWaitingForLSPResult({
+    sectionId,
+    paramInfoId: null,
+  });
   return (
     waitingForResult && (
       <i className="section-search gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />

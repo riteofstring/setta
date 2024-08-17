@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/sectionVariants";
 import { useInteractive, useProjectConfig } from "state/definitions";
-import { useIdWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -71,14 +70,5 @@ export function ParamInput({
       maybeErrorMessage={maybeErrorMessage}
       sectionIdToBeActive={sectionId}
     />
-  );
-}
-
-function LoadingSpinner({ sectionId, paramInfoId }) {
-  const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
-  return (
-    waitingForResult && (
-      <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
-    )
   );
 }

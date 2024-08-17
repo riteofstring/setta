@@ -8,7 +8,7 @@ import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
 } from "requests/sections";
-import { setWaitingForLSP } from "state/actions/lsp";
+import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useKeywordRegex, useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -18,7 +18,7 @@ function getCompletionsFn({ sectionId }) {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
     const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-    const setToNotWaiting = setWaitingForLSP({ sectionId });
+    const setToNotWaiting = setTextFieldWaitingForLSP({ sectionId });
     const head = context.state.selection.main.head;
     const cursor = context.state.doc.lineAt(head);
     const res = await dbCodeAreaCompletion({

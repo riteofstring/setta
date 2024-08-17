@@ -61,11 +61,15 @@ export const useKeywordRegex = create(() => ({
   fullNameToInfo: {},
 }));
 
-// map from key to true or false
-// keys are of the form:
+// keys for textFields are of the form:
 // {sectionId}-null for the main section combobox
 // {sectionId}-{paramInfoId} for section parameter fields
-export const useWaitingForLSPResult = createProjectState(() => ({}));
+export const useWaitingForLSPResult = createProjectState(
+  immer(() => ({
+    textFields: {},
+    parametersRequest: {},
+  })),
+);
 
 export const useModal = createProjectState(() => ({
   open: false,

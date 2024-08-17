@@ -1,6 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import { useIdWaitingForLSPResult } from "state/hooks/lsp";
+import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
 import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
@@ -28,7 +28,10 @@ export function ParamUI({
   sectionIdToBeActive,
 }) {
   const uiType = useGetParamUIType(sectionId, paramInfoId);
-  const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
+  const waitingForResult = useTextFieldWaitingForLSPResult({
+    sectionId,
+    paramInfoId,
+  });
   switch (uiType.type) {
     default:
       return (
@@ -94,7 +97,10 @@ export function ParamSweepUI({
   sectionIdToBeActive,
 }) {
   const uiType = useGetParamUIType(sectionId, paramInfoId);
-  const waitingForResult = useIdWaitingForLSPResult({ sectionId, paramInfoId });
+  const waitingForResult = useTextFieldWaitingForLSPResult({
+    sectionId,
+    paramInfoId,
+  });
   switch (uiType.type) {
     default:
       return (
