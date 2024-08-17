@@ -21,26 +21,21 @@ const FlowRenderer = ({
   selectionOnDrag,
   selectionMode,
   multiSelectionKeyCode,
-  panActivationKeyCode,
   zoomActivationKeyCode,
   elementsSelectable,
   zoomOnScroll,
   zoomOnPinch,
-  panOnScroll: _panOnScroll,
+  panOnScroll,
   panOnScrollSpeed,
   panOnScrollMode,
   zoomOnDoubleClick,
-  panOnDrag: _panOnDrag,
+  panOnDrag,
   translateExtent,
   preventScrolling,
   noWheelClassName,
   noPanClassName,
 }: FlowRendererProps) => {
   const selectionKeyPressed = useReactFlow((x) => x.selectionKeyPressed);
-  const panActivationKeyPressed = useKeyPress(panActivationKeyCode);
-
-  const panOnDrag = panActivationKeyPressed || _panOnDrag;
-  const panOnScroll = panActivationKeyPressed || _panOnScroll;
   const isSelecting =
     selectionKeyPressed || (selectionOnDrag && panOnDrag !== true);
 

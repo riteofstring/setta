@@ -23,7 +23,6 @@ const GraphView = ({
   selectionOnDrag,
   selectionMode,
   multiSelectionKeyCode,
-  panActivationKeyCode,
   zoomActivationKeyCode,
   elementsSelectable,
   selectNodesOnDrag,
@@ -45,7 +44,6 @@ const GraphView = ({
       selectionOnDrag={selectionOnDrag}
       selectionMode={selectionMode}
       multiSelectionKeyCode={multiSelectionKeyCode}
-      panActivationKeyCode={panActivationKeyCode}
       zoomActivationKeyCode={zoomActivationKeyCode}
       elementsSelectable={elementsSelectable}
       zoomOnScroll={zoomOnScroll}

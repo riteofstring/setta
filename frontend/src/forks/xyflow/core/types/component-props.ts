@@ -11,7 +11,6 @@ export type ReactFlowProps = {
   nodes?: Node[];
   selectionOnDrag?: boolean;
   selectionMode?: SelectionMode;
-  panActivationKeyCode?: KeyCode | null;
   multiSelectionKeyCode?: KeyCode | null;
   zoomActivationKeyCode?: KeyCode | null;
   nodesDraggable?: boolean;

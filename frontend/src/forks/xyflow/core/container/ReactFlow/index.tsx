@@ -20,7 +20,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       className,
       selectionOnDrag = false,
       selectionMode = SelectionMode.Full,
-      panActivationKeyCode = "Space",
       multiSelectionKeyCode = isMacOs() ? "Meta" : "Control",
       zoomActivationKeyCode = isMacOs() ? "Meta" : "Control",
       selectNodesOnDrag = true,
@@ -63,7 +62,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           selectionOnDrag={selectionOnDrag}
           selectionMode={selectionMode}
           multiSelectionKeyCode={multiSelectionKeyCode}
-          panActivationKeyCode={panActivationKeyCode}
           zoomActivationKeyCode={zoomActivationKeyCode}
           selectNodesOnDrag={selectNodesOnDrag}
           translateExtent={translateExtent}
