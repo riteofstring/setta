@@ -15,6 +15,7 @@ import { updateKeywordRegex } from "../keywordRegex";
 import { setSectionVariantSelectedItem } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
+import { setNotificationMessage } from "../notification";
 
 export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
   if (itemIsAlreadySelected(sectionId, selectedItem)) {
@@ -45,10 +46,13 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
       beforeText: "",
       position: selectedItem.length,
     });
-    createChildrenCodeInfo(id, res);
-    setSelectedItemChildren(sectionId, id, changedByUser);
-    updateKeywordRegex();
-    console.log("res", res);
+    if (res) {
+      createChildrenCodeInfo(id, res);
+      setSelectedItemChildren(sectionId, id, changedByUser);
+      updateKeywordRegex();
+    } else{
+      setNotificationMessage("No parameters found")
+    }
   }
 }
 

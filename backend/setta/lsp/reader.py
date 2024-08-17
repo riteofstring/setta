@@ -226,7 +226,9 @@ class LanguageServerReader(LanguageServerInteractor):
                 if (response["result"]):
                     content = parse_signature(response["result"]["signatures"][0])
                     # pprint(content)
-                    await self.websocket_manager.send_message_to_requester(id, content)
+                else:
+                    content = None
+                await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
             # print(response)
             params = response["params"]
