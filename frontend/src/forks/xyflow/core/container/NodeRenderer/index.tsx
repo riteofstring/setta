@@ -2,7 +2,6 @@ import { NodeWrapper } from "forks/xyflow/core/components/Nodes/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { updateNodeDimensions } from "state/actions/nodeInternals";
-import { usePreviewInfo, useProjectConfig } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import useVisibleNodes from "../../hooks/useVisibleNodes";
 import { containerStyle } from "../../styles";
@@ -26,7 +25,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
     shallow,
   );
   const nodes = useVisibleNodes();
-  const projectConfigName = useProjectConfig((x) => x.name);
   const resizeObserverRef = useRef<ResizeObserver>();
 
   const resizeObserver = useMemo(() => {
@@ -54,10 +52,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
       resizeObserverRef?.current?.disconnect();
     };
   }, []);
-
-  useEffect(() => {
-    usePreviewInfo.setState({ isLoading: false, name: null });
-  }, [projectConfigName]);
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>

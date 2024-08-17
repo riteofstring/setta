@@ -113,3 +113,11 @@ export function manualDndChildrenReset() {
     .getState()
     .update(getSectionIdToChildren(useSectionVariants.getState().x));
 }
+
+export function setAllPreviewVariantIdsToNull() {
+  useSectionInfos.setState((x) => {
+    for (const s of Object.values(x.x)) {
+      s.previewVariantId = null;
+    }
+  });
+}

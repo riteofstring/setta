@@ -1,5 +1,4 @@
 import { router } from "components/Pages/router";
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
@@ -12,11 +11,7 @@ import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProjectConfig } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
-import {
-  useAllProjectConfigs,
-  useCurrProjectBackup,
-  useProjectConfig,
-} from "state/definitions";
+import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
@@ -124,7 +119,6 @@ export function useDefaultConfigAddress(project) {
 
 export function useLoadFullProject(previewEnabled) {
   const [doneLoading, setDoneLoading] = useState(false);
-  const previewedProjectConfigName = useProjectConfig((x) => x.name);
   const { projectConfigName: currProjectConfigName } = useParams();
 
   async function fullLoadFn() {
@@ -134,20 +128,14 @@ export function useLoadFullProject(previewEnabled) {
     });
     const nameRes = await dbLoadProjectConfigNames();
     if (fullProjectRes.status === 200 && nameRes.status === 200) {
-      const configsMerged = _.merge(
-        {},
-        ...fullProjectRes.data.map((x) => _.omit(x, ["projectConfig"])),
-      );
-
+      const nameToConfig = {};
+      for (const p of fullProjectRes.data) {
+        nameToConfig[p.projectConfig.name] = p;
+      }
       useAllProjectConfigs.setState({
-        x: configsMerged,
+        x: nameToConfig,
         names: nameRes.data,
-        metadata: _.keyBy(
-          fullProjectRes.data.map((x) => x.projectConfig),
-          "name",
-        ),
       });
-      useCurrProjectBackup.setState(getProjectData());
       setDoneLoading(true);
     }
   }
@@ -159,7 +147,6 @@ export function useLoadFullProject(previewEnabled) {
       useAllProjectConfigs.setState({
         x: {},
         names: res.data,
-        metadata: {},
       });
       setDoneLoading(true);
     }
@@ -173,5 +160,5 @@ export function useLoadFullProject(previewEnabled) {
     }
   }, [previewEnabled, currProjectConfigName]);
 
-  return { doneLoading, currProjectConfigName, previewedProjectConfigName };
+  return { doneLoading, currProjectConfigName };
 }

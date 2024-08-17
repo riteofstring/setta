@@ -1,6 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
-import { usePreviewInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { useTerminal } from "state/hooks/terminal";
 
 function _TerminalArea({ sectionId, width, height }) {
@@ -20,16 +20,8 @@ const TerminalArea = React.memo(_TerminalArea);
 
 function _MaybeTerminalArea({ sectionId }) {
   const { width, height } = useSectionInfos((x) => x.x[sectionId].size);
-  const isPreviewing = usePreviewInfo((x) => x.isPreviewing);
 
-  return isPreviewing ? (
-    <div
-      className="nodrag nowheel section-row-search-gutter section-key-value"
-      style={{ width: `${width - 24}px`, height: `${height - 32}px` }}
-    />
-  ) : (
-    <TerminalArea sectionId={sectionId} width={width} height={height} />
-  );
+  return <TerminalArea sectionId={sectionId} width={width} height={height} />;
 }
 
 export const MaybeTerminalArea = React.memo(_MaybeTerminalArea);

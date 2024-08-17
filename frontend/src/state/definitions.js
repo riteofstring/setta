@@ -86,19 +86,9 @@ export const useNotification = create(() => ({
   timeoutId: null,
 }));
 
-export const usePreviewInfo = createProjectState(() => ({
-  isPreviewing: false,
-  isLoading: false,
-  name: null,
-  tooLarge: false,
-}));
-
-export const useCurrProjectBackup = createProjectState(() => ({}));
-
 export const useAllProjectConfigs = createProjectState(() => ({
   x: {},
   names: [],
-  metadata: {},
 }));
 
 export const useOutputGroups = createProjectState(

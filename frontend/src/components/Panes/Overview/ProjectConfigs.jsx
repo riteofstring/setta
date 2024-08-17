@@ -1,17 +1,9 @@
 import { router } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
-import _ from "lodash";
-import React from "react";
+import React, { useState } from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
-import { setNodes } from "state/actions/nodeInternals";
-import { loadProjectState } from "state/actions/project/loadProject";
-import { setProjectConfig } from "state/actions/project/projectConfig";
-import { getAllSectionChildrenIds } from "state/actions/sections/sectionSizes";
-import {
-  useAllProjectConfigs,
-  useCurrProjectBackup,
-  usePreviewInfo,
-} from "state/definitions";
+import { setAllPreviewVariantIdsToNull } from "state/actions/sections/sectionInfos";
+import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES } from "utils/constants";
@@ -19,8 +11,9 @@ import { PAGE_LOAD_TYPES } from "utils/constants";
 export const ProjectConfigs = React.forwardRef(() => {
   const allConfigNames = useAllProjectConfigs((x) => x.names);
   const [previewEnabled] = localStorageFns.projectConfigPreviewEnabled.hook();
-  const { doneLoading, currProjectConfigName, previewedProjectConfigName } =
+  const { doneLoading, currProjectConfigName } =
     useLoadFullProject(previewEnabled);
+  const [mousedOverName, setMousedOverName] = useState(currProjectConfigName);
 
   return (
     <>
@@ -39,14 +32,10 @@ export const ProjectConfigs = React.forwardRef(() => {
       <section className=" flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
         <div
           className="mt-1 flex w-full flex-col gap-1"
-          onMouseLeave={() =>
-            onMouseLeave({
-              key: "leave",
-              previewEnabled,
-              previewedProjectConfigName,
-              currProjectConfigName,
-            })
-          }
+          onMouseLeave={() => {
+            setMousedOverName(currProjectConfigName);
+            onMouseLeave();
+          }}
         >
           {doneLoading ? (
             allConfigNames.map((name, idx) => (
@@ -54,11 +43,10 @@ export const ProjectConfigs = React.forwardRef(() => {
                 key={idx}
                 className="grouop flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-xl px-2 py-1 hover:bg-blue-300/40 dark:hover:bg-blue-900/50"
                 onMouseOver={() => {
-                  onMouse({
-                    key: "over",
+                  setMousedOverName(name);
+                  onMouseOver({
                     previewEnabled,
                     mousedOverName: name,
-                    previewedProjectConfigName,
                     currProjectConfigName,
                   });
                 }}
@@ -67,12 +55,10 @@ export const ProjectConfigs = React.forwardRef(() => {
                 }
               >
                 <p
-                  className={`${previewedProjectConfigName === name ? "font-bold" : ""} flex-shrink truncate  text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:text-setta-900 dark:text-setta-400 dark:group-hover:text-setta-100`}
+                  className={`${(previewEnabled && mousedOverName === name) || (!previewEnabled && currProjectConfigName === name) ? "font-bold" : ""} flex-shrink truncate  text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:text-setta-900 dark:text-setta-400 dark:group-hover:text-setta-100`}
                 >
                   {name}
                 </p>
-
-                <Status name={name} />
               </div>
             ))
           ) : (
@@ -84,156 +70,32 @@ export const ProjectConfigs = React.forwardRef(() => {
   );
 });
 
-function Status({ name }) {
-  const configLoadingStatus = usePreviewInfo(
-    (x) => ({
-      isLoading: x.isLoading,
-      name: x.name,
-      tooLarge: x.tooLarge,
-    }),
-    _.isEqual,
-  );
-
-  if (configLoadingStatus.name === name) {
-    if (configLoadingStatus.isLoading) {
-      return (
-        <p className="rounded-full bg-blue-500/30 px-1 py-[0.125rem] text-xs text-setta-50 dark:text-setta-300">
-          Loading...
-        </p>
-      );
-    } else if (configLoadingStatus.tooLarge) {
-      return (
-        <p className="rounded-full bg-blue-500/30 px-1 py-[0.125rem] text-xs text-setta-50 dark:text-setta-300">
-          Too large to preview
-        </p>
-      );
-    }
-  }
-  return null;
-}
-
-const onMouse = _.debounce(_onMouse, 100);
-
-function _onMouse({ key, ...props }) {
-  if (key === "over") {
-    onMouseOver(props);
-  } else if (key === "leave") {
-    onMouseLeave(props);
-  }
-}
-
 function onMouseOver({
-  previewEnabled,
   mousedOverName,
-  previewedProjectConfigName,
+  previewEnabled,
   currProjectConfigName,
 }) {
   // preview not enabled
   if (!previewEnabled) {
-    usePreviewInfo.setState({
-      isPreviewing: false,
-      isLoading: false,
-      name: null,
-      tooLarge: false,
-    });
     return;
   }
 
-  // mousedOverName is already being previewed
-  if (mousedOverName === previewedProjectConfigName) {
-    usePreviewInfo.setState({
-      isPreviewing: true,
-      isLoading: false,
-      name: mousedOverName,
-      tooLarge: false,
+  if (mousedOverName !== currProjectConfigName) {
+    const previewSectionConfigs =
+      useAllProjectConfigs.getState().x[mousedOverName].sectionConfigs;
+
+    useSectionInfos.setState((x) => {
+      for (const [k, v] of Object.entries(x.x)) {
+        if (previewSectionConfigs[k]) {
+          v.previewVariantId = previewSectionConfigs[k].variantId;
+        } else {
+          v.previewVariantId = null;
+        }
+      }
     });
-    return;
-  }
-
-  // config too large to be previewed
-  if (
-    projectConfigTooLargeToBePreviewed({
-      mousedOverName,
-      currProjectConfigName,
-    })
-  ) {
-    usePreviewInfo.setState({
-      isPreviewing: true,
-      isLoading: false,
-      name: mousedOverName,
-      tooLarge: true,
-    });
-    return;
-  }
-
-  usePreviewInfo.setState({
-    isPreviewing: true,
-    isLoading: true,
-    name: mousedOverName,
-    tooLarge: false,
-  });
-  // Without the following hacky code, previewIsLoading will go from true to false too quickly
-  // so react will basically ignore it.
-  setTimeout(
-    () =>
-      onMouseOverHelper({
-        mousedOverName,
-        previewedProjectConfigName,
-        currProjectConfigName,
-      }),
-    10,
-  );
-}
-
-function onMouseOverHelper({
-  mousedOverName,
-  previewedProjectConfigName,
-  currProjectConfigName,
-}) {
-  // if we mouse over the config for the currently loaded page
-  // then load the backup state.
-  if (mousedOverName === currProjectConfigName) {
-    loadProjectState(useCurrProjectBackup.getState());
-  }
-  // if we're looking at the data for the currently loaded page
-  // and we want to preview anything else
-  // then we want to load the other merged config
-  else if (previewedProjectConfigName === currProjectConfigName) {
-    const projectConfig =
-      useAllProjectConfigs.getState().metadata[mousedOverName];
-    loadProjectState({ ...useAllProjectConfigs.getState().x, projectConfig });
   } else {
-    const projectConfig =
-      useAllProjectConfigs.getState().metadata[mousedOverName];
-    setProjectConfig(_.omit(projectConfig, ["children"]));
-    setNodes(
-      _.map(projectConfig.children, (v, k) => ({
-        id: k,
-        position: { x: v.x, y: v.y },
-        zIndex: v.zIndex,
-        tempZIndex: v.zIndex,
-      })),
-    );
+    setAllPreviewVariantIdsToNull();
   }
-}
-
-function projectConfigTooLargeToBePreviewed({
-  mousedOverName,
-  currProjectConfigName,
-}) {
-  let projectConfig, sections;
-  if (mousedOverName === currProjectConfigName) {
-    const backupState = useCurrProjectBackup.getState();
-    ({ projectConfig, sections } = backupState);
-  } else {
-    projectConfig = useAllProjectConfigs.getState().metadata[mousedOverName];
-    sections = useAllProjectConfigs.getState().x.sections;
-  }
-  const sectionIds = getAllSectionChildrenIds(
-    sections,
-    Object.keys(projectConfig.children),
-  );
-  return sectionIds.length > 50;
 }
 
 function onClick({ currProjectConfigName, clickedOnName }) {
@@ -244,17 +106,6 @@ function onClick({ currProjectConfigName, clickedOnName }) {
   }
 }
 
-function onMouseLeave({
-  previewEnabled,
-  previewedProjectConfigName,
-  currProjectConfigName,
-}) {
-  usePreviewInfo.setState({ isPreviewing: false, tooLarge: false });
-  if (previewEnabled && previewedProjectConfigName !== currProjectConfigName) {
-    usePreviewInfo.setState({
-      isLoading: true,
-      name: currProjectConfigName,
-    });
-    setTimeout(() => loadProjectState(useCurrProjectBackup.getState()), 10);
-  }
+function onMouseLeave() {
+  setAllPreviewVariantIdsToNull();
 }
