@@ -14,8 +14,11 @@ class FakeWebsocketManager:
 
 
 async def main():
+    # lsp = LanguageServer(
+    #     root_path=Path("D:/Documents/App Development/setta/.setta_code")
+    # )
     lsp = LanguageServer(
-        root_path=Path("D:/Documents/App Development/setta/.setta_code")
+        root_path=Path("/Users/kevin/Documents/AppDevelopment/setta/.setta_code")
     )
     lsp_writer = LanguageServerWriter(lsp)
     lsp_listener = LanguageServerReader(lsp, FakeWebsocketManager())
@@ -104,7 +107,8 @@ async def main():
     # await lsp_writer.send_document_update(
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
-    await lsp_writer.send_signature_help_request(1, 28, "test", "1234")
+    print(len(code.split("\n")[1])-2)
+    await lsp_writer.send_signature_help_request(1, len(code.split("\n")[1])-1, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())

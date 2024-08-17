@@ -44,32 +44,43 @@ def extract_variable_name(code_string):
     return next((name for name in potential_names if name.isidentifier()), None)
 
 
-def extract_descriptions(signature):
+def process_docstring(signature):
     if "documentation" in signature:
         parsed = docstring_parser.parse(signature["documentation"]["value"])
-        return {extract_variable_name(v.arg_name): v.description for v in parsed.params}
+        return {
+            extract_variable_name(v.arg_name): {
+                "default": v.default,
+                "description": v.description,
+            }
+            for v in parsed.params
+        }
     return {}
 
 
-def wrapper_parse_signature(signature, get_proposed_params):
-    params = get_proposed_params(signature)
+def wrapper_parse_signature(signature, docstring, get_proposed_params):
+    params = get_proposed_params(signature, docstring)
     param_info_list = []
-    descriptions = extract_descriptions(signature)
     positional_only_indicator_idx = -1
 
-    for idx, (name, default) in enumerate(params):
+    for idx, (name, default, description) in enumerate(params):
         if name == "/":
             positional_only_indicator_idx = idx
             continue
-        if name in ["*", "..."]:
+        if name in [None, "", "*", "..."]:
             continue
+
+        if not default:
+            default = ""
+
+        if not description:
+            description = docstring.get(name, {}).get("description", "")
 
         # Append parsed information to list
         param_info_list.append(
             {
                 "name": name,
                 "defaultVal": default,
-                "description": descriptions.get(name, ""),
+                "description": description,
                 "positionalOnly": False,
             }
         )
@@ -80,39 +91,35 @@ def wrapper_parse_signature(signature, get_proposed_params):
     return param_info_list
 
 
-def get_docstring_parser_param_proposals(signature):
-    parsed = docstring_parser.parse(signature["documentation"]["value"])
-    return [(extract_variable_name(v.arg_name), v.default) for v in parsed.params]
+def get_docstring_parser_param_proposals(_, docstring):
+    return [(k, v["default"], v["description"]) for k, v in docstring.items()]
 
 
-def get_pyright_param_proposals(signature):
-    label = signature["label"]
-    # Remove any enclosing function definition or parentheses
-    if "(" in label and ")" in label:
-        label = label[label.find("(") + 1 : label.rfind(")")]
+def get_pyright_param_proposals(signature, _):
+    parameters = signature["parameters"]
+    params = [(p["label"], p["documentation"]["value"]) for p in parameters]
+    if len(params) == 0:
+        params = signature["label"].split(",")
 
-    # Split parameters by commas
-    params = label.split(", ")
     proposals = []
-
-    for param in params:
+    for param, description in params:
         # Extract parameter name and default value
         parts = param.split("=")
-        name_type = parts[0].strip()
+        name = extract_variable_name(parts[0].strip())
         default = parts[1].strip() if len(parts) > 1 else None
-
-        # Further split to separate name from type if needed (optional)
-        name = name_type.split(":")[0].strip()
-        proposals.append((name, default))
+        proposals.append((name, default, description))
 
     return proposals
 
 
 def parse_signature(signature):
-    param_info_list = wrapper_parse_signature(signature, get_pyright_param_proposals)
+    docstring = process_docstring(signature)
+    param_info_list = wrapper_parse_signature(
+        signature, docstring, get_pyright_param_proposals
+    )
     if len(param_info_list) == 0:
         param_info_list = wrapper_parse_signature(
-            signature, get_docstring_parser_param_proposals
+            signature, docstring, get_docstring_parser_param_proposals
         )
     return param_info_list
 
