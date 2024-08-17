@@ -207,7 +207,7 @@ class LanguageServerReader(LanguageServerInteractor):
     async def process_response(self, response):
         id = response.get("id", None)
         method = response.get("method", None)
-        pprint(response)
+        # pprint(response)
         if id:
             method = method if method else self.msg_id_to_method[id]
             if method == "textDocument/completion":
@@ -223,9 +223,10 @@ class LanguageServerReader(LanguageServerInteractor):
                 content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                content = parse_signature(response["result"]["signatures"][0])
-                pprint(content)
-                await self.websocket_manager.send_message_to_requester(id, content)
+                if (response["result"]):
+                    content = parse_signature(response["result"]["signatures"][0])
+                    # pprint(content)
+                    await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
             # print(response)
             params = response["params"]

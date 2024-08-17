@@ -1,4 +1,5 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { setNotificationMessage } from "state/actions/notification";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { duplicateSectionVariant } from "state/actions/sectionVariants";
 import {
@@ -20,6 +21,7 @@ export function CreateNewVersionButton({ sectionId }) {
       attr: "variantIds",
       newValueFn: (x) => [...x, newId],
     });
+    setNotificationMessage("New Version Created");
   }
 
   return <MenuItem onClick={onClick}>New Version</MenuItem>;
