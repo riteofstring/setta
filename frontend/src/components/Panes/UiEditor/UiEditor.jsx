@@ -9,6 +9,7 @@ import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
+  SECTION_VARIANTS_TAB,
   tabNameToPretty,
   UI_CONFIG_TAB,
   UI_EDITOR,
@@ -16,6 +17,7 @@ import {
 import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
+import { SectionVariants } from "./SectionVariants/SectionVariants";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 const paneProps = {
@@ -133,6 +135,14 @@ function DBSourcesTab({ sectionId }) {
   );
 }
 
+function SectionVariantsTab({ sectionId }) {
+  return (
+    <TabContent value={SECTION_VARIANTS_TAB}>
+      <SectionVariants sectionId={sectionId} />
+    </TabContent>
+  );
+}
+
 function TabContentSelector({ sectionId, tabName }) {
   if (tabName === SECTION_CONFIG_TAB) {
     return <SectionConfigTab sectionId={sectionId} />;
@@ -142,5 +152,7 @@ function TabContentSelector({ sectionId, tabName }) {
     return <InfoTab sectionId={sectionId} />;
   } else if (tabName === DB_SOURCES_TAB) {
     return <DBSourcesTab sectionId={sectionId} />;
+  } else if (tabName === SECTION_VARIANTS_TAB) {
+    return <SectionVariantsTab sectionId={sectionId} />;
   }
 }

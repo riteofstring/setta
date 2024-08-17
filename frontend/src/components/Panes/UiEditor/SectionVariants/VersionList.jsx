@@ -1,7 +1,5 @@
-import { ResizableVersionsList } from "components/Utils/Resizable/ResizableVersionsList";
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { useState } from "react";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { getSectionIdToChildren } from "state/actions/sectionVariants";
@@ -13,9 +11,11 @@ import {
   useGetParamSweepNames,
 } from "state/hooks/paramSweep";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import { useSectionTypeName } from "state/hooks/uiTypes";
 
-export function VersionList({ sectionId, sectionTypeName }) {
+export function VersionList({ sectionId }) {
+  const sectionTypeName = useSectionTypeName(sectionId);
+
   function onMouseLeave() {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: null });
     setSectionInfoAttr({
@@ -25,30 +25,23 @@ export function VersionList({ sectionId, sectionTypeName }) {
     });
   }
 
-  const [numListings, setNumListings] = useState();
-
   return (
-    <ResizableVersionsList sectionId={sectionId} numListings={numListings}>
-      <section
-        className="section-grid -my-4 flex-1 self-stretch pb-8 pt-6"
-        onMouseLeave={onMouseLeave}
-      >
-        <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
-          {sectionTypeName === C.PARAM_SWEEP ? (
-            <ParamSweepItems
-              sectionId={sectionId}
-              setNumListings={setNumListings}
-            />
-          ) : (
-            <EVItems sectionId={sectionId} setNumListings={setNumListings} />
-          )}
-        </ul>
-      </section>
-    </ResizableVersionsList>
+    <section
+      className="section-grid -my-4 flex-1 self-stretch pb-8 pt-6"
+      onMouseLeave={onMouseLeave}
+    >
+      <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
+        {sectionTypeName === C.PARAM_SWEEP ? (
+          <ParamSweepItems sectionId={sectionId} />
+        ) : (
+          <EVItems sectionId={sectionId} />
+        )}
+      </ul>
+    </section>
   );
 }
 
-function EVItems({ sectionId, setNumListings }) {
+function EVItems({ sectionId }) {
   const currVariantId = useSectionInfos((x) => x.x[sectionId].variantId);
   const sectionVariantNames = useGetSectionVariantNames(sectionId);
 
@@ -65,10 +58,6 @@ function EVItems({ sectionId, setNumListings }) {
       .update(getSectionIdToChildren(useSectionVariants.getState().x));
   }
 
-  useDeepCompareEffect(() => {
-    setNumListings(sectionVariantNames.length);
-  }, [sectionVariantNames]);
-
   return sectionVariantNames.map((e) => (
     <OneItem
       key={e.id}
@@ -81,7 +70,7 @@ function EVItems({ sectionId, setNumListings }) {
   ));
 }
 
-function ParamSweepItems({ sectionId, setNumListings }) {
+function ParamSweepItems({ sectionId }) {
   const forSectionId = useForSectionId(sectionId);
   const currParamSweepId = useCurrParamSweepId(sectionId);
   const paramSweepNames = useGetParamSweepNames(forSectionId);
@@ -100,10 +89,6 @@ function ParamSweepItems({ sectionId, setNumListings }) {
       value: id,
     });
   }
-
-  useDeepCompareEffect(() => {
-    setNumListings(paramSweepNames.length);
-  }, [paramSweepNames]);
 
   return paramSweepNames.map((e) => (
     <OneItem

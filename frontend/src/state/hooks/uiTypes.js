@@ -5,6 +5,7 @@ import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
+  SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
 import { isRoot } from "utils/sectionTypeHelpers";
@@ -113,6 +114,11 @@ export function useRequiredUIEditorTabs(sectionId) {
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
     default:
-      return [UI_CONFIG_TAB, SECTION_CONFIG_TAB, DB_SOURCES_TAB];
+      return [
+        UI_CONFIG_TAB,
+        SECTION_CONFIG_TAB,
+        SECTION_VARIANTS_TAB,
+        DB_SOURCES_TAB,
+      ];
   }
 }

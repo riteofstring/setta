@@ -1,12 +1,6 @@
-import { Button } from "components/Utils/atoms/buttons/Button";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
-import { TbVersions } from "react-icons/tb";
-import { useSectionHasMultipleParamSweeps } from "state/hooks/paramSweep";
-import {
-  useGetSectionInfo,
-  useSectionHasMultipleVariants,
-} from "state/hooks/sections";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { CodeArea } from "../Layouts/CodeArea";
@@ -19,24 +13,17 @@ import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { MaybeTerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
-import { VersionList } from "../SectionParts/VersionList";
 import "./dndline.css";
 
 export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
   isActiveSection,
-  toggleDescVis,
   isWrongType,
   dbSourceIsAvailable,
 }) {
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === C.INFO;
-  const hasEVVersions = useSectionHasMultipleVariants(sectionId);
-  const hasParamSweepVersions = useSectionHasMultipleParamSweeps(sectionId);
-  const hasVersions =
-    (sectionTypeName === C.PARAM_SWEEP && hasParamSweepVersions) ||
-    hasEVVersions;
   const isInOtherProjectConfigs = useGetSectionInfo(
     sectionId,
     "isInOtherProjectConfigs",
@@ -93,38 +80,23 @@ export function SectionContainerCoreResizable({
   } ${borderClasses}`;
 
   return (
-    <>
-      <CustomResizable
-        sectionId={sectionId}
-        inputClasses={inputClasses}
-        as="section"
-      >
-        <>
-          <SectionHeader
-            sectionId={sectionId}
-            isActiveSection={isActiveSection}
-            isGlobalVariables={isGlobalVariables}
-            isInfo={isInfo}
-            sectionTypeName={sectionTypeName}
-          />
-          {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
-          <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
-          {hasVersions && (
-            <Button
-              grid={false}
-              twClasses="section-key-value section-bottom-gutter justify-self-center backdrop-blur-[2px] px-2 py-1 self-center text-setta-700 dark:text-setta-300 dark:bg-setta-900/40 hover:bg-white dark:hover:bg-setta-900 rounded-full gap-1 font-heading uppercase border-2 border-solid border-white dark:border-setta-800 text-xs bgsetta-200/25 shadow-md hover:shadow-lg z-50 mb-7"
-              onClick={toggleDescVis}
-            >
-              <TbVersions className="z-[3] h-4 w-4" />
-              Versions
-            </Button>
-          )}
-        </>
-      </CustomResizable>
-      {hasVersions && (
-        <VersionList sectionId={sectionId} sectionTypeName={sectionTypeName} />
-      )}
-    </>
+    <CustomResizable
+      sectionId={sectionId}
+      inputClasses={inputClasses}
+      as="section"
+    >
+      <>
+        <SectionHeader
+          sectionId={sectionId}
+          isActiveSection={isActiveSection}
+          isGlobalVariables={isGlobalVariables}
+          isInfo={isInfo}
+          sectionTypeName={sectionTypeName}
+        />
+        {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
+        <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
+      </>
+    </CustomResizable>
   );
 }
 
