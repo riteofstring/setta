@@ -8,16 +8,8 @@ function loadAndModifyJson(filePath) {
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
     for (const [k, v] of Object.entries(json.sections)) {
-      const variant = json.sectionVariants["default"][v["variantId"]];
-      variant["selectedItem"] = v["selectedItem"];
-      delete v["selectedItem"];
-    }
-    for (const [k, v] of Object.entries(json.sectionVariants)) {
-      for (const [k2, v2] of Object.entries(v)) {
-        if (!("selectedItem" in v2)) {
-          v2["selectedItem"] = null;
-        }
-      }
+      delete v.versionsHeight
+      delete v.versionsVisible
     }
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file

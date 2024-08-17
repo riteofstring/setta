@@ -8,7 +8,6 @@ import {
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
-import { toggleVersionsVisible } from "state/actions/sections/setters";
 import { useActiveSection } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import {
@@ -64,7 +63,6 @@ function _SectionContainerCore({ sectionId }) {
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
-        toggleDescVis={() => toggleVersionsVisible(sectionId)}
         isWrongType={false} // TODO add the logic for this
         dbSourceIsAvailable={dbSourceIsAvailable}
       />

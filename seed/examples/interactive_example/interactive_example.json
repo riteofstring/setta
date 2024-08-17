@@ -48,8 +48,6 @@
       },
       "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
       "paramSweepId": null,
-      "versionsHeight": 100,
-      "versionsVisible": 0,
       "codeInfoId": null
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
@@ -76,8 +74,6 @@
       },
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
       "paramSweepId": null,
-      "versionsHeight": 100,
-      "versionsVisible": 0,
       "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec"
     }
   },
