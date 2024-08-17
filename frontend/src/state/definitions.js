@@ -129,6 +129,7 @@ export const useProjectConfig = createProjectState(
 export const useProjectSearch = createProjectState(() => ({
   sections: [],
   codeInfo: [],
+  focused: {},
 }));
 
 export const useRunGroups = createProjectState(

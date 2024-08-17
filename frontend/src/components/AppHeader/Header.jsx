@@ -2,7 +2,10 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import { setHomePageSearch } from "state/actions/search/homePageSearch";
 import { useHomePageSearch } from "state/definitions";
-import { useUpdateProjectSearch } from "state/hooks/search";
+import {
+  useOnEnterGoToSearchResult,
+  useUpdateProjectSearch,
+} from "state/hooks/search";
 import {
   CONST_INFO_VIEWS,
   HOME_ROUTER_PATH,
@@ -40,12 +43,14 @@ function SearchSwitch({ path }) {
 
 function ProjectPageSearch() {
   const [value, onChange] = useUpdateProjectSearch();
+  const onKeyDown = useOnEnterGoToSearchResult();
 
   return (
     <Search
       placeholder="Search Project"
       value={value}
       onChange={onChange}
+      onKeyDown={onKeyDown}
       {...getInfoViewHandlers(CONST_INFO_VIEWS.NAVBAR_SEARCH)}
     />
   );

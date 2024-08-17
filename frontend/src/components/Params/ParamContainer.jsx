@@ -25,16 +25,24 @@ function _ParamContainer({
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
+  const isFocusedSearchResult = useProjectSearch((x) =>
+    _.isEqual(x.focused, { sectionId, paramInfoId: paramInfo.id }),
+  );
+
   const isSearchResult = useProjectSearch((x) =>
-    x.codeInfo.includes(paramInfo.id),
+    x.codeInfo.some((c) =>
+      _.isEqual(c, { sectionId, paramInfoId: paramInfo.id }),
+    ),
   );
 
   // warnings should be AMBER
   const border = maybeErrorMessage
     ? "bg-red-200 dark:bg-red-800/30"
-    : isSearchResult
-      ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
-      : "";
+    : isFocusedSearchResult
+      ? "outline outline-4 outline-green-500 dark:outline-green-500/80"
+      : isSearchResult
+        ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
+        : "";
   const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
   const paramIsSelected = paramInfo.isSelected;
 
