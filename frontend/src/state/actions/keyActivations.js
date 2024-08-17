@@ -99,7 +99,7 @@ export function attachKeyEventListeners() {
       if (lowercaseKeyCombo && isShortcutPressed(e, lowercaseKeyCombo)) {
         // We don't want to prevent default if the shortcut is just Control or Alt
         // because this would prevent things like Ctrl + R for refreshing the page.
-        if (!["mod", "ctrl", "alt"].includes(lowercaseKeyCombo)) {
+        if (!["mod", "ctrl", "alt", "shift"].includes(lowercaseKeyCombo)) {
           e.preventDefault();
         }
         action();
