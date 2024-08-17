@@ -85,7 +85,7 @@ async def completionHelper(message, return_name, fn):
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
-    await fn(
+    output = await fn(
         code_id=message.projectConfigId,
         request_id=request_id,
         beforeText=message.beforeText,
@@ -96,7 +96,7 @@ async def completionHelper(message, return_name, fn):
         referencable_var_names=referencable_var_names,
         column=position,
     )
-    return {"output": None, "name": return_name, "cache": None}
+    return {"output": output, "name": return_name, "cache": None}
 
 
 def read_cache(cache, message):

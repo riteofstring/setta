@@ -80,7 +80,7 @@ def wrapper_parse_signature(signature, get_proposed_params):
     return param_info_list
 
 
-def get_docstring_parser_proposals(signature):
+def get_docstring_parser_param_proposals(signature):
     parsed = docstring_parser.parse(signature["documentation"]["value"])
     return [(extract_variable_name(v.arg_name), v.default) for v in parsed.params]
 
@@ -112,15 +112,9 @@ def parse_signature(signature):
     param_info_list = wrapper_parse_signature(signature, get_pyright_param_proposals)
     if len(param_info_list) == 0:
         param_info_list = wrapper_parse_signature(
-            signature, get_docstring_parser_proposals
+            signature, get_docstring_parser_param_proposals
         )
     return param_info_list
-
-
-def try_read_version(x, versions_for_uri):
-    if "version" in x:
-        return x["version"]
-    return max(versions_for_uri.keys())
 
 
 def process_diagnostics(diagnostics, code_split, codeJson):
@@ -222,25 +216,23 @@ class LanguageServerReader(LanguageServerInteractor):
                 content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                # pprint(response)
                 content = parse_signature(response["result"]["signatures"][0])
                 pprint(content)
                 await self.websocket_manager.send_message_to_requester(id, content)
-        # elif method == "textDocument/publishDiagnostics":
-        #     # print(response)
-        #     params = response["params"]
-        #     diagnostics = params["diagnostics"]
-        #     uri = params["uri"]
-        #     version = try_read_version(params, self.versions[uri])
-        #     version_info = self.versions[uri][version]
-        #     code = version_info["code"]
-        #     codeJson = version_info["codeJson"]
-        #     code_split = code.split("\n")
-        #     content = process_diagnostics(diagnostics, code_split, codeJson)
-        #     # print("content", content, flush=True)
-        #     await self.websocket_manager.broadcast(
-        #         {"messageType": "diagnostics", "content": content}
-        #     )
+        elif method == "textDocument/publishDiagnostics":
+            # print(response)
+            params = response["params"]
+            diagnostics = params["diagnostics"]
+            uri = params["uri"]
+            version_info = self.get_version(params.get("version"))
+            code = version_info["code"]
+            codeJson = version_info["codeJson"]
+            code_split = code.split("\n")
+            content = process_diagnostics(diagnostics, code_split, codeJson)
+            # print("content", content, flush=True)
+            await self.websocket_manager.broadcast(
+                {"messageType": "diagnostics", "content": content}
+            )
 
         # print(self.received_messages.keys())
         # process_response(response)
