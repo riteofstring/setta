@@ -198,15 +198,23 @@ def update_linked_project_configs(dbs, project):
         project_configs_to_sections[row["projectConfigId"]].add(row["sectionId"])
 
     section_configs_to_add = set()
+    children_have_been_visited = set()
+    has_been_visited_as_child = set()
     # we start with top level sections that are also in other project configs
     ids = set(
         k for k in project_config["children"].keys() if k in sections_to_project_configs
     )
     while len(ids) > 0:
         curr = ids.pop()
+        if curr in children_have_been_visited:
+            continue
+        children_have_been_visited.add(curr)
         for variant in get_section_variants(project, curr):
             children = variant["children"]
             for c in children:
+                if c in has_been_visited_as_child:
+                    continue
+                has_been_visited_as_child.add(c)
                 c_already_in_at_least_one_other_config = False
                 for other_project_config in sections_to_project_configs[curr]:
                     other_project_section_configs = project_configs_to_sections[
@@ -232,7 +240,10 @@ def update_linked_project_configs(dbs, project):
                 # The child is already in at least one other project config.
                 # So we need to recurse into the child, to see if its children
                 # need to be added.
-                if c_already_in_at_least_one_other_config:
+                if (
+                    c_already_in_at_least_one_other_config
+                    and c not in children_have_been_visited
+                ):
                     ids.add(c)
 
     print("section_configs_to_add", section_configs_to_add, flush=True)
