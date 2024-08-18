@@ -93,6 +93,7 @@ export function SectionContainerCoreResizable({
           isGlobalVariables={isGlobalVariables}
           isInfo={isInfo}
           sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
         <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />

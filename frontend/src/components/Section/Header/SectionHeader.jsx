@@ -17,6 +17,7 @@ function _SectionHeader({
   sectionTypeName,
   isGlobalVariables,
   isInfo,
+  isInOtherProjectConfigs,
 }) {
   const onCustomCloseButtonClick = (e) => {
     // ignore onClick events in parent components
@@ -34,7 +35,11 @@ function _SectionHeader({
     <header className="section-title mx-2 flex flex-row items-center">
       {!isInfo && (
         <>
-          <MenuButton sectionId={sectionId} sectionTypeName={sectionTypeName} />
+          <MenuButton
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            isInOtherProjectConfigs={isInOtherProjectConfigs}
+          />
 
           <CardTitle
             sectionId={sectionId}

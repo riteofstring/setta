@@ -8,11 +8,22 @@ import { useGetSectionInfo } from "state/hooks/sections";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { useIsListElement } from "state/hooks/uiTypes";
 
-export function HeaderIcon({ sectionId, sectionTypeName, classes }) {
+export function HeaderIcon({
+  sectionId,
+  sectionTypeName,
+  classes,
+  isInOtherProjectConfigs,
+}) {
   const isListElement = useIsListElement(sectionId);
 
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
+  }
+
+  if (isInOtherProjectConfigs) {
+    return (
+      <i className="gg-link group/card-section:hover:bg text-purple-500 transition-colors group-hover/card-section:text-blue-500 dark:text-purple-500 dark:group-hover/card-section:text-[#0084ff]" />
+    );
   }
 
   switch (sectionTypeName) {
