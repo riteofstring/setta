@@ -50,6 +50,7 @@ export const useInfoView = createProjectState(() => ({
 }));
 
 export const useInteractive = create(() => ({
+  path: "",
   id: createNewId(),
   projects: new Set(),
   currProjectIsInteractive: false,

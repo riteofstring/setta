@@ -122,18 +122,16 @@ def delete_alias(name):
 @click.option("--with_examples", is_flag=True)
 @click.option("--db", "-d", type=str, multiple=True, default=[])
 @click.option("--settings", "-s", type=str, default=get_default_settings_path())
-@click.option("--i", type=str, default=None, help="interactive program path")
 @click.option("--w", is_flag=True, help="create dbs it they don't exist")
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.pass_context
-def cli(ctx, reload, with_examples, db, settings, i, w, host, port):
+def cli(ctx, reload, with_examples, db, settings, w, host, port):
     if ctx.invoked_subcommand is None:
         set_constants(
             with_examples=with_examples,
             db_specs=db,
             settings_path=settings,
-            i_path=i,
             create_if_not_exists=w,
             host=host,
             port=port,

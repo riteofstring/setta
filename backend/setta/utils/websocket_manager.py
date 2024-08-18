@@ -26,15 +26,6 @@ class WebsocketManager:
             {"toWebsocketId": id, "messageType": "connection", "websocketId": id},
             fromWebsocketId=self.server_cli_id,
         )
-        await self.send_message(
-            {
-                "toWebsocketId": id,
-                "messageType": "interactiveProjects",
-                "websocketId": id,
-                "content": self.tasks.custom_fn_names,
-            },
-            fromWebsocketId=self.server_cli_id,
-        )
         await self.broadcast_connections()
         return id
 

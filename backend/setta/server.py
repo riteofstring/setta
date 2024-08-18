@@ -60,10 +60,6 @@ async def lifespan(app: FastAPI):
     await app.state.lsp_reader.start_listener()
     await app.state.lsp_writer.send_initialize_request()
 
-    i_path = C.I_PATH
-    if i_path:
-        app.state.tasks.add_fns_from_path(i_path)
-
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
         frontend_folder = Path("static/frontend")

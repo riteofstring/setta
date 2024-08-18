@@ -1,9 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
-import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/sectionVariants";
-import { useInteractive, useProjectConfig } from "state/definitions";
 import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -24,14 +22,6 @@ export function ParamInput({
     const vStr = _.toString(v);
     setValue(vStr);
     setEnteredValue(vStr);
-    const interactive_state = useInteractive.getState();
-    if (interactive_state.currProjectIsInteractive) {
-      sendMessage({
-        id: interactive_state.id,
-        content: value,
-        messageType: useProjectConfig.getState().name,
-      });
-    }
     setDidUpdate(true);
   }
 

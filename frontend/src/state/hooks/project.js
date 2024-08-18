@@ -7,7 +7,6 @@ import {
   dbLoadFullProject,
   dbLoadProjectConfigNames,
 } from "requests/projects";
-import { setCurrProjectIsInteractive } from "state/actions/interactive";
 import { loadProjectConfig } from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
@@ -75,8 +74,6 @@ export function useLoadProjectConfig() {
     } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
       setProjectConfigName(projectConfigName);
     }
-
-    setCurrProjectIsInteractive(projectConfigName);
   }, [projectConfigName]);
 
   return doneLoading;
