@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { createProjectState } from "state/utils";
-import { maybePreventDefault } from "utils/utils";
 import { immer } from "zustand/middleware/immer";
 
 const initialState = {
@@ -21,22 +20,10 @@ export const useDndState = createProjectState(
     ...initialState,
     setActive: ({ id, isTopLevel, width, height }) =>
       set({ activeId: id, activeIsTopLevel: isTopLevel, width, height }),
-    activateSortingMode: (e) => {
-      maybePreventDefault(e);
-      set({ isSorting: true, isMovingFree: false });
-    },
-    deactivateSortingMode: (e) => {
-      maybePreventDefault(e);
-      set({ isSorting: false });
-    },
-    activateMovingFreeMode: (e) => {
-      maybePreventDefault(e);
-      set({ isMovingFree: true, isSorting: false });
-    },
-    deactivateMovingFreeMode: (e) => {
-      maybePreventDefault(e);
-      set({ isMovingFree: false });
-    },
+    activateSortingMode: () => set({ isSorting: true, isMovingFree: false }),
+    deactivateSortingMode: () => set({ isSorting: false }),
+    activateMovingFreeMode: () => set({ isMovingFree: true, isSorting: false }),
+    deactivateMovingFreeMode: () => set({ isMovingFree: false }),
     setDisabled: (sectionId, disabled) =>
       set((state) => {
         state.disabled[sectionId] = disabled;

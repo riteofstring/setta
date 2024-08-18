@@ -41,9 +41,3 @@ export function radioChangeFn(checked, id) {
 export function xnor(a, b) {
   return a == b;
 }
-
-export function maybePreventDefault(e) {
-  if (e) {
-    e.preventDefault();
-  }
-}

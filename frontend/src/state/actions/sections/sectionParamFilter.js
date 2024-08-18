@@ -1,5 +1,4 @@
 import { useActiveSection, useSectionParamFilter } from "state/definitions";
-import { maybePreventDefault } from "utils/utils";
 
 export function setSectionParamFilter({ sectionId, filter }) {
   useSectionParamFilter.setState((state) => {
@@ -7,8 +6,7 @@ export function setSectionParamFilter({ sectionId, filter }) {
   });
 }
 
-export function focusOnArgsFilter(e) {
-  maybePreventDefault(e);
+export function focusOnArgsFilter() {
   const sectionIds = useActiveSection.getState().ids;
   if (sectionIds.length !== 1) {
     return;

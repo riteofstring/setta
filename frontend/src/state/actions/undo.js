@@ -1,9 +1,7 @@
 import { useStateVersion } from "state/definitions";
 import { stateDict, STATE_TYPES } from "state/utils";
-import { maybePreventDefault } from "utils/utils";
 
-export function undoProjectState(e) {
-  maybePreventDefault(e);
+export function undoProjectState() {
   const pastStates = useStateVersion.temporal.getState().pastStates;
   if (pastStates.length <= 1) {
     return;
@@ -38,8 +36,7 @@ function filterPastOrFutureStates(states) {
   return output;
 }
 
-export function redoProjectState(e) {
-  maybePreventDefault(e);
+export function redoProjectState() {
   const version = useStateVersion.getState().version;
   for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal && version === s.getState().version) {

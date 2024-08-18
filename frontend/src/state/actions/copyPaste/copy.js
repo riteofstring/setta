@@ -17,10 +17,9 @@ import {
 } from "../../getters/sectionInfo";
 import { getSectionChildrenAcrossVariants } from "../sectionVariants";
 
-export async function copy(e) {
+export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;
   if (activeSectionIds.length > 0 && window.getSelection().toString() === "") {
-    maybePreventDefault(e);
     const data = copySections(activeSectionIds);
     console.log("copied data", data);
     await navigator.clipboard.writeText(
