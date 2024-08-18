@@ -43,18 +43,30 @@ def get_param_ui_type(p, section_id, id):
     return ui_type["type"]
 
 
+def get_mapped_db_source(p, section_id):
+    section = p["sections"][section_id]
+    dbSource = section["dbSource"]
+    dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
+    return p["dbSourceMapping"][dbSource]
+
+
 def get_mapped_db_source_and_variant_id(p, section_id):
     section = p["sections"][section_id]
     variantId = section["variantId"]
-    dbSource = section["dbSource"]
-    dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
-    dbSource = p["dbSourceMapping"][dbSource]
+    dbSource = get_mapped_db_source(p, section_id)
     return dbSource, variantId
 
 
 def get_selected_section_variant(p, section_id):
     dbSource, variantId = get_mapped_db_source_and_variant_id(p, section_id)
     return p["sectionVariants"][dbSource][variantId]
+
+
+def get_section_variants(p, section_id):
+    section = p["sections"][section_id]
+    variantIds = section["variantIds"]
+    dbSource = get_mapped_db_source(p, section_id)
+    return [p["sectionVariants"][dbSource][v] for v in variantIds]
 
 
 def no_entered_value(value):

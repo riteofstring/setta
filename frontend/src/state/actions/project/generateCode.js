@@ -6,22 +6,15 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGetFreeTerminal } from "requests/terminals";
 import { sendMessage } from "requests/websocket";
-import {
-  useCodeInfo,
-  useUITypes,
-  useWebsocketConnectionList,
-} from "state/definitions";
+import { useWebsocketConnectionList } from "state/definitions";
 import { INITIAL_MESSAGE, TERMINAL_WEBSOCKETS } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
 import { getMappedSectionDBSource } from "../../getters/sectionInfo";
 import { addSectionInEmptySpace } from "../sections/createSections";
-import { assembleUITypes, getProjectData } from "./saveProject";
+import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   const project = getProjectData();
-  project.codeInfo = useCodeInfo.getState().x;
-  const presetUITypes = assembleUITypes(useUITypes.getState().x, true);
-  project.uiTypes = { ...project.uiTypes, ...presetUITypes };
   if (includeEVReferences) {
     computeEVReferences(project);
     project["infoToFullName"] = computeInfoToFullName(project);

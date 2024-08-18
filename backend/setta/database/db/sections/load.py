@@ -168,7 +168,7 @@ def load_section_configs(dbs, project_config_id):
             },
             "variantId": row["variantId"],
             "paramSweepId": row["paramSweepId"],
-            "isHorizontalOrientation": row["isHorizontalOrientation"]
+            "isHorizontalOrientation": row["isHorizontalOrientation"],
         }
 
     return output

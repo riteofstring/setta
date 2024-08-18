@@ -1,7 +1,13 @@
 from collections import defaultdict
 
-from setta.code_gen.export_selected import get_selected_section_variant
+from setta.code_gen.export_selected import (
+    get_section_type,
+    get_section_variants,
+    get_selected_item_name,
+    get_selected_section_variant,
+)
 from setta.database.utils import create_new_id, generate_memorable_string
+from setta.utils.constants import C
 
 from ..codeInfo.save import save_code_info
 from ..paramSweeps.save import save_param_sweeps
@@ -161,7 +167,7 @@ def insert_section_configs(dbs, sections, id_pairs):
             "height": convert_size(sections[c]["size"]["height"]),
             "variantId": sections[c]["variantId"],
             "paramSweepId": sections[c]["paramSweepId"],
-            "isHorizontalOrientation": sections[c]["isHorizontalOrientation"]
+            "isHorizontalOrientation": sections[c]["isHorizontalOrientation"],
         }
         for projectConfigId, c in id_pairs
     ]
@@ -184,33 +190,69 @@ def update_linked_project_configs(dbs, project):
     """
     project_config = project["projectConfig"]
     db.execute(query, (project_config["id"],))
-    other_project_configs = defaultdict(set)
+    sections_to_project_configs = defaultdict(set)
+    project_configs_to_sections = defaultdict(set)
     for row in db.fetchall():
         row = dict(row)
-        other_project_configs[row["sectionId"]].add(row["projectConfigId"])
+        sections_to_project_configs[row["sectionId"]].add(row["projectConfigId"])
+        project_configs_to_sections[row["projectConfigId"]].add(row["sectionId"])
 
-    to_insert = []
-    # we start with sections that are also in other project configs
+    section_configs_to_add = set()
+    # we start with top level sections that are also in other project configs
     ids = set(
-        k for k in project_config["children"].keys() if k in other_project_configs
+        k for k in project_config["children"].keys() if k in sections_to_project_configs
     )
     while len(ids) > 0:
         curr = ids.pop()
-        children = get_selected_section_variant(project, curr)["children"]
-        for c in children:
-            # The parent (curr) is in other project configs, but the child is not.
-            # So we need to add the child to all the other project configs.
-            if c not in other_project_configs:
-                to_insert.extend([(p, c) for p in other_project_configs[curr]])
-            # Both the parent (curr) and the child are in other project configs.
-            # We don't need to add the child to the other project configs.
-            # However, we do need to recurse into the child, to see if its children
-            # need to be added.
-            else:
-                ids.add(c)
+        for variant in get_section_variants(project, curr):
+            children = variant["children"]
+            for c in children:
+                c_already_in_at_least_one_other_config = False
+                for other_project_config in sections_to_project_configs[curr]:
+                    other_project_section_configs = project_configs_to_sections[
+                        other_project_config
+                    ]
+                    # The parent (curr) is in other project configs, but the child is not.
+                    # So we need to add the child to the other project configs that it's not in.
+                    if c not in other_project_section_configs:
+                        section_configs_to_add.add((other_project_config, c))
+                        missing_referenced_section_id = (
+                            get_missing_referenced_section_id(
+                                project, c, other_project_section_configs
+                            )
+                        )
+                        if missing_referenced_section_id:
+                            section_configs_to_add.add(
+                                (other_project_config, missing_referenced_section_id)
+                            )
 
-    insert_section_configs(dbs, project["sections"], to_insert)
+                    else:
+                        c_already_in_at_least_one_other_config = True
+
+                # The child is already in at least one other project config.
+                # So we need to recurse into the child, to see if its children
+                # need to be added.
+                if c_already_in_at_least_one_other_config:
+                    ids.add(c)
+
+    print("section_configs_to_add", section_configs_to_add, flush=True)
+    insert_section_configs(dbs, project["sections"], section_configs_to_add)
 
 
 def convert_size(x):
     return -1 if x == "auto" else x
+
+
+def get_missing_referenced_section_id(
+    project, section_id, other_project_section_configs
+):
+    if get_section_type(project, section_id) == C.REFERENCE_SECTION:
+        r = project["fullNameToInfo"][get_selected_item_name(project, section_id)]
+        if (
+            r["sectionId"]
+            and not r["paramInfoId"]
+            and not r["isArgsObj"]
+            and r["sectionId"] not in other_project_section_configs
+        ):
+            return r["sectionId"]
+    return None

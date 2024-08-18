@@ -7,6 +7,7 @@ import {
 } from "requests/projects";
 import {
   useCodeInfo,
+  useKeywordRegex,
   useNodeInternals,
   useParamSweep,
   useRunGroups,
@@ -33,7 +34,7 @@ export function getProjectData() {
   projectConfig.children = children;
 
   const sectionVariants = useSectionVariants.getState().x;
-  const uiTypes = assembleUITypes(useUITypes.getState().x, false);
+  const uiTypes = useUITypes.getState().x;
   const uiTypeCols = useUITypeCols.getState().y;
   const paramSweeps = useParamSweep.getState().x;
   const runGroups = _.mapValues(useRunGroups.getState().x, (x) => ({
@@ -47,6 +48,7 @@ export function getProjectData() {
   );
 
   const codeInfo = useCodeInfo.getState().x;
+  const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
 
   const output = {
     projectConfig,
@@ -58,6 +60,7 @@ export function getProjectData() {
     sections,
     codeInfo,
     dbSourceMapping: _.cloneDeep(DB_SOURCE_MAPPING),
+    fullNameToInfo,
   };
 
   return output;

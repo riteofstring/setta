@@ -223,7 +223,7 @@ class LanguageServerReader(LanguageServerInteractor):
                 content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                if (response["result"]):
+                if response["result"]:
                     content = parse_signature(response["result"]["signatures"][0])
                     # pprint(content)
                 else:
