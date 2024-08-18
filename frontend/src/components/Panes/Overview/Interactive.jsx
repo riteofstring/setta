@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { useInteractive } from "state/definitions";
+import { useProjectConfig } from "state/definitions";
 
 export const Interactive = React.forwardRef(() => {
-  const path = useInteractive((x) => x.path);
+  const path = useProjectConfig((x) => x.interactivePath);
   const [localVal, setLocalVal] = useState(path);
 
   function onChange(e) {
@@ -10,7 +10,7 @@ export const Interactive = React.forwardRef(() => {
   }
 
   function onBlur() {
-    useInteractive.setState({ path: localVal });
+    useProjectConfig.setState({ interactivePath: localVal });
   }
 
   return (

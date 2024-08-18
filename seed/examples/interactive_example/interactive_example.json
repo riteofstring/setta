@@ -21,7 +21,8 @@
     },
     "previewImgNodes": "[{\"x\":1164,\"y\":189,\"w\":201,\"h\":301},{\"x\":550,\"y\":189,\"w\":224,\"h\":143}]",
     "previewImgColor": "bg-yellow-500/60 dark:bg-yellow-600/30",
-    "isDefault": false
+    "isDefault": false,
+    "interactivePath": "seed/examples/interactive_example/interactive_example.py"
   },
   "sections": {
     "1d3b6524-17bf-48f3-9954-794affcc58a8": {
