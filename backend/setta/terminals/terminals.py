@@ -108,10 +108,10 @@ class TerminalWebsockets:
                 try:
                     json_val = json.loads(input_data)
                     if isinstance(json_val, dict):
-                        doResize = json_val["type"] == "resize"
+                        doResize = json_val["messageType"] == "resize"
                         if doResize:
                             pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                        elif json_val["type"] == "runCode":
+                        elif json_val["messageType"] == "runCode":
                             runCode(json_val, terminal_write_fn=pty_process.write)
                             self.set_terminal_start_time(id)
                         pty_info["wasJustResized"] = doResize
