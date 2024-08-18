@@ -18,17 +18,15 @@ def save_as_new_project_config(db, project, new_config_name, with_refs):
     return project_to_save
 
 
-def save_as_existing_project_config(db, project, config_name):
+def save_as_existing_project_config(dbs, project, config_name):
+    db = dbs.default
     query = """
         SELECT *
         FROM ProjectConfig
-        WHERE
-            projectId = :projectId
-        AND
-            name = :name
+        WHERE name = :config_name
     """
 
-    db.execute(query, {"projectId": project["project"]["id"], "name": config_name})
+    db.execute(query, {"config_name": config_name})
     x = dict(db.fetchone())
     print(x)
     project["projectConfig"] = {
@@ -37,5 +35,5 @@ def save_as_existing_project_config(db, project, config_name):
         "name": x["name"],
     }
     project_to_save = copy_project_details(project)
-    save_project_details(db, project_to_save)
+    save_project_details(dbs, project_to_save)
     return project_to_save

@@ -17,8 +17,6 @@ import {
   useUITypes,
 } from "state/definitions";
 import { DB_SOURCE_MAPPING } from "utils/constants";
-import { isPreset } from "utils/sectionTypeHelpers";
-import { xnor } from "utils/utils";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
 import { getProjectConfigMetadata } from "./projectConfig";
@@ -68,8 +66,7 @@ export function getProjectData() {
 
 export async function saveProject() {
   setNotificationMessage("Saving...");
-  const x = assembleProject();
-  const res = await dbSaveProject(x);
+  const res = await dbSaveProject({ project: getProjectData() });
   if (res.status === 200) {
     setNotificationMessage("Saved!");
   }
@@ -90,16 +87,7 @@ export async function saveAsExistingProjectConfig({ configName }) {
 }
 
 async function saveProjectAs({ fn, otherArgs }) {
-  const x = assembleProject();
-  await fn({ ...x, ...otherArgs });
-}
-
-function assembleProject() {
-  return { project: getProjectData() };
-}
-
-export function assembleUITypes(s, _isPreset) {
-  return _.pickBy(s, (v) => xnor(_isPreset, isPreset(v)));
+  await fn({ project: getProjectData(), ...otherArgs });
 }
 
 function getPreviewImgNodes() {

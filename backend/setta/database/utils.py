@@ -67,5 +67,5 @@ def create_id_map(old_ids):
 def remap_ids(x):
     old_ids = list(x.keys())
     id_map = create_id_map(old_ids)
-    new_ids = rename_keys(x, id_map)
-    return new_ids, id_map
+    new_obj = rename_keys(x, id_map)
+    return new_obj, id_map
