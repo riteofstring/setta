@@ -25,7 +25,7 @@ export function CreateNewParamSweepButton({ sectionId }) {
       attr: "paramSweepIds",
       newValueFn: (x) => [...x, newId],
     });
-    setNotificationMessage("New Version Created");
+    setNotificationMessage("New Version Created")
   }
 
   return <MenuItem onClick={onClick}>New Version</MenuItem>;

@@ -190,5 +190,5 @@ export function getSectionChildrenAcrossVariants(sectionId) {
       output.add(c);
     }
   }
-  return output;
+  return output
 }

@@ -1,7 +1,7 @@
 import sqlite3
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.database.db.projects.delete import delete_project_configs
@@ -22,7 +22,7 @@ from setta.database.db.projects.saveAs import (
 )
 from setta.utils.constants import C
 
-from .dependencies import get_dbs, get_tasks
+from .dependencies import get_dbs
 
 router = APIRouter()
 
@@ -81,18 +81,9 @@ def route_load_project_config_names(dbs=Depends(get_dbs)):
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
-def route_load_project_config(
-    x: ProjectLoadRequest,
-    background_tasks: BackgroundTasks,
-    dbs=Depends(get_dbs),
-    tasks=Depends(get_tasks),
-):
+def route_load_project_config(x: ProjectLoadRequest, dbs=Depends(get_dbs)):
     with dbs:
-        output = load_project_config(dbs, x.projectConfigName)
-    background_tasks.add_task(
-        tasks.add_fns_from_path, output["projectConfig"]["interactivePath"]
-    )
-    return output
+        return load_project_config(dbs, x.projectConfigName)
 
 
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)

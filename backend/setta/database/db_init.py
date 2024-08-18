@@ -147,7 +147,6 @@ CREATE_TABLES_COMMANDS = [
         isDefault BOOLEAN DEFAULT 0,
         previewImgNodes TEXT DEFAULT '[]',
         previewImgColor TEXT,
-        interactivePath TEXT,
         UNIQUE (name)
     );
     """,
