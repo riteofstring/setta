@@ -22,7 +22,7 @@ export function HeaderIcon({
 
   if (isInOtherProjectConfigs) {
     return (
-      <i className="gg-link group/card-section:hover:bg text-purple-500 transition-colors group-hover/card-section:text-blue-500 dark:text-purple-500 dark:group-hover/card-section:text-[#0084ff]" />
+      <i className="gg-link group/card-section:hover:bg text-purple-500 transition-colors group-hover/card-section:text-pink-500 dark:text-purple-500 dark:group-hover/card-section:text-[#ff00ff]" />
     );
   }
 

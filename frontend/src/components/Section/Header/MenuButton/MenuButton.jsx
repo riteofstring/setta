@@ -24,14 +24,12 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
   return (
     <Menubar.Root>
       <CardHeaderMenuButton
-        padding={""}
         triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-setta-600 hover:text-white"} `}
         trigger={
           <HeaderIcon
             sectionId={sectionId}
             sectionTypeName={sectionTypeName}
             isInOtherProjectConfigs={isInOtherProjectConfigs}
-            classes=" "
           />
         }
       >
