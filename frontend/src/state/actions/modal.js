@@ -1,5 +1,6 @@
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
+import { maybePreventDefault } from "utils/utils";
 
 export function setModalOpen(payload) {
   useModal.setState({ open: payload });
@@ -16,11 +17,13 @@ function openFileMenuModal(modalType) {
   setModalOpen(true);
 }
 
-export function openLoadModal() {
+export function openLoadModal(e) {
+  maybePreventDefault(e);
   openFileMenuModal(MODAL_TYPE.LOAD_PROJECT_CONFIG);
 }
 
-export function openSaveAsModal() {
+export function openSaveAsModal(e) {
+  maybePreventDefault(e);
   openFileMenuModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS);
 }
 

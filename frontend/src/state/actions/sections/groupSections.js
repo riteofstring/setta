@@ -3,6 +3,7 @@ import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
 import { useNodeInternals, useSectionInfos } from "state/definitions";
 import { PANEID } from "utils/constants";
+import { maybePreventDefault } from "utils/utils";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { onClickAddSection } from "./createSections";
 import { deleteSections } from "./deleteSections";
@@ -25,7 +26,8 @@ export function createDeck({ nodeIds, x, y, projectXY }) {
   maybeIncrementProjectStateVersion(true);
 }
 
-export function groupSections() {
+export function groupSections(e) {
+  maybePreventDefault(e);
   const selectedNodes = [...useNodeInternals.getState().x].filter(
     (x) => x[1].selected,
   );

@@ -17,6 +17,7 @@ import {
   useUITypes,
 } from "state/definitions";
 import { DB_SOURCE_MAPPING } from "utils/constants";
+import { maybePreventDefault } from "utils/utils";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
 import { getProjectConfigMetadata } from "./projectConfig";
@@ -64,7 +65,8 @@ export function getProjectData() {
   return output;
 }
 
-export async function saveProject() {
+export async function saveProject(e) {
+  maybePreventDefault(e);
   setNotificationMessage("Saving...");
   const res = await dbSaveProject({ project: getProjectData() });
   if (res.status === 200) {

@@ -2,7 +2,7 @@ import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { loadSectionIntoState } from "../sections/loadSections";
 
-export async function paste() {
+export async function paste(e) {
   let x;
   try {
     x = JSON.parse(await navigator.clipboard.readText());
@@ -10,6 +10,7 @@ export async function paste() {
     return;
   }
   if (x.copyType === "sections") {
+    maybePreventDefault(e);
     // const activeSectionIds = useActiveSection.getState().ids
     // if (activeSectionIds.length > 1 && Object.values(x.data.sections).length === 1) {
     //     for (const id of activeSectionIds){

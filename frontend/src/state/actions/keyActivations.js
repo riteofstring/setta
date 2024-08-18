@@ -97,21 +97,13 @@ export function attachKeyEventListeners() {
     // } else {
     cleanup = attachKeyDownListener((e) => {
       if (lowercaseKeyCombo && isShortcutPressed(e, lowercaseKeyCombo)) {
-        // We don't want to prevent default if the shortcut is just Control or Alt
-        // because this would prevent things like Ctrl + R for refreshing the page.
-        if (!["mod", "ctrl", "alt", "shift"].includes(lowercaseKeyCombo)) {
-          e.preventDefault();
-        }
-        action();
+        action(e);
       }
     });
     cleanup_functions.push(cleanup);
 
     if (keyUpAction) {
-      cleanup = attachKeyUpListener((e) => {
-        e.preventDefault();
-        keyUpAction();
-      });
+      cleanup = attachKeyUpListener(keyUpAction);
       cleanup_functions.push(cleanup);
       keyUpActions.push(keyUpAction);
     }

@@ -1,6 +1,7 @@
 import { zoomIdentity } from "d3-zoom";
 import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import { maybePreventDefault } from "utils/utils";
 import { useReactFlow } from "../store";
 import type { XYPosition } from "../types";
 import {
@@ -25,7 +26,8 @@ export function zoomTo(zoomLevel, options) {
   d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel);
 }
 
-export function resetZoom() {
+export function resetZoom(e) {
+  maybePreventDefault(e);
   zoomTo(1, { duration: 100 });
 }
 
