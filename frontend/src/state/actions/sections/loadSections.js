@@ -28,12 +28,14 @@ export function loadSectionIntoState({
     };
   }
 
-  updateUITypes(uiTypes);
-  updateSectionVariants({ sectionVariants });
-  updateUITypeCols({ uiTypeCols });
-  addCodeInfoBatch(codeInfo);
-  updateSections(sections);
-  updateManyParamsAndCallables(Object.keys(sections));
+  updateStateWithSectionCopy({
+    sections,
+    uiTypes,
+    sectionVariants,
+    uiTypeCols,
+    codeInfo,
+  });
+
   const nodes = [];
   for (const [id, n] of Object.entries(topLevelMapping)) {
     nodes.push({
@@ -45,4 +47,19 @@ export function loadSectionIntoState({
   }
   addNodes(nodes);
   maybeIncrementProjectStateVersion(incrementVersion);
+}
+
+export function updateStateWithSectionCopy({
+  sections,
+  uiTypes,
+  sectionVariants,
+  uiTypeCols,
+  codeInfo,
+}) {
+  updateUITypes(uiTypes);
+  updateSectionVariants({ sectionVariants });
+  updateUITypeCols({ uiTypeCols });
+  addCodeInfoBatch(codeInfo);
+  updateSections(sections);
+  updateManyParamsAndCallables(Object.keys(sections));
 }

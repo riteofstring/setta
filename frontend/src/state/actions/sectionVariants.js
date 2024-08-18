@@ -89,8 +89,8 @@ export function deleteParamInfoFromSectionVariant({
 }
 export function updateSectionVariants({ sectionVariants }) {
   useSectionVariants.setState((state) => {
-    for (const [dbSource, variant] of Object.entries(sectionVariants)) {
-      state.x[dbSource] = { ...state.x[dbSource], ...variant };
+    for (const [dbSource, variants] of Object.entries(sectionVariants)) {
+      state.x[dbSource] = { ...state.x[dbSource], ...variants };
     }
   });
 }

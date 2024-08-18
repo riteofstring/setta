@@ -24,7 +24,7 @@ function onSortEnd({ active, over }) {
   }
 }
 
-function onFreeMoveEnd({ dummyRef }) {
+async function onFreeMoveEnd({ dummyRef }) {
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const { activeId: sectionId, overId } = dndState;
@@ -50,7 +50,7 @@ function onFreeMoveEnd({ dummyRef }) {
     }
   }
 
-  moveSection({
+  await moveSection({
     oldParentId,
     newParentId,
     sectionId,

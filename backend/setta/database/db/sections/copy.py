@@ -32,6 +32,7 @@ def copy_sections(
         section["nonPresetUITypeIds"] = [
             ui_type_id_map[x] for x in section["nonPresetUITypeIds"]
         ]
+        section["parentId"] = section_id_map.get(section["parentId"], None)
 
     return new_sections, section_id_map
 

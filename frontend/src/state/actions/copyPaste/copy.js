@@ -31,7 +31,7 @@ export async function copy() {
   }
 }
 
-function copySections(sectionIds) {
+export function copySections(sectionIds) {
   const sections = getSections(sectionIds);
   const codeInfo = getCodeInfo(sections);
   const sectionVariants = getSectionVariants(sections);

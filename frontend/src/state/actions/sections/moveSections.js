@@ -1,26 +1,22 @@
-import {
-  computeInfoToFullName,
-  keyForInfoToFullName,
-} from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
+import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
-import { newCodeInfo } from "utils/objs/codeInfo";
+import { PANEID } from "utils/constants";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
-import { addCodeInfo } from "../codeInfo";
+import { copySections } from "../copyPaste/copy";
 import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   getSectionVariantIdAndMappedDBSource,
   setSectionVariantChildren,
 } from "../sectionVariants";
-import { createSectionInfo } from "./createSections";
+import { updateStateWithSectionCopy } from "./loadSections";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId, setSelectedItem } from "./setters";
+import { setSectionParentId } from "./setters";
 
 export function moveSections({
   sectionIds,
@@ -42,7 +38,7 @@ export function moveSections({
   }
 }
 
-export function moveSection({
+export async function moveSection({
   oldParentId,
   newParentId,
   sectionId,
@@ -55,20 +51,27 @@ export function moveSection({
     return;
   }
 
+  const newSectionId = await maybeMakeCopyOfSection({
+    sectionId,
+    oldParentId,
+    newParentId,
+  });
+
   setChildrenAndParent({
     oldParentId,
     newParentId,
-    sectionId,
+    oldSectionId: sectionId,
+    newSectionId,
     newIndex,
     position,
   });
 
-  setSectionSize({ newParentId, sectionId });
+  setSectionSize({ newParentId, sectionId: newSectionId });
 
   // TODO: make this optional via input argument so that it doesn't get called unnecessarily
   updateKeywordRegex();
 
-  maybeCreateReferenceSections({ sectionId, oldParentId });
+  // maybeCreateReferenceSections({ sectionId, oldParentId });
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }
@@ -76,32 +79,33 @@ export function moveSection({
 function setChildrenAndParent({
   oldParentId,
   newParentId,
-  sectionId,
+  oldSectionId,
+  newSectionId,
   newIndex,
   position,
 }) {
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
-    deleteNodes([sectionId]);
+    deleteNodes([oldSectionId]);
   } else {
     setSectionVariantChildren({
       sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== sectionId),
+      newStateFn: (x) => x.filter((y) => y !== oldSectionId),
     });
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    addNodes([{ id: sectionId, position, zIndex: 0, tempZIndex: 0 }]);
+    addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
     setSectionVariantChildren({
       sectionId: newParentId,
-      newStateFn: (x) => insertIntoArray(x, newIndex, sectionId),
+      newStateFn: (x) => insertIntoArray(x, newIndex, newSectionId),
     });
   }
 
-  setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
+  setSectionParentId(newSectionId, newParentId === PANEID ? null : newParentId);
 }
 
 function setSectionSize({ newParentId, sectionId }) {
@@ -124,26 +128,25 @@ function setSectionSize({ newParentId, sectionId }) {
   }
 }
 
-function maybeCreateReferenceSections({ sectionId, oldParentId }) {
-  if (oldParentId === PANEID) {
-    return;
+async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
+  if (oldParentId === PANEID || oldParentId == newParentId) {
+    return sectionId;
   }
 
   const { variantIds } = getSectionInfo(oldParentId);
   if (variantIds.length <= 1) {
-    return;
+    return sectionId;
   }
 
   // If the old parent has multiple variants,
   // then we need to check if any of those variants
   // have children that include sectionId.
-  // If they do include sectionId, those instances
-  // need to be replaced with a reference, to prevent
-  // the possibility of sectionId appearing in 2 places at once.
+  // If they do include sectionId, then make a copy of sectionId
+  // to prevent the possibility of sectionId appearing in 2 places at once.
   const { variantId: activeVariantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(oldParentId);
   const variantState = useSectionVariants.getState().x;
-  const infoToFullName = computeInfoToFullName();
+  let isInOtherVariants = false;
   for (const variantId of variantIds) {
     if (variantId === activeVariantId) {
       continue;
@@ -151,27 +154,71 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
     const children = variantState[dbSource][variantId].children;
     const sectionIdx = children.findIndex((x) => x === sectionId);
     if (sectionIdx !== -1) {
-      const [newId] = createSectionInfo({
-        sectionProps: {
-          parentId: oldParentId,
-          uiTypeId: BASE_UI_TYPE_IDS[C.REFERENCE_SECTION],
-        },
-      });
-
-      const info = newCodeInfo({
-        name: infoToFullName[keyForInfoToFullName({ sectionId })],
-        editable: false,
-        rcType: C.CALLABLE,
-      });
-      const { codeInfoId } = getSectionInfo(newId);
-      addCodeInfo({ info, parent: codeInfoId });
-      setSelectedItem(newId, info.name);
-
-      useSectionVariants.setState((state) => {
-        state.x[dbSource][variantId].children = state.x[dbSource][
-          variantId
-        ].children.toSpliced(sectionIdx, 1, newId);
-      });
+      isInOtherVariants = true;
+      break;
     }
   }
+
+  if (isInOtherVariants) {
+    const res = await dbCreateCopyOfSections(copySections([sectionId]));
+    if (res.status == 200) {
+      console.log("data", res.data);
+      updateStateWithSectionCopy({ ...res.data });
+      return Object.keys(res.data.sections)[0];
+    }
+  }
+
+  return sectionId;
 }
+
+// function maybeCreateReferenceSections({ sectionId, oldParentId }) {
+//   if (oldParentId === PANEID) {
+//     return;
+//   }
+
+//   const { variantIds } = getSectionInfo(oldParentId);
+//   if (variantIds.length <= 1) {
+//     return;
+//   }
+
+//   // If the old parent has multiple variants,
+//   // then we need to check if any of those variants
+//   // have children that include sectionId.
+//   // If they do include sectionId, those instances
+//   // need to be replaced with a reference, to prevent
+//   // the possibility of sectionId appearing in 2 places at once.
+//   const { variantId: activeVariantId, dbSource } =
+//     getSectionVariantIdAndMappedDBSource(oldParentId);
+//   const variantState = useSectionVariants.getState().x;
+//   const infoToFullName = computeInfoToFullName();
+//   for (const variantId of variantIds) {
+//     if (variantId === activeVariantId) {
+//       continue;
+//     }
+//     const children = variantState[dbSource][variantId].children;
+//     const sectionIdx = children.findIndex((x) => x === sectionId);
+//     if (sectionIdx !== -1) {
+//       const [newId] = createSectionInfo({
+//         sectionProps: {
+//           parentId: oldParentId,
+//           uiTypeId: BASE_UI_TYPE_IDS[C.REFERENCE_SECTION],
+//         },
+//       });
+
+//       const info = newCodeInfo({
+//         name: infoToFullName[keyForInfoToFullName({ sectionId })],
+//         editable: false,
+//         rcType: C.CALLABLE,
+//       });
+//       const { codeInfoId } = getSectionInfo(newId);
+//       addCodeInfo({ info, parent: codeInfoId });
+//       setSelectedItem(newId, info.name);
+
+//       useSectionVariants.setState((state) => {
+//         state.x[dbSource][variantId].children = state.x[dbSource][
+//           variantId
+//         ].children.toSpliced(sectionIdx, 1, newId);
+//       });
+//     }
+//   }
+// }
