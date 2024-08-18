@@ -116,6 +116,7 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
     case C.GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} />;
     case C.CODE:
+    case C.INTERACTIVE_CODE:
     case C.VAR_CONTROL:
       return <CodeArea sectionId={sectionId} />;
     case C.PARAM_SWEEP:

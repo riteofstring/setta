@@ -94,6 +94,13 @@
     "presetType": "BASE",
     "config": {}
   },
+  "4520be53-fc28-47ad-bb7f-70d1133e4d44": {
+    "id": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+    "type": "INTERACTIVE_CODE",
+    "name": "",
+    "presetType": "BASE",
+    "config": {}
+  },
   "a2ecb6fe-45c7-4e8b-8424-8d5955256f89": {
     "id": "a2ecb6fe-45c7-4e8b-8424-8d5955256f89",
     "type": "VAR_CONTROL",
