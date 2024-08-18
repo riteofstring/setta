@@ -1,19 +1,26 @@
+import {
+  computeInfoToFullName,
+  keyForInfoToFullName,
+} from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { PANEID } from "utils/constants";
+import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
+import { newCodeInfo } from "utils/objs/codeInfo";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
+import { addCodeInfo } from "../codeInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
   getSectionVariantIdAndMappedDBSource,
   setSectionVariantChildren,
 } from "../sectionVariants";
+import { createSectionInfo } from "./createSections";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
+import { setSectionParentId, setSelectedItem } from "./setters";
 
 export function moveSections({
   sectionIds,
@@ -48,25 +55,20 @@ export function moveSection({
     return;
   }
 
-  const newSectionId = maybeDetachSection({
-    sectionId,
-    oldParentId,
-    newParentId,
-  });
-
   setChildrenAndParent({
     oldParentId,
     newParentId,
-    oldSectionId: sectionId,
-    newSectionId,
+    sectionId,
     newIndex,
     position,
   });
 
-  setSectionSize({ newParentId, sectionId: _sectionId });
+  setSectionSize({ newParentId, sectionId });
 
   // TODO: make this optional via input argument so that it doesn't get called unnecessarily
   updateKeywordRegex();
+
+  maybeCreateReferenceSections({ sectionId, oldParentId });
 
   maybeIncrementProjectStateVersion(incrementVersion);
 }
@@ -74,33 +76,32 @@ export function moveSection({
 function setChildrenAndParent({
   oldParentId,
   newParentId,
-  oldSectionId,
-  newSectionId,
+  sectionId,
   newIndex,
   position,
 }) {
   // Remove child from old parent's list
   if (oldParentId === PANEID) {
     // This means it was a top level section
-    deleteNodes([oldSectionId]);
+    deleteNodes([sectionId]);
   } else {
     setSectionVariantChildren({
       sectionId: oldParentId,
-      newStateFn: (x) => x.filter((y) => y !== oldSectionId),
+      newStateFn: (x) => x.filter((y) => y !== sectionId),
     });
   }
   if (newParentId === PANEID) {
     // This means it's becoming a top level section
-    addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
+    addNodes([{ id: sectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
     setSectionVariantChildren({
       sectionId: newParentId,
-      newStateFn: (x) => insertIntoArray(x, newIndex, newSectionId),
+      newStateFn: (x) => insertIntoArray(x, newIndex, sectionId),
     });
   }
 
-  setSectionParentId(newSectionId, newParentId === PANEID ? null : newParentId);
+  setSectionParentId(sectionId, newParentId === PANEID ? null : newParentId);
 }
 
 function setSectionSize({ newParentId, sectionId }) {
@@ -123,8 +124,8 @@ function setSectionSize({ newParentId, sectionId }) {
   }
 }
 
-function maybeDetachSection({ sectionId, oldParentId, newParentId }) {
-  if (oldParentId === PANEID || oldParentId === newParentId) {
+function maybeCreateReferenceSections({ sectionId, oldParentId }) {
+  if (oldParentId === PANEID) {
     return;
   }
 
@@ -136,12 +137,13 @@ function maybeDetachSection({ sectionId, oldParentId, newParentId }) {
   // If the old parent has multiple variants,
   // then we need to check if any of those variants
   // have children that include sectionId.
-  // If they do include sectionId, then we want to make a new
-  // detached section to prevent the possibility of sectionId appearing in 2 places at once.
+  // If they do include sectionId, those instances
+  // need to be replaced with a reference, to prevent
+  // the possibility of sectionId appearing in 2 places at once.
   const { variantId: activeVariantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(oldParentId);
   const variantState = useSectionVariants.getState().x;
-  let sectionIsUsedInOtherVariants = false;
+  const infoToFullName = computeInfoToFullName();
   for (const variantId of variantIds) {
     if (variantId === activeVariantId) {
       continue;
@@ -149,20 +151,27 @@ function maybeDetachSection({ sectionId, oldParentId, newParentId }) {
     const children = variantState[dbSource][variantId].children;
     const sectionIdx = children.findIndex((x) => x === sectionId);
     if (sectionIdx !== -1) {
-      sectionIsUsedInOtherVariants = true;
-      break;
+      const [newId] = createSectionInfo({
+        sectionProps: {
+          parentId: oldParentId,
+          uiTypeId: BASE_UI_TYPE_IDS[C.REFERENCE_SECTION],
+        },
+      });
+
+      const info = newCodeInfo({
+        name: infoToFullName[keyForInfoToFullName({ sectionId })],
+        editable: false,
+        rcType: C.CALLABLE,
+      });
+      const { codeInfoId } = getSectionInfo(newId);
+      addCodeInfo({ info, parent: codeInfoId });
+      setSelectedItem(newId, info.name);
+
+      useSectionVariants.setState((state) => {
+        state.x[dbSource][variantId].children = state.x[dbSource][
+          variantId
+        ].children.toSpliced(sectionIdx, 1, newId);
+      });
     }
   }
-
-  if (sectionIsUsedInOtherVariants){
-    const [newId] = createSectionInfo({
-      sectionProps: {
-        parentId: oldParentId,
-        uiTypeId: BASE_UI_TYPE_IDS[C.REFERENCE_SECTION],
-      },
-    });
-  }
-}
-
-
 }
