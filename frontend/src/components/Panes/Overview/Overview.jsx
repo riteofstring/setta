@@ -4,7 +4,6 @@ import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { InfoViewBig } from "./InfoViewBig";
-import { Interactive } from "./Interactive";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
@@ -42,7 +41,6 @@ function TabsVisible() {
           <TabItem name="Overview" value="tab1" />
           <TabItem name="Info" value="tab2" />
           <TabItem name="Configs" value="tab3" />
-          <TabItem name="Interactive" value="tab4" />
         </nav>
       </Tabs.List>
       <TabContent value="tab1">
@@ -53,9 +51,6 @@ function TabsVisible() {
       </TabContent>
       <TabContent value="tab3">
         <ProjectConfigs />
-      </TabContent>
-      <TabContent value="tab4">
-        <Interactive />
       </TabContent>
     </Tabs.Root>
   );

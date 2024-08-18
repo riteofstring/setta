@@ -33,8 +33,8 @@ def save_project_details(dbs, p):
 def save_project(dbs, project):
     db = dbs.default
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom, interactivePath)
-        VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom, :interactivePath)
+        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom)
+        VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
@@ -42,8 +42,7 @@ def save_project(dbs, project):
         isDefault = :isDefault,
         x = :x,
         y = :y,
-        zoom = :zoom,
-        interactivePath = :interactivePath
+        zoom = :zoom
     """
 
     query_params = {
@@ -51,7 +50,6 @@ def save_project(dbs, project):
         "name": project["name"],
         "previewImgNodes": project["previewImgNodes"],
         "isDefault": project["isDefault"],
-        "interactivePath": project["interactivePath"],
         **project["viewport"],
     }
     db.execute(query, query_params)
