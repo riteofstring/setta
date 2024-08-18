@@ -15,7 +15,9 @@ def web(websocket_id):
 
 async def connect(websocket_id):
     try:
-        extra_headers = {} if not websocket_id else {"websocketId": websocket_id}
+        extra_headers = {"isCLI": True}
+        if websocket_id:
+            extra_headers["websocketId"] = websocket_id
         async with websockets.connect(
             C.WEBSOCKET,
             extra_headers=extra_headers,

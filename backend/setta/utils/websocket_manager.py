@@ -4,13 +4,13 @@ from fastapi import WebSocket
 
 from setta.database.utils import generate_memorable_string
 from setta.tasks.fns.utils import TaskMessage
+from setta.utils.constants import C
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class WebsocketManager:
     def __init__(self, tasks):
         self.sockets = {}
-        self.use_server_as_cli = True
         self.server_cli_id = "main"
         self.tasks = tasks
         self.message_id_to_sender_id = {}
@@ -20,8 +20,10 @@ class WebsocketManager:
         id = websocket.headers.get("websocketId")
         while (not id) or id in self.sockets:
             id = generate_memorable_string()
-        isCLI = "Python" in websocket.headers.get("user-agent", "")
-        self.sockets[id] = {"websocket": websocket, "isCLI": isCLI}
+        self.sockets[id] = {
+            "websocket": websocket,
+            "isCLI": websocket.headers.get("isCLI", False),
+        }
         await self.send_message(
             {"toWebsocketId": id, "messageType": "connection", "websocketId": id},
             fromWebsocketId=self.server_cli_id,
@@ -75,8 +77,7 @@ class WebsocketManager:
         connections = []
         for id, s in self.sockets.items():
             connections.append({"websocketId": id, "isCLI": s["isCLI"]})
-        if self.use_server_as_cli:
-            connections.append({"websocketId": self.server_cli_id, "isCLI": True})
+        connections.append({"websocketId": self.server_cli_id, "isCLI": True})
         await self.broadcast(
-            {"messageType": "allConnections", "connections": connections}
+            {"messageType": C.WS_ALL_CONNECTIONS, "connections": connections}
         )

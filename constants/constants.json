@@ -56,5 +56,7 @@
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
   "NESTED_PARAM": "NESTED_PARAM",
-  "ARGS_PREFIX": "__"
+  "ARGS_PREFIX": "__",
+  "WS_ALL_CONNECTIONS": "allConnections",
+  "WS_LSP_DIAGNOSTICS": "lspDiagnostics"
 }
