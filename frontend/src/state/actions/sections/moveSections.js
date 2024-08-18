@@ -3,6 +3,7 @@ import {
   keyForInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
+import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -55,21 +56,28 @@ export function moveSection({
     return;
   }
 
-  setChildrenAndParent({
-    oldParentId,
-    newParentId,
-    sectionId,
-    newIndex,
-    position,
-  });
+  if (newParentId === oldParentId && newParentId !== PANEID) {
+    maybeChangePlacesWithSibling({
+      activeId: sectionId,
+      overIndex: newIndex,
+      parentId: newParentId,
+    });
+  } else {
+    setChildrenAndParent({
+      oldParentId,
+      newParentId,
+      sectionId,
+      newIndex,
+      position,
+    });
 
-  setSectionSize({ newParentId, sectionId });
+    setSectionSize({ newParentId, sectionId });
+
+    maybeCreateReferenceSections({ sectionId, oldParentId });
+  }
 
   // TODO: make this optional via input argument so that it doesn't get called unnecessarily
   updateKeywordRegex();
-
-  maybeCreateReferenceSections({ sectionId, oldParentId });
-
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -137,8 +145,8 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
   // If the old parent has multiple variants,
   // then we need to check if any of those variants
   // have children that include sectionId.
-  // If they do include sectionId, those instances
-  // need to be replaced with a reference, to prevent
+  // If they do include sectionId, then a new
+  // detached section should be created
   // the possibility of sectionId appearing in 2 places at once.
   const { variantId: activeVariantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(oldParentId);
@@ -174,4 +182,29 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
       });
     }
   }
+}
+
+// pass in either overId or overIndex
+export function maybeChangePlacesWithSibling({
+  activeId,
+  overId,
+  overIndex,
+  parentId,
+}) {
+  if (activeId !== overId) {
+    setSectionVariantChildren({
+      sectionId: parentId,
+      newStateFn: updateWithArrayMove({ activeId, overId, overIndex }),
+    });
+    maybeIncrementProjectStateVersion(true);
+  }
+}
+
+// pass in either overId or overIndex
+function updateWithArrayMove({ activeId, overId, overIndex }) {
+  return (x) => {
+    const activeIndex = x.indexOf(activeId);
+    const _overIndex = overIndex === undefined ? x.indexOf(overId) : overIndex;
+    return arrayMove(x, activeIndex, _overIndex);
+  };
 }

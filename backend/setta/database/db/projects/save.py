@@ -254,16 +254,3 @@ def convert_size(x):
     return -1 if x == "auto" else x
 
 
-def get_missing_referenced_section_id(
-    project, section_id, other_project_section_configs
-):
-    if get_section_type(project, section_id) == C.REFERENCE_SECTION:
-        r = project["fullNameToInfo"][get_selected_item_name(project, section_id)]
-        if (
-            r["sectionId"]
-            and not r["paramInfoId"]
-            and not r["isArgsObj"]
-            and r["sectionId"] not in other_project_section_configs
-        ):
-            return r["sectionId"]
-    return None
