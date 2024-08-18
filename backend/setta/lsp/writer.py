@@ -25,6 +25,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         params = {
             "capabilities": {},
             "workspaceFolders": [{"uri": self.get_file_uri()}],
+            "initializationOptions": {
+                "settings": {"python": {"analysis": {"typeCheckingMode": "standard"}}}
+            },
         }
         await self.send_request("initialize", params=params, id=str(uuid.uuid4()))
         await self.send_didChangeConfiguration()  # pyright requires this step
