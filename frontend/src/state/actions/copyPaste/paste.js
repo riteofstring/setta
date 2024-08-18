@@ -27,11 +27,35 @@ async function pasteSections(data) {
   const res = await dbCreateCopyOfSections(data);
   if (res.status === 200) {
     console.log("res.data", res.data);
+    const topLevelIds = findTopLevelSections(
+      res.data.sections,
+      res.data.sectionVariants,
+    );
+
     loadSectionIntoState({
       ...res.data,
-      topLevelIds: Object.keys(res.data.sections),
+      topLevelIds,
       ...REACT_FLOW_STORE.lastPaneClickLocation,
       incrementVersion: true,
     });
   }
+}
+
+function findTopLevelSections(sections, sectionVariants) {
+  const allChildren = new Set();
+  for (const variants of Object.values(sectionVariants)) {
+    for (const v of Object.values(variants)) {
+      for (const c of v.children) {
+        allChildren.add(c);
+      }
+    }
+  }
+
+  const topLevelIds = [];
+  for (const id of Object.keys(sections)) {
+    if (!allChildren.has(id)) {
+      topLevelIds.push(id);
+    }
+  }
+  return topLevelIds;
 }
