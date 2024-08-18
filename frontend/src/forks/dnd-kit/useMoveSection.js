@@ -3,22 +3,25 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import _ from "lodash";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
-import {
-  maybeChangePlacesWithSibling,
-  moveSection,
-} from "state/actions/sections/moveSections";
+import { moveSection } from "state/actions/sections/moveSections";
 import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
+import { setSectionVariantChildren } from "state/actions/sectionVariants";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
+import { updateWithArrayMove } from "utils/utils";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
-  maybeChangePlacesWithSibling({
-    activeId: active.id,
-    overId: over.id,
-    parentId: active.data.current.sortable?.containerId,
-  });
+  if (active.id !== over.id) {
+    setSectionVariantChildren({
+      sectionId: active.data.current.sortable?.containerId,
+      newStateFn: updateWithArrayMove(active, over),
+    });
+
+    maybeIncrementProjectStateVersion(true);
+  }
 }
 
 function onFreeMoveEnd({ dummyRef }) {

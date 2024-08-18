@@ -1,3 +1,5 @@
+import { arrayMove } from "forks/dnd-kit/CustomSortable";
+
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
 }
@@ -13,6 +15,14 @@ export function insertIntoArray(arr, index, ...newItems) {
     // part of the array after the specified index
     ...arr.slice(index),
   ];
+}
+
+export function updateWithArrayMove(active, over) {
+  return (x) => {
+    const activeIndex = x.indexOf(active.id);
+    const overIndex = x.indexOf(over.id);
+    return arrayMove(x, activeIndex, overIndex);
+  };
 }
 
 export function checkboxChangeFn(checked, id) {
