@@ -18,19 +18,23 @@ import { setSectionVariantSelectedItem } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
 
-export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
-  if (itemIsAlreadySelected(sectionId, selectedItem)) {
+export async function setSelectedItem(
+  sectionId,
+  selectedItemName,
+  changedByUser,
+) {
+  if (itemIsAlreadySelected(sectionId, selectedItemName)) {
     return;
   }
 
-  const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItem);
+  const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
   if (prevSelected) {
     setSectionVariantSelectedItem(sectionId, prevSelected);
     updateParams(sectionId);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
     const info = newCodeInfo({
-      name: selectedItem,
+      name: selectedItemName,
       editable: false,
       rcType: C.CALLABLE,
     });
@@ -45,9 +49,9 @@ export async function setSelectedItem(sectionId, selectedItem, changedByUser) {
 
     const res = await dbParametersRequest({
       sectionId,
-      fullText: selectedItem,
+      fullText: selectedItemName,
       beforeText: "",
-      position: selectedItem.length,
+      position: selectedItemName.length,
     });
     if (res) {
       createChildrenCodeInfo(id, res);

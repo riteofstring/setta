@@ -10,6 +10,7 @@ import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
 import { OutputArea } from "../Layouts/OutputArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
+import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { MaybeTerminalArea } from "../Layouts/TerminalArea";
 import { Incrementer } from "../SectionParts/Incrementer";
@@ -104,6 +105,8 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
   switch (sectionTypeName) {
     case C.SECTION:
       return <InputArea sectionId={sectionId} />;
+    case C.REFERENCE_SECTION:
+      return <ReferenceArea sectionId={sectionId} />;
     case C.OUTPUT:
       return <OutputArea sectionId={sectionId} />;
     case C.SOCIAL:

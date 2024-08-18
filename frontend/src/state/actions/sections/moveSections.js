@@ -7,7 +7,7 @@ import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { PANEID } from "utils/constants";
+import { BASE_UI_TYPE_IDS, PANEID } from "utils/constants";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, getSectionType } from "../../getters/sectionInfo";
@@ -20,7 +20,7 @@ import {
 } from "../sectionVariants";
 import { createSectionInfo } from "./createSections";
 import { setAllChildrenWidths } from "./sectionSizes";
-import { setSectionParentId } from "./setters";
+import { setSectionParentId, setSelectedItem } from "./setters";
 
 export function moveSections({
   sectionIds,
@@ -151,21 +151,21 @@ function maybeCreateReferenceSections({ sectionId, oldParentId }) {
     const children = variantState[dbSource][variantId].children;
     const sectionIdx = children.findIndex((x) => x === sectionId);
     if (sectionIdx !== -1) {
+      const [newId] = createSectionInfo({
+        sectionProps: {
+          parentId: oldParentId,
+          uiTypeId: BASE_UI_TYPE_IDS[C.REFERENCE_SECTION],
+        },
+      });
+
       const info = newCodeInfo({
         name: infoToFullName[keyForInfoToFullName({ sectionId })],
         editable: false,
         rcType: C.CALLABLE,
       });
-      const { codeInfoId } = getSectionInfo(sectionId);
+      const { codeInfoId } = getSectionInfo(newId);
       addCodeInfo({ info, parent: codeInfoId });
-
-      const [newId] = createSectionInfo({
-        sectionProps: {
-          parentId: oldParentId,
-          hideParams: true,
-        },
-        variantProps: { selectedItem: info.id },
-      });
+      setSelectedItem(newId, info.name);
 
       useSectionVariants.setState((state) => {
         state.x[dbSource][variantId].children = state.x[dbSource][
