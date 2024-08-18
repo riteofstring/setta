@@ -29,12 +29,7 @@ async def main():
 
     code_id = "test"
     # code = "import math\nx=math.sqrt()"
-    code = """
-import math
-if True:
-    print("hello")
-math.sqrt(5)    
-"""
+    code = "import torchvision\ntorchvision.models.resnet18()"
     codeJson = {}
 
     # code_id = "test"

@@ -207,7 +207,7 @@ class LanguageServerReader(LanguageServerInteractor):
     async def process_response(self, response):
         id = response.get("id", None)
         method = response.get("method", None)
-        pprint(response)
+        # pprint(response)
         if id:
             method = method if method else self.msg_id_to_method[id]
             if method == "textDocument/completion":
