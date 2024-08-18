@@ -58,5 +58,6 @@
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "WS_ALL_CONNECTIONS": "allConnections",
-  "WS_LSP_DIAGNOSTICS": "lspDiagnostics"
+  "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
+  "WS_RUN_CODE": "runCode"
 }

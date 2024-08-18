@@ -32,7 +32,7 @@ async def connect(websocket_id):
 async def consumer_handler(websocket):
     async for message in websocket:
         message = json.loads(message)
-        if message["messageType"] == "runCode":
+        if message["messageType"] == C.WS_RUN_CODE:
             runCode(message, command_callback=run_code_as_subprocess)
 
 

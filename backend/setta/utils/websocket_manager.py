@@ -24,10 +24,6 @@ class WebsocketManager:
             "websocket": websocket,
             "isCLI": websocket.headers.get("isCLI", False),
         }
-        await self.send_message(
-            {"toWebsocketId": id, "messageType": "connection", "websocketId": id},
-            fromWebsocketId=self.server_cli_id,
-        )
         await self.broadcast_connections()
         return id
 

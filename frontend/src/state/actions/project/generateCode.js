@@ -32,7 +32,7 @@ export async function runCode() {
     project["infoToFullName"] = computeInfoToFullName(projectVariant);
     let message = {
       id: codeId,
-      messageType: "runCode",
+      messageType: C.WS_RUN_CODE,
       content: projectVariant,
     };
     if (useWebsocketConnectionList.getState().connectedTo !== "main") {
