@@ -1,4 +1,4 @@
-import { dbPasteSections } from "requests/pasteSections";
+import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { loadSectionIntoState } from "../sections/loadSections";
 
@@ -24,7 +24,7 @@ export async function paste() {
 }
 
 async function pasteSections(data) {
-  const res = await dbPasteSections(data);
+  const res = await dbCreateCopyOfSections(data);
   if (res.status === 200) {
     console.log("res.data", res.data);
     loadSectionIntoState({

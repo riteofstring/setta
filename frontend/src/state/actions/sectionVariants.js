@@ -89,7 +89,9 @@ export function deleteParamInfoFromSectionVariant({
 }
 export function updateSectionVariants({ sectionVariants }) {
   useSectionVariants.setState((state) => {
-    state.x = { ...state.x, ...sectionVariants };
+    for (const [dbSource, variant] of Object.entries(sectionVariants)) {
+      state.x[dbSource] = { ...state.x[dbSource], ...variant };
+    }
   });
 }
 
@@ -176,4 +178,17 @@ export function setSectionVariantSelectedItem(sectionId, selectedItem) {
   useSectionVariants.setState((x) => {
     x.x[dbSource][variantId].selectedItem = selectedItem;
   });
+}
+
+export function getSectionChildrenAcrossVariants(sectionId) {
+  const section = useSectionInfos.getState().x[sectionId];
+  const dbSource = getMappedSectionDBSource(sectionId);
+  const vState = useSectionVariants.getState().x[dbSource];
+  const output = new Set();
+  for (const v of section.variantIds) {
+    for (const c of vState[v].children) {
+      output.add(c);
+    }
+  }
+  return output
 }

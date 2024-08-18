@@ -9,13 +9,19 @@ import {
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
+import { DB_SOURCE_MAPPING } from "utils/constants";
 import { findAll } from "utils/getDescendants";
-import { getSectionInfo } from "../../getters/sectionInfo";
+import {
+  getMappedSectionDBSource,
+  getSectionInfo,
+} from "../../getters/sectionInfo";
+import { getSectionChildrenAcrossVariants } from "../sectionVariants";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;
   if (activeSectionIds.length > 0 && window.getSelection().toString() === "") {
     const data = copySections(activeSectionIds);
+    console.log("copied data", data);
     await navigator.clipboard.writeText(
       JSON.stringify({
         data,
@@ -26,11 +32,11 @@ export async function copy() {
 }
 
 function copySections(sectionIds) {
-  const sections = _.pick(useSectionInfos.getState().x, sectionIds);
-  const uiTypes = getUITypes(sections);
+  const sections = getSections(sectionIds);
   const codeInfo = getCodeInfo(sections);
   const sectionVariants = getSectionVariants(sections);
   const uiTypeCols = getUITypeCols(sections);
+  const uiTypes = getUITypes(sections, uiTypeCols);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
@@ -39,14 +45,38 @@ function copySections(sectionIds) {
     sectionVariants,
     uiTypeCols,
     relativePositions,
+    dbSourceMapping: DB_SOURCE_MAPPING,
   };
 }
 
-function getUITypes(sections) {
+function getSections(sectionIds) {
+  const output = new Set(...sectionIds);
+  const ids = [...sectionIds];
+  while (ids.length > 0) {
+    const curr = ids.pop();
+    if (curr in output) {
+      continue;
+    }
+    const children = getSectionChildrenAcrossVariants(curr);
+    for (const c of children) {
+      ids.push(c);
+    }
+    output.add(curr);
+  }
+  return _.pick(useSectionInfos.getState().x, Array.from(output));
+}
+
+function getUITypes(sections, uiTypeCols) {
   const uiTypeIds = [];
   for (const s of Object.values(sections)) {
     uiTypeIds.push(s.uiTypeId);
     uiTypeIds.push(...s.nonPresetUITypeIds);
+  }
+  for (const col of Object.values(uiTypeCols)) {
+    for (const u of Object.values(col)) {
+      uiTypeIds.push(u.uiTypeId);
+      uiTypeIds.push(...u.nonPresetUITypeIds);
+    }
   }
   return _.pick(useUITypes.getState().x, uiTypeIds);
 }
@@ -83,12 +113,16 @@ function getCodeInfo(sections) {
 }
 
 function getSectionVariants(sections) {
-  const variantIds = [];
+  const output = {};
+  const vState = useSectionVariants.getState().x;
   for (const s of Object.values(sections)) {
-    variantIds.push(s.variantId);
-    variantIds.push(...s.variantIds);
+    const dbSource = getMappedSectionDBSource(s.id);
+    if (!(dbSource in output)) {
+      output[dbSource] = {};
+    }
+    Object.assign(output[dbSource], _.pick(vState[dbSource], s.variantIds));
   }
-  return _.pick(useSectionVariants.getState().x, variantIds);
+  return output;
 }
 
 function getUITypeCols(sections) {
