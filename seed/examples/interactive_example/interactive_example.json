@@ -2,11 +2,13 @@
   "projectConfig": {
     "id": "03a28f24-e773-43a3-a1cf-da0fe7c1b8f9",
     "name": "interactive_example",
+    "isDefault": 0,
     "viewport": {
-      "x": 0,
-      "y": 0,
-      "zoom": 1
+      "x": 120.35402187891509,
+      "y": -93.12782902455382,
+      "zoom": 0.6717517128606485
     },
+    "previewImgNodes": "[{\"x\":1164,\"y\":189,\"w\":202,\"h\":302},{\"x\":550,\"y\":189,\"w\":202,\"h\":192},{\"x\":430,\"y\":563,\"w\":610,\"h\":318}]",
     "children": {
       "1d3b6524-17bf-48f3-9954-794affcc58a8": {
         "x": 1164,
@@ -17,66 +19,36 @@
         "x": 550,
         "y": 188.70833206176758,
         "zIndex": 1
+      },
+      "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
+        "x": 429.6914657528579,
+        "y": 562.8981985238265,
+        "zIndex": 3
       }
-    },
-    "previewImgNodes": "[{\"x\":1164,\"y\":189,\"w\":201,\"h\":301},{\"x\":550,\"y\":189,\"w\":224,\"h\":143}]",
-    "previewImgColor": "bg-yellow-500/60 dark:bg-yellow-600/30",
-    "isDefault": false
+    }
   },
-  "sections": {
-    "1d3b6524-17bf-48f3-9954-794affcc58a8": {
-      "id": "1d3b6524-17bf-48f3-9954-794affcc58a8",
-      "name": "zesty_amber",
-      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-      "uiTypeColId": "4db54baa-e45f-456c-9fb3-4baa0d3f6caf",
-      "social": null,
-      "description": "",
-      "code": "",
-      "codeLanguage": "",
-      "nonPresetUITypeIds": [],
-      "variantIds": [
-        "0723f95a-e74c-4c1e-9aea-2eacad673293"
-      ],
-      "outputGroup": null,
-      "isFrozen": false,
-      "isSelected": false,
-      "paramSweepIds": [],
-      "paramSweepSectionId": null,
-      "size": {
-        "width": "auto",
-        "height": "auto"
+  "sectionVariants": {
+    "default": {
+      "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
+        "name": "acceptable_purple",
+        "selectedItem": null,
+        "values": {
+          "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
+        },
+        "children": []
       },
-      "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
-      "paramSweepId": null,
-      "codeInfoId": null,
-      "isHorizontalOrientation": false
-    },
-    "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
-      "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
-      "name": "Global Variables",
-      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
-      "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
-      "social": null,
-      "description": "",
-      "code": "",
-      "codeLanguage": "",
-      "nonPresetUITypeIds": [],
-      "variantIds": [
-        "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
-      ],
-      "outputGroup": null,
-      "isFrozen": false,
-      "isSelected": false,
-      "paramSweepIds": [],
-      "paramSweepSectionId": null,
-      "size": {
-        "width": "auto",
-        "height": "auto"
+      "0723f95a-e74c-4c1e-9aea-2eacad673293": {
+        "name": "intensive_ivory",
+        "selectedItem": null,
+        "values": {},
+        "children": []
       },
-      "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
-      "paramSweepId": null,
-      "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
-      "isHorizontalOrientation": false
+      "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
+        "name": "victorious_white",
+        "values": {},
+        "children": [],
+        "selectedItem": null
+      }
     }
   },
   "uiTypes": {
@@ -90,6 +62,136 @@
         "max": 10,
         "step": 1
       }
+    },
+    "3fdaeb6a-e989-4888-b844-17a76f0b0192": {
+      "id": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+      "type": "TEXT",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "eab8f446-17cc-4512-bab5-42bff8570f1f": {
+      "id": "eab8f446-17cc-4512-bab5-42bff8570f1f",
+      "type": "SLIDER",
+      "name": "",
+      "presetType": "BASE",
+      "config": {
+        "min": 0,
+        "max": 100,
+        "step": 1
+      }
+    },
+    "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5": {
+      "id": "69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
+      "type": "SWITCH",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "0191cde4-3d98-4ba0-972a-fead19b8ac73": {
+      "id": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "type": "SECTION",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f": {
+      "id": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "type": "LIST_ROOT",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "623a9242-53e9-4b42-b695-431e9754a836": {
+      "id": "623a9242-53e9-4b42-b695-431e9754a836",
+      "type": "DICT_ROOT",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "d4aac4c4-c839-41d7-884e-23219462004d": {
+      "id": "d4aac4c4-c839-41d7-884e-23219462004d",
+      "type": "REFERENCE_SECTION",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "0e050316-06ca-48f4-92c1-9845abdf85f7": {
+      "id": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "type": "DECK",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "06b511f3-dced-43be-97d7-1ceaddc763d5": {
+      "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
+      "type": "OUTPUT",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "2b06a83b-b96a-490d-a2d7-3631619e6495": {
+      "id": "2b06a83b-b96a-490d-a2d7-3631619e6495",
+      "type": "INFO",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "76cd4b19-cc63-4e2c-8214-5a4246ca637c": {
+      "id": "76cd4b19-cc63-4e2c-8214-5a4246ca637c",
+      "type": "SOCIAL",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a": {
+      "id": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "type": "GLOBAL_VARIABLES",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "af9f2cfd-8cb6-44fd-9736-eefffae4cd29": {
+      "id": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "type": "CODE",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "4520be53-fc28-47ad-bb7f-70d1133e4d44": {
+      "id": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "type": "INTERACTIVE_CODE",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "a2ecb6fe-45c7-4e8b-8424-8d5955256f89": {
+      "id": "a2ecb6fe-45c7-4e8b-8424-8d5955256f89",
+      "type": "VAR_CONTROL",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "af0538a7-9667-400e-987e-ae3c844e0fcd": {
+      "id": "af0538a7-9667-400e-987e-ae3c844e0fcd",
+      "type": "PARAM_SWEEP",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "d6d40533-ee47-42a5-8b55-5455716c71ac": {
+      "id": "d6d40533-ee47-42a5-8b55-5455716c71ac",
+      "type": "TERMINAL",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
+    },
+    "02f5da7b-71ae-4e42-b5b3-286fae1823ee": {
+      "id": "02f5da7b-71ae-4e42-b5b3-286fae1823ee",
+      "type": "GLOBAL_PARAM_SWEEP",
+      "name": "",
+      "presetType": "BASE",
+      "config": {}
     }
   },
   "uiTypeCols": {
@@ -97,10 +199,95 @@
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
-        "nonPresetUITypeIds": [
-          "76c639bd-eae5-4497-bf8b-0e668d8baf6c"
-        ]
+        "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
       }
+    },
+    "ecab60b1-3cd7-4947-a61b-ccbef507c9ae": {}
+  },
+  "paramSweeps": {},
+  "runGroups": {},
+  "sections": {
+    "1d3b6524-17bf-48f3-9954-794affcc58a8": {
+      "id": "1d3b6524-17bf-48f3-9954-794affcc58a8",
+      "name": "zesty_amber",
+      "paramSweepSectionId": null,
+      "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
+      "uiTypeColId": "4db54baa-e45f-456c-9fb3-4baa0d3f6caf",
+      "social": null,
+      "description": "",
+      "code": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": null,
+      "codeInfoId": null,
+      "nonPresetUITypeIds": [],
+      "variantIds": ["0723f95a-e74c-4c1e-9aea-2eacad673293"],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": false,
+      "outputGroup": null,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
+      "paramSweepId": null,
+      "isHorizontalOrientation": 0
+    },
+    "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
+      "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
+      "name": "Global Variables",
+      "paramSweepSectionId": null,
+      "uiTypeId": "b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
+      "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
+      "social": null,
+      "description": "",
+      "code": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": null,
+      "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
+      "nonPresetUITypeIds": [],
+      "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": false,
+      "outputGroup": null,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
+      "paramSweepId": null,
+      "isHorizontalOrientation": 0
+    },
+    "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
+      "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
+      "name": "exclusive_jade",
+      "children": [],
+      "size": {
+        "width": 608,
+        "height": 316
+      },
+      "zIndex": 0,
+      "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "uiTypeColId": "ecab60b1-3cd7-4947-a61b-ccbef507c9ae",
+      "paramSweepId": null,
+      "social": null,
+      "outputGroup": null,
+      "description": "",
+      "code": "from setta.tasks.fns import TaskDefinition\n\ndef fn(message):\n    c = message[\"content\"]\n    return {\n        \"output\": [((i - 10) / 5) ** float(c) for i in range(20)],\n        \"name\": \"interactive\",\n        \"cache\": None,\n    }\n\n\ninteractive_example = TaskDefinition(name=\"interactive_example\", fn=fn)",
+      "codeLanguage": "python",
+      "variantIds": ["91b7814e-8f93-4ad1-a966-00851b4e41d9"],
+      "paramSweepIds": [],
+      "paramSweepSectionId": null,
+      "nonPresetUITypeIds": [],
+      "isFrozen": false,
+      "dbSource": "",
+      "isHorizontalOrientation": false,
+      "hideParams": false,
+      "hideSearch": false,
+      "codeInfoId": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
+      "resizeEvent": "end"
     }
   },
   "codeInfo": {
@@ -110,12 +297,12 @@
       "editable": 1,
       "rcType": "parameter",
       "defaultVal": null,
-      "children": [],
       "description": "",
-      "isPinned": false,
-      "isFrozen": false,
-      "isSelected": false,
-      "positionalOnly": false
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": []
     },
     "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
       "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -123,53 +310,36 @@
       "editable": 0,
       "rcType": "collection",
       "defaultVal": null,
-      "children": [
-        "20512036-3e0f-41f3-9738-6573ee71bdaf"
-      ],
       "description": "",
-      "isPinned": false,
-      "isFrozen": false,
-      "isSelected": false,
-      "positionalOnly": false
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": ["20512036-3e0f-41f3-9738-6573ee71bdaf"]
     },
-    "9193e5d1-544b-4490-99ee-f7ba34a0ed80": {
-      "id": "9193e5d1-544b-4490-99ee-f7ba34a0ed80",
+    "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1": {
+      "id": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
       "name": "Contents",
-      "editable": 0,
+      "editable": false,
       "rcType": "collection",
       "defaultVal": null,
       "children": [],
       "description": "",
+      "positionalOnly": false,
       "isPinned": false,
       "isFrozen": false,
-      "isSelected": false,
-      "positionalOnly": false
+      "isSelected": false
     }
   },
-  "outputGroups": {},
-  "outputs": {},
-  "paramSweeps": {},
-  "runGroups": {},
   "dbSourceMapping": {
-    "default": "default",
-    "settings": "default"
+    "default": "default"
   },
-  "sectionVariants": {
-    "default": {
-      "0723f95a-e74c-4c1e-9aea-2eacad673293": {
-        "name": "intensive_ivory",
-        "values": {},
-        "children": [],
-        "selectedItem": null
-      },
-      "00d5ac58-7a66-4ff1-a62f-af873c0a094b": {
-        "name": "acceptable_purple",
-        "values": {
-          "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
-        },
-        "children": [],
-        "selectedItem": null
-      }
+  "fullNameToInfo": {
+    "c": {
+      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
+      "paramInfoId": "20512036-3e0f-41f3-9738-6573ee71bdaf",
+      "componentIndices": [1],
+      "isArgsObj": false
     }
   }
 }
