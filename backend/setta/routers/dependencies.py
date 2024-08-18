@@ -5,6 +5,10 @@ def get_dbs(request: Request):
     return request.app.state.dbs
 
 
+def get_tasks(request: Request):
+    return request.app.state.tasks
+
+
 def get_settings_file(request: Request):
     return request.app.state.settings_file
 

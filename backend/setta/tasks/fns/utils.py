@@ -10,6 +10,8 @@ from setta.tasks.task_runner import RunType
 
 
 def import_from_path(file_path):
+    if not os.path.isfile(file_path):
+        return None
     # Extract directory and module name from file path
     module_dir, module_file = os.path.split(file_path)
     module_name, _ = os.path.splitext(module_file)

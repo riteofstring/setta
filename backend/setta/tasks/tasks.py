@@ -1,4 +1,5 @@
 import asyncio
+import os
 from typing import Dict
 
 from . import fns
@@ -32,7 +33,9 @@ class Tasks:
 
     def add_fns_from_path(self, path):
         module = import_from_path(path)
-        self.add_fns_from_module(module)
+        if module:
+            self.add_fns_from_module(module)
+        print("add_fns_from_path", flush=True)
 
     def add_fns_from_module(self, module):
         for attr in vars(module).values():

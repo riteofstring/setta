@@ -31,7 +31,8 @@
     },
     "previewImgNodes": "[{\"x\":303,\"y\":8,\"w\":300,\"h\":388},{\"x\":642,\"y\":114,\"w\":643,\"h\":480},{\"x\":638,\"y\":-153,\"w\":484,\"h\":171},{\"x\":52,\"y\":8,\"w\":201,\"h\":269}]",
     "previewImgColor": "bg-red-500/60 dark:bg-red-600/30",
-    "isDefault": true
+    "isDefault": true,
+    "interactivePath": ""
   },
   "sections": {
     "2a7156ce-56f0-4f44-a415-190464979f61": {
