@@ -1,10 +1,9 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import React from "react";
-import { useCurrInfoView } from "state/hooks/infoView";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
+import { InfoViewBig } from "./InfoViewBig";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectOverview } from "./ProjectOverview";
 
@@ -79,12 +78,3 @@ function TabContent(props) {
     </Tabs.Content>
   );
 }
-
-const InfoViewBig = React.forwardRef(() => {
-  const currInfoView = useCurrInfoView();
-  return (
-    <aside className="self-start overflow-clip text-setta-500 dark:text-setta-200">
-      {currInfoView}
-    </aside>
-  );
-});
