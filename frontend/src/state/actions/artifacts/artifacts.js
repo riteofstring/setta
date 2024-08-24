@@ -9,6 +9,8 @@ export function updateArtifacts(artifacts) {
     }
   });
 
+  console.log("useArtifacts.getState()", useArtifacts.getState().x);
+
   for (const name of Object.keys(artifacts.data)) {
     maybeAddArtifactSection(name);
   }

@@ -128,3 +128,21 @@ def save_sections(dbs, sections):
             for s in sections.values()
         ],
     )
+
+    query = f"""
+        DELETE FROM SectionArtifacts
+        WHERE sectionId IN ({placeholders});
+    """
+    db.execute(query, ids)
+
+    # add children
+    query = """
+        INSERT INTO SectionArtifacts (sectionId, artifactPath)
+        VALUES (:sectionId, :artifactPath)
+    """
+    query_params = []
+    for s in sections.values():
+        query_params.extend(
+            [{"sectionId": s["id"], "artifactPath": a} for a in s["artifacts"]]
+        )
+    db.executemany(query, query_params)

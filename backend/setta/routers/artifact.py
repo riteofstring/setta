@@ -13,8 +13,6 @@ router = APIRouter()
 class SendArtifactRequest(BaseModel):
     data: Dict[str, Any]
     sendDataTo: str
-    isSaved: bool
-    rootPath: str
     messageType: str
 
 

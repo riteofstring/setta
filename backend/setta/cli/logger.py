@@ -45,15 +45,17 @@ class Setta:
                 data.save(full_path)
 
             data = data.serialize()
-            data_to_send[rel_path] = data
+            data_to_send[rel_path] = {
+                **data,
+                "isSaved": save,
+                "rootPath": str(self.root_path),
+            }
 
         requests.post(
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
             json={
                 "data": data_to_send,
                 "sendDataTo": self.send_data_to,
-                "isSaved": save,
-                "rootPath": str(self.root_path),
                 "messageType": C.WS_ARTIFACT,
             },
             headers={"Content-Type": "application/json"},
