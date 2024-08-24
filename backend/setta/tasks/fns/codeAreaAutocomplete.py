@@ -88,6 +88,5 @@ codeAreaAutocomplete = TaskDefinition(
     fn=_codeAreaAutocomplete,
     read_cache=read_cache,
     run_as=RunType.THREAD,
-    is_built_in=True,
     dependencies=["lsp_writer"],
 )

@@ -111,7 +111,6 @@ class TaskDefinition(BaseModel):
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
     run_as: Optional[RunType] = RunType.NONE
-    is_built_in: Optional[bool] = False
     dependencies: Optional[List[str]] = []
 
 

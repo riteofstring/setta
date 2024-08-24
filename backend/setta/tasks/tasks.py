@@ -18,6 +18,7 @@ class Tasks:
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
+        self.custom_fn_names = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
@@ -36,29 +37,6 @@ class Tasks:
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
 
-    def add_fns_from_path(self, path):
-        module = import_from_path(path)
-        if module:
-            self.add_fns_from_module(module)
-        print("add_fns_from_path", flush=True)
-
-    def add_fns_from_strings(self, codeDict, project_config_name):
-        error_msgs = {}
-        task_names = []
-        for id, code in codeDict.items():
-            task_name = f"{project_config_name}-{id}"
-            try:
-                module = import_code_from_string(code)
-                if module:
-                    task_names.extend(
-                        self.add_fns_from_module(module, task_name=task_name)
-                    )
-                print("add_fns_from_string", self.fns, flush=True)
-
-            except Exception as e:
-                error_msgs[task_name] = str(e)
-        return task_names, error_msgs
-
     def add_fns_from_module(self, module, task_name=None):
         count = 1
         task_names = []
@@ -75,6 +53,26 @@ class Tasks:
                 task_names.append(attr.name)
         return task_names
 
-    @property
-    def custom_fn_names(self):
-        return [k for k, v in self.fns.items() if not v.is_built_in]
+    def add_custom_fns(self, codeDict, project_config_name):
+        error_msgs = {}
+        task_names = []
+        self.remove_existing_custom_fns(project_config_name)
+        for id, code in codeDict.items():
+            task_name = f"{project_config_name}-{id}"
+            try:
+                module = import_code_from_string(code)
+                if module:
+                    task_names.extend(
+                        self.add_fns_from_module(module, task_name=task_name)
+                    )
+            except Exception as e:
+                error_msgs[task_name] = str(e)
+        self.custom_fn_names[project_config_name] = task_names
+        print("add_fns_from_string", self.fns.keys(), flush=True)
+        return task_names, error_msgs
+
+    def remove_existing_custom_fns(self, project_config_name):
+        if project_config_name not in self.custom_fn_names:
+            return
+        for x in self.custom_fn_names[project_config_name]:
+            del self.fns[x]

@@ -93,6 +93,5 @@ codeAreaInitializeCode = TaskDefinition(
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    is_built_in=True,
     dependencies=["lsp_writer"],
 )

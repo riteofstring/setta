@@ -19,5 +19,5 @@ class UpdateInteractiveCodeRequest(BaseModel):
 def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
 ):
-    task_names, error_msgs = tasks.add_fns_from_strings(x.codeDict, x.projectConfigName)
+    task_names, error_msgs = tasks.add_custom_fns(x.codeDict, x.projectConfigName)
     return {"task_names": task_names, "error_msgs": error_msgs}
