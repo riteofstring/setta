@@ -13,6 +13,7 @@
   "DECK": "DECK",
   "GLOBAL_VARIABLES": "GLOBAL_VARIABLES",
   "CODE": "CODE",
+  "INTERACTIVE_CODE": "INTERACTIVE_CODE",
   "VAR_CONTROL": "VAR_CONTROL",
   "INFO": "INFO",
   "PARAM_SWEEP": "PARAM_SWEEP",
@@ -56,5 +57,8 @@
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
   "NESTED_PARAM": "NESTED_PARAM",
-  "ARGS_PREFIX": "__"
+  "ARGS_PREFIX": "__",
+  "WS_ALL_CONNECTIONS": "allConnections",
+  "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
+  "WS_RUN_CODE": "runCode"
 }

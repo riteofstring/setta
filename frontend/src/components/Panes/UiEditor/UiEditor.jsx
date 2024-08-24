@@ -72,7 +72,7 @@ function TabItem({ name, value }) {
   // tab-index isn't working? can't tab to inactive tab
   return (
     <Tabs.Trigger
-      className="tracking-tight[transition:font-weight_100ms_ease-in-out] my-4 cursor-pointer select-none text-sm uppercase [border-bottom:3px_solid_transparent] hover:text-blue-800 focus-visible:ring-2 dark:text-setta-500 dark:hover:text-blue-500 [&[data-state='active']]:border-setta-500 [&[data-state='active']]:font-black [&[data-state='active']]:text-setta-500 [&[data-state='active']]:dark:border-setta-300 [&[data-state='active']]:dark:text-setta-300"
+      className="my-4 cursor-pointer select-none font-heading text-lg uppercase tracking-tight [border-bottom:3px_solid_transparent] [transition:font-weight_100ms_ease-in-out]  hover:text-blue-800 focus-visible:ring-2 dark:text-setta-400 dark:hover:text-blue-500 [&[data-state='active']]:border-setta-500 [&[data-state='active']]:font-bold"
       value={value}
       tab-index="0"
     >

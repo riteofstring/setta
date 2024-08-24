@@ -10,7 +10,7 @@ import { HideShowSearchButton } from "./HideShowSearchButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 
-function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
+function MenuButton({ sectionId, sectionTypeName }) {
   // hover:bg-setta-100 dark:hover:bg-setta-900
 
   const isSpecial = [
@@ -23,13 +23,15 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
 
   return (
     <Menubar.Root>
-      <CardHeaderMenuButton
+      <MenuDropdown
+        padding={"p-1 mr-1"}
+        rounded="rounded-full"
         triggerStyle={`${isSpecial ? "" : "h-3 w-3 text-setta-600 hover:text-white"} `}
         trigger={
           <HeaderIcon
             sectionId={sectionId}
             sectionTypeName={sectionTypeName}
-            isInOtherProjectConfigs={isInOtherProjectConfigs}
+            classes=" "
           />
         }
       >
@@ -56,24 +58,9 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
         )}
 
         <FreezeButton sectionId={sectionId} />
-      </CardHeaderMenuButton>
+      </MenuDropdown>
     </Menubar.Root>
   );
 }
 
 export default MenuButton;
-
-function CardHeaderMenuButton({ children, trigger }) {
-  return (
-    <MenuDropdown
-      triggerClassName="nodrag flex cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 aspect-square text-xs font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800"
-      contentClassName="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"
-      contentAlign="start"
-      contentSideOffset={5}
-      contentAlignOffset={-3}
-      trigger={trigger}
-    >
-      {children}
-    </MenuDropdown>
-  );
-}

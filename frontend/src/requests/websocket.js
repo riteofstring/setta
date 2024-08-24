@@ -1,9 +1,5 @@
 import C from "constants/constants.json";
-import {
-  setInteractiveData,
-  setInteractiveProjects,
-} from "state/actions/interactive";
-import { updateOutput } from "state/actions/outputs/outputs";
+import { setInteractiveData } from "state/actions/interactive";
 import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
 import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
@@ -41,17 +37,11 @@ function wssReady() {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   // console.log(m);
-  if (m.type === "LOG") {
-    updateOutput(m.data);
-  } else if (m.messageType === "connection") {
-    // console.log("connected as", m["websocketId"]);
-  } else if (m.messageType === "allConnections") {
+  if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
-  } else if (m.messageType === "interactiveProjects") {
-    setInteractiveProjects(m["content"]);
   } else if (m.messageType === "interactive") {
     setInteractiveData(m["content"]);
-  } else if (m.messageType === "diagnostics") {
+  } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     useTypeErrors.setState(m.content, true);
   } else if (m.id) {
     setWebsocketRoomMessage(m.id, m.content);

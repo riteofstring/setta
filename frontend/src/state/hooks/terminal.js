@@ -34,7 +34,7 @@ export function useTerminal({ sectionId, width, height }) {
     terminal.onResize((size) => {
       // Send the new size to the backend
       const message = JSON.stringify({
-        type: "resize",
+        messageType: "resize",
         cols: size.cols,
         rows: size.rows,
       });

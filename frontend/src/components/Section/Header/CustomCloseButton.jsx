@@ -9,7 +9,7 @@ export function CustomCloseButton({ isInfo, onClick, ...props }) {
       icon={<i className="gg-close" />}
       color="text-setta-600 hover:text-white"
       bg="bg-transparent hover:bg-red-500"
-      size="min-w-4 h-4"
+      size="w-auto h-auto"
       padding="p-0"
       // twClasses={twClasses}
       onClick={onClick}

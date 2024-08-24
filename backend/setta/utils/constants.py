@@ -29,7 +29,7 @@ class Constants:
 
     @property
     def WEBSOCKET(self):
-        return f"ws://{self.HOST}:{self.PORT}"
+        return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}{self.ROUTE_WEBSOCKET_MANAGER}"
 
 
 C = Constants()
