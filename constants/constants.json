@@ -61,5 +61,6 @@
   "ARGS_PREFIX": "__",
   "WS_ALL_CONNECTIONS": "allConnections",
   "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
-  "WS_RUN_CODE": "runCode"
+  "WS_RUN_CODE": "runCode",
+  "CODE_FOLDER_ENV_VARIABLE": "SETTA_CODE_FOLDER"
 }

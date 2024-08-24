@@ -917,3 +917,26 @@
 # """
 
 # print(infer_imports(code))
+
+
+from setta.cli.logger import Setta, SettaNumpyImg
+import numpy as np
+
+
+s = Setta()
+
+img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+s.log({"test_folder/another_folder/img": SettaNumpyImg(img)}, save=True)
+
+
+# for i in range(5):
+#     img = model()
+#     s.send({"some/path/img": img}, save=True)
+
+
+
+
+# run table
+# columns:
+# - run_id (timestamp)
+# - data_path string

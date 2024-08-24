@@ -1,41 +1,34 @@
+import os
+from pathlib import Path
+
 import requests
 
-from .request_utils import post
+from setta.utils.constants import C
 
-
-class SettaLoginError(Exception):
+try:
+    from PIL import Image
+except ImportError:
     pass
 
 
 class Setta:
-    toLocation = None
-    run_id = None
-
     def __init__(self):
-        self.groupkey_to_ids = {}
+        self.root_path = Path(os.environ.get(C.CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
 
-    def log(self, group, key, value):
-        id_key = (group, key)
-        group = {"id": None, "name": group}
-        key = {"id": None, "name": key}
-        if id_key in self.groupkey_to_ids:
-            (group["id"], key["id"]) = self.groupkey_to_ids[id_key]
-            need_ids = False
-        else:
-            need_ids = True
+    def log(self, obj, save=False):
+        for rel_path, data in obj.items():
+            if save:
+                full_path = self.root_path / rel_path
+                directory = full_path.parent
+                directory.mkdir(parents=True, exist_ok=True)
+                data.save(full_path)
 
-        x = {
-            "type": "LOG",
-            "data": {"group": group, "key": key, "values": [value]},
-            "toLocation": self.toLocation,
-            "needIds": need_ids,
-            "runId": self.run_id,
-        }
-        r = post(requests, "logging", json=x)
 
-        if need_ids and r.status_code == 200:
-            returned_data = r.json()
-            self.groupkey_to_ids[id_key] = (
-                returned_data["groupId"],
-                returned_data["keyId"],
-            )
+class SettaNumpyImg:
+    def __init__(self, img, extension="png"):
+        self.img = img
+        self.extension = extension
+
+    def save(self, path):
+        pil_image = Image.fromarray(self.img)
+        pil_image.save(f"{path}.{self.extension}")

@@ -205,6 +205,9 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
 
+    env_variable_str = setta_code_folder_env_variable_str(folder_path)
+    command = f"{env_variable_str}{command}"
+
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
     elif command_callback:
@@ -281,3 +284,7 @@ def write_string_to_file(folder, filename, content):
     with open(file_path, "w") as file:
         file.write(content)
     return file_path
+
+
+def setta_code_folder_env_variable_str(folder_path):
+    return f"{C.CODE_FOLDER_ENV_VARIABLE}={folder_path} "
