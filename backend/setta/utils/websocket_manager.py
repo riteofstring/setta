@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 
 from fastapi import WebSocket
 
@@ -14,6 +15,7 @@ class WebsocketManager:
         self.server_cli_id = "main"
         self.tasks = tasks
         self.message_id_to_sender_id = {}
+        self.location_to_websocket_id = defaultdict(set)
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -29,6 +31,8 @@ class WebsocketManager:
 
     async def disconnect(self, id):
         del self.sockets[id]
+        for v in self.location_to_websocket_id.values():
+            v.remove(id)
         await self.broadcast_connections()
 
     async def send_message(self, message, fromWebsocketId):
@@ -57,10 +61,18 @@ class WebsocketManager:
                 websocket = self.sockets[wid]["websocket"]
                 await websocket.send_text(json.dumps(message))
 
+        if "location" in message:
+            self.location_to_websocket_id[message["location"]].add(fromWebsocketId)
+
     async def send_message_to_requester(self, id, content):
         # just send data to target websocket
         websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
         await websocket.send_text(json.dumps({"id": id, "content": content}))
+
+    async def send_message_to_location(self, content, location):
+        for wid in self.location_to_websocket_id.get(location, set()):
+            websocket = self.sockets[wid]["websocket"]
+            await websocket.send_text(json.dumps({"content": content}))
 
     async def broadcast(self, message):
         for s in self.sockets.values():

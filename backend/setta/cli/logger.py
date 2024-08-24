@@ -8,6 +8,7 @@ from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     HOST_ENV_VARIABLE,
     PORT_ENV_VARIABLE,
+    SEND_DATA_TO_ENV_VARIABLE,
     C,
     load_constants,
     set_constants,
@@ -20,14 +21,14 @@ except ImportError:
 
 
 class Setta:
-    def __init__(self, root_path=None):
+    def __init__(self):
         load_constants()
         set_constants(
             host=os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
             port=os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
         )
-        if root_path is None:
-            self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
+        self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
+        self.send_data_to = os.environ.get(SEND_DATA_TO_ENV_VARIABLE)
 
     def log(self, obj, save=False):
         data_to_send = {}
@@ -43,10 +44,10 @@ class Setta:
 
             data = data.serialize()
             data_to_send[rel_path] = data
-        
+
         requests.post(
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_DATA}",
-            json={"data": data_to_send},
+            json={"data": data_to_send, "sendDataTo": self.send_data_to},
             headers={"Content-Type": "application/json"},
         )
 

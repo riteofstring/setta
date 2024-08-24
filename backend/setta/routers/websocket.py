@@ -11,7 +11,8 @@ router = APIRouter()
 
 @router.websocket(C.ROUTE_WEBSOCKET_MANAGER)
 async def websocket_endpoint(
-    websocket: WebSocket, websocket_manager=Depends(get_websocket_manager_from_websocket)
+    websocket: WebSocket,
+    websocket_manager=Depends(get_websocket_manager_from_websocket),
 ):
     print("regular websocket", websocket)
     id = await websocket_manager.connect(websocket)

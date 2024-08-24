@@ -1,10 +1,12 @@
 import asyncio
 import copy
 import json
+import os
 import platform
 import time
 from asyncio import CancelledError
 from collections import defaultdict, deque
+from datetime import datetime
 
 import psutil
 from fastapi import WebSocketDisconnect
@@ -18,7 +20,7 @@ from setta.code_gen.find_placeholders import (
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
-from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
+from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, SEND_DATA_TO_ENV_VARIABLE, C
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
@@ -205,7 +207,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
 
-    env_variable_str = setta_code_folder_env_variable_str(folder_path)
+    env_variable_str = create_env_variable_str(folder_path, p["projectConfig"]["name"])
     command = f"{env_variable_str}{command}"
 
     if terminal_write_fn:
@@ -231,10 +233,6 @@ def codePathStr(folder_path, filename, codeLanguage):
 def codeCallStr(folder_path, section):
     codePath = codePathStr(folder_path, section["name"], section["codeLanguage"])
     return f"{languageToCall(section['codeLanguage'])} {codePath}\n"
-
-
-import os
-from datetime import datetime
 
 
 def topological_sort(objects):
@@ -286,5 +284,6 @@ def write_string_to_file(folder, filename, content):
     return file_path
 
 
-def setta_code_folder_env_variable_str(folder_path):
-    return f"{CODE_FOLDER_ENV_VARIABLE}={folder_path} "
+def create_env_variable_str(folder_path, project_config_name):
+    location = f"/{project_config_name}"
+    return f"{CODE_FOLDER_ENV_VARIABLE}={folder_path} {SEND_DATA_TO_ENV_VARIABLE}={location} "
