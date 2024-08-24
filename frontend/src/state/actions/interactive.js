@@ -6,6 +6,7 @@ import {
   useSectionInfos,
 } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
+import { setNotificationMessage } from "./notification";
 
 export function setInteractiveProjects(payload) {
   useInteractive.setState({ projects: new Set(payload) });
@@ -29,6 +30,8 @@ export async function updateInteractiveCode() {
       codeDict[id] = useSectionInfos.getState().x[id].code;
     }
   }
+  setNotificationMessage("Importing your code...")
   const res = await dbUpdateInteractiveCode(codeDict);
+  setNotificationMessage("Done importing")
   console.log(res.data);
 }

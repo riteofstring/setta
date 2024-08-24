@@ -106,7 +106,7 @@ def do_nothing(*args, **kwargs):
 
 
 class TaskDefinition(BaseModel):
-    name: str
+    name: Optional[str] = ""
     fn: Callable
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing

@@ -42,22 +42,38 @@ class Tasks:
             self.add_fns_from_module(module)
         print("add_fns_from_path", flush=True)
 
-    def add_fns_from_strings(self, codeDict):
+    def add_fns_from_strings(self, codeDict, project_config_name):
         error_msgs = {}
+        task_names = []
         for id, code in codeDict.items():
+            task_name = f"{project_config_name}-{id}"
             try:
                 module = import_code_from_string(code)
                 if module:
-                    self.add_fns_from_module(module)
+                    task_names.extend(
+                        self.add_fns_from_module(module, task_name=task_name)
+                    )
                 print("add_fns_from_string", self.fns, flush=True)
-            except Exception as e:
-                error_msgs[id] = str(e)
-        return error_msgs
 
-    def add_fns_from_module(self, module):
+            except Exception as e:
+                error_msgs[task_name] = str(e)
+        return task_names, error_msgs
+
+    def add_fns_from_module(self, module, task_name=None):
+        count = 1
+        task_names = []
         for attr in vars(module).values():
             if isinstance(attr, TaskDefinition):
+                if not attr.name:
+                    if not task_name:
+                        raise ValueError(
+                            "Either TaskDefinition must be initialized with a name, or task_name must be specified"
+                        )
+                    attr.name = f"{task_name}-{count}"
+                    count += 1
                 self.add_fn(attr)
+                task_names.append(attr.name)
+        return task_names
 
     @property
     def custom_fn_names(self):
