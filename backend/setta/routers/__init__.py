@@ -4,3 +4,4 @@ from .projects import router as projects_router
 from .sections import router as sections_router
 from .terminals import router as terminals_router
 from .websocket import router as websocket_router
+from .interactive import router as interactive_code_router

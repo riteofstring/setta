@@ -22,6 +22,7 @@ from setta.routers import (
     sections_router,
     terminals_router,
     websocket_router,
+    interactive_code_router
 )
 from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
@@ -108,6 +109,7 @@ app.include_router(terminals_router, **kwargs)
 app.include_router(websocket_router, **kwargs)
 app.include_router(code_info_router, **kwargs)
 app.include_router(misc_router, **kwargs)
+app.include_router(interactive_code_router, **kwargs)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

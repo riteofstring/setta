@@ -3,7 +3,7 @@ import os
 from typing import Dict
 
 from . import fns
-from .fns.utils import TaskDefinition, TaskMessage, import_from_path
+from .fns.utils import TaskDefinition, TaskMessage, import_from_path, import_code_from_string
 from .task_runner import TaskRunner
 
 
@@ -36,6 +36,12 @@ class Tasks:
         if module:
             self.add_fns_from_module(module)
         print("add_fns_from_path", flush=True)
+
+    def add_fns_from_string(self, code_string):
+        module = import_code_from_string(code_string)
+        if module:
+            self.add_fns_from_module(module)
+        print("add_fns_from_string", self.fns, flush=True)
 
     def add_fns_from_module(self, module):
         for attr in vars(module).values():

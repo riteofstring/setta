@@ -189,7 +189,8 @@ def generate_code(
 
 def replace_keywords(x, replacements):
     for key, value in replacements.items():
-        x = x.replace(double_braces(key), value)
+        if value is not None:
+            x = x.replace(double_braces(key), value)
     return x
 
 

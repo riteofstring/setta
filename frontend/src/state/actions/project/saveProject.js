@@ -20,6 +20,7 @@ import { DB_SOURCE_MAPPING } from "utils/constants";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
 import { getProjectConfigMetadata } from "./projectConfig";
+import { dbUpdateInteractiveCode } from "requests/interactive";
 
 export function getProjectData() {
   const projectConfig = getProjectConfigMetadata();
@@ -66,6 +67,8 @@ export function getProjectData() {
 
 export async function saveProject() {
   setNotificationMessage("Saving...");
+  const codeUpdateRes  = await dbUpdateInteractiveCode()
+  console.log(codeUpdateRes.data)
   const res = await dbSaveProject({ project: getProjectData() });
   if (res.status === 200) {
     setNotificationMessage("Saved!");
