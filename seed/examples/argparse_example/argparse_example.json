@@ -59,7 +59,7 @@
       "paramSweepId": null,
       "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b",
       "isHorizontalOrientation": false,
-      "outputs": []
+      "artifacts": []
     },
     "350241fe-50f9-44a9-8553-fb57eb72f881": {
       "id": "350241fe-50f9-44a9-8553-fb57eb72f881",
@@ -86,7 +86,7 @@
       "paramSweepId": null,
       "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
       "isHorizontalOrientation": false,
-      "outputs": []
+      "artifacts": []
     },
     "8d73c344-5501-4790-98ed-c00cb9d87393": {
       "id": "8d73c344-5501-4790-98ed-c00cb9d87393",
@@ -113,7 +113,7 @@
       "paramSweepId": null,
       "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc",
       "isHorizontalOrientation": false,
-      "outputs": []
+      "artifacts": []
     },
     "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
       "id": "c27f4f05-7a54-44e6-b222-c77581c4ea37",
@@ -144,7 +144,7 @@
       "paramSweepId": "e30db601-cda1-4b31-bafe-a8dd047af670",
       "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
       "isHorizontalOrientation": false,
-      "outputs": []
+      "artifacts": []
     }
   },
   "uiTypes": {},
@@ -384,7 +384,6 @@
       "positionalOnly": false
     }
   },
-  "outputs": {},
   "dbSourceMapping": {
     "default": "default",
     "settings": "default"
@@ -425,5 +424,6 @@
         "selectedItem": null
       }
     }
-  }
+  },
+  "artifacts": {}
 }
