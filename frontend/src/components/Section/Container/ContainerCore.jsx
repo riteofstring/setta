@@ -33,7 +33,7 @@ function _Container({
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
       >
-        <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a3e]" />
+        <div className="absolute left-0 right-0 top-0 z-0 h-full w-full rounded-3xl border border-solid border-[#ffffff62] bg-[#515f7056] outline outline-2  outline-transparent backdrop-blur dark:border-setta-700 dark:bg-[#06070a8e]" />
         <div className="relative z-10 flex h-7 items-center justify-between">
           <DeckSectionTitle sectionId={sectionId} />
         </div>
@@ -71,7 +71,7 @@ function DeckSectionTitle({ sectionId }) {
       "nodrag -mx-4 w-full cursor-auto self-stretch rounded-full bg-[#64748b83] dark:bg-setta-850 px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-500",
 
     notEditing:
-      "-mx-4 w-full truncate px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-600 cursor-pointer",
+      "-mx-4 w-full truncate px-4 font-heading text-2xl font-bold tracking-tighter text-setta-100 dark:text-setta-700 cursor-pointer",
   };
 
   return <SectionTitle sectionId={sectionId} titleProps={titleProps} />;

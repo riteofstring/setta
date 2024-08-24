@@ -16,7 +16,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
       ref={ref}
     >
       {waitingForResult ? (
-        <i className="section-args gg-spinner !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+        <i className="loader h-8 w-8 animate-spin rounded-full border-t-4 border-solid border-blue-500" />
       ) : (
         <GetParams
           sectionId={sectionId}
