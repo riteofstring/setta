@@ -61,7 +61,7 @@
   },
   "06b511f3-dced-43be-97d7-1ceaddc763d5": {
     "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-    "type": "OUTPUT",
+    "type": "ARTIFACT",
     "name": "",
     "presetType": "BASE",
     "config": {}

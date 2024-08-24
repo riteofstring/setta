@@ -161,9 +161,9 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
-    # SectionOutputs model
+    # SectionArtifacts model
     """
-    CREATE TABLE IF NOT EXISTS SectionOutputs (
+    CREATE TABLE IF NOT EXISTS SectionArtifacts (
         sectionId TEXT,
         outputPath TEXT,
         PRIMARY KEY (sectionId, outputPath),

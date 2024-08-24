@@ -91,7 +91,7 @@ export const useAllProjectConfigs = createProjectState(() => ({
   names: [],
 }));
 
-export const useOutputs = createProjectState(
+export const useArtifacts = createProjectState(
   immer(() => ({
     x: {},
   })),

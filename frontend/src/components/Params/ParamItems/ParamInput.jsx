@@ -4,8 +4,8 @@ import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/sectionVariants";
 import { useInteractive } from "state/definitions";
 import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
-import { ParamUI } from "../ParamUIs/ParamUI";
 import { createNewId } from "utils/idNameCreation";
+import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({
   sectionId,

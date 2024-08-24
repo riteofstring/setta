@@ -17,7 +17,6 @@ class SendDataRequest(BaseModel):
     rootPath: str
 
 
-
 @router.post(C.ROUTE_SEND_DATA)
 async def route_send_data(
     x: SendDataRequest, websocket_manager=Depends(get_websocket_manager)

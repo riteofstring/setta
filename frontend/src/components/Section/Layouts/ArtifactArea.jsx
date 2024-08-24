@@ -1,10 +1,10 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
 import React from "react";
-import { useOutputValues } from "state/hooks/outputs";
+import { useArtifactValues } from "state/hooks/artifacts";
 
-function _OutputArea({ sectionId }) {
-  const outputValues = useOutputValues(sectionId);
+function _ArtifactArea({ sectionId }) {
+  const outputValues = useArtifactValues(sectionId);
 
   // const data = useInteractive((x) => x.data);
   return (
@@ -36,4 +36,4 @@ function OneChart({ series, title }) {
   );
 }
 
-export const OutputArea = React.memo(_OutputArea);
+export const ArtifactArea = React.memo(_ArtifactArea);

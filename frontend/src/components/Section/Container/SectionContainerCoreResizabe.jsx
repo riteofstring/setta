@@ -3,12 +3,12 @@ import C from "constants/constants.json";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
+import { ArtifactArea } from "../Layouts/ArtifactArea";
 import { CodeArea } from "../Layouts/CodeArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
-import { OutputArea } from "../Layouts/OutputArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
@@ -112,8 +112,8 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <InputArea sectionId={sectionId} />;
     case C.REFERENCE_SECTION:
       return <ReferenceArea sectionId={sectionId} />;
-    case C.OUTPUT:
-      return <OutputArea sectionId={sectionId} />;
+    case C.ARTIFACT:
+      return <ArtifactArea sectionId={sectionId} />;
     case C.SOCIAL:
       return <SocialArea sectionId={sectionId} />;
     case C.INFO:

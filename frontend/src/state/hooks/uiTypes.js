@@ -88,8 +88,8 @@ export function useIsDeck(sectionId) {
   return useIsType(sectionId, C.DECK);
 }
 
-export function useIsOutput(sectionId) {
-  return useIsType(sectionId, C.OUTPUT);
+export function useIsArtifact(sectionId) {
+  return useIsType(sectionId, C.ARTIFACT);
 }
 
 export function useIsSocial(sectionId) {
@@ -114,7 +114,7 @@ export function useRequiredUIEditorTabs(sectionId) {
   switch (uiTypeType) {
     case C.INFO:
       return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB];
-    case C.OUTPUT:
+    case C.ARTIFACT:
     case C.SOCIAL:
       return [SECTION_CONFIG_TAB];
     default:

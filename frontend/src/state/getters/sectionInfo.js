@@ -30,7 +30,9 @@ export function getSectionIsRoot(sectionId) {
 }
 
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
-  return [C.OUTPUT, C.INFO, C.SOCIAL].includes(getSectionType(sectionId).type);
+  return [C.ARTIFACT, C.INFO, C.SOCIAL].includes(
+    getSectionType(sectionId).type,
+  );
 }
 
 export function getSectionIsDeck(sectionId) {

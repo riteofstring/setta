@@ -22,7 +22,7 @@ export const uiTypesToPretty = Object.freeze(
       [C.LIST_ROOT]: "List of Objects",
       [C.DICT_ROOT]: "Dict of Objects",
       [C.DECK]: "Deck",
-      [C.OUTPUT]: "Program Output",
+      [C.ARTIFACT]: "Program Artifact",
       [C.INFO]: "Info",
       [C.SOCIAL]: "Social",
       [C.GLOBAL_VARIABLES]: "Global Variables",
