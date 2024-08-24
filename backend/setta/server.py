@@ -17,12 +17,12 @@ from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from setta.routers import (
     code_info_router,
+    interactive_code_router,
     misc_router,
     projects_router,
     sections_router,
     terminals_router,
     websocket_router,
-    interactive_code_router
 )
 from setta.tasks.tasks import Tasks
 from setta.terminals.terminals import TerminalWebsockets
