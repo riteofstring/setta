@@ -13,6 +13,8 @@ BUILT_INS = set(dir(builtins))
 
 
 class Constants:
+    CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
+
     @property
     def FRONTEND_ORIGINS(self):
         if is_dev_mode():
@@ -30,6 +32,9 @@ class Constants:
     @property
     def WEBSOCKET(self):
         return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}{self.ROUTE_WEBSOCKET_MANAGER}"
+
+    def backend_api(self, route):
+        return f"{self.BACKEND}{self.ROUTE_PREFIX}{route}"
 
 
 C = Constants()

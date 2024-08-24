@@ -57,10 +57,10 @@
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
   "ROUTE_UPDATE_INTERACTIVE_CODE": "/updateInteractiveCode",
+  "ROUTE_SEND_DATA": "/sendData",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "WS_ALL_CONNECTIONS": "allConnections",
   "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
-  "WS_RUN_CODE": "runCode",
-  "CODE_FOLDER_ENV_VARIABLE": "SETTA_CODE_FOLDER"
+  "WS_RUN_CODE": "runCode"
 }

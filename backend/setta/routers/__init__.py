@@ -1,4 +1,5 @@
 from .code_info import router as code_info_router
+from .data import router as data_router
 from .interactive import router as interactive_code_router
 from .misc import router as misc_router
 from .projects import router as projects_router
