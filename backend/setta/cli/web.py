@@ -15,9 +15,7 @@ def web(websocket_id):
 
 async def connect(websocket_id):
     try:
-        extra_headers = {"isCLI": True}
-        if websocket_id:
-            extra_headers["websocketId"] = websocket_id
+        extra_headers = {} if not websocket_id else {"websocketId": websocket_id}
         async with websockets.connect(
             C.WEBSOCKET,
             extra_headers=extra_headers,
@@ -32,7 +30,7 @@ async def connect(websocket_id):
 async def consumer_handler(websocket):
     async for message in websocket:
         message = json.loads(message)
-        if message["messageType"] == C.WS_RUN_CODE:
+        if message["messageType"] == "runCode":
             runCode(message, command_callback=run_code_as_subprocess)
 
 

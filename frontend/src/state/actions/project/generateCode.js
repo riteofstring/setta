@@ -30,19 +30,23 @@ export async function runCode() {
   for (const projectVariant of getProjectRuns(project)) {
     computeEVReferences(projectVariant);
     project["infoToFullName"] = computeInfoToFullName(projectVariant);
-    let message = {
+    const message = JSON.stringify({
       id: codeId,
-      messageType: C.WS_RUN_CODE,
+      type: "runCode",
       content: projectVariant,
-    };
+    });
     if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-      sendMessage(message);
+      // TODO unify the sendMessage format with the above message format
+      sendMessage({
+        content: projectVariant,
+        id: codeId,
+        messageType: "runCode",
+      });
       continue;
     }
     const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
     if (res.status === 200) {
       const freeTerminalId = res.data;
-      message = JSON.stringify(message);
       if (freeTerminalId) {
         TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
       } else {

@@ -5,8 +5,6 @@ from pprint import pprint
 
 import docstring_parser
 
-from setta.utils.constants import C
-
 from .server import LanguageServerInteractor
 
 type_mapping = {
@@ -243,7 +241,7 @@ class LanguageServerReader(LanguageServerInteractor):
             content = process_diagnostics(diagnostics, code_split, codeJson)
             # print("content", content, flush=True)
             await self.websocket_manager.broadcast(
-                {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+                {"messageType": "diagnostics", "content": content}
             )
 
         # print(self.received_messages.keys())

@@ -59,14 +59,6 @@ export function PaneContextMenu() {
       </Item>
       <Item
         onClick={getOnClickFn({
-          type: C.INTERACTIVE_CODE,
-          inputSectionProps: { codeLanguage: "python" },
-        })}
-      >
-        New Interactive Python Script
-      </Item>
-      <Item
-        onClick={getOnClickFn({
           type: C.CODE,
           inputSectionProps: { codeLanguage: "bash" },
         })}

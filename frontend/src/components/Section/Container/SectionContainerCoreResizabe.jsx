@@ -40,11 +40,15 @@ export function SectionContainerCoreResizable({
     if (isActiveSection && isGlobalVariables) {
       return "outline-green-600 dark:outline-turquoise-400";
     }
+    if (isInOtherProjectConfigs) {
+      if (isActiveSection) {
+        return "outline-purple-600 dark:outline-purple-700";
+      }
+      return "outline-transparent active:outline-fuchsia-400";
+    }
+
     if (isActiveSection) {
       return "outline-blue-600 dark:outline-blue-700";
-    }
-    if (isInOtherProjectConfigs) {
-      return "outline-purple-600 dark:outline-purple-700";
     }
 
     return "outline-transparent active:outline-cyan-300";
@@ -93,6 +97,7 @@ export function SectionContainerCoreResizable({
           isGlobalVariables={isGlobalVariables}
           isInfo={isInfo}
           sectionTypeName={sectionTypeName}
+          isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
         <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
@@ -116,7 +121,6 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
     case C.GLOBAL_VARIABLES:
       return <GlobalVariablesArea sectionId={sectionId} />;
     case C.CODE:
-    case C.INTERACTIVE_CODE:
     case C.VAR_CONTROL:
       return <CodeArea sectionId={sectionId} />;
     case C.PARAM_SWEEP:

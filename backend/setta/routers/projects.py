@@ -81,10 +81,7 @@ def route_load_project_config_names(dbs=Depends(get_dbs)):
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
-def route_load_project_config(
-    x: ProjectLoadRequest,
-    dbs=Depends(get_dbs),
-):
+def route_load_project_config(x: ProjectLoadRequest, dbs=Depends(get_dbs)):
     with dbs:
         return load_project_config(dbs, x.projectConfigName)
 

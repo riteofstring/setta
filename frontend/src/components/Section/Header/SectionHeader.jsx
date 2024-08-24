@@ -17,6 +17,7 @@ function _SectionHeader({
   sectionTypeName,
   isGlobalVariables,
   isInfo,
+  isInOtherProjectConfigs,
 }) {
   const onCustomCloseButtonClick = (e) => {
     // ignore onClick events in parent components
@@ -34,12 +35,17 @@ function _SectionHeader({
     <header className="section-title mx-2 flex flex-row items-center">
       {!isInfo && (
         <>
-          <MenuButton sectionId={sectionId} sectionTypeName={sectionTypeName} />
+          <MenuButton
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            isInOtherProjectConfigs={isInOtherProjectConfigs}
+          />
 
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
             isGlobalVariables={isGlobalVariables}
+            isInOtherProjectConfigs={isInOtherProjectConfigs}
           />
         </>
       )}
@@ -80,7 +86,12 @@ function _SectionHeader({
   );
 }
 
-function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
+function CardTitle({
+  sectionId,
+  isActiveSection,
+  isGlobalVariables,
+  isInOtherProjectConfigs,
+}) {
   // const isSearchResult = useProjectSearch((x) =>
   //   x.sections.includes(sectionId)
   // );
@@ -93,6 +104,7 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
         isActiveSection,
         isGlobalVariables,
         sectionId,
+        isInOtherProjectConfigs,
       })}
     />
     // </div>
@@ -101,18 +113,25 @@ function CardTitle({ sectionId, isActiveSection, isGlobalVariables }) {
 
 export const SectionHeader = React.memo(_SectionHeader);
 
-function getTitleStyles({ isActiveSection, isGlobalVariables, sectionId }) {
+function getTitleStyles({
+  isActiveSection,
+  isGlobalVariables,
+  sectionId,
+  isInOtherProjectConfigs,
+}) {
   const sectionTypeName = useSectionTypeName(sectionId);
   const editing =
     "cursor-text font-heading nodrag px-2 py-0 leading-5 -ml-2 bg-setta-200 dark:bg-setta-900 rounded-full w-3/5 dark:text-white font-semibold text-[.7rem] tracking-tight";
 
   const notEditing = `transition-colors font-heading leading-5 tracking-tight cursor-pointer max-w-full text-[.7rem] truncate ${
     isActiveSection
-      ? isGlobalVariables
-        ? "text-green-800 dark:text-green-200"
-        : sectionTypeName === C.TERMINAL
-          ? "text-blue-400"
-          : "text-blue-600 dark:text-blue-400"
+      ? isInOtherProjectConfigs
+        ? "text-purple-800 dark:text-purple-200"
+        : isGlobalVariables
+          ? "text-green-800 dark:text-green-200"
+          : sectionTypeName === C.TERMINAL
+            ? "text-blue-400"
+            : "text-blue-600 dark:text-blue-400"
       : sectionTypeName === C.TERMINAL
         ? "text-setta-300"
         : "text-setta-700 dark:text-setta-300"

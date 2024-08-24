@@ -1,5 +1,5 @@
 import { Badge } from "components/Utils/atoms/badges/badge";
-import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
+import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { setWebsocketConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
@@ -7,9 +7,9 @@ import { useCLIWebsocketConnectionList } from "state/hooks/websocket";
 
 export function WebsocketConnections() {
   return (
-    <MenuDropdown trigger="CLI">
+    <NavbarMenuDropdown trigger="CLI">
       <ConnectionList />
-    </MenuDropdown>
+    </NavbarMenuDropdown>
   );
 }
 

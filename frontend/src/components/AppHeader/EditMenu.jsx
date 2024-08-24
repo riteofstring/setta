@@ -1,5 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
+import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import C from "constants/constants.json";
 import _ from "lodash";
@@ -12,9 +12,9 @@ import { useSettings } from "state/definitions";
 
 export function EditMenu() {
   return (
-    <MenuDropdown trigger="Edit">
+    <NavbarMenuDropdown trigger="Edit">
       <Items />
-    </MenuDropdown>
+    </NavbarMenuDropdown>
   );
 }
 

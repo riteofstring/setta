@@ -35,7 +35,7 @@ export function TextInputCodeMirror({
   function localOnBlur() {
     // hack to prevent codemirror from
     // blocking other inputs on blur
-    // https://github.com/uiwjs/react-codemirror/issues/677
+    // https://github.com/uiwjs/react-codemirror/issues/677 
     setTimeout(() => {
       setActivationEvent(null);
       setRealIsInitialized(false);
