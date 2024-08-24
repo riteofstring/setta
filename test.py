@@ -917,10 +917,3 @@
 # """
 
 # print(infer_imports(code))
-
-def fn(message, )
-    c = 2
-    x = [i for i in range(20)]
-    y = [((i - 10) / 5) ** float(c) for i in range(20)]
-    content = list(zip(x, y))
-    print(content)
