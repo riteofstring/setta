@@ -46,7 +46,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3dbb4893-bd44-4e67-a6c3-1148d7205d42"],
+      "variantIds": [
+        "3dbb4893-bd44-4e67-a6c3-1148d7205d42"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -71,7 +73,9 @@
       "codeLanguage": "python",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3ec298ce-5d49-42f8-8700-3e2efb26855b"],
+      "variantIds": [
+        "3ec298ce-5d49-42f8-8700-3e2efb26855b"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -96,7 +100,9 @@
       "codeLanguage": "bash",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["40fd1a3c-6fca-4b87-b427-5bee353cef09"],
+      "variantIds": [
+        "40fd1a3c-6fca-4b87-b427-5bee353cef09"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "outputGroup": null,
@@ -121,7 +127,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["dc1879dd-4591-46c0-8fc6-f733c6b177ca"],
+      "variantIds": [
+        "dc1879dd-4591-46c0-8fc6-f733c6b177ca"
+      ],
       "paramSweepIds": [
         "e30db601-cda1-4b31-bafe-a8dd047af670",
         "4fe62be1-f939-4d84-9c3f-f20412754e0c"
@@ -157,15 +165,7 @@
         "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
         "nonPresetUITypeIds": []
       },
-      "305eb7df-068a-419a-a321-2bf87d2c833b": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
       "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
-        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        "nonPresetUITypeIds": []
-      },
-      "0da2c277-e1d8-4838-ba1a-71d5638a4ade": {
         "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
         "nonPresetUITypeIds": []
       },
@@ -193,7 +193,10 @@
       "sweep": [
         {
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-          "values": ["Kevin", "Jeff"]
+          "values": [
+            "Kevin",
+            "Jeff"
+          ]
         }
       ]
     },
@@ -202,7 +205,10 @@
       "sweep": [
         {
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-          "values": ["Aaron", "Joseph"]
+          "values": [
+            "Aaron",
+            "Joseph"
+          ]
         }
       ]
     }
@@ -233,23 +239,9 @@
       "isFrozen": 0,
       "isSelected": 0,
       "children": [
-        "305eb7df-068a-419a-a321-2bf87d2c833b",
         "61948f59-832b-4a29-9dac-facf187f8fc3",
         "af82bade-133f-4878-9688-91672f8fa2ee"
       ],
-      "positionalOnly": false
-    },
-    "305eb7df-068a-419a-a321-2bf87d2c833b": {
-      "id": "305eb7df-068a-419a-a321-2bf87d2c833b",
-      "name": "astrology_sign",
-      "editable": 1,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "isPinned": 0,
-      "isFrozen": 0,
-      "isSelected": 0,
-      "children": [],
       "positionalOnly": false
     },
     "61948f59-832b-4a29-9dac-facf187f8fc3": {
@@ -263,27 +255,13 @@
       "isFrozen": 0,
       "isSelected": 0,
       "children": [
-        "80b6429e-fbb9-4070-a574-b32e0e061ab4",
-        "0da2c277-e1d8-4838-ba1a-71d5638a4ade"
+        "80b6429e-fbb9-4070-a574-b32e0e061ab4"
       ],
       "positionalOnly": false
     },
     "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
       "id": "80b6429e-fbb9-4070-a574-b32e0e061ab4",
       "name": "meaning",
-      "editable": 1,
-      "rcType": "parameter",
-      "defaultVal": null,
-      "description": "",
-      "isPinned": 0,
-      "isFrozen": 0,
-      "isSelected": 0,
-      "children": [],
-      "positionalOnly": false
-    },
-    "0da2c277-e1d8-4838-ba1a-71d5638a4ade": {
-      "id": "0da2c277-e1d8-4838-ba1a-71d5638a4ade",
-      "name": "hair_style",
       "editable": 1,
       "rcType": "parameter",
       "defaultVal": null,
@@ -304,7 +282,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": ["0eac6e6f-6f26-47af-a9a3-89d9c365b26b"],
+      "children": [
+        "0eac6e6f-6f26-47af-a9a3-89d9c365b26b"
+      ],
       "positionalOnly": false
     },
     "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
@@ -436,9 +416,7 @@
           "03b6a0ad-0815-4697-af57-167d2accc06a": "31",
           "20fe3b32-be65-4b59-9f32-013435901dcc": "",
           "61948f59-832b-4a29-9dac-facf187f8fc3": "",
-          "305eb7df-068a-419a-a321-2bf87d2c833b": "\"cancer\"",
           "80b6429e-fbb9-4070-a574-b32e0e061ab4": "\"very sexy\"",
-          "0da2c277-e1d8-4838-ba1a-71d5638a4ade": "\"doodoo\"",
           "af82bade-133f-4878-9688-91672f8fa2ee": "",
           "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": "\"grave music\"",
           "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": "false",
