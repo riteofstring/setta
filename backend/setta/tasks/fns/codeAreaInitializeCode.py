@@ -61,8 +61,7 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     )
 
     return {
-        "output": None,
-        "name": "codeAreaInitializeCode",
+        "content": None,
         "cache": [
             gen_code,
             num_gen_code_lines,
@@ -79,7 +78,7 @@ def get_cache_key(projectConfigId, sectionId):
 
 def write_cache(cache, message, result):
     print("writing to cache", cache)
-    if result["cache"] is None:
+    if result.get("cache") is None:
         return
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     cache[
@@ -90,6 +89,7 @@ def write_cache(cache, message, result):
 
 codeAreaInitializeCode = TaskDefinition(
     name="codeAreaInitializeCode",
+    return_message_type="codeAreaInitializeCodeReturn",
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,

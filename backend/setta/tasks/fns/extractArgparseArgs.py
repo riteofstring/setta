@@ -11,11 +11,12 @@ class ExtractArgparseArgsMessage(TaskMessage):
 def _extractArgparseArgs(message: ExtractArgparseArgsMessage):
     script_path = message.content
     output = extract_args_from_help(script_path)
-    return {"output": output, "name": "extractArgparseArgs", "cache": None}
+    return {"content": output}
 
 
 extractArgparseArgs = TaskDefinition(
     name="extractArgparseArgs",
+    return_message_type="extractArgparseArgsReturn",
     fn=_extractArgparseArgs,
     run_as=RunType.THREAD,
 )

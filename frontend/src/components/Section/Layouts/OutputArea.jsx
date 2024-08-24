@@ -1,23 +1,25 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
 import React from "react";
-import { useInteractive } from "state/definitions";
+import { useGetSelectedOutputValues } from "state/hooks/sectionContents";
 
 function _OutputArea({ sectionId }) {
-  // const group = useGetSelectedOutputValues(sectionId);
-  // if (!group) {
-  // return null;
-  // }
-  const data = useInteractive((x) => x.data);
-  return data && <OneChart series={data} title={"test"} />;
+  const group = useGetSelectedOutputValues(sectionId);
+  console.log("group", group)
+  if (!group) {
+    return null;
+  }
+  
+  // const data = useInteractive((x) => x.data);
+  return group && <OneChart series={group} title={"test"} />;
 }
 
 function OneChart({ series, title }) {
-  // const seriesWithX = series.map((s) => ({
-  //   ...s,
-  //   values: s.values.map((y, i) => ({ x: i, y })),
-  // }));
-  const seriesWithX = [{ values: series.map((y, i) => ({ x: i, y })) }];
+  const seriesWithX = series.map((s) => ({
+    ...s,
+    values: s.values.map((y, i) => ({ x: i, y })),
+  }));
+  // const seriesWithX = [{ values: series.map((y, i) => ({ x: i, y })) }];
   return (
     <figure className="card-figure">
       <ParentSize

@@ -50,7 +50,6 @@ export const useInfoView = createProjectState(() => ({
 
 export const useInteractive = create(() => ({
   taskNames: [],
-  data: null,
 }));
 
 export const useKeywordRegex = create(() => ({

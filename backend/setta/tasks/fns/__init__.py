@@ -4,4 +4,4 @@ from .codeAreaInitializeCode import codeAreaInitializeCode
 from .extractArgparseArgs import extractArgparseArgs
 from .parametersRequest import parametersRequest
 from .textFieldInitializeCode import textFieldInitializeCode
-from .utils import TaskDefinition
+from .utils import InteractiveTaskDefinition, TaskDefinition

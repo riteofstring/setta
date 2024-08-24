@@ -4,8 +4,8 @@
     "name": "interactive_example",
     "isDefault": 0,
     "viewport": {
-      "x": 120.35402187891509,
-      "y": -93.12782902455382,
+      "x": -80.64597812108485,
+      "y": -62.127829024553876,
       "zoom": 0.6717517128606485
     },
     "previewImgNodes": "[{\"x\":1164,\"y\":189,\"w\":202,\"h\":302},{\"x\":430,\"y\":563,\"w\":610,\"h\":318},{\"x\":550,\"y\":189,\"w\":202,\"h\":192}]",
@@ -241,7 +241,7 @@
       "uiTypeColId": "ecab60b1-3cd7-4947-a61b-ccbef507c9ae",
       "social": null,
       "description": "",
-      "code": "from setta.tasks.fns import TaskDefinition\n\ndef fn(message):\n    c = message.content\n    return {\n        \"output\": [((i - 10) / 5) ** float(c) for i in range(20)],\n        \"name\": \"interactive\",\n        \"cache\": None,\n    }\n\n\ninteractive_example = TaskDefinition(fn=fn)",
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    c = message.content\n    return {\n        \"content\": [((i - 10) / 5) ** float(c) for i in range(20)],\n    }\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
       "codeLanguage": "python",
       "isFrozen": 0,
       "dbSource": "",

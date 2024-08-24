@@ -5,18 +5,17 @@ import { ParamSwitch } from "./ParamSwitch";
 export function GetParamSwitch({ sectionId, parentId, infos, setDidUpdate }) {
   const paramFilter = useSectionParamFilter((x) => x.x[sectionId]);
   const filteredInfos = paramFilter
-    ? matchSorter(infos, paramFilter, { keys: ["paramInfo.name"] })
+    ? matchSorter(infos, paramFilter, { keys: ["name"] })
     : infos;
 
-  return filteredInfos.map(({paramInfo, depth}, idx) => (
+  return filteredInfos.map((e, idx) => (
     <ParamSwitch
-      key={`${paramInfo.name}-${idx}`}
+      key={`${e.name}-${idx}`}
       sectionId={sectionId}
       parentId={parentId}
-      paramInfo={paramInfo}
-      isKwarg={paramInfo.editable}
+      paramInfo={e}
+      isKwarg={e.editable}
       setDidUpdate={setDidUpdate}
-      depth={depth}
     />
   ));
 }
