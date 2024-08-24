@@ -13,11 +13,15 @@ router = APIRouter()
 class SendDataRequest(BaseModel):
     data: Dict[str, Any]
     sendDataTo: str
+    isSaved: bool
+    rootPath: str
+
 
 
 @router.post(C.ROUTE_SEND_DATA)
 async def route_send_data(
     x: SendDataRequest, websocket_manager=Depends(get_websocket_manager)
 ):
-    print("route_send_data", x, flush=True)
-    await websocket_manager.send_message_to_location(x.data, x.sendDataTo)
+    x = x.dict()
+    location = x.pop("sendDataTo")
+    await websocket_manager.send_message_to_location(x, location)

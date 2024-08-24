@@ -62,12 +62,10 @@ def load_sections(dbs, ids):
     sections = {}
     for v in db.fetchall():
         v = dict(v)
-        outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
-            "outputGroup": outputGroup,
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []

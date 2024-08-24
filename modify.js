@@ -7,7 +7,11 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    delete json.projectConfig.interactivePath
+    delete json.outputGroups
+    for (const s of Object.values(json.sections)){
+      delete s.outputGroup
+      s.outputs = []
+    }
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file
     fs.writeFileSync(filePath, JSON.stringify(json, null, 2), "utf8");

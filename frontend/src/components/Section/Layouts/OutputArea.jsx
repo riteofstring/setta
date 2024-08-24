@@ -1,17 +1,15 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
 import React from "react";
-import { useGetSelectedOutputValues } from "state/hooks/sectionContents";
+import { useOutputValues } from "state/hooks/outputs";
 
 function _OutputArea({ sectionId }) {
-  const group = useGetSelectedOutputValues(sectionId);
-  console.log("group", group)
-  if (!group) {
-    return null;
-  }
-  
+  const outputValues = useOutputValues(sectionId);
+
   // const data = useInteractive((x) => x.data);
-  return group && <OneChart series={group} title={"test"} />;
+  return (
+    outputValues.length > 0 && <OneChart series={outputValues} title={"test"} />
+  );
 }
 
 function OneChart({ series, title }) {

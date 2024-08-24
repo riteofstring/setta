@@ -9,8 +9,6 @@ import {
 } from "utils/constants";
 import { setAllCodeInfo } from "../codeInfo";
 import { setNodes } from "../nodeInternals";
-import { setAllOutputGroups } from "../outputs/outputGroups";
-import { setAllOutputs } from "../outputs/outputs";
 import { setAllParamSweeps } from "../runGroups/paramSweep";
 import { setAllRunGroups } from "../runGroups/runGroups";
 import { updateManyParamsAndCallables } from "../sections/sectionContents";
@@ -41,8 +39,6 @@ export function loadProjectState({
   uiTypeCols,
   paramSweeps,
   runGroups,
-  outputs,
-  outputGroups,
   dbSourceMapping,
 }) {
   setDbSourceMapping(dbSourceMapping);
@@ -62,8 +58,6 @@ export function loadProjectState({
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
   setAllSectionInfos({ sections, sectionConfigs });
-  setAllOutputs(outputs);
-  setAllOutputGroups(outputGroups);
   updateManyParamsAndCallables(Object.keys(sections));
   maybeIncrementProjectStateVersion(true, false);
   return true;

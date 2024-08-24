@@ -47,7 +47,12 @@ class Setta:
 
         requests.post(
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_DATA}",
-            json={"data": data_to_send, "sendDataTo": self.send_data_to},
+            json={
+                "data": data_to_send,
+                "sendDataTo": self.send_data_to,
+                "isSaved": save,
+                "rootPath": str(self.root_path),
+            },
             headers={"Content-Type": "application/json"},
         )
 

@@ -91,12 +91,6 @@ export const useAllProjectConfigs = createProjectState(() => ({
   names: [],
 }));
 
-export const useOutputGroups = createProjectState(
-  immer(() => ({
-    x: {},
-  })),
-);
-
 export const useOutputs = createProjectState(
   immer(() => ({
     x: {},

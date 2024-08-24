@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { useCodeInfo, useSectionToParams } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
-import { useOutputValues } from "./outputs";
 import { useGetSectionInfo } from "./sections";
 
 export function useGetAllCallables(sectionId) {
@@ -30,11 +29,6 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
     (x) => assembleCollectionsForSectionConfig(x.x, collections),
     _.isEqual,
   );
-}
-
-export function useGetSelectedOutputValues(sectionId) {
-  const groupId = useGetSectionInfo(sectionId, "outputGroup");
-  return useOutputValues(groupId);
 }
 
 export function useHasParams(sectionId) {
