@@ -36,13 +36,12 @@ def parametersRequestFn(lsp_writer, use_jedi=False):
 
 
 async def _parametersRequest(message, lsp_writer):
-    return await completionHelper(
-        message, "parameters", parametersRequestFn(lsp_writer)
-    )
+    return await completionHelper(message, parametersRequestFn(lsp_writer))
 
 
 parametersRequest = TaskDefinition(
     name="parametersRequest",
+    return_message_type="parametersRequestReturn",
     fn=_parametersRequest,
     read_cache=read_cache,
     run_as=RunType.THREAD,

@@ -3,12 +3,7 @@ import os
 from typing import Dict
 
 from . import fns
-from .fns.utils import (
-    TaskDefinition,
-    TaskMessage,
-    import_code_from_string,
-    import_from_path,
-)
+from .fns.utils import TaskDefinition, TaskMessage, import_code_from_string
 from .task_runner import TaskRunner
 
 
@@ -29,10 +24,11 @@ class Tasks:
             fn_args = [message, *(getattr(self, k) for k in fn.dependencies)]
             result = await self.task_runner.run(message.id, fn.fn, fn_args, fn.run_as)
             fn.write_cache(self.cache, message, result)
+            result["messageType"] = fn.return_message_type
             return result
         except asyncio.CancelledError:
             print(f"Task for {message.id} was cancelled.", flush=True)
-            return {"output": None, "name": None}
+            return {"content": None, "messageType": None}
 
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def

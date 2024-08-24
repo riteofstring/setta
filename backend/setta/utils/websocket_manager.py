@@ -35,21 +35,19 @@ class WebsocketManager:
         if "toWebsocketId" in message:
             if "id" in message:
                 self.message_id_to_sender_id[message["id"]] = fromWebsocketId
-            wid = message["toWebsocketId"]
-            if wid == self.server_cli_id:
+            if message["toWebsocketId"] == self.server_cli_id:
                 # process task and send any results back to requester
                 result = await self.tasks(
                     message["messageType"], TaskMessage.parse_obj(message)
                 )
-                if result["output"]:
+                if result["content"]:
                     websocket = self.sockets[fromWebsocketId]["websocket"]
                     await websocket.send_text(
                         json.dumps(
                             {
                                 "id": message["id"],
-                                "content": result["output"],
-                                "toWebsocketId": wid,
-                                "messageType": result["name"],
+                                "content": result["content"],
+                                "messageType": result["messageType"],
                             }
                         )
                     )
