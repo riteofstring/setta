@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { updateArtifacts } from "state/actions/artifacts/artifacts";
 import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
 import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
@@ -40,7 +41,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     useTypeErrors.setState(m.content, true);
   } else if (m.messageType === C.WS_ARTIFACT) {
-    console.log(m);
+    updateArtifacts(m.content);
   } else if (m.id) {
     setWebsocketRoomMessage(m.id, m.content);
   }

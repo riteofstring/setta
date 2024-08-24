@@ -19,7 +19,8 @@ def load_sections(dbs, ids):
             S.*,
             U.nonPresetUITypeIds,
             E.variantIds,
-            P.paramSweepIds
+            P.paramSweepIds,
+            A.artifacts
         FROM
             Section S
         LEFT JOIN
@@ -52,6 +53,16 @@ def load_sections(dbs, ids):
                 GROUP BY
                     originSectionId
             ) AS P ON S.id = P.originSectionId
+        LEFT JOIN
+            (
+                SELECT
+                    sectionId,
+                    GROUP_CONCAT(artifactPath) AS artifacts
+                FROM
+                    SectionArtifacts
+                GROUP BY
+                    sectionId
+            ) AS A ON S.id = A.sectionId
         WHERE
             S.id IN ({placeholders})
         GROUP BY
@@ -67,6 +78,7 @@ def load_sections(dbs, ids):
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
+            "artifacts": v["artifacts"].split(",") if v["artifacts"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
