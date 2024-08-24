@@ -72,10 +72,14 @@ function _ParamContainer({
   // dark:[&_has(~_.args-close-btn)]:hover:text-setta-600
   // section-w-full grid grid-cols-subgrid [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50
 
+  // [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400
+
+  // [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400
+
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-w-full group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400  ${bg} ${border}`}
+        className={`section-w-full group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2   ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
         <IconButton
@@ -100,9 +104,9 @@ function _ParamContainer({
         <PinButton
           sectionId={sectionId}
           paramInfoId={paramInfo.id}
-          variants="justify-self-end self-center section-key"
+          variants="justify-self-end self-center section-key bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
         />
-        <ParamOptionsButton />
+        <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -110,7 +114,7 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 ${bg} ${border}`}
+      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
       <IconButton
@@ -135,9 +139,9 @@ function _ParamContainer({
       <PinButton
         sectionId={sectionId}
         paramInfoId={paramInfo.id}
-        variants="justify-self-end self-center section-value mr-6"
+        variants="justify-self-end self-center section-value mr-6 bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
       />
-      <ParamOptionsButton />
+      <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
     </article>
   );
 }
