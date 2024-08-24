@@ -40,6 +40,7 @@ function receiveMessage(message) {
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === "interactive") {
+    console.log("interactive", m)
     setInteractiveData(m["content"]);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     useTypeErrors.setState(m.content, true);

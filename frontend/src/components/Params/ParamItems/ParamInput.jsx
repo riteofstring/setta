@@ -1,9 +1,10 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
+import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/sectionVariants";
+import { useInteractive } from "state/definitions";
 import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
-import { useGetParamUIType } from "state/hooks/uiTypes";
+import { createNewId } from "utils/idNameCreation";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({
@@ -23,6 +24,7 @@ export function ParamInput({
     setValue(vStr);
     setEnteredValue(vStr);
     setDidUpdate(true);
+    sendToInteractiveTasks(vStr)
   }
 
   const setEnteredValue = useCallback(
