@@ -38,7 +38,6 @@ CREATE_TABLES_COMMANDS = [
         uiTypeId TEXT,
         uiTypeColId TEXT,
         social TEXT,
-        outputGroupId TEXT,
         description TEXT,
         code TEXT,
         codeLanguage TEXT,
@@ -48,7 +47,6 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
-        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE,
         FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
@@ -163,34 +161,13 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
-    # Run model
+    # SectionOutputs model
     """
-    CREATE TABLE IF NOT EXISTS Run (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        projectConfigId TEXT,
-        code TEXT,
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
-    );
-    """,
-    # OutputGroup model
-    """
-    CREATE TABLE IF NOT EXISTS OutputGroup (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        runId TEXT,
-        UNIQUE (name, runId),
-        FOREIGN KEY (runId) REFERENCES Run(id) ON DELETE CASCADE
-    );
-    """,
-    # Output model
-    """
-    CREATE TABLE IF NOT EXISTS Output (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        "values" REAL,
-        outputGroupId TEXT,
-        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE
+    CREATE TABLE IF NOT EXISTS SectionOutputs (
+        sectionId TEXT,
+        outputPath TEXT,
+        PRIMARY KEY (sectionId, outputPath),
+        FOREIGN KEY (sectionId) REFERENCES Section(id)
     );
     """,
     """

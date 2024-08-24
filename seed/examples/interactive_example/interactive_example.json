@@ -4,21 +4,26 @@
     "name": "interactive_example",
     "isDefault": 0,
     "viewport": {
-      "x": -80.64597812108485,
-      "y": -62.127829024553876,
-      "zoom": 0.6717517128606485
+      "x": 434.12813213630045,
+      "y": -304.4128115765542,
+      "zoom": 1.0482624755169365
     },
-    "previewImgNodes": "[{\"x\":1164,\"y\":189,\"w\":202,\"h\":302},{\"x\":430,\"y\":563,\"w\":610,\"h\":318},{\"x\":550,\"y\":189,\"w\":202,\"h\":192}]",
+    "previewImgNodes": "[{\"x\":1164,\"y\":189,\"w\":202,\"h\":302},{\"x\":-2,\"y\":363,\"w\":502,\"h\":370},{\"x\":430,\"y\":563,\"w\":610,\"h\":318},{\"x\":550,\"y\":189,\"w\":202,\"h\":192}]",
     "children": {
       "1d3b6524-17bf-48f3-9954-794affcc58a8": {
         "x": 1164,
         "y": 188.70833206176758,
         "zIndex": 0
       },
+      "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
+        "x": -2.015658245438601,
+        "y": 363.41973433151026,
+        "zIndex": 4
+      },
       "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
         "x": 429.6914657528579,
         "y": 562.8981985238265,
-        "zIndex": 3
+        "zIndex": 2
       },
       "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
         "x": 550,
@@ -39,6 +44,12 @@
       },
       "0723f95a-e74c-4c1e-9aea-2eacad673293": {
         "name": "intensive_ivory",
+        "selectedItem": null,
+        "values": {},
+        "children": []
+      },
+      "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
+        "name": "ratty_red",
         "selectedItem": null,
         "values": {},
         "children": []
@@ -202,6 +213,7 @@
         "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
       }
     },
+    "ce01027b-26ed-4ea2-971a-fefde787cbb2": {},
     "ecab60b1-3cd7-4947-a61b-ccbef507c9ae": {}
   },
   "paramSweeps": {},
@@ -230,6 +242,32 @@
         "height": "auto"
       },
       "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
+      "paramSweepId": null,
+      "isHorizontalOrientation": 0
+    },
+    "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
+      "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
+      "name": "Code",
+      "paramSweepSectionId": null,
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
+      "uiTypeColId": "ce01027b-26ed-4ea2-971a-fefde787cbb2",
+      "social": null,
+      "description": "",
+      "code": "{{ SETTA_GENERATED_CODE }}\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\n# img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\n# s.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\nc = 3\nlosses = [((i - 10) / 5) ** float(c) for i in range(20)]\ns.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
+      "codeLanguage": "python",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "15dc4270-4e4e-4799-93eb-c309801d6349",
+      "nonPresetUITypeIds": [],
+      "variantIds": ["56218716-8dc7-4a8b-a253-1eb2bb9cfc56"],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": false,
+      "outputGroup": null,
+      "size": {
+        "width": 500,
+        "height": "auto"
+      },
+      "variantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56",
       "paramSweepId": null,
       "isHorizontalOrientation": 0
     },
@@ -289,6 +327,19 @@
   "codeInfo": {
     "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1": {
       "id": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": []
+    },
+    "15dc4270-4e4e-4799-93eb-c309801d6349": {
+      "id": "15dc4270-4e4e-4799-93eb-c309801d6349",
       "name": "Contents",
       "editable": 0,
       "rcType": "collection",
