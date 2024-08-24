@@ -60,6 +60,7 @@ function _CodeArea({ sectionId }) {
     language,
     completionsFn,
     keywordStylizer,
+    onModEnterDoNothing: true,
   });
 
   function onChange(v) {

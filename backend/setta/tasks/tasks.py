@@ -42,14 +42,17 @@ class Tasks:
             self.add_fns_from_module(module)
         print("add_fns_from_path", flush=True)
 
-    def add_fns_from_string(self, code_string):
-        try:
-            module = import_code_from_string(code_string)
-            if module:
-                self.add_fns_from_module(module)
-            print("add_fns_from_string", self.fns, flush=True)
-        except Exception as e:
-            return e
+    def add_fns_from_strings(self, codeDict):
+        error_msgs = {}
+        for id, code in codeDict.items():
+            try:
+                module = import_code_from_string(code)
+                if module:
+                    self.add_fns_from_module(module)
+                print("add_fns_from_string", self.fns, flush=True)
+            except Exception as e:
+                error_msgs[id] = str(e)
+        return error_msgs
 
     def add_fns_from_module(self, module):
         for attr in vars(module).values():

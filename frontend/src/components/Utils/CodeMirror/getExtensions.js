@@ -18,6 +18,7 @@ export function getExtensions({
   tabToAutocomplete,
   onEnter,
   onEscape,
+  onModEnterDoNothing,
 }) {
   const extensions = [
     EditorView.lineWrapping,
@@ -90,6 +91,21 @@ export function getExtensions({
           },
         },
       ]),
+    );
+  }
+
+  if (onModEnterDoNothing) {
+    extensions.push(
+      Prec.highest(
+        keymap.of([
+          {
+            key: "Mod-Enter",
+            run: () => {
+              return true; // important to return true
+            },
+          },
+        ]),
+      ),
     );
   }
 

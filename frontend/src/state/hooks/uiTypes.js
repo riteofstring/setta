@@ -104,7 +104,6 @@ export function useIsTerminal(sectionId) {
   return useIsType(sectionId, C.TERMINAL);
 }
 
-
 export function useIsInteractiveCode(sectionId) {
   return useIsType(sectionId, C.INTERACTIVE_CODE);
 }

@@ -4,6 +4,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
+import { updateInteractiveCode } from "./interactive";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
@@ -65,6 +66,7 @@ export function attachKeyEventListeners() {
     [settings.resetZoomShortcut, resetZoom],
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
+    [settings.updateInteractiveCode, updateInteractiveCode],
     [
       settings.drawSelectionShortcut,
       activateSelectionKeyPressed,
