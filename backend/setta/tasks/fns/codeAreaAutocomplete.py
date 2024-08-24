@@ -45,7 +45,7 @@ async def _codeAreaAutocomplete(message, lsp_writer):
     gen_code_line_num = find_line_number(
         message.fullText, double_braces("SETTA_GENERATED_CODE")
     )
-    if message.line <= gen_code_line_num:
+    if gen_code_line_num == -1 or message.line <= gen_code_line_num:
         referencable_var_names = []
     else:
         # Subtract 1 because one of the lines is taken up by the template string.
