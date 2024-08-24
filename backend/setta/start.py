@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -7,8 +8,8 @@ import click
 import uvicorn
 
 from . import __version__
+from .cli.connect import connect as _connect
 from .cli.run import run as _run
-from .cli.web import web as _web
 from .database.db_init import maybe_create_tables_and_seed
 from .database.db_objs import create_dbs_with_input_as_default
 from .database.db_path import create_alias
@@ -35,9 +36,9 @@ def run(code_id):
 @click.argument("websocket_id", required=False)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
-def web(websocket_id, host, port):
+def connect(websocket_id, host, port):
     set_constants(host=host, port=port)
-    _web(websocket_id)
+    asyncio.run(_connect(websocket_id))
 
 
 @click.command()
@@ -148,7 +149,7 @@ def cli(ctx, reload, with_examples, db, settings, w, host, port):
 
 
 cli.add_command(run)
-cli.add_command(web)
+cli.add_command(connect)
 cli.add_command(version)
 cli.add_command(init_db)
 cli.add_command(delete_db)

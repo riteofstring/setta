@@ -9,10 +9,6 @@ from setta.terminals.terminals import runCode
 from ..utils.constants import C
 
 
-def web(websocket_id):
-    asyncio.run(connect(websocket_id))
-
-
 async def connect(websocket_id):
     try:
         extra_headers = {"isCLI": True}
