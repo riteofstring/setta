@@ -9,12 +9,13 @@ CONSTANTS_FOLDER = (
 )
 SEED_FOLDER = Path("../../../seed") if is_dev_mode() else Path("../static/seed")
 CODE_FOLDER = ".setta_code"
+CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
+HOST_ENV_VARIABLE = "HOST"
+PORT_ENV_VARIABLE = "PORT"
 BUILT_INS = set(dir(builtins))
 
 
 class Constants:
-    CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
-
     @property
     def FRONTEND_ORIGINS(self):
         if is_dev_mode():
@@ -33,9 +34,6 @@ class Constants:
     def WEBSOCKET(self):
         return f"ws://{self.HOST}:{self.PORT}{self.ROUTE_PREFIX}{self.ROUTE_WEBSOCKET_MANAGER}"
 
-    def backend_api(self, route):
-        return f"{self.BACKEND}{self.ROUTE_PREFIX}{route}"
-
 
 C = Constants()
 
@@ -43,10 +41,6 @@ C = Constants()
 def set_constants(**kwargs):
     for k, v in kwargs.items():
         setattr(C, k.upper(), v)
-
-
-def is_section_ui_type(x):
-    return x not in C.NON_SECTION_TYPES
 
 
 def load_constants():

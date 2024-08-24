@@ -4,7 +4,14 @@ from pathlib import Path
 
 import requests
 
-from setta.utils.constants import C
+from setta.utils.constants import (
+    CODE_FOLDER_ENV_VARIABLE,
+    HOST_ENV_VARIABLE,
+    PORT_ENV_VARIABLE,
+    C,
+    load_constants,
+    set_constants,
+)
 
 try:
     from PIL import Image
@@ -14,12 +21,16 @@ except ImportError:
 
 class Setta:
     def __init__(self, root_path=None):
+        load_constants()
+        set_constants(
+            host=os.environ.get(HOST_ENV_VARIABLE, C.DEFAULT_HOST),
+            port=os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
+        )
         if root_path is None:
-            self.root_path = Path(
-                os.environ.get(C.CODE_FOLDER_ENV_VARIABLE, os.getcwd())
-            )
+            self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
 
     def log(self, obj, save=False):
+        data_to_send = {}
         for rel_path, data in obj.items():
             if not isinstance(data, SettaDataWrapper):
                 data = SettaGenericData(data)
@@ -31,11 +42,13 @@ class Setta:
                 data.save(full_path)
 
             data = data.serialize()
-            requests.post(
-                C.backend_api(C.ROUTE_SEND_DATA),
-                json={"data": data},
-                headers={"Content-Type": "application/json"},
-            )
+            data_to_send[rel_path] = data
+        
+        requests.post(
+            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_DATA}",
+            json={"data": data_to_send},
+            headers={"Content-Type": "application/json"},
+        )
 
 
 class SettaDataWrapper(ABC):
