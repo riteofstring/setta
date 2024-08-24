@@ -35,11 +35,12 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  console.log(m);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     useTypeErrors.setState(m.content, true);
+  } else if (m.messageType === C.WS_ARTIFACT) {
+    console.log(m);
   } else if (m.id) {
     setWebsocketRoomMessage(m.id, m.content);
   }

@@ -10,17 +10,19 @@ from .dependencies import get_websocket_manager
 router = APIRouter()
 
 
-class SendDataRequest(BaseModel):
+class SendArtifactRequest(BaseModel):
     data: Dict[str, Any]
     sendDataTo: str
     isSaved: bool
     rootPath: str
+    messageType: str
 
 
-@router.post(C.ROUTE_SEND_DATA)
-async def route_send_data(
-    x: SendDataRequest, websocket_manager=Depends(get_websocket_manager)
+@router.post(C.ROUTE_SEND_ARTIFACT)
+async def route_send_artifact(
+    x: SendArtifactRequest, websocket_manager=Depends(get_websocket_manager)
 ):
     x = x.dict()
     location = x.pop("sendDataTo")
-    await websocket_manager.send_message_to_location(x, location)
+    messageType = x.pop("messageType")
+    await websocket_manager.send_message_to_location(x, messageType, location)

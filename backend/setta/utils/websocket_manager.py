@@ -67,11 +67,13 @@ class WebsocketManager:
         websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
         await websocket.send_text(json.dumps({"id": id, "content": content}))
 
-    async def send_message_to_location(self, content, location):
+    async def send_message_to_location(self, content, messageType, location):
         for w in self.sockets.values():
             if w["location"] == location:
                 websocket = w["websocket"]
-                await websocket.send_text(json.dumps({"content": content}))
+                await websocket.send_text(
+                    json.dumps({"content": content, "messageType": messageType})
+                )
 
     async def broadcast(self, message):
         for s in self.sockets.values():

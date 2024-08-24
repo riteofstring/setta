@@ -57,10 +57,11 @@
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
   "ROUTE_UPDATE_INTERACTIVE_CODE": "/updateInteractiveCode",
-  "ROUTE_SEND_DATA": "/sendData",
+  "ROUTE_SEND_ARTIFACT": "/sendArtfiact",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "WS_ALL_CONNECTIONS": "allConnections",
   "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
-  "WS_RUN_CODE": "runCode"
+  "WS_RUN_CODE": "runCode",
+  "WS_ARTIFACT": "artifact"
 }

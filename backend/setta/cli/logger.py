@@ -8,7 +8,7 @@ from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     HOST_ENV_VARIABLE,
     PORT_ENV_VARIABLE,
-    SEND_DATA_TO_ENV_VARIABLE,
+    SEND_ARTIFACT_TO_ENV_VARIABLE,
     C,
     load_constants,
     set_constants,
@@ -28,7 +28,7 @@ class Setta:
             port=os.environ.get(PORT_ENV_VARIABLE, C.DEFAULT_PORT),
         )
         self.root_path = Path(os.environ.get(CODE_FOLDER_ENV_VARIABLE, os.getcwd()))
-        self.send_data_to = os.environ.get(SEND_DATA_TO_ENV_VARIABLE)
+        self.send_data_to = os.environ.get(SEND_ARTIFACT_TO_ENV_VARIABLE)
 
     def log(self, obj, save=False):
         data_to_send = {}
@@ -46,12 +46,13 @@ class Setta:
             data_to_send[rel_path] = data
 
         requests.post(
-            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_DATA}",
+            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
             json={
                 "data": data_to_send,
                 "sendDataTo": self.send_data_to,
                 "isSaved": save,
                 "rootPath": str(self.root_path),
+                "messageType": C.WS_ARTIFACT,
             },
             headers={"Content-Type": "application/json"},
         )
