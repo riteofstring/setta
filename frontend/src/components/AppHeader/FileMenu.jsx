@@ -1,5 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
+import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
@@ -28,7 +28,7 @@ export function FileMenu() {
   );
 
   return (
-    <MenuDropdown trigger="File">
+    <NavbarMenuDropdown trigger="File">
       <MenuItem
         onClick={() => createAndGoToProjectConfig({})}
         shortcut={shortcuts.newProjectConfigShortcut}
@@ -67,6 +67,6 @@ export function FileMenu() {
       <Link to={SETTINGS_ROUTER_PATH}>
         <MenuItem>Settings</MenuItem>
       </Link>
-    </MenuDropdown>
+    </NavbarMenuDropdown>
   );
 }
