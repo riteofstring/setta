@@ -4,6 +4,10 @@ import { useInteractive, useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { setNotificationMessage } from "./notification";
 
+export function setInteractiveData(payload) {
+  useInteractive.setState({ data: payload });
+}
+
 export async function updateInteractiveCode() {
   // const ids = useActiveSection.getState().ids;
   // const codeDict = {};

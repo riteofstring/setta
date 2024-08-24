@@ -107,7 +107,6 @@ def do_nothing(*args, **kwargs):
 
 class TaskDefinition(BaseModel):
     name: Optional[str] = ""
-    return_message_type: str
     fn: Callable
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
@@ -118,7 +117,3 @@ class TaskDefinition(BaseModel):
 class TaskMessage(BaseModel):
     id: str
     content: Any
-
-
-class InteractiveTaskDefinition(TaskDefinition):
-    return_message_type: str = "interactiveReturn"

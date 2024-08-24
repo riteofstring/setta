@@ -1,11 +1,10 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
-import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/sectionVariants";
-import { useInteractive } from "state/definitions";
 import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
+import { useGetParamUIType } from "state/hooks/uiTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
-import { createNewId } from "utils/idNameCreation";
 
 export function ParamInput({
   sectionId,
@@ -24,7 +23,6 @@ export function ParamInput({
     setValue(vStr);
     setEnteredValue(vStr);
     setDidUpdate(true);
-    sendToInteractiveTasks(vStr);
   }
 
   const setEnteredValue = useCallback(
@@ -40,6 +38,9 @@ export function ParamInput({
     }, 500),
     [enteredValue],
   );
+
+  const paramUIType = useGetParamUIType(sectionId, paramInfoId);
+  const isText = paramUIType.type === C.TEXT;
 
   useEffect(() => {
     if (value !== enteredValue) {
@@ -60,10 +61,4 @@ export function ParamInput({
       sectionIdToBeActive={sectionId}
     />
   );
-}
-
-function sendToInteractiveTasks(v) {
-  for (const t of useInteractive.getState().taskNames) {
-    sendMessage({ id: createNewId(), content: v, messageType: t });
-  }
 }

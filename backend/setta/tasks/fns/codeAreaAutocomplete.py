@@ -72,7 +72,7 @@ async def _codeAreaAutocomplete(message, lsp_writer):
         generated_var_names=generated_var_names,
     )
 
-    return {"content": None}
+    return {"output": None, "name": "codeAreaAutocomplete", "cache": None}
 
 
 def read_cache(cache, message):
@@ -85,7 +85,6 @@ def read_cache(cache, message):
 
 codeAreaAutocomplete = TaskDefinition(
     name="codeAreaAutocomplete",
-    return_message_type="codeAreaAutocompleteReturn",
     fn=_codeAreaAutocomplete,
     read_cache=read_cache,
     run_as=RunType.THREAD,

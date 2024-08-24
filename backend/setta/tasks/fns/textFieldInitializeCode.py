@@ -55,7 +55,8 @@ async def _textFieldInitializeCode(message, lsp_writer):
     )
 
     return {
-        "content": None,
+        "output": None,
+        "name": "textFieldInitializeCode",
         "cache": [
             lines,
             var_name_to_line_num,
@@ -71,7 +72,7 @@ def get_cache_key(projectConfigId, sectionId, paramInfoId):
 
 
 def write_cache(cache, message, result):
-    if result.get("cache") is None:
+    if result["cache"] is None:
         return
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     key = get_cache_key(
@@ -82,7 +83,6 @@ def write_cache(cache, message, result):
 
 textFieldInitializeCode = TaskDefinition(
     name="textFieldInitializeCode",
-    return_message_type="textFieldInitializeCodeReturn",
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,

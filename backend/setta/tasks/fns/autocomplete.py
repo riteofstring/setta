@@ -26,7 +26,9 @@ class CodeCompletionContent(BaseModel):
 
 
 async def _textFieldCompletion(message, lsp_writer):
-    return await completionHelper(message, textFieldCompletionFn(lsp_writer))
+    return await completionHelper(
+        message, "textFieldCompletion", textFieldCompletionFn(lsp_writer)
+    )
 
 
 def textFieldCompletionFn(lsp_writer):
@@ -56,12 +58,12 @@ def textFieldCompletionFn(lsp_writer):
     return fn
 
 
-async def completionHelper(message, fn):
+async def completionHelper(message, return_name, fn):
     request_id = message.id
     message = CodeCompletionContent.parse_obj(message.content)
     cached = message.cached
     if cached is None:
-        return {"content": []}
+        return {"output": [], "name": return_name, "cache": None}
 
     (
         lines,
@@ -94,7 +96,7 @@ async def completionHelper(message, fn):
         referencable_var_names=referencable_var_names,
         column=position,
     )
-    return {"content": output}
+    return {"output": output, "name": return_name, "cache": None}
 
 
 def read_cache(cache, message):
@@ -108,7 +110,6 @@ def read_cache(cache, message):
 
 textFieldCompletion = TaskDefinition(
     name="textFieldCompletion",
-    return_message_type="textFieldCompletionReturn",
     fn=_textFieldCompletion,
     read_cache=read_cache,
     run_as=RunType.THREAD,
