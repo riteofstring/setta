@@ -1,16 +1,11 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { getInfoViewHandlers } from "state/actions/infoView";
-import {
-  useCodeInfo,
-  useProjectSearch,
-  useTypeErrors,
-} from "state/definitions";
+import { useProjectSearch, useTypeErrors } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
@@ -24,6 +19,7 @@ function _ParamContainer({
   children,
   onClick,
   kwargInfo,
+  depth,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
@@ -53,11 +49,6 @@ function _ParamContainer({
 
   const bg = paramIsSelected ? "bg-lime-400/50" : "";
 
-  const paramChildren = useCodeInfo(
-    (x) => paramInfo.children.map((c) => x.x[c]),
-    _.isEqual,
-  );
-
   // [&_>_.arg-pin-btn]:hover:bg-setta-200/50
   // dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75
   // [&_>_.arg-pin-btn_>_*]:hover:text-setta-400
@@ -76,7 +67,7 @@ function _ParamContainer({
 
   // [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400
 
-  return paramChildren.length === 0 ? (
+  return (
     <>
       <article
         className={`section-w-full group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2   ${bg} ${border}`}
@@ -87,7 +78,7 @@ function _ParamContainer({
           icon={<i className="gg-close" />}
           bg="bg-transparent"
           color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-          twClasses={`arg-close-btn section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+          twClasses={`arg-close-btn section-left-gutter cursor-pointer ${paramInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
           padding=""
           size="h-[.5rem] w-[.5rem]"
           tabIndex="-1"
@@ -112,38 +103,39 @@ function _ParamContainer({
         )}
       </article>
     </>
-  ) : (
-    <article
-      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
-      {...getInfoViewHandlers(paramInfo.description)}
-    >
-      <IconButton
-        onClick={onClick}
-        icon={<i className="gg-close" />}
-        bg="bg-transparent"
-        color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-        twClasses={`arg-close-btn section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
-        padding=""
-        size="h-[.5rem] w-[.5rem]"
-        tabIndex="-1"
-      />
-      {children}
-      <div className="section-args-nested section-key-value grid gap-y-1">
-        <GetParamSwitch
-          sectionId={sectionId}
-          parentId={paramInfo.id}
-          infos={paramChildren}
-          setDidUpdate={setDidUpdate}
-        />
-      </div>
-      <PinButton
-        sectionId={sectionId}
-        paramInfoId={paramInfo.id}
-        variants="justify-self-end self-center section-value mr-6 bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
-      />
-      <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
-    </article>
   );
+  // ) : (
+  //   <article
+  //     className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
+  //     {...getInfoViewHandlers(paramInfo.description)}
+  //   >
+  //     <IconButton
+  //       onClick={onClick}
+  //       icon={<i className="gg-close" />}
+  //       bg="bg-transparent"
+  //       color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
+  //       twClasses={`arg-close-btn section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+  //       padding=""
+  //       size="h-[.5rem] w-[.5rem]"
+  //       tabIndex="-1"
+  //     />
+  //     {children}
+  //     <div className="section-args-nested section-key-value grid gap-y-1">
+  //       <GetParamSwitch
+  //         sectionId={sectionId}
+  //         parentId={paramInfo.id}
+  //         infos={paramChildren}
+  //         setDidUpdate={setDidUpdate}
+  //       />
+  //     </div>
+  //     <PinButton
+  //       sectionId={sectionId}
+  //       paramInfoId={paramInfo.id}
+  //       variants="justify-self-end self-center section-value mr-6 bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
+  //     />
+  //     <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
+  //   </article>
+  // );
 }
 
 export const ParamContainer = React.memo(
