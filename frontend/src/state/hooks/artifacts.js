@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 
-export function useArtifactValues(sectionId) {
+export function useArtifactData(sectionId) {
   const outputNames = useSectionInfos(
     (x) => x.x[sectionId].artifacts,
     _.isEqual,

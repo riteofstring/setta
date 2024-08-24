@@ -1,5 +1,7 @@
+import base64
 import os
 from abc import ABC, abstractmethod
+from io import BytesIO
 from pathlib import Path
 
 import requests
@@ -76,17 +78,25 @@ class SettaGenericData(SettaDataWrapper):
         pass
 
     def serialize(self):
-        return self.data
+        return {"value": self.data, "type": "generic"}
 
 
 class SettaNumpyImg(SettaDataWrapper):
-    def __init__(self, img, extension="png"):
+    def __init__(self, img, format="png"):
         self.img = img
-        self.extension = extension
+        self.format = format
+        self.pil_image = None
 
     def save(self, path):
-        pil_image = Image.fromarray(self.img)
-        pil_image.save(f"{path}.{self.extension}")
+        self.pil_image = Image.fromarray(self.img)
+        self.pil_image.save(f"{path}.{self.format}")
 
     def serialize(self):
-        pass
+        if not self.pil_image:
+            self.pil_image = Image.fromarray(self.img)
+        img_byte_arr = BytesIO()
+        self.pil_image.save(
+            img_byte_arr, format=self.format
+        )  # You can change 'PNG' to other formats if needed
+        base64_encoded = base64.b64encode(img_byte_arr.getvalue())
+        return {"value": base64_encoded.decode("utf-8"), "type": "img"}

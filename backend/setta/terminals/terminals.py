@@ -20,7 +20,11 @@ from setta.code_gen.find_placeholders import (
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
-from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, SEND_ARTIFACT_TO_ENV_VARIABLE, C
+from setta.utils.constants import (
+    CODE_FOLDER_ENV_VARIABLE,
+    SEND_ARTIFACT_TO_ENV_VARIABLE,
+    C,
+)
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
