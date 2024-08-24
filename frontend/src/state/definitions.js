@@ -1,5 +1,4 @@
 import { SECTION_CONFIG_TAB } from "utils/constants";
-import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -50,10 +49,7 @@ export const useInfoView = createProjectState(() => ({
 }));
 
 export const useInteractive = create(() => ({
-  path: "",
-  id: createNewId(),
-  projects: new Set(),
-  currProjectIsInteractive: false,
+  taskNames: [],
   data: null,
 }));
 
