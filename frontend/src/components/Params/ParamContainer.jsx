@@ -22,6 +22,8 @@ function _ParamContainer({
   setDidUpdate,
   isKwarg,
   children,
+  onClick,
+  kwargInfo,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
@@ -68,13 +70,24 @@ function _ParamContainer({
 
   // [&_has(~_.args-close-btn)]:hover:text-setta-200
   // dark:[&_has(~_.args-close-btn)]:hover:text-setta-600
+  // section-w-full grid grid-cols-subgrid [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50
 
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400  ${bg} ${border}`}
+        className={`section-w-full group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
+        <IconButton
+          onClick={onClick}
+          icon={<i className="gg-close" />}
+          bg="bg-transparent"
+          color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
+          twClasses={`arg-close-btn opacity-0 section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+          padding=""
+          size="h-[.5rem] w-[.5rem]"
+          tabIndex="-1"
+        />
         {children}
         <ParamInput
           sectionId={sectionId}
@@ -87,7 +100,7 @@ function _ParamContainer({
         <PinButton
           sectionId={sectionId}
           paramInfoId={paramInfo.id}
-          variants="justify-self-end self-center"
+          variants="justify-self-end self-center section-key"
         />
         <ParamOptionsButton />
         {!!maybeErrorMessage && (
@@ -97,11 +110,21 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={` section-key-value group/arg-group section-min-rows -mx-3 grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg px-3 ${bg} ${border}`}
+      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
     >
+      <IconButton
+        onClick={onClick}
+        icon={<i className="gg-close" />}
+        bg="bg-transparent"
+        color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
+        twClasses={`arg-close-btn opacity-0 section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+        padding=""
+        size="h-[.5rem] w-[.5rem]"
+        tabIndex="-1"
+      />
       {children}
-      <div className="section-args-nested section-key-value ml-1 grid w-[calc(100%_-_0.25rem)] gap-y-1">
+      <div className="section-args-nested section-key-value grid gap-y-1">
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}
@@ -109,6 +132,12 @@ function _ParamContainer({
           setDidUpdate={setDidUpdate}
         />
       </div>
+      <PinButton
+        sectionId={sectionId}
+        paramInfoId={paramInfo.id}
+        variants="justify-self-end self-center section-value mr-6"
+      />
+      <ParamOptionsButton />
     </article>
   );
 }
