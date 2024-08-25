@@ -143,6 +143,14 @@ def save_sections(dbs, sections):
     query_params = []
     for s in sections.values():
         query_params.extend(
-            [{"sectionId": s["id"], "artifactPath": a["path"], "type": a["type"], "displayName": a["displayName"]} for a in s["artifacts"]]
+            [
+                {
+                    "sectionId": s["id"],
+                    "artifactPath": a["path"],
+                    "type": a["type"],
+                    "displayName": a["displayName"],
+                }
+                for a in s["artifacts"]
+            ]
         )
     db.executemany(query, query_params)

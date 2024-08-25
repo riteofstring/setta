@@ -21,7 +21,5 @@ export function useArtifactData(sectionId) {
     }
   }, [artifactPaths]);
 
-  console.log("useArtifactData", artifacts)
-
   return { artifacts, isLoaded };
 }

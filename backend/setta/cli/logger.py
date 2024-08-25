@@ -3,8 +3,8 @@ import os
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
-import numpy as np
 
+import numpy as np
 import requests
 
 from setta.utils.constants import (
@@ -41,7 +41,7 @@ class Setta:
                 data = SettaListData(data)
 
             full_path = self.root_path / rel_path
-            
+
             if save:
                 directory = full_path.parent
                 directory.mkdir(parents=True, exist_ok=True)
@@ -50,7 +50,7 @@ class Setta:
             data_to_send[data.path_with_extension(full_path)] = {
                 **data.serialize(),
                 "displayName": rel_path,
-                "isSaved": save
+                "isSaved": save,
             }
 
         requests.post(
@@ -96,14 +96,14 @@ class SettaListData(SettaDataWrapper):
 
     def serialize(self):
         return {"value": self.data.tolist(), "type": "list"}
-    
+
     def load(self, path_with_extension):
         self.data = np.loadtxt(path_with_extension, delimiter=",")
 
 
 class SettaNumpyImg(SettaDataWrapper):
     def __init__(self, img=None, format="png"):
-        self.img = Image.fromarray(img) if img else img
+        self.img = Image.fromarray(img) if img is not None else img
         self.format = format
 
     def path_with_extension(self, path):
@@ -124,10 +124,8 @@ class SettaNumpyImg(SettaDataWrapper):
         self.img = Image.open(path_with_extension)
 
 
-
 def get_wrapper_for_loading(data_type):
     if data_type == "list":
         return SettaListData()
     if data_type == "img":
         return SettaNumpyImg()
-    
