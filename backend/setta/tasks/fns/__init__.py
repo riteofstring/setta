@@ -1,7 +1,7 @@
-from .autocomplete import textFieldCompletion
 from .codeAreaAutocomplete import codeAreaAutocomplete
 from .codeAreaInitializeCode import codeAreaInitializeCode
 from .extractArgparseArgs import extractArgparseArgs
 from .parametersRequest import parametersRequest
+from .textFieldAutocomplete import textFieldCompletion
 from .textFieldInitializeCode import textFieldInitializeCode
 from .utils import InteractiveTaskDefinition, TaskDefinition

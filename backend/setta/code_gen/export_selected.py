@@ -232,7 +232,7 @@ class Exporter:
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 },
-                "dependencies": params
+                "dependencies": params,
             }
             self.output[var_name] = info
         return var_name
@@ -292,7 +292,7 @@ class Exporter:
                     "name": param_name,
                     "type": get_param_ui_type(self.p, section_id, id),
                     "value": value,
-                    "dependencies": used_ref_var_names
+                    "dependencies": used_ref_var_names,
                 }
 
         return var_name
@@ -301,7 +301,9 @@ class Exporter:
         dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
         value = self.p["sectionVariants"][dbSource][variantId]["values"][id]
         refs = self.p["evRefs"][section_id][id]
-        value, used_ref_var_names = process_refs(value, refs, self.maybe_create_ref_var_name)
+        value, used_ref_var_names = process_refs(
+            value, refs, self.maybe_create_ref_var_name
+        )
         return value, used_ref_var_names
 
     def maybe_create_ref_var_name(
