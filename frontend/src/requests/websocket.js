@@ -42,7 +42,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
     useTypeErrors.setState(m.content, true);
   } else if (m.messageType === C.WS_ARTIFACT) {
-    updateArtifacts(m.content);
+    updateArtifacts({ artifacts: m.content, addSection: true });
   } else if (m.id) {
     setWebsocketRoomMessage(m.id, m.content);
   }

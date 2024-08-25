@@ -4,18 +4,20 @@ import React from "react";
 import { useArtifactData } from "state/hooks/artifacts";
 
 function _ArtifactArea({ sectionId }) {
-  const data = useArtifactData(sectionId);
-  return Object.entries(data).map(([name, data], idx) => (
-    <ArtifactSwitch key={idx} name={name} data={data} />
+  const { artifacts, isLoaded } = useArtifactData(sectionId);
+  return Object.values(artifacts).map((data, idx) => (
+    <ArtifactSwitch key={idx} data={data} />
   ));
 }
 
 export const ArtifactArea = React.memo(_ArtifactArea);
 
-function ArtifactSwitch({ name, data }) {
+function ArtifactSwitch({ data }) {
   switch (data.type) {
-    case "generic":
-      return <OneChart series={{ [name]: data.value }} title={"test"} />;
+    case "list":
+      return (
+        <OneChart series={{ [data.displayName]: data.value }} title={"test"} />
+      );
     case "img":
       return <OneImg img={data.value} />;
   }

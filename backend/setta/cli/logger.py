@@ -3,6 +3,7 @@ import os
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
+import numpy as np
 
 import requests
 
@@ -36,19 +37,20 @@ class Setta:
         data_to_send = {}
         for rel_path, data in obj.items():
             if not isinstance(data, SettaDataWrapper):
-                data = SettaGenericData(data)
+                # for now, assume it's a list
+                data = SettaListData(data)
 
+            full_path = self.root_path / rel_path
+            
             if save:
-                full_path = self.root_path / rel_path
                 directory = full_path.parent
                 directory.mkdir(parents=True, exist_ok=True)
                 data.save(full_path)
 
-            data = data.serialize()
-            data_to_send[rel_path] = {
-                **data,
-                "isSaved": save,
-                "rootPath": str(self.root_path),
+            data_to_send[data.path_with_extension(full_path)] = {
+                **data.serialize(),
+                "displayName": rel_path,
+                "isSaved": save
             }
 
         requests.post(
@@ -64,6 +66,10 @@ class Setta:
 
 class SettaDataWrapper(ABC):
     @abstractmethod
+    def path_with_extension(self, path):
+        pass
+
+    @abstractmethod
     def save(self, path):
         pass
 
@@ -71,34 +77,57 @@ class SettaDataWrapper(ABC):
     def serialize(self):
         pass
 
-
-class SettaGenericData(SettaDataWrapper):
-    def __init__(self, data):
-        self.data = data
-
-    def save(self, path):
+    @abstractmethod
+    def load(self, path_with_extension):
         pass
 
+
+class SettaListData(SettaDataWrapper):
+    def __init__(self, data=None):
+        if isinstance(data, list):
+            data = np.array(data)
+        self.data = data
+
+    def path_with_extension(self, path):
+        return f"{path}.csv"
+
+    def save(self, path):
+        np.savetxt(self.path_with_extension(path), self.data, delimiter=",")
+
     def serialize(self):
-        return {"value": self.data, "type": "generic"}
+        return {"value": self.data.tolist(), "type": "list"}
+    
+    def load(self, path_with_extension):
+        self.data = np.loadtxt(path_with_extension, delimiter=",")
 
 
 class SettaNumpyImg(SettaDataWrapper):
-    def __init__(self, img, format="png"):
-        self.img = img
+    def __init__(self, img=None, format="png"):
+        self.img = Image.fromarray(img) if img else img
         self.format = format
-        self.pil_image = None
+
+    def path_with_extension(self, path):
+        return f"{path}.{self.format}"
 
     def save(self, path):
-        self.pil_image = Image.fromarray(self.img)
-        self.pil_image.save(f"{path}.{self.format}")
+        self.img.save(self.path_with_extension(path))
 
     def serialize(self):
-        if not self.pil_image:
-            self.pil_image = Image.fromarray(self.img)
         img_byte_arr = BytesIO()
-        self.pil_image.save(
+        self.img.save(
             img_byte_arr, format=self.format
         )  # You can change 'PNG' to other formats if needed
         base64_encoded = base64.b64encode(img_byte_arr.getvalue())
         return {"value": base64_encoded.decode("utf-8"), "type": "img"}
+
+    def load(self, path_with_extension):
+        self.img = Image.open(path_with_extension)
+
+
+
+def get_wrapper_for_loading(data_type):
+    if data_type == "list":
+        return SettaListData()
+    if data_type == "img":
+        return SettaNumpyImg()
+    

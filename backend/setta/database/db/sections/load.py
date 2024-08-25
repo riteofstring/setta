@@ -204,3 +204,22 @@ def num_projects_each_section_exists_in(dbs, section_ids):
         output[row[0]] = row[1]
 
     return output
+
+
+def load_artifact_metadata(dbs, section_id, artifact_paths):
+    db = dbs.default
+    query_params = []
+    for a in artifact_paths:
+        query_params.extend([section_id, a])
+    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
+    query = f"""
+        SELECT artifactPath as path, type, displayName
+        FROM SectionArtifacts
+        WHERE (sectionId, artifactPath) IN ({placeholders})
+    """
+    db.execute(query, query_params)
+
+    output = []
+    for row in db.fetchall():
+        output.append(dict(row))
+    return output

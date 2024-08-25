@@ -166,6 +166,8 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS SectionArtifacts (
         sectionId TEXT,
         artifactPath TEXT,
+        type TEXT,
+        displayName TEXT,
         PRIMARY KEY (sectionId, artifactPath),
         FOREIGN KEY (sectionId) REFERENCES Section(id)
     );

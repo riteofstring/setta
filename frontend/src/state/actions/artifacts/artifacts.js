@@ -1,30 +1,39 @@
 import C from "constants/constants.json";
+import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import { addSectionInEmptySpace } from "../sections/createSections";
 
-export function updateArtifacts(artifacts) {
+export function updateArtifacts({ artifacts, addSection = false }) {
+  console.log("updateArtifacts", artifacts);
   useArtifacts.setState((x) => {
-    for (const [name, data] of Object.entries(artifacts.data)) {
-      x.x[name] = data;
+    for (const [fullPath, data] of Object.entries(artifacts)) {
+      x.x[fullPath] = data;
     }
   });
 
-  console.log("useArtifacts.getState()", useArtifacts.getState().x);
-
-  for (const name of Object.keys(artifacts.data)) {
-    maybeAddArtifactSection(name);
+  if (addSection) {
+    for (const fullPath of Object.keys(artifacts)) {
+      maybeAddArtifactSection(fullPath);
+    }
   }
 }
 
-function maybeAddArtifactSection(artifactName) {
+function maybeAddArtifactSection(artifactPath) {
   for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (s.artifacts.includes(artifactName)) {
+    if (s.artifacts.includes(artifactPath)) {
       return;
     }
   }
 
   addSectionInEmptySpace({
     type: C.ARTIFACT,
-    inputSectionProps: { artifacts: [artifactName] },
+    inputSectionProps: { artifacts: [artifactPath] },
   });
+}
+
+export async function loadArtifacts(sectionId, artifactPaths) {
+  const res = await dbLoadArtifacts(sectionId, artifactPaths);
+  if (res.status == 200) {
+    updateArtifacts({ artifacts: res.data });
+  }
 }

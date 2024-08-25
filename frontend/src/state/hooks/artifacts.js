@@ -1,10 +1,27 @@
 import _ from "lodash";
+import { useState } from "react";
+import { loadArtifacts } from "state/actions/artifacts/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function useArtifactData(sectionId) {
-  const outputNames = useSectionInfos(
+  const [isLoaded, setIsLoaded] = useState(false);
+  const artifactPaths = useSectionInfos(
     (x) => x.x[sectionId].artifacts,
     _.isEqual,
   );
-  return useArtifacts((x) => _.pick(x.x, outputNames));
+  const artifacts = useArtifacts((x) => _.pick(x.x, artifactPaths));
+
+  useDeepCompareEffect(() => {
+    if (artifactPaths.length !== _.size(artifacts)) {
+      setIsLoaded(false);
+      loadArtifacts(sectionId, artifactPaths);
+    } else {
+      setIsLoaded(true);
+    }
+  }, [artifactPaths]);
+
+  console.log("useArtifactData", artifacts)
+
+  return { artifacts, isLoaded };
 }

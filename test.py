@@ -925,8 +925,8 @@ import numpy as np
 
 s = Setta()
 
-img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
-s.log({"test_folder/another_folder/img": SettaNumpyImg(img)}, save=True)
+# img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+# s.log({"test_folder/another_folder/img": SettaNumpyImg(img)}, save=True)
 
 c = 3
 losses = [((i - 10) / 5) ** float(c) for i in range(20)]
