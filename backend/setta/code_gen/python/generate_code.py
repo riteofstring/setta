@@ -211,3 +211,21 @@ def find_line_number(code, search_term):
         if search_term in line:
             return i
     return -1
+
+
+def position_to_line_col(text, position):
+    if position < 0 or position > len(text):
+        return None
+
+    lines = text.split("\n")
+    current_pos = 0
+
+    for line_num, line in enumerate(lines):
+        line_length = len(line) + 1  # +1 for the newline character
+        if current_pos + line_length > position:
+            col = position - current_pos
+            return line_num, col
+        current_pos += line_length
+
+    # If we get here, the position is at the very end of the text
+    return len(lines) - 1, len(lines[-1])

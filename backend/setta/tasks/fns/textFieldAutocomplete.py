@@ -3,6 +3,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import (
+    position_to_line_col,
     prepend_with_imports,
     set_line,
     var_declaration,
@@ -36,14 +37,15 @@ def textFieldCompletionFn(lsp_writer):
         code,
         codeJson,
         var_name_to_line_num,
-        var_name,
         referencable_var_names,
+        line,
         column,
         **_,
     ):
+        print("code", code, flush=True)
+        print("line, column", line, column, flush=True)
+
         await lsp_writer.send_document_update(code_id, code, codeJson)
-        column = column + len(var_declaration(var_name, ""))
-        line = var_name_to_line_num[var_name]
         await lsp_writer.send_autocomplete_request(
             line,
             column,
@@ -83,6 +85,13 @@ async def completionHelper(message, fn):
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
+
+    line_within_fullText, column = position_to_line_col(fullText, position)
+    print("line_within_fullText, column", line_within_fullText, column, flush=True)
+    if line_within_fullText == 0:
+        column += len(var_declaration(var_name, ""))
+    line = line_within_fullText + var_name_to_line_num[var_name]
+
     output = await fn(
         code_id=message.projectConfigId,
         request_id=request_id,
@@ -90,9 +99,9 @@ async def completionHelper(message, fn):
         code=code,
         codeJson=exporter_obj.output,
         var_name_to_line_num=var_name_to_line_num,
-        var_name=var_name,
         referencable_var_names=referencable_var_names,
-        column=position,
+        line=line,
+        column=column,
     )
     return {"content": output}
 

@@ -48,11 +48,11 @@ export async function dbTextFieldInitializeCode({
   const project = getProjectDataToGenerateCode({});
   const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}-${paramInfoId}`;
   const candidateKeywords = findCandidateKeywords(value);
-  await sendMessage({
-    id: `${id}-find-references`,
-    messageType: "textFieldFindReferences",
-    content: { sectionId, paramInfoId, candidateKeywords, fullText: value },
-  });
+  // await sendMessage({
+  //   id: `${id}-find-references`,
+  //   messageType: "textFieldFindReferences",
+  //   content: { sectionId, paramInfoId, candidateKeywords, fullText: value },
+  // });
   await sendMessage({
     id,
     messageType: "textFieldInitializeCode",
