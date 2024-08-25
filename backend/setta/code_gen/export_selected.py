@@ -199,10 +199,12 @@ class Exporter:
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 }
+                info["dependencies"] = params
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT]:
                 children = get_selected_section_variant(self.p, id)["children"]
                 info["value"] = self.export_sections(children)
+                info["dependencies"] = info["value"]
                 self.output[var_name] = info
             else:
                 raise ValueError
@@ -230,6 +232,7 @@ class Exporter:
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 },
+                "dependencies": params
             }
             self.output[var_name] = info
         return var_name
@@ -278,18 +281,18 @@ class Exporter:
                     "name": param_name,
                     "type": C.NESTED_PARAM,
                     "value": params,
+                    "dependencies": params,
                 }
                 self.output[var_name] = info
             else:
-                value, deps = self.export_param_value(section_id, id)
+                value, used_ref_var_names = self.export_param_value(section_id, id)
                 self.output[var_name] = {
-                    "value": value,
-                    "paramInfoId": id,
                     "sectionId": section_id,
+                    "paramInfoId": id,
                     "name": param_name,
-                    "deps": deps,
                     "type": get_param_ui_type(self.p, section_id, id),
-                    "is_global": is_global,
+                    "value": value,
+                    "dependencies": used_ref_var_names
                 }
 
         return var_name
@@ -298,9 +301,8 @@ class Exporter:
         dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
         value = self.p["sectionVariants"][dbSource][variantId]["values"][id]
         refs = self.p["evRefs"][section_id][id]
-        deps = []
-        value = process_refs(value, refs, self.maybe_create_ref_var_name)
-        return value, deps
+        value, used_ref_var_names = process_refs(value, refs, self.maybe_create_ref_var_name)
+        return value, used_ref_var_names
 
     def maybe_create_ref_var_name(
         self, ref_section_id, ref_param_info_id, ref_is_args_obj

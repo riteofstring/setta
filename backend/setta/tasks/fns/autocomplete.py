@@ -73,7 +73,7 @@ async def completionHelper(message, fn):
     var_name = exporter_obj.var_name_mapping[
         (message.sectionId, message.paramInfoId, False)
     ]
-    fullText, position = process_refs(
+    fullText, _, position = process_refs(
         message.fullText,
         message.evRefs,
         exporter_obj.get_ref_var_name,
