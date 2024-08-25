@@ -74,7 +74,12 @@ export function PaneContextMenu() {
         New Bash Script
       </Item>
       {!SINGLETON_SECTIONS.varControl && (
-        <Item onClick={getOnClickFn({ type: C.VAR_CONTROL })}>
+        <Item
+          onClick={getOnClickFn({
+            type: C.VAR_CONTROL,
+            inputSectionProps: { codeLanguage: "javascript" },
+          })}
+        >
           New Variable Control
         </Item>
       )}

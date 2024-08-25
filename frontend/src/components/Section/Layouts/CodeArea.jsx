@@ -43,25 +43,53 @@ function getCompletionsFn({ sectionId }) {
 }
 
 function _CodeArea({ sectionId }) {
-  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
-  const height = useSectionInfos((x) => x.x[sectionId].size.height);
-  const value = useGetSectionInfo(sectionId, "code");
   const language = useGetSectionInfo(sectionId, "codeLanguage");
-  const theme = useCodeMirrorStyle();
+
+  switch (language) {
+    case "python":
+      return <PythonCodeArea sectionId={sectionId} language={language} />;
+    case "bash":
+      return <BashCodeArea sectionId={sectionId} language={language} />;
+    case "javascript":
+      return <JavascriptCodeArea sectionId={sectionId} language={language} />;
+  }
+}
+
+export const CodeArea = React.memo(_CodeArea);
+
+function PythonCodeArea({ sectionId, language }) {
   const pattern = useKeywordRegex((x) => x.pattern, _.isEqual);
   const { keywordStylizer } = useKeywordStylizer({
     pattern,
     sectionId,
     paramInfoId: null,
   });
-  const completionsFn = getCompletionsFn({ sectionId });
-  const extensions = getExtensions({
-    sectionId,
-    language,
-    completionsFn,
-    keywordStylizer,
-    onModEnterDoNothing: true,
-  });
+  const completionsFn = getCompletionsFn({ sectionId, language });
+  return (
+    <CoreCodeArea
+      sectionId={sectionId}
+      language={language}
+      completionsFn={completionsFn}
+      keywordStylizer={keywordStylizer}
+    />
+  );
+}
+
+function BashCodeArea({ sectionId, language }) {
+  return <CoreCodeArea sectionId={sectionId} language={language} />;
+}
+
+function JavascriptCodeArea({ sectionId, language }) {
+  return <CoreCodeArea sectionId={sectionId} language={language} />;
+}
+
+function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
+  const value = useGetSectionInfo(sectionId, "code");
+
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow } =
+    useCodeAreaHeight({ sectionId });
+
+  const theme = useCodeMirrorStyle();
 
   function onChange(v) {
     setSectionInfoAttr({
@@ -74,6 +102,36 @@ function _CodeArea({ sectionId }) {
   function onMouseDown() {
     dbCodeAreaInitializeCode({ sectionId });
   }
+
+  const extensions = getExtensions({
+    sectionId,
+    language,
+    completionsFn,
+    keywordStylizer,
+    onModEnterDoNothing: true,
+  });
+
+  return (
+    <article
+      ref={wrapperRef}
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow}`}
+    >
+      <CodeMirror
+        maxHeight={maxHeight}
+        value={value}
+        theme={theme}
+        extensions={extensions}
+        onMouseDown={onMouseDown}
+        onChange={onChange}
+        onCreateEditor={handleCreateEditor}
+      />
+    </article>
+  );
+}
+
+function useCodeAreaHeight({ sectionId }) {
+  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
+  const height = useSectionInfos((x) => x.x[sectionId].size.height);
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
@@ -99,22 +157,5 @@ function _CodeArea({ sectionId }) {
     }
   }, [resizeEvent]);
 
-  return (
-    <article
-      ref={wrapperRef}
-      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0 ${overflow}`}
-    >
-      <CodeMirror
-        maxHeight={maxHeight}
-        value={value}
-        theme={theme}
-        extensions={extensions}
-        onMouseDown={onMouseDown}
-        onChange={onChange}
-        onCreateEditor={handleCreateEditor}
-      />
-    </article>
-  );
+  return { wrapperRef, handleCreateEditor, maxHeight, overflow };
 }
-
-export const CodeArea = React.memo(_CodeArea);
