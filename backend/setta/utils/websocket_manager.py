@@ -62,10 +62,12 @@ class WebsocketManager:
         if "location" in message:
             self.sockets[fromWebsocketId]["location"] = message["location"]
 
-    async def send_message_to_requester(self, id, content):
+    async def send_message_to_requester(self, original_msg_id, return_id, content):
         # just send data to target websocket
-        websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
-        await websocket.send_text(json.dumps({"id": id, "content": content}))
+        websocket = self.sockets[self.message_id_to_sender_id[original_msg_id]][
+            "websocket"
+        ]
+        await websocket.send_text(json.dumps({"id": return_id, "content": content}))
 
     async def send_message_to_location(self, content, messageType, location):
         for w in self.sockets.values():

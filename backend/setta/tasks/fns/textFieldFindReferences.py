@@ -16,16 +16,20 @@ class TextFieldFindReferencesContent(BaseModel):
 
 
 async def _textFieldFindReferences(message, lsp_writer):
-    request_id = message.id
+    message_id = message.id
     message = TextFieldFindReferencesContent.parse_obj(message.content)
     code = generateCodeForReferenceFinding(message.candidateKeywords, message.fullText)
     code_id = f"{message.sectionId}-{message.paramInfoId}-find-references"
 
     await lsp_writer.send_document_open_request(code_id, code)
     for idx in range(len(message.candidateKeywords)):
-        # request_id = f"{message.id}-{idx}"
+        request_id = f"{message_id}-{idx}"
         await lsp_writer.send_reference_request(
-            line=idx, character=0, code_id=code_id, request_id=request_id
+            line=idx,
+            character=0,
+            code_id=code_id,
+            request_id=request_id,
+            original_msg_id=message_id,
         )
 
     return {
