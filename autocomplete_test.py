@@ -39,12 +39,13 @@ async def main():
     code = """x=1
 y=2
 z=3
+q=None
 
 def fn(x,y,z):
     return x + y + z
 
 fn(x=x, y=y, z=z)
-x+=5
+q + 2
 some_list = [x for x in range(20)]
 x["dog"]    
 """
@@ -119,7 +120,7 @@ x["dog"]
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
-    await lsp_writer.send_reference_request(0, 0, code_id, str(uuid4()))
+    await lsp_writer.send_reference_request(3, 0, code_id, str(uuid4()))
     # await lsp_writer.send_document_update("test", "import math\nmath.sqrt(5)")
     # await lsp_writer.send_document_open_request("test", "import torch\ntorch.nn.C")
     # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")

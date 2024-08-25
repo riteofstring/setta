@@ -239,22 +239,30 @@ class LanguageServerReader(LanguageServerInteractor):
                 )
             elif method == "textDocument/references":
                 content = []
-                code = self.get_version(response["result"][0]["uri"])["code"]
+                from pprint import pprint
 
-                line_cols = []
-                for x in response["result"]:
-                    line_cols.append(
-                        (x["range"]["start"]["line"], x["range"]["start"]["character"])
-                    )
-                    line_cols.append(
-                        (x["range"]["end"]["line"], x["range"]["end"]["character"])
-                    )
-                positions = line_col_to_position_batch(code, line_cols)
-                content = []
-                for idx in range(0, len(positions), 2):
-                    content.append(
-                        {"startPos": positions[idx], "endPos": positions[idx + 1]}
-                    )
+                pprint(response)
+
+                if len(response["result"]) > 0:
+                    code = self.get_version(response["result"][0]["uri"])["code"]
+                    line_cols = []
+                    for x in response["result"]:
+                        line_cols.append(
+                            (
+                                x["range"]["start"]["line"],
+                                x["range"]["start"]["character"],
+                            )
+                        )
+                        line_cols.append(
+                            (x["range"]["end"]["line"], x["range"]["end"]["character"])
+                        )
+                    positions = line_col_to_position_batch(code, line_cols)
+                    content = []
+                    for idx in range(0, len(positions), 2):
+                        content.append(
+                            {"startPos": positions[idx], "endPos": positions[idx + 1]}
+                        )
+
                 await self.websocket_manager.send_message_to_requester(
                     original_msg_id, id, content
                 )

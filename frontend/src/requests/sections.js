@@ -1,11 +1,8 @@
-import {
-  findCandidateKeywords,
-  findRefs,
-} from "components/Utils/CodeMirror/utils";
+import { findCandidateKeywords } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
-import { useKeywordRegex, useProjectConfig } from "state/definitions";
+import { useProjectConfig } from "state/definitions";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
@@ -109,14 +106,33 @@ export async function dbTextFieldCompletion({
   // Update the LSP document, using those keywords as declarations
   // followed by the content of the text field.
   // Then do a textDocument/references request.
-  const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
-  const evRefs = findRefs({
-    sectionId,
-    paramInfoId,
-    keywordRegex,
-    fullNameToInfo,
-    value: fullText,
-  });
+  // const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
+  // const evRefs = findRefs({
+  //   sectionId,
+  //   paramInfoId,
+  //   keywordRegex,
+  //   fullNameToInfo,
+  //   value: fullText,
+  // });
+  let evRefs = [];
+  const candidateKeywords = findCandidateKeywords(fullText);
+  if (candidateKeywords.length > 0) {
+    let count = 0;
+    const keywordPositions = [];
+    await sendMessageInRoom({
+      id: `${sectionId}-${paramInfoId}-find-references`,
+      messageType: "textFieldFindReferences",
+      content: { sectionId, paramInfoId, candidateKeywords, fullText },
+      condition: (x) => {
+        keywordPositions.push(...x);
+        count += 1;
+        return count === candidateKeywords.length;
+      },
+    });
+    console.log("keywordPositions", keywordPositions);
+    // evRefs =
+  }
+
   return await sendMessageInRoom({
     id: `${address}-${sectionId}-${paramInfoId}`,
     messageType,
