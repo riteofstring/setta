@@ -1,3 +1,5 @@
+from setta.utils.constants import C
+
 def double_braces(x):
     return f"{{{{ {x} }}}}"
 
@@ -11,4 +13,4 @@ def needs_python_argparse(script):
 
 
 def needs_generated_python(script):
-    return double_braces("SETTA_GENERATED_CODE") in script
+    return double_braces(C.SETTA_GENERATED_PYTHON) in script

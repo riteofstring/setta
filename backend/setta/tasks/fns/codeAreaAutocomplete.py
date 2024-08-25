@@ -14,6 +14,7 @@ from setta.code_gen.python.generate_code import (
     replace_keywords,
 )
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 
 from .codeAreaInitializeCode import get_cache_key
 from .utils import TaskDefinition
@@ -43,7 +44,7 @@ async def _codeAreaAutocomplete(message, lsp_writer):
     codeJson = exporter_obj.output if exporter_obj else None
     line = message.line
     gen_code_line_num = find_line_number(
-        message.fullText, double_braces("SETTA_GENERATED_CODE")
+        message.fullText, double_braces(C.SETTA_GENERATED_PYTHON)
     )
     if gen_code_line_num == -1 or message.line <= gen_code_line_num:
         referencable_var_names = []
@@ -54,7 +55,7 @@ async def _codeAreaAutocomplete(message, lsp_writer):
         # So line == message.line.
         line += num_gen_code_lines - 1
 
-    code = replace_keywords(message.fullText, {"SETTA_GENERATED_CODE": gen_code})
+    code = replace_keywords(message.fullText, {C.SETTA_GENERATED_PYTHON: gen_code})
 
     print("line, column", line, message.column, flush=True)
     print("gen_code_line_num", gen_code_line_num, flush=True)

@@ -257,7 +257,7 @@
       "uiTypeColId": "ce01027b-26ed-4ea2-971a-fefde787cbb2",
       "social": null,
       "description": "",
-      "code": "{{ SETTA_GENERATED_CODE }}\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\n# img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\n# s.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\nc = 3\nlosses = [((i - 10) / 5) ** float(c) for i in range(20)]\ns.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
+      "code": "{{ SETTA_GENERATED_PYTHON }}\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\n# img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\n# s.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\nc = 3\nlosses = [((i - 10) / 5) ** float(c) for i in range(20)]\ns.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
       "codeLanguage": "python",
       "isFrozen": 0,
       "dbSource": "",

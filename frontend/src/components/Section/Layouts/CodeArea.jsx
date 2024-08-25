@@ -58,7 +58,7 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const pattern = useKeywordRegex((x) => x.pattern, _.isEqual);
+  const pattern = useKeywordRegex((x) => x.codeAreaPattern, _.isEqual);
   const { keywordStylizer } = useKeywordStylizer({
     pattern,
     sectionId,

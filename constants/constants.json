@@ -64,5 +64,6 @@
   "WS_ALL_CONNECTIONS": "allConnections",
   "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
   "WS_RUN_CODE": "runCode",
-  "WS_ARTIFACT": "artifact"
+  "WS_ARTIFACT": "artifact",
+  "SETTA_GENERATED_PYTHON": "SETTA_GENERATED_PYTHON"
 }

@@ -55,19 +55,29 @@ function getRegexAndColorMap(sectionIdsToNames) {
     }
   }
 
-  const pattern =
-    names.length > 0
-      ? new RegExp(`(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`, "g")
-      : dummyRegExpObject();
+  if (names.length === 0) {
+    return {
+      pattern: dummyRegExpObject(),
+      codeAreaPattern: dummyRegExpObject(),
+      fullNameToInfo,
+    };
+  }
 
-  return { pattern, fullNameToInfo };
+  const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
+  const pattern = new RegExp(patternStr, "g");
+  const codeAreaPattern = new RegExp(
+    `(?<=.*?{{ ${C.SETTA_GENERATED_PYTHON} }}.*?)${patternStr}`,
+    "gs",
+  );
+
+  return { pattern, codeAreaPattern, fullNameToInfo };
 }
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function dummyRegExpObject() {
+export function dummyRegExpObject() {
   return {
     exec: function () {
       return null;

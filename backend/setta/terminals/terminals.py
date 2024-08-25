@@ -175,7 +175,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            replacements["SETTA_GENERATED_CODE"] = generate_code(
+            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
                 selected, curr_code, replace_templated_code=False
             )[0]
 

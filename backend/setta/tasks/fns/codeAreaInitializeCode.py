@@ -12,6 +12,7 @@ from setta.code_gen.python.generate_code import (
     replace_keywords,
 )
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 
 from .utils import TaskDefinition
 
@@ -52,7 +53,7 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     # print("var_name_to_line_num", var_name_to_line_num, flush=True)
     # print("referencable_var_names", referencable_var_names, flush=True)
 
-    code = replace_keywords(code, {"SETTA_GENERATED_CODE": gen_code})
+    code = replace_keywords(code, {C.SETTA_GENERATED_PYTHON: gen_code})
 
     print("code", code, flush=True)
 

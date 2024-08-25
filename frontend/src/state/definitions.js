@@ -54,6 +54,7 @@ export const useInteractive = create(() => ({
 
 export const useKeywordRegex = create(() => ({
   pattern: "",
+  codeAreaPattern: "",
   fullNameToInfo: {},
 }));
 

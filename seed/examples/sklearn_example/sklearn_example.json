@@ -207,7 +207,7 @@
       "uiTypeColId": "1670b0c5-4c23-4c16-90bf-84e8a6b7d43a",
       "social": null,
       "description": "",
-      "code": "import numpy as np\n\n{{ SETTA_GENERATED_CODE }}\n\nprint(\"here\")",
+      "code": "import numpy as np\n\n{{ SETTA_GENERATED_PYTHON }}\n\nprint(\"here\")",
       "codeLanguage": "python",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
