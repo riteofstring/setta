@@ -84,6 +84,17 @@ class LanguageServerWriter(LanguageServerInteractor):
         }
         await self.send_request("textDocument/didChange", params=params)
 
+    async def send_reference_request(self, line, character, code_id, request_id):
+        uri = self.get_virtual_uri(code_id)
+        params = {
+            "textDocument": {
+                "uri": uri,
+            },
+            "position": {"line": line, "character": character},
+            "context": {"includeDeclaration": False},
+        }
+        await self.send_request("textDocument/references", params=params, id=request_id)
+
     def get_file_uri(self):
         return f"file://{self.root_path}".lower()
 

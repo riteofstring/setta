@@ -1,5 +1,6 @@
 from setta.utils.constants import C
 
+
 def double_braces(x):
     return f"{{{{ {x} }}}}"
 

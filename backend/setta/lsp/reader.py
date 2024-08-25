@@ -10,31 +10,32 @@ from setta.utils.constants import C
 from .server import LanguageServerInteractor
 
 type_mapping = {
-    1: "text",
-    2: "method",
-    3: "function",
-    4: "constructor",
-    5: "field",
-    6: "variable",
-    7: "class",
-    8: "interface",
-    9: "module",
-    10: "property",
-    11: "unit",
-    12: "value",
-    13: "enum",
-    14: "keyword",
-    15: "snippet",
-    16: "color",
-    17: "file",
-    18: "reference",
-    19: "folder",
-    20: "enummember",
-    21: "constant",
-    22: "struct",
-    23: "event",
-    24: "operator",
-    25: "typeparameter",
+    1: "File",
+    2: "Module",
+    3: "Namespace",
+    4: "Package",
+    5: "Class",
+    6: "Method",
+    7: "Property",
+    8: "Field",
+    9: "Constructor",
+    10: "Enum",
+    11: "Interface",
+    12: "Function",
+    13: "Variable",
+    14: "Constant",
+    15: "String",
+    16: "Number",
+    17: "Boolean",
+    18: "Array",
+    19: "Object",
+    20: "Key",
+    21: "Null",
+    22: "EnumMember",
+    23: "Struct",
+    24: "Event",
+    25: "Operator",
+    26: "TypeParameter",
 }
 
 
@@ -209,7 +210,6 @@ class LanguageServerReader(LanguageServerInteractor):
     async def process_response(self, response):
         id = response.get("id", None)
         method = response.get("method", None)
-        # pprint(response)
         if id:
             method = method if method else self.msg_id_to_method[id]
             if method == "textDocument/completion":
@@ -230,6 +230,9 @@ class LanguageServerReader(LanguageServerInteractor):
                     # pprint(content)
                 else:
                     content = None
+                await self.websocket_manager.send_message_to_requester(id, content)
+            elif method == "textDocument/references":
+                content = [x["range"] for x in response["result"]]
                 await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
             # print(response)

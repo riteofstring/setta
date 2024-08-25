@@ -1,8 +1,14 @@
 import asyncio
-from backend.setta.lsp.reader import LanguageServerReader
-from backend.setta.lsp.server import LanguageServer
-from backend.setta.lsp.writer import LanguageServerWriter
+
+
+from setta.lsp.reader import LanguageServerReader
+from setta.lsp.server import LanguageServer
+from setta.lsp.writer import LanguageServerWriter
 from pathlib import Path
+from setta.utils.constants import load_constants
+from uuid import uuid4
+load_constants()
+
 
 
 class FakeWebsocketManager:
@@ -29,7 +35,19 @@ async def main():
 
     code_id = "test"
     # code = "import math\nx=math.sqrt()"
-    code = "import torchvision\ntorchvision.models.resnet18()"
+    declared_variables = ["x", "y", "z"]
+    code = """x=1
+y=2
+z=3
+
+def fn(x,y,z):
+    return x + y + z
+
+fn(x=x, y=y, z=z)
+x+=5
+some_list = [x for x in range(20)]
+x["dog"]    
+"""
     codeJson = {}
 
     # code_id = "test"
@@ -101,14 +119,15 @@ async def main():
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
+    await lsp_writer.send_reference_request(0, 0, code_id, str(uuid4()))
     # await lsp_writer.send_document_update("test", "import math\nmath.sqrt(5)")
     # await lsp_writer.send_document_open_request("test", "import torch\ntorch.nn.C")
     # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
     # await lsp_writer.send_document_update(
     #     "test", "import torch\ntorch.nn.CrossEntropyLoss("
     # )
-    print(len(code.split("\n")[1])-2)
-    await lsp_writer.send_signature_help_request(1, len(code.split("\n")[1])-1, "test", "1234")
+    # print(len(code.split("\n")[1])-2)
+    # await lsp_writer.send_signature_help_request(1, len(code.split("\n")[1])-1, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 10, "test", "1234")
     # await lsp_writer.send_signature_help_request(1, 26, "test", "1234")
     # pprint(lsp.sent_msg_info.keys())
