@@ -111,13 +111,12 @@ export function doesNotReferToSelf({
   );
 }
 
-
-export function findCandidateKeywords(value){
+export function findCandidateKeywords(value) {
   let match;
-  const output = []
+  const output = [];
   const { pattern: keywordRegex } = useKeywordRegex.getState();
   while ((match = keywordRegex.exec(value))) {
-    output.push(match[0])
+    output.push(match[0]);
   }
-  return output
+  return output;
 }

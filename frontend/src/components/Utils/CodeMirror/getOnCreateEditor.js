@@ -22,7 +22,7 @@ function getContentDomEventListener(keywordLocations, editor) {
 
     let keywordInfo = null;
 
-    for (const k of keywordLocations.current) {
+    for (const k of keywordLocations) {
       if (pos >= k.startPos && pos < k.endPos) {
         keywordInfo = k;
         break;

@@ -22,7 +22,7 @@ export function DummyCodeMirror({
   onMouseDown,
   onFocus,
   className,
-  keywordRegex,
+  keywordLocations,
   placeholder,
   sectionId,
   paramInfoId,
@@ -35,7 +35,7 @@ export function DummyCodeMirror({
       onMouseDown={onMouseDown}
       onFocus={onFocus}
       className={className}
-      keywordRegex={keywordRegex}
+      keywordLocations={keywordLocations}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       language={language}
@@ -70,7 +70,7 @@ function HighlightedCode({
   theme,
   onMouseDown,
   className,
-  keywordRegex,
+  keywordLocations,
   sectionId,
   paramInfoId,
   language,
@@ -81,16 +81,16 @@ function HighlightedCode({
   const markCache = {};
   const builder = new RangeSetBuilder();
 
-  let match;
   const matchedIndices = {};
-  while ((match = keywordRegex.exec(code))) {
-    const [from, to] = [match.index, match.index + match[0].length];
-    matchedIndices[match.index] = {
-      keywordStartIdx: from,
-      keywordEndIdx: to,
-      keyword: code.substring(from, to),
-    };
-  }
+  // for (const location of keywordLocations) {
+  // TODO
+  // const [from, to] = [match.index, match.index + match[0].length];
+  // matchedIndices[match.index] = {
+  //   keywordStartIdx: from,
+  //   keywordEndIdx: to,
+  //   keyword: code.substring(from, to),
+  // };
+  // }
 
   highlightTree(tree, highlightStyle, (from, to, style) => {
     builder.add(

@@ -1,14 +1,15 @@
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, ViewPlugin } from "@codemirror/view";
-import { useRef } from "react";
 import { useKeywordRegex } from "state/definitions";
 import { doesNotReferToSelf } from "./utils";
 
 const italicStyle = Decoration.mark({ class: "italic" });
 
-export function useKeywordStylizer({ pattern, sectionId, paramInfoId }) {
-  const keywordLocations = useRef([]);
-
+export function useKeywordStylizer({
+  keywordLocations,
+  sectionId,
+  paramInfoId,
+}) {
   const keywordStylizer = ViewPlugin.fromClass(
     class {
       decorations;
@@ -29,8 +30,8 @@ export function useKeywordStylizer({ pattern, sectionId, paramInfoId }) {
         const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
         for (const { from, to } of view.visibleRanges) {
           const text = view.state.doc.sliceString(from, to);
-          let match;
-          while ((match = pattern.exec(text))) {
+          // TODO
+          for (const location of keywordLocations) {
             const startPos = from + match.index;
             const endPos = startPos + match[0].length;
             const keyword = match[0];
@@ -47,7 +48,6 @@ export function useKeywordStylizer({ pattern, sectionId, paramInfoId }) {
             }
           }
         }
-        keywordLocations.current = newKeywordLocations;
         return builder.finish();
       }
     },
@@ -56,5 +56,5 @@ export function useKeywordStylizer({ pattern, sectionId, paramInfoId }) {
     },
   );
 
-  return { keywordLocations, keywordStylizer };
+  return { keywordStylizer };
 }

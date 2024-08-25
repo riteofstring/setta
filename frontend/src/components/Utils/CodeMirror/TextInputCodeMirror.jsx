@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
-import { useKeywordRegex } from "state/definitions";
+import { useKeywordLocations } from "state/definitions";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
@@ -29,8 +29,11 @@ export function TextInputCodeMirror({
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
-  const pattern = useKeywordRegex((x) => x.pattern, _.isEqual);
   const theme = useCodeMirrorStyle(color);
+  const keywordLocations = useKeywordLocations(
+    (x) => x.x[sectionId]?.[paramInfoId] ?? [],
+    _.isEqual,
+  );
 
   function localOnBlur() {
     // hack to prevent codemirror from
@@ -71,7 +74,7 @@ export function TextInputCodeMirror({
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
-          keywordRegex={pattern}
+          keywordLocations={keywordLocations}
           placeholder={defaultVal}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
@@ -94,7 +97,7 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
-          keywordRegex={pattern}
+          keywordLocations={keywordLocations}
           language={language}
         />
       )}
@@ -117,13 +120,13 @@ function CoreCodeMirror({
   realIsInitialized,
   setRealIsInitialized,
   theme,
-  keywordRegex,
+  keywordLocations,
   language,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
 
-  const { keywordLocations, keywordStylizer } = useKeywordStylizer({
-    pattern: keywordRegex,
+  const { keywordStylizer } = useKeywordStylizer({
+    keywordLocations,
     sectionId,
     paramInfoId,
   });
