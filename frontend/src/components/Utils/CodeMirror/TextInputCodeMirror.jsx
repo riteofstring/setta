@@ -46,7 +46,7 @@ export function TextInputCodeMirror({
   function localOnMouseDown(event) {
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
+      dbTextFieldInitializeCode({ sectionId, paramInfoId, value });
       setActivationEvent(event);
       if (sectionIdToBeActive) {
         setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
@@ -57,7 +57,7 @@ export function TextInputCodeMirror({
   // focused via tab key
   function onFocus() {
     if (!activationEvent) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
+      dbTextFieldInitializeCode({ sectionId, paramInfoId, value });
       setActivationEvent("tab");
     }
   }

@@ -1,4 +1,7 @@
-import { findRefs } from "components/Utils/CodeMirror/utils";
+import {
+  findCandidateKeywords,
+  findRefs,
+} from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
@@ -37,10 +40,20 @@ export async function dbParametersRequest({
   });
 }
 
-export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
+export async function dbTextFieldInitializeCode({
+  sectionId,
+  paramInfoId,
+  value,
+}) {
   const project = getProjectDataToGenerateCode({});
   const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}-${paramInfoId}`;
-  sendMessage({
+  const candidateKeywords = findCandidateKeywords(value);
+  await sendMessage({
+    id: `${id}-find-references`,
+    messageType: "textFieldFindReferences",
+    content: { sectionId, paramInfoId, candidateKeywords, fullText: value },
+  });
+  await sendMessage({
     id,
     messageType: "textFieldInitializeCode",
     content: { project, sectionId, paramInfoId },
@@ -91,6 +104,11 @@ export async function dbTextFieldCompletion({
   messageType = "textFieldCompletion",
 }) {
   const projectConfigId = useProjectConfig.getState().id;
+  // Find candidate keywords using regex
+  // Send those keywords.
+  // Update the LSP document, using those keywords as declarations
+  // followed by the content of the text field.
+  // Then do a textDocument/references request.
   const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
   const evRefs = findRefs({
     sectionId,

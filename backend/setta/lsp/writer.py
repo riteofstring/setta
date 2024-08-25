@@ -29,7 +29,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_request("initialize", params=params, id=str(uuid.uuid4()))
         await self.send_didChangeConfiguration()  # pyright requires this step
 
-    async def send_document_open_request(self, code_id, code, codeJson):
+    async def send_document_open_request(self, code_id, code, codeJson=None):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {

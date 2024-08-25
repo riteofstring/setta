@@ -110,3 +110,14 @@ export function doesNotReferToSelf({
       fullNameToInfo[keyword].paramInfoId === paramInfoId)
   );
 }
+
+
+export function findCandidateKeywords(value){
+  let match;
+  const output = []
+  const { pattern: keywordRegex } = useKeywordRegex.getState();
+  while ((match = keywordRegex.exec(value))) {
+    output.push(match[0])
+  }
+  return output
+}
