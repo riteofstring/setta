@@ -29,18 +29,18 @@ export function getExtensions({
     }),
   ];
 
-  // // Get keyword positions as document changes
-  // extensions.push(
-  //   EditorView.updateListener.of((update) => {
-  //     if (update.docChanged) {
-  //       debouncedGetKeywordPositionsAndEVRefs({
-  //         sectionId,
-  //         paramInfoId,
-  //         fullText: update.state.doc.toString(),
-  //       });
-  //     }
-  //   }),
-  // );
+  // Get keyword positions as document changes
+  extensions.push(
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        debouncedGetKeywordPositionsAndEVRefs({
+          sectionId,
+          paramInfoId,
+          fullText: update.state.doc.toString(),
+        });
+      }
+    }),
+  );
 
   if (language === "python") {
     extensions.push(python());
