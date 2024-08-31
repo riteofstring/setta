@@ -28,24 +28,23 @@ export function useKeywordStylizer({
         const builder = new RangeSetBuilder();
         const newKeywordLocations = [];
         const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
-        for (const { from, to } of view.visibleRanges) {
-          const text = view.state.doc.sliceString(from, to);
-          // TODO
-          for (const location of keywordPositions) {
-            const startPos = from + match.index;
-            const endPos = startPos + match[0].length;
-            const keyword = match[0];
-            if (
-              doesNotReferToSelf({
-                fullNameToInfo,
-                keyword,
-                sectionId,
-                paramInfoId,
-              })
-            ) {
-              newKeywordLocations.push({ startPos, endPos, keyword });
-              builder.add(startPos, endPos, italicStyle);
-            }
+        const text = view.state.doc;
+        for (const kp of keywordPositions) {
+          const keyword = text.sliceString(kp.startPos, kp.endPos);
+          if (
+            doesNotReferToSelf({
+              fullNameToInfo,
+              keyword,
+              sectionId,
+              paramInfoId,
+            })
+          ) {
+            newKeywordLocations.push({
+              startPos: kp.startPos,
+              endPos: kp.endPos,
+              keyword,
+            });
+            builder.add(kp.startPos, kp.endPos, italicStyle);
           }
         }
         return builder.finish();

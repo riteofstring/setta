@@ -6,7 +6,7 @@ import { goToSection } from "state/actions/sections/sectionPositions";
 import { useKeywordRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
 
-function getContentDomEventListener(keywordLocations, editor) {
+function getContentDomEventListener(keywordPositions, editor) {
   return (event) => {
     if (!variableClick(event)) {
       return;
@@ -22,7 +22,7 @@ function getContentDomEventListener(keywordLocations, editor) {
 
     let keywordInfo = null;
 
-    for (const k of keywordLocations) {
+    for (const k of keywordPositions) {
       if (pos >= k.startPos && pos < k.endPos) {
         keywordInfo = k;
         break;

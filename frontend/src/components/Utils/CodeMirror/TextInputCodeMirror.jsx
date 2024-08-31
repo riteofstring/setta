@@ -93,7 +93,7 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
-          keywordPositions={[]}
+          keywordPositions={keywordPositions}
           language={language}
         />
       )}
