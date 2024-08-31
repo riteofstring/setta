@@ -43,8 +43,9 @@ function receiveMessage(message) {
     useTypeErrors.setState(m.content, true);
   } else if (m.messageType === C.WS_ARTIFACT) {
     updateArtifacts({ artifacts: m.content, addSection: true });
-  } else if (m.id) {
+  } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
     console.log(m);
+  } else if (m.id) {
     setWebsocketRoomMessage(m.id, m.content);
   }
 }

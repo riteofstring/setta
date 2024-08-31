@@ -120,12 +120,12 @@ export function convertValue({ sectionId, paramInfoId, uiTypeId }) {
   setParamEnteredValue({ sectionId, paramInfoId, value });
 }
 
-function getParamEV(sectionId, paramInfoId) {
+export function getParamEV(sectionId, paramInfoId) {
   const { variantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(sectionId);
   return useSectionVariants.getState().x[dbSource][variantId].values[
     paramInfoId
-  ];
+  ].value;
 }
 
 export function setParamEnteredValue({
