@@ -73,17 +73,14 @@ def no_entered_value(value):
     return value is None or value == ""
 
 
-def get_var_name(var_names):
-    name = f"__x{len(var_names)}"
-    var_names.add(name)
-    return name
+def get_var_name(var_name_mapping):
+    return f"__x{len(var_name_mapping)}"
 
 
 def maybe_create_var_name(
     section_id,
     param_info_id,
     param_name,
-    var_names,
     var_name_mapping,
     var_name_reverse_mapping,
     is_global=False,
@@ -92,7 +89,7 @@ def maybe_create_var_name(
     mapping_key = (section_id, param_info_id, is_args_obj)
     var_name = var_name_mapping.get(mapping_key)
     if not var_name:
-        var_name = param_name if is_global else get_var_name(var_names)
+        var_name = param_name if is_global else get_var_name(var_name_mapping)
         var_name_mapping[mapping_key] = var_name
         var_name_reverse_mapping[var_name] = mapping_key
     return var_name
@@ -147,7 +144,6 @@ class Exporter:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.var_names = set()
         self.var_name_mapping = {}
         self.var_name_reverse_mapping = {}
 
@@ -176,7 +172,6 @@ class Exporter:
             id,
             None,
             None,
-            self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
         )
@@ -215,7 +210,6 @@ class Exporter:
             id,
             None,
             None,
-            self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
             is_args_obj=True,
@@ -265,7 +259,6 @@ class Exporter:
             section_id,
             id,
             param_name,
-            self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
             is_global=is_global,
