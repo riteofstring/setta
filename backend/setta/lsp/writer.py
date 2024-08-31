@@ -93,7 +93,13 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_request("textDocument/didChange", params=params)
 
     async def send_reference_request(
-        self, position_offset, line, character, code_id, request_id, return_id,
+        self,
+        position_offset,
+        line,
+        character,
+        code_id,
+        request_id,
+        return_id,
     ):
         uri = self.get_virtual_uri(code_id)
         params = {

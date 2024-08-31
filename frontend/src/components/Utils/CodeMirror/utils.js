@@ -37,7 +37,7 @@ export function computeEVReferences(project) {
     }
   }
 
-  project["evRefs"] = evRefs;
+  return evRefs;
 }
 
 export function findRefs({
@@ -45,18 +45,20 @@ export function findRefs({
   paramInfoId,
   keywordPositions,
   fullNameToInfo,
+  fullText,
 }) {
   const output = [];
   for (const k of keywordPositions) {
+    const keyword = fullText.substring(k["startPos"], k["endPos"]);
     if (
       doesNotReferToSelf({
         fullNameToInfo,
-        keyword: k["variableName"],
+        keyword,
         sectionId,
         paramInfoId,
       })
     ) {
-      const info = fullNameToInfo[k["variableName"]];
+      const info = fullNameToInfo[keyword];
       output.push({
         sectionId: info["sectionId"],
         paramInfoId: info["paramInfoId"],
@@ -102,7 +104,6 @@ export function findRefsOLD({
   }
   return output;
 }
-
 
 export function computeInfoToFullName() {
   const output = {};

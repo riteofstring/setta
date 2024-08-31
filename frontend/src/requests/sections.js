@@ -126,6 +126,7 @@ export async function dbTextFieldCompletion({
       paramInfoId,
       keywordPositions,
       fullNameToInfo,
+      fullText,
     });
   }
 

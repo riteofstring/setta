@@ -33,7 +33,7 @@ async def _textFieldFindReferences(message, lsp_writer):
             character=0,
             code_id=code_id,
             request_id=request_id,
-            return_id=message_id
+            return_id=message_id,
         )
 
     return {

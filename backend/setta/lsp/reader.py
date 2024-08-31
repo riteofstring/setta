@@ -1,8 +1,8 @@
 import asyncio
 import json
 import re
-
 from pprint import pprint
+
 import docstring_parser
 
 from setta.code_gen.python.generate_code import line_col_to_position_batch
@@ -254,10 +254,8 @@ class LanguageServerReader(LanguageServerInteractor):
                     for idx in range(0, len(positions), 2):
                         startPos = positions[idx] - position_offset
                         endPos = positions[idx + 1] - position_offset
-                        variableName = code[positions[idx]:positions[idx + 1]]
                         content.append(
                             {
-                                "variableName": variableName,
                                 "startPos": startPos,
                                 "endPos": endPos,
                             }
@@ -265,7 +263,9 @@ class LanguageServerReader(LanguageServerInteractor):
 
                 print(content, flush=True)
                 return_id = self.msg_id_to_metadata[id]["return_id"]
-                await self.websocket_manager.send_message_to_requester(return_id, content)
+                await self.websocket_manager.send_message_to_requester(
+                    return_id, content
+                )
         elif method == "textDocument/publishDiagnostics":
             # print(response)
             params = response["params"]
