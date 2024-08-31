@@ -4,7 +4,6 @@ import { useCallback, useState } from "react";
 import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
-import { useGetParamKeywordPositions } from "state/hooks/sectionVariants";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
@@ -25,11 +24,13 @@ export function TextInputCodeMirror({
   color,
   language,
   sectionIdToBeActive,
+  keywordPositions,
+  setKeywordPositions,
 }) {
+  console.log("TextInputCodeMirror", keywordPositions)
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
-  const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
 
   function localOnBlur() {
     // hack to prevent codemirror from
@@ -127,10 +128,10 @@ function CoreCodeMirror({
     paramInfoId,
   });
 
-  const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
-    sectionId,
-    paramInfoId,
-  ]);
+  const completionsFn = useCallback(
+    getCompletionsFn(sectionId, paramInfoId, setKeywordPositions),
+    [sectionId, paramInfoId],
+  );
 
   const extensions = getExtensions({
     sectionId,

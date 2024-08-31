@@ -1,5 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useEffect, useState } from "react";
+import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { setSelectedItem } from "state/actions/sections/setters";
 import { useCodeInfo } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -59,8 +60,9 @@ export function SectionSearch({ sectionId, selectedItem }) {
     setValue(codeInfoName);
   }, [codeInfoName]);
 
-  function onEnter() {
+  async function onEnter() {
     setSelectedItem(sectionId, value, true);
+    // const evRefs = await getKeywordPositionsAndEVRefs({ sectionId, paramInfoId, fullText: value });
   }
 
   function onEscape(view) {

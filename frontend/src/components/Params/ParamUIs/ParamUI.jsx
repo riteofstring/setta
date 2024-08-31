@@ -26,6 +26,8 @@ export function ParamUI({
   isDisabled,
   maybeErrorMessage,
   sectionIdToBeActive,
+  keywordPositions,
+  setKeywordPositions
 }) {
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({

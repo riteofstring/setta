@@ -4,7 +4,6 @@ import {
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
-import { setParamKeywordPositions } from "state/actions/sectionVariants";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
 import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { asyncDebounce } from "utils/utils";
@@ -92,6 +91,7 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
+  setKeywordPositions,
   address = C.ROUTE_TEXT_FIELD_COMPLETION,
   messageType = "textFieldCompletion",
 }) {
@@ -100,6 +100,7 @@ export async function dbTextFieldCompletion({
     sectionId,
     paramInfoId,
     fullText,
+    setKeywordPositions,
   });
 
   return await sendMessageInRoom({
@@ -117,10 +118,11 @@ export async function dbTextFieldCompletion({
   });
 }
 
-async function getKeywordPositionsAndEVRefs({
+export async function getKeywordPositionsAndEVRefs({
   sectionId,
   paramInfoId,
   fullText,
+  setKeywordPositions,
 }) {
   const { fullNameToInfo } = useKeywordRegex.getState();
   let evRefs = [];
@@ -153,11 +155,8 @@ async function getKeywordPositionsAndEVRefs({
     });
   }
 
-  if (paramInfoId) {
-    setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
-  } else {
-    console.log("else case!");
-    // setSelectedItemKeywordPositions(sectionId, keywordPositions);
+  if (paramInfoId && setKeywordPositions) {
+    setKeywordPositions({ sectionId, paramInfoId, keywordPositions });
   }
 
   return evRefs;

@@ -80,7 +80,7 @@ export function getOnCreateEditor({
   };
 }
 
-export function getCompletionsFn(sectionId, paramInfoId) {
+export function getCompletionsFn(sectionId, paramInfoId, setKeywordPositions) {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;

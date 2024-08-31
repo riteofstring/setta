@@ -3,7 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/sectionVariants";
 import { useInteractive } from "state/definitions";
-import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
+import {
+  useGetParamEnteredValue,
+  useGetParamKeywordPositions,
+} from "state/hooks/sectionVariants";
+import useDeepCompareEffect from "use-deep-compare-effect";
 import { createNewId } from "utils/idNameCreation";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
@@ -16,12 +20,17 @@ export function ParamInput({
   setDidUpdate,
 }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
-  const [value, setValue] = useState(enteredValue);
+  const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
+  const [localValue, setLocalValue] = useState(enteredValue);
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
+
+  console.log("localKeywordPositions", localKeywordPositions)
 
   // value and enteredValue should always be string
   function onChange(v) {
     const vStr = _.toString(v);
-    setValue(vStr);
+    setLocalValue(vStr);
     setEnteredValue(vStr);
     setDidUpdate(true);
     sendToInteractiveTasks(vStr);
@@ -36,28 +45,48 @@ export function ParamInput({
           value: vStr,
           incrementVersion: changedByUser,
         });
+        // if (getParamUIType(sectionId, paramInfoId) === C.TEXT) {
+        //   const keywordPositions = await getKeywordPositionsAndEVRefs({
+        //     sectionId,
+        //     paramInfoId,
+        //     fullText: vStr,
+        //   });
+        //   setParamKeywordPositions({
+        //     sectionId,
+        //     paramInfoId,
+        //     keywordPositions,
+        //   });
+        // }
       }
-    }, 500),
+    }, 100),
     [enteredValue],
   );
 
   useEffect(() => {
-    if (value !== enteredValue) {
-      setValue(enteredValue);
+    if (localValue !== enteredValue) {
+      setLocalValue(enteredValue);
       setDidUpdate(true);
     }
   }, [enteredValue]);
+
+  useDeepCompareEffect(() => {
+    if (!_.isEqual(localKeywordPositions, keywordPositions)) {
+      setLocalKeywordPositions(keywordPositions);
+    }
+  }, [keywordPositions]);
 
   return (
     <ParamUI
       sectionId={sectionId}
       paramInfoId={paramInfoId}
-      value={value}
+      value={localValue}
       defaultVal={defaultVal}
       onChange={onChange}
       isDisabled={isDisabled}
       maybeErrorMessage={maybeErrorMessage}
       sectionIdToBeActive={sectionId}
+      keywordPositions={localKeywordPositions}
+      setKeywordPositions={setLocalKeywordPositions}
     />
   );
 }
