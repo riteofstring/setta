@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 
+from pprint import pprint
 import docstring_parser
 
 from setta.code_gen.python.generate_code import line_col_to_position_batch
@@ -233,6 +234,7 @@ class LanguageServerReader(LanguageServerInteractor):
                     content = None
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/references":
+                print("response", response, flush=True)
                 content = []
                 if len(response["result"]) > 0:
                     code = self.get_version(response["result"][0]["uri"])["code"]
@@ -248,18 +250,22 @@ class LanguageServerReader(LanguageServerInteractor):
                             (x["range"]["end"]["line"], x["range"]["end"]["character"])
                         )
                     positions = line_col_to_position_batch(code, line_cols)
-                    variable_name = self.msg_id_to_metadata[id]["variable_name"]
                     position_offset = self.msg_id_to_metadata[id]["position_offset"]
                     for idx in range(0, len(positions), 2):
+                        startPos = positions[idx] - position_offset
+                        endPos = positions[idx + 1] - position_offset
+                        variableName = code[positions[idx]:positions[idx + 1]]
                         content.append(
                             {
-                                "variable_name": variable_name,
-                                "startPos": positions[idx] - position_offset,
-                                "endPos": positions[idx + 1] - position_offset,
+                                "variableName": variableName,
+                                "startPos": startPos,
+                                "endPos": endPos,
                             }
                         )
 
-                await self.websocket_manager.send_message_to_requester(id, content)
+                print(content, flush=True)
+                return_id = self.msg_id_to_metadata[id]["return_id"]
+                await self.websocket_manager.send_message_to_requester(return_id, content)
         elif method == "textDocument/publishDiagnostics":
             # print(response)
             params = response["params"]

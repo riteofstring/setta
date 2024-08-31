@@ -9,18 +9,19 @@ let wss;
 
 export function openWebSocket(pathname) {
   if (!wss) {
+    console.log("new Websocket");
     wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
+    wss.addEventListener("open", () => {
+      console.log("open websocket");
+      sendLocation(pathname);
+    });
+
+    wss.addEventListener("message", (event) => {
+      receiveMessage(event.data);
+    });
+
+    wss.addEventListener("error", closeWebSocket);
   }
-
-  wss.addEventListener("open", () => {
-    sendLocation(pathname);
-  });
-
-  wss.addEventListener("message", (event) => {
-    receiveMessage(event.data);
-  });
-
-  wss.addEventListener("error", closeWebSocket);
 }
 
 function closeWebSocket() {
@@ -36,7 +37,6 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  console.log(m);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
@@ -44,6 +44,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_ARTIFACT) {
     updateArtifacts({ artifacts: m.content, addSection: true });
   } else if (m.id) {
+    console.log(m);
     setWebsocketRoomMessage(m.id, m.content);
   }
 }

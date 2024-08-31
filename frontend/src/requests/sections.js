@@ -116,6 +116,7 @@ export async function dbTextFieldCompletion({
   // });
   let evRefs = [];
   const candidateKeywords = findCandidateKeywords(fullText);
+  console.log("candidateKeywords", candidateKeywords)
   if (candidateKeywords.length > 0) {
     let count = 0;
     const keywordPositions = [];
