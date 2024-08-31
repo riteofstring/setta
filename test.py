@@ -919,18 +919,18 @@
 # print(infer_imports(code))
 
 
-from setta.cli.logger import Setta, SettaNumpyImg
-import numpy as np
+# from setta.cli.logger import Setta, SettaNumpyImg
+# import numpy as np
 
 
-s = Setta()
+# s = Setta()
 
-# img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
-# s.log({"test_folder/another_folder/img": SettaNumpyImg(img)}, save=True)
+# # img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+# # s.log({"test_folder/another_folder/img": SettaNumpyImg(img)}, save=True)
 
-c = 3
-losses = [((i - 10) / 5) ** float(c) for i in range(20)]
-s.log({"test_folder/losses": losses}, save=True)
+# c = 3
+# losses = [((i - 10) / 5) ** float(c) for i in range(20)]
+# s.log({"test_folder/losses": losses}, save=True)
 
 
 # for i in range(5):
@@ -944,3 +944,9 @@ s.log({"test_folder/losses": losses}, save=True)
 # columns:
 # - run_id (timestamp)
 # - data_path string
+
+x = """import torch
+torch.nn.CrossEntropyLoss
+"""
+
+print(x.split("{{ SETTA_GENERATED_CODE }}"))

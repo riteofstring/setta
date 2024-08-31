@@ -4,8 +4,9 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.python.generate_code import count_lines
+from setta.code_gen.python.generate_code import count_lines, double_braces
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 from setta.utils.utils import multireplace
 
 from .utils import TaskDefinition
@@ -45,6 +46,15 @@ async def _textFieldFindReferences(message, lsp_writer):
 
 
 def generateCodeForReferenceFinding(candidateKeywords, fullText):
+    # If SETTA_GENERATED_PYTHON is present, we only want to consider
+    # code that comes after it.
+    template_str = double_braces(C.SETTA_GENERATED_PYTHON)
+    split_by_gen_code = fullText.split(template_str)
+    position_offset = 0
+    if len(split_by_gen_code) > 1:
+        position_offset -= len(split_by_gen_code[0]) + len(template_str)
+        fullText = split_by_gen_code[1]
+
     output = []
     var_name_mapping = {}
     for keyword in candidateKeywords:
@@ -62,7 +72,7 @@ def generateCodeForReferenceFinding(candidateKeywords, fullText):
 
     output = "\n".join(output)
     # the plus 1 is for the newline between output and fullText
-    position_offset = len(output) + 1
+    position_offset += len(output) + 1
     if len(var_name_mapping) > 0:
         fullText = multireplace(fullText, var_name_mapping)
     return f"{output}\n{fullText}", position_offset

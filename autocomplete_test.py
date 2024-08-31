@@ -37,14 +37,14 @@ async def main():
 
     code_id = "test"
     # code = "import math\nx=math.sqrt()"
-    candidateKeywords = ["s", "s1[0]", "__s[1][\"dogs\"]"]
-    code = "__s[1][\"dogs\"] + s + s1[0]"
+    candidateKeywords = ["x"]
+    code = "import torch\n{{ SETTA_GENERATED_PYTHON }}x\n[x for x in range(20)]"
 
     code, position_offset = generateCodeForReferenceFinding(
         candidateKeywords, code
     )
     
-    print(code)
+    print(code, position_offset)
     codeJson = {}
 
     # code_id = "test"
