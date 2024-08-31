@@ -13,6 +13,7 @@ import {
   useGetParamEnteredValue,
   useGetParamKeywordPositions,
 } from "state/hooks/sectionVariants";
+import useDeepCompareEffect from "use-deep-compare-effect";
 import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -46,6 +47,10 @@ export function ParamInput({
       setDidUpdate(true);
     }
   }, [enteredValue]);
+
+  useDeepCompareEffect(() => {
+    setLocalKeywordPositions(keywordPositions);
+  }, [keywordPositions]);
 
   return (
     <ParamUI

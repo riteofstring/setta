@@ -128,10 +128,14 @@ function HighlightedCode({
 
       if (currKeyword === null && cursor.from in matchedIndices) {
         const { keyword, keywordEndIdx } = matchedIndices[cursor.from];
-        currKeyword = keyword;
-        currKeywordStartIdx = cursor.from;
-        currKeywordEndIdx = keywordEndIdx;
-        currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
+        // not guaranteed to be a valid keyword due to debounced functions
+        // and delays in getting latest information from language server.
+        if (keyword in fullNameToInfo) {
+          currKeyword = keyword;
+          currKeywordStartIdx = cursor.from;
+          currKeywordEndIdx = keywordEndIdx;
+          currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
+        }
       }
 
       const className = `${cursor.value.spec.class} ${currKeyword ? "italic" : ""}`;

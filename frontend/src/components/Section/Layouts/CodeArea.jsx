@@ -42,7 +42,8 @@ export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
   const keywordPositions = useSectionKeywordPositions(sectionId);
-  const [localKeywordPositions, setLocalKeywordPositions] = useState();
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
   const keywordStylizer = useMemo(
     () => getKeywordStylizer(localKeywordPositions),
     [JSON.stringify(localKeywordPositions)],

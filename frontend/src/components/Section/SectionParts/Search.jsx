@@ -4,6 +4,7 @@ import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { setSelectedItem } from "state/actions/sections/setters";
 import { useCodeInfo } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
@@ -66,6 +67,10 @@ export function SectionSearch({ sectionId, selectedItem }) {
   useEffect(() => {
     setValue(codeInfoName);
   }, [codeInfoName]);
+
+  useDeepCompareEffect(() => {
+    setLocalKeywordPositions(keywordPositions);
+  }, [keywordPositions]);
 
   function onEnter() {
     setSelectedItem(sectionId, value, true);
