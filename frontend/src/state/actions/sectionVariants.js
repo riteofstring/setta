@@ -61,7 +61,10 @@ export function initManyEnteredValues({
 }) {
   useSectionVariants.setState((state) => {
     _.forEach(paramIdsToUITypes, (uiType, id) => {
-      state.x[dbSource][collectionId].values[id] = newEV(uiType);
+      state.x[dbSource][collectionId].values[id] = {
+        value: newEV(uiType),
+        keywordPositions: null,
+      };
     });
   });
 }
