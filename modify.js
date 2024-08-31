@@ -7,12 +7,8 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    for (const evCols of Object.values(json.sectionVariants)) {
-      for (const evColInfo of Object.values(evCols)) {
-        for (const [k, v] of Object.entries(evColInfo.values)) {
-          evColInfo.values[k] = { value: v, keywordPositions: null };
-        }
-      }
+    for (const c of Object.values(json.codeInfo)) {
+      c.keywordPositions = null;
     }
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file

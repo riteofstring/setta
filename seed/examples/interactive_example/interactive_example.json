@@ -349,7 +349,8 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": []
+      "children": [],
+      "keywordPositions": null
     },
     "15dc4270-4e4e-4799-93eb-c309801d6349": {
       "id": "15dc4270-4e4e-4799-93eb-c309801d6349",
@@ -362,7 +363,8 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": []
+      "children": [],
+      "keywordPositions": null
     },
     "20512036-3e0f-41f3-9738-6573ee71bdaf": {
       "id": "20512036-3e0f-41f3-9738-6573ee71bdaf",
@@ -375,7 +377,8 @@
       "isPinned": 0,
       "isFrozen": 0,
       "isSelected": 0,
-      "children": []
+      "children": [],
+      "keywordPositions": null
     },
     "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
       "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -390,7 +393,8 @@
       "isSelected": 0,
       "children": [
         "20512036-3e0f-41f3-9738-6573ee71bdaf"
-      ]
+      ],
+      "keywordPositions": null
     }
   },
   "dbSourceMapping": {

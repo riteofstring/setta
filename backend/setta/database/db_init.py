@@ -15,7 +15,8 @@ CREATE_TABLES_COMMANDS = [
         positionalOnly BOOLEAN,
         isPinned BOOLEAN,
         isFrozen BOOLEAN,
-        isSelected BOOLEAN
+        isSelected BOOLEAN,
+        keywordPositions TEXT
     );
     """,
     # CodeInfoCol model
@@ -75,7 +76,6 @@ CREATE_TABLES_COMMANDS = [
         id TEXT PRIMARY KEY,
         name TEXT,
         selectedItem TEXT,
-        keywordPositions TEXT,
         originSectionId TEXT
     );
     """,

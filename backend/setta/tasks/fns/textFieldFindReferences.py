@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -10,7 +10,7 @@ from .utils import TaskDefinition
 
 class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
-    paramInfoId: str
+    paramInfoId: Optional[str] = None
     candidateKeywords: List[str]
     fullText: str
 
