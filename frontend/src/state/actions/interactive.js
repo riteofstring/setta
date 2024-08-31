@@ -15,7 +15,7 @@ export async function updateInteractiveCode() {
   // }
 
   const codeDict = {};
-  for (const [id] of Object.keys(useSectionInfos.getState().x))
+  for (const id of Object.keys(useSectionInfos.getState().x))
     if (getSectionType(id).type === C.INTERACTIVE_CODE) {
       codeDict[id] = getSectionCode(id);
     }
