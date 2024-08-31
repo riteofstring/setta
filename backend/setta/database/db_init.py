@@ -74,7 +74,7 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS SectionVariantId (
         id TEXT PRIMARY KEY,
         name TEXT,
-        selectedItemId TEXT,
+        selectedItem TEXT,
         keywordPositions TEXT,
         originSectionId TEXT
     );

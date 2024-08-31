@@ -3,7 +3,7 @@ import json
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantId.name, SectionVariantId.selectedItemId, SectionVariantEV.codeInfoId, SectionVariantEV.value, SectionVariantEV.keywordPositions
+        SELECT SectionVariantId.id, SectionVariantId.name, SectionVariantId.selectedItem, SectionVariantEV.codeInfoId, SectionVariantEV.value, SectionVariantEV.keywordPositions
         FROM SectionVariantId
         LEFT JOIN SectionVariantEV
         ON SectionVariantId.id = SectionVariantEV.idid
@@ -16,7 +16,7 @@ def load_section_variants(db, ids):
         if id not in output:
             output[id] = {
                 "name": row["name"],
-                "selectedItem": row["selectedItemId"],
+                "selectedItem": row["selectedItem"],
                 "values": {},
                 "children": [],
             }
