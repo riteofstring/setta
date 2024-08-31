@@ -27,7 +27,7 @@ export function computeEVReferences(project) {
     const { variantId } = useSectionInfos.getState().x[sectionId];
     const sectionVariant = project["sectionVariants"][dbSource][variantId];
     for (const [paramInfoId, value] of Object.entries(sectionVariant.values)) {
-      evRefs[sectionId][paramInfoId] = findRefs({
+      evRefs[sectionId][paramInfoId] = findRefsOLD({
         sectionId,
         paramInfoId,
         keywordRegex,
@@ -41,6 +41,36 @@ export function computeEVReferences(project) {
 }
 
 export function findRefs({
+  sectionId,
+  paramInfoId,
+  keywordPositions,
+  fullNameToInfo,
+}) {
+  const output = [];
+  for (const k of keywordPositions) {
+    if (
+      doesNotReferToSelf({
+        fullNameToInfo,
+        keyword: k["variableName"],
+        sectionId,
+        paramInfoId,
+      })
+    ) {
+      const info = fullNameToInfo[k["variableName"]];
+      output.push({
+        sectionId: info["sectionId"],
+        paramInfoId: info["paramInfoId"],
+        isArgsObj: info["isArgsObj"],
+        startPos: k["startPos"],
+        endPos: k["endPos"],
+      });
+    }
+  }
+
+  return output;
+}
+
+export function findRefsOLD({
   sectionId,
   paramInfoId,
   keywordRegex,
@@ -72,6 +102,7 @@ export function findRefs({
   }
   return output;
 }
+
 
 export function computeInfoToFullName() {
   const output = {};

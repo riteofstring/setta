@@ -1,8 +1,11 @@
-import { findCandidateKeywords } from "components/Utils/CodeMirror/utils";
+import {
+  findCandidateKeywords,
+  findRefs,
+} from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
-import { useProjectConfig } from "state/definitions";
+import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
@@ -101,22 +104,9 @@ export async function dbTextFieldCompletion({
   messageType = "textFieldCompletion",
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  // Find candidate keywords using regex
-  // Send those keywords.
-  // Update the LSP document, using those keywords as declarations
-  // followed by the content of the text field.
-  // Then do a textDocument/references request.
-  // const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
-  // const evRefs = findRefs({
-  //   sectionId,
-  //   paramInfoId,
-  //   keywordRegex,
-  //   fullNameToInfo,
-  //   value: fullText,
-  // });
   let evRefs = [];
   const candidateKeywords = findCandidateKeywords(fullText);
-  console.log("candidateKeywords", candidateKeywords)
+  console.log("candidateKeywords", candidateKeywords);
   if (candidateKeywords.length > 0) {
     let count = 0;
     const keywordPositions = [];
@@ -130,8 +120,13 @@ export async function dbTextFieldCompletion({
         return count === candidateKeywords.length;
       },
     });
-    console.log("keywordPositions", keywordPositions);
-    // evRefs =
+    const { fullNameToInfo } = useKeywordRegex.getState();
+    evRefs = findRefs({
+      sectionId,
+      paramInfoId,
+      keywordPositions,
+      fullNameToInfo,
+    });
   }
 
   return await sendMessageInRoom({
