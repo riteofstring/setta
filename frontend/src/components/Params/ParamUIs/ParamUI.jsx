@@ -26,6 +26,8 @@ export function ParamUI({
   isDisabled,
   maybeErrorMessage,
   sectionIdToBeActive,
+  keywordPositions,
+  setKeywordPositions,
 }) {
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
@@ -47,6 +49,8 @@ export function ParamUI({
             realCodeClassName={`nodrag self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value`}
             language="python"
             sectionIdToBeActive={sectionIdToBeActive}
+            keywordPositions={keywordPositions}
+            setKeywordPositions={setKeywordPositions}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

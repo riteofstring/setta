@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { setSelectedItem } from "state/actions/sections/setters";
-import { useCodeInfo, useTempKeywordPositions } from "state/definitions";
+import { useCodeInfo } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { asyncDebounce } from "utils/utils";
 
@@ -51,11 +51,19 @@ export function SectionSearch({ sectionId, selectedItem }) {
   //   />
   // );
 
-  const codeInfoName = useCodeInfo((x) =>
-    selectedItem ? x.x[selectedItem].name : "",
-  );
+  const { name: codeInfoName, keywordPositions } = useCodeInfo((x) => {
+    if (selectedItem) {
+      const { name, keywordPositions } = x.x[selectedItem];
+      return { name, keywordPositions: keywordPositions ?? [] };
+    }
+    return { name: "", keywordPositions: [] };
+  });
+
+  console.log("codeInfoName, keywordPositions", codeInfoName, keywordPositions);
 
   const [value, setValue] = useState(codeInfoName);
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
 
   useEffect(() => {
     setValue(codeInfoName);
@@ -75,7 +83,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
 
   function onChange(value) {
     setValue(value);
-    debouncedSetKeywordPositions(sectionId, value);
+    debouncedSetKeywordPositions(sectionId, value, setLocalKeywordPositions);
   }
 
   return (
@@ -93,6 +101,8 @@ export function SectionSearch({ sectionId, selectedItem }) {
         onBlur={onBlur}
         language="python"
         sectionIdToBeActive={sectionId}
+        keywordPositions={localKeywordPositions}
+        setKeywordPositions={setLocalKeywordPositions}
       />
       <LoadingSpinner sectionId={sectionId} />
     </>
@@ -119,14 +129,15 @@ function LoadingSpinner({ sectionId }) {
   );
 }
 
-const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
-  const { keywordPositions } = await getKeywordPositionsAndEVRefs({
-    sectionId,
-    paramInfoId: null,
-    fullText: value,
-    messageIdSuffix: "-sectionSearch",
-  });
-  useTempKeywordPositions.setState({
-    [`${sectionId}-${null}`]: keywordPositions,
-  });
-}, 500);
+const debouncedSetKeywordPositions = asyncDebounce(
+  async (sectionId, value, setLocalKeywordPositions) => {
+    const { keywordPositions } = await getKeywordPositionsAndEVRefs({
+      sectionId,
+      paramInfoId: null,
+      fullText: value,
+      messageIdSuffix: "-sectionSearch",
+    });
+    setLocalKeywordPositions(keywordPositions);
+  },
+  500,
+);

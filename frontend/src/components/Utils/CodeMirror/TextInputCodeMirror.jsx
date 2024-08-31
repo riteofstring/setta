@@ -1,6 +1,5 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import _ from "lodash";
 import { useCallback, useState } from "react";
 import {
   dbTextFieldCompletion,
@@ -8,7 +7,6 @@ import {
 } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
-import { useTempKeywordPositions } from "state/definitions";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
@@ -29,14 +27,12 @@ export function TextInputCodeMirror({
   color,
   language,
   sectionIdToBeActive,
+  keywordPositions,
+  setKeywordPositions,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
-  const keywordPositions = useTempKeywordPositions(
-    (x) => x[`${sectionId}-${paramInfoId}`] ?? [],
-    _.isEqual,
-  );
 
   function localOnBlur() {
     // hack to prevent codemirror from
@@ -101,6 +97,7 @@ export function TextInputCodeMirror({
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
           keywordPositions={keywordPositions}
+          setKeywordPositions={setKeywordPositions}
           language={language}
         />
       )}
@@ -124,6 +121,7 @@ function CoreCodeMirror({
   setRealIsInitialized,
   theme,
   keywordPositions,
+  setKeywordPositions,
   language,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
@@ -131,7 +129,12 @@ function CoreCodeMirror({
   const keywordStylizer = useKeywordStylizer(keywordPositions);
 
   const completionsFn = useCallback(
-    getCompletionsFn(sectionId, paramInfoId, dbTextFieldCompletion),
+    getCompletionsFn(
+      sectionId,
+      paramInfoId,
+      dbTextFieldCompletion,
+      setKeywordPositions,
+    ),
     [sectionId, paramInfoId],
   );
 

@@ -3,14 +3,13 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/useKeywordStylizer";
-import _ from "lodash";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
 } from "requests/sections";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useSectionInfos, useTempKeywordPositions } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 
 function _CodeArea({ sectionId }) {
@@ -29,13 +28,15 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const keywordPositions = useTempKeywordPositions(
-    (x) => x[`${sectionId}-${null}`] ?? [],
-    _.isEqual,
-  );
-  const keywordStylizer = useKeywordStylizer(keywordPositions);
+  const [localKeywordPositions, setLocalKeywordPositions] = useState([]);
+  const keywordStylizer = useKeywordStylizer(localKeywordPositions);
   const completionsFn = useCallback(
-    getCompletionsFn(sectionId, null, dbCodeAreaCompletion),
+    getCompletionsFn(
+      sectionId,
+      null,
+      dbCodeAreaCompletion,
+      setLocalKeywordPositions,
+    ),
     [sectionId],
   );
   return (

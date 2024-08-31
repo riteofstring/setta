@@ -79,7 +79,12 @@ export function getOnCreateEditor({
   };
 }
 
-export function getCompletionsFn(sectionId, paramInfoId, dbCompletionFn) {
+export function getCompletionsFn(
+  sectionId,
+  paramInfoId,
+  dbCompletionFn,
+  setKeywordPositions,
+) {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
@@ -94,6 +99,7 @@ export function getCompletionsFn(sectionId, paramInfoId, dbCompletionFn) {
       fullText,
       beforeText: before.text,
       position: context.pos,
+      setKeywordPositions,
     });
     setToNotWaiting();
     console.log("res", res);

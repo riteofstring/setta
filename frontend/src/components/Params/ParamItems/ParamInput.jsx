@@ -9,7 +9,10 @@ import {
 } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
 import { useInteractive } from "state/definitions";
-import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
+import {
+  useGetParamEnteredValue,
+  useGetParamKeywordPositions,
+} from "state/hooks/sectionVariants";
 import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -23,7 +26,10 @@ export function ParamInput({
   setDidUpdate,
 }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
+  const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
 
   // value and enteredValue should always be string
   function onChange(v) {
@@ -51,6 +57,8 @@ export function ParamInput({
       isDisabled={isDisabled}
       maybeErrorMessage={maybeErrorMessage}
       sectionIdToBeActive={sectionId}
+      keywordPositions={localKeywordPositions}
+      setKeywordPositions={setLocalKeywordPositions}
     />
   );
 }

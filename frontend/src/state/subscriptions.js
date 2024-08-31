@@ -8,14 +8,10 @@ import {
 import {
   useSectionInfos,
   useSectionVariants,
-  useTempKeywordPositions,
   useUITypes,
 } from "state/definitions";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import {
-  getSectionIdParamInfoIdToKeywordPositions,
-  getSectionIdToChildren,
-} from "./actions/sectionVariants";
+import { getSectionIdToChildren } from "./actions/sectionVariants";
 
 function getSingletonSubscriptionFn(type) {
   return (state) => {
@@ -51,16 +47,6 @@ export function subscribe() {
   useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.name),
     (x) => updateKeywordRegex(x),
-    { equalityFn: _.isEqual },
-  );
-
-  useSectionVariants.subscribe(
-    (state) => {
-      return getSectionIdParamInfoIdToKeywordPositions(state.x);
-    },
-    (x) => {
-      useTempKeywordPositions.setState(x);
-    },
     { equalityFn: _.isEqual },
   );
 

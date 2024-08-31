@@ -5,11 +5,7 @@ import {
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
-import {
-  useKeywordRegex,
-  useProjectConfig,
-  useTempKeywordPositions,
-} from "state/definitions";
+import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
@@ -75,14 +71,17 @@ export async function dbCodeAreaCompletion({
   fullText,
   beforeText,
   position,
+  setKeywordPositions,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const { evRefs } = await getKeywordPositionsAndEVRefs({
+  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
     sectionId,
     paramInfoId: null,
     fullText,
     regexPatternKey: "codeAreaPattern",
   });
+
+  setKeywordPositions(keywordPositions);
 
   const autoCompleteProps = {
     id: `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`,
@@ -125,13 +124,16 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
+  setKeywordPositions,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const { evRefs } = await getKeywordPositionsAndEVRefs({
+  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
     sectionId,
     paramInfoId,
     fullText,
   });
+
+  setKeywordPositions(keywordPositions);
 
   return await sendMessageInRoom({
     id: `${C.ROUTE_TEXT_FIELD_COMPLETION}-${sectionId}-${paramInfoId}`,
@@ -186,10 +188,6 @@ export async function getKeywordPositionsAndEVRefs({
       fullText,
     });
   }
-
-  useTempKeywordPositions.setState({
-    [`${sectionId}-${paramInfoId}`]: keywordPositions,
-  });
 
   return { evRefs, keywordPositions };
 }
