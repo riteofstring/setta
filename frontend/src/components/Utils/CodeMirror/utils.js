@@ -20,17 +20,19 @@ export function roundUpIdx(numList, x) {
 
 export function computeEVReferences(project) {
   const evRefs = {};
-  const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
+  const { fullNameToInfo } = useKeywordRegex.getState();
   for (const sectionId of Object.keys(project["sections"])) {
     evRefs[sectionId] = {};
     const dbSource = getSectionDBSource(sectionId);
     const { variantId } = useSectionInfos.getState().x[sectionId];
     const sectionVariant = project["sectionVariants"][dbSource][variantId];
-    for (const [paramInfoId, value] of Object.entries(sectionVariant.values)) {
-      evRefs[sectionId][paramInfoId] = findRefsOLD({
-        keywordRegex,
+    for (const [paramInfoId, valueInfo] of Object.entries(
+      sectionVariant.values,
+    )) {
+      evRefs[sectionId][paramInfoId] = findRefs({
+        keywordPositions: valueInfo.keywordPositions ?? [],
         fullNameToInfo,
-        value,
+        fullText: valueInfo.value,
       });
     }
   }
@@ -52,24 +54,6 @@ export function findRefs({ keywordPositions, fullNameToInfo, fullText }) {
     });
   }
 
-  return output;
-}
-
-export function findRefsOLD({ keywordRegex, fullNameToInfo, value }) {
-  let match;
-  const output = [];
-  while ((match = keywordRegex.exec(value))) {
-    const startPos = match.index;
-    const endPos = startPos + match[0].length;
-    const info = fullNameToInfo[match[0]];
-    output.push({
-      sectionId: info["sectionId"],
-      paramInfoId: info["paramInfoId"],
-      isArgsObj: info["isArgsObj"],
-      startPos,
-      endPos,
-    });
-  }
   return output;
 }
 
