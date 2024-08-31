@@ -134,6 +134,7 @@ function CoreCodeMirror({
 
   const extensions = getExtensions({
     sectionId,
+    paramInfoId,
     language,
     completionsFn,
     keywordStylizer,

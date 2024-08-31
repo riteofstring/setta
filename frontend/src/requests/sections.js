@@ -3,11 +3,11 @@ import {
   findRefs,
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
-import { setSelectedItemKeywordPositions } from "state/actions/codeInfo";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { setParamKeywordPositions } from "state/actions/sectionVariants";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
 import { useKeywordRegex, useProjectConfig } from "state/definitions";
+import { asyncDebounce } from "utils/utils";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
@@ -156,9 +156,14 @@ async function getKeywordPositionsAndEVRefs({
   if (paramInfoId) {
     setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
   } else {
-    console.log("else case!")
+    console.log("else case!");
     // setSelectedItemKeywordPositions(sectionId, keywordPositions);
   }
 
   return evRefs;
 }
+
+export const debouncedGetKeywordPositionsAndEVRefs = asyncDebounce(
+  getKeywordPositionsAndEVRefs,
+  500,
+);
