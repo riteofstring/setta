@@ -42,25 +42,30 @@ async def _codeAreaAutocomplete(message, lsp_writer):
         referencable_var_names,
         exporter_obj,
     ) = message.cached
+    fullText = message.fullText
+    position = message.position
     codeJson = exporter_obj.output if exporter_obj else None
     template_str = double_braces(C.SETTA_GENERATED_PYTHON)
-    gen_code_index = message.fullText.find(template_str)
-    cursor_is_after_gen_code = gen_code_index != -1 and message.position > (
+    gen_code_index = fullText.find(template_str)
+    cursor_is_after_gen_code = gen_code_index != -1 and position > (
         gen_code_index + len(template_str)
     )
 
-    fullText, _, position = process_refs(
-        message.fullText,
-        message.evRefs,
-        exporter_obj.get_ref_var_name,
-        message.position,
-    )
+    if cursor_is_after_gen_code:
+        fullText, _, position = process_refs(
+            fullText,
+            message.evRefs,
+            exporter_obj.get_ref_var_name,
+            position,
+        )
 
     code = replace_keywords(fullText, {C.SETTA_GENERATED_PYTHON: gen_code})
+
     if cursor_is_after_gen_code:
+        position += len(gen_code) - len(template_str)
+    else:
         referencable_var_names = []
         generated_var_names = []
-        position += len(gen_code) - len(template_str)
 
     line, column = position_to_line_col(code, position)
 

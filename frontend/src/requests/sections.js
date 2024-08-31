@@ -62,7 +62,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
 
 export async function dbCodeAreaInitializeCode({ sectionId }) {
   const project = getProjectDataToGenerateCode({});
-  const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}`;
+  const id = `${C.ROUTE_CODE_AREA_INITIALIZE_CODE}-${sectionId}`;
   sendMessage({
     id,
     messageType: "codeAreaInitializeCode",

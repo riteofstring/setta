@@ -3,6 +3,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/useKeywordStylizer";
+import _ from "lodash";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   dbCodeAreaCompletion,
@@ -30,6 +31,7 @@ export const CodeArea = React.memo(_CodeArea);
 function PythonCodeArea({ sectionId, language }) {
   const keywordPositions = useTempKeywordPositions(
     (x) => x[`${sectionId}-${null}`] ?? [],
+    _.isEqual,
   );
   const keywordStylizer = useKeywordStylizer(keywordPositions);
   const completionsFn = getCompletionsFn(sectionId, null, dbCodeAreaCompletion);

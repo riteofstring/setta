@@ -75,9 +75,9 @@ const debouncedSetParamEnteredValue = asyncDebounce(
           sectionId,
           paramInfoId,
           fullText: vStr,
-          messageIdSuffix: "-paramInput"
+          messageIdSuffix: "-paramInput",
         });
-        console.log("debouncedSetParamEnteredValue", keywordPositions)
+        console.log("debouncedSetParamEnteredValue", keywordPositions);
         setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
       }
     }

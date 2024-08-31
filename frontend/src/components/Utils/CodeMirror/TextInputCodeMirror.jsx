@@ -1,5 +1,6 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import _ from "lodash";
 import { useCallback, useState } from "react";
 import {
   dbTextFieldCompletion,
@@ -34,6 +35,7 @@ export function TextInputCodeMirror({
   const theme = useCodeMirrorStyle(color);
   const keywordPositions = useTempKeywordPositions(
     (x) => x[`${sectionId}-${paramInfoId}`] ?? [],
+    _.isEqual,
   );
 
   function localOnBlur() {

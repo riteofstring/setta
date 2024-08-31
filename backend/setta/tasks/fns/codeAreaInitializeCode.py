@@ -28,7 +28,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     code = project["sections"][message.sectionId]["code"]
     codeJson = None
     gen_code = None
-    num_gen_code_lines = None
     referencable_var_names = None
     exporter_obj = None
     generated_var_names = set()

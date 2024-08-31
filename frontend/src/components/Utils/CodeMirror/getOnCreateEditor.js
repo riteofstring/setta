@@ -1,5 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { dbTextFieldCompletion } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
