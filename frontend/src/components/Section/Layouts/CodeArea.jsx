@@ -1,9 +1,15 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { getKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useKeywordStylizer } from "components/Utils/CodeMirror/useKeywordStylizer";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
@@ -29,7 +35,10 @@ export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
   const [localKeywordPositions, setLocalKeywordPositions] = useState([]);
-  const keywordStylizer = useKeywordStylizer(localKeywordPositions);
+  const keywordStylizer = useMemo(
+    () => getKeywordStylizer(localKeywordPositions),
+    [JSON.stringify(localKeywordPositions)],
+  );
   const completionsFn = useCallback(
     getCompletionsFn(
       sectionId,

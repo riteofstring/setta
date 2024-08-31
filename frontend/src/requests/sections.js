@@ -182,6 +182,9 @@ export async function getKeywordPositionsAndEVRefs({
       },
     });
 
+    // CodeMirror's RangeSetBuilder needs the list to be sorted
+    keywordPositions.sort((a, b) => a.startPos - b.startPos);
+
     evRefs = findRefs({
       keywordPositions,
       fullNameToInfo,

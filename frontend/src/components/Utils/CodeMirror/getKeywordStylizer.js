@@ -3,18 +3,21 @@ import { Decoration, ViewPlugin } from "@codemirror/view";
 
 const italicStyle = Decoration.mark({ class: "italic" });
 
-export function useKeywordStylizer(keywordPositions) {
+export function getKeywordStylizer(keywordPositions) {
   const keywordStylizer = ViewPlugin.fromClass(
     class {
       decorations;
 
-      constructor(view) {
-        this.decorations = this.buildDecorations(view);
+      constructor() {
+        this.originalDecorations = this.buildDecorations();
+        this.decorations = this.originalDecorations;
       }
 
       update(update) {
-        if (update.docChanged || update.viewportChanged) {
-          this.decorations = this.buildDecorations(update.view);
+        if (update.docChanged) {
+          this.decorations = this.originalDecorations.update({
+            filter: (from) => from < update.view.state.doc.length,
+          });
         }
       }
 
