@@ -51,7 +51,7 @@ def generateCodeForReferenceFinding(candidateKeywords, fullText):
         # Replace reference names like
         # list_of_models[0]
         # with a random valid variable name of the same length.
-        # If "[" is ever in the keyword, 
+        # If "[" is ever in the keyword,
         # we know it will have a length of at least 4, e.g. x[0] has 4 characters.
         # So we don't have to worry about clashes.
         if "[" in keyword:

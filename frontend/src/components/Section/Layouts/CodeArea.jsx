@@ -1,46 +1,16 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/useKeywordStylizer";
-import _ from "lodash";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
 } from "requests/sections";
-import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useKeywordRegex, useSectionInfos } from "state/definitions";
+import { useSectionInfos, useTempKeywordPositions } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
-
-function getCompletionsFn({ sectionId }) {
-  return async (context) => {
-    const fullText = context.state.doc.toString();
-    if (!fullText.trim()) return null;
-    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-    const setToNotWaiting = setTextFieldWaitingForLSP({ sectionId });
-    const head = context.state.selection.main.head;
-    const cursor = context.state.doc.lineAt(head);
-    const res = await dbCodeAreaCompletion({
-      sectionId,
-      fullText,
-      beforeText: before.text,
-      line: cursor.number - 1,
-      column: head - cursor.from - 1,
-    });
-    setToNotWaiting();
-    // console.log("res", res);
-    if (res) {
-      return {
-        filter: true,
-        from: before ? before.from : context.pos,
-        options: res,
-        // validFor: /([^.=\\(]*)$/,
-      };
-    }
-    return null;
-  };
-}
 
 function _CodeArea({ sectionId }) {
   const language = useGetSectionInfo(sectionId, "codeLanguage");
@@ -58,13 +28,11 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const pattern = useKeywordRegex((x) => x.codeAreaPattern, _.isEqual);
-  const { keywordStylizer } = useKeywordStylizer({
-    pattern,
-    sectionId,
-    paramInfoId: null,
-  });
-  const completionsFn = getCompletionsFn({ sectionId, language });
+  const keywordPositions = useTempKeywordPositions(
+    (x) => x[`${sectionId}-${null}`] ?? [],
+  );
+  const keywordStylizer = useKeywordStylizer(keywordPositions);
+  const completionsFn = getCompletionsFn(sectionId, null, dbCodeAreaCompletion);
   return (
     <CoreCodeArea
       sectionId={sectionId}

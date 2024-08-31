@@ -74,15 +74,26 @@ export async function dbCodeAreaCompletion({
   sectionId,
   fullText,
   beforeText,
-  line,
-  column,
+  position,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const id = `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`;
+  const { evRefs } = await getKeywordPositionsAndEVRefs({
+    sectionId,
+    paramInfoId: null,
+    fullText,
+  });
+
   return await sendMessageInRoom({
-    id,
+    id: `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`,
     messageType: "codeAreaAutocomplete",
-    content: { projectConfigId, sectionId, fullText, beforeText, line, column },
+    content: {
+      projectConfigId,
+      sectionId,
+      fullText,
+      beforeText,
+      position,
+      evRefs,
+    },
   });
 }
 

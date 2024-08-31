@@ -39,7 +39,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
         gen_code, var_name_to_line_num = generate_code(
             codeJson, code, replace_templated_code=False
         )
-        num_gen_code_lines = count_lines(gen_code)
         generated_var_names = var_name_to_line_num.keys()
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
@@ -65,7 +64,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
         "content": None,
         "cache": [
             gen_code,
-            num_gen_code_lines,
             generated_var_names,
             referencable_var_names,
             exporter_obj,

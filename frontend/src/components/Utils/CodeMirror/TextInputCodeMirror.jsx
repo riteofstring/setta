@@ -1,7 +1,10 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
-import { dbTextFieldInitializeCode } from "requests/sections";
+import {
+  dbTextFieldCompletion,
+  dbTextFieldInitializeCode,
+} from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import { useTempKeywordPositions } from "state/definitions";
@@ -123,16 +126,12 @@ function CoreCodeMirror({
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
 
-  const { keywordStylizer } = useKeywordStylizer({
-    keywordPositions,
-    sectionId,
-    paramInfoId,
-  });
+  const keywordStylizer = useKeywordStylizer(keywordPositions);
 
-  const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
-    sectionId,
-    paramInfoId,
-  ]);
+  const completionsFn = useCallback(
+    getCompletionsFn(sectionId, paramInfoId, dbTextFieldCompletion),
+    [sectionId, paramInfoId],
+  );
 
   const extensions = getExtensions({
     sectionId,

@@ -80,7 +80,7 @@ export function getOnCreateEditor({
   };
 }
 
-export function getCompletionsFn(sectionId, paramInfoId) {
+export function getCompletionsFn(sectionId, paramInfoId, dbCompletionFn) {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
@@ -89,7 +89,7 @@ export function getCompletionsFn(sectionId, paramInfoId) {
       sectionId,
       paramInfoId,
     });
-    const res = await dbTextFieldCompletion({
+    const res = await dbCompletionFn({
       sectionId,
       paramInfoId,
       fullText,
