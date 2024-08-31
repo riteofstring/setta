@@ -147,7 +147,7 @@ function* getProjectVariants(project) {
         const dbSource = getMappedSectionDBSource(forSectionId);
         const sectionVariant =
           variant.sectionVariants[dbSource][sectionVariantId];
-        sectionVariant.values[paramInfoId] = value;
+        sectionVariant.values[paramInfoId].value = value;
       }
       yield variant;
     }

@@ -38,7 +38,10 @@
         "name": "acceptable_purple",
         "selectedItem": null,
         "values": {
-          "20512036-3e0f-41f3-9738-6573ee71bdaf": "0"
+          "20512036-3e0f-41f3-9738-6573ee71bdaf": {
+            "value": "0",
+            "keywordPositions": null
+          }
         },
         "children": []
       },

@@ -411,14 +411,38 @@
       "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
         "name": "config1",
         "values": {
-          "03b6a0ad-0815-4697-af57-167d2accc06a": "31",
-          "20fe3b32-be65-4b59-9f32-013435901dcc": "",
-          "61948f59-832b-4a29-9dac-facf187f8fc3": "",
-          "80b6429e-fbb9-4070-a574-b32e0e061ab4": "\"very sexy\"",
-          "af82bade-133f-4878-9688-91672f8fa2ee": "",
-          "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": "\"grave music\"",
-          "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": "false",
-          "b1318655-3495-4d2d-8fef-89a138386641": "1000"
+          "03b6a0ad-0815-4697-af57-167d2accc06a": {
+            "value": "31",
+            "keywordPositions": null
+          },
+          "20fe3b32-be65-4b59-9f32-013435901dcc": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "61948f59-832b-4a29-9dac-facf187f8fc3": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "80b6429e-fbb9-4070-a574-b32e0e061ab4": {
+            "value": "\"very sexy\"",
+            "keywordPositions": null
+          },
+          "af82bade-133f-4878-9688-91672f8fa2ee": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "0eac6e6f-6f26-47af-a9a3-89d9c365b26b": {
+            "value": "\"grave music\"",
+            "keywordPositions": null
+          },
+          "5f91dbfe-6ae2-4741-a434-f56544cf5bd3": {
+            "value": "false",
+            "keywordPositions": null
+          },
+          "b1318655-3495-4d2d-8fef-89a138386641": {
+            "value": "1000",
+            "keywordPositions": null
+          }
         },
         "children": [],
         "selectedItem": null

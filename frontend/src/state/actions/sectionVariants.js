@@ -72,9 +72,22 @@ export function setEnteredValue({
   value,
 }) {
   useSectionVariants.setState((state) => {
-    state.x[dbSource][collectionId].values[paramInfoId] = value;
+    state.x[dbSource][collectionId].values[paramInfoId].value = value;
   });
 }
+
+export function setKeywordPositions({
+  dbSource,
+  collectionId,
+  paramInfoId,
+  keywordPositions,
+}) {
+  useSectionVariants.setState((state) => {
+    state.x[dbSource][collectionId].values[paramInfoId].keywordPositions =
+      keywordPositions;
+  });
+}
+
 export function deleteParamInfoFromSectionVariant({
   dbSource,
   variantId,
@@ -109,6 +122,7 @@ function getParamEV(sectionId, paramInfoId) {
     paramInfoId
   ];
 }
+
 export function setParamEnteredValue({
   sectionId,
   paramInfoId,
@@ -123,6 +137,21 @@ export function setParamEnteredValue({
   }
   maybeIncrementProjectStateVersion(incrementVersion);
   debouncedRequestTypeCheck();
+}
+
+export function setParamKeywordPositions({
+  sectionId,
+  paramInfoId,
+  keywordPositions,
+}) {
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
+  setKeywordPositions({
+    dbSource,
+    collectionId: variantId,
+    paramInfoId,
+    keywordPositions,
+  });
 }
 
 export function getSectionChildren(sectionId) {

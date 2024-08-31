@@ -962,8 +962,14 @@
       "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
         "name": "purple_onion",
         "values": {
-          "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": "4",
-          "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": "4000"
+          "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
+            "value": "4",
+            "keywordPositions": null
+          },
+          "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
+            "value": "4000",
+            "keywordPositions": null
+          }
         },
         "children": [],
         "selectedItem": null
@@ -983,16 +989,46 @@
       "66e4192c-c1fc-4935-b862-e722726c1217": {
         "name": "water_fall",
         "values": {
-          "03ee6530-d464-461c-a989-b310ee2d9b95": "",
-          "0aa0f46a-e923-4528-a411-500cbda6e77b": "n_samples",
-          "159e0416-3873-469b-915b-1f186579c380": "",
-          "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": "",
-          "2fae73d3-5756-42a9-beb0-7465b92ac626": "",
-          "39ed839d-f632-4373-9d72-6ce95b5bc265": "0",
-          "3e15081a-9ca5-48bf-9159-9a95331a7894": "",
-          "669986a2-03d6-4de4-af41-f9395cf0ef57": "0.6",
-          "70f4e095-c286-4379-a5f5-4d02df40e1a5": "",
-          "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": "n_clusters"
+          "03ee6530-d464-461c-a989-b310ee2d9b95": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "0aa0f46a-e923-4528-a411-500cbda6e77b": {
+            "value": "n_samples",
+            "keywordPositions": null
+          },
+          "159e0416-3873-469b-915b-1f186579c380": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "2fae73d3-5756-42a9-beb0-7465b92ac626": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "39ed839d-f632-4373-9d72-6ce95b5bc265": {
+            "value": "0",
+            "keywordPositions": null
+          },
+          "3e15081a-9ca5-48bf-9159-9a95331a7894": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "669986a2-03d6-4de4-af41-f9395cf0ef57": {
+            "value": "0.6",
+            "keywordPositions": null
+          },
+          "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
+            "value": "n_clusters",
+            "keywordPositions": null
+          }
         },
         "children": [],
         "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7"
@@ -1000,14 +1036,38 @@
       "1fc1e842-82fe-4a48-8794-23178822e22e": {
         "name": "carrot_soup",
         "values": {
-          "3e754333-caea-451a-abba-dd254c49502f": "10",
-          "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": "",
-          "7ae757c9-9327-4931-95a3-bc200f7e10b7": "dataset[0][:,::-1]",
-          "7b4b2118-7cbf-4275-8582-90c66a966441": "",
-          "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": "",
-          "97e83315-adfc-4d50-a8ab-a8c34082eb93": "n_clusters",
-          "c066af9f-42b4-4359-8b44-cf774c400e81": "",
-          "c2c05abc-dd95-4071-8f37-cb2019919bce": "5000"
+          "3e754333-caea-451a-abba-dd254c49502f": {
+            "value": "10",
+            "keywordPositions": null
+          },
+          "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
+            "value": "dataset[0][:,::-1]",
+            "keywordPositions": null
+          },
+          "7b4b2118-7cbf-4275-8582-90c66a966441": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
+            "value": "n_clusters",
+            "keywordPositions": null
+          },
+          "c066af9f-42b4-4359-8b44-cf774c400e81": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "c2c05abc-dd95-4071-8f37-cb2019919bce": {
+            "value": "5000",
+            "keywordPositions": null
+          }
         },
         "children": [],
         "selectedItem": null
@@ -1015,14 +1075,38 @@
       "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
         "name": "tremendous_tree",
         "values": {
-          "3e754333-caea-451a-abba-dd254c49502f": "",
-          "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": "",
-          "7ae757c9-9327-4931-95a3-bc200f7e10b7": "dataset[0][:,::-1]",
-          "7b4b2118-7cbf-4275-8582-90c66a966441": "",
-          "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": "",
-          "97e83315-adfc-4d50-a8ab-a8c34082eb93": "n_clusters",
-          "c066af9f-42b4-4359-8b44-cf774c400e81": "",
-          "c2c05abc-dd95-4071-8f37-cb2019919bce": "0"
+          "3e754333-caea-451a-abba-dd254c49502f": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
+            "value": "dataset[0][:,::-1]",
+            "keywordPositions": null
+          },
+          "7b4b2118-7cbf-4275-8582-90c66a966441": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
+            "value": "n_clusters",
+            "keywordPositions": null
+          },
+          "c066af9f-42b4-4359-8b44-cf774c400e81": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "c2c05abc-dd95-4071-8f37-cb2019919bce": {
+            "value": "0",
+            "keywordPositions": null
+          }
         },
         "children": [],
         "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb"

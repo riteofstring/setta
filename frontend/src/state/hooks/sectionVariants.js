@@ -8,10 +8,23 @@ export function useGetParamEnteredValue(sectionId, paramInfoId) {
     useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (dbSource in x.x) {
-      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId];
+      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
+        .value;
     }
     return "";
   });
+}
+
+export function useGetParamKeywordPositions(sectionId, paramInfoId) {
+  const { dbSource, variantId, previewVariantId } =
+    useSectionVariantMetadataIds(sectionId);
+  return useSectionVariants((x) => {
+    if (dbSource in x.x) {
+      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
+        .keywordPositions;
+    }
+    return {};
+  }, _.isEqual);
 }
 
 export function useGetSectionVariantNames(sectionId) {

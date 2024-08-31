@@ -1,7 +1,9 @@
+import json
+
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT SectionVariantId.id, SectionVariantId.name, SectionVariantId.selectedItemId, SectionVariantEV.codeInfoId, SectionVariantEV.value
+        SELECT SectionVariantId.id, SectionVariantId.name, SectionVariantId.selectedItemId, SectionVariantEV.codeInfoId, SectionVariantEV.value, SectionVariantEV.keywordPositions
         FROM SectionVariantId
         LEFT JOIN SectionVariantEV
         ON SectionVariantId.id = SectionVariantEV.idid
@@ -19,7 +21,12 @@ def load_section_variants(db, ids):
                 "children": [],
             }
         if row["value"] is not None:
-            output[id]["values"][row["codeInfoId"]] = row["value"]
+            kp = row["keywordPositions"]
+            kp = json.loads(kp) if kp is not None else kp
+            output[id]["values"][row["codeInfoId"]] = {
+                "value": row["value"],
+                "keywordPositions": kp,
+            }
 
     placeholders = ", ".join(["?"] * len(output))
     query = f"""

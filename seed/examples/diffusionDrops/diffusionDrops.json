@@ -48,17 +48,50 @@
         "name": "frog_dog",
         "selectedItem": "199d8d34-21f9-4c7e-b6b0-dd938a9736d0",
         "values": {
-          "1642efb6-c5cd-41e1-b346-cacb44d43c87": "",
-          "197c09ec-176b-4b63-99d5-94522b8fc6f3": "",
-          "1d6897b7-3dae-4f8a-8729-068e11a36008": "",
-          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": "",
-          "47377fe6-a365-4540-bf8a-468788f754e0": "",
-          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": "",
-          "7415f187-1f29-40d6-be47-7d608bd4b215": "",
-          "810b3251-8d80-42f2-b01a-e36ec47928f8": "",
-          "b8036ace-03dd-4dc3-88c5-069957276d1d": "987",
-          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": "",
-          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": ""
+          "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "47377fe6-a365-4540-bf8a-468788f754e0": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "7415f187-1f29-40d6-be47-7d608bd4b215": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+            "value": "987",
+            "keywordPositions": null
+          },
+          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+            "value": "",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -83,14 +116,38 @@
         "name": "substantial_brown",
         "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
         "values": {
-          "0a8a909f-4821-4880-81ac-373b1ce09084": "",
-          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": "",
-          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": "",
-          "944abf2e-f5ec-47c7-9286-370faa75c3bf": "",
-          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": "",
-          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": "",
-          "e5a2037f-60a7-4052-bb72-0763319f6000": "25",
-          "ffeb5e40-5c66-4e31-a47a-6eac10385294": ""
+          "0a8a909f-4821-4880-81ac-373b1ce09084": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "e5a2037f-60a7-4052-bb72-0763319f6000": {
+            "value": "25",
+            "keywordPositions": null
+          },
+          "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+            "value": "",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -110,9 +167,18 @@
         "name": "secure_jade",
         "selectedItem": "b9bf393b-96d9-4264-ad9f-bad777e6777a",
         "values": {
-          "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": "[0.2,0.2,0.2]",
-          "7a9b411c-e319-4813-8bf2-f341cf05df4a": "\"lr\" in __optimizer",
-          "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": "[0.5,0.5,0.5]"
+          "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": {
+            "value": "[0.2,0.2,0.2]",
+            "keywordPositions": null
+          },
+          "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
+            "value": "\"lr\" in __optimizer",
+            "keywordPositions": null
+          },
+          "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
+            "value": "[0.5,0.5,0.5]",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -120,14 +186,38 @@
         "name": "alien_star",
         "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
         "values": {
-          "0a8a909f-4821-4880-81ac-373b1ce09084": "",
-          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": "",
-          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": "12",
-          "944abf2e-f5ec-47c7-9286-370faa75c3bf": "False",
-          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": "25",
-          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": "",
-          "e5a2037f-60a7-4052-bb72-0763319f6000": "300",
-          "ffeb5e40-5c66-4e31-a47a-6eac10385294": ""
+          "0a8a909f-4821-4880-81ac-373b1ce09084": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+            "value": "12",
+            "keywordPositions": null
+          },
+          "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+            "value": "False",
+            "keywordPositions": null
+          },
+          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+            "value": "25",
+            "keywordPositions": null
+          },
+          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "e5a2037f-60a7-4052-bb72-0763319f6000": {
+            "value": "300",
+            "keywordPositions": null
+          },
+          "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+            "value": "",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -144,7 +234,10 @@
         "name": "yeasty_magenta",
         "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
         "values": {
-          "0a62f48a-54e6-4871-afa6-95c09bc49d61": "list_of_transforms"
+          "0a62f48a-54e6-4871-afa6-95c09bc49d61": {
+            "value": "list_of_transforms",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -161,14 +254,38 @@
         "name": "vivid_moccasin",
         "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
         "values": {
-          "17f3f1d8-4459-4d8b-a132-ab42df1bf241": "",
-          "2acbcb71-f180-42b0-94bf-46edfe809de3": "",
-          "5fda1f62-0834-41de-a58e-2fe7f0e97558": "",
-          "681f4df7-ddd9-4a84-979f-ff0d243cdbff": "",
-          "6b52f167-e867-41c6-a398-4253147c5672": "",
-          "83f732ba-1244-40aa-b189-c324d1cbbccb": "",
-          "aa45a0fa-bc33-420a-9b1b-88792303e0a7": "",
-          "f2098038-2341-47cc-95d1-c4653b1ba1d3": ""
+          "17f3f1d8-4459-4d8b-a132-ab42df1bf241": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "2acbcb71-f180-42b0-94bf-46edfe809de3": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "5fda1f62-0834-41de-a58e-2fe7f0e97558": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "681f4df7-ddd9-4a84-979f-ff0d243cdbff": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "6b52f167-e867-41c6-a398-4253147c5672": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "83f732ba-1244-40aa-b189-c324d1cbbccb": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "aa45a0fa-bc33-420a-9b1b-88792303e0a7": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "f2098038-2341-47cc-95d1-c4653b1ba1d3": {
+            "value": "",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -176,17 +293,50 @@
         "name": "wet_teal",
         "selectedItem": "e7bd857a-770d-47da-9b8e-811baa29620c",
         "values": {
-          "1642efb6-c5cd-41e1-b346-cacb44d43c87": "",
-          "197c09ec-176b-4b63-99d5-94522b8fc6f3": "",
-          "1d6897b7-3dae-4f8a-8729-068e11a36008": "",
-          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": "",
-          "47377fe6-a365-4540-bf8a-468788f754e0": "",
-          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": "",
-          "7415f187-1f29-40d6-be47-7d608bd4b215": "",
-          "810b3251-8d80-42f2-b01a-e36ec47928f8": "",
-          "b8036ace-03dd-4dc3-88c5-069957276d1d": "987",
-          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": "",
-          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": ""
+          "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "47377fe6-a365-4540-bf8a-468788f754e0": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "7415f187-1f29-40d6-be47-7d608bd4b215": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+            "value": "987",
+            "keywordPositions": null
+          },
+          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+            "value": "",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -194,7 +344,10 @@
         "name": "secure_tan",
         "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1",
         "values": {
-          "3fdec365-9d3f-4f5b-94fe-75adbb767d08": "224"
+          "3fdec365-9d3f-4f5b-94fe-75adbb767d08": {
+            "value": "224",
+            "keywordPositions": null
+          }
         },
         "children": []
       },
@@ -202,17 +355,50 @@
         "name": "horizontal_green",
         "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
         "values": {
-          "0472a28a-cc7b-42e7-8628-173a7b953214": "",
-          "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": "",
-          "31d94ca2-5b68-41f5-8380-ad62348ef1b0": "",
-          "44a300eb-c969-41fc-95e4-dcf3a5716d6e": "",
-          "4cc2b16e-0946-44de-85e6-131ccc8dec41": "",
-          "62bd6021-0834-4317-87f4-3961d8f2e890": "",
-          "6553f807-4fc6-40d2-9df1-990bf1b094f5": "",
-          "6c3fae29-caa1-4650-a2c4-7a1b1a816929": "",
-          "bbb754a2-06e5-4b57-8e5d-308865f81a94": "",
-          "d9a35253-835b-425d-abdf-2a678ddc1924": "",
-          "f807b59d-a434-41b6-a54c-9b35ffb61c8d": "model.parameters()"
+          "0472a28a-cc7b-42e7-8628-173a7b953214": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "31d94ca2-5b68-41f5-8380-ad62348ef1b0": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "44a300eb-c969-41fc-95e4-dcf3a5716d6e": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "62bd6021-0834-4317-87f4-3961d8f2e890": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "6553f807-4fc6-40d2-9df1-990bf1b094f5": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "6c3fae29-caa1-4650-a2c4-7a1b1a816929": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "bbb754a2-06e5-4b57-8e5d-308865f81a94": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "d9a35253-835b-425d-abdf-2a678ddc1924": {
+            "value": "",
+            "keywordPositions": null
+          },
+          "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
+            "value": "model.parameters()",
+            "keywordPositions": null
+          }
         },
         "children": []
       },

@@ -41,6 +41,7 @@ CREATE_TABLES_COMMANDS = [
         description TEXT,
         code TEXT,
         codeLanguage TEXT,
+        keywordPositions TEXT,
         isFrozen BOOLEAN,
         dbSource TEXT,
         codeInfoId TEXT,
@@ -74,6 +75,7 @@ CREATE_TABLES_COMMANDS = [
         id TEXT PRIMARY KEY,
         name TEXT,
         selectedItemId TEXT,
+        keywordPositions TEXT,
         originSectionId TEXT
     );
     """,
@@ -84,6 +86,7 @@ CREATE_TABLES_COMMANDS = [
         idid TEXT,
         codeInfoId TEXT,
         value TEXT,
+        keywordPositions TEXT,
         PRIMARY KEY (idid, codeInfoId),
         FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE
     );

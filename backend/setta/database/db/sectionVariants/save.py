@@ -1,3 +1,5 @@
+import json
+
 def save_section_variants(dbs, section_variants):
     for dbSource, variants_for_one_db in section_variants.items():
         save_section_variants_to_one_db(dbs[dbSource], variants_for_one_db)
@@ -30,14 +32,21 @@ def save_section_variants_to_one_db(db, section_variants):
 
     # add entered values
     query = """
-        INSERT INTO SectionVariantEV (idid, codeInfoId, value)
-        VALUES (:idid, :codeInfoId, :value)
+        INSERT INTO SectionVariantEV (idid, codeInfoId, value, keywordPositions)
+        VALUES (:idid, :codeInfoId, :value, :keywordPositions)
     """
     query_params = []
     for idid, variant in section_variants.items():
-        for code_info_id, value in variant["values"].items():
+        for code_info_id, value_info in variant["values"].items():
+            kp = value_info["keywordPositions"]
+            kp = json.dumps(kp) if kp is not None else kp
             query_params.append(
-                {"idid": idid, "codeInfoId": code_info_id, "value": value}
+                {
+                    "idid": idid,
+                    "codeInfoId": code_info_id,
+                    "value": value_info["value"],
+                    "keywordPositions": kp,
+                }
             )
     db.executemany(query, query_params)
 

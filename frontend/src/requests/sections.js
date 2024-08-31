@@ -4,6 +4,7 @@ import {
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
+import { setParamKeywordPositions } from "state/actions/sectionVariants";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
 import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { post } from "./utils";
@@ -120,6 +121,7 @@ export async function dbTextFieldCompletion({
         return count === candidateKeywords.length;
       },
     });
+    setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
     const { fullNameToInfo } = useKeywordRegex.getState();
     evRefs = findRefs({
       sectionId,
