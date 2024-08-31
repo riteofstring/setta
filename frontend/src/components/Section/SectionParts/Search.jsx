@@ -1,8 +1,10 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useEffect, useState } from "react";
+import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { setSelectedItem } from "state/actions/sections/setters";
-import { useCodeInfo } from "state/definitions";
+import { useCodeInfo, useTempKeywordPositions } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
   // const [completions, sendCompletionRequest] =
@@ -71,13 +73,18 @@ export function SectionSearch({ sectionId, selectedItem }) {
     setValue(codeInfoName);
   }
 
+  function onChange(value) {
+    setValue(value);
+    debouncedSetKeywordPositions(sectionId, value);
+  }
+
   return (
     <>
       <TextInputCodeMirror
         sectionId={sectionId}
         paramInfoId={null}
         value={value}
-        onChange={setValue}
+        onChange={onChange}
         dummyCodeClassName="section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
         realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white mx-[.125rem] py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
         singleLine={true}
@@ -111,3 +118,15 @@ function LoadingSpinner({ sectionId }) {
     )
   );
 }
+
+const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
+  const { keywordPositions } = await getKeywordPositionsAndEVRefs({
+    sectionId,
+    paramInfoId: null,
+    fullText: value,
+    messageIdSuffix: "-sectionSearch",
+  });
+  useTempKeywordPositions.setState({
+    [`${sectionId}-${null}`]: keywordPositions,
+  });
+}, 500);

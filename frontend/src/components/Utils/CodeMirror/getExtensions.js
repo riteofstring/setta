@@ -8,11 +8,9 @@ import { python } from "@codemirror/lang-python";
 import { EditorState, Prec } from "@codemirror/state";
 import { keymap, tooltips } from "@codemirror/view";
 import { EditorView } from "@uiw/react-codemirror";
-import { debouncedGetKeywordPositionsAndEVRefs } from "requests/sections";
 
 export function getExtensions({
   sectionId,
-  paramInfoId,
   language,
   completionsFn,
   keywordStylizer,
@@ -28,19 +26,6 @@ export function getExtensions({
       parent: document.getElementById(`${sectionId}-CustomResizable`),
     }),
   ];
-
-  // Get keyword positions as document changes
-  extensions.push(
-    EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
-        debouncedGetKeywordPositionsAndEVRefs({
-          sectionId,
-          paramInfoId,
-          fullText: update.state.doc.toString(),
-        });
-      }
-    }),
-  );
 
   if (language === "python") {
     extensions.push(python());

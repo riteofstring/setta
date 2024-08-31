@@ -1,10 +1,17 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { sendMessage } from "requests/websocket";
-import { setParamEnteredValue } from "state/actions/sectionVariants";
+import {
+  setParamEnteredValue,
+  setParamKeywordPositions,
+} from "state/actions/sectionVariants";
+import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
 import { useInteractive } from "state/definitions";
 import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
 import { createNewId } from "utils/idNameCreation";
+import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({
@@ -54,8 +61,8 @@ function sendToInteractiveTasks(v) {
   }
 }
 
-const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId, paramInfoId, vStr, enteredValue, changedByUser = true) => {
+const debouncedSetParamEnteredValue = asyncDebounce(
+  async (sectionId, paramInfoId, vStr, enteredValue, changedByUser = true) => {
     if (vStr !== enteredValue) {
       setParamEnteredValue({
         sectionId,
@@ -63,6 +70,16 @@ const debouncedSetParamEnteredValue = _.debounce(
         value: vStr,
         incrementVersion: changedByUser,
       });
+      if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
+        const { keywordPositions } = await getKeywordPositionsAndEVRefs({
+          sectionId,
+          paramInfoId,
+          fullText: vStr,
+          messageIdSuffix: "-paramInput"
+        });
+        console.log("debouncedSetParamEnteredValue", keywordPositions)
+        setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
+      }
     }
   },
   500,

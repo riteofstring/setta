@@ -4,10 +4,12 @@ import {
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
-import { setParamKeywordPositions } from "state/actions/sectionVariants";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
-import { useKeywordRegex, useProjectConfig } from "state/definitions";
-import { asyncDebounce } from "utils/utils";
+import {
+  useKeywordRegex,
+  useProjectConfig,
+  useTempKeywordPositions,
+} from "state/definitions";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
@@ -30,15 +32,21 @@ export async function dbParametersRequest({
   fullText,
   beforeText,
   position,
+  evRefs,
 }) {
-  return await dbTextFieldCompletion({
-    sectionId,
-    paramInfoId: null,
-    fullText,
-    beforeText,
-    position,
-    address: C.ROUTE_PARAMETERS_REQUEST,
+  const projectConfigId = useProjectConfig.getState().id;
+  return await sendMessageInRoom({
+    id: `${C.ROUTE_PARAMETERS_REQUEST}-${sectionId}-${null}`,
     messageType: "parametersRequest",
+    content: {
+      projectConfigId,
+      sectionId,
+      paramInfoId: null,
+      fullText,
+      beforeText,
+      position,
+      evRefs,
+    },
   });
 }
 
@@ -92,19 +100,17 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
-  address = C.ROUTE_TEXT_FIELD_COMPLETION,
-  messageType = "textFieldCompletion",
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const evRefs = await getKeywordPositionsAndEVRefs({
+  const { evRefs } = await getKeywordPositionsAndEVRefs({
     sectionId,
     paramInfoId,
     fullText,
   });
 
   return await sendMessageInRoom({
-    id: `${address}-${sectionId}-${paramInfoId}`,
-    messageType,
+    id: `${C.ROUTE_TEXT_FIELD_COMPLETION}-${sectionId}-${paramInfoId}`,
+    messageType: "textFieldCompletion",
     content: {
       projectConfigId,
       sectionId,
@@ -117,10 +123,11 @@ export async function dbTextFieldCompletion({
   });
 }
 
-async function getKeywordPositionsAndEVRefs({
+export async function getKeywordPositionsAndEVRefs({
   sectionId,
   paramInfoId,
   fullText,
+  messageIdSuffix = "",
 }) {
   const { fullNameToInfo } = useKeywordRegex.getState();
   let evRefs = [];
@@ -136,7 +143,7 @@ async function getKeywordPositionsAndEVRefs({
     let count = 0;
     keywordPositions = [];
     await sendMessageInRoom({
-      id: `${sectionId}-${paramInfoId}-find-references`,
+      id: `${sectionId}-${paramInfoId}-find-references${messageIdSuffix}`,
       messageType: "textFieldFindReferences",
       content: { sectionId, paramInfoId, candidateKeywords, fullText },
       condition: (x) => {
@@ -153,17 +160,9 @@ async function getKeywordPositionsAndEVRefs({
     });
   }
 
-  if (paramInfoId) {
-    setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
-  } else {
-    console.log("else case!");
-    // setSelectedItemKeywordPositions(sectionId, keywordPositions);
-  }
+  useTempKeywordPositions.setState({
+    [`${sectionId}-${paramInfoId}`]: keywordPositions,
+  });
 
-  return evRefs;
+  return { evRefs, keywordPositions };
 }
-
-export const debouncedGetKeywordPositionsAndEVRefs = asyncDebounce(
-  getKeywordPositionsAndEVRefs,
-  500,
-);

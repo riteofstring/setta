@@ -219,3 +219,4 @@ export const useWebsocketConnectionList = create(() => ({
 export const useWebsocketRooms = createProjectState(
   subscribeWithSelector(() => ({})),
 );
+export const useTempKeywordPositions = create(() => ({}));

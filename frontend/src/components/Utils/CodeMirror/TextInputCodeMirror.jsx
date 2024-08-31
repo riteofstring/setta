@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
-import { useGetParamKeywordPositions } from "state/hooks/sectionVariants";
+import { useTempKeywordPositions } from "state/definitions";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
@@ -29,7 +29,9 @@ export function TextInputCodeMirror({
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
-  const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
+  const keywordPositions = useTempKeywordPositions(
+    (x) => x[`${sectionId}-${paramInfoId}`] ?? [],
+  );
 
   function localOnBlur() {
     // hack to prevent codemirror from
@@ -134,7 +136,6 @@ function CoreCodeMirror({
 
   const extensions = getExtensions({
     sectionId,
-    paramInfoId,
     language,
     completionsFn,
     keywordStylizer,

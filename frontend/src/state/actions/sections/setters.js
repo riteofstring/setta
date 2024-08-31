@@ -1,5 +1,8 @@
 import C from "constants/constants.json";
-import { dbParametersRequest } from "requests/sections";
+import {
+  dbParametersRequest,
+  getKeywordPositionsAndEVRefs,
+} from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { varControlUpdate } from "state/actions/varControl";
@@ -33,10 +36,16 @@ export async function setSelectedItem(
     updateParams(sectionId);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
+    const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
+      sectionId,
+      paramInfoId: null,
+      fullText: selectedItemName,
+    });
     const info = newCodeInfo({
       name: selectedItemName,
       editable: false,
       rcType: C.CALLABLE,
+      keywordPositions,
     });
     const { codeInfoId } = getSectionInfo(sectionId);
     addCodeInfo({ info, parent: codeInfoId });
@@ -52,6 +61,7 @@ export async function setSelectedItem(
       fullText: selectedItemName,
       beforeText: "",
       position: selectedItemName.length,
+      evRefs,
     });
     if (res) {
       createChildrenCodeInfo(id, res);
