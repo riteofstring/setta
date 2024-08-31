@@ -173,7 +173,7 @@
           },
           "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
             "value": "\"lr\" in __optimizer",
-            "keywordPositions": null
+            "keywordPositions": [{ "startPos": 8, "endPos": 19 }]
           },
           "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
             "value": "[0.5,0.5,0.5]",
@@ -397,7 +397,7 @@
           },
           "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
             "value": "model.parameters()",
-            "keywordPositions": null
+            "keywordPositions": [{ "startPos": 0, "endPos": 5 }]
           }
         },
         "children": []
