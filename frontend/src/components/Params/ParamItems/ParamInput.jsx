@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { sendMessage } from "requests/websocket";
 import { setParamEnteredValue } from "state/actions/sectionVariants";
 import { useInteractive } from "state/definitions";
@@ -22,24 +22,10 @@ export function ParamInput({
   function onChange(v) {
     const vStr = _.toString(v);
     setValue(vStr);
-    setEnteredValue(vStr);
+    debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr, enteredValue);
     setDidUpdate(true);
     sendToInteractiveTasks(vStr);
   }
-
-  const setEnteredValue = useCallback(
-    _.debounce((vStr, changedByUser = true) => {
-      if (vStr !== enteredValue) {
-        setParamEnteredValue({
-          sectionId,
-          paramInfoId,
-          value: vStr,
-          incrementVersion: changedByUser,
-        });
-      }
-    }, 500),
-    [enteredValue],
-  );
 
   useEffect(() => {
     if (value !== enteredValue) {
@@ -67,3 +53,17 @@ function sendToInteractiveTasks(v) {
     sendMessage({ id: createNewId(), content: v, messageType: t });
   }
 }
+
+const debouncedSetParamEnteredValue = _.debounce(
+  (sectionId, paramInfoId, vStr, enteredValue, changedByUser = true) => {
+    if (vStr !== enteredValue) {
+      setParamEnteredValue({
+        sectionId,
+        paramInfoId,
+        value: vStr,
+        incrementVersion: changedByUser,
+      });
+    }
+  },
+  500,
+);
