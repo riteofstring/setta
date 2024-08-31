@@ -1,5 +1,6 @@
 import json
 
+
 def load_section_variants(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""

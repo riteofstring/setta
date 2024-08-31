@@ -1,9 +1,12 @@
+import random
+import string
 from typing import List, Optional
 
 from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import count_lines
 from setta.tasks.task_runner import RunType
+from setta.utils.utils import multireplace
 
 from .utils import TaskDefinition
 
@@ -42,10 +45,41 @@ async def _textFieldFindReferences(message, lsp_writer):
 
 
 def generateCodeForReferenceFinding(candidateKeywords, fullText):
-    output = "\n".join([f"{x}=None" for x in candidateKeywords])
+    output = []
+    var_name_mapping = {}
+    for keyword in candidateKeywords:
+        # Replace reference names like
+        # list_of_models[0]
+        # with a random valid variable name of the same length.
+        # If "[" is ever in the keyword, 
+        # we know it will have a length of at least 4, e.g. x[0] has 4 characters.
+        # So we don't have to worry about clashes.
+        if "[" in keyword:
+            new_keyword = generate_unique_variable(fullText, keyword)
+            var_name_mapping[keyword] = new_keyword
+            keyword = new_keyword
+        output.append(f"{keyword}=None")
+
+    output = "\n".join(output)
     # the plus 1 is for the newline between output and fullText
     position_offset = len(output) + 1
+    if len(var_name_mapping) > 0:
+        fullText = multireplace(fullText, var_name_mapping)
     return f"{output}\n{fullText}", position_offset
+
+
+def generate_unique_variable(code, keyword):
+    length = len(keyword)
+    chars = string.ascii_lowercase + string.digits + "_"
+
+    while True:
+        # Ensure the variable starts with a letter or underscore
+        new_var = random.choice(string.ascii_lowercase + "_")
+        # Fill the rest with random characters
+        new_var += "".join(random.choice(chars) for _ in range(length - 1))
+
+        if new_var.isidentifier() and new_var not in code:
+            return new_var
 
 
 textFieldFindReferences = TaskDefinition(

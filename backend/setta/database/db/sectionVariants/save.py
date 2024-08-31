@@ -1,5 +1,6 @@
 import json
 
+
 def save_section_variants(dbs, section_variants):
     for dbSource, variants_for_one_db in section_variants.items():
         save_section_variants_to_one_db(dbs[dbSource], variants_for_one_db)

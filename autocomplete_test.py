@@ -6,6 +6,8 @@ from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from pathlib import Path
 from setta.utils.constants import load_constants
+from setta.utils.utils import multireplace
+from setta.tasks.fns.textFieldFindReferences import generateCodeForReferenceFinding
 from uuid import uuid4
 load_constants()
 
@@ -35,20 +37,14 @@ async def main():
 
     code_id = "test"
     # code = "import math\nx=math.sqrt()"
-    declared_variables = ["x", "y", "z"]
-    code = """x=1
-y=2
-z=3
-q=None
+    candidateKeywords = ["s", "s1[0]", "__s[1][\"dogs\"]"]
+    code = "__s[1][\"dogs\"] + s + s1[0]"
 
-def fn(x,y,z):
-    return x + y + z
-
-fn(x=x, y=y, z=z)
-q + 2
-some_list = [x for x in range(20)]
-x["dog"]    
-"""
+    code, position_offset = generateCodeForReferenceFinding(
+        candidateKeywords, code
+    )
+    
+    print(code)
     codeJson = {}
 
     # code_id = "test"
@@ -120,7 +116,7 @@ x["dog"]
     #     },
     # }
     await lsp_writer.send_document_open_request(code_id, code, codeJson)
-    await lsp_writer.send_reference_request(3, 0, code_id, str(uuid4()))
+    await lsp_writer.send_reference_request(position_offset, 0, 0, code_id, str(uuid4()), str(uuid4()))
     # await lsp_writer.send_document_update("test", "import math\nmath.sqrt(5)")
     # await lsp_writer.send_document_open_request("test", "import torch\ntorch.nn.C")
     # await lsp_writer.send_autocomplete_request(1, 10, "test", "1234")
