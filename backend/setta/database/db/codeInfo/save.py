@@ -1,3 +1,6 @@
+import json
+
+
 def save_code_info(dbs, codeInfo):
     db = dbs.default
     query = """
@@ -18,7 +21,12 @@ def save_code_info(dbs, codeInfo):
     """
 
     # insert into codeinfo table
-    query_params = list(codeInfo.values())
+    query_params = []
+    for c in codeInfo.values():
+        kp = c["keywordPositions"]
+        kp = json.dumps(kp) if kp is not None else kp
+        query_params.append({**c, "keywordPositions": kp})
+
     db.executemany(query, query_params)
 
     # delete children
