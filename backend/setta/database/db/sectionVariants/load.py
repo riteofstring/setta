@@ -1,4 +1,4 @@
-import json
+from setta.database.utils import load_json_if_not_none
 
 
 def load_section_variants(db, ids):
@@ -22,11 +22,9 @@ def load_section_variants(db, ids):
                 "children": [],
             }
         if row["value"] is not None:
-            kp = row["keywordPositions"]
-            kp = json.loads(kp) if kp is not None else kp
             output[id]["values"][row["codeInfoId"]] = {
                 "value": row["value"],
-                "keywordPositions": kp,
+                "keywordPositions": load_json_if_not_none(row["keywordPositions"]),
             }
 
     placeholders = ", ".join(["?"] * len(output))

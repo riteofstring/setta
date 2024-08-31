@@ -1,4 +1,4 @@
-import json
+from setta.database.utils import dump_json_if_not_none
 
 
 def save_code_info(dbs, codeInfo):
@@ -23,9 +23,9 @@ def save_code_info(dbs, codeInfo):
     # insert into codeinfo table
     query_params = []
     for c in codeInfo.values():
-        kp = c["keywordPositions"]
-        kp = json.dumps(kp) if kp is not None else kp
-        query_params.append({**c, "keywordPositions": kp})
+        query_params.append(
+            {**c, "keywordPositions": dump_json_if_not_none(c["keywordPositions"])}
+        )
 
     db.executemany(query, query_params)
 

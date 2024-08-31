@@ -1,4 +1,5 @@
 import copy
+import json
 import random
 from collections import defaultdict
 from uuid import uuid4
@@ -69,3 +70,11 @@ def remap_ids(x):
     id_map = create_id_map(old_ids)
     new_obj = rename_keys(x, id_map)
     return new_obj, id_map
+
+
+def load_json_if_not_none(x):
+    return json.loads(x) if x is not None else x
+
+
+def dump_json_if_not_none(x):
+    return json.dumps(x) if x is not None else x

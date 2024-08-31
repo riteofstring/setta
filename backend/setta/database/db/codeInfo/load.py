@@ -1,6 +1,4 @@
-import json
-
-from setta.database.utils import get_children_recursively
+from setta.database.utils import get_children_recursively, load_json_if_not_none
 
 
 def load_code_info_for_sections(dbs, sections):
@@ -36,8 +34,6 @@ def load_code_info(db, ids):
     for row in db.fetchall():
         x = dict(row)
         x["children"] = parent_to_children[x["id"]]
-        kp = x["keywordPositions"]
-        kp = json.loads(kp) if kp is not None else kp
-        x["keywordPositions"] = kp
+        x["keywordPositions"] = load_json_if_not_none(x["keywordPositions"])
         output[x["id"]] = x
     return output

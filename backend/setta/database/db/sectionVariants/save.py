@@ -1,4 +1,4 @@
-import json
+from setta.database.utils import dump_json_if_not_none
 
 
 def save_section_variants(dbs, section_variants):
@@ -39,14 +39,14 @@ def save_section_variants_to_one_db(db, section_variants):
     query_params = []
     for idid, variant in section_variants.items():
         for code_info_id, value_info in variant["values"].items():
-            kp = value_info["keywordPositions"]
-            kp = json.dumps(kp) if kp is not None else kp
             query_params.append(
                 {
                     "idid": idid,
                     "codeInfoId": code_info_id,
                     "value": value_info["value"],
-                    "keywordPositions": kp,
+                    "keywordPositions": dump_json_if_not_none(
+                        value_info["keywordPositions"]
+                    ),
                 }
             )
     db.executemany(query, query_params)
