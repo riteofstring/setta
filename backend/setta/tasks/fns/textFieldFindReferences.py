@@ -23,7 +23,6 @@ async def _textFieldFindReferences(message, lsp_writer):
 
     await lsp_writer.send_document_open_request(code_id, code)
     for idx in range(len(message.candidateKeywords)):
-        request_id = f"{message_id}-{idx}"
         await lsp_writer.send_reference_request(
             line=idx, character=0, code_id=code_id, request_id=message_id
         )

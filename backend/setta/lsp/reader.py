@@ -213,7 +213,6 @@ class LanguageServerReader(LanguageServerInteractor):
         method = response.get("method", None)
         if id:
             method = method if method else self.msg_id_to_method[id]
-            original_msg_id = self.msg_id_to_original_msg_id.get(id, id)
             if method == "textDocument/completion":
                 content = [
                     {"label": x["label"], "type": type_mapping[x["kind"]]}
@@ -225,18 +224,14 @@ class LanguageServerReader(LanguageServerInteractor):
                     for x in self.msg_id_to_referencable_var_names[id]
                 ]
                 content = [*referencable_var_names, *content]
-                await self.websocket_manager.send_message_to_requester(
-                    original_msg_id, id, content
-                )
+                await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
                 if response["result"]:
                     content = parse_signature(response["result"]["signatures"][0])
                     # pprint(content)
                 else:
                     content = None
-                await self.websocket_manager.send_message_to_requester(
-                    original_msg_id, id, content
-                )
+                await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/references":
                 content = []
                 from pprint import pprint
@@ -263,9 +258,7 @@ class LanguageServerReader(LanguageServerInteractor):
                             {"startPos": positions[idx], "endPos": positions[idx + 1]}
                         )
 
-                await self.websocket_manager.send_message_to_requester(
-                    original_msg_id, id, content
-                )
+                await self.websocket_manager.send_message_to_requester(id, content)
         elif method == "textDocument/publishDiagnostics":
             # print(response)
             params = response["params"]

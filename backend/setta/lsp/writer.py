@@ -9,13 +9,11 @@ class LanguageServerWriter(LanguageServerInteractor):
     def __init__(self, server):
         self.server = server
 
-    async def send_request(self, method, params, id=None, original_msg_id=None):
+    async def send_request(self, method, params, id=None):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
         if id:
             request_dict["id"] = id
             self.msg_id_to_method[id] = method
-            if original_msg_id:
-                self.msg_id_to_original_msg_id[id] = original_msg_id
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
@@ -51,7 +49,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_id,
         referencable_var_names,
         generated_var_names,
-        original_msg_id=None,
     ):
         uri = self.get_virtual_uri(code_id)
         params = {
@@ -64,12 +61,9 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument/completion",
             params=params,
             id=request_id,
-            original_msg_id=original_msg_id,
         )
 
-    async def send_signature_help_request(
-        self, line, character, code_id, request_id, original_msg_id=None
-    ):
+    async def send_signature_help_request(self, line, character, code_id, request_id):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {"uri": uri},
@@ -80,7 +74,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument/signatureHelp",
             params=params,
             id=request_id,
-            original_msg_id=original_msg_id,
         )
 
     async def send_didChangeConfiguration(self):
@@ -97,9 +90,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         }
         await self.send_request("textDocument/didChange", params=params)
 
-    async def send_reference_request(
-        self, line, character, code_id, request_id, original_msg_id=None
-    ):
+    async def send_reference_request(self, line, character, code_id, request_id):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {
@@ -112,7 +103,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument/references",
             params=params,
             id=request_id,
-            original_msg_id=original_msg_id,
         )
 
     def get_file_uri(self):
