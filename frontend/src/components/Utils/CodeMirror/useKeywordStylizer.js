@@ -18,17 +18,9 @@ export function useKeywordStylizer(keywordPositions) {
         }
       }
 
-      buildDecorations(view) {
+      buildDecorations() {
         const builder = new RangeSetBuilder();
-        const newKeywordLocations = [];
-        const text = view.state.doc;
         for (const kp of keywordPositions) {
-          const keyword = text.sliceString(kp.startPos, kp.endPos);
-          newKeywordLocations.push({
-            startPos: kp.startPos,
-            endPos: kp.endPos,
-            keyword,
-          });
           builder.add(kp.startPos, kp.endPos, italicStyle);
         }
         return builder.finish();

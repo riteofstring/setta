@@ -59,8 +59,6 @@ export function SectionSearch({ sectionId, selectedItem }) {
     return { name: "", keywordPositions: [] };
   });
 
-  console.log("codeInfoName, keywordPositions", codeInfoName, keywordPositions);
-
   const [value, setValue] = useState(codeInfoName);
   const [localKeywordPositions, setLocalKeywordPositions] =
     useState(keywordPositions);
