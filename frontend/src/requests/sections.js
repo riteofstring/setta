@@ -106,11 +106,12 @@ export async function dbTextFieldCompletion({
 }) {
   const projectConfigId = useProjectConfig.getState().id;
   let evRefs = [];
+  let keywordPositions = [];
   const candidateKeywords = findCandidateKeywords(fullText);
   console.log("candidateKeywords", candidateKeywords);
   if (candidateKeywords.length > 0) {
     let count = 0;
-    const keywordPositions = [];
+    keywordPositions = [];
     await sendMessageInRoom({
       id: `${sectionId}-${paramInfoId}-find-references`,
       messageType: "textFieldFindReferences",
@@ -121,16 +122,14 @@ export async function dbTextFieldCompletion({
         return count === candidateKeywords.length;
       },
     });
-    setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
     const { fullNameToInfo } = useKeywordRegex.getState();
     evRefs = findRefs({
-      sectionId,
-      paramInfoId,
       keywordPositions,
       fullNameToInfo,
       fullText,
     });
   }
+  setParamKeywordPositions({ sectionId, paramInfoId, keywordPositions });
 
   return await sendMessageInRoom({
     id: `${address}-${sectionId}-${paramInfoId}`,
