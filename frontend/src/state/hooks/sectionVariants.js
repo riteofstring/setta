@@ -20,10 +20,8 @@ export function useGetParamKeywordPositions(sectionId, paramInfoId) {
     useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (paramInfoId && dbSource in x.x) {
-      return (
-        x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
-          .keywordPositions ?? []
-      );
+      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
+        .keywordPositions;
     }
     return [];
   }, _.isEqual);

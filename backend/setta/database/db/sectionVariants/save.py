@@ -1,4 +1,4 @@
-from setta.database.utils import dump_json_if_not_none
+from setta.database.utils import dump_keyword_positions_as_string
 
 
 def save_section_variants(dbs, section_variants):
@@ -44,7 +44,7 @@ def save_section_variants_to_one_db(db, section_variants):
                     "idid": idid,
                     "codeInfoId": code_info_id,
                     "value": value_info["value"],
-                    "keywordPositions": dump_json_if_not_none(
+                    "keywordPositions": dump_keyword_positions_as_string(
                         value_info["keywordPositions"]
                     ),
                 }

@@ -54,7 +54,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
   const { name: codeInfoName, keywordPositions } = useCodeInfo((x) => {
     if (selectedItem) {
       const { name, keywordPositions } = x.x[selectedItem];
-      return { name, keywordPositions: keywordPositions ?? [] };
+      return { name, keywordPositions };
     }
     return { name: "", keywordPositions: [] };
   });

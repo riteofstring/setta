@@ -39,7 +39,7 @@ export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
   const keywordPositions = useSectionInfos(
-    (x) => x.x[sectionId].keywordPositions ?? [],
+    (x) => x.x[sectionId].keywordPositions,
     _.isEqual,
   );
   const [localKeywordPositions, setLocalKeywordPositions] = useState();

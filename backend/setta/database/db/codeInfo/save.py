@@ -1,4 +1,4 @@
-from setta.database.utils import dump_json_if_not_none
+from setta.database.utils import dump_keyword_positions_as_string
 
 
 def save_code_info(dbs, codeInfo):
@@ -24,7 +24,12 @@ def save_code_info(dbs, codeInfo):
     query_params = []
     for c in codeInfo.values():
         query_params.append(
-            {**c, "keywordPositions": dump_json_if_not_none(c["keywordPositions"])}
+            {
+                **c,
+                "keywordPositions": dump_keyword_positions_as_string(
+                    c["keywordPositions"]
+                ),
+            }
         )
 
     db.executemany(query, query_params)

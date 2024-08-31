@@ -23,7 +23,7 @@ export function newSectionInfo({
   paramSweepSectionId = null,
   nonPresetUITypeIds = [],
   code = "",
-  keywordPositions = null,
+  keywordPositions = [],
   codeLanguage = "",
   isFrozen = false,
   dbSource = "",

@@ -30,7 +30,7 @@ export function computeEVReferences(project) {
       sectionVariant.values,
     )) {
       evRefs[sectionId][paramInfoId] = findRefs({
-        keywordPositions: valueInfo.keywordPositions ?? [],
+        keywordPositions: valueInfo.keywordPositions,
         fullNameToInfo,
         fullText: valueInfo.value,
       });

@@ -1,4 +1,4 @@
-from setta.database.utils import dump_json_if_not_none
+from setta.database.utils import dump_keyword_positions_as_string
 
 
 def save_sections(dbs, sections):
@@ -56,7 +56,7 @@ def save_sections(dbs, sections):
             "social": s["social"],
             "description": s["description"],
             "code": s["code"],
-            "keywordPositions": dump_json_if_not_none(s["keywordPositions"]),
+            "keywordPositions": dump_keyword_positions_as_string(s["keywordPositions"]),
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "dbSource": s.get("dbSource"),

@@ -12,7 +12,7 @@ export function newCodeInfo({
   isPinned = false,
   isFrozen = false,
   isSelected = false,
-  keywordPositions = null,
+  keywordPositions = [],
 }) {
   return {
     id: maybeNewId(id),

@@ -40,7 +40,7 @@
         "values": {
           "20512036-3e0f-41f3-9738-6573ee71bdaf": {
             "value": "0",
-            "keywordPositions": null
+            "keywordPositions": []
           }
         },
         "children": []
@@ -251,7 +251,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "artifacts": [],
-      "keywordPositions": null
+      "keywordPositions": []
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
@@ -280,7 +280,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "artifacts": [],
-      "keywordPositions": null
+      "keywordPositions": []
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -309,7 +309,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "artifacts": [],
-      "keywordPositions": null
+      "keywordPositions": []
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -338,7 +338,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "artifacts": [],
-      "keywordPositions": null
+      "keywordPositions": []
     }
   },
   "codeInfo": {
@@ -354,7 +354,7 @@
       "isFrozen": 0,
       "isSelected": 0,
       "children": [],
-      "keywordPositions": null
+      "keywordPositions": []
     },
     "15dc4270-4e4e-4799-93eb-c309801d6349": {
       "id": "15dc4270-4e4e-4799-93eb-c309801d6349",
@@ -368,7 +368,7 @@
       "isFrozen": 0,
       "isSelected": 0,
       "children": [],
-      "keywordPositions": null
+      "keywordPositions": []
     },
     "20512036-3e0f-41f3-9738-6573ee71bdaf": {
       "id": "20512036-3e0f-41f3-9738-6573ee71bdaf",
@@ -382,7 +382,7 @@
       "isFrozen": 0,
       "isSelected": 0,
       "children": [],
-      "keywordPositions": null
+      "keywordPositions": []
     },
     "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
       "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
@@ -398,7 +398,7 @@
       "children": [
         "20512036-3e0f-41f3-9738-6573ee71bdaf"
       ],
-      "keywordPositions": null
+      "keywordPositions": []
     }
   },
   "dbSourceMapping": {

@@ -1,4 +1,4 @@
-from setta.database.utils import load_json_if_not_none
+from setta.database.utils import parse_keyword_positions_string
 
 
 def load_section_variants(db, ids):
@@ -24,7 +24,9 @@ def load_section_variants(db, ids):
         if row["value"] is not None:
             output[id]["values"][row["codeInfoId"]] = {
                 "value": row["value"],
-                "keywordPositions": load_json_if_not_none(row["keywordPositions"]),
+                "keywordPositions": parse_keyword_positions_string(
+                    row["keywordPositions"]
+                ),
             }
 
     placeholders = ", ".join(["?"] * len(output))
