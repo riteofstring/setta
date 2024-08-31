@@ -1,11 +1,10 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import _ from "lodash";
 import { useCallback, useState } from "react";
 import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
-import { useKeywordLocations } from "state/definitions";
+import { useGetParamKeywordPositions } from "state/hooks/sectionVariants";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
@@ -30,10 +29,7 @@ export function TextInputCodeMirror({
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
-  const keywordLocations = useKeywordLocations(
-    (x) => x.x[sectionId]?.[paramInfoId] ?? [],
-    _.isEqual,
-  );
+  const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
 
   function localOnBlur() {
     // hack to prevent codemirror from
@@ -74,7 +70,7 @@ export function TextInputCodeMirror({
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
-          keywordLocations={keywordLocations}
+          keywordPositions={keywordPositions}
           placeholder={defaultVal}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
@@ -97,7 +93,7 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
-          keywordLocations={keywordLocations}
+          keywordPositions={[]}
           language={language}
         />
       )}
@@ -120,13 +116,13 @@ function CoreCodeMirror({
   realIsInitialized,
   setRealIsInitialized,
   theme,
-  keywordLocations,
+  keywordPositions,
   language,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
 
   const { keywordStylizer } = useKeywordStylizer({
-    keywordLocations,
+    keywordPositions,
     sectionId,
     paramInfoId,
   });
@@ -148,7 +144,7 @@ function CoreCodeMirror({
   });
 
   const onCreateEditor = getOnCreateEditor({
-    keywordLocations,
+    keywordPositions,
     initialEvent,
     setRealIsInitialized,
     divId,

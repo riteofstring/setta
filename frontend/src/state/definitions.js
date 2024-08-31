@@ -58,8 +58,6 @@ export const useKeywordRegex = create(() => ({
   fullNameToInfo: {},
 }));
 
-export const useKeywordLocations = create(immer(() => ({ x: {} })));
-
 // keys for textFields are of the form:
 // {sectionId}-null for the main section combobox
 // {sectionId}-{paramInfoId} for section parameter fields

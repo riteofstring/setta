@@ -22,7 +22,7 @@ export function DummyCodeMirror({
   onMouseDown,
   onFocus,
   className,
-  keywordLocations,
+  keywordPositions,
   placeholder,
   sectionId,
   paramInfoId,
@@ -35,7 +35,7 @@ export function DummyCodeMirror({
       onMouseDown={onMouseDown}
       onFocus={onFocus}
       className={className}
-      keywordLocations={keywordLocations}
+      keywordPositions={keywordPositions}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       language={language}
@@ -70,7 +70,7 @@ function HighlightedCode({
   theme,
   onMouseDown,
   className,
-  keywordLocations,
+  keywordPositions,
   sectionId,
   paramInfoId,
   language,
@@ -82,15 +82,12 @@ function HighlightedCode({
   const builder = new RangeSetBuilder();
 
   const matchedIndices = {};
-  // for (const location of keywordLocations) {
-  // TODO
-  // const [from, to] = [match.index, match.index + match[0].length];
-  // matchedIndices[match.index] = {
-  //   keywordStartIdx: from,
-  //   keywordEndIdx: to,
-  //   keyword: code.substring(from, to),
-  // };
-  // }
+  for (const kp of keywordPositions) {
+  matchedIndices[kp.startPos] = {
+    keywordEndIdx: kp.endPos,
+    keyword: code.substring(kp.startPos, kp.endPos),
+  };
+  }
 
   highlightTree(tree, highlightStyle, (from, to, style) => {
     builder.add(
@@ -130,7 +127,7 @@ function HighlightedCode({
       }
 
       if (currKeyword === null && cursor.from in matchedIndices) {
-        const { keyword, keywordStartIdx, keywordEndIdx } =
+        const { keyword, keywordEndIdx } =
           matchedIndices[cursor.from];
         if (
           doesNotReferToSelf({
@@ -141,7 +138,7 @@ function HighlightedCode({
           })
         ) {
           currKeyword = keyword;
-          currKeywordStartIdx = keywordStartIdx;
+          currKeywordStartIdx = cursor.from;
           currKeywordEndIdx = keywordEndIdx;
           currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
         }

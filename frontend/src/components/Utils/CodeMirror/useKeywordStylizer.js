@@ -6,7 +6,7 @@ import { doesNotReferToSelf } from "./utils";
 const italicStyle = Decoration.mark({ class: "italic" });
 
 export function useKeywordStylizer({
-  keywordLocations,
+  keywordPositions,
   sectionId,
   paramInfoId,
 }) {
@@ -31,7 +31,7 @@ export function useKeywordStylizer({
         for (const { from, to } of view.visibleRanges) {
           const text = view.state.doc.sliceString(from, to);
           // TODO
-          for (const location of keywordLocations) {
+          for (const location of keywordPositions) {
             const startPos = from + match.index;
             const endPos = startPos + match[0].length;
             const keyword = match[0];

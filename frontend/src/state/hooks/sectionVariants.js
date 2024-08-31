@@ -19,11 +19,13 @@ export function useGetParamKeywordPositions(sectionId, paramInfoId) {
   const { dbSource, variantId, previewVariantId } =
     useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
-    if (dbSource in x.x) {
-      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
-        .keywordPositions;
+    if (paramInfoId && dbSource in x.x) {
+      return (
+        x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
+          .keywordPositions ?? []
+      );
     }
-    return {};
+    return [];
   }, _.isEqual);
 }
 

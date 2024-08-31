@@ -56,7 +56,7 @@ function fixPlaceholderCursor(divId, value, defaultVal) {
 }
 
 export function getOnCreateEditor({
-  keywordLocations,
+  keywordPositions,
   initialEvent,
   setRealIsInitialized,
   divId,
@@ -66,7 +66,7 @@ export function getOnCreateEditor({
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
-      getContentDomEventListener(keywordLocations, view),
+      getContentDomEventListener(keywordPositions, view),
     );
     view.focus();
     if (initialEvent !== "tab") {
