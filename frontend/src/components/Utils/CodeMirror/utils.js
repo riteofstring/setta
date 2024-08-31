@@ -103,7 +103,7 @@ export function findCandidateKeywords({
   regexPatternKey,
 }) {
   let match;
-  const output = [];
+  const output = new Set();
   const keywordRegex = useKeywordRegex.getState()[regexPatternKey];
   while ((match = keywordRegex.exec(value))) {
     if (
@@ -114,7 +114,7 @@ export function findCandidateKeywords({
         paramInfoId,
       })
     )
-      output.push(match[0]);
+      output.add(match[0]);
   }
-  return output;
+  return Array.from(output);
 }
