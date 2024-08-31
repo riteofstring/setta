@@ -99,6 +99,8 @@ export function ParamSweepUI({
   onChange,
   isDisabled,
   sectionIdToBeActive,
+  keywordPositions,
+  setKeywordPositions,
 }) {
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
@@ -120,6 +122,8 @@ export function ParamSweepUI({
             realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] mx-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
             language="python"
             sectionIdToBeActive={sectionIdToBeActive}
+            keywordPositions={keywordPositions}
+            setKeywordPositions={setKeywordPositions}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

@@ -306,6 +306,8 @@ function Input({
           onChange={onChange}
           className="nodrag"
           sectionIdToBeActive={sectionId}
+          keywordPositions={[]}
+          setKeywordPositions={() => {}}
         />
       </article>
     </>
