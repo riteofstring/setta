@@ -1,7 +1,6 @@
 import asyncio
 import json
 import re
-from pprint import pprint
 
 import docstring_parser
 
@@ -212,16 +211,17 @@ class LanguageServerReader(LanguageServerInteractor):
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
-            method = method if method else self.msg_id_to_method[id]
+            method = method if method else self.msg_id_to_metadata[id]["method"]
             if method == "textDocument/completion":
                 content = [
                     {"label": x["label"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
-                    if x["label"] not in self.msg_id_to_generated_var_names[id]
+                    if x["label"]
+                    not in self.msg_id_to_metadata[id]["generated_var_names"]
                 ]
                 referencable_var_names = [
                     {"label": x, "type": "variable"}
-                    for x in self.msg_id_to_referencable_var_names[id]
+                    for x in self.msg_id_to_metadata[id]["referencable_var_names"]
                 ]
                 content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
@@ -234,10 +234,6 @@ class LanguageServerReader(LanguageServerInteractor):
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/references":
                 content = []
-                from pprint import pprint
-
-                pprint(response)
-
                 if len(response["result"]) > 0:
                     code = self.get_version(response["result"][0]["uri"])["code"]
                     line_cols = []
@@ -252,10 +248,14 @@ class LanguageServerReader(LanguageServerInteractor):
                             (x["range"]["end"]["line"], x["range"]["end"]["character"])
                         )
                     positions = line_col_to_position_batch(code, line_cols)
-                    content = []
+                    variable_name = self.msg_id_to_metadata[id]["variable_name"]
                     for idx in range(0, len(positions), 2):
                         content.append(
-                            {"startPos": positions[idx], "endPos": positions[idx + 1]}
+                            {
+                                "variable_name": variable_name,
+                                "startPos": positions[idx],
+                                "endPos": positions[idx + 1],
+                            }
                         )
 
                 await self.websocket_manager.send_message_to_requester(id, content)

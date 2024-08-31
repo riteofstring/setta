@@ -13,7 +13,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
         if id:
             request_dict["id"] = id
-            self.msg_id_to_method[id] = method
+            self.msg_id_to_metadata[id]["method"] = method
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
@@ -55,8 +55,10 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
         }
-        self.msg_id_to_referencable_var_names[request_id] = referencable_var_names
-        self.msg_id_to_generated_var_names[request_id] = generated_var_names
+        self.msg_id_to_metadata[request_id][
+            "referencable_var_names"
+        ] = referencable_var_names
+        self.msg_id_to_metadata[request_id]["generated_var_names"] = generated_var_names
         await self.send_request(
             "textDocument/completion",
             params=params,
@@ -90,7 +92,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         }
         await self.send_request("textDocument/didChange", params=params)
 
-    async def send_reference_request(self, line, character, code_id, request_id):
+    async def send_reference_request(
+        self, variable_name, line, character, code_id, request_id
+    ):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {
@@ -99,6 +103,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "position": {"line": line, "character": character},
             "context": {"includeDeclaration": False},
         }
+        self.msg_id_to_metadata[request_id]["variable_name"] = variable_name
         await self.send_request(
             "textDocument/references",
             params=params,
