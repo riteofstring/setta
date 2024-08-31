@@ -2,6 +2,8 @@ import copy
 import itertools
 from collections import defaultdict
 
+from setta.database.utils import load_json_if_not_none
+
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
@@ -75,6 +77,7 @@ def load_sections(dbs, ids):
         v = dict(v)
         sections[v["id"]] = {
             **v,
+            "keywordPositions": load_json_if_not_none(v["keywordPositions"]),
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],

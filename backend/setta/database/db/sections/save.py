@@ -1,3 +1,6 @@
+from setta.database.utils import dump_json_if_not_none
+
+
 def save_sections(dbs, sections):
     db = dbs.default
     query = """
@@ -9,6 +12,7 @@ def save_sections(dbs, sections):
             social,
             description,
             code,
+            keywordPositions,
             codeLanguage,
             isFrozen,
             dbSource,
@@ -22,6 +26,7 @@ def save_sections(dbs, sections):
             :social,
             :description,
             :code,
+            :keywordPositions,
             :codeLanguage,
             :isFrozen,
             :dbSource,
@@ -35,6 +40,7 @@ def save_sections(dbs, sections):
             social = :social,
             description = :description,
             code = :code,
+            keywordPositions = :keywordPositions,
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
             dbSource = :dbSource,
@@ -50,6 +56,7 @@ def save_sections(dbs, sections):
             "social": s["social"],
             "description": s["description"],
             "code": s["code"],
+            "keywordPositions": dump_json_if_not_none(s["keywordPositions"]),
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "dbSource": s.get("dbSource"),

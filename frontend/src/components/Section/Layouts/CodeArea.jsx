@@ -3,6 +3,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import _ from "lodash";
 import React, {
   useCallback,
   useEffect,
@@ -13,10 +14,13 @@ import React, {
 import {
   dbCodeAreaCompletion,
   dbCodeAreaInitializeCode,
+  getKeywordPositionsAndEVRefs,
 } from "requests/sections";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
+import useDeepCompareEffect from "use-deep-compare-effect";
+import { asyncDebounce } from "utils/utils";
 
 function _CodeArea({ sectionId }) {
   const language = useGetSectionInfo(sectionId, "codeLanguage");
@@ -34,7 +38,11 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const [localKeywordPositions, setLocalKeywordPositions] = useState([]);
+  const keywordPositions = useSectionInfos(
+    (x) => x.x[sectionId].keywordPositions ?? [],
+    _.isEqual,
+  );
+  const [localKeywordPositions, setLocalKeywordPositions] = useState();
   const keywordStylizer = useMemo(
     () => getKeywordStylizer(localKeywordPositions),
     [JSON.stringify(localKeywordPositions)],
@@ -48,6 +56,11 @@ function PythonCodeArea({ sectionId, language }) {
     ),
     [sectionId],
   );
+
+  useDeepCompareEffect(() => {
+    setLocalKeywordPositions(keywordPositions);
+  }, [keywordPositions]);
+
   return (
     <CoreCodeArea
       sectionId={sectionId}
@@ -80,6 +93,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
       attr: "code",
       value: v,
     });
+    debouncedSetKeywordPositions(sectionId, v);
   }
 
   function onMouseDown() {
@@ -142,3 +156,17 @@ function useCodeAreaHeight({ sectionId }) {
 
   return { wrapperRef, handleCreateEditor, maxHeight, overflow };
 }
+
+const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
+  const { keywordPositions } = await getKeywordPositionsAndEVRefs({
+    sectionId,
+    paramInfoId: null,
+    fullText: value,
+    messageIdSuffix: "-codeArea",
+  });
+  setSectionInfoAttr({
+    sectionId,
+    attr: "keywordPositions",
+    value: keywordPositions,
+  });
+}, 500);
