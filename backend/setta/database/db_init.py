@@ -40,9 +40,7 @@ CREATE_TABLES_COMMANDS = [
         uiTypeColId TEXT,
         social TEXT,
         description TEXT,
-        code TEXT,
         codeLanguage TEXT,
-        keywordPositions TEXT,
         isFrozen BOOLEAN,
         dbSource TEXT,
         codeInfoId TEXT,
@@ -76,6 +74,8 @@ CREATE_TABLES_COMMANDS = [
         id TEXT PRIMARY KEY,
         name TEXT,
         selectedItem TEXT,
+        code TEXT,
+        keywordPositions TEXT,
         originSectionId TEXT
     );
     """,

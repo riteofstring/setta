@@ -42,7 +42,6 @@
       "uiTypeColId": "4d17b28e-51ff-4617-8564-eb4494cd7b6f",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -59,8 +58,7 @@
       "paramSweepId": null,
       "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "350241fe-50f9-44a9-8553-fb57eb72f881": {
       "id": "350241fe-50f9-44a9-8553-fb57eb72f881",
@@ -70,7 +68,6 @@
       "uiTypeColId": "57361935-d007-420a-aab8-cca04ff45bb3",
       "social": null,
       "description": "",
-      "code": "import argparse\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Example script using argparse.\")\n\n    parser.add_argument(\"--name\", type=str, help=\"Your name\", required=True)\n    parser.add_argument(\"--age\", type=int, help=\"Your age\", required=True)\n    parser.add_argument(\"--verbose\", action=\"store_true\", help=\"Enable verbose output\")\n    parser.add_argument(\n        \"--number\", type=int, default=0, help=\"An example integer flag\", required=True\n    )\n\n    args = parser.parse_args()\n\n    if args.verbose:\n        print(\"Verbose mode is enabled.\")\n    print(f\"Hello, {args.name}! You are {args.age} years old.\")\n    print(f\"The number provided is {args.number}.\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
       "codeLanguage": "python",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -87,8 +84,7 @@
       "paramSweepId": null,
       "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "8d73c344-5501-4790-98ed-c00cb9d87393": {
       "id": "8d73c344-5501-4790-98ed-c00cb9d87393",
@@ -98,7 +94,6 @@
       "uiTypeColId": "73a2bf21-5e2d-45bb-8c89-25d2f5518d00",
       "social": null,
       "description": "",
-      "code": "printf \"***START***\\n\\n\"\n\npython {{ Code }} {{ SETTA_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
       "codeLanguage": "bash",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -115,8 +110,7 @@
       "paramSweepId": null,
       "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
       "id": "c27f4f05-7a54-44e6-b222-c77581c4ea37",
@@ -126,7 +120,6 @@
       "uiTypeColId": "fdc39bbf-baba-46e8-9a38-c578daa67290",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
@@ -147,8 +140,7 @@
       "paramSweepId": "e30db601-cda1-4b31-bafe-a8dd047af670",
       "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     }
   },
   "uiTypes": {},
@@ -410,19 +402,25 @@
         "name": "mathematical_magenta",
         "values": {},
         "children": [],
-        "selectedItem": null
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": []
       },
       "3ec298ce-5d49-42f8-8700-3e2efb26855b": {
         "name": "config1",
         "values": {},
         "children": [],
-        "selectedItem": null
+        "selectedItem": null,
+        "code": "import argparse\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=\"Example script using argparse.\")\n\n    parser.add_argument(\"--name\", type=str, help=\"Your name\", required=True)\n    parser.add_argument(\"--age\", type=int, help=\"Your age\", required=True)\n    parser.add_argument(\"--verbose\", action=\"store_true\", help=\"Enable verbose output\")\n    parser.add_argument(\n        \"--number\", type=int, default=0, help=\"An example integer flag\", required=True\n    )\n\n    args = parser.parse_args()\n\n    if args.verbose:\n        print(\"Verbose mode is enabled.\")\n    print(f\"Hello, {args.name}! You are {args.age} years old.\")\n    print(f\"The number provided is {args.number}.\")\n\n\nif __name__ == \"__main__\":\n    main()\n",
+        "keywordPositions": []
       },
       "40fd1a3c-6fca-4b87-b427-5bee353cef09": {
         "name": "config1",
         "values": {},
         "children": [],
-        "selectedItem": null
+        "selectedItem": null,
+        "code": "printf \"***START***\\n\\n\"\n\npython {{ Code }} {{ SETTA_PYTHON_ARGPARSE }}\n\nprintf \"\\n***END***\"",
+        "keywordPositions": []
       },
       "dc1879dd-4591-46c0-8fc6-f733c6b177ca": {
         "name": "config1",
@@ -461,7 +459,9 @@
           }
         },
         "children": [],
-        "selectedItem": null
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": []
       }
     }
   },

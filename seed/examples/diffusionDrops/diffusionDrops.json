@@ -93,7 +93,9 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "09179586-8ddd-4f0b-91a0-0398d928d408": {
         "name": "soup_coin",
@@ -104,13 +106,17 @@
           "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
           "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
           "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
-        ]
+        ],
+        "code": "",
+        "keywordPositions": []
       },
       "10ea5acf-9c24-4351-bc81-252625623507": {
         "name": "roasted_maroon",
         "selectedItem": null,
         "values": {},
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "4253da34-9a1a-43eb-b80f-c6708e339024": {
         "name": "substantial_brown",
@@ -149,19 +155,25 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "4c9bee35-38ab-471e-873d-62e1233eeaaf": {
         "name": "uncomfortable_tan",
         "selectedItem": null,
         "values": {},
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "645069e7-0657-4c2e-9128-88c701bbd069": {
         "name": "sparkling_brown",
         "selectedItem": null,
         "values": {},
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "756e7bb0-ac13-4790-a05c-f10425d508e9": {
         "name": "secure_jade",
@@ -185,7 +197,9 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
         "name": "alien_star",
@@ -224,7 +238,9 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "8481e81d-f417-4914-b5d8-2797202392ab": {
         "name": "fast_gray",
@@ -233,7 +249,9 @@
         "children": [
           "04a2d718-6476-446f-bda7-4b7fc22f8972",
           "93b410c0-33e9-4d66-95be-37d223d99c0a"
-        ]
+        ],
+        "code": "",
+        "keywordPositions": []
       },
       "9083beca-25c9-4a31-885a-fb19064efd3d": {
         "name": "yeasty_magenta",
@@ -249,7 +267,9 @@
             ]
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
         "name": "central_amethyst",
@@ -258,7 +278,9 @@
         "children": [
           "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
           "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3"
-        ]
+        ],
+        "code": "",
+        "keywordPositions": []
       },
       "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
         "name": "vivid_moccasin",
@@ -297,7 +319,9 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "c1873fea-a24d-4367-97b1-88614045a575": {
         "name": "wet_teal",
@@ -348,7 +372,9 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "c58d323d-382a-47b2-919f-a7f06bcac760": {
         "name": "secure_tan",
@@ -359,7 +385,9 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
         "name": "horizontal_green",
@@ -415,13 +443,17 @@
             ]
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "e3280349-7dda-43f6-9cea-0b98971435a5": {
         "name": "geographical_chocolate",
         "selectedItem": null,
         "values": {},
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
         "name": "marginal_coral",
@@ -430,7 +462,9 @@
         "children": [
           "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
           "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
-        ]
+        ],
+        "code": "",
+        "keywordPositions": []
       }
     }
   },
@@ -641,7 +675,6 @@
       "uiTypeColId": "a5d299bd-58e7-45bc-8a61-d13ebe20124d",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -659,8 +692,7 @@
       "variantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba": {
       "id": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
@@ -670,7 +702,6 @@
       "uiTypeColId": "b1abc839-5b74-4fc9-b1f7-65300a3d183f",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -689,8 +720,7 @@
       "variantId": "4253da34-9a1a-43eb-b80f-c6708e339024",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "45ee78a4-2ad3-4541-8a65-87a21a798887": {
       "id": "45ee78a4-2ad3-4541-8a65-87a21a798887",
@@ -700,7 +730,6 @@
       "uiTypeColId": "c40244ce-c012-4dfa-81f9-9cf89bcd76df",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -718,8 +747,7 @@
       "variantId": "e3280349-7dda-43f6-9cea-0b98971435a5",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
       "id": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
@@ -729,7 +757,6 @@
       "uiTypeColId": "a95060a5-3cf2-49cc-a912-db0dba0205ea",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -747,8 +774,7 @@
       "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
       "id": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -758,7 +784,6 @@
       "uiTypeColId": "527609ff-a61b-4e1f-ac5f-b50fde216719",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -777,8 +802,7 @@
       "variantId": "fb08c4e1-9809-46ef-bfa5-52a4a944ef74",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "67c603f7-a536-4603-83b3-0b882ee098b2": {
       "id": "67c603f7-a536-4603-83b3-0b882ee098b2",
@@ -788,7 +812,6 @@
       "uiTypeColId": "eb1e2aa0-ea16-433d-80b9-f4018039991e",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -806,8 +829,7 @@
       "variantId": "645069e7-0657-4c2e-9128-88c701bbd069",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "70355b9b-16ab-462f-8cfc-f23e2399ec1e": {
       "id": "70355b9b-16ab-462f-8cfc-f23e2399ec1e",
@@ -817,7 +839,6 @@
       "uiTypeColId": "0fcc52ec-fc6b-4164-83b4-66fdbfa96699",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -835,8 +856,7 @@
       "variantId": "4c9bee35-38ab-471e-873d-62e1233eeaaf",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "93b410c0-33e9-4d66-95be-37d223d99c0a": {
       "id": "93b410c0-33e9-4d66-95be-37d223d99c0a",
@@ -846,7 +866,6 @@
       "uiTypeColId": "a1e0f6e5-7af2-438c-82e3-ed5ce5d9c432",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -864,8 +883,7 @@
       "variantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7": {
       "id": "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
@@ -875,7 +893,6 @@
       "uiTypeColId": "69ecb4f5-9c64-4f20-bb10-7662f18177e6",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -893,8 +910,7 @@
       "variantId": "10ea5acf-9c24-4351-bc81-252625623507",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3": {
       "id": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
@@ -904,7 +920,6 @@
       "uiTypeColId": "3562b0be-4c55-4496-a179-4a75ec91a524",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -923,8 +938,7 @@
       "variantId": "0022f0d8-b97f-4345-90ac-66615e576fb2",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "baf34852-dfdb-4a2f-850a-6c903acbf1f5": {
       "id": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
@@ -934,7 +948,6 @@
       "uiTypeColId": "3999a2dc-7210-4d3f-a6cb-28b7ec912d03",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -952,8 +965,7 @@
       "variantId": "756e7bb0-ac13-4790-a05c-f10425d508e9",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
@@ -963,7 +975,6 @@
       "uiTypeColId": "45999936-ac07-4aee-8751-2592c08feeee",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -981,8 +992,7 @@
       "variantId": "8481e81d-f417-4914-b5d8-2797202392ab",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91": {
       "id": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
@@ -992,7 +1002,6 @@
       "uiTypeColId": "e205db42-5447-43b4-a7e8-79e5177e741c",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -1010,8 +1019,7 @@
       "variantId": "c58d323d-382a-47b2-919f-a7f06bcac760",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
       "id": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
@@ -1021,7 +1029,6 @@
       "uiTypeColId": "9e4418e7-dacf-4ac4-85a4-6921ff0c2cd0",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": "",
@@ -1039,8 +1046,7 @@
       "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     }
   },
   "codeInfo": {

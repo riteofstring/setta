@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_code
+from setta.code_gen.export_selected import export_selected
 from setta.code_gen.find_placeholders import double_braces, needs_generated_python
 from setta.code_gen.python.generate_code import (
     count_lines,

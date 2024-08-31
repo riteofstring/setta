@@ -50,6 +50,8 @@ export function initManySectionVariantIds({
         values: variantProps.values ?? {},
         children: variantProps.children ?? [],
         selectedItem: variantProps.selectedItem ?? null,
+        code: variantProps.code ?? "",
+        keywordPositions: variantProps.keywordPositions ?? [],
       });
     });
   });
@@ -224,12 +226,12 @@ export function getSectionSelectedItem(sectionId) {
   ].selectedItem;
 }
 
-export function setSectionVariantSelectedItem(sectionId, selectedItem) {
-  const { variantId, dbSource } =
+export function getSectionCode(sectionId) {
+  const { variantId, previewVariantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(sectionId);
-  useSectionVariants.setState((x) => {
-    x.x[dbSource][variantId].selectedItem = selectedItem;
-  });
+  return useSectionVariants.getState().x[dbSource][
+    previewVariantId ?? variantId
+  ].code;
 }
 
 export function getSectionChildrenAcrossVariants(sectionId) {
@@ -243,4 +245,12 @@ export function getSectionChildrenAcrossVariants(sectionId) {
     }
   }
   return output;
+}
+
+export function setSectionVariantAttr(sectionId, attr, value) {
+  const { variantId, dbSource } =
+    getSectionVariantIdAndMappedDBSource(sectionId);
+  useSectionVariants.setState((x) => {
+    x.x[dbSource][variantId][attr] = value;
+  });
 }

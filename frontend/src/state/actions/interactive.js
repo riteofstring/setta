@@ -3,6 +3,7 @@ import { dbUpdateInteractiveCode } from "requests/interactive";
 import { useInteractive, useSectionInfos } from "state/definitions";
 import { getSectionType } from "state/getters/sectionInfo";
 import { setNotificationMessage } from "./notification";
+import { getSectionCode } from "./sectionVariants";
 
 export async function updateInteractiveCode() {
   // const ids = useActiveSection.getState().ids;
@@ -14,9 +15,9 @@ export async function updateInteractiveCode() {
   // }
 
   const codeDict = {};
-  for (const [id, s] of Object.entries(useSectionInfos.getState().x))
+  for (const [id] of Object.keys(useSectionInfos.getState().x))
     if (getSectionType(id).type === C.INTERACTIVE_CODE) {
-      codeDict[id] = s.code;
+      codeDict[id] = getSectionCode(id);
     }
   setNotificationMessage("Importing your code...");
   const res = await dbUpdateInteractiveCode(codeDict);

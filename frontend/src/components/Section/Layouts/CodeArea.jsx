@@ -3,7 +3,6 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { getKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import _ from "lodash";
 import React, {
   useCallback,
   useEffect,
@@ -16,9 +15,13 @@ import {
   dbCodeAreaInitializeCode,
   getKeywordPositionsAndEVRefs,
 } from "requests/sections";
-import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
+import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
+import {
+  useSectionCode,
+  useSectionKeywordPositions,
+} from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
@@ -38,10 +41,7 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const keywordPositions = useSectionInfos(
-    (x) => x.x[sectionId].keywordPositions,
-    _.isEqual,
-  );
+  const keywordPositions = useSectionKeywordPositions(sectionId);
   const [localKeywordPositions, setLocalKeywordPositions] = useState();
   const keywordStylizer = useMemo(
     () => getKeywordStylizer(localKeywordPositions),
@@ -80,7 +80,7 @@ function JavascriptCodeArea({ sectionId, language }) {
 }
 
 function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
-  const value = useGetSectionInfo(sectionId, "code");
+  const value = useSectionCode(sectionId);
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow } =
     useCodeAreaHeight({ sectionId });
@@ -88,11 +88,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   const theme = useCodeMirrorStyle();
 
   function onChange(v) {
-    setSectionInfoAttr({
-      sectionId,
-      attr: "code",
-      value: v,
-    });
+    setSectionVariantAttr(sectionId, "code", v);
     debouncedSetKeywordPositions(sectionId, v);
   }
 
@@ -164,9 +160,5 @@ const debouncedSetKeywordPositions = asyncDebounce(async (sectionId, value) => {
     fullText: value,
     messageIdSuffix: "-codeArea",
   });
-  setSectionInfoAttr({
-    sectionId,
-    attr: "keywordPositions",
-    value: keywordPositions,
-  });
+  setSectionVariantAttr(sectionId, "keywordPositions", keywordPositions);
 }, 500);

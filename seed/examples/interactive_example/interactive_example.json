@@ -43,25 +43,33 @@
             "keywordPositions": []
           }
         },
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "0723f95a-e74c-4c1e-9aea-2eacad673293": {
         "name": "intensive_ivory",
         "selectedItem": null,
         "values": {},
-        "children": []
+        "children": [],
+        "code": "",
+        "keywordPositions": []
       },
       "56218716-8dc7-4a8b-a253-1eb2bb9cfc56": {
         "name": "ratty_red",
         "selectedItem": null,
         "values": {},
-        "children": []
+        "children": [],
+        "code": "{{ SETTA_GENERATED_PYTHON }}\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\n# img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\n# s.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\nc = 3\nlosses = [((i - 10) / 5) ** float(c) for i in range(20)]\ns.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
+        "keywordPositions": []
       },
       "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
         "name": "victorious_white",
         "selectedItem": null,
         "values": {},
-        "children": []
+        "children": [],
+        "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    c = message.content\n    return {\n        \"content\": [((i - 10) / 5) ** float(c) for i in range(20)],\n    }\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
+        "keywordPositions": []
       }
     }
   },
@@ -232,7 +240,6 @@
       "uiTypeColId": "4db54baa-e45f-456c-9fb3-4baa0d3f6caf",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": null,
@@ -250,8 +257,7 @@
       "variantId": "0723f95a-e74c-4c1e-9aea-2eacad673293",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
@@ -261,7 +267,6 @@
       "uiTypeColId": "ce01027b-26ed-4ea2-971a-fefde787cbb2",
       "social": null,
       "description": "",
-      "code": "{{ SETTA_GENERATED_PYTHON }}\n\nfrom setta.cli.logger import Setta, SettaNumpyImg\nimport numpy as np\n\n\ns = Setta()\n\n# img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)\n# s.log({\"test_folder/another_folder/img\": SettaNumpyImg(img)}, save=True)\n\nc = 3\nlosses = [((i - 10) / 5) ** float(c) for i in range(20)]\ns.log({\"test_folder/losses\": losses}, save=True)\n\nprint(\"ran code!\")",
       "codeLanguage": "python",
       "isFrozen": 0,
       "dbSource": "",
@@ -279,8 +284,7 @@
       "variantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -290,7 +294,6 @@
       "uiTypeColId": "ecab60b1-3cd7-4947-a61b-ccbef507c9ae",
       "social": null,
       "description": "",
-      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    c = message.content\n    return {\n        \"content\": [((i - 10) / 5) ** float(c) for i in range(20)],\n    }\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
       "codeLanguage": "python",
       "isFrozen": 0,
       "dbSource": "",
@@ -308,8 +311,7 @@
       "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -319,7 +321,6 @@
       "uiTypeColId": "b3449dbb-8328-43bb-8e45-b76173bf679c",
       "social": null,
       "description": "",
-      "code": "",
       "codeLanguage": "",
       "isFrozen": 0,
       "dbSource": null,
@@ -337,8 +338,7 @@
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "artifacts": [],
-      "keywordPositions": []
+      "artifacts": []
     }
   },
   "codeInfo": {

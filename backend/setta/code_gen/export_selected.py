@@ -101,14 +101,12 @@ def export_selected(p):
     return e
 
 
-def get_code(p):
+def get_code_containing_generated_python(p):
     for id, s in p["sections"].items():
-        if (
-            get_section_type(p, id) == C.CODE
-            and s["codeLanguage"] == "python"
-            and needs_generated_python(s["code"])
-        ):
-            return s["code"]
+        if get_section_type(p, id) == C.CODE and s["codeLanguage"] == "python":
+            code = get_selected_section_variant(p, id)["code"]
+            if needs_generated_python(code):
+                return code
     return double_braces(C.SETTA_GENERATED_PYTHON)
 
 

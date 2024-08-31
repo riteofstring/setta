@@ -8,16 +8,24 @@ def save_section_variants(dbs, section_variants):
 
 def save_section_variants_to_one_db(db, section_variants):
     query = """
-        INSERT INTO SectionVariantId (id, name, selectedItem)
-        VALUES (:id, :name, :selectedItem)
+        INSERT INTO SectionVariantId (id, name, selectedItem, code, keywordPositions)
+        VALUES (:id, :name, :selectedItem, :code, :keywordPositions)
         ON CONFLICT (id)
         DO UPDATE SET 
         name = :name,
-        selectedItem = :selectedItem
+        selectedItem = :selectedItem,
+        code = :code,
+        keywordPositions = :keywordPositions
     """
 
     query_params = [
-        {"id": k, "name": v["name"], "selectedItem": v["selectedItem"]}
+        {
+            "id": k,
+            "name": v["name"],
+            "selectedItem": v["selectedItem"],
+            "code": v["code"],
+            "keywordPositions": dump_keyword_positions_as_string(v["keywordPositions"]),
+        }
         for k, v in section_variants.items()
     ]
     db.executemany(query, query_params)

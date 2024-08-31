@@ -2,7 +2,10 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_code
+from setta.code_gen.export_selected import (
+    export_selected,
+    get_code_containing_generated_python,
+)
 from setta.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
     prepend_with_imports,
@@ -23,7 +26,7 @@ async def _textFieldInitializeCode(message, lsp_writer):
     project = message.project
     exporter_obj = export_selected(project)
     codeJson = exporter_obj.output
-    templatedCode = get_code(project)
+    templatedCode = get_code_containing_generated_python(project)
     sectionId = message.sectionId
     paramInfoId = message.paramInfoId
     push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]

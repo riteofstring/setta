@@ -11,7 +11,11 @@ from datetime import datetime
 import psutil
 from fastapi import WebSocketDisconnect
 
-from setta.code_gen.export_selected import export_selected, get_section_type
+from setta.code_gen.export_selected import (
+    export_selected,
+    get_section_type,
+    get_selected_section_variant,
+)
 from setta.code_gen.find_placeholders import (
     double_braces,
     needs_generated_python,
@@ -159,7 +163,8 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     }
     dependencies = {}
     for s in code_sections.values():
-        curr_code = s["code"]
+        section_variant = get_selected_section_variant(p, s["id"])
+        curr_code = section_variant["code"]
         curr_dependencies = []
         replacements = {}
         for other_s in code_sections.values():
@@ -179,16 +184,17 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 selected, curr_code, replace_templated_code=False
             )[0]
 
-        s["code"] = replace_keywords(s["code"], replacements)
+        section_variant["code"] = replace_keywords(curr_code, replacements)
         dependencies[s["id"]] = curr_dependencies
 
     to_write = topological_sort(dependencies)
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
+        code = get_selected_section_variant(p, sid)["code"]
         extension = languageToExtension(curr_section["codeLanguage"])
         filepath = write_string_to_file(
-            folder_path, f"{curr_section['name']}{extension}", curr_section["code"]
+            folder_path, f"{curr_section['name']}{extension}", code
         )
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         id_to_filepath[sid] = filepath

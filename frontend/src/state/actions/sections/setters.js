@@ -17,7 +17,7 @@ import {
 import { updateKeywordRegex } from "../keywordRegex";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
-import { setSectionVariantSelectedItem } from "../sectionVariants";
+import { setSectionVariantAttr } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
 
@@ -32,7 +32,7 @@ export async function setSelectedItem(
 
   const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
   if (prevSelected) {
-    setSectionVariantSelectedItem(sectionId, prevSelected);
+    setSectionVariantAttr(sectionId, "selectedItem", prevSelected);
     updateParams(sectionId);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
@@ -52,7 +52,7 @@ export async function setSelectedItem(
     updateCallables(sectionId);
 
     const id = info.id;
-    setSectionVariantSelectedItem(sectionId, id);
+    setSectionVariantAttr(sectionId, "selectedItem", id);
 
     const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
 

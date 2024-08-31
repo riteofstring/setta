@@ -86,11 +86,24 @@ export function useListElementIdx(sectionId) {
   );
 }
 
-export function useSectionSelectedItem(sectionId) {
+function useSectionVariantAttr(sectionId, attr, equalityFn) {
   const { dbSource, variantId, previewVariantId } =
     useSectionVariantMetadataIds(sectionId);
 
   return useSectionVariants(
-    (x) => x.x[dbSource][previewVariantId ?? variantId].selectedItem,
+    (x) => x.x[dbSource][previewVariantId ?? variantId][attr],
+    equalityFn,
   );
+}
+
+export function useSectionSelectedItem(sectionId) {
+  return useSectionVariantAttr(sectionId, "selectedItem");
+}
+
+export function useSectionCode(sectionId) {
+  return useSectionVariantAttr(sectionId, "code");
+}
+
+export function useSectionKeywordPositions(sectionId) {
+  return useSectionVariantAttr(sectionId, "keywordPositions", _.isEqual);
 }
