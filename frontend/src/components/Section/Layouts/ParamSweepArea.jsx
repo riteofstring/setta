@@ -190,7 +190,10 @@ function ShowSectionVariant({ forSectionId, objInfoId, variantId }) {
     const output = [];
     for (const c of x.x[objInfoId].children) {
       if (sectionVariant.values[c]) {
-        output.push({ name: x.x[c].name, value: sectionVariant.values[c] });
+        output.push({
+          name: x.x[c].name,
+          value: sectionVariant.values[c].value,
+        });
       }
     }
     return output;
