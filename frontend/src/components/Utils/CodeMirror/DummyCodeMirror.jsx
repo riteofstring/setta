@@ -5,7 +5,7 @@ import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import { useKeywordRegex } from "state/definitions";
 import { goToSectionOnNameClick } from "./getOnCreateEditor";
-import { doesNotReferToSelf, roundUpIdx } from "./utils";
+import { roundUpIdx } from "./utils";
 
 const lineWrapStyle = {
   whiteSpace: "break-spaces",
@@ -83,10 +83,10 @@ function HighlightedCode({
 
   const matchedIndices = {};
   for (const kp of keywordPositions) {
-  matchedIndices[kp.startPos] = {
-    keywordEndIdx: kp.endPos,
-    keyword: code.substring(kp.startPos, kp.endPos),
-  };
+    matchedIndices[kp.startPos] = {
+      keywordEndIdx: kp.endPos,
+      keyword: code.substring(kp.startPos, kp.endPos),
+    };
   }
 
   highlightTree(tree, highlightStyle, (from, to, style) => {
@@ -127,21 +127,11 @@ function HighlightedCode({
       }
 
       if (currKeyword === null && cursor.from in matchedIndices) {
-        const { keyword, keywordEndIdx } =
-          matchedIndices[cursor.from];
-        if (
-          doesNotReferToSelf({
-            fullNameToInfo,
-            keyword,
-            sectionId,
-            paramInfoId,
-          })
-        ) {
-          currKeyword = keyword;
-          currKeywordStartIdx = cursor.from;
-          currKeywordEndIdx = keywordEndIdx;
-          currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
-        }
+        const { keyword, keywordEndIdx } = matchedIndices[cursor.from];
+        currKeyword = keyword;
+        currKeywordStartIdx = cursor.from;
+        currKeywordEndIdx = keywordEndIdx;
+        currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
       }
 
       const className = `${cursor.value.spec.class} ${currKeyword ? "italic" : ""}`;

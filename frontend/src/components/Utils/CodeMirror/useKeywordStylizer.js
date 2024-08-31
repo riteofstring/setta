@@ -1,7 +1,6 @@
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, ViewPlugin } from "@codemirror/view";
 import { useKeywordRegex } from "state/definitions";
-import { doesNotReferToSelf } from "./utils";
 
 const italicStyle = Decoration.mark({ class: "italic" });
 
@@ -31,21 +30,12 @@ export function useKeywordStylizer({
         const text = view.state.doc;
         for (const kp of keywordPositions) {
           const keyword = text.sliceString(kp.startPos, kp.endPos);
-          if (
-            doesNotReferToSelf({
-              fullNameToInfo,
-              keyword,
-              sectionId,
-              paramInfoId,
-            })
-          ) {
-            newKeywordLocations.push({
-              startPos: kp.startPos,
-              endPos: kp.endPos,
-              keyword,
-            });
-            builder.add(kp.startPos, kp.endPos, italicStyle);
-          }
+          newKeywordLocations.push({
+            startPos: kp.startPos,
+            endPos: kp.endPos,
+            keyword,
+          });
+          builder.add(kp.startPos, kp.endPos, italicStyle);
         }
         return builder.finish();
       }

@@ -28,8 +28,6 @@ export function computeEVReferences(project) {
     const sectionVariant = project["sectionVariants"][dbSource][variantId];
     for (const [paramInfoId, value] of Object.entries(sectionVariant.values)) {
       evRefs[sectionId][paramInfoId] = findRefsOLD({
-        sectionId,
-        paramInfoId,
         keywordRegex,
         fullNameToInfo,
         value,
@@ -40,67 +38,37 @@ export function computeEVReferences(project) {
   return evRefs;
 }
 
-export function findRefs({
-  sectionId,
-  paramInfoId,
-  keywordPositions,
-  fullNameToInfo,
-  fullText,
-}) {
+export function findRefs({ keywordPositions, fullNameToInfo, fullText }) {
   const output = [];
   for (const k of keywordPositions) {
     const keyword = fullText.substring(k["startPos"], k["endPos"]);
-    if (
-      doesNotReferToSelf({
-        fullNameToInfo,
-        keyword,
-        sectionId,
-        paramInfoId,
-      })
-    ) {
-      const info = fullNameToInfo[keyword];
-      output.push({
-        sectionId: info["sectionId"],
-        paramInfoId: info["paramInfoId"],
-        isArgsObj: info["isArgsObj"],
-        startPos: k["startPos"],
-        endPos: k["endPos"],
-      });
-    }
+    const info = fullNameToInfo[keyword];
+    output.push({
+      sectionId: info["sectionId"],
+      paramInfoId: info["paramInfoId"],
+      isArgsObj: info["isArgsObj"],
+      startPos: k["startPos"],
+      endPos: k["endPos"],
+    });
   }
 
   return output;
 }
 
-export function findRefsOLD({
-  sectionId,
-  paramInfoId,
-  keywordRegex,
-  fullNameToInfo,
-  value,
-}) {
+export function findRefsOLD({ keywordRegex, fullNameToInfo, value }) {
   let match;
   const output = [];
   while ((match = keywordRegex.exec(value))) {
     const startPos = match.index;
     const endPos = startPos + match[0].length;
-    if (
-      doesNotReferToSelf({
-        fullNameToInfo,
-        keyword: match[0],
-        sectionId: sectionId,
-        paramInfoId: paramInfoId,
-      })
-    ) {
-      const info = fullNameToInfo[match[0]];
-      output.push({
-        sectionId: info["sectionId"],
-        paramInfoId: info["paramInfoId"],
-        isArgsObj: info["isArgsObj"],
-        startPos,
-        endPos,
-      });
-    }
+    const info = fullNameToInfo[match[0]];
+    output.push({
+      sectionId: info["sectionId"],
+      paramInfoId: info["paramInfoId"],
+      isArgsObj: info["isArgsObj"],
+      startPos,
+      endPos,
+    });
   }
   return output;
 }
@@ -143,12 +111,25 @@ export function doesNotReferToSelf({
   );
 }
 
-export function findCandidateKeywords(value) {
+export function findCandidateKeywords({
+  sectionId,
+  paramInfoId,
+  value,
+  fullNameToInfo,
+}) {
   let match;
   const output = [];
   const { pattern: keywordRegex } = useKeywordRegex.getState();
   while ((match = keywordRegex.exec(value))) {
-    output.push(match[0]);
+    if (
+      doesNotReferToSelf({
+        fullNameToInfo,
+        keyword: match[0],
+        sectionId,
+        paramInfoId,
+      })
+    )
+      output.push(match[0]);
   }
   return output;
 }

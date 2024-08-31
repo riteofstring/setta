@@ -105,9 +105,15 @@ export async function dbTextFieldCompletion({
   messageType = "textFieldCompletion",
 }) {
   const projectConfigId = useProjectConfig.getState().id;
+  const { fullNameToInfo } = useKeywordRegex.getState();
   let evRefs = [];
   let keywordPositions = [];
-  const candidateKeywords = findCandidateKeywords(fullText);
+  const candidateKeywords = findCandidateKeywords({
+    sectionId,
+    paramInfoId,
+    value: fullText,
+    fullNameToInfo,
+  });
   console.log("candidateKeywords", candidateKeywords);
   if (candidateKeywords.length > 0) {
     let count = 0;
@@ -122,7 +128,7 @@ export async function dbTextFieldCompletion({
         return count === candidateKeywords.length;
       },
     });
-    const { fullNameToInfo } = useKeywordRegex.getState();
+
     evRefs = findRefs({
       keywordPositions,
       fullNameToInfo,
