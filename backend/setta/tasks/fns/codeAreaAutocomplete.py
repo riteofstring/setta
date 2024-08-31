@@ -43,11 +43,14 @@ async def _codeAreaAutocomplete(message, lsp_writer):
         exporter_obj,
     ) = message.cached
     fullText = message.fullText
-    position = message.position
-    codeJson = exporter_obj.output if exporter_obj else None
     template_str = double_braces(C.SETTA_GENERATED_PYTHON)
     gen_code_index = fullText.find(template_str)
-    cursor_is_after_gen_code = gen_code_index != -1 and position > (
+    has_gen_code = gen_code_index != -1
+    if has_gen_code and exporter_obj is None:
+        return {"content": C.CODE_AREA_GEN_CODE_NOT_INITIALIZED}
+
+    position = message.position
+    cursor_is_after_gen_code = has_gen_code and position > (
         gen_code_index + len(template_str)
     )
 
@@ -70,7 +73,9 @@ async def _codeAreaAutocomplete(message, lsp_writer):
     line, column = position_to_line_col(code, position)
 
     await lsp_writer.send_document_update(
-        message.projectConfigId, code, codeJson=codeJson
+        message.projectConfigId,
+        code,
+        codeJson=exporter_obj.output if exporter_obj else None,
     )
     await lsp_writer.send_autocomplete_request(
         line,

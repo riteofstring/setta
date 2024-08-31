@@ -100,11 +100,11 @@ export function findCandidateKeywords({
   paramInfoId,
   value,
   fullNameToInfo,
-  regexPatternKey
+  regexPatternKey,
 }) {
   let match;
   const output = [];
-  const keywordRegex = useKeywordRegex.getState()[regexPatternKey]
+  const keywordRegex = useKeywordRegex.getState()[regexPatternKey];
   while ((match = keywordRegex.exec(value))) {
     if (
       doesNotReferToSelf({

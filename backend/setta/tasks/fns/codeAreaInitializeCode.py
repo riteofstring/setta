@@ -60,7 +60,7 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     )
 
     return {
-        "content": None,
+        "content": True,
         "cache": [
             gen_code,
             generated_var_names,

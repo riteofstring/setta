@@ -63,7 +63,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
 export async function dbCodeAreaInitializeCode({ sectionId }) {
   const project = getProjectDataToGenerateCode({});
   const id = `${C.ROUTE_CODE_AREA_INITIALIZE_CODE}-${sectionId}`;
-  sendMessage({
+  return await sendMessageInRoom({
     id,
     messageType: "codeAreaInitializeCode",
     content: { project, sectionId },
@@ -81,10 +81,10 @@ export async function dbCodeAreaCompletion({
     sectionId,
     paramInfoId: null,
     fullText,
-    regexPatternKey: "codeAreaPattern"
+    regexPatternKey: "codeAreaPattern",
   });
 
-  return await sendMessageInRoom({
+  const autoCompleteProps = {
     id: `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`,
     messageType: "codeAreaAutocomplete",
     content: {
@@ -95,7 +95,20 @@ export async function dbCodeAreaCompletion({
       position,
       evRefs,
     },
-  });
+  };
+
+  const res = await sendMessageInRoom(autoCompleteProps);
+
+  if (res === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
+    const initialized = await dbCodeAreaInitializeCode({ sectionId });
+    if (initialized) {
+      return await sendMessageInRoom(autoCompleteProps);
+    } else {
+      console.log("dbCodeAreaCompletion initialization failed!");
+      return [];
+    }
+  }
+  return res;
 }
 
 export async function dbTypeCheckRequest() {
