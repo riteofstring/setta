@@ -34,7 +34,10 @@ function PythonCodeArea({ sectionId, language }) {
     _.isEqual,
   );
   const keywordStylizer = useKeywordStylizer(keywordPositions);
-  const completionsFn = getCompletionsFn(sectionId, null, dbCodeAreaCompletion);
+  const completionsFn = useCallback(
+    getCompletionsFn(sectionId, null, dbCodeAreaCompletion),
+    [sectionId],
+  );
   return (
     <CoreCodeArea
       sectionId={sectionId}

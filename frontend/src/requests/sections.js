@@ -81,6 +81,7 @@ export async function dbCodeAreaCompletion({
     sectionId,
     paramInfoId: null,
     fullText,
+    regexPatternKey: "codeAreaPattern"
   });
 
   return await sendMessageInRoom({
@@ -139,6 +140,7 @@ export async function getKeywordPositionsAndEVRefs({
   paramInfoId,
   fullText,
   messageIdSuffix = "",
+  regexPatternKey = "pattern",
 }) {
   const { fullNameToInfo } = useKeywordRegex.getState();
   let evRefs = [];
@@ -148,6 +150,7 @@ export async function getKeywordPositionsAndEVRefs({
     paramInfoId,
     value: fullText,
     fullNameToInfo,
+    regexPatternKey,
   });
   console.log("candidateKeywords", candidateKeywords);
   if (candidateKeywords.length > 0) {
