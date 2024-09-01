@@ -14,7 +14,6 @@ import {
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
-import { updateParams } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "../undo";
@@ -34,7 +33,6 @@ export function addKwarg({
   const parent = parentId ?? getSectionInfo(sectionId).codeInfoId;
   addCodeInfo({ info: kwargInfo, parent, insertIdx });
   initializeParam(sectionId, [kwargInfo.id]);
-  updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
 }
@@ -90,7 +88,6 @@ function deleteKwargIds({ sectionId, ids, parent, incrementVersion }) {
   deleteCodeInfo({ ids, parent });
   deleteParamInfoFromSectionVariant({ dbSource, variantId, ids });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
-  updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
@@ -110,6 +107,5 @@ export function changeKwargName({ sectionId, paramInfoId, name }) {
   console.log("changeKwargName", name);
   setCodeInfoName({ id: paramInfoId, name });
   updateKeywordRegex();
-  // updateParams(sectionId);
   // maybeIncrementProjectStateVersion(true);
 }

@@ -6,7 +6,6 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { BiFilter, BiPencil } from "react-icons/bi";
 import { setCodeInfoDescription } from "state/actions/codeInfo";
-import { updateParams } from "state/actions/sections/sectionContents";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useCodeInfo } from "state/definitions";
@@ -121,7 +120,6 @@ function InfoViewDescription({ sectionId, paramInfoId }) {
       header={"Description for Infoview"}
       onClick={() => {
         setCodeInfoDescription({ id: paramInfoId, description: value });
-        updateParams(sectionId);
       }}
       value={value}
       onChange={(e) => setValue(e.target.value)}

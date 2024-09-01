@@ -11,7 +11,6 @@ import { setAllCodeInfo } from "../codeInfo";
 import { setNodes } from "../nodeInternals";
 import { setAllParamSweeps } from "../runGroups/paramSweep";
 import { setAllRunGroups } from "../runGroups/runGroups";
-import { updateManyParamsAndCallables } from "../sections/sectionContents";
 import { setAllSectionInfos } from "../sections/sectionInfos";
 import { setAllSectionVariants } from "../sectionVariants";
 import { setAllUITypeCols } from "../uiTypes/uiTypeCols";
@@ -58,7 +57,6 @@ export function loadProjectState({
   setAllParamSweeps(paramSweeps);
   setAllRunGroups(runGroups);
   setAllSectionInfos({ sections, sectionConfigs });
-  updateManyParamsAndCallables(Object.keys(sections));
   maybeIncrementProjectStateVersion(true, false);
   return true;
 }

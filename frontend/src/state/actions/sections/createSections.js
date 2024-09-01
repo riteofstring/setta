@@ -5,7 +5,6 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { addNodes } from "state/actions/nodeInternals";
-import { updateParams } from "state/actions/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -22,7 +21,6 @@ import {
   setSectionVariantChildren,
 } from "../sectionVariants";
 import { initManyUITypeColIds } from "../uiTypes/uiTypeCols";
-import { updateManyParamsAndCallables } from "./sectionContents";
 import { addSectionInfo, setSectionInfoAttr } from "./sectionInfos";
 
 export function addSectionInEmptySpace({
@@ -108,7 +106,6 @@ export function addChildrenToSeries({
     newStateFn: (x) => insertIntoArray(x, startIdx, ...newIds),
   });
 
-  updateManyParamsAndCallables(newIds);
   maybeIncrementProjectStateVersion(incrementVersion);
 
   return newIds;
@@ -240,7 +237,6 @@ export function createSectionsFromArgparse({ pathToScript, args, ...props }) {
     codeInfoIds: [sectionCodeInfoId],
     inputParamIdToUITypeId: paramIdToUITypeId,
   });
-  updateParams(varSectionId);
 
   onClickAddSection({
     type: C.CODE,

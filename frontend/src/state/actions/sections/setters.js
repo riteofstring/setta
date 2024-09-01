@@ -17,7 +17,6 @@ import { updateKeywordRegex } from "../keywordRegex";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
 import { setSectionVariantAttr } from "../sectionVariants";
-import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
 
 export async function setSelectedItem(
@@ -32,7 +31,6 @@ export async function setSelectedItem(
   const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
   if (prevSelected) {
     setSectionVariantAttr(sectionId, "selectedItem", prevSelected);
-    updateParams(sectionId);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
     const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
@@ -48,7 +46,6 @@ export async function setSelectedItem(
     });
     const { codeInfoId } = getSectionInfo(sectionId);
     addCodeInfo({ info, parent: codeInfoId });
-    updateCallables(sectionId);
 
     const id = info.id;
     setSectionVariantAttr(sectionId, "selectedItem", id);
@@ -92,7 +89,6 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     sectionIds: [sectionId],
     codeInfoIds: [selectedItem],
   });
-  updateParams(sectionId);
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
