@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useCodeInfo, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
 import {
@@ -15,6 +15,7 @@ import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "../undo";
+import { getAllSelectedParams } from "./utils";
 
 export function addKwarg({
   sectionId,
@@ -55,35 +56,25 @@ export function deleteKwarg(payload) {
   deleteKwargIds({
     sectionId,
     ids: [kwargId],
-    parent: parentId,
     incrementVersion,
   });
 }
 
-export function deleteSelectedKwargs({ sectionId, parentId }) {
-  const _parentId = parentId ?? getSectionInfo(sectionId).codeInfoId;
-  const cState = useCodeInfo.getState().x;
-  const children = cState[_parentId].children;
-  const toDelete = [];
-  for (const c of children) {
-    if (cState[c].isSelected) {
-      toDelete.push(c);
-    }
-  }
+export function deleteSelectedKwargs({ sectionId }) {
+  const { selectedParams } = getAllSelectedParams(sectionId);
   deleteKwargIds({
     sectionId,
-    ids: toDelete,
-    parent: _parentId,
+    ids: selectedParams.map((x) => x.id),
     incrementVersion: true,
   });
 }
 
-function deleteKwargIds({ sectionId, ids, parent, incrementVersion }) {
+function deleteKwargIds({ sectionId, ids, incrementVersion }) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const { variantId } = useSectionInfos.getState().x[sectionId];
   const dbSource = getMappedSectionDBSource(sectionId);
 
-  deleteCodeInfo({ ids, parent });
+  deleteCodeInfo({ ids });
   deleteParamInfoFromSectionVariant({ dbSource, variantId, ids });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
   deleteParamsFromParamSweep({ sectionId, ids });

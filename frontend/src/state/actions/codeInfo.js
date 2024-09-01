@@ -58,13 +58,11 @@ export function setCodeInfoFrozen({ ids, isFrozen }) {
   });
 }
 
-export function deleteCodeInfo({ ids, parent }) {
+export function deleteCodeInfo({ ids }) {
   useCodeInfo.setState((state) => {
     state.x = _.omit(state.x, ids);
-    if (parent) {
-      state.x[parent].children = state.x[parent].children.filter(
-        (y) => !ids.includes(y),
-      );
+    for (const c of Object.values(state.x)) {
+      c.children = c.children.filter((y) => !ids.includes(y));
     }
   });
 }
