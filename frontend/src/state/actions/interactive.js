@@ -1,26 +1,10 @@
-import C from "constants/constants.json";
 import { dbUpdateInteractiveCode } from "requests/interactive";
-import { useInteractive, useSectionInfos } from "state/definitions";
-import { getSectionType } from "state/getters/sectionInfo";
+import { useInteractive } from "state/definitions";
 import { setNotificationMessage } from "./notification";
-import { getSectionCode } from "./sectionVariants";
 
 export async function updateInteractiveCode() {
-  // const ids = useActiveSection.getState().ids;
-  // const codeDict = {};
-  // for (const id of ids) {
-  //   if (getSectionType(id).type === C.INTERACTIVE_CODE) {
-  //     codeDict[id] = useSectionInfos.getState().x[id].code;
-  //   }
-  // }
-
-  const codeDict = {};
-  for (const id of Object.keys(useSectionInfos.getState().x))
-    if (getSectionType(id).type === C.INTERACTIVE_CODE) {
-      codeDict[id] = getSectionCode(id);
-    }
   setNotificationMessage("Importing your code...");
-  const res = await dbUpdateInteractiveCode(codeDict);
+  const res = await dbUpdateInteractiveCode();
   setNotificationMessage("Done importing");
   if (res.status == 200) {
     useInteractive.setState({ taskNames: res.data.taskNames });

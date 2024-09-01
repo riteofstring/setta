@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
-import { useProjectConfig } from "state/definitions";
+import { getProjectData } from "state/actions/project/saveProject";
 import { post } from "./utils";
 
-export async function dbUpdateInteractiveCode(codeDict) {
-  const projectConfigName = useProjectConfig.getState().name;
+export async function dbUpdateInteractiveCode() {
+  const project = getProjectData();
   return await post({
-    body: { codeDict, projectConfigName },
+    body: { project },
     address: C.ROUTE_UPDATE_INTERACTIVE_CODE,
   });
 }
