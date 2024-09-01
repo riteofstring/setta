@@ -3,11 +3,16 @@ import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { findAll } from "utils/getDescendants";
 
-export function getAllSelectedParams(sectionId) {
+export function getAllSelectedParams(sectionId = null) {
   const codeInfoState = useCodeInfo.getState().x;
-  const codeInfos = findAll(codeInfoState, [
-    getSectionInfo(sectionId).codeInfoId,
-  ]).map((x) => codeInfoState[x]);
+  let codeInfos = null;
+  if (sectionId) {
+    codeInfos = findAll(codeInfoState, [
+      getSectionInfo(sectionId).codeInfoId,
+    ]).map((x) => codeInfoState[x]);
+  } else {
+    codeInfos = Object.values(codeInfoState);
+  }
   return {
     codeInfos,
     selectedParams: codeInfos.filter(

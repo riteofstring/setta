@@ -1,4 +1,3 @@
-import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import {
   addKwarg,
   deleteKwarg,
@@ -9,12 +8,7 @@ import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
 import { useAreAnyParamsSelected } from "state/hooks/sectionContents";
-import {
-  computeNewChildrenForLeftPush,
-  computeNewChildrenForRightPush,
-  computeNewChildrenForVerticalPush,
-  getAllSelectedParams,
-} from "../../../state/actions/kwargs/utils";
+import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({ sectionId, objInfoId }) {
   const anyParamsSelected = useAreAnyParamsSelected(sectionId);
@@ -32,27 +26,6 @@ export function KwargsControls({ sectionId, objInfoId }) {
   function onClickPinParam() {
     pinSelectedKwargs(sectionId);
   }
-
-  function onPush(computeFn, processInReverse = false) {
-    return () => {
-      let { codeInfos, selectedParams } = getAllSelectedParams(sectionId);
-      if (processInReverse) {
-        selectedParams.reverse();
-      }
-      const newCodeInfoChildren = {};
-      const numChildrenInserted = {};
-      for (const p of selectedParams) {
-        console.log(p);
-        computeFn(codeInfos, p, newCodeInfoChildren, numChildrenInserted);
-      }
-      batchUpdateCodeInfoChildren(newCodeInfoChildren);
-    };
-  }
-
-  const onPushLeft = onPush(computeNewChildrenForLeftPush);
-  const onPushRight = onPush(computeNewChildrenForRightPush);
-  const onPushUp = onPush(computeNewChildrenForVerticalPush("up"));
-  const onPushDown = onPush(computeNewChildrenForVerticalPush("down"), true);
 
   const inputStyles = "";
 
