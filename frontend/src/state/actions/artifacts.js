@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { dbLoadArtifacts } from "requests/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
-import { addSectionInEmptySpace } from "../sections/createSections";
+import { addSectionInEmptySpace } from "./sections/createSections";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
   console.log("updateArtifacts", artifacts);

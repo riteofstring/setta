@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { updateArtifacts } from "state/actions/artifacts/artifacts";
+import { updateArtifacts } from "state/actions/artifacts";
 import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
 import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useState } from "react";
-import { loadArtifacts } from "state/actions/artifacts/artifacts";
+import { loadArtifacts } from "state/actions/artifacts";
 import { useArtifacts, useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
