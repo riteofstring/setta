@@ -94,7 +94,7 @@ export function ComboboxItems({
     (result, group, groupIndex) => {
       result.groups.push(
         <dl key={groupIndex}>
-          <dt className="mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2">
+          <dt className=" mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2">
             {group.group}
           </dt>
           {group.items.map((item, itemIndex) => {

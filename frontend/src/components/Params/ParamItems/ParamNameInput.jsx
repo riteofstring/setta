@@ -26,7 +26,7 @@ export function ParamNameInput({
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         value={liveValue}
-        defaultVal={"Please Enter Key"}
+        defaultVal={"Enter Key"}
         onChange={onChange}
         onBlur={() => onBlur(liveValue)}
         dummyCodeClassName={`min-w-0 self-end truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} nodrag peer cursor-text select-text break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400`}
