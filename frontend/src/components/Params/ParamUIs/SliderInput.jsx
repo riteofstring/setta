@@ -81,6 +81,7 @@ export function SliderInput({
   sliderTrackClassName,
   sliderRangeClassName,
   sliderThumbClassName,
+  setInputIsActive,
 }) {
   const valueNum = _.toNumber(value);
 
@@ -94,6 +95,8 @@ export function SliderInput({
       step={step}
       disabled={isDisabled}
       onValueChange={(v) => onChange(v[0])}
+      onPointerDown={() => setInputIsActive(true)}
+      onPointerUp={() => setInputIsActive(false)}
     >
       <Slider.Track className={sliderTrackClassName}>
         <Slider.Range className={sliderRangeClassName} />
