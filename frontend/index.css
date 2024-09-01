@@ -24,6 +24,10 @@
   .section-key-value {
     grid-column: key / value;
   }
+
+  .section-key-right-gutter {
+    grid-column: key / right-gutter;
+  }
   .section-w-full {
     grid-column: left-gutter / right-gutter;
   }
@@ -55,6 +59,10 @@
 
   .section-left-gutter {
     grid-column: left-gutter / span 1;
+  }
+
+  .section-right-gutter {
+    grid-column: right-gutter / span 1;
   }
 
   .section-bottom-gutter {
@@ -216,8 +224,8 @@ body {
 /* utility classes */
 
 .section-args-nested {
-  grid-template-columns: 0.75rem 1fr 0.75rem 1fr;
-  grid-template-areas: "left-gutter key center-gutter value";
+  grid-template-columns: 0.75rem 1fr 0.75rem 1fr 0.75rem;
+  grid-template-areas: "left-gutter key center-gutter value right-gutter";
 }
 
 @supports (-moz-appearance: none) {

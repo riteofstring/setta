@@ -13,8 +13,6 @@ import {
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
-import { ParamOptionsButton } from "./ParamUIs/ParamOptionsButton";
-import { PinButton } from "./ParamUIs/PinButton";
 
 function _ParamContainer({
   sectionId,
@@ -73,15 +71,15 @@ function _ParamContainer({
           setIsMousedOver(false);
         }}
       >
-        {isKwarg && showButtons && (
+        {showButtons && (
           <IconButton
             onClick={onClick}
-            icon={<i className="gg-close" />}
-            bg="bg-transparent"
-            color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-            twClasses={`arg-close-btn section-left-gutter cursor-pointer place-self-center z-20`}
+            icon={<i className="gg-check" />}
+            bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent  border-solid border-[1px]"
+            color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
+            twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center -mr-2 z-50 scale-125`}
             padding=""
-            size="h-[.5rem] w-[.5rem]"
+            // size="h-1 w-1"
             tabIndex="-1"
           />
         )}
@@ -94,7 +92,7 @@ function _ParamContainer({
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />
-        {showButtons && (
+        {/* {showButtons && (
           <PinButton
             sectionId={sectionId}
             paramInfoId={paramInfo.id}
@@ -106,7 +104,7 @@ function _ParamContainer({
             variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400"
             paramInfoId={paramInfo.id}
           />
-        )}
+        )} */}
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -124,21 +122,21 @@ function _ParamContainer({
         setChildIsMousedOver(false);
       }}
     >
-      {isKwarg && showButtons && (
+      {showButtons && (
         <IconButton
           onClick={onClick}
-          icon={<i className="gg-close" />}
-          bg="bg-transparent"
-          color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-          twClasses={`arg-close-btn section-left-gutter cursor-pointer self-start justify-self-center mt-[0.3rem] z-20`}
+          icon={<i className="gg-check" />}
+          bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent border-solid border-[1px]"
+          color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
+          twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center -mr-2 z-50 scale-125`}
           padding=""
-          size="h-[.5rem] w-[.5rem]"
+          // size="h-1 w-1"
           tabIndex="-1"
         />
       )}
       {children}
       <div
-        className="section-args-nested section-key-value grid gap-y-1"
+        className="section-args-nested section-key-right-gutter relative grid gap-y-1"
         onMouseOver={() => {
           setChildIsMousedOver(true);
         }}
@@ -146,6 +144,7 @@ function _ParamContainer({
           setChildIsMousedOver(false);
         }}
       >
+        <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}
@@ -153,7 +152,7 @@ function _ParamContainer({
           setDidUpdate={setDidUpdate}
         />
       </div>
-      {showButtons && (
+      {/* {showButtons && (
         <PinButton
           sectionId={sectionId}
           paramInfoId={paramInfo.id}
@@ -165,7 +164,7 @@ function _ParamContainer({
           variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400"
           paramInfoId={paramInfo.id}
         />
-      )}
+      )} */}
     </article>
   );
 }
