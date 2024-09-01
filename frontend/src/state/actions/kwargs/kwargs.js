@@ -1,6 +1,10 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useSectionInfos, useSectionToParamIds } from "state/definitions";
+import {
+  useCodeInfo,
+  useSectionInfos,
+  useSectionToParamIds,
+} from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
 import {
@@ -43,9 +47,6 @@ export function deleteKwarg(payload) {
     incrementVersion = false,
   } = payload;
   let { kwargId = "" } = payload;
-  const { uiTypeColId } = getSectionInfo(sectionId);
-  const { variantId } = useSectionInfos.getState().x[sectionId];
-  const dbSource = getMappedSectionDBSource(sectionId);
   parentId = parentId ?? getSectionInfo(sectionId).codeInfoId;
   if (deleteLast) {
     const kwargIds = getKwargIds(parentId);
@@ -55,9 +56,40 @@ export function deleteKwarg(payload) {
     }
     kwargId = kwargIds[numKwargs - 1];
   }
-  deleteCodeInfo({ ids: [kwargId], parent: parentId });
-  deleteParamInfoFromSectionVariant({ dbSource, variantId, ids: [kwargId] });
-  deleteParamInfoFromUITypeCol({ uiTypeColId, ids: [kwargId] });
+  deleteKwargIds({
+    sectionId,
+    ids: [kwargId],
+    parent: parentId,
+    incrementVersion,
+  });
+}
+
+export function deleteSelectedKwargs({ sectionId, parentId }) {
+  const _parentId = parentId ?? getSectionInfo(sectionId).codeInfoId;
+  const cState = useCodeInfo.getState().x;
+  const children = cState[_parentId].children;
+  const toDelete = [];
+  for (const c of children) {
+    if (cState[c].isSelected) {
+      toDelete.push(c);
+    }
+  }
+  deleteKwargIds({
+    sectionId,
+    ids: toDelete,
+    parent: _parentId,
+    incrementVersion: true,
+  });
+}
+
+function deleteKwargIds({ sectionId, ids, parent, incrementVersion }) {
+  const { uiTypeColId } = getSectionInfo(sectionId);
+  const { variantId } = useSectionInfos.getState().x[sectionId];
+  const dbSource = getMappedSectionDBSource(sectionId);
+
+  deleteCodeInfo({ ids, parent });
+  deleteParamInfoFromSectionVariant({ dbSource, variantId, ids });
+  deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
 }

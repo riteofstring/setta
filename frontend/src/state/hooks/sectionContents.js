@@ -16,6 +16,14 @@ export function useGetParamInfos(sectionId) {
   return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
 }
 
+export function useAreAnyParamsSelected(sectionId) {
+  const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
+  return useCodeInfo(
+    (x) => ids.map((id) => x.x[id]).filter((x) => x.isSelected).length > 0,
+    _.isEqual,
+  );
+}
+
 export function useGetParamInfosThatHaveNames(sectionId) {
   const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
   return useCodeInfo((x) => {

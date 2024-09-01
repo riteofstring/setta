@@ -1,9 +1,17 @@
-import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
-import { addKwarg, deleteKwarg } from "state/actions/kwargs/kwargs";
+import {
+  batchUpdateCodeInfoChildren,
+  toggleCodeInfoPinned,
+} from "state/actions/codeInfo";
+import {
+  addKwarg,
+  deleteKwarg,
+  deleteSelectedKwargs,
+} from "state/actions/kwargs/kwargs";
 import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
+import { useAreAnyParamsSelected } from "state/hooks/sectionContents";
 import {
   computeNewChildrenForLeftPush,
   computeNewChildrenForRightPush,
@@ -12,10 +20,21 @@ import {
 } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({ sectionId, objInfoId }) {
+  const anyParamsSelected = useAreAnyParamsSelected(sectionId);
+
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
     setSectionParamFilter({ sectionId, filter: e.target.value });
+  }
+
+  const onClickDeleteSelectedKwargs = () => {
+    deleteSelectedKwargs({ sectionId, parentId: objInfoId });
+  };
+
+  function onClickPinParam() {
+    toggleCodeInfoPinned(paramInfoId);
+    updateParams(sectionId);
   }
 
   function onPush(computeFn, processInReverse = false) {
@@ -64,30 +83,45 @@ export function KwargsControls({ sectionId, objInfoId }) {
             <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">
               <i className="gg-math-plus" />
             </button>
-            <button className={classes} onClick={onPushDown} tabIndex="-1">
-              <i className="gg-pin-alt mt-1" />
-            </button>
-            <button className={classes} tabIndex="-1">
-              <i className="gg-close-r" />
-            </button>
+            {anyParamsSelected && (
+              <>
+                <button
+                  className={classes}
+                  onClick={onClickPinParam}
+                  tabIndex="-1"
+                >
+                  <i className="gg-pin-alt mt-1" />
+                </button>
+                <button
+                  className={classes}
+                  onClick={onClickDeleteSelectedKwargs}
+                  tabIndex="-1"
+                >
+                  <i className="gg-close-r" />
+                </button>
+              </>
+            )}
           </section>
-          <section className="flex">
-            <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
-              Position
-            </h3>
-            <button className={classes} onClick={onPushLeft} tabIndex="-1">
-              <i className="gg-push-left ml-[2px]" />
-            </button>
-            <button className={classes} onClick={onPushRight} tabIndex="-1">
-              <i className="gg-push-right mr-[2px]" />
-            </button>
-            <button className={classes} onClick={onPushUp} tabIndex="-1">
-              <i className="gg-push-up mt-[2px]" />
-            </button>
-            <button className={classes} onClick={onPushDown} tabIndex="-1">
-              <i className="gg-push-down mb-[2px]" />
-            </button>
-          </section>
+          {anyParamsSelected && (
+            <section className="flex">
+              <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
+                Position
+              </h3>
+
+              <button className={classes} onClick={onPushLeft} tabIndex="-1">
+                <i className="gg-push-left ml-[2px]" />
+              </button>
+              <button className={classes} onClick={onPushRight} tabIndex="-1">
+                <i className="gg-push-right mr-[2px]" />
+              </button>
+              <button className={classes} onClick={onPushUp} tabIndex="-1">
+                <i className="gg-push-up mt-[2px]" />
+              </button>
+              <button className={classes} onClick={onPushDown} tabIndex="-1">
+                <i className="gg-push-down mb-[2px]" />
+              </button>
+            </section>
+          )}
         </article>
 
         <search className="nodrag relative mx-2 flex min-w-20 flex-1 items-center justify-self-center">
