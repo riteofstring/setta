@@ -62,12 +62,12 @@ export async function setSelectedItem(
     if (res) {
       createChildrenCodeInfo(id, res);
       setSelectedItemChildren(sectionId, id, changedByUser);
-      updateKeywordRegex();
     } else {
       setNotificationMessage("No parameters found");
     }
     setToNotWaiting();
   }
+  updateKeywordRegex();
 }
 
 function createChildrenCodeInfo(parent, params) {

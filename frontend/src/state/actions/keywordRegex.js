@@ -21,12 +21,6 @@ export function updateKeywordRegex(idsToNames = null) {
   useKeywordRegex.setState(getRegexAndColorMap(x));
 }
 
-export function updateGlobalVariablesRegex(globalVariableId) {
-  if (globalVariableId) {
-    useKeywordRegex.setState(getRegexAndColorMap({ [globalVariableId]: null }));
-  }
-}
-
 function getRegexAndColorMap(sectionIdsToNames) {
   const topLevelIds = Object.keys(sectionIdsToNames).filter(
     (x) =>

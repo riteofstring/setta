@@ -1,10 +1,7 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import {
-  updateGlobalVariablesRegex,
-  updateKeywordRegex,
-} from "state/actions/keywordRegex";
+import { updateKeywordRegex } from "state/actions/keywordRegex";
 import {
   useSectionInfos,
   useSectionVariants,
@@ -29,7 +26,6 @@ export function subscribe() {
     getSingletonSubscriptionFn(C.GLOBAL_VARIABLES),
     (x) => {
       SINGLETON_SECTIONS.globalVariables = x;
-      updateGlobalVariablesRegex(x);
     },
   );
 
