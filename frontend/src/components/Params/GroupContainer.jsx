@@ -18,19 +18,47 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
       {waitingForResult ? (
         <i className="section-args gg-spinner !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
       ) : (
-        <GetParams
-          sectionId={sectionId}
-          objInfoId={objInfoId}
-          setDidUpdate={setDidUpdate}
-        />
+        <>
+          <GetPinnedParams
+            sectionId={sectionId}
+            objInfoId={objInfoId}
+            setDidUpdate={setDidUpdate}
+          />
+          <GetParams
+            sectionId={sectionId}
+            objInfoId={objInfoId}
+            setDidUpdate={setDidUpdate}
+          />
+        </>
       )}
     </div>
     // </ScrollingArea>
   );
 }
 
+function GetPinnedParams({ sectionId, objInfoId, setDidUpdate }) {
+  const params = useParamsDidUpdate({
+    sectionId,
+    setDidUpdate,
+    isPinned: true,
+  });
+
+  return (
+    <GetParamSwitch
+      sectionId={sectionId}
+      parentId={objInfoId}
+      infos={params}
+      setDidUpdate={setDidUpdate}
+    />
+  );
+}
+
 function GetParams({ sectionId, objInfoId, setDidUpdate }) {
-  const params = useParamsDidUpdate({ sectionId, setDidUpdate });
+  const params = useParamsDidUpdate({
+    sectionId,
+    setDidUpdate,
+    isPinned: false,
+  });
 
   return (
     <GetParamSwitch

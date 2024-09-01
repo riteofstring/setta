@@ -16,15 +16,15 @@ import { useSectionSelectedItem } from "./sectionVariants";
 //   return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
 // }
 
-export function useTopLevelParamInfos(sectionId) {
+export function useTopLevelParamInfos(sectionId, isPinned) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
   return useCodeInfo(
     (x) =>
-      getParamIds(sectionId, x.x, selectedItem, codeInfoId).map(
-        (id) => x.x[id],
-      ),
+      getParamIds(sectionId, x.x, selectedItem, codeInfoId)
+        .map((id) => x.x[id])
+        .filter((y) => (isPinned ? y.isPinned : !y.isPinned)),
     _.isEqual,
   );
 }

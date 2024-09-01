@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useSectionInfos } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
 import {
@@ -98,4 +98,13 @@ export function changeKwargName({ sectionId, paramInfoId, name }) {
   setCodeInfoName({ id: paramInfoId, name });
   updateKeywordRegex();
   // maybeIncrementProjectStateVersion(true);
+}
+
+export function pinSelectedKwargs(sectionId) {
+  const { selectedParams } = getAllSelectedParams(sectionId);
+  useCodeInfo.setState((x) => {
+    for (const p of selectedParams) {
+      x.x[p.id].isPinned = !x.x[p.id].isPinned;
+    }
+  });
 }

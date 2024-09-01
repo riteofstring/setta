@@ -83,8 +83,8 @@ export function useOverflow(sectionId) {
   return { overflow, ref, setDidUpdate };
 }
 
-export function useParamsDidUpdate({ sectionId, setDidUpdate }) {
-  const params = useTopLevelParamInfos(sectionId);
+export function useParamsDidUpdate({ sectionId, setDidUpdate, isPinned }) {
+  const params = useTopLevelParamInfos(sectionId, isPinned);
   useDeepCompareEffect(() => {
     setDidUpdate(true);
   }, [params]);
