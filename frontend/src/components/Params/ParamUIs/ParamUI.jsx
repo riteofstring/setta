@@ -24,7 +24,7 @@ export function ParamUI({
   value,
   defaultVal,
   onChange,
-  // isDisabled,
+  isDisabled,
   maybeErrorMessage,
   sectionIdToBeActive,
   keywordPositions,
@@ -47,7 +47,7 @@ export function ParamUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            // isDisabled={isDisabled}
+            isDisabled={isDisabled}
             dummyCodeClassName={`section-value self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words font-mono text-xs [tab-size:4] [word-break:break-word]`}
             realCodeClassName={`nodrag self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value`}
             language="python"
@@ -73,7 +73,7 @@ export function ParamUI({
           min={min}
           max={max}
           step={step}
-          // isDisabled={isDisabled}
+          isDisabled={isDisabled}
           sliderRootClassName="section-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
@@ -88,7 +88,7 @@ export function ParamUI({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          // isDisabled={isDisabled}
+          isDisabled={isDisabled}
           outerDivClassName="section-value flex justify-self-start self-center"
           twRootClasses="nodrag"
         />
@@ -129,7 +129,6 @@ export function ParamSweepUI({
             sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
-            isKeyName={false}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

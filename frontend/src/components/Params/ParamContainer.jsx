@@ -84,7 +84,7 @@ function _ParamContainer({
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />
-        {/* <PinButton
+        <PinButton
           sectionId={sectionId}
           paramInfoId={paramInfo.id}
           variants="justify-self-end self-center"
@@ -92,7 +92,7 @@ function _ParamContainer({
         <ParamOptionsButton />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
-        )} */}
+        )}
       </article>
     </>
   ) : (

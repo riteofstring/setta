@@ -1,18 +1,12 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { deleteKwarg } from "state/actions/kwargs/kwargs";
+import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
-import { useCodeInfo } from "state/definitions";
 
 export function KwargParam(props) {
   const { sectionId, parentId, paramInfo: kwargInfo, setDidUpdate } = props;
   const onBlur = (v) => {
-    useCodeInfo.setState((state) => {
-      state.x[kwargInfo.id].name = v;
-      // state.x[kwargInfo.id].editable = false;
-    });
-
-    // changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
+    changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
   };
 
   const onClick = () => {

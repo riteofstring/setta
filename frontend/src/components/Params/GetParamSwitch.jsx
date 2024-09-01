@@ -10,7 +10,7 @@ export function GetParamSwitch({ sectionId, parentId, infos, setDidUpdate }) {
 
   return filteredInfos.map((e, idx) => (
     <ParamSwitch
-      key={`${idx}`}
+      key={`${e.name}-${idx}`}
       sectionId={sectionId}
       parentId={parentId}
       paramInfo={e}
