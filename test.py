@@ -42,7 +42,7 @@
 # import json
 # from pprint import pprint
 
-# with open("seed/exampleProjects/diffusionDrops.json") as f:
+# with open("seed/examples/diffusionDrops.json") as f:
 #     p = json.load(f)
 
 # with open("seed/BaseUITypes.json") as f:
@@ -187,7 +187,7 @@
 # from pprint import pprint
 # import yaml
 
-# with open("seed/exampleProjects/sklearn_example.json") as f:
+# with open("seed/examples/sklearn_example.json") as f:
 #     p = json.load(f)
 
 # with open("seed/BaseUITypes.json") as f:
@@ -861,7 +861,7 @@
 # import isort
 # from pprint import pprint
 
-# with open("seed/exampleProjects/diffusionDrops/diffusionDrops.json") as f:
+# with open("seed/examples/diffusionDrops/diffusionDrops.json") as f:
 #     p = json.load(f)
 
 # with open("constants/BaseUITypes.json") as f:
@@ -909,13 +909,44 @@
 #                 ], e.get_ref_var_name, position=30))
 
 
-from backend.setta.code_gen.python.infer_imports import infer_imports
+# from backend.setta.code_gen.python.infer_imports import infer_imports
 
-code = """x = math.sqrt(5)
-y = numpy.sin(34)
-z = [torch.tensor([aaa, aaa*2, aaa*3]) for aaa in range(100)]
+# code = """x = math.sqrt(5)
+# y = numpy.sin(34)
+# z = [torch.tensor([aaa, aaa*2, aaa*3]) for aaa in range(100)]
+# """
+
+# print(infer_imports(code))
+
+
+# from setta.cli.logger import Setta, SettaNumpyImg
+# import numpy as np
+
+
+# s = Setta()
+
+# # img = np.random.randint(low=0, high=256, size=(100, 100, 3), dtype=np.uint8)
+# # s.log({"test_folder/another_folder/img": SettaNumpyImg(img)}, save=True)
+
+# c = 3
+# losses = [((i - 10) / 5) ** float(c) for i in range(20)]
+# s.log({"test_folder/losses": losses}, save=True)
+
+
+# for i in range(5):
+#     img = model()
+#     s.send({"some/path/img": img}, save=True)
+
+
+
+
+# run table
+# columns:
+# - run_id (timestamp)
+# - data_path string
+
+x = """import torch
+torch.nn.CrossEntropyLoss
 """
 
-print(infer_imports(code))
-
-
+print(x.split("{{ SETTA_GENERATED_CODE }}"))

@@ -31,7 +31,8 @@ export function getDragItems(
   return Array.from(nodeInternals.values())
     .filter(
       (n) =>
-        ((draggedNodeIsActive && activeSections.includes(n.id)) ||
+        ((!nodeId && activeSections.includes(n.id)) ||
+          (draggedNodeIsActive && activeSections.includes(n.id)) ||
           (!draggedNodeIsActive && n.id === nodeId)) &&
         (n.draggable || (nodesDraggable && typeof n.draggable === "undefined")),
     )

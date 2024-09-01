@@ -1,79 +1,90 @@
 import asyncio
 import json
+import re
 from pprint import pprint
 
 import docstring_parser
 
+from setta.code_gen.python.generate_code import line_col_to_position_batch
+from setta.utils.constants import C
+
 from .server import LanguageServerInteractor
 
 type_mapping = {
-    1: "text",
-    2: "method",
-    3: "function",
-    4: "constructor",
-    5: "field",
-    6: "variable",
-    7: "class",
-    8: "interface",
-    9: "module",
-    10: "property",
-    11: "unit",
-    12: "value",
-    13: "enum",
-    14: "keyword",
-    15: "snippet",
-    16: "color",
-    17: "file",
-    18: "reference",
-    19: "folder",
-    20: "enummember",
-    21: "constant",
-    22: "struct",
-    23: "event",
-    24: "operator",
-    25: "typeparameter",
+    1: "File",
+    2: "Module",
+    3: "Namespace",
+    4: "Package",
+    5: "Class",
+    6: "Method",
+    7: "Property",
+    8: "Field",
+    9: "Constructor",
+    10: "Enum",
+    11: "Interface",
+    12: "Function",
+    13: "Variable",
+    14: "Constant",
+    15: "String",
+    16: "Number",
+    17: "Boolean",
+    18: "Array",
+    19: "Object",
+    20: "Key",
+    21: "Null",
+    22: "EnumMember",
+    23: "Struct",
+    24: "Event",
+    25: "Operator",
+    26: "TypeParameter",
 }
 
 
-def extract_descriptions(signature):
+def extract_variable_name(code_string):
+    # Find potential variable names
+    potential_names = re.findall(r"\b[a-zA-Z_]\w*\b", code_string)
+
+    # Return the first valid identifier
+    return next((name for name in potential_names if name.isidentifier()), None)
+
+
+def process_docstring(signature):
     if "documentation" in signature:
         parsed = docstring_parser.parse(signature["documentation"]["value"])
-        return {v.arg_name: v.description for v in parsed.params}
+        return {
+            extract_variable_name(v.arg_name): {
+                "default": v.default,
+                "description": v.description,
+            }
+            for v in parsed.params
+        }
     return {}
 
 
-def parse_signature(signature):
-    label = signature["label"]
-    # Remove any enclosing function definition or parentheses
-    if "(" in label and ")" in label:
-        label = label[label.find("(") + 1 : label.rfind(")")]
-
-    # Split parameters by commas
-    params = label.split(", ")
+def wrapper_parse_signature(signature, docstring, get_proposed_params):
+    params = get_proposed_params(signature, docstring)
     param_info_list = []
-    descriptions = extract_descriptions(signature)
     positional_only_indicator_idx = -1
 
-    for idx, param in enumerate(params):
-        # Extract parameter name and default value
-        parts = param.split("=")
-        name_type = parts[0].strip()
-        default = parts[1].strip() if len(parts) > 1 else None
-
-        # Further split to separate name from type if needed (optional)
-        name = name_type.split(":")[0].strip()
+    for idx, (name, default, description) in enumerate(params):
         if name == "/":
             positional_only_indicator_idx = idx
             continue
-        if name == "*":
+        if name in [None, "", "*", "..."]:
             continue
+
+        if not default:
+            default = ""
+
+        if not description:
+            description = docstring.get(name, {}).get("description", "")
 
         # Append parsed information to list
         param_info_list.append(
             {
                 "name": name,
                 "defaultVal": default,
-                "description": descriptions.get(name, ""),
+                "description": description,
                 "positionalOnly": False,
             }
         )
@@ -84,10 +95,37 @@ def parse_signature(signature):
     return param_info_list
 
 
-def try_read_version(x, versions_for_uri):
-    if "version" in x:
-        return x["version"]
-    return max(versions_for_uri.keys())
+def get_docstring_parser_param_proposals(_, docstring):
+    return [(k, v["default"], v["description"]) for k, v in docstring.items()]
+
+
+def get_pyright_param_proposals(signature, _):
+    parameters = signature["parameters"]
+    params = [(p["label"], p["documentation"]["value"]) for p in parameters]
+    if len(params) == 0:
+        params = signature["label"].split(",")
+
+    proposals = []
+    for param, description in params:
+        # Extract parameter name and default value
+        parts = param.split("=")
+        name = extract_variable_name(parts[0].strip())
+        default = parts[1].strip() if len(parts) > 1 else None
+        proposals.append((name, default, description))
+
+    return proposals
+
+
+def parse_signature(signature):
+    docstring = process_docstring(signature)
+    param_info_list = wrapper_parse_signature(
+        signature, docstring, get_pyright_param_proposals
+    )
+    if len(param_info_list) == 0:
+        param_info_list = wrapper_parse_signature(
+            signature, docstring, get_docstring_parser_param_proposals
+        )
+    return param_info_list
 
 
 def process_diagnostics(diagnostics, code_split, codeJson):
@@ -101,7 +139,8 @@ def process_diagnostics(diagnostics, code_split, codeJson):
             problem_var = code_split[start["line"]][
                 start["character"] : end["character"]
             ]
-            set_message(codeJson, problem_var, output, d["message"])
+            if codeJson:
+                set_message(codeJson, problem_var, output, d["message"])
     return output
 
 
@@ -173,33 +212,75 @@ class LanguageServerReader(LanguageServerInteractor):
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
-            method = method if method else self.msg_id_to_method[id]
+            method = method if method else self.msg_id_to_metadata[id]["method"]
             if method == "textDocument/completion":
                 content = [
                     {"label": x["label"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
+                    if x["label"]
+                    not in self.msg_id_to_metadata[id]["generated_var_names"]
                 ]
+                referencable_var_names = [
+                    {"label": x, "type": "variable"}
+                    for x in self.msg_id_to_metadata[id]["referencable_var_names"]
+                ]
+                content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
             elif method == "textDocument/signatureHelp":
-                # pprint(response)
-                content = parse_signature(response["result"]["signatures"][0])
-                pprint(content)
+                if response["result"]:
+                    content = parse_signature(response["result"]["signatures"][0])
+                    # pprint(content)
+                else:
+                    content = None
                 await self.websocket_manager.send_message_to_requester(id, content)
+            elif method == "textDocument/references":
+                print("response", response, flush=True)
+                content = []
+                if len(response["result"]) > 0:
+                    code = self.get_version(response["result"][0]["uri"])["code"]
+                    line_cols = []
+                    for x in response["result"]:
+                        line_cols.append(
+                            (
+                                x["range"]["start"]["line"],
+                                x["range"]["start"]["character"],
+                            )
+                        )
+                        line_cols.append(
+                            (x["range"]["end"]["line"], x["range"]["end"]["character"])
+                        )
+                    positions = line_col_to_position_batch(code, line_cols)
+                    position_offset = self.msg_id_to_metadata[id]["position_offset"]
+                    for idx in range(0, len(positions), 2):
+                        startPos = positions[idx] - position_offset
+                        endPos = positions[idx + 1] - position_offset
+                        content.append(
+                            {
+                                "startPos": startPos,
+                                "endPos": endPos,
+                            }
+                        )
+
+                print(content, flush=True)
+                return_id = self.msg_id_to_metadata[id]["return_id"]
+                await self.websocket_manager.send_message_to_requester(
+                    return_id, content
+                )
         elif method == "textDocument/publishDiagnostics":
-            print(response)
+            # print(response)
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]
-            version = try_read_version(params, self.versions[uri])
-            version_info = self.versions[uri][version]
+            version_info = self.get_version(uri, params.get("version"))
             code = version_info["code"]
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")
             content = process_diagnostics(diagnostics, code_split, codeJson)
-            # print("content", content, flush=True)
-            await self.websocket_manager.broadcast(
-                {"messageType": "diagnostics", "content": content}
-            )
+            if content:
+                # print("content", content, flush=True)
+                await self.websocket_manager.broadcast(
+                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+                )
 
         # print(self.received_messages.keys())
         # process_response(response)

@@ -57,8 +57,6 @@ export type Viewport = {
   zoom: number;
 };
 
-export type KeyCode = string | Array<string>;
-
 export type SnapGrid = [number, number];
 
 export enum PanOnScrollMode {
@@ -96,8 +94,6 @@ export type ReactFlowStore = {
   d3Zoom: ZoomBehavior<Element, unknown> | null;
   d3Selection: D3Selection<Element, unknown, null, undefined> | null;
   d3ZoomHandler: ((this: Element, event: any, d: unknown) => void) | undefined;
-  minZoom: number;
-  maxZoom: number;
   translateExtent: CoordinateExtent;
   nodeDragThreshold: number;
 

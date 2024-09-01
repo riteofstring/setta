@@ -2,23 +2,22 @@ import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
-export const SECTIONWIDTH = 200;
 export const PANEID = "-1";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
 
+export const INITIAL_OVERVIEW_WIDTH = 335;
+export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 40;
-export const INITIAL_CHART_SIZE = { width: SECTIONWIDTH, height: SECTIONWIDTH };
+export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 
 export const REACT_FLOW_STORE = {
-  initialViewport: {},
   lastPaneClickLocation: {},
 };
 
 export const SINGLETON_SECTIONS = {
   globalVariables: null,
   globalParamSweep: null,
-  varControl: null,
 };
 
 // If multiple db sources map to the same db, then this holds that mapping.
@@ -43,11 +42,11 @@ export const BASE_UI_TYPE_IDS = {};
 export function globalConstInit() {
   const DEV_MODE = import.meta.env.DEV;
   if (DEV_MODE) {
-    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
+    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
+    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
   } else {
-    URLS.BACKEND = `http://${location.host}`;
-    URLS.WEBSOCKET = `ws://${location.host}`;
+    URLS.BACKEND = `http://${location.host}${C.ROUTE_PREFIX}`;
+    URLS.WEBSOCKET = `ws://${location.host}${C.ROUTE_PREFIX}`;
   }
 
   for (const [k, v] of Object.entries(BASE_UI_TYPES)) {
@@ -55,7 +54,7 @@ export function globalConstInit() {
   }
 }
 
-export const constInfoViews = {
+export const CONST_INFO_VIEWS = {
   OVERVIEW: "Click on a section name to pan to it.",
   NAVBAR_SEARCH: "Search your entire project from one location.",
   BUTTON_GENERATE: "Generate command to run your project.",
@@ -68,37 +67,12 @@ export const constInfoViews = {
     "Choose which arguments appear in your selected card.",
 };
 
-export const initialShortcuts = {
-  undoShortcut: "mod+z",
-  redoShortcut: "mod+shift+z",
-  groupShortcut: "mod+g",
-  saveShortcut: "mod+s",
-  saveAsShortcut: "mod+shift+s",
-  loadShortcut: "mod+l",
-  focusOnArgsFilterShortcut: "mod+k",
-  resetZoomShortcut: "mod+,",
-  copyShortcut: "mod+c",
-  pasteShortcut: "mod+v",
-  sortingShortcut: "mod",
-  movingFreeShortcut: "alt",
-};
-
-export const jsonSettings = {
-  defaultCodeSectionSize: { width: 500, height: "auto" },
-  defaultTerminalSectionSize: { width: 700, height: "auto" },
-  defaultSectionSize: { width: "auto", height: "auto" },
-};
-
-export const otherConfigurableSettings = {
-  snapToGrid: false,
-  snapGrid: [15, 15],
-};
-
 export const SECTION_CONFIG_TAB = "SectionConfig";
 export const UI_CONFIG_TAB = "UIConfig";
 export const INFO_CONFIG_TAB = "InfoConfig";
 export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
 export const DB_SOURCES_TAB = "DBSourcesConfig";
+export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = Object.freeze(
   new Map(
@@ -108,6 +82,82 @@ export const tabNameToPretty = Object.freeze(
       [INFO_CONFIG_TAB]: "Info",
       // [RUNTIME_CONFIG_TAB]: "Runtime",
       [DB_SOURCES_TAB]: "DB",
+      [SECTION_VARIANTS_TAB]: "Variants",
     }),
   ),
 );
+
+export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
+  "bg-red-500/60 dark:bg-red-600/30",
+  "bg-pink-500/60 dark:bg-pink-600/30",
+  "bg-purple-500/60 dark:bg-purple-600/30",
+  "bg-indigo-500/60 dark:bg-indigo-600/30",
+  "bg-blue-500/60 dark:bg-blue-600/30",
+  "bg-green-500/60 dark:bg-green-600/30",
+  "bg-yellow-500/60 dark:bg-yellow-600/30",
+  "bg-orange-500/60 dark:bg-orange-600/30",
+];
+
+export const HOME_ROUTER_PATH = "/";
+export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
+export const SETTINGS_ROUTER_PATH = "/settings";
+
+export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
+
+export const MODAL_TYPE = {
+  LOAD_PROJECT_CONFIG: {
+    purpose: MODAL_PURPOSE.LOAD,
+    title: "Load Project Config",
+    buttonText: "Load",
+  },
+  SAVE_PROJECT_CONFIG_AS: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save Project Config As",
+    buttonText: "Save As",
+  },
+  SAVE_PROJECT_CONFIG_AS_WITH_REFS: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save Project Config As (With Refs)",
+    buttonText: "Save As",
+  },
+  EXPORT_JSON: {
+    purpose: null,
+    title: "Export JSON",
+    buttonText: null,
+  },
+  EXPORT_FULL_JSON: {
+    purpose: null,
+    title: "Export Full JSON",
+    buttonText: null,
+  },
+  IMPORT_JSON: {
+    purpose: null,
+    title: "Import JSON",
+    buttonText: "Import",
+  },
+  CREATE_FROM_ARGPARSE: {
+    purpose: null,
+    title: "Create From Argparse",
+    buttonText: "Create",
+  },
+  LOAD_SECTION: {
+    purpose: MODAL_PURPOSE.LOAD,
+    title: "Load Section",
+    buttonText: "Load",
+  },
+  SAVE_UI_TYPE_CONFIG: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save UI Type Config",
+    buttonText: "Save",
+  },
+  SAVE_CUSTOM_ARGUMENTS: {
+    purpose: MODAL_PURPOSE.SAVE,
+    title: "Save Custom Arguments",
+    buttonText: "Save",
+  },
+};
+
+export const PAGE_LOAD_TYPES = {
+  LOAD_PROJECT_CONFIG: "LOAD_PROJECT_CONFIG",
+  CHANGE_PROJECT_CONFIG_NAME: "CHANGE_PROJECT_CONFIG_NAME",
+};

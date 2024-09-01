@@ -1,5 +1,8 @@
-from .autocomplete import codeCompletion, textFieldCompletion
+from .codeAreaAutocomplete import codeAreaAutocomplete
+from .codeAreaInitializeCode import codeAreaInitializeCode
 from .extractArgparseArgs import extractArgparseArgs
 from .parametersRequest import parametersRequest
+from .textFieldAutocomplete import textFieldCompletion
+from .textFieldFindReferences import textFieldFindReferences
 from .textFieldInitializeCode import textFieldInitializeCode
-from .utils import TaskDefinition
+from .utils import InteractiveTaskDefinition, TaskDefinition

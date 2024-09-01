@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getParamInfos } from "state/actions/sectionContents";
+import { getParamInfos } from "state/actions/sections/sectionContents";
 import {
   useCodeInfo,
   useKeywordRegex,
@@ -11,6 +11,7 @@ import {
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
+import { getSectionChildren } from "./sectionVariants";
 
 export function updateKeywordRegex(idsToNames = null) {
   let x = idsToNames;
@@ -54,16 +55,34 @@ function getRegexAndColorMap(sectionIdsToNames) {
     }
   }
 
-  const pattern = new RegExp(
-    `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`,
-    "g",
+  if (names.length === 0) {
+    return {
+      pattern: dummyRegExpObject(),
+      codeAreaPattern: dummyRegExpObject(),
+      fullNameToInfo,
+    };
+  }
+
+  const patternStr = `(?<![A-Za-z."'_])(${names.join("|")})(?![A-Za-z"'_])`;
+  const pattern = new RegExp(patternStr, "g");
+  const codeAreaPattern = new RegExp(
+    `(?<=.*?{{ ${C.SETTA_GENERATED_PYTHON} }}.*?)${patternStr}`,
+    "gs",
   );
 
-  return { pattern, fullNameToInfo };
+  return { pattern, codeAreaPattern, fullNameToInfo };
 }
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function dummyRegExpObject() {
+  return {
+    exec: function () {
+      return null;
+    },
+  };
 }
 
 function setFullChildrenNamesForRegex(
@@ -75,10 +94,13 @@ function setFullChildrenNamesForRegex(
   parentName,
   parentLengths,
 ) {
-  for (const c of sectionState[sectionId].children) {
-    const subType = getSectionType(c).config.subType;
+  const parentSectionIsListRoot =
+    getSectionType(sectionId).type === C.LIST_ROOT;
+  for (const [idx, c] of getSectionChildren(sectionId).entries()) {
     const name = sectionIdsToNames[c];
-    const currComponentName = subType === C.LIST ? name : `["${name}"]`;
+    const currComponentName = parentSectionIsListRoot
+      ? `[${idx.toString()}]`
+      : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
     setFullChildrenNamesForRegex(
       sectionState,

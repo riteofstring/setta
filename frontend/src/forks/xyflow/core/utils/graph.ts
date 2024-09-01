@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
-import { setActiveSectionIds } from "state/actions/activeSection";
+import { setActiveSectionIds } from "state/actions/sections/activeSections";
 import { useSectionInfos, useSectionRefs } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
@@ -86,7 +86,12 @@ export function getNodesInside(
   const visibleNodes = [];
 
   for (const section of Object.values(useSectionInfos.getState().x)) {
-    const { x, y, width, height } = getSectionRect(section.id);
+    const rect = getSectionRect(section.id);
+    if (!rect) {
+      continue;
+    }
+
+    const { x, y, width, height } = rect;
 
     const nodeRect = {
       x,
@@ -149,6 +154,10 @@ export function getSectionRect(sectionId, ignoreGrid = false) {
   const ref =
     useSectionRefs.getState().selfOnly[sectionId] ??
     useSectionRefs.getState().withNested[sectionId];
+  if (!ref) {
+    return null;
+  }
+
   const { clientWidth: width, clientHeight: height } = ref;
   const { x: _x, y: _y } = ref.getBoundingClientRect();
   const { x, y } = screenToFlowPosition(

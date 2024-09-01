@@ -1,12 +1,12 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { setParamEnteredValue } from "state/actions/paramInfos";
-import { setSelectedItem } from "state/actions/setters";
+import { setSelectedItem } from "state/actions/sections/setters";
+import { setParamEnteredValue } from "state/actions/sectionVariants";
 import {
   useCodeInfo,
-  useEVCols,
   useSectionInfos,
-  useSectionToParams,
+  useSectionToParamIds,
+  useSectionVariants,
 } from "state/definitions";
 import { getSectionByName, getSectionType } from "state/getters/sectionInfo";
 
@@ -24,7 +24,7 @@ export function varControlUpdate() {
       const sectionName = split[0];
       const section = getSectionByName(sectionName);
       const paramName = split[1];
-      const param = useSectionToParams
+      const param = useSectionToParamIds
         .getState()
         .params[section.id].find((x) => x.name === paramName);
       setParamEnteredValue({
@@ -55,12 +55,13 @@ function niceState() {
   const output = {};
   for (const v of Object.values(useSectionInfos.getState().x)) {
     const sectionType = getSectionType(v.id).type;
-    if ([C.CODE, C.VAR_CONTROL].includes(sectionType)) {
+    if ([C.CODE].includes(sectionType)) {
       continue;
     }
     if (sectionType === C.GLOBAL_VARIABLES) {
-      for (const p of useSectionToParams.getState().params[v.id]) {
-        output[p.name] = useEVCols.getState().x[v.evColId].values[p.id];
+      for (const p of useSectionToParamIds.getState().params[v.id]) {
+        output[p.name] =
+          useSectionVariants.getState().x[v.variantId].values[p.id];
       }
     } else {
       output[v.name] = v.selectedItem
@@ -81,15 +82,6 @@ function getGlobalVarsSection() {
   return null;
 }
 
-function getVarControlSection() {
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (getSectionType(s.id).type === C.VAR_CONTROL) {
-      return s;
-    }
-  }
-  return null;
-}
-
 function getGlobalVar(varName) {
   const globalVarSection = getGlobalVarsSection();
   if (!globalVarSection) {
@@ -97,7 +89,7 @@ function getGlobalVar(varName) {
   }
   return {
     globalVarSection,
-    globalVar: useSectionToParams
+    globalVar: useSectionToParamIds
       .getState()
       .params[globalVarSection.id].find((x) => x.name === varName),
   };

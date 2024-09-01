@@ -1,14 +1,15 @@
 import { useCallback } from "react";
-
 import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { useReactFlow } from "../store";
 
 function useUpdateNodePositions() {
   const updatePositions = useCallback(
     (params: { x: number; y: number; isShiftPressed: boolean }) => {
       const { updateNodePositions, nodesDraggable } = useReactFlow.getState();
-      const { snapToGrid, snapGrid } = useSettings.getState();
+      const { snapGrid } = useSettings.getState();
+      const [snapToGrid] = localStorageFns.snapToGrid.state();
       const selectedNodes = getNodes().filter(
         (n) =>
           n.selected &&

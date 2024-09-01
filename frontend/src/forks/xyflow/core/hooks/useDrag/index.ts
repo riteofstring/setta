@@ -8,8 +8,9 @@ import {
   unselectNodesAndEdges,
   updateNodePositions,
 } from "state/actions/nodeInternals";
-import { setZIndices } from "state/actions/sectionPositions";
+import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useNodeInternals, useSettings } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";
@@ -57,7 +58,8 @@ function useDrag({
         const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
           useReactFlow.getState();
 
-        const { snapGrid, snapToGrid } = useSettings.getState();
+        const { snapGrid } = useSettings.getState();
+        const [snapToGrid] = localStorageFns.snapToGrid.state();
 
         const delta = { x: x - lastPos.current.x, y: y - lastPos.current.y };
         lastPos.current = { x, y };
@@ -216,7 +218,7 @@ function useDrag({
               return;
             }
 
-            if (useSettings.getState().snapToGrid) {
+            if (localStorageFns.snapToGrid.state()[0]) {
               updateNodes(lastPos.current, true);
             }
 

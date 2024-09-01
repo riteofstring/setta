@@ -1,0 +1,2034 @@
+{
+  "projectConfig": {
+    "id": "006f5de6-52de-4ded-bf0b-ac70b4bda655",
+    "name": "diffusionDrops",
+    "isDefault": 0,
+    "viewport": {
+      "x": 243.76217556564006,
+      "y": 116.9887593161227,
+      "zoom": 0.5325205641147801
+    },
+    "previewImgNodes": "[{\"x\":1402,\"y\":251,\"w\":202,\"h\":192},{\"x\":1658,\"y\":269,\"w\":472,\"h\":559},{\"x\":1133,\"y\":723,\"w\":202,\"h\":144},{\"x\":1159,\"y\":4,\"w\":202,\"h\":144},{\"x\":438,\"y\":8,\"w\":538,\"h\":1196},{\"x\":1146,\"y\":248,\"w\":202,\"h\":328}]",
+    "children": {
+      "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
+        "x": 1401.735665753063,
+        "y": 250.56157941369565,
+        "zIndex": 1
+      },
+      "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
+        "x": 1657.735665753063,
+        "y": 268.56157941369565,
+        "zIndex": 2
+      },
+      "67c603f7-a536-4603-83b3-0b882ee098b2": {
+        "x": 1132.7972384261527,
+        "y": 722.997883328486,
+        "zIndex": 0
+      },
+      "70355b9b-16ab-462f-8cfc-f23e2399ec1e": {
+        "x": 1159.0873029671766,
+        "y": 3.7768319561905197,
+        "zIndex": 0
+      },
+      "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
+        "x": 437.988389841951,
+        "y": 7.546789285075988,
+        "zIndex": 4
+      },
+      "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
+        "x": 1145.8538463987952,
+        "y": 247.53329491261366,
+        "zIndex": 0
+      }
+    }
+  },
+  "sectionVariants": {
+    "default": {
+      "0022f0d8-b97f-4345-90ac-66615e576fb2": {
+        "name": "frog_dog",
+        "selectedItem": "199d8d34-21f9-4c7e-b6b0-dd938a9736d0",
+        "values": {
+          "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "47377fe6-a365-4540-bf8a-468788f754e0": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "7415f187-1f29-40d6-be47-7d608bd4b215": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+            "value": "987",
+            "keywordPositions": []
+          },
+          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "09179586-8ddd-4f0b-91a0-0398d928d408": {
+        "name": "soup_coin",
+        "selectedItem": null,
+        "values": {},
+        "children": [
+          "45ee78a4-2ad3-4541-8a65-87a21a798887",
+          "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
+          "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
+          "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
+        ],
+        "code": "",
+        "keywordPositions": []
+      },
+      "10ea5acf-9c24-4351-bc81-252625623507": {
+        "name": "roasted_maroon",
+        "selectedItem": null,
+        "values": {},
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "4253da34-9a1a-43eb-b80f-c6708e339024": {
+        "name": "substantial_brown",
+        "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
+        "values": {
+          "0a8a909f-4821-4880-81ac-373b1ce09084": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "e5a2037f-60a7-4052-bb72-0763319f6000": {
+            "value": "25",
+            "keywordPositions": []
+          },
+          "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "4c9bee35-38ab-471e-873d-62e1233eeaaf": {
+        "name": "uncomfortable_tan",
+        "selectedItem": null,
+        "values": {},
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "645069e7-0657-4c2e-9128-88c701bbd069": {
+        "name": "sparkling_brown",
+        "selectedItem": null,
+        "values": {},
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "756e7bb0-ac13-4790-a05c-f10425d508e9": {
+        "name": "secure_jade",
+        "selectedItem": "b9bf393b-96d9-4264-ad9f-bad777e6777a",
+        "values": {
+          "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": {
+            "value": "[0.2,0.2,0.2]",
+            "keywordPositions": []
+          },
+          "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
+            "value": "\"lr\" in __optimizer",
+            "keywordPositions": [
+              {
+                "startPos": 8,
+                "endPos": 19
+              }
+            ]
+          },
+          "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
+            "value": "[0.5,0.5,0.5]",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b": {
+        "name": "alien_star",
+        "selectedItem": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
+        "values": {
+          "0a8a909f-4821-4880-81ac-373b1ce09084": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+            "value": "12",
+            "keywordPositions": []
+          },
+          "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+            "value": "False",
+            "keywordPositions": []
+          },
+          "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+            "value": "25",
+            "keywordPositions": []
+          },
+          "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "e5a2037f-60a7-4052-bb72-0763319f6000": {
+            "value": "300",
+            "keywordPositions": []
+          },
+          "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "8481e81d-f417-4914-b5d8-2797202392ab": {
+        "name": "fast_gray",
+        "selectedItem": null,
+        "values": {},
+        "children": [
+          "04a2d718-6476-446f-bda7-4b7fc22f8972",
+          "93b410c0-33e9-4d66-95be-37d223d99c0a"
+        ],
+        "code": "",
+        "keywordPositions": []
+      },
+      "9083beca-25c9-4a31-885a-fb19064efd3d": {
+        "name": "yeasty_magenta",
+        "selectedItem": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
+        "values": {
+          "0a62f48a-54e6-4871-afa6-95c09bc49d61": {
+            "value": "list_of_transforms",
+            "keywordPositions": [
+              {
+                "startPos": 0,
+                "endPos": 18
+              }
+            ]
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "9b39ad4c-8887-43ea-b759-a1fc067ac3ef": {
+        "name": "central_amethyst",
+        "selectedItem": null,
+        "values": {},
+        "children": [
+          "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
+          "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3"
+        ],
+        "code": "",
+        "keywordPositions": []
+      },
+      "a853185e-5b0d-400a-a94c-6c14a9c9809e": {
+        "name": "vivid_moccasin",
+        "selectedItem": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
+        "values": {
+          "17f3f1d8-4459-4d8b-a132-ab42df1bf241": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "2acbcb71-f180-42b0-94bf-46edfe809de3": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5fda1f62-0834-41de-a58e-2fe7f0e97558": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "681f4df7-ddd9-4a84-979f-ff0d243cdbff": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "6b52f167-e867-41c6-a398-4253147c5672": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "83f732ba-1244-40aa-b189-c324d1cbbccb": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "aa45a0fa-bc33-420a-9b1b-88792303e0a7": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "f2098038-2341-47cc-95d1-c4653b1ba1d3": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "c1873fea-a24d-4367-97b1-88614045a575": {
+        "name": "wet_teal",
+        "selectedItem": "e7bd857a-770d-47da-9b8e-811baa29620c",
+        "values": {
+          "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "47377fe6-a365-4540-bf8a-468788f754e0": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "7415f187-1f29-40d6-be47-7d608bd4b215": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+            "value": "987",
+            "keywordPositions": []
+          },
+          "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+            "value": "",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "c58d323d-382a-47b2-919f-a7f06bcac760": {
+        "name": "secure_tan",
+        "selectedItem": "10aeb934-d614-4b88-a15a-890c825860e1",
+        "values": {
+          "3fdec365-9d3f-4f5b-94fe-75adbb767d08": {
+            "value": "224",
+            "keywordPositions": []
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "dbb76902-0b6c-46fa-a765-46bdfcf92d92": {
+        "name": "horizontal_green",
+        "selectedItem": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
+        "values": {
+          "0472a28a-cc7b-42e7-8628-173a7b953214": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "31d94ca2-5b68-41f5-8380-ad62348ef1b0": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "44a300eb-c969-41fc-95e4-dcf3a5716d6e": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "62bd6021-0834-4317-87f4-3961d8f2e890": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "6553f807-4fc6-40d2-9df1-990bf1b094f5": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "6c3fae29-caa1-4650-a2c4-7a1b1a816929": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "bbb754a2-06e5-4b57-8e5d-308865f81a94": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "d9a35253-835b-425d-abdf-2a678ddc1924": {
+            "value": "",
+            "keywordPositions": []
+          },
+          "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
+            "value": "model.parameters()",
+            "keywordPositions": [
+              {
+                "startPos": 0,
+                "endPos": 5
+              }
+            ]
+          }
+        },
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "e3280349-7dda-43f6-9cea-0b98971435a5": {
+        "name": "geographical_chocolate",
+        "selectedItem": null,
+        "values": {},
+        "children": [],
+        "code": "",
+        "keywordPositions": []
+      },
+      "fb08c4e1-9809-46ef-bfa5-52a4a944ef74": {
+        "name": "marginal_coral",
+        "selectedItem": null,
+        "values": {},
+        "children": [
+          "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
+          "baf34852-dfdb-4a2f-850a-6c903acbf1f5"
+        ],
+        "code": "",
+        "keywordPositions": []
+      }
+    }
+  },
+  "uiTypes": {},
+  "uiTypeCols": {
+    "0fcc52ec-fc6b-4164-83b4-66fdbfa96699": {},
+    "3562b0be-4c55-4496-a179-4a75ec91a524": {
+      "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "47377fe6-a365-4540-bf8a-468788f754e0": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "7415f187-1f29-40d6-be47-7d608bd4b215": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      }
+    },
+    "3999a2dc-7210-4d3f-a6cb-28b7ec912d03": {
+      "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      }
+    },
+    "45999936-ac07-4aee-8751-2592c08feeee": {},
+    "527609ff-a61b-4e1f-ac5f-b50fde216719": {},
+    "69ecb4f5-9c64-4f20-bb10-7662f18177e6": {},
+    "9e4418e7-dacf-4ac4-85a4-6921ff0c2cd0": {
+      "17f3f1d8-4459-4d8b-a132-ab42df1bf241": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "2acbcb71-f180-42b0-94bf-46edfe809de3": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "5fda1f62-0834-41de-a58e-2fe7f0e97558": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "681f4df7-ddd9-4a84-979f-ff0d243cdbff": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "6b52f167-e867-41c6-a398-4253147c5672": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "83f732ba-1244-40aa-b189-c324d1cbbccb": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "aa45a0fa-bc33-420a-9b1b-88792303e0a7": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "f2098038-2341-47cc-95d1-c4653b1ba1d3": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      }
+    },
+    "a1e0f6e5-7af2-438c-82e3-ed5ce5d9c432": {
+      "0472a28a-cc7b-42e7-8628-173a7b953214": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "31d94ca2-5b68-41f5-8380-ad62348ef1b0": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "44a300eb-c969-41fc-95e4-dcf3a5716d6e": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "62bd6021-0834-4317-87f4-3961d8f2e890": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "6553f807-4fc6-40d2-9df1-990bf1b094f5": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "6c3fae29-caa1-4650-a2c4-7a1b1a816929": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "bbb754a2-06e5-4b57-8e5d-308865f81a94": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "d9a35253-835b-425d-abdf-2a678ddc1924": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      }
+    },
+    "a5d299bd-58e7-45bc-8a61-d13ebe20124d": {},
+    "a95060a5-3cf2-49cc-a912-db0dba0205ea": {
+      "0a62f48a-54e6-4871-afa6-95c09bc49d61": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      }
+    },
+    "b1abc839-5b74-4fc9-b1f7-65300a3d183f": {
+      "0a8a909f-4821-4880-81ac-373b1ce09084": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "e5a2037f-60a7-4052-bb72-0763319f6000": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
+      "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      }
+    },
+    "c40244ce-c012-4dfa-81f9-9cf89bcd76df": {},
+    "e205db42-5447-43b4-a7e8-79e5177e741c": {
+      "3fdec365-9d3f-4f5b-94fe-75adbb767d08": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      }
+    },
+    "eb1e2aa0-ea16-433d-80b9-f4018039991e": {}
+  },
+  "paramSweeps": {},
+  "runGroups": {},
+  "sections": {
+    "04a2d718-6476-446f-bda7-4b7fc22f8972": {
+      "id": "04a2d718-6476-446f-bda7-4b7fc22f8972",
+      "name": "other_models",
+      "paramSweepSectionId": null,
+      "uiTypeId": "623a9242-53e9-4b42-b695-431e9754a836",
+      "uiTypeColId": "a5d299bd-58e7-45bc-8a61-d13ebe20124d",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "6cf98492-2d4c-426e-beff-4b5a500e615a",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "9b39ad4c-8887-43ea-b759-a1fc067ac3ef"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 472,
+        "height": "auto"
+      },
+      "variantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba": {
+      "id": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
+      "name": "retail_olive",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "b1abc839-5b74-4fc9-b1f7-65300a3d183f",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "cdb23914-0147-4fad-9219-94d170315f34",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "4253da34-9a1a-43eb-b80f-c6708e339024",
+        "7d6b798f-f0eb-44b7-b9a9-1bb9bb01185b"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 472,
+        "height": "auto"
+      },
+      "variantId": "4253da34-9a1a-43eb-b80f-c6708e339024",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "45ee78a4-2ad3-4541-8a65-87a21a798887": {
+      "id": "45ee78a4-2ad3-4541-8a65-87a21a798887",
+      "name": "stormy_salmon",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "c40244ce-c012-4dfa-81f9-9cf89bcd76df",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "9a630340-9bfe-4cb0-81ac-2818d1647503",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "e3280349-7dda-43f6-9cea-0b98971435a5"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 425,
+        "height": "auto"
+      },
+      "variantId": "e3280349-7dda-43f6-9cea-0b98971435a5",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
+      "id": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
+      "name": "transform",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "a95060a5-3cf2-49cc-a912-db0dba0205ea",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "acd91249-b338-43d4-8808-fc0a68525daf",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "9083beca-25c9-4a31-885a-fb19064efd3d"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
+      "id": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
+      "name": "list_of_transforms",
+      "paramSweepSectionId": null,
+      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
+      "uiTypeColId": "527609ff-a61b-4e1f-ac5f-b50fde216719",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "2a349a39-6990-48d2-8fe9-292d4735efd7",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "fb08c4e1-9809-46ef-bfa5-52a4a944ef74",
+        "09179586-8ddd-4f0b-91a0-0398d928d408"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 454,
+        "height": "auto"
+      },
+      "variantId": "fb08c4e1-9809-46ef-bfa5-52a4a944ef74",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "67c603f7-a536-4603-83b3-0b882ee098b2": {
+      "id": "67c603f7-a536-4603-83b3-0b882ee098b2",
+      "name": "graceful_cyan",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "eb1e2aa0-ea16-433d-80b9-f4018039991e",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "d50f188d-bed6-4f04-b662-7d837aaec254",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "645069e7-0657-4c2e-9128-88c701bbd069"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": false,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "645069e7-0657-4c2e-9128-88c701bbd069",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "70355b9b-16ab-462f-8cfc-f23e2399ec1e": {
+      "id": "70355b9b-16ab-462f-8cfc-f23e2399ec1e",
+      "name": "minor_tomato",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "0fcc52ec-fc6b-4164-83b4-66fdbfa96699",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "386beb84-68e7-431f-8e74-14d893cb0a06",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "4c9bee35-38ab-471e-873d-62e1233eeaaf"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": false,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "4c9bee35-38ab-471e-873d-62e1233eeaaf",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "93b410c0-33e9-4d66-95be-37d223d99c0a": {
+      "id": "93b410c0-33e9-4d66-95be-37d223d99c0a",
+      "name": "optimizer",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "a1e0f6e5-7af2-438c-82e3-ed5ce5d9c432",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "ad4803fd-0052-40ad-a83d-7c4bea0501ef",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "dbb76902-0b6c-46fa-a765-46bdfcf92d92"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 282,
+        "height": 464
+      },
+      "variantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7": {
+      "id": "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
+      "name": "marvellous_red",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "69ecb4f5-9c64-4f20-bb10-7662f18177e6",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "522bfdb5-96c4-42af-8a6b-26ae7b489743",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "10ea5acf-9c24-4351-bc81-252625623507"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 425,
+        "height": "auto"
+      },
+      "variantId": "10ea5acf-9c24-4351-bc81-252625623507",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3": {
+      "id": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
+      "name": "unpleasant_jade",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "3562b0be-4c55-4496-a179-4a75ec91a524",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "afd777fb-53e3-411c-a284-e7cb157e794e",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "0022f0d8-b97f-4345-90ac-66615e576fb2",
+        "c1873fea-a24d-4367-97b1-88614045a575"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 472,
+        "height": "auto"
+      },
+      "variantId": "0022f0d8-b97f-4345-90ac-66615e576fb2",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "baf34852-dfdb-4a2f-850a-6c903acbf1f5": {
+      "id": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
+      "name": "joyous_elephant",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "3999a2dc-7210-4d3f-a6cb-28b7ec912d03",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "756e7bb0-ac13-4790-a05c-f10425d508e9"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 454,
+        "height": 291
+      },
+      "variantId": "756e7bb0-ac13-4790-a05c-f10425d508e9",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
+      "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
+      "name": "premier_blue",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "uiTypeColId": "45999936-ac07-4aee-8751-2592c08feeee",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "1451f3ab-4361-4aba-82c4-625a96cdffff",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "8481e81d-f417-4914-b5d8-2797202392ab"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "8481e81d-f417-4914-b5d8-2797202392ab",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91": {
+      "id": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
+      "name": "incredible_leopard",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "e205db42-5447-43b4-a7e8-79e5177e741c",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "c58d323d-382a-47b2-919f-a7f06bcac760"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": 454,
+        "height": 142
+      },
+      "variantId": "c58d323d-382a-47b2-919f-a7f06bcac760",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    },
+    "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
+      "id": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
+      "name": "model",
+      "paramSweepSectionId": null,
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "9e4418e7-dacf-4ac4-85a4-6921ff0c2cd0",
+      "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "d015737a-8207-4d29-86bf-d3e80c8c6e72",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "a853185e-5b0d-400a-a94c-6c14a9c9809e"
+      ],
+      "paramSweepIds": [],
+      "isInOtherProjectConfigs": true,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e",
+      "paramSweepId": null,
+      "isHorizontalOrientation": false,
+      "artifacts": []
+    }
+  },
+  "codeInfo": {
+    "0472a28a-cc7b-42e7-8628-173a7b953214": {
+      "id": "0472a28a-cc7b-42e7-8628-173a7b953214",
+      "name": "betas",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "(0.9, 0.999)",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "0a62f48a-54e6-4871-afa6-95c09bc49d61": {
+      "id": "0a62f48a-54e6-4871-afa6-95c09bc49d61",
+      "name": "transforms",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "list of transforms to compose.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "0a8a909f-4821-4880-81ac-373b1ce09084": {
+      "id": "0a8a909f-4821-4880-81ac-373b1ce09084",
+      "name": "replace_stride_with_dilation",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "10aeb934-d614-4b88-a15a-890c825860e1": {
+      "id": "10aeb934-d614-4b88-a15a-890c825860e1",
+      "name": "torchvision.transforms.CenterCrop",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "3fdec365-9d3f-4f5b-94fe-75adbb767d08"
+      ],
+      "keywordPositions": []
+    },
+    "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
+      "id": "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac",
+      "name": "capturable",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "1451f3ab-4361-4aba-82c4-625a96cdffff": {
+      "id": "1451f3ab-4361-4aba-82c4-625a96cdffff",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
+      "id": "1642efb6-c5cd-41e1-b346-cacb44d43c87",
+      "name": "norm_layer",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "17f3f1d8-4459-4d8b-a132-ab42df1bf241": {
+      "id": "17f3f1d8-4459-4d8b-a132-ab42df1bf241",
+      "name": "norm_layer",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "197c09ec-176b-4b63-99d5-94522b8fc6f3": {
+      "id": "197c09ec-176b-4b63-99d5-94522b8fc6f3",
+      "name": "replace_stride_with_dilation",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "199d8d34-21f9-4c7e-b6b0-dd938a9736d0": {
+      "id": "199d8d34-21f9-4c7e-b6b0-dd938a9736d0",
+      "name": "torchvision.models.resnet34",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "47377fe6-a365-4540-bf8a-468788f754e0",
+        "810b3251-8d80-42f2-b01a-e36ec47928f8",
+        "b8036ace-03dd-4dc3-88c5-069957276d1d",
+        "fc3182cc-369b-4a19-811f-b5e8c6d182c3",
+        "5efb2418-747c-4bba-b1b6-0d53cac2ab40",
+        "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86",
+        "197c09ec-176b-4b63-99d5-94522b8fc6f3",
+        "1642efb6-c5cd-41e1-b346-cacb44d43c87"
+      ],
+      "keywordPositions": []
+    },
+    "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c": {
+      "id": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "10aeb934-d614-4b88-a15a-890c825860e1"
+      ],
+      "keywordPositions": []
+    },
+    "1d6897b7-3dae-4f8a-8729-068e11a36008": {
+      "id": "1d6897b7-3dae-4f8a-8729-068e11a36008",
+      "name": "progress",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "",
+      "description": "If True, displays a progress bar of the\ndownload to stderr. Default is True.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "2a349a39-6990-48d2-8fe9-292d4735efd7": {
+      "id": "2a349a39-6990-48d2-8fe9-292d4735efd7",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "2acbcb71-f180-42b0-94bf-46edfe809de3": {
+      "id": "2acbcb71-f180-42b0-94bf-46edfe809de3",
+      "name": "zero_init_residual",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "31d94ca2-5b68-41f5-8380-ad62348ef1b0": {
+      "id": "31d94ca2-5b68-41f5-8380-ad62348ef1b0",
+      "name": "foreach",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "386beb84-68e7-431f-8e74-14d893cb0a06": {
+      "id": "386beb84-68e7-431f-8e74-14d893cb0a06",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "3ab421e7-1f82-4baa-a0bc-44875bf13adc": {
+      "id": "3ab421e7-1f82-4baa-a0bc-44875bf13adc",
+      "name": "weights",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "3fdec365-9d3f-4f5b-94fe-75adbb767d08": {
+      "id": "3fdec365-9d3f-4f5b-94fe-75adbb767d08",
+      "name": "size",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "Desired output size of the crop. If size is an\nint instead of sequence like (h, w), a square crop (size, size) is\nmade. If provided a sequence of length 1, it will be interpreted as (size[0], size[0]).",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "44a300eb-c969-41fc-95e4-dcf3a5716d6e": {
+      "id": "44a300eb-c969-41fc-95e4-dcf3a5716d6e",
+      "name": "weight_decay",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "0",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c": {
+      "id": "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c",
+      "name": "kwargs",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "",
+      "description": "parameters passed to the ``torchvision.models.resnet.ResNet``\nbase class. Please refer to the `source code\n<https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py>`_\nfor more details about this class.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "47377fe6-a365-4540-bf8a-468788f754e0": {
+      "id": "47377fe6-a365-4540-bf8a-468788f754e0",
+      "name": "weights",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25": {
+      "id": "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25",
+      "name": "std",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "Sequence of standard deviations for each channel.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "4c97d0f4-0221-4640-b5c8-6067d47fc131": {
+      "id": "4c97d0f4-0221-4640-b5c8-6067d47fc131",
+      "name": "torchvision.transforms.Compose",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "0a62f48a-54e6-4871-afa6-95c09bc49d61"
+      ],
+      "keywordPositions": []
+    },
+    "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
+      "id": "4cc2b16e-0946-44de-85e6-131ccc8dec41",
+      "name": "eps",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1e-8",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "50b81980-75f1-4de8-bb0d-5042c44ecbd2": {
+      "id": "50b81980-75f1-4de8-bb0d-5042c44ecbd2",
+      "name": "torchvision.models.resnet18",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "3ab421e7-1f82-4baa-a0bc-44875bf13adc",
+        "944abf2e-f5ec-47c7-9286-370faa75c3bf",
+        "e5a2037f-60a7-4052-bb72-0763319f6000",
+        "ffeb5e40-5c66-4e31-a47a-6eac10385294",
+        "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819",
+        "5ca935ba-3c2e-4ebd-a647-bb2db0020e19",
+        "0a8a909f-4821-4880-81ac-373b1ce09084",
+        "d7b84c56-ded8-4ec2-9742-81f6850c9cf8"
+      ],
+      "keywordPositions": []
+    },
+    "522bfdb5-96c4-42af-8a6b-26ae7b489743": {
+      "id": "522bfdb5-96c4-42af-8a6b-26ae7b489743",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "5ca935ba-3c2e-4ebd-a647-bb2db0020e19": {
+      "id": "5ca935ba-3c2e-4ebd-a647-bb2db0020e19",
+      "name": "width_per_group",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "64",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "5efb2418-747c-4bba-b1b6-0d53cac2ab40": {
+      "id": "5efb2418-747c-4bba-b1b6-0d53cac2ab40",
+      "name": "groups",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "5fda1f62-0834-41de-a58e-2fe7f0e97558": {
+      "id": "5fda1f62-0834-41de-a58e-2fe7f0e97558",
+      "name": "groups",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "62bd6021-0834-4317-87f4-3961d8f2e890": {
+      "id": "62bd6021-0834-4317-87f4-3961d8f2e890",
+      "name": "fused",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "6553f807-4fc6-40d2-9df1-990bf1b094f5": {
+      "id": "6553f807-4fc6-40d2-9df1-990bf1b094f5",
+      "name": "amsgrad",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "681f4df7-ddd9-4a84-979f-ff0d243cdbff": {
+      "id": "681f4df7-ddd9-4a84-979f-ff0d243cdbff",
+      "name": "num_classes",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1000",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "6b52f167-e867-41c6-a398-4253147c5672": {
+      "id": "6b52f167-e867-41c6-a398-4253147c5672",
+      "name": "width_per_group",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "64",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "6c3fae29-caa1-4650-a2c4-7a1b1a816929": {
+      "id": "6c3fae29-caa1-4650-a2c4-7a1b1a816929",
+      "name": "lr",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1e-3",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "6cf98492-2d4c-426e-beff-4b5a500e615a": {
+      "id": "6cf98492-2d4c-426e-beff-4b5a500e615a",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "7415f187-1f29-40d6-be47-7d608bd4b215": {
+      "id": "7415f187-1f29-40d6-be47-7d608bd4b215",
+      "name": "weights",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "",
+      "description": "class:`~torchvision.models.ResNet152_Weights`, optional): The\npretrained weights to use. See\n:class:`~torchvision.models.ResNet152_Weights` below for\nmore details, and possible values. By default, no pre-trained\nweights are used.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "7844a257-44ab-4aa9-b0d1-25d6d4b08134": {
+      "id": "7844a257-44ab-4aa9-b0d1-25d6d4b08134",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "b9bf393b-96d9-4264-ad9f-bad777e6777a"
+      ],
+      "keywordPositions": []
+    },
+    "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
+      "id": "7a9b411c-e319-4813-8bf2-f341cf05df4a",
+      "name": "inplace",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "Bool to make this operation in-place.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "810b3251-8d80-42f2-b01a-e36ec47928f8": {
+      "id": "810b3251-8d80-42f2-b01a-e36ec47928f8",
+      "name": "progress",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "True",
+      "description": "If True, displays a progress bar of the\ndownload to stderr. Default is True.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "83f732ba-1244-40aa-b189-c324d1cbbccb": {
+      "id": "83f732ba-1244-40aa-b189-c324d1cbbccb",
+      "name": "weights",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "944abf2e-f5ec-47c7-9286-370faa75c3bf": {
+      "id": "944abf2e-f5ec-47c7-9286-370faa75c3bf",
+      "name": "progress",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "True",
+      "description": "If True, displays a progress bar of the\ndownload to stderr. Default is True.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "9a630340-9bfe-4cb0-81ac-2818d1647503": {
+      "id": "9a630340-9bfe-4cb0-81ac-2818d1647503",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "aa45a0fa-bc33-420a-9b1b-88792303e0a7": {
+      "id": "aa45a0fa-bc33-420a-9b1b-88792303e0a7",
+      "name": "progress",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "True",
+      "description": "If True, displays a progress bar of the\ndownload to stderr. Default is True.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "acd91249-b338-43d4-8808-fc0a68525daf": {
+      "id": "acd91249-b338-43d4-8808-fc0a68525daf",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "4c97d0f4-0221-4640-b5c8-6067d47fc131"
+      ],
+      "keywordPositions": []
+    },
+    "ad4803fd-0052-40ad-a83d-7c4bea0501ef": {
+      "id": "ad4803fd-0052-40ad-a83d-7c4bea0501ef",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "c8a7d3aa-02d6-456c-8247-efc02bf86332"
+      ],
+      "keywordPositions": []
+    },
+    "afd777fb-53e3-411c-a284-e7cb157e794e": {
+      "id": "afd777fb-53e3-411c-a284-e7cb157e794e",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "199d8d34-21f9-4c7e-b6b0-dd938a9736d0",
+        "e7bd857a-770d-47da-9b8e-811baa29620c"
+      ],
+      "keywordPositions": []
+    },
+    "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1": {
+      "id": "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1",
+      "name": "mean",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "Sequence of means for each channel.",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "b8036ace-03dd-4dc3-88c5-069957276d1d": {
+      "id": "b8036ace-03dd-4dc3-88c5-069957276d1d",
+      "name": "num_classes",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1000",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "b9bf393b-96d9-4264-ad9f-bad777e6777a": {
+      "id": "b9bf393b-96d9-4264-ad9f-bad777e6777a",
+      "name": "torchvision.transforms.Normalize",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1",
+        "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25",
+        "7a9b411c-e319-4813-8bf2-f341cf05df4a"
+      ],
+      "keywordPositions": []
+    },
+    "bbb754a2-06e5-4b57-8e5d-308865f81a94": {
+      "id": "bbb754a2-06e5-4b57-8e5d-308865f81a94",
+      "name": "differentiable",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86": {
+      "id": "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86",
+      "name": "width_per_group",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "64",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "c8a7d3aa-02d6-456c-8247-efc02bf86332": {
+      "id": "c8a7d3aa-02d6-456c-8247-efc02bf86332",
+      "name": "torch.optim.Adam",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "f807b59d-a434-41b6-a54c-9b35ffb61c8d",
+        "6c3fae29-caa1-4650-a2c4-7a1b1a816929",
+        "0472a28a-cc7b-42e7-8628-173a7b953214",
+        "4cc2b16e-0946-44de-85e6-131ccc8dec41",
+        "44a300eb-c969-41fc-95e4-dcf3a5716d6e",
+        "6553f807-4fc6-40d2-9df1-990bf1b094f5",
+        "31d94ca2-5b68-41f5-8380-ad62348ef1b0",
+        "d9a35253-835b-425d-abdf-2a678ddc1924",
+        "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac",
+        "bbb754a2-06e5-4b57-8e5d-308865f81a94",
+        "62bd6021-0834-4317-87f4-3961d8f2e890"
+      ],
+      "keywordPositions": []
+    },
+    "cdb23914-0147-4fad-9219-94d170315f34": {
+      "id": "cdb23914-0147-4fad-9219-94d170315f34",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "50b81980-75f1-4de8-bb0d-5042c44ecbd2"
+      ],
+      "keywordPositions": []
+    },
+    "d015737a-8207-4d29-86bf-d3e80c8c6e72": {
+      "id": "d015737a-8207-4d29-86bf-d3e80c8c6e72",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "ea138acc-58d2-4cfb-a2db-b5c44061f10f"
+      ],
+      "keywordPositions": []
+    },
+    "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
+      "id": "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819",
+      "name": "groups",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "d50f188d-bed6-4f04-b662-7d837aaec254": {
+      "id": "d50f188d-bed6-4f04-b662-7d837aaec254",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "d7b84c56-ded8-4ec2-9742-81f6850c9cf8": {
+      "id": "d7b84c56-ded8-4ec2-9742-81f6850c9cf8",
+      "name": "norm_layer",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "d9a35253-835b-425d-abdf-2a678ddc1924": {
+      "id": "d9a35253-835b-425d-abdf-2a678ddc1924",
+      "name": "maximize",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "e5a2037f-60a7-4052-bb72-0763319f6000": {
+      "id": "e5a2037f-60a7-4052-bb72-0763319f6000",
+      "name": "num_classes",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "1000",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "e7bd857a-770d-47da-9b8e-811baa29620c": {
+      "id": "e7bd857a-770d-47da-9b8e-811baa29620c",
+      "name": "torchvision.models.resnet152",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "7415f187-1f29-40d6-be47-7d608bd4b215",
+        "1d6897b7-3dae-4f8a-8729-068e11a36008",
+        "44ddd79f-221a-49a4-97cf-51bb9c6d6a4c"
+      ],
+      "keywordPositions": []
+    },
+    "ea138acc-58d2-4cfb-a2db-b5c44061f10f": {
+      "id": "ea138acc-58d2-4cfb-a2db-b5c44061f10f",
+      "name": "torchvision.models.resnet101",
+      "editable": 0,
+      "rcType": "callable",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [
+        "83f732ba-1244-40aa-b189-c324d1cbbccb",
+        "aa45a0fa-bc33-420a-9b1b-88792303e0a7",
+        "681f4df7-ddd9-4a84-979f-ff0d243cdbff",
+        "2acbcb71-f180-42b0-94bf-46edfe809de3",
+        "5fda1f62-0834-41de-a58e-2fe7f0e97558",
+        "6b52f167-e867-41c6-a398-4253147c5672",
+        "f2098038-2341-47cc-95d1-c4653b1ba1d3",
+        "17f3f1d8-4459-4d8b-a132-ab42df1bf241"
+      ],
+      "keywordPositions": []
+    },
+    "f2098038-2341-47cc-95d1-c4653b1ba1d3": {
+      "id": "f2098038-2341-47cc-95d1-c4653b1ba1d3",
+      "name": "replace_stride_with_dilation",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "f807b59d-a434-41b6-a54c-9b35ffb61c8d": {
+      "id": "f807b59d-a434-41b6-a54c-9b35ffb61c8d",
+      "name": "params",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "fc3182cc-369b-4a19-811f-b5e8c6d182c3": {
+      "id": "fc3182cc-369b-4a19-811f-b5e8c6d182c3",
+      "name": "zero_init_residual",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    },
+    "ffeb5e40-5c66-4e31-a47a-6eac10385294": {
+      "id": "ffeb5e40-5c66-4e31-a47a-6eac10385294",
+      "name": "zero_init_residual",
+      "editable": 0,
+      "rcType": "parameter",
+      "defaultVal": "False",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "children": [],
+      "keywordPositions": []
+    }
+  },
+  "dbSourceMapping": {
+    "default": "default"
+  },
+  "artifacts": {}
+}

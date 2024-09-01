@@ -1,48 +1,64 @@
 from setta.database.utils import remap_ids, rename_keys
+from setta.utils.constants import C
 
 from ..codeInfo.copy import copy_code_info
-from ..enteredValues.copy import copy_ev_cols
+from ..sectionVariants.copy import (
+    copy_section_variants,
+    update_section_variant_children,
+)
 from ..uiTypes.copy import copy_ui_type_cols, copy_ui_types
 
 
 def copy_sections(
-    sections, code_info_id_map, ev_col_id_map, ui_type_id_map, ui_type_col_id_map
+    sections,
+    code_info_id_map,
+    section_variant_id_map,
+    ui_type_id_map,
+    ui_type_col_id_map,
+    dbSourceMapping,
 ):
     new_sections, section_id_map = remap_ids(sections)
     for section in new_sections.values():
+        dbSource = section["dbSource"]
+        dbSource = dbSourceMapping[dbSource if dbSource else C.DEFAULT_DB_ALIAS]
         section["id"] = section_id_map[section["id"]]
-        section["children"] = [section_id_map[x] for x in section["children"]]
-        if section.get("selectedItem"):
-            section["selectedItem"] = code_info_id_map[section["selectedItem"]]
-        section["evColId"] = ev_col_id_map[section["evColId"]]
+        section["codeInfoId"] = code_info_id_map[section["codeInfoId"]]
+        section["variantId"] = section_variant_id_map[dbSource][section["variantId"]]
         section["uiTypeId"] = ui_type_id_map[section["uiTypeId"]]
         section["uiTypeColId"] = ui_type_col_id_map[section["uiTypeColId"]]
-        section["evColIds"] = [ev_col_id_map[x] for x in section["evColIds"]]
+        section["variantIds"] = [
+            section_variant_id_map[dbSource][x] for x in section["variantIds"]
+        ]
         section["nonPresetUITypeIds"] = [
             ui_type_id_map[x] for x in section["nonPresetUITypeIds"]
         ]
+        section["parentId"] = section_id_map.get(section["parentId"], None)
 
     return new_sections, section_id_map
 
 
 def copy_sections_and_other_info(x):
     new_code_info, code_info_id_map = copy_code_info(x["codeInfo"])
-    new_ev_cols, ev_col_id_map = copy_ev_cols(x["evCols"], code_info_id_map)
-    new_ui_types, ui_type_id_map = copy_ui_types(x["uiTypes"], code_info_id_map)
+    new_section_variants, section_variant_id_map = copy_section_variants(
+        x["sectionVariants"], code_info_id_map
+    )
+    new_ui_types, ui_type_id_map = copy_ui_types(x["uiTypes"])
     new_ui_type_cols, ui_type_col_id_map = copy_ui_type_cols(
         x["uiTypeCols"], ui_type_id_map, code_info_id_map
     )
     new_sections, section_id_map = copy_sections(
         x["sections"],
         code_info_id_map,
-        ev_col_id_map,
+        section_variant_id_map,
         ui_type_id_map,
         ui_type_col_id_map,
+        x["dbSourceMapping"],
     )
+    update_section_variant_children(new_section_variants, section_id_map)
 
     return {
         "codeInfo": new_code_info,
-        "evCols": new_ev_cols,
+        "sectionVariants": new_section_variants,
         "uiTypes": new_ui_types,
         "uiTypeCols": new_ui_type_cols,
         "sections": new_sections,

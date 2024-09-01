@@ -9,11 +9,7 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
   Required<
     Pick<
       ReactFlowProps,
-      | "selectionKeyCode"
-      | "multiSelectionKeyCode"
       | "translateExtent"
-      | "minZoom"
-      | "maxZoom"
       | "selectNodesOnDrag"
       | "noDragClassName"
       | "noDragClassName"
@@ -23,17 +19,11 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
   >;
 
 const GraphView = ({
-  selectionKeyCode,
   selectionOnDrag,
   selectionMode,
-  multiSelectionKeyCode,
-  panActivationKeyCode,
-  zoomActivationKeyCode,
   elementsSelectable,
   selectNodesOnDrag,
   translateExtent,
-  minZoom,
-  maxZoom,
   preventScrolling,
   zoomOnScroll,
   zoomOnPinch,
@@ -48,12 +38,8 @@ const GraphView = ({
 }: GraphViewProps) => {
   return (
     <FlowRenderer
-      selectionKeyCode={selectionKeyCode}
       selectionOnDrag={selectionOnDrag}
       selectionMode={selectionMode}
-      multiSelectionKeyCode={multiSelectionKeyCode}
-      panActivationKeyCode={panActivationKeyCode}
-      zoomActivationKeyCode={zoomActivationKeyCode}
       elementsSelectable={elementsSelectable}
       zoomOnScroll={zoomOnScroll}
       zoomOnPinch={zoomOnPinch}
@@ -63,8 +49,6 @@ const GraphView = ({
       panOnScrollMode={panOnScrollMode}
       panOnDrag={panOnDrag}
       translateExtent={translateExtent}
-      minZoom={minZoom}
-      maxZoom={maxZoom}
       preventScrolling={preventScrolling}
       noDragClassName={noDragClassName}
       noWheelClassName={noWheelClassName}

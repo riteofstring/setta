@@ -29,26 +29,14 @@ export function getSectionIsRoot(sectionId) {
   return isRoot(getSectionType(sectionId).type);
 }
 
-export function getSectionTypeConfig(sectionId) {
-  return getSectionType(sectionId).config;
-}
-
 export function getSectionCanOnlyBeChildOfDeck(sectionId) {
-  return [C.OUTPUT, C.INFO, C.SOCIAL].includes(getSectionType(sectionId).type);
+  return [C.ARTIFACT, C.INFO, C.SOCIAL].includes(
+    getSectionType(sectionId).type,
+  );
 }
 
 export function getSectionIsDeck(sectionId) {
   return getSectionType(sectionId).type === C.DECK;
-}
-
-export function getSectionIdsWithUITypeIds(uiTypeIds) {
-  const output = [];
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (uiTypeIds.includes(s.uiTypeId)) {
-      output.push(s.id);
-    }
-  }
-  return output;
 }
 
 export function getSectionSiblingNames(sectionId) {
@@ -70,8 +58,8 @@ export function getSectionByName(name) {
 }
 
 export function getSectionDBSource(sectionId, state = null) {
-  const s = state ?? useSectionInfos.getState();
-  return s.x[sectionId].dbSource || C.DEFAULT_DB_ALIAS;
+  const s = state ?? useSectionInfos.getState().x;
+  return s[sectionId].dbSource || C.DEFAULT_DB_ALIAS;
 }
 
 export function getMappedSectionDBSource(sectionId, state = null) {

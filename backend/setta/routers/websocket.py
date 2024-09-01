@@ -2,14 +2,17 @@ import json
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
-from .dependencies import get_websocket_manager
+from setta.utils.constants import C
+
+from .dependencies import get_websocket_manager_from_websocket
 
 router = APIRouter()
 
 
-@router.websocket("/")
+@router.websocket(C.ROUTE_WEBSOCKET_MANAGER)
 async def websocket_endpoint(
-    websocket: WebSocket, websocket_manager=Depends(get_websocket_manager)
+    websocket: WebSocket,
+    websocket_manager=Depends(get_websocket_manager_from_websocket),
 ):
     print("regular websocket", websocket)
     id = await websocket_manager.connect(websocket)

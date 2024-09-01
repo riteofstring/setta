@@ -12,8 +12,6 @@ const initialState: ReactFlowStore = {
   d3Zoom: null,
   d3Selection: null,
   d3ZoomHandler: undefined,
-  minZoom: 0.5,
-  maxZoom: 2,
   translateExtent: infiniteExtent,
   nodesSelectionDims: null,
   userSelectionActive: false,
@@ -28,10 +26,9 @@ const initialState: ReactFlowStore = {
   fitViewOnInit: false,
   fitViewOnInitDone: false,
   fitViewOnInitOptions: undefined,
-
   multiSelectionActive: false,
-
   autoPanOnNodeDrag: true,
+  selectionKeyPressed: false,
 };
 
 export default initialState;

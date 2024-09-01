@@ -4,7 +4,6 @@ import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
 import type { ReactFlowProps, ReactFlowRefType } from "../../types";
 import { PanOnScrollMode, SelectionMode } from "../../types";
-import { isMacOs } from "../../utils";
 import GraphView from "../GraphView";
 
 const wrapperStyle: CSSProperties = {
@@ -18,18 +17,12 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
   (
     {
       className,
-      selectionKeyCode = "Shift",
       selectionOnDrag = false,
       selectionMode = SelectionMode.Full,
-      panActivationKeyCode = "Space",
-      multiSelectionKeyCode = isMacOs() ? "Meta" : "Control",
-      zoomActivationKeyCode = isMacOs() ? "Meta" : "Control",
       selectNodesOnDrag = true,
       nodesDraggable,
       nodesFocusable,
       elementsSelectable,
-      minZoom = 0.5,
-      maxZoom = 2,
       translateExtent = infiniteExtent,
       preventScrolling = true,
       zoomOnScroll = true,
@@ -63,16 +56,10 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
         id={id}
       >
         <GraphView
-          selectionKeyCode={selectionKeyCode}
           selectionOnDrag={selectionOnDrag}
           selectionMode={selectionMode}
-          multiSelectionKeyCode={multiSelectionKeyCode}
-          panActivationKeyCode={panActivationKeyCode}
-          zoomActivationKeyCode={zoomActivationKeyCode}
           selectNodesOnDrag={selectNodesOnDrag}
           translateExtent={translateExtent}
-          minZoom={minZoom}
-          maxZoom={maxZoom}
           preventScrolling={preventScrolling}
           zoomOnScroll={zoomOnScroll}
           zoomOnPinch={zoomOnPinch}
@@ -89,8 +76,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           nodesDraggable={nodesDraggable}
           nodesFocusable={nodesFocusable}
           elementsSelectable={elementsSelectable}
-          minZoom={minZoom}
-          maxZoom={maxZoom}
           translateExtent={translateExtent}
           fitView={fitView}
           fitViewOptions={fitViewOptions}
