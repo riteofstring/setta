@@ -15,13 +15,7 @@ import {
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
-function _ParamContainer({
-  sectionId,
-  paramInfo,
-  setDidUpdate,
-  isKwarg,
-  children,
-}) {
+function _ParamContainer({ sectionId, paramInfo, isKwarg, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isFocusedSearchResult = useProjectSearch((x) =>
@@ -90,7 +84,6 @@ function _ParamContainer({
           defaultVal={paramInfo.defaultVal}
           isDisabled={!paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
-          setDidUpdate={setDidUpdate}
         />
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
@@ -136,7 +129,6 @@ function _ParamContainer({
           sectionId={sectionId}
           parentId={paramInfo.id}
           infos={paramChildren}
-          setDidUpdate={setDidUpdate}
         />
       </div>
     </article>

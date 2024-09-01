@@ -7,13 +7,11 @@ export function ParamNameInput({
   value,
   onBlur,
   hasChildren,
-  setDidUpdate,
 }) {
   const [liveValue, setLiveValue] = useState(value);
 
   function onChange(v) {
     setLiveValue(v);
-    setDidUpdate(true);
   }
 
   useEffect(() => {
