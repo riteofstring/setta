@@ -22,7 +22,7 @@ export function ParamInput({
   sectionId,
   paramInfoId,
   defaultVal,
-  isDisabled,
+  // isDisabled,
   maybeErrorMessage,
   setDidUpdate,
 }) {
@@ -59,7 +59,7 @@ export function ParamInput({
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
-      isDisabled={isDisabled}
+      // isDisabled={isDisabled}
       maybeErrorMessage={maybeErrorMessage}
       sectionIdToBeActive={sectionId}
       keywordPositions={localKeywordPositions}

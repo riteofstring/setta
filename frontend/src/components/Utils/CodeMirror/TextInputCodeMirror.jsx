@@ -6,7 +6,6 @@ import {
   dbTextFieldInitializeCode,
 } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
-import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getKeywordStylizer } from "./getKeywordStylizer";
@@ -36,30 +35,43 @@ export function TextInputCodeMirror({
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
+  // console.log(
+  //   "TextInputCodeMirror",
+  //   paramInfoId,
+  //   isKeyName,
+  //   value,
+  //   realIsInitialized,
+  // );
 
   function localOnBlur() {
+    console.log("localOnBlur", paramInfoId, isKeyName);
     // hack to prevent codemirror from
     // blocking other inputs on blur
     // https://github.com/uiwjs/react-codemirror/issues/677
     setTimeout(() => {
+      console.log("setActivationEvent", paramInfoId, isKeyName, activationEvent)
       setActivationEvent(null);
       setRealIsInitialized(false);
-    }, 0);
+    }, 1000);
     onBlur?.();
   }
 
   function localOnMouseDown(event) {
+    console.log("mousedown", paramInfoId, isKeyName);
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
+      console.log("settingActivationEvent", paramInfoId, isKeyName, event);
       setActivationEvent(event);
-      if (sectionIdToBeActive) {
-        setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
-      }
+      // if (sectionIdToBeActive) {
+      //   setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
+      // }
     }
   }
+  console.log("activationEvent", paramInfoId, isKeyName, activationEvent);
 
   // focused via tab key
   function onFocus() {
+    console.log("onFocus", paramInfoId, isKeyName);
     if (initializeGenCode) {
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
     }
@@ -79,8 +91,6 @@ export function TextInputCodeMirror({
           theme={theme}
           keywordPositions={keywordPositions}
           placeholder={defaultVal}
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
           language={language}
         />
       )}
