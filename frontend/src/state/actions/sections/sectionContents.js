@@ -1,9 +1,24 @@
-import { useCodeInfo, useSectionToParamIds } from "state/definitions";
+import { useCodeInfo } from "state/definitions";
 
-export function getParamInfos(sectionId) {
-  const ids = useSectionToParamIds.getState().params[sectionId] ?? [];
+export function getTopLevelParamInfos(sectionId) {
   const cState = useCodeInfo.getState().x;
-  return ids.map((x) => cState[x]);
+  const selectedItem = getSectionSelectedItem(sectionId);
+  const objParamInfoIds = selectedItem
+    ? findAllParametersOfCallables(cState, [selectedItem])
+    : [];
+
+  const { codeInfoId } = getSectionInfo(sectionId);
+  const paramCollectionIds = findAllParametersOfCollections(
+    useCodeInfo.getState().x,
+    [codeInfoId],
+  );
+
+  return [...objParamInfoIds, ...paramCollectionIds];
+}
+
+export function getAllParamInfos(sectionId) {
+  const topLevel = getTopLevelParamInfos(sectionId);
+  return findAllParameters(useCodeInfo.getState().x, topLevel);
 }
 
 function movePinnedToFront(params) {
