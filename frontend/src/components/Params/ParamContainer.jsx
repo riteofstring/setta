@@ -59,9 +59,8 @@ function _ParamContainer({
   );
 
   const [isMousedOver, setIsMousedOver] = useState(false);
-  const [inputIsActive, setInputIsActive] = useState(false);
   const [childIsMousedOver, setChildIsMousedOver] = useState(0);
-  const showButtons = !inputIsActive && isMousedOver && childIsMousedOver === 0;
+  const showButtons = isMousedOver && childIsMousedOver === 0;
 
   return paramChildren.length === 0 ? (
     <>
@@ -97,7 +96,6 @@ function _ParamContainer({
           isDisabled={!paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
-          setInputIsActive={setInputIsActive}
         />
         {showButtons && (
           <PinButton

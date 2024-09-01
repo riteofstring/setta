@@ -25,7 +25,6 @@ export function ParamInput({
   isDisabled,
   maybeErrorMessage,
   setDidUpdate,
-  setInputIsActive,
 }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
@@ -65,7 +64,6 @@ export function ParamInput({
       sectionIdToBeActive={sectionId}
       keywordPositions={localKeywordPositions}
       setKeywordPositions={setLocalKeywordPositions}
-      setInputIsActive={setInputIsActive}
     />
   );
 }

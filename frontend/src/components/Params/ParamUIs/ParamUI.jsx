@@ -28,7 +28,6 @@ export function ParamUI({
   sectionIdToBeActive,
   keywordPositions,
   setKeywordPositions,
-  setInputIsActive,
 }) {
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
@@ -77,7 +76,6 @@ export function ParamUI({
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
           sliderThumbClassName="block h-3 w-3 cursor-pointer
       rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600"
-          setInputIsActive={setInputIsActive}
         />
       );
     }
