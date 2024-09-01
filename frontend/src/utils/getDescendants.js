@@ -17,7 +17,7 @@ function _findAllDescendants(
     visited.add(id);
     const currInfo = allCodeInfo[id];
     if (outputCondition(currInfo)) {
-      output.push(currInfo.id);
+      output.push(currInfo);
     }
     if (stackCondition(currInfo)) {
       idStack.push(...currInfo.children);

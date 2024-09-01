@@ -1,11 +1,12 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import { dbTextFieldCompletion } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useKeywordRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
 
-function getContentDomEventListener(keywordPositions, editor) {
+function getContentDomEventListener(keywordLocations, editor) {
   return (event) => {
     if (!variableClick(event)) {
       return;
@@ -21,7 +22,7 @@ function getContentDomEventListener(keywordPositions, editor) {
 
     let keywordInfo = null;
 
-    for (const k of keywordPositions) {
+    for (const k of keywordLocations.current) {
       if (pos >= k.startPos && pos < k.endPos) {
         keywordInfo = k;
         break;
@@ -55,7 +56,7 @@ function fixPlaceholderCursor(divId, value, defaultVal) {
 }
 
 export function getOnCreateEditor({
-  keywordPositions,
+  keywordLocations,
   initialEvent,
   setRealIsInitialized,
   divId,
@@ -65,7 +66,7 @@ export function getOnCreateEditor({
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
-      getContentDomEventListener(keywordPositions, view),
+      getContentDomEventListener(keywordLocations, view),
     );
     view.focus();
     if (initialEvent !== "tab") {
@@ -79,12 +80,7 @@ export function getOnCreateEditor({
   };
 }
 
-export function getCompletionsFn(
-  sectionId,
-  paramInfoId,
-  dbCompletionFn,
-  setKeywordPositions,
-) {
+export function getCompletionsFn(sectionId, paramInfoId) {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
@@ -93,13 +89,12 @@ export function getCompletionsFn(
       sectionId,
       paramInfoId,
     });
-    const res = await dbCompletionFn({
+    const res = await dbTextFieldCompletion({
       sectionId,
       paramInfoId,
       fullText,
       beforeText: before.text,
       position: context.pos,
-      setKeywordPositions,
     });
     setToNotWaiting();
     console.log("res", res);

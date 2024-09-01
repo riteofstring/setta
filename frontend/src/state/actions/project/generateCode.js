@@ -16,7 +16,7 @@ import { getProjectData } from "./saveProject";
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   const project = getProjectData();
   if (includeEVReferences) {
-    project["evRefs"] = computeEVReferences(project);
+    computeEVReferences(project);
     project["infoToFullName"] = computeInfoToFullName(project);
   }
   console.log(project);
@@ -28,8 +28,8 @@ export async function runCode() {
   const project = getProjectDataToGenerateCode({ includeEVReferences: false });
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    projectVariant["evRefs"] = computeEVReferences(projectVariant);
-    projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
+    computeEVReferences(projectVariant);
+    project["infoToFullName"] = computeInfoToFullName(projectVariant);
     let message = {
       id: codeId,
       messageType: C.WS_RUN_CODE,
@@ -147,7 +147,7 @@ function* getProjectVariants(project) {
         const dbSource = getMappedSectionDBSource(forSectionId);
         const sectionVariant =
           variant.sectionVariants[dbSource][sectionVariantId];
-        sectionVariant.values[paramInfoId].value = value;
+        sectionVariant.values[paramInfoId] = value;
       }
       yield variant;
     }

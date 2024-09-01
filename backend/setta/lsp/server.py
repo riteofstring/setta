@@ -1,11 +1,12 @@
 import asyncio
-from collections import defaultdict
 
 
 class LanguageServer:
     def __init__(self, root_path):
         self.root_path = root_path
-        self.msg_id_to_metadata = defaultdict(dict)
+        self.msg_id_to_method = {}
+        self.msg_id_to_referencable_var_names = {}
+        self.msg_id_to_generated_var_names = {}
         self.versions = {}
         self.server = None
 
@@ -35,8 +36,16 @@ class LanguageServer:
 
 class LanguageServerInteractor:
     @property
-    def msg_id_to_metadata(self):
-        return self.server.msg_id_to_metadata
+    def msg_id_to_method(self):
+        return self.server.msg_id_to_method
+
+    @property
+    def msg_id_to_referencable_var_names(self):
+        return self.server.msg_id_to_referencable_var_names
+
+    @property
+    def msg_id_to_generated_var_names(self):
+        return self.server.msg_id_to_generated_var_names
 
     @property
     def root_path(self):

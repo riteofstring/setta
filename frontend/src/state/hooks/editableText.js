@@ -26,10 +26,11 @@ export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
 
 export function useTitleIsEditable(sectionId) {
   const isUneditableType = useIsOneOfType(sectionId, [
-    C.ARTIFACT,
+    C.OUTPUT,
     C.GLOBAL_VARIABLES,
     C.PARAM_SWEEP,
     C.GLOBAL_PARAM_SWEEP,
+    C.VAR_CONTROL,
   ]);
 
   const isListElement = useIsListElement(sectionId);

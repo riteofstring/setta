@@ -8,23 +8,10 @@ export function useGetParamEnteredValue(sectionId, paramInfoId) {
     useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (dbSource in x.x) {
-      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
-        .value;
+      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId];
     }
     return "";
   });
-}
-
-export function useGetParamKeywordPositions(sectionId, paramInfoId) {
-  const { dbSource, variantId, previewVariantId } =
-    useSectionVariantMetadataIds(sectionId);
-  return useSectionVariants((x) => {
-    if (paramInfoId && dbSource in x.x) {
-      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
-        .keywordPositions;
-    }
-    return [];
-  }, _.isEqual);
 }
 
 export function useGetSectionVariantNames(sectionId) {
@@ -86,24 +73,11 @@ export function useListElementIdx(sectionId) {
   );
 }
 
-function useSectionVariantAttr(sectionId, attr, equalityFn) {
+export function useSectionSelectedItem(sectionId) {
   const { dbSource, variantId, previewVariantId } =
     useSectionVariantMetadataIds(sectionId);
 
   return useSectionVariants(
-    (x) => x.x[dbSource][previewVariantId ?? variantId][attr],
-    equalityFn,
+    (x) => x.x[dbSource][previewVariantId ?? variantId].selectedItem,
   );
-}
-
-export function useSectionSelectedItem(sectionId) {
-  return useSectionVariantAttr(sectionId, "selectedItem");
-}
-
-export function useSectionCode(sectionId) {
-  return useSectionVariantAttr(sectionId, "code");
-}
-
-export function useSectionKeywordPositions(sectionId) {
-  return useSectionVariantAttr(sectionId, "keywordPositions", _.isEqual);
 }

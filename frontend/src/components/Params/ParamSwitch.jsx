@@ -27,6 +27,5 @@ export const ParamSwitch = React.memo(
     p.paramInfo.id === n.paramInfo.id &&
     p.paramInfo.isFrozen === n.paramInfo.isFrozen &&
     p.paramInfo.isSelected === n.paramInfo.isSelected &&
-    p.paramInfo.name === n.paramInfo.name &&
     _.isEqual(p.paramInfo.children, n.paramInfo.children),
 );

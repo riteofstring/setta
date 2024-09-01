@@ -1,11 +1,8 @@
-from setta.database.utils import dump_keyword_positions_as_string
-
-
 def save_code_info(dbs, codeInfo):
     db = dbs.default
     query = """
-        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, isSelected, keywordPositions)
-        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :isSelected, :keywordPositions)
+        INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, isSelected)
+        VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :isSelected)
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
@@ -16,22 +13,11 @@ def save_code_info(dbs, codeInfo):
             positionalOnly = :positionalOnly,
             isPinned = :isPinned,
             isFrozen = :isFrozen,
-            isSelected = :isSelected,
-            keywordPositions = :keywordPositions
+            isSelected = :isSelected
     """
 
     # insert into codeinfo table
-    query_params = []
-    for c in codeInfo.values():
-        query_params.append(
-            {
-                **c,
-                "keywordPositions": dump_keyword_positions_as_string(
-                    c["keywordPositions"]
-                ),
-            }
-        )
-
+    query_params = list(codeInfo.values())
     db.executemany(query, query_params)
 
     # delete children

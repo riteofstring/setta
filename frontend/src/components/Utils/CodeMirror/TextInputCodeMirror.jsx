@@ -1,16 +1,15 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useMemo, useState } from "react";
-import {
-  dbTextFieldCompletion,
-  dbTextFieldInitializeCode,
-} from "requests/sections";
+import _ from "lodash";
+import { useCallback, useState } from "react";
+import { dbTextFieldInitializeCode } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/sections/activeSections";
+import { useKeywordRegex } from "state/definitions";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
-import { getKeywordStylizer } from "./getKeywordStylizer";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
+import { useKeywordStylizer } from "./useKeywordStylizer";
 
 export function TextInputCodeMirror({
   sectionId,
@@ -27,14 +26,10 @@ export function TextInputCodeMirror({
   color,
   language,
   sectionIdToBeActive,
-  keywordPositions,
-  setKeywordPositions,
-  autocomplete = true,
-  initializeGenCode = true,
-  isKeyName = false,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
+  const pattern = useKeywordRegex((x) => x.pattern, _.isEqual);
   const theme = useCodeMirrorStyle(color);
 
   function localOnBlur() {
@@ -51,6 +46,7 @@ export function TextInputCodeMirror({
   function localOnMouseDown(event) {
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
+      dbTextFieldInitializeCode({ sectionId, paramInfoId });
       setActivationEvent(event);
       if (sectionIdToBeActive) {
         setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
@@ -60,10 +56,8 @@ export function TextInputCodeMirror({
 
   // focused via tab key
   function onFocus() {
-    if (initializeGenCode) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
-    }
     if (!activationEvent) {
+      dbTextFieldInitializeCode({ sectionId, paramInfoId });
       setActivationEvent("tab");
     }
   }
@@ -77,7 +71,7 @@ export function TextInputCodeMirror({
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
-          keywordPositions={keywordPositions}
+          keywordRegex={pattern}
           placeholder={defaultVal}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
@@ -100,11 +94,8 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
-          keywordPositions={keywordPositions}
-          setKeywordPositions={setKeywordPositions}
+          keywordRegex={pattern}
           language={language}
-          autocomplete={autocomplete}
-          isKeyName={isKeyName}
         />
       )}
     </>
@@ -126,30 +117,21 @@ function CoreCodeMirror({
   realIsInitialized,
   setRealIsInitialized,
   theme,
-  keywordPositions,
-  setKeywordPositions,
+  keywordRegex,
   language,
-  autocomplete,
-  isKeyName,
 }) {
-  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
+  const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
 
-  const keywordStylizer = useMemo(
-    () => getKeywordStylizer(keywordPositions),
-    [JSON.stringify(keywordPositions)],
-  );
+  const { keywordLocations, keywordStylizer } = useKeywordStylizer({
+    pattern: keywordRegex,
+    sectionId,
+    paramInfoId,
+  });
 
-  const completionsFn = useCallback(
-    autocomplete
-      ? getCompletionsFn(
-          sectionId,
-          paramInfoId,
-          dbTextFieldCompletion,
-          setKeywordPositions,
-        )
-      : () => null,
-    [sectionId, paramInfoId, autocomplete],
-  );
+  const completionsFn = useCallback(getCompletionsFn(sectionId, paramInfoId), [
+    sectionId,
+    paramInfoId,
+  ]);
 
   const extensions = getExtensions({
     sectionId,
@@ -163,7 +145,7 @@ function CoreCodeMirror({
   });
 
   const onCreateEditor = getOnCreateEditor({
-    keywordPositions,
+    keywordLocations,
     initialEvent,
     setRealIsInitialized,
     divId,

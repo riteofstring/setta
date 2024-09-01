@@ -13,7 +13,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
         if id:
             request_dict["id"] = id
-            self.msg_id_to_metadata[id]["method"] = method
+            self.msg_id_to_method[id] = method
         request = json.dumps(request_dict).encode("utf-8")
         content_length = len(request)
         header = f"Content-Length: {content_length}\r\n\r\n".encode("utf-8")
@@ -29,7 +29,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_request("initialize", params=params, id=str(uuid.uuid4()))
         await self.send_didChangeConfiguration()  # pyright requires this step
 
-    async def send_document_open_request(self, code_id, code, codeJson=None):
+    async def send_document_open_request(self, code_id, code, codeJson):
         uri = self.get_virtual_uri(code_id)
         params = {
             "textDocument": {
@@ -55,15 +55,9 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
         }
-        self.msg_id_to_metadata[request_id][
-            "referencable_var_names"
-        ] = referencable_var_names
-        self.msg_id_to_metadata[request_id]["generated_var_names"] = generated_var_names
-        await self.send_request(
-            "textDocument/completion",
-            params=params,
-            id=request_id,
-        )
+        self.msg_id_to_referencable_var_names[request_id] = referencable_var_names
+        self.msg_id_to_generated_var_names[request_id] = generated_var_names
+        await self.send_request("textDocument/completion", params=params, id=request_id)
 
     async def send_signature_help_request(self, line, character, code_id, request_id):
         uri = self.get_virtual_uri(code_id)
@@ -73,9 +67,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
         await self.send_request(
-            "textDocument/signatureHelp",
-            params=params,
-            id=request_id,
+            "textDocument/signatureHelp", params=params, id=request_id
         )
 
     async def send_didChangeConfiguration(self):
@@ -91,31 +83,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             "contentChanges": [{"text": code}],
         }
         await self.send_request("textDocument/didChange", params=params)
-
-    async def send_reference_request(
-        self,
-        position_offset,
-        line,
-        character,
-        code_id,
-        request_id,
-        return_id,
-    ):
-        uri = self.get_virtual_uri(code_id)
-        params = {
-            "textDocument": {
-                "uri": uri,
-            },
-            "position": {"line": line, "character": character},
-            "context": {"includeDeclaration": False},
-        }
-        self.msg_id_to_metadata[request_id]["position_offset"] = position_offset
-        self.msg_id_to_metadata[request_id]["return_id"] = return_id
-        await self.send_request(
-            "textDocument/references",
-            params=params,
-            id=request_id,
-        )
 
     def get_file_uri(self):
         return f"file://{self.root_path}".lower()

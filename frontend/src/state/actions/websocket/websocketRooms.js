@@ -15,22 +15,15 @@ export function setWebsocketRoomMessage(id, message) {
   useWebsocketRooms.setState({ [id]: message });
 }
 
-export async function sendMessageInRoom({
-  id,
-  messageType,
-  content,
-  condition,
-}) {
+export async function sendMessageInRoom({ id, messageType, content }) {
   return new Promise((resolve) => {
     const actualId = id ? id : createNewId();
     const unsub = useWebsocketRooms.subscribe(
       (x) => x[actualId],
       (x) => {
-        if (!condition || condition(x)) {
-          unsub();
-          resolve(x);
-          deleteWebsocketRoom(actualId);
-        }
+        unsub();
+        resolve(x);
+        deleteWebsocketRoom(actualId);
       },
     );
 

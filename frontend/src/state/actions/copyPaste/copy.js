@@ -87,11 +87,8 @@ function getCodeInfo(sections) {
     (x) => getSectionInfo(x.id).codeInfoId,
   );
   let output = [];
-  const codeInfoState = useCodeInfo.getState().x;
   for (const cid of sectionCodeInfoIds) {
-    const codeInfos = findAll(codeInfoState, [cid]).map(
-      (x) => codeInfoState[x],
-    );
+    const codeInfos = findAll(useCodeInfo.getState().x, [cid]);
     if (codeInfos.some((x) => x.isSelected)) {
       output.push(
         ...codeInfos.filter(

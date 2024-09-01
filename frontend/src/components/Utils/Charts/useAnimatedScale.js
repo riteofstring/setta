@@ -16,10 +16,12 @@ export function useAnimatedScale({
 
   const scale = useMemo(
     () =>
-      scaleLinear({
+      scaleLinear <
+      number >
+      {
         domain: [lowerBound, upperBound],
         range: pixelRangeIncreases ? [0, maxPixelRange] : [maxPixelRange, 0],
-      }),
+      },
     [lowerBound, upperBound, maxPixelRange],
   );
 

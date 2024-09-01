@@ -3,12 +3,12 @@ import C from "constants/constants.json";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
-import { ArtifactArea } from "../Layouts/ArtifactArea";
 import { CodeArea } from "../Layouts/CodeArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { InfoArea } from "../Layouts/InfoArea";
 import { InputArea } from "../Layouts/InputArea";
+import { OutputArea } from "../Layouts/OutputArea";
 import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { ReferenceArea } from "../Layouts/ReferenceArea";
 import { SocialArea } from "../Layouts/SocialArea";
@@ -59,6 +59,7 @@ export function SectionContainerCoreResizable({
       return "bg-white dark:bg-black";
     }
     switch (sectionTypeName) {
+      case C.VAR_CONTROL:
       case C.CODE:
         return "bg-white dark:bg-setta-900";
       case C.TERMINAL:
@@ -111,8 +112,8 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <InputArea sectionId={sectionId} />;
     case C.REFERENCE_SECTION:
       return <ReferenceArea sectionId={sectionId} />;
-    case C.ARTIFACT:
-      return <ArtifactArea sectionId={sectionId} />;
+    case C.OUTPUT:
+      return <OutputArea sectionId={sectionId} />;
     case C.SOCIAL:
       return <SocialArea sectionId={sectionId} />;
     case C.INFO:
@@ -121,6 +122,7 @@ function AreaSwitch({ sectionId, sectionTypeName }) {
       return <GlobalVariablesArea sectionId={sectionId} />;
     case C.CODE:
     case C.INTERACTIVE_CODE:
+    case C.VAR_CONTROL:
       return <CodeArea sectionId={sectionId} />;
     case C.PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;

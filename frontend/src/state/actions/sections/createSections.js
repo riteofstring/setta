@@ -66,6 +66,9 @@ export function addSectionAtPosition({
   } else if (type === C.CODE) {
     sectionProps.name = "Code";
     sectionProps.size = settings.defaultCodeSectionSize;
+  } else if (type === C.VAR_CONTROL) {
+    sectionProps.name = "Var Control";
+    sectionProps.size = settings.defaultCodeSectionSize;
   } else if (type === C.TERMINAL) {
     sectionProps.size = settings.defaultTerminalSectionSize;
   } else if (type === C.GLOBAL_PARAM_SWEEP) {

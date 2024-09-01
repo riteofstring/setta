@@ -4,15 +4,14 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 from setta.utils.constants import C
 
-from .dependencies import get_websocket_manager_from_websocket
+from .dependencies import get_websocket_manager
 
 router = APIRouter()
 
 
 @router.websocket(C.ROUTE_WEBSOCKET_MANAGER)
 async def websocket_endpoint(
-    websocket: WebSocket,
-    websocket_manager=Depends(get_websocket_manager_from_websocket),
+    websocket: WebSocket, websocket_manager=Depends(get_websocket_manager)
 ):
     print("regular websocket", websocket)
     id = await websocket_manager.connect(websocket)

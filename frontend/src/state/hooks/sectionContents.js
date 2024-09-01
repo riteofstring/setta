@@ -1,32 +1,22 @@
 import _ from "lodash";
-import { useCodeInfo, useSectionToParamIds } from "state/definitions";
+import { useCodeInfo, useSectionToParams } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
+import { useOutputValues } from "./outputs";
 import { useGetSectionInfo } from "./sections";
 
 export function useGetAllCallables(sectionId) {
-  const ids = useSectionToParamIds(
-    (x) => x.callables[sectionId] ?? [],
-    _.isEqual,
-  );
-  return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
+  return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);
 }
 
 export function useGetParamInfos(sectionId) {
-  const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
-  return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
+  return useSectionToParams((x) => x.params[sectionId] ?? [], _.isEqual);
 }
 
 export function useGetParamInfosThatHaveNames(sectionId) {
-  const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
-  return useCodeInfo((x) => {
-    const haveName = [];
-    for (const id of ids) {
-      if (x.x[id].name) {
-        haveName.push(x.x[id]);
-      }
-    }
-    return haveName;
-  }, _.isEqual);
+  return useSectionToParams(
+    (x) => x.params[sectionId]?.filter((x) => x.name) ?? [],
+    _.isEqual,
+  );
 }
 
 function useGetSelectedCollections(sectionId) {
@@ -42,6 +32,11 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
   );
 }
 
+export function useGetSelectedOutputValues(sectionId) {
+  const groupId = useGetSectionInfo(sectionId, "outputGroup");
+  return useOutputValues(groupId);
+}
+
 export function useHasParams(sectionId) {
-  return useSectionToParamIds((x) => (x.params[sectionId] ?? []).length > 0);
+  return useSectionToParams((x) => (x.params[sectionId] ?? []).length > 0);
 }

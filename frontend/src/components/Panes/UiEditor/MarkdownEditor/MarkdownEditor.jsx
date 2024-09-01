@@ -1,5 +1,5 @@
 import _ from "lodash";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
@@ -16,8 +16,20 @@ const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
 
   function onChange(v) {
     setLocalDescription(v);
-    debouncedSetDescription(sectionId, v, description);
+    setDescription(v);
   }
+
+  const setDescription = useCallback(
+    _.debounce((v) => {
+      if (v !== description) {
+        setSectionInfoAttr({ sectionId, attr: "description", value: v });
+        const sectionName = getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
+        setSectionInfoAttr({ sectionId, attr: "name", value: sectionName });
+        maybeIncrementProjectStateVersion(true);
+      }
+    }, 200),
+    [description],
+  );
 
   return (
     <div
@@ -78,12 +90,3 @@ function getFirstHeadingOrText(markdown) {
 export function getDefaultInfoTitle() {
   return "Empty Info Section";
 }
-
-const debouncedSetDescription = _.debounce((sectionId, v, description) => {
-  if (v !== description) {
-    setSectionInfoAttr({ sectionId, attr: "description", value: v });
-    const sectionName = getFirstHeadingOrText(v) ?? getDefaultInfoTitle();
-    setSectionInfoAttr({ sectionId, attr: "name", value: sectionName });
-    maybeIncrementProjectStateVersion(true);
-  }
-}, 200);

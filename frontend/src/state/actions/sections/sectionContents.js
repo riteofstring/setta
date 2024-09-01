@@ -1,7 +1,7 @@
 import {
   useCodeInfo,
   useSectionInfos,
-  useSectionToParamIds,
+  useSectionToParams,
 } from "state/definitions";
 import {
   findAllCallables,
@@ -13,9 +13,7 @@ import { updateKeywordRegex } from "../keywordRegex";
 import { getSectionSelectedItem } from "../sectionVariants";
 
 export function getParamInfos(sectionId) {
-  const ids = useSectionToParamIds.getState().params[sectionId] ?? [];
-  const cState = useCodeInfo.getState().x;
-  return ids.map((x) => cState[x]);
+  return useSectionToParams.getState().params[sectionId] ?? [];
 }
 
 function computeAllCallables(sectionId) {
@@ -24,17 +22,17 @@ function computeAllCallables(sectionId) {
 }
 
 function computeAllParams(sectionId, objInfoId) {
-  const objParamInfoIds = objInfoId
+  const objParamInfos = objInfoId
     ? findAllParametersOfCallables(useCodeInfo.getState().x, [objInfoId])
     : [];
 
   const { codeInfoId } = getSectionInfo(sectionId);
-  const paramCollectionIds = findAllParametersOfCollections(
+  const paramCollections = findAllParametersOfCollections(
     useCodeInfo.getState().x,
     [codeInfoId],
   );
 
-  return [...objParamInfoIds, ...paramCollectionIds];
+  return movePinnedToFront([...objParamInfos, ...paramCollections]);
 }
 
 export function updateManyParamsAndCallables(sectionIds) {
@@ -60,17 +58,17 @@ export function updateParamsAndCallables(
 }
 
 export function updateCallables(sectionId) {
-  const callableIds = computeAllCallables(sectionId);
-  useSectionToParamIds.setState((state) => {
-    state.callables[sectionId] = callableIds;
+  const callables = computeAllCallables(sectionId);
+  useSectionToParams.setState((state) => {
+    state.callables[sectionId] = callables;
   });
 }
 
 export function updateParams(sectionId) {
   const selectedItem = getSectionSelectedItem(sectionId);
-  const paramIds = computeAllParams(sectionId, selectedItem);
-  useSectionToParamIds.setState((state) => {
-    state.params[sectionId] = paramIds;
+  const params = computeAllParams(sectionId, selectedItem);
+  useSectionToParams.setState((state) => {
+    state.params[sectionId] = params;
   });
 }
 

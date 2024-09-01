@@ -21,9 +21,5 @@ def get_terminal_websockets(request: Request):
     return request.app.state.terminal_websockets
 
 
-def get_websocket_manager(request: Request):
-    return request.app.state.websocket_manager
-
-
-def get_websocket_manager_from_websocket(websocket: WebSocket):
+def get_websocket_manager(websocket: WebSocket):
     return websocket.app.state.websocket_manager

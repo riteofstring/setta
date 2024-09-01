@@ -190,10 +190,7 @@ function ShowSectionVariant({ forSectionId, objInfoId, variantId }) {
     const output = [];
     for (const c of x.x[objInfoId].children) {
       if (sectionVariant.values[c]) {
-        output.push({
-          name: x.x[c].name,
-          value: sectionVariant.values[c].value,
-        });
+        output.push({ name: x.x[c].name, value: sectionVariant.values[c] });
       }
     }
     return output;
@@ -309,8 +306,6 @@ function Input({
           onChange={onChange}
           className="nodrag"
           sectionIdToBeActive={sectionId}
-          keywordPositions={[]}
-          setKeywordPositions={() => {}}
         />
       </article>
     </>

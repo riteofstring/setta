@@ -102,7 +102,7 @@ function CustomResizableCore({
 function useSizeMode(sectionId) {
   const sectionType = useGetSectionType(sectionId, "type");
   const isTwitter = useIsTwitter(sectionId);
-  if (sectionType === C.ARTIFACT) {
+  if (sectionType === C.OUTPUT) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   } else if (isTwitter) {
     return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };

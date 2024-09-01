@@ -2,10 +2,13 @@ import asyncio
 import os
 from typing import Dict
 
-from setta.database.utils import create_new_id
-
 from . import fns
-from .fns.utils import TaskDefinition, TaskMessage, import_code_from_string
+from .fns.utils import (
+    TaskDefinition,
+    TaskMessage,
+    import_code_from_string,
+    import_from_path,
+)
 from .task_runner import TaskRunner
 
 
@@ -16,27 +19,20 @@ class Tasks:
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
         self.custom_fn_names = {}
-        self.custom_fn_name_to_project_dict = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
         try:
             print(f"Start processing message ID: {message.id}", flush=True)
-            if fn_name in self.custom_fn_name_to_project_dict:
-                message.content = {
-                    **self.custom_fn_name_to_project_dict[fn_name],
-                    **message.content,
-                }
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
             fn_args = [message, *(getattr(self, k) for k in fn.dependencies)]
             result = await self.task_runner.run(message.id, fn.fn, fn_args, fn.run_as)
             fn.write_cache(self.cache, message, result)
-            result["messageType"] = fn.return_message_type
             return result
         except asyncio.CancelledError:
             print(f"Task for {message.id} was cancelled.", flush=True)
-            return {"content": None, "messageType": None}
+            return {"output": None, "name": None}
 
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
@@ -57,12 +53,9 @@ class Tasks:
                 task_names.append(attr.name)
         return task_names
 
-    async def add_custom_fns(
-        self, codeDict, project_config_name, projectAsSimpleDict, runOnImport
-    ):
+    def add_custom_fns(self, codeDict, project_config_name):
         error_msgs = {}
         task_names = []
-        content = []
         self.remove_existing_custom_fns(project_config_name)
         for id, code in codeDict.items():
             task_name = f"{project_config_name}-{id}"
@@ -75,20 +68,11 @@ class Tasks:
             except Exception as e:
                 error_msgs[task_name] = str(e)
         self.custom_fn_names[project_config_name] = task_names
-        for n in task_names:
-            self.custom_fn_name_to_project_dict[n] = projectAsSimpleDict
-
-        if runOnImport:
-            for n in task_names:
-                task_output = await self(n, TaskMessage(id=create_new_id(), content={}))
-                content.extend(task_output["content"])
-
-        return task_names, error_msgs, content
+        print("add_fns_from_string", self.fns.keys(), flush=True)
+        return task_names, error_msgs
 
     def remove_existing_custom_fns(self, project_config_name):
         if project_config_name not in self.custom_fn_names:
             return
         for x in self.custom_fn_names[project_config_name]:
             del self.fns[x]
-            del self.custom_fn_name_to_project_dict[x]
-        del self.custom_fn_names[project_config_name]

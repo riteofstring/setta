@@ -3,7 +3,6 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import (
-    position_to_line_col,
     prepend_with_imports,
     set_line,
     var_declaration,
@@ -27,7 +26,9 @@ class CodeCompletionContent(BaseModel):
 
 
 async def _textFieldCompletion(message, lsp_writer):
-    return await completionHelper(message, textFieldCompletionFn(lsp_writer))
+    return await completionHelper(
+        message, "textFieldCompletion", textFieldCompletionFn(lsp_writer)
+    )
 
 
 def textFieldCompletionFn(lsp_writer):
@@ -37,15 +38,14 @@ def textFieldCompletionFn(lsp_writer):
         code,
         codeJson,
         var_name_to_line_num,
+        var_name,
         referencable_var_names,
-        line,
         column,
         **_,
     ):
-        # print("code", code, flush=True)
-        # print("line, column", line, column, flush=True)
-
         await lsp_writer.send_document_update(code_id, code, codeJson)
+        column = column + len(var_declaration(var_name, ""))
+        line = var_name_to_line_num[var_name]
         await lsp_writer.send_autocomplete_request(
             line,
             column,
@@ -58,12 +58,12 @@ def textFieldCompletionFn(lsp_writer):
     return fn
 
 
-async def completionHelper(message, fn):
+async def completionHelper(message, return_name, fn):
     request_id = message.id
     message = CodeCompletionContent.parse_obj(message.content)
     cached = message.cached
     if cached is None:
-        return {"content": []}
+        return {"output": [], "name": return_name, "cache": None}
 
     (
         lines,
@@ -75,7 +75,7 @@ async def completionHelper(message, fn):
     var_name = exporter_obj.var_name_mapping[
         (message.sectionId, message.paramInfoId, False)
     ]
-    fullText, _, position = process_refs(
+    fullText, position = process_refs(
         message.fullText,
         message.evRefs,
         exporter_obj.get_ref_var_name,
@@ -85,13 +85,6 @@ async def completionHelper(message, fn):
     code, var_name_to_line_num = prepend_with_imports(
         lines, templatedCode, var_name, var_name_to_line_num
     )
-
-    line_within_fullText, column = position_to_line_col(fullText, position)
-    # print("line_within_fullText, column", line_within_fullText, column, flush=True)
-    if line_within_fullText == 0:
-        column += len(var_declaration(var_name, ""))
-    line = line_within_fullText + var_name_to_line_num[var_name]
-
     output = await fn(
         code_id=message.projectConfigId,
         request_id=request_id,
@@ -99,11 +92,11 @@ async def completionHelper(message, fn):
         code=code,
         codeJson=exporter_obj.output,
         var_name_to_line_num=var_name_to_line_num,
+        var_name=var_name,
         referencable_var_names=referencable_var_names,
-        line=line,
-        column=column,
+        column=position,
     )
-    return {"content": output}
+    return {"output": output, "name": return_name, "cache": None}
 
 
 def read_cache(cache, message):
@@ -117,7 +110,6 @@ def read_cache(cache, message):
 
 textFieldCompletion = TaskDefinition(
     name="textFieldCompletion",
-    return_message_type="textFieldCompletionReturn",
     fn=_textFieldCompletion,
     read_cache=read_cache,
     run_as=RunType.THREAD,

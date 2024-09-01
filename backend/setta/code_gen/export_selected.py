@@ -14,14 +14,6 @@ def get_section_type(p, id):
     return p["uiTypes"][ui_type_id]["type"]
 
 
-def get_artifacts(p, id):
-    return p["sections"][id]["artifacts"]
-
-
-def get_section_name(p, id):
-    return p["sections"][id]["name"]
-
-
 def get_selected_item(p, id):
     selected_item = get_selected_section_variant(p, id)["selectedItem"]
     if selected_item:
@@ -81,14 +73,17 @@ def no_entered_value(value):
     return value is None or value == ""
 
 
-def get_var_name(var_name_mapping):
-    return f"__x{len(var_name_mapping)}"
+def get_var_name(var_names):
+    name = f"__x{len(var_names)}"
+    var_names.add(name)
+    return name
 
 
 def maybe_create_var_name(
     section_id,
     param_info_id,
     param_name,
+    var_names,
     var_name_mapping,
     var_name_reverse_mapping,
     is_global=False,
@@ -97,7 +92,7 @@ def maybe_create_var_name(
     mapping_key = (section_id, param_info_id, is_args_obj)
     var_name = var_name_mapping.get(mapping_key)
     if not var_name:
-        var_name = param_name if is_global else get_var_name(var_name_mapping)
+        var_name = param_name if is_global else get_var_name(var_names)
         var_name_mapping[mapping_key] = var_name
         var_name_reverse_mapping[var_name] = mapping_key
     return var_name
@@ -109,19 +104,15 @@ def export_selected(p):
     return e
 
 
-def simple_export_selected(p):
-    e = SimpleExporter(p)
-    e.export()
-    return e
-
-
-def get_code_containing_generated_python(p):
+def get_code(p):
     for id, s in p["sections"].items():
-        if get_section_type(p, id) == C.CODE and s["codeLanguage"] == "python":
-            code = get_selected_section_variant(p, id)["code"]
-            if needs_generated_python(code):
-                return code
-    return double_braces(C.SETTA_GENERATED_PYTHON)
+        if (
+            get_section_type(p, id) == C.CODE
+            and s["codeLanguage"] == "python"
+            and needs_generated_python(s["code"])
+        ):
+            return s["code"]
+    return double_braces("SETTA_GENERATED_CODE")
 
 
 def flatten_groups(p):
@@ -152,34 +143,30 @@ def flatten_groups(p):
             )
 
 
-def export_global_variables_and_remove_script(
-    p, keep_section_types, fn_export_global_variables
-):
-    to_pop = []
-    for id in p["sections"].keys():
-        section_type = get_section_type(p, id)
-        if section_type == C.GLOBAL_VARIABLES:
-            fn_export_global_variables(id, is_global=True)
-        if section_type not in keep_section_types:
-            to_pop.append(id)
-    for id in to_pop:
-        p["sections"].pop(id)
-        p["projectConfig"]["children"].pop(id)
-
-
 class Exporter:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
+        self.var_names = set()
         self.var_name_mapping = {}
         self.var_name_reverse_mapping = {}
 
     def export(self):
         flatten_groups(self.p)
-        export_global_variables_and_remove_script(
-            self.p, [C.SECTION, C.LIST_ROOT, C.DICT_ROOT], self.export_section_params
-        )
+        self.export_global_variables_and_remove_script()
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
+
+    def export_global_variables_and_remove_script(self):
+        to_pop = []
+        for id in self.p["sections"].keys():
+            section_type = get_section_type(self.p, id)
+            if section_type == C.GLOBAL_VARIABLES:
+                self.export_section_params(id, is_global=True)
+            if section_type not in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT]:
+                to_pop.append(id)
+        for id in to_pop:
+            self.p["sections"].pop(id)
+            self.p["projectConfig"]["children"].pop(id)
 
     def export_sections(self, ids):
         return [self.export_section(x) for x in ids]
@@ -189,6 +176,7 @@ class Exporter:
             id,
             None,
             None,
+            self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
         )
@@ -196,7 +184,7 @@ class Exporter:
             type = get_section_type(self.p, id)
             info = {
                 "sectionId": id,
-                "name": get_section_name(self.p, id),
+                "name": self.p["sections"][id]["name"],
                 "type": type,
             }
             if type == C.SECTION:
@@ -211,12 +199,10 @@ class Exporter:
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 }
-                info["dependencies"] = params
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT]:
                 children = get_selected_section_variant(self.p, id)["children"]
                 info["value"] = self.export_sections(children)
-                info["dependencies"] = info["value"]
                 self.output[var_name] = info
             else:
                 raise ValueError
@@ -227,6 +213,7 @@ class Exporter:
             id,
             None,
             None,
+            self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
             is_args_obj=True,
@@ -235,7 +222,7 @@ class Exporter:
             params, unused_params, positionalOnlyParams = self.export_section_params(id)
             info = {
                 "sectionId": id,
-                "name": get_section_name(self.p, id),
+                "name": self.p["sections"][id]["name"],
                 "type": C.SECTION,
                 "value": {
                     "callable": None,
@@ -243,7 +230,6 @@ class Exporter:
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 },
-                "dependencies": params,
             }
             self.output[var_name] = info
         return var_name
@@ -254,7 +240,6 @@ class Exporter:
 
     def export_params(self, section_id, ids, is_global=False):
         var_names = [self.export_param(section_id, x, is_global) for x in ids]
-        var_names = [x for x in var_names if x]
         params = []
         unused_params = []
         positionalOnlyParams = set()
@@ -273,12 +258,11 @@ class Exporter:
     def export_param(self, section_id, id, is_global=False):
         codeInfo = self.p["codeInfo"][id]
         param_name = codeInfo["name"]
-        if not param_name:
-            return None
         var_name = maybe_create_var_name(
             section_id,
             id,
             param_name,
+            self.var_names,
             self.var_name_mapping,
             self.var_name_reverse_mapping,
             is_global=is_global,
@@ -294,30 +278,29 @@ class Exporter:
                     "name": param_name,
                     "type": C.NESTED_PARAM,
                     "value": params,
-                    "dependencies": params,
                 }
                 self.output[var_name] = info
             else:
-                value, used_ref_var_names = self.export_param_value(section_id, id)
+                value, deps = self.export_param_value(section_id, id)
                 self.output[var_name] = {
-                    "sectionId": section_id,
-                    "paramInfoId": id,
-                    "name": param_name,
-                    "type": get_param_ui_type(self.p, section_id, id),
                     "value": value,
-                    "dependencies": used_ref_var_names,
+                    "paramInfoId": id,
+                    "sectionId": section_id,
+                    "name": param_name,
+                    "deps": deps,
+                    "type": get_param_ui_type(self.p, section_id, id),
+                    "is_global": is_global,
                 }
 
         return var_name
 
     def export_param_value(self, section_id, id):
         dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
-        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
+        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]
         refs = self.p["evRefs"][section_id][id]
-        value, used_ref_var_names = process_refs(
-            value, refs, self.maybe_create_ref_var_name
-        )
-        return value, used_ref_var_names
+        deps = []
+        value = process_refs(value, refs, self.maybe_create_ref_var_name)
+        return value, deps
 
     def maybe_create_ref_var_name(
         self, ref_section_id, ref_param_info_id, ref_is_args_obj
@@ -335,65 +318,3 @@ class Exporter:
         return self.var_name_mapping[
             (ref_section_id, ref_param_info_id, ref_is_args_obj)
         ]
-
-
-class SimpleExporter:
-    def __init__(self, p):
-        self.output = {}
-        self.p = copy.deepcopy(p)
-
-    def export(self):
-        flatten_groups(self.p)
-        export_global_variables_and_remove_script(
-            self.p,
-            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.ARTIFACT],
-            self.export_global_variables,
-        )
-        for id in list(self.p["projectConfig"]["children"].keys()):
-            name = get_section_name(self.p, id)
-            self.output[name] = self.export_section(id)
-
-    def export_global_variables(self, id, **_):
-        self.output.update(self.export_section_params(id))
-
-    def export_section(self, id):
-        type = get_section_type(self.p, id)
-        if type == C.SECTION:
-            selectedItem = get_selected_item_name(self.p, id)
-            params = self.export_section_params(id)
-            value = {"selectedItem": selectedItem, "params": params}
-        elif type in [C.LIST_ROOT, C.DICT_ROOT]:
-            children = get_selected_section_variant(self.p, id)["children"]
-            if type == C.LIST_ROOT:
-                value = [self.export_section(c) for c in children]
-            elif type == C.DICT_ROOT:
-                value = {
-                    get_section_name(self.p, c): self.export_section(c)
-                    for c in children
-                }
-        elif type == C.ARTIFACT:
-            value = get_artifacts(self.p, id)
-        else:
-            raise ValueError
-        return value
-
-    def export_section_params(self, section_id):
-        return self.export_params(section_id, get_param_ids(self.p, section_id))
-
-    def export_params(self, section_id, ids):
-        params = {}
-        for param_id in ids:
-            codeInfo = self.p["codeInfo"][param_id]
-            param_children = codeInfo["children"]
-            if len(param_children) > 0:
-                value = self.export_params(section_id, param_children)
-            else:
-                value = self.export_param_value(section_id, param_id)
-            if not no_entered_value(value):
-                params[codeInfo["name"]] = value
-        return params
-
-    def export_param_value(self, section_id, id):
-        dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
-        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
-        return value

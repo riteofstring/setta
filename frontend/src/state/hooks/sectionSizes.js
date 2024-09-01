@@ -4,10 +4,10 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { useGetParamInfos } from "./sectionContents";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
-import { useIsArtifact, useIsRoot } from "./uiTypes";
+import { useIsOutput, useIsRoot } from "./uiTypes";
 
 export function useMinSectionHeight(sectionId) {
-  const isOutput = useIsArtifact(sectionId);
+  const isOutput = useIsOutput(sectionId);
   const isRoot = useIsRoot(sectionId);
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");

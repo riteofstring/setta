@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbSaveCodeInfo } from "requests/sectionConfig";
-import { useSectionInfos, useSectionToParamIds } from "state/definitions";
+import { useSectionInfos, useSectionToParams } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getKwargIds } from "../../getters/codeInfo";
 import {
@@ -9,7 +9,6 @@ import {
 } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
-import { updateKeywordRegex } from "../keywordRegex";
 import { updateParams } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
@@ -29,7 +28,7 @@ export function addKwarg({
   });
   const parent = parentId ?? getSectionInfo(sectionId).codeInfoId;
   addCodeInfo({ info: kwargInfo, parent, insertIdx });
-  initializeParam(sectionId, [kwargInfo.id]);
+  initializeParam(sectionId, [kwargInfo]);
   updateParams(sectionId); // TODO: make this not so inefficient
   maybeIncrementProjectStateVersion(incrementVersion);
   return kwargInfo.id;
@@ -63,7 +62,9 @@ export function deleteKwarg(payload) {
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {
-  const children = useSectionToParamIds.getState().params[sectionId];
+  const children = useSectionToParams
+    .getState()
+    .params[sectionId].map((x) => x.id);
   const collection = newCodeInfo({
     name,
     rcType: C.COLLECTION,
@@ -75,9 +76,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 }
 
 export function changeKwargName({ sectionId, paramInfoId, name }) {
-  console.log("changeKwargName", name);
   setCodeInfoName({ id: paramInfoId, name });
-  updateKeywordRegex();
-  // updateParams(sectionId);
-  // maybeIncrementProjectStateVersion(true);
+  updateParams(sectionId);
+  maybeIncrementProjectStateVersion(true);
 }

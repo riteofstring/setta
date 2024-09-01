@@ -1,12 +1,11 @@
 import C from "constants/constants.json";
-import { getProjectDataForInteractive } from "state/actions/project/projectDataForInteractive";
+import { useProjectConfig } from "state/definitions";
 import { post } from "./utils";
 
-export async function dbUpdateInteractiveCode() {
-  const project = getProjectDataForInteractive();
-  console.log("dbUpdateInteractiveCode", project);
+export async function dbUpdateInteractiveCode(codeDict) {
+  const projectConfigName = useProjectConfig.getState().name;
   return await post({
-    body: { project, runOnImport: true },
+    body: { codeDict, projectConfigName },
     address: C.ROUTE_UPDATE_INTERACTIVE_CODE,
   });
 }

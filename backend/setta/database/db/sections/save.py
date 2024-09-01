@@ -1,6 +1,3 @@
-from setta.database.utils import dump_keyword_positions_as_string
-
-
 def save_sections(dbs, sections):
     db = dbs.default
     query = """
@@ -10,7 +7,9 @@ def save_sections(dbs, sections):
             uiTypeId,
             uiTypeColId,
             social,
+            outputGroupId,
             description,
+            code,
             codeLanguage,
             isFrozen,
             dbSource,
@@ -22,7 +21,9 @@ def save_sections(dbs, sections):
             :uiTypeId,
             :uiTypeColId,
             :social,
+            :outputGroupId,
             :description,
+            :code,
             :codeLanguage,
             :isFrozen,
             :dbSource,
@@ -34,7 +35,9 @@ def save_sections(dbs, sections):
             uiTypeId = :uiTypeId,
             uiTypeColId = :uiTypeColId,
             social = :social,
+            outputGroupId = :outputGroupId,
             description = :description,
+            code = :code,
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
             dbSource = :dbSource,
@@ -48,7 +51,9 @@ def save_sections(dbs, sections):
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
             "social": s["social"],
+            "outputGroupId": s["outputGroup"],
             "description": s["description"],
+            "code": s["code"],
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "dbSource": s.get("dbSource"),
@@ -127,29 +132,3 @@ def save_sections(dbs, sections):
             for s in sections.values()
         ],
     )
-
-    query = f"""
-        DELETE FROM SectionArtifacts
-        WHERE sectionId IN ({placeholders});
-    """
-    db.execute(query, ids)
-
-    # add children
-    query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactPath, type, displayName)
-        VALUES (:sectionId, :artifactPath, :type, :displayName)
-    """
-    query_params = []
-    for s in sections.values():
-        query_params.extend(
-            [
-                {
-                    "sectionId": s["id"],
-                    "artifactPath": a["path"],
-                    "type": a["type"],
-                    "displayName": a["displayName"],
-                }
-                for a in s["artifacts"]
-            ]
-        )
-    db.executemany(query, query_params)

@@ -10,6 +10,7 @@ import { getMappedSectionDBSource } from "../getters/sectionInfo";
 import { initValue } from "../utils";
 import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
+import { varControlUpdate } from "./varControl";
 
 export function setAllSectionVariants(x) {
   useSectionVariants.setState({ x });
@@ -49,8 +50,6 @@ export function initManySectionVariantIds({
         values: variantProps.values ?? {},
         children: variantProps.children ?? [],
         selectedItem: variantProps.selectedItem ?? null,
-        code: variantProps.code ?? "",
-        keywordPositions: variantProps.keywordPositions ?? [],
       });
     });
   });
@@ -62,10 +61,7 @@ export function initManyEnteredValues({
 }) {
   useSectionVariants.setState((state) => {
     _.forEach(paramIdsToUITypes, (uiType, id) => {
-      state.x[dbSource][collectionId].values[id] = {
-        value: newEV(uiType),
-        keywordPositions: [],
-      };
+      state.x[dbSource][collectionId].values[id] = newEV(uiType);
     });
   });
 }
@@ -76,22 +72,9 @@ export function setEnteredValue({
   value,
 }) {
   useSectionVariants.setState((state) => {
-    state.x[dbSource][collectionId].values[paramInfoId].value = value;
+    state.x[dbSource][collectionId].values[paramInfoId] = value;
   });
 }
-
-export function setKeywordPositions({
-  dbSource,
-  collectionId,
-  paramInfoId,
-  keywordPositions,
-}) {
-  useSectionVariants.setState((state) => {
-    state.x[dbSource][collectionId].values[paramInfoId].keywordPositions =
-      keywordPositions;
-  });
-}
-
 export function deleteParamInfoFromSectionVariant({
   dbSource,
   variantId,
@@ -126,7 +109,6 @@ function getParamEV(sectionId, paramInfoId) {
     paramInfoId
   ];
 }
-
 export function setParamEnteredValue({
   sectionId,
   paramInfoId,
@@ -136,23 +118,11 @@ export function setParamEnteredValue({
   const { variantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(sectionId);
   setEnteredValue({ dbSource, collectionId: variantId, paramInfoId, value });
+  if (incrementVersion) {
+    varControlUpdate();
+  }
   maybeIncrementProjectStateVersion(incrementVersion);
   debouncedRequestTypeCheck();
-}
-
-export function setParamKeywordPositions({
-  sectionId,
-  paramInfoId,
-  keywordPositions,
-}) {
-  const { variantId, dbSource } =
-    getSectionVariantIdAndMappedDBSource(sectionId);
-  setKeywordPositions({
-    dbSource,
-    collectionId: variantId,
-    paramInfoId,
-    keywordPositions,
-  });
 }
 
 export function getSectionChildren(sectionId) {
@@ -194,26 +164,6 @@ export function getSectionIdToChildren(sectionVariantState) {
   return output;
 }
 
-export function getSectionIdParamInfoIdToKeywordPositions(sectionVariantState) {
-  const output = {};
-  const s = useSectionInfos.getState().x;
-  for (const variantsInOneDbSource of Object.values(sectionVariantState)) {
-    for (const [variantId, variantInfo] of Object.entries(
-      variantsInOneDbSource,
-    )) {
-      const sInfo = _.find(s, (obj) => obj.variantId === variantId);
-      if (sInfo) {
-        for (const [paramInfoId, valueInfo] of Object.entries(
-          variantInfo.values,
-        )) {
-          output[`${sInfo.id}-${paramInfoId}`] = valueInfo.keywordPositions;
-        }
-      }
-    }
-  }
-  return output;
-}
-
 export function getSectionSelectedItem(sectionId) {
   const { variantId, previewVariantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(sectionId);
@@ -222,12 +172,12 @@ export function getSectionSelectedItem(sectionId) {
   ].selectedItem;
 }
 
-export function getSectionCode(sectionId) {
-  const { variantId, previewVariantId, dbSource } =
+export function setSectionVariantSelectedItem(sectionId, selectedItem) {
+  const { variantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(sectionId);
-  return useSectionVariants.getState().x[dbSource][
-    previewVariantId ?? variantId
-  ].code;
+  useSectionVariants.setState((x) => {
+    x.x[dbSource][variantId].selectedItem = selectedItem;
+  });
 }
 
 export function getSectionChildrenAcrossVariants(sectionId) {
@@ -241,12 +191,4 @@ export function getSectionChildrenAcrossVariants(sectionId) {
     }
   }
   return output;
-}
-
-export function setSectionVariantAttr(sectionId, attr, value) {
-  const { variantId, dbSource } =
-    getSectionVariantIdAndMappedDBSource(sectionId);
-  useSectionVariants.setState((x) => {
-    x.x[dbSource][variantId][attr] = value;
-  });
 }

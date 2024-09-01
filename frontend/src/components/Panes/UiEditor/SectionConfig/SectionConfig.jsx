@@ -5,6 +5,7 @@ import { useGetSectionType } from "state/hooks/uiTypes";
 import { CONST_INFO_VIEWS } from "utils/constants";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { CollectionsSearch } from "./CollectionsSearch";
+import { OutputsSearch } from "./OutputSearch";
 import { SectionConfigTypeSelection } from "./SectionConfigTypeSelection";
 import { SocialTypeSearch } from "./SocialTypeSearch";
 
@@ -45,10 +46,9 @@ function SectionConfigCore({ sectionId }) {
 
 function SearchSwitch({ sectionId }) {
   const sectionType = useGetSectionType(sectionId, "type");
-  // if (sectionType === C.OUTPUT) {
-  //   return <OutputsSearch sectionId={sectionId} />;
-  // } else
-  if (sectionType === C.SOCIAL) {
+  if (sectionType === C.OUTPUT) {
+    return <OutputsSearch sectionId={sectionId} />;
+  } else if (sectionType === C.SOCIAL) {
     return <SocialTypeSearch sectionId={sectionId} />;
   } else {
     return <CollectionsSearch sectionId={sectionId} />;

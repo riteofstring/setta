@@ -53,26 +53,22 @@ export function KwargsControls({ sectionId, objInfoId }) {
         <div className="-mx-[0.125rem] flex w-full min-w-0 flex-wrap">
           <article className=" flex items-center">
             {/* <h3 className="pr-1 font-heading text-xs uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3> */}
-            <button
-              className={classes}
-              onClick={onClickDeleteKwarg}
-              tabIndex="-1"
-            >
+            <button className={classes} onClick={onClickDeleteKwarg}>
               <i className="gg-math-minus w-full" />
             </button>
-            <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">
+            <button className={classes} onClick={onClickAddKwarg}>
               <i className="gg-math-plus" />
             </button>
-            <button className={classes} onClick={onPushLeft} tabIndex="-1">
+            <button className={classes} onClick={onPushLeft}>
               <i className="gg-push-left ml-[2px]" />
             </button>
-            <button className={classes} onClick={onPushRight} tabIndex="-1">
+            <button className={classes} onClick={onPushRight}>
               <i className="gg-push-right mr-[2px]" />
             </button>
-            <button className={classes} onClick={onPushUp} tabIndex="-1">
+            <button className={classes} onClick={onPushUp}>
               <i className="gg-push-up mt-[2px]" />
             </button>
-            <button className={classes} onClick={onPushDown} tabIndex="-1">
+            <button className={classes} onClick={onPushDown}>
               <i className="gg-push-down mb-[2px]" />
             </button>
             <VerticalLine inputStyles="ml-2 mr-3 self-stretch hidden" />
@@ -84,7 +80,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
               id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
               className={inputStyles}
               placeholder="Filter"
-              tabIndex="-1"
+              tabIndex="0"
               onChange={onSearchChange}
             />
           </search>

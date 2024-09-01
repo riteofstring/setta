@@ -1,10 +1,8 @@
 import C from "constants/constants.json";
-import {
-  dbParametersRequest,
-  getKeywordPositionsAndEVRefs,
-} from "requests/sections";
+import { dbParametersRequest } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { varControlUpdate } from "state/actions/varControl";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 import { getSectionInfo } from "../../getters/sectionInfo";
@@ -16,7 +14,7 @@ import {
 import { updateKeywordRegex } from "../keywordRegex";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { setNotificationMessage } from "../notification";
-import { setSectionVariantAttr } from "../sectionVariants";
+import { setSectionVariantSelectedItem } from "../sectionVariants";
 import { updateCallables, updateParams } from "./sectionContents";
 import { setSectionInfoAttr } from "./sectionInfos";
 
@@ -31,27 +29,21 @@ export async function setSelectedItem(
 
   const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
   if (prevSelected) {
-    setSectionVariantAttr(sectionId, "selectedItem", prevSelected);
+    setSectionVariantSelectedItem(sectionId, prevSelected);
     updateParams(sectionId);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
-    const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
-      sectionId,
-      paramInfoId: null,
-      fullText: selectedItemName,
-    });
     const info = newCodeInfo({
       name: selectedItemName,
       editable: false,
       rcType: C.CALLABLE,
-      keywordPositions,
     });
     const { codeInfoId } = getSectionInfo(sectionId);
     addCodeInfo({ info, parent: codeInfoId });
     updateCallables(sectionId);
 
     const id = info.id;
-    setSectionVariantAttr(sectionId, "selectedItem", id);
+    setSectionVariantSelectedItem(sectionId, id);
 
     const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
 
@@ -60,7 +52,6 @@ export async function setSelectedItem(
       fullText: selectedItemName,
       beforeText: "",
       position: selectedItemName.length,
-      evRefs,
     });
     if (res) {
       createChildrenCodeInfo(id, res);
@@ -93,6 +84,9 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     codeInfoIds: [selectedItem],
   });
   updateParams(sectionId);
+  if (incrementVersion) {
+    varControlUpdate();
+  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

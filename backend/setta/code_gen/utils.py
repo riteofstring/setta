@@ -1,9 +1,17 @@
 def push_var_deep(objects, target_var_name):
+    def get_dependencies(obj):
+        """Retrieve dependencies from either 'deps' or 'params' within 'value'."""
+        if "deps" in obj:
+            return obj["deps"]
+        if "params" in obj["value"]:
+            return obj["value"]["params"]
+        return obj["value"]
+
     def find_dependents(obj_list, var_name):
         """Find all objects that directly or indirectly depend on the given object."""
         dependents = set()
         for obj in obj_list:
-            if var_name in obj["dependencies"]:
+            if var_name in get_dependencies(obj):
                 dependents.add(obj["var_name"])
                 dependents.update(find_dependents(obj_list, obj["var_name"]))
         return dependents
@@ -23,7 +31,6 @@ def push_var_deep(objects, target_var_name):
 def process_refs(value, refs, get_var_name, position=None):
     shift = 0
     refs = sorted(refs, key=lambda x: x["startPos"], reverse=True)
-    used_ref_var_names = []
     for ref in refs:
         ref_section_id = ref["sectionId"]
         ref_param_info_id = ref["paramInfoId"]
@@ -46,8 +53,7 @@ def process_refs(value, refs, get_var_name, position=None):
                 )  # Reset position to after the new substring
 
         value = value[:startPos] + ref_var_name + value[endPos:]
-        used_ref_var_names.append(ref_var_name)
 
     if position is not None:
-        return value, used_ref_var_names, position + shift
-    return value, used_ref_var_names
+        return value, position + shift
+    return value
