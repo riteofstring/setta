@@ -10,7 +10,7 @@ import {
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
-import { getTopLevelParamInfos } from "../sections/sectionContents";
+import { getTopLevelParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "../undo";
@@ -89,7 +89,7 @@ function deleteKwargIds({ sectionId, ids, parent, incrementVersion }) {
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {
-  const children = getTopLevelParamInfos(sectionId);
+  const children = getTopLevelParamIds(sectionId);
   const collection = newCodeInfo({
     name,
     rcType: C.COLLECTION,
