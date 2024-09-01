@@ -12,7 +12,7 @@ export function KwargParam(props) {
   // className="section-w-full grid grid-cols-subgrid [&_>_.arg-close-btn]:hover:opacity-75 [&_>_.arg-pin-btn]:hover:bg-setta-200/50"
   return (
     <>
-      <ParamContainer {...props} isKwarg={true} kwargInfo={kwargInfo}>
+      <ParamContainer {...props} kwargInfo={kwargInfo}>
         <ParamNameInput
           sectionId={sectionId}
           paramInfoId={kwargInfo.id}

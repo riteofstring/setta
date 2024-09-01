@@ -32,6 +32,7 @@ export function TextInputCodeMirror({
   autocomplete = true,
   initializeGenCode = true,
   isKeyName = false,
+  isDisabled = false,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -49,6 +50,9 @@ export function TextInputCodeMirror({
   }
 
   function localOnMouseDown(event) {
+    if (isDisabled) {
+      return;
+    }
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
       setActivationEvent(event);
@@ -60,6 +64,9 @@ export function TextInputCodeMirror({
 
   // focused via tab key
   function onFocus() {
+    if (isDisabled) {
+      return;
+    }
     if (initializeGenCode) {
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
     }
@@ -82,6 +89,7 @@ export function TextInputCodeMirror({
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           language={language}
+          isDisabled={isDisabled}
         />
       )}
       {activationEvent && (

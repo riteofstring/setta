@@ -208,3 +208,7 @@ export const useWebsocketConnectionList = create(() => ({
 export const useWebsocketRooms = createProjectState(
   subscribeWithSelector(() => ({})),
 );
+
+export const useParamShortcuts = create(() => {
+  isSelectingParams: false;
+});

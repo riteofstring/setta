@@ -2,25 +2,21 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
-import React, { useState } from "react";
+import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
+import { toggleCodeInfoSelected } from "state/actions/codeInfo";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useCodeInfo,
+  useParamShortcuts,
   useProjectSearch,
   useTypeErrors,
 } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
-function _ParamContainer({
-  sectionId,
-  paramInfo,
-  setDidUpdate,
-  isKwarg,
-  children,
-}) {
+function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isFocusedSearchResult = useProjectSearch((x) =>
@@ -54,40 +50,25 @@ function _ParamContainer({
     _.isEqual,
   );
 
-  const [isMousedOver, setIsMousedOver] = useState(false);
-  const [childIsMousedOver, setChildIsMousedOver] = useState(false);
-  const showButtons = isMousedOver && !childIsMousedOver;
+  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
 
   return paramChildren.length === 0 ? (
     <>
       <article
         className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
-        onMouseOver={() => {
-          setIsMousedOver(true);
-        }}
-        onMouseLeave={() => {
-          setIsMousedOver(false);
+        onClick={(e) => {
+          if (useParamShortcuts.getState().isSelectingParams) {
+            toggleCodeInfoSelected(paramInfo.id);
+          }
         }}
       >
-        {/* {showButtons && (
-          <IconButton
-            onClick={() => toggleCodeInfoSelected(paramInfo.id)}
-            icon={<i className="gg-check" />}
-            bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent  border-solid border-[1px]"
-            color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
-            twClasses={`arg-close-btn section-value cursor-pointer items-center justify-self-end  -mr-2 z-50 scale-125`}
-            padding=""
-            // size="h-1 w-1"
-            tabIndex="-1"
-          />
-        )} */}
         {children}
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfo.id}
           defaultVal={paramInfo.defaultVal}
-          isDisabled={!paramInfo.name}
+          isDisabled={isSelectingParams || !paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />
@@ -100,36 +81,9 @@ function _ParamContainer({
     <article
       className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
-      onMouseOver={() => {
-        setIsMousedOver(true);
-      }}
-      onMouseLeave={() => {
-        setIsMousedOver(false);
-        setChildIsMousedOver(false);
-      }}
     >
-      {/* {showButtons && (
-        <IconButton
-          onClick={() => toggleCodeInfoSelected(paramInfo.id)}
-          icon={<i className="gg-check" />}
-          bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent border-solid border-[1px]"
-          color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
-          twClasses={`arg-close-btn section-value cursor-pointer items-center justify-self-end -mr-2 z-50 scale-125`}
-          padding=""
-          // size="h-1 w-1"
-          tabIndex="-1"
-        />
-      )} */}
       {children}
-      <div
-        className="section-args-nested section-key-value relative grid gap-y-1"
-        onMouseOver={() => {
-          setChildIsMousedOver(true);
-        }}
-        onMouseLeave={() => {
-          setChildIsMousedOver(false);
-        }}
-      >
+      <div className="section-args-nested section-key-value relative grid gap-y-1">
         <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}

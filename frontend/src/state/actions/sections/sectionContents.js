@@ -37,18 +37,13 @@ export function getAllParamIds(
   _selectedItem = undefined,
   _codeInfoId = null,
 ) {
-  return getParamIds(
-    sectionId,
-    _cState,
-    _selectedItem,
-    _codeInfoId,
-    true,
-  );
+  return getParamIds(sectionId, _cState, _selectedItem, _codeInfoId, true);
 }
 
-export function getAllParamInfos(sectionId, codeInfoState = null) {
-  const ids = getAllParamIds(sectionId, codeInfoState);
-  return ids.map((x) => codeInfoState[x]);
+export function getAllParamInfos(sectionId, _cState = null) {
+  const cState = _cState ?? useCodeInfo.getState().x;
+  const ids = getAllParamIds(sectionId, cState);
+  return ids.map((x) => cState[x]);
 }
 
 function movePinnedToFront(params) {

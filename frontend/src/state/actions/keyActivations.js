@@ -1,6 +1,10 @@
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  activateParamSelect,
+  deactivateParamSelect,
+} from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
@@ -67,6 +71,7 @@ export function attachKeyEventListeners() {
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
     [settings.updateInteractiveCode, updateInteractiveCode],
+    [settings.paramSelect, activateParamSelect, deactivateParamSelect],
     [
       settings.drawSelectionShortcut,
       activateSelectionKeyPressed,
@@ -141,14 +146,8 @@ export function attachKeyEventListeners() {
   };
 }
 
-// Below functions are used in various onClick functions
-
 export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
-}
-
-export function paramSelect(e) {
-  return e.ctrlKey && e.shiftKey;
 }
 
 function activateSelectionKeyPressed() {
