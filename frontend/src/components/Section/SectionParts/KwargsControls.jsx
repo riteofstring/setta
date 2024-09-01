@@ -1,4 +1,3 @@
-import { VerticalLine } from "components/Utils/atoms/dividers/VerticalLine";
 import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import { addKwarg, deleteKwarg } from "state/actions/kwargs/kwargs";
 import { updateParams } from "state/actions/sections/sectionContents";
@@ -41,18 +40,20 @@ export function KwargsControls({ sectionId, objInfoId }) {
   const onPushUp = onPush(computeNewChildrenForVerticalPush("up"));
   const onPushDown = onPush(computeNewChildrenForVerticalPush("down"), true);
 
-  const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent focus-visible:border-blue-300 pl-6 py-1 placeholder-setta-600 text-setta-300";
+  const inputStyles = "";
 
   const classes =
     "focus-visible:ring-2 grid grid-cols-[1fr] grid-rows-[1fr] place-items-center nodrag cursor-pointer bg-transparent hover:bg-setta-100 dark:hover:bg-setta-950/50 text-setta-500 dark:hover:text-setta-300 rounded-full h-6 w-6";
 
   return (
     <>
-      <section className="section-args flex min-w-0  rounded-xl border-b border-solid border-white px-2  pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
-        <div className="-mx-[0.125rem] flex w-full min-w-0 flex-wrap">
-          <article className=" flex items-center">
-            {/* <h3 className="pr-1 font-heading text-xs uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3> */}
+      <section className="section-args mt-1 flex min-w-0 flex-wrap rounded-xl border-b border-solid border-white  px-1 pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
+        <article className="flex flex-wrap items-center">
+          <section className="flex">
+            <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
+              Args
+            </h3>
+
             <button
               className={classes}
               onClick={onClickDeleteKwarg}
@@ -63,6 +64,17 @@ export function KwargsControls({ sectionId, objInfoId }) {
             <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">
               <i className="gg-math-plus" />
             </button>
+            <button className={classes} onClick={onPushDown} tabIndex="-1">
+              <i className="gg-pin-alt mt-1" />
+            </button>
+            <button className={classes} tabIndex="-1">
+              <i className="gg-close-r" />
+            </button>
+          </section>
+          <section className="flex">
+            <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
+              Position
+            </h3>
             <button className={classes} onClick={onPushLeft} tabIndex="-1">
               <i className="gg-push-left ml-[2px]" />
             </button>
@@ -75,30 +87,20 @@ export function KwargsControls({ sectionId, objInfoId }) {
             <button className={classes} onClick={onPushDown} tabIndex="-1">
               <i className="gg-push-down mb-[2px]" />
             </button>
-            <VerticalLine inputStyles="ml-2 mr-3 self-stretch hidden" />
-          </article>
+          </section>
+        </article>
 
-          <search className="nodrag relative mx-2 flex min-w-12 flex-1 items-center">
-            <i className="gg-sort-az -mr-4 text-setta-300 dark:text-setta-600" />
-            <input
-              id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-              className={inputStyles}
-              placeholder="Filter"
-              tabIndex="-1"
-              onChange={onSearchChange}
-            />
-          </search>
-        </div>
-        {/* <StandardSearch
-          id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
-          leftElement={<BiFilter className="text-setta-400" />}
-          placeholder="Filter"
-          inputStyles={inputStyles}
-          outerClasses="flex-1"
-          onChange={onSearchChange}
-        /> */}
+        <search className="nodrag relative mx-2 flex min-w-20 flex-1 items-center justify-self-center">
+          <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
+          <input
+            id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
+            className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-300 placeholder-setta-600 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300"
+            placeholder="Filter"
+            tabIndex="-1"
+            onChange={onSearchChange}
+          />
+        </search>
       </section>
-      {/* <hr className="col-span-full row-start-5 row-end-6 " /> */}
     </>
   );
 }

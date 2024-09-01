@@ -62,7 +62,7 @@ function _ParamContainer({
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-w-full group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2   ${bg} ${border}`}
+        className={`section-w-full group/arg-group section-min-rows mx-1 grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
         onMouseOver={() => {
           setIsMousedOver(true);
