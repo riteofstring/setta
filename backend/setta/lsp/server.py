@@ -1,11 +1,10 @@
 import asyncio
-from collections import defaultdict
 
 
 class LanguageServer:
     def __init__(self, root_path):
         self.root_path = root_path
-        self.msg_id_to_metadata = defaultdict(dict)
+        self.msg_id_to_method = {}
         self.versions = {}
         self.server = None
 
@@ -35,8 +34,8 @@ class LanguageServer:
 
 class LanguageServerInteractor:
     @property
-    def msg_id_to_metadata(self):
-        return self.server.msg_id_to_metadata
+    def msg_id_to_method(self):
+        return self.server.msg_id_to_method
 
     @property
     def root_path(self):
@@ -55,9 +54,3 @@ class LanguageServerInteractor:
             new_version = max(self.versions[uri].keys()) + 1
             self.versions[uri][new_version] = obj
         return new_version
-
-    def get_version(self, uri, version_num=None):
-        version_num = (
-            max(self.versions[uri].keys()) if version_num is None else version_num
-        )
-        return self.versions[uri][version_num]

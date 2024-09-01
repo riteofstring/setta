@@ -2,10 +2,10 @@ import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useRef } from "react";
+import { setSectionChildrenAndNames } from "state/actions/setters";
 import { justMoveANode } from "state/actions/nodeInternals";
-import { moveSection } from "state/actions/sections/moveSections";
-import { manualDndChildrenReset } from "state/actions/sections/sectionInfos";
-import { setSectionVariantChildren } from "state/actions/sectionVariants";
+import { manualDndChildrenReset } from "state/actions/sectionInfos";
+import { moveSection } from "state/actions/sectionOps";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { getSectionParentId } from "state/getters/sectionInfo";
 import { PANEID } from "utils/constants";
@@ -15,16 +15,16 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (active.id !== over.id) {
-    setSectionVariantChildren({
-      sectionId: active.data.current.sortable?.containerId,
-      newStateFn: updateWithArrayMove(active, over),
-    });
+    setSectionChildrenAndNames(
+      active.data.current.sortable?.containerId,
+      updateWithArrayMove(active, over),
+    );
 
     maybeIncrementProjectStateVersion(true);
   }
 }
 
-async function onFreeMoveEnd({ dummyRef }) {
+function onFreeMoveEnd({ dummyRef }) {
   const dndState = useDndState.getState();
   const dndChildrenState = useDndChildren.getState();
   const { activeId: sectionId, overId } = dndState;
@@ -50,7 +50,7 @@ async function onFreeMoveEnd({ dummyRef }) {
     }
   }
 
-  await moveSection({
+  moveSection({
     oldParentId,
     newParentId,
     sectionId,

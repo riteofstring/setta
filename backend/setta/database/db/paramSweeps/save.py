@@ -20,8 +20,8 @@ def save_param_sweeps(dbs, param_sweeps):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ParamSweep (idid, paramInfoId, variantId, "order", value)
-        VALUES (:idid, :paramInfoId, :variantId, :order, :value)
+        INSERT INTO ParamSweep (idid, paramInfoId, evColId, "order", value)
+        VALUES (:idid, :paramInfoId, :evColId, :order, :value)
     """
 
     query_params = []
@@ -34,7 +34,7 @@ def save_param_sweeps(dbs, param_sweeps):
                         {
                             "idid": id,
                             "paramInfoId": s["paramInfoId"],
-                            "variantId": None,
+                            "evColId": None,
                             "order": order,
                             "value": v,
                         }
@@ -45,7 +45,7 @@ def save_param_sweeps(dbs, param_sweeps):
                     {
                         "idid": id,
                         "paramInfoId": None,
-                        "variantId": s["variantId"],
+                        "evColId": s["evColId"],
                         "order": order,
                         "value": None,
                     }

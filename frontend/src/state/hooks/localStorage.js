@@ -1,20 +1,14 @@
-import React, { useEffect } from "react";
-import {
-  CLOSED_PANE_WIDTH,
-  INITIAL_OVERVIEW_WIDTH,
-  INITIAL_UI_EDITOR_WIDTH,
-} from "utils/constants";
+import React from "react";
+import { CLOSED_PANE_WIDTH } from "utils/constants";
 
 export const localStorageFns = {
-  snapToGrid: { init: true },
   darkMode: { init: true },
   showMinimap: { init: true },
-  projectConfigPreviewEnabled: { init: true },
   overviewVis: { init: true },
-  overviewWidth: { init: INITIAL_OVERVIEW_WIDTH },
-  overviewTrueWidth: { init: INITIAL_OVERVIEW_WIDTH },
+  overviewWidth: { init: 335 },
+  overviewTrueWidth: { init: 335 },
   uiEditorVis: { init: false },
-  uiEditorWidth: { init: INITIAL_UI_EDITOR_WIDTH },
+  uiEditorWidth: { init: 500 },
   uiEditorTrueWidth: { init: CLOSED_PANE_WIDTH },
 };
 
@@ -106,18 +100,4 @@ function useLocalStorage(key, initialValue) {
   }, [key, initialValue]);
 
   return [store ? JSON.parse(store) : initialValue, setState];
-}
-
-export function useDarkMode() {
-  const [darkMode] = localStorageFns.darkMode.hook();
-
-  useEffect(() => {
-    if (darkMode) {
-      document.querySelector("html").classList.add("dark");
-    } else {
-      document.querySelector("html").classList.remove("dark");
-    }
-  }, [darkMode]);
-
-  return darkMode;
 }

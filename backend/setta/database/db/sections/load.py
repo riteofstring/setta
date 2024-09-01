@@ -1,28 +1,41 @@
-import copy
 import itertools
-from collections import defaultdict
 
-from setta.database.utils import parse_keyword_positions_string
+from setta.database.utils import get_children_recursively
 
+from ..enteredValues.load import load_evcols
 from ..paramSweeps.load import load_param_sweeps
-from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
 def load_sections(dbs, ids):
-    all_ids, child_to_parent_id = get_section_ids(dbs, ids)
-
-    section_id_to_config_count = num_projects_each_section_exists_in(dbs, all_ids)
-
     db = dbs.default
+
+    query = """
+        WITH RECURSIVE DESCENDANTS AS (
+            SELECT parentId, childId, "order"
+            FROM SectionChildren
+            WHERE parentId = :parentId
+        UNION
+            SELECT X.parentId, X.childId, X."order"
+            FROM SectionChildren X
+            JOIN DESCENDANTS ON X.parentId = DESCENDANTS.childId
+        )
+        SELECT * FROM DESCENDANTS
+        ORDER BY "order";
+    """
+
+    all_ids, parent_to_children = get_children_recursively(db, ids, query)
+    child_to_parent = {
+        v: k for k, children in parent_to_children.items() for v in children
+    }
+
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
         SELECT
             S.*,
             U.nonPresetUITypeIds,
-            E.variantIds,
-            P.paramSweepIds,
-            A.artifacts
+            E.evColIds,
+            P.paramSweepIds
         FROM
             Section S
         LEFT JOIN
@@ -39,9 +52,9 @@ def load_sections(dbs, ids):
             (
                 SELECT
                     originSectionId,
-                    GROUP_CONCAT(id) AS variantIds
+                    GROUP_CONCAT(id) AS evColIds
                 FROM
-                    SectionVariantId
+                    EVColId
                 GROUP BY
                     originSectionId
             ) AS E ON S.id = E.originSectionId
@@ -55,16 +68,6 @@ def load_sections(dbs, ids):
                 GROUP BY
                     originSectionId
             ) AS P ON S.id = P.originSectionId
-        LEFT JOIN
-            (
-                SELECT
-                    sectionId,
-                    GROUP_CONCAT(artifactPath) AS artifacts
-                FROM
-                    SectionArtifacts
-                GROUP BY
-                    sectionId
-            ) AS A ON S.id = A.sectionId
         WHERE
             S.id IN ({placeholders})
         GROUP BY
@@ -75,12 +78,21 @@ def load_sections(dbs, ids):
     sections = {}
     for v in db.fetchall():
         v = dict(v)
+        width = v.pop("width")
+        height = v.pop("height")
+        selectedItem = v.pop("selectedItemId")
+        outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
-            "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
-            "parentId": child_to_parent_id.get(v["id"], None),
-            "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
-            "artifacts": v["artifacts"].split(",") if v["artifacts"] else [],
+            "parentId": child_to_parent.get(v["id"], None),
+            "selectedItem": selectedItem,
+            "outputGroup": outputGroup,
+            "children": parent_to_children[v["id"]],
+            "size": {
+                "width": convert_size(width),
+                "height": convert_size(height),
+            },
+            "evColIds": v["evColIds"].split(",") if v["evColIds"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
@@ -89,12 +101,12 @@ def load_sections(dbs, ids):
             else [],
         }
 
-    variantIds = list(
-        itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
+    evColIds = list(
+        itertools.chain.from_iterable([s["evColIds"] for s in sections.values()])
     )
-    sectionVariants = {}
+    evCols = {}
     for k, dbq in dbs.items():
-        sectionVariants[k] = load_section_variants(dbq, variantIds)
+        evCols[k] = load_evcols(dbq, evColIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
@@ -117,111 +129,24 @@ def load_sections(dbs, ids):
 
     return {
         "sections": sections,
-        "sectionVariants": sectionVariants,
+        "evCols": evCols,
         "uiTypeCols": uiTypeCols,
         "paramSweeps": paramSweeps,
         "nonPresetUITypes": nonPresetUITypes,
     }
 
 
-# TODO: try using a recursive sql query for this
-def get_section_ids(dbs, top_level_ids):
-    section_id_to_variants = defaultdict(list)
-    variant_id_to_children = defaultdict(list)
-
-    for dbq in dbs.values():
-        dbq.execute("SELECT id, originSectionId FROM SectionVariantId")
-        for row in dbq.fetchall():
-            row = dict(row)
-            section_id_to_variants[row["originSectionId"]].append(row["id"])
-
-        dbq.execute("SELECT idid, childId FROM SectionVariantChildren")
-        for row in dbq.fetchall():
-            row = dict(row)
-            variant_id_to_children[row["idid"]].append(row["childId"])
-
-    ids = copy.deepcopy(top_level_ids)
-    output = copy.deepcopy(top_level_ids)
-    child_to_parent_id = {}
-    visited = set()
-
-    while len(ids) > 0:
-        id = ids.pop()
-        if id in visited:
-            continue
-        variantIds = section_id_to_variants[id]
-        for vid in variantIds:
-            for c in variant_id_to_children[vid]:
-                if c not in visited:
-                    ids.append(c)
-                    output.append(c)
-                    child_to_parent_id[c] = id
-        visited.add(id)
-
-    return output, child_to_parent_id
-
-
-def load_section_configs(dbs, project_config_id):
-    db = dbs.default
-    query = f"""SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation
-        FROM SectionConfig
-        WHERE projectConfigId = :projectConfigId
-    """
-    db.execute(query, {"projectConfigId": project_config_id})
-
-    output = {}
-    for row in db.fetchall():
-        row = dict(row)
-        output[row["sectionId"]] = {
-            "id": row["sectionId"],
-            "size": {
-                "width": convert_size(row["width"]),
-                "height": convert_size(row["height"]),
-            },
-            "variantId": row["variantId"],
-            "paramSweepId": row["paramSweepId"],
-            "isHorizontalOrientation": row["isHorizontalOrientation"],
-        }
-
-    return output
-
-
 def convert_size(x):
     return "auto" if x == -1 else x
 
 
-def num_projects_each_section_exists_in(dbs, section_ids):
-    db = dbs.default
-    placeholders = ", ".join(["?"] * len(section_ids))
-    query = f"""
-        SELECT sectionId, COUNT(DISTINCT projectConfigId) as projectConfigCount
-        FROM SectionConfig
-        WHERE sectionId IN ({placeholders})
-        GROUP BY sectionId
-    """
-
-    db.execute(query, section_ids)
-    output = {}
-    for row in db.fetchall():
-        output[row[0]] = row[1]
-
-    return output
-
-
-def load_artifact_metadata(dbs, section_id, artifact_paths):
-    db = dbs.default
-    query_params = []
-    for a in artifact_paths:
-        query_params.extend([section_id, a])
-    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
-    query = f"""
-        SELECT artifactPath as path, type, displayName
-        FROM SectionArtifacts
-        WHERE (sectionId, artifactPath) IN ({placeholders})
-    """
-    db.execute(query, query_params)
-
-    output = []
-    for row in db.fetchall():
-        output.append(dict(row))
-    return output
+# # maps db source to list of sections
+# def get_sections_by_db_source(dbs, sections):
+#     output = defaultdict(list)
+#     for v in sections.values():
+#         dbSource = v["dbSource"]
+#         if not dbSource:
+#             output[DEFAULT_DB_ALIAS].append(v)
+#         else:
+#             output[dbSource].append(v)
+#     return output

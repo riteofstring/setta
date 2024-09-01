@@ -14,6 +14,8 @@ type StoreUpdaterProps = Pick<
   | "nodes"
   | "nodesDraggable"
   | "nodesFocusable"
+  | "minZoom"
+  | "maxZoom"
   | "elementsSelectable"
   | "translateExtent"
   | "fitView"
@@ -24,6 +26,8 @@ type StoreUpdaterProps = Pick<
 >;
 
 const selector = (s: ReactFlowState) => ({
+  setMinZoom: s.setMinZoom,
+  setMaxZoom: s.setMaxZoom,
   setTranslateExtent: s.setTranslateExtent,
   reset: s.reset,
 });
@@ -55,6 +59,8 @@ function useDirectStoreUpdater(
 const StoreUpdater = ({
   nodesDraggable,
   nodesFocusable,
+  minZoom,
+  maxZoom,
   elementsSelectable,
   translateExtent,
   fitView,
@@ -63,7 +69,10 @@ const StoreUpdater = ({
   autoPanOnNodeDrag,
   nodeDragThreshold,
 }: StoreUpdaterProps) => {
-  const { setTranslateExtent, reset } = useReactFlow(selector, shallow);
+  const { setMinZoom, setMaxZoom, setTranslateExtent, reset } = useReactFlow(
+    selector,
+    shallow,
+  );
 
   useEffect(() => {
     return () => {
@@ -108,6 +117,8 @@ const StoreUpdater = ({
     useReactFlow.setState,
   );
 
+  useStoreUpdater<number>(minZoom, setMinZoom);
+  useStoreUpdater<number>(maxZoom, setMaxZoom);
   useStoreUpdater<CoordinateExtent>(translateExtent, setTranslateExtent);
 
   return null;

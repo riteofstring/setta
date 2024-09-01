@@ -1,12 +1,13 @@
-from setta.database.utils import (
-    get_children_recursively,
-    parse_keyword_positions_string,
-)
+from setta.database.utils import get_children_recursively
+from setta.utils.constants import is_section_ui_type
 
 
-def load_code_info_for_sections(dbs, sections):
+def load_code_info_for_sections(dbs, ui_types):
     db = dbs.default
-    collection_ids = [v["codeInfoId"] for v in sections.values()]
+    section_ui_types = {
+        k: v for k, v in ui_types.items() if is_section_ui_type(v["type"])
+    }
+    collection_ids = [v["config"]["codeInfoId"] for v in section_ui_types.values()]
     return load_code_info(db, collection_ids)
 
 
@@ -37,6 +38,5 @@ def load_code_info(db, ids):
     for row in db.fetchall():
         x = dict(row)
         x["children"] = parent_to_children[x["id"]]
-        x["keywordPositions"] = parse_keyword_positions_string(x["keywordPositions"])
         output[x["id"]] = x
     return output

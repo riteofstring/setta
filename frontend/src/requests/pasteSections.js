@@ -1,9 +1,8 @@
-import C from "constants/constants.json";
 import { post } from "./utils";
 
-export async function dbCreateCopyOfSections(sectionsAndOtherInfo) {
+export async function dbPasteSections(sectionsAndOtherInfo) {
   return await post({
     body: { sectionsAndOtherInfo },
-    address: C.ROUTE_COPY_SECTIONS,
+    address: "/sections/makeCopy",
   });
 }

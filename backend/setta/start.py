@@ -1,4 +1,3 @@
-import asyncio
 import os
 import sys
 from pathlib import Path
@@ -8,16 +7,13 @@ import click
 import uvicorn
 
 from . import __version__
-from .cli.connect import connect as _connect
+from .cli.run import run as _run
+from .cli.web import web as _web
 from .database.db_init import maybe_create_tables_and_seed
 from .database.db_objs import create_dbs_with_input_as_default
 from .database.db_path import create_alias
 from .database.db_path import delete_alias as _delete_alias
-from .database.db_path import (
-    get_db_path_from_config,
-    get_default_settings_path,
-    load_config,
-)
+from .database.db_path import get_db_path_from_config, load_config
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
 from .utils.constants import C, load_constants, set_constants
@@ -26,12 +22,18 @@ load_constants()
 
 
 @click.command()
+@click.argument("code_id")
+def run(code_id):
+    _run(code_id)
+
+
+@click.command()
 @click.argument("websocket_id", required=False)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
-def connect(websocket_id, host, port):
+def web(websocket_id, host, port):
     set_constants(host=host, port=port)
-    asyncio.run(_connect(websocket_id))
+    _web(websocket_id)
 
 
 @click.command()
@@ -45,10 +47,10 @@ def version():
     type=click.Path(file_okay=True, dir_okay=False, writable=True),
     required=True,
 )
-@click.option("--with_examples", is_flag=True)
-def init_db(path, with_examples):
+@click.option("--with_example_projects", is_flag=True)
+def init_db(path, with_example_projects):
     dbs = create_dbs_with_input_as_default(path, True)
-    maybe_create_tables_and_seed(dbs, with_examples)
+    maybe_create_tables_and_seed(dbs, with_example_projects)
 
 
 @click.command()
@@ -113,19 +115,19 @@ def delete_alias(name):
     ),
 )
 @click.option("--reload", is_flag=True)
-@click.option("--with_examples", is_flag=True)
+@click.option("--with_example_projects", is_flag=True)
 @click.option("--db", "-d", type=str, multiple=True, default=[])
-@click.option("--settings", "-s", type=str, default=get_default_settings_path())
+@click.option("--i", type=str, default=None, help="interactive program path")
 @click.option("--w", is_flag=True, help="create dbs it they don't exist")
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.pass_context
-def cli(ctx, reload, with_examples, db, settings, w, host, port):
+def cli(ctx, reload, with_example_projects, db, i, w, host, port):
     if ctx.invoked_subcommand is None:
         set_constants(
-            with_examples=with_examples,
+            with_example_projects=with_example_projects,
             db_specs=db,
-            settings_path=settings,
+            i_path=i,
             create_if_not_exists=w,
             host=host,
             port=port,
@@ -141,7 +143,8 @@ def cli(ctx, reload, with_examples, db, settings, w, host, port):
         )
 
 
-cli.add_command(connect)
+cli.add_command(run)
+cli.add_command(web)
 cli.add_command(version)
 cli.add_command(init_db)
 cli.add_command(delete_db)

@@ -1,8 +1,7 @@
 import _ from "lodash";
 import {
   useCodeInfo,
-  useSectionInfos,
-  useSectionVariants,
+  useEVCols,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
@@ -12,8 +11,8 @@ import {
   getMappedSectionDBSource,
   getSectionInfo,
 } from "../getters/sectionInfo";
-import { initManyEnteredValues } from "./sectionVariants";
-import { setManyParamUITypeIds } from "./uiTypes/uiTypeCols";
+import { initManyEnteredValues } from "./evCols";
+import { setManyParamUITypeIds } from "./uiTypeCols";
 
 export function initializeChildParams({
   sectionIds,
@@ -22,33 +21,35 @@ export function initializeChildParams({
   inputParamIdToUITypeId = {},
 }) {
   console.log("initializeChildParams");
-  const paramIds = childFinder(useCodeInfo.getState().x, codeInfoIds);
+  const params = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
-    initializeParam(s, paramIds, inputParamIdToUITypeId);
+    initializeParam(s, params, inputParamIdToUITypeId);
   }
 }
 
 export function initializeParam(
   sectionId,
-  paramIds,
+  paramInfos,
   inputParamIdToUITypeId = {},
 ) {
+  const paramInfosAsObj = _.keyBy(paramInfos, "id");
   const paramIdToUITypeId = initializeParamUIType(
     sectionId,
-    paramIds,
+    paramInfosAsObj,
     inputParamIdToUITypeId,
   );
-  initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId);
+  initializeParamEnteredValue(sectionId, paramInfosAsObj, paramIdToUITypeId);
 }
 
-function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
-  const { variantId } = useSectionInfos.getState().x[sectionId];
+function initializeParamEnteredValue(sectionId, paramInfos, paramIdToUITypeId) {
+  const { evColId } = getSectionInfo(sectionId);
   const dbSource = getMappedSectionDBSource(sectionId);
-  const sectionVariant = useSectionVariants.getState().x[dbSource][variantId];
+  const evCol = useEVCols.getState().x[dbSource][evColId];
+  const paramIdToEv = _.mapValues(paramInfos, (v) => evCol.values[v.id]);
+
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes = {};
-  for (const paramId of paramIds) {
-    const ev = sectionVariant[paramId];
+  for (const [paramId, ev] of Object.entries(paramIdToEv)) {
     if (_.isNil(ev)) {
       paramIdsToUITypes[paramId] = uiTypeState.x[paramIdToUITypeId[paramId]];
     }
@@ -56,23 +57,35 @@ function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
 
   initManyEnteredValues({
     dbSource: getMappedSectionDBSource(sectionId),
-    collectionId: variantId,
+    collectionId: evColId,
     paramIdsToUITypes,
   });
 }
 
-function initializeParamUIType(
-  sectionId,
-  paramIds,
-  inputParamIdToUITypeId = {},
-) {
+function getParamUITypeIds(sectionId, paramInfos) {
   const { uiTypeColId } = getSectionInfo(sectionId);
   const uiTypeCol = useUITypeCols.getState().y[uiTypeColId];
+  return {
+    paramIdToUITypeId: _.mapValues(
+      paramInfos,
+      (v) => uiTypeCol[v.id]?.uiTypeId,
+    ),
+    uiTypeColId,
+  };
+}
+
+function initializeParamUIType(
+  sectionId,
+  paramInfos,
+  inputParamIdToUITypeId = {},
+) {
+  const { paramIdToUITypeId, uiTypeColId } = getParamUITypeIds(
+    sectionId,
+    paramInfos,
+  );
 
   const newIds = {};
-  const paramIdToUITypeId = {};
-  for (const paramId of paramIds) {
-    const uiTypeId = uiTypeCol[paramId]?.uiTypeId;
+  for (const [paramId, uiTypeId] of Object.entries(paramIdToUITypeId)) {
     if (!uiTypeId) {
       let newId;
       if (paramId in inputParamIdToUITypeId) {
@@ -82,8 +95,6 @@ function initializeParamUIType(
       }
       newIds[paramId] = { uiTypeId: newId, nonPresetUITypeIds: [] };
       paramIdToUITypeId[paramId] = newId;
-    } else {
-      paramIdToUITypeId[paramId] = uiTypeId;
     }
   }
 

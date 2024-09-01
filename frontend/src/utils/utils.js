@@ -1,5 +1,4 @@
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
-import _ from "lodash";
 
 export function clamp(number, min, max) {
   return Math.max(min, Math.min(number, max));
@@ -41,16 +40,4 @@ export function radioChangeFn(checked, id) {
 
 export function xnor(a, b) {
   return a == b;
-}
-
-export function asyncDebounce(func, wait) {
-  const debounced = _.debounce((resolve, reject, args) => {
-    func(...args)
-      .then(resolve)
-      .catch(reject);
-  }, wait);
-  return (...args) =>
-    new Promise((resolve, reject) => {
-      debounced(resolve, reject, args);
-    });
 }

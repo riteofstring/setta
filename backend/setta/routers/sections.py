@@ -19,7 +19,7 @@ def route_sections():
     pass
 
 
-@router.post(C.ROUTE_COPY_SECTIONS)
+@router.post("/sections/makeCopy")
 def route_sections_make_copy(x: SectionsMakeCopyRequest):
     output = copy_sections_and_other_info(x.sectionsAndOtherInfo)
     relativePositions = copy_relative_positions(

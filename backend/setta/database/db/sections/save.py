@@ -1,58 +1,87 @@
-from setta.database.utils import dump_keyword_positions_as_string
-
-
 def save_sections(dbs, sections):
     db = dbs.default
     query = """
         INSERT INTO Section (
             id,
             name,
+            width,
+            height,
+            evColId,
             uiTypeId,
             uiTypeColId,
+            selectedItemId,
             social,
+            outputGroupId,
             description,
+            versionsHeight,
+            versionsVisible,
+            code,
             codeLanguage,
             isFrozen,
-            dbSource,
-            codeInfoId
+            paramSweepId,
+            dbSource
         )
         VALUES (
             :id,
             :name,
+            :width,
+            :height,
+            :evColId,
             :uiTypeId,
             :uiTypeColId,
+            :selectedItemId,
             :social,
+            :outputGroupId,
             :description,
+            :versionsHeight,
+            :versionsVisible,
+            :code,
             :codeLanguage,
             :isFrozen,
-            :dbSource,
-            :codeInfoId
+            :paramSweepId,
+            :dbSource
         )
         ON CONFLICT (id)
         DO UPDATE SET
             name = :name,
+            width = :width,
+            height = :height,
+            evColId = :evColId,
             uiTypeId = :uiTypeId,
             uiTypeColId = :uiTypeColId,
+            selectedItemId = :selectedItemId,
             social = :social,
+            outputGroupId = :outputGroupId,
             description = :description,
+            versionsHeight = :versionsHeight,
+            versionsVisible = :versionsVisible,
+            code = :code,
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
-            dbSource = :dbSource,
-            codeInfoId = :codeInfoId
+            paramSweepId = :paramSweepId,
+            dbSource = :dbSource
     """
 
     query_params = [
         {
             "id": s["id"],
             "name": s["name"],
+            "width": convert_size(s["size"]["width"]),
+            "height": convert_size(s["size"]["height"]),
+            "evColId": s["evColId"],
             "uiTypeId": s["uiTypeId"],
             "uiTypeColId": s["uiTypeColId"],
+            "selectedItemId": s["selectedItem"],
             "social": s["social"],
+            "outputGroupId": s["outputGroup"],
             "description": s["description"],
+            "versionsHeight": s["versionsHeight"],
+            "versionsVisible": s["versionsVisible"],
+            "code": s["code"],
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
+            "paramSweepId": s["paramSweepId"],
             "dbSource": s.get("dbSource"),
-            "codeInfoId": s["codeInfoId"],
         }
         for s in sections.values()
     ]
@@ -61,24 +90,6 @@ def save_sections(dbs, sections):
 
     ids = [s["id"] for s in sections.values()]
     placeholders = ", ".join(["?"] * len(ids))
-    query = f"""
-        UPDATE SectionVariantId
-        SET originSectionId = null
-        WHERE originSectionId IN ({placeholders})
-    """
-    db.execute(query, ids)
-
-    query = """
-        UPDATE SectionVariantId
-        SET originSectionId = :sectionId
-        WHERE id = :variantId
-    """
-    query_params = []
-    for s in sections.values():
-        for variantId in s["variantIds"]:
-            query_params.append({"variantId": variantId, "sectionId": s["id"]})
-    db.executemany(query, query_params)
-
     query = f"""
         UPDATE UIType
         SET asNonPresetForSectionId = null
@@ -95,6 +106,24 @@ def save_sections(dbs, sections):
     for s in sections.values():
         for uiTypeId in s["nonPresetUITypeIds"]:
             query_params.append({"uiTypeId": uiTypeId, "sectionId": s["id"]})
+    db.executemany(query, query_params)
+
+    query = f"""
+        UPDATE EVColId
+        SET originSectionId = null
+        WHERE originSectionId IN ({placeholders})
+    """
+    db.execute(query, ids)
+
+    query = """
+        UPDATE EVColId
+        SET originSectionId = :sectionId
+        WHERE id = :evColId
+    """
+    query_params = []
+    for s in sections.values():
+        for evColId in s["evColIds"]:
+            query_params.append({"evColId": evColId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
     query = f"""
@@ -115,6 +144,30 @@ def save_sections(dbs, sections):
             query_params.append({"paramSweepId": paramSweepId, "sectionId": s["id"]})
     db.executemany(query, query_params)
 
+    # delete children
+    placeholders = ", ".join(["?"] * len(sections))
+    query = f"""
+        DELETE FROM SectionChildren
+        WHERE parentId IN ({placeholders});
+    """
+    query_params = list(sections.keys())
+    db.execute(query, query_params)
+
+    # add children
+    query = """
+        INSERT INTO SectionChildren (parentId, childId, "order")
+        VALUES (:parentId, :childId, :order)
+    """
+    query_params = []
+    for s in sections.values():
+        query_params.extend(
+            [
+                {"parentId": s["id"], "childId": x, "order": i}
+                for i, x in enumerate(s["children"])
+            ]
+        )
+    db.executemany(query, query_params)
+
     query = """
         UPDATE Section
         SET paramSweepSectionId = :paramSweepSectionId
@@ -128,28 +181,6 @@ def save_sections(dbs, sections):
         ],
     )
 
-    query = f"""
-        DELETE FROM SectionArtifacts
-        WHERE sectionId IN ({placeholders});
-    """
-    db.execute(query, ids)
 
-    # add children
-    query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactPath, type, displayName)
-        VALUES (:sectionId, :artifactPath, :type, :displayName)
-    """
-    query_params = []
-    for s in sections.values():
-        query_params.extend(
-            [
-                {
-                    "sectionId": s["id"],
-                    "artifactPath": a["path"],
-                    "type": a["type"],
-                    "displayName": a["displayName"],
-                }
-                for a in s["artifacts"]
-            ]
-        )
-    db.executemany(query, query_params)
+def convert_size(x):
+    return -1 if x == "auto" else x

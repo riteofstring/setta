@@ -1,25 +1,15 @@
-import { dbUpdateInteractiveCode } from "requests/interactive";
 import { useInteractive } from "state/definitions";
-import { updateArtifacts } from "./artifacts";
-import { setNotificationMessage } from "./notification";
 
-export async function updateInteractiveCode() {
-  setNotificationMessage("Importing your code...");
-  const res = await dbUpdateInteractiveCode();
-  setNotificationMessage("Done importing");
-  if (res.status == 200) {
-    useInteractive.setState({ taskNames: res.data.taskNames });
-    updateInteractiveData(res.data.content);
-  }
+export function setInteractiveProjects(payload) {
+  useInteractive.setState({ projects: new Set(payload) });
 }
 
-export async function updateInteractiveData(data) {
-  if (data.length === 0) {
-    return;
-  }
-  const dataInArtifactForm = {};
-  for (const d of data) {
-    dataInArtifactForm[`interactive:${d.displayName}`] = d;
-  }
-  updateArtifacts({ artifacts: dataInArtifactForm, addSection: true });
+export function setCurrProjectIsInteractive(projectName) {
+  useInteractive.setState((state) => ({
+    currProjectIsInteractive: state.projects.has(projectName),
+  }));
+}
+
+export function setInteractiveData(payload) {
+  useInteractive.setState({ data: payload });
 }

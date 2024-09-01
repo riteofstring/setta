@@ -1,7 +1,5 @@
 import _ from "lodash";
 import { useCodeInfo } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
-import { getSectionSelectedItem } from "./sectionVariants";
 
 export function setAllCodeInfo(x) {
   useCodeInfo.setState({ x });
@@ -11,7 +9,7 @@ export function addCodeInfo({ info, parent, insertIdx }) {
   useCodeInfo.setState((state) => {
     state.x[info.id] = info;
     if (parent) {
-      if (_.isNil(insertIdx)) {
+      if (insertIdx === null) {
         state.x[parent].children.push(info.id);
       } else {
         state.x[parent].children.splice(insertIdx, 0, info.id);
@@ -23,12 +21,6 @@ export function addCodeInfo({ info, parent, insertIdx }) {
 export function setCodeInfoName({ id, name }) {
   useCodeInfo.setState((state) => {
     state.x[id].name = name;
-  });
-}
-
-export function setCodeInfoKeywordPositions({ id, keywordPositions }) {
-  useCodeInfo.setState((state) => {
-    state.x[id].keywordPositions = keywordPositions;
   });
 }
 
@@ -81,25 +73,4 @@ export function batchUpdateCodeInfoChildren(idToNewChildren) {
       state.x[id].children = newChildren;
     }
   });
-}
-
-export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
-  const { codeInfoId } = getSectionInfo(sectionId);
-  const cState = useCodeInfo.getState().x;
-  for (const c of cState[codeInfoId].children) {
-    if (cState[c].name === selectedItemName) {
-      return c;
-    }
-  }
-  return null;
-}
-
-export function itemIsAlreadySelected(sectionId, selectedItemName) {
-  const currSelectedItem = getSectionSelectedItem(sectionId);
-  return useCodeInfo.getState().x[currSelectedItem]?.name === selectedItemName;
-}
-
-export function setSelectedItemKeywordPositions(sectionId, keywordPositions) {
-  const currSelectedItem = getSectionSelectedItem(sectionId);
-  setCodeInfoKeywordPositions({ id: currSelectedItem, keywordPositions });
 }

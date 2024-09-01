@@ -1,8 +1,10 @@
-import C from "constants/constants.json";
-import { updateArtifacts } from "state/actions/artifacts";
-import { updateInteractiveData } from "state/actions/interactive";
-import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
-import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
+import {
+  setInteractiveData,
+  setInteractiveProjects,
+} from "state/actions/interactive";
+import { updateOutput } from "state/actions/outputs";
+import { updateConnectedTo } from "state/actions/websocketConnectionList";
+import { setWebsocketRoomMessage } from "state/actions/websocketRooms";
 import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
 import { URLS } from "utils/constants";
 
@@ -10,19 +12,18 @@ let wss;
 
 export function openWebSocket(pathname) {
   if (!wss) {
-    console.log("new Websocket");
-    wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_MANAGER}`);
-    wss.addEventListener("open", () => {
-      console.log("open websocket");
-      sendLocation(pathname);
-    });
-
-    wss.addEventListener("message", (event) => {
-      receiveMessage(event.data);
-    });
-
-    wss.addEventListener("error", closeWebSocket);
+    wss = new WebSocket(URLS.WEBSOCKET);
   }
+
+  wss.addEventListener("open", () => {
+    sendLocation(pathname);
+  });
+
+  wss.addEventListener("message", (event) => {
+    receiveMessage(event.data);
+  });
+
+  wss.addEventListener("error", closeWebSocket);
 }
 
 function closeWebSocket() {
@@ -38,16 +39,20 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  if (m.messageType === C.WS_ALL_CONNECTIONS) {
+  console.log(m);
+  if (m.type === "LOG") {
+    updateOutput(m.data);
+  } else if (m.messageType === "connection") {
+    // console.log("connected as", m["websocketId"]);
+  } else if (m.messageType === "allConnections") {
     updateConnectedTo(m);
-  } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
+  } else if (m.messageType === "interactiveProjects") {
+    setInteractiveProjects(m["content"]);
+  } else if (m.messageType === "interactive") {
+    setInteractiveData(m["content"]);
+  } else if (m.messageType === "diagnostics") {
     useTypeErrors.setState(m.content, true);
-  } else if (m.messageType === C.WS_ARTIFACT) {
-    updateArtifacts({ artifacts: m.content, addSection: true });
-  } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
-    updateInteractiveData(m.content);
   } else if (m.id) {
-    console.log(m);
     setWebsocketRoomMessage(m.id, m.content);
   }
 }

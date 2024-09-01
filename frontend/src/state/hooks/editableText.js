@@ -1,12 +1,13 @@
 import C from "constants/constants.json";
 import { useEffect, useState } from "react";
-import { useIsListElement, useIsOneOfType } from "./uiTypes";
+import { requiresKeyInput } from "utils/sectionTypeHelpers";
+import { useGetSectionTypeConfig, useIsOneOfType } from "./useSectionType";
 
 export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   const [inputValue, setInputValue] = useState(initialValue);
 
-  async function onBlur(v) {
-    if (v != "" && v != initialValue && (await condition(v))) {
+  function onBlur(v) {
+    if (v != "" && v != initialValue && condition(v)) {
       onSetTitle(v);
     } else {
       setInputValue(initialValue);
@@ -25,14 +26,14 @@ export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
 }
 
 export function useTitleIsEditable(sectionId) {
+  const sectionSubType = useGetSectionTypeConfig(sectionId, "subType");
   const isUneditableType = useIsOneOfType(sectionId, [
-    C.ARTIFACT,
+    C.OUTPUT,
     C.GLOBAL_VARIABLES,
     C.PARAM_SWEEP,
     C.GLOBAL_PARAM_SWEEP,
+    C.VAR_CONTROL,
   ]);
 
-  const isListElement = useIsListElement(sectionId);
-
-  return !isListElement && !isUneditableType;
+  return requiresKeyInput(sectionSubType) && !isUneditableType;
 }

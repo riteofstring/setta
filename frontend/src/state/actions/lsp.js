@@ -1,34 +1,24 @@
 import { useWaitingForLSPResult } from "state/definitions";
 
-function setWaitingForLSP({ category, id, delay = 200 }) {
+export function setWaitingForLSP({ sectionId, paramInfoId }) {
+  const id = idForLSPWaiting({ sectionId, paramInfoId });
   const timeoutId = setTimeout(() => {
-    useWaitingForLSPResult.setState((x) => {
-      x[category][id] = true;
-    });
-  }, delay); // Delay of 200 ms
+    useWaitingForLSPResult.setState({ [id]: true });
+  }, 200); // Delay of 200 ms
 
   // returns function to set waiting to false
   return () => {
     clearTimeout(timeoutId);
-    useWaitingForLSPResult.setState((x) => {
-      x[category][id] = false;
-    });
+    useWaitingForLSPResult.setState({ [id]: false });
   };
 }
 
-export function setTextFieldWaitingForLSP({ sectionId, paramInfoId }) {
-  const id = textFieldIdForLSPWaiting({ sectionId, paramInfoId });
-  return setWaitingForLSP({ category: "textFields", id });
-}
-
-export function setParametersRequestWaitingForLSP(sectionId) {
-  return setWaitingForLSP({
-    category: "parametersRequest",
-    id: sectionId,
-    delay: 0,
-  });
-}
-
-export function textFieldIdForLSPWaiting({ sectionId, paramInfoId }) {
+function idForLSPWaiting({ sectionId, paramInfoId }) {
   return `${sectionId}-${paramInfoId}`;
+}
+
+export function useIdWaitingForLSPResult({ sectionId, paramInfoId }) {
+  return useWaitingForLSPResult(
+    (x) => x[idForLSPWaiting({ sectionId, paramInfoId })],
+  );
 }

@@ -1,42 +1,45 @@
-import { SECTION_CONFIG_TAB } from "utils/constants";
+import {
+  initialShortcuts,
+  jsonSettings,
+  otherConfigurableSettings,
+  SECTION_CONFIG_TAB,
+} from "utils/constants";
+import { createNewId } from "utils/idNameCreation";
 import { temporal } from "zundo";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { create, createProjectState, withVersion } from "./utils";
+import { create, createProjectState, stateWithResetFn } from "./utils";
 
 export const useActiveSection = createProjectState(
-  temporal(() =>
-    withVersion({
-      ids: [],
-    }),
-  ),
+  temporal(() => ({
+    ids: [],
+    version: 0,
+  })),
 );
 
 export const useCodeInfo = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
-export const useContextMenus = createProjectState(() => ({
-  pane: { isOpen: false, x: 0, y: 0 },
-  deck: { isOpen: false, x: 0, y: 0, sectionId: null },
-  selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-}));
+export const useContextMenus = createProjectState(
+  stateWithResetFn({
+    pane: { isOpen: false, x: 0, y: 0 },
+    deck: { isOpen: false, x: 0, y: 0, sectionId: null },
+    selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
+  }),
+);
 
-export const useSectionVariants = createProjectState(
+export const useEVCols = createProjectState(
   temporal(
-    subscribeWithSelector(
-      immer(() =>
-        withVersion({
-          x: {},
-        }),
-      ),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
@@ -49,24 +52,22 @@ export const useInfoView = createProjectState(() => ({
 }));
 
 export const useInteractive = create(() => ({
-  taskNames: [],
+  id: createNewId(),
+  projects: new Set(),
+  currProjectIsInteractive: false,
+  data: null,
 }));
 
 export const useKeywordRegex = create(() => ({
   pattern: "",
-  codeAreaPattern: "",
   fullNameToInfo: {},
 }));
 
-// keys for textFields are of the form:
+// map from key to true or false
+// keys are of the form:
 // {sectionId}-null for the main section combobox
 // {sectionId}-{paramInfoId} for section parameter fields
-export const useWaitingForLSPResult = createProjectState(
-  immer(() => ({
-    textFields: {},
-    parametersRequest: {},
-  })),
-);
+export const useWaitingForLSPResult = createProjectState(() => ({}));
 
 export const useModal = createProjectState(() => ({
   open: false,
@@ -75,11 +76,10 @@ export const useModal = createProjectState(() => ({
 }));
 
 export const useNodeInternals = createProjectState(
-  temporal(() =>
-    withVersion({
-      x: new Map(),
-    }),
-  ),
+  temporal(() => ({
+    x: new Map(),
+    version: 0,
+  })),
 );
 
 export const useNotification = create(() => ({
@@ -87,12 +87,19 @@ export const useNotification = create(() => ({
   timeoutId: null,
 }));
 
-export const useAllProjectConfigs = createProjectState(() => ({
-  x: {},
-  names: [],
-}));
+export const useOtherProjectConfigs = createProjectState(
+  immer(() => ({
+    x: [],
+  })),
+);
 
-export const useArtifacts = createProjectState(
+export const useOutputGroups = createProjectState(
+  immer(() => ({
+    x: {},
+  })),
+);
+
+export const useOutputs = createProjectState(
   immer(() => ({
     x: {},
   })),
@@ -100,51 +107,50 @@ export const useArtifacts = createProjectState(
 
 export const useParamSweep = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
+export const useProject = createProjectState(() => ({
+  id: "",
+  name: "",
+  defaultConfigId: null,
+}));
+
 export const useProjectConfig = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        id: "",
-        name: "",
-        isDefault: false,
-        viewport: { x: 0, y: 0, zoom: 1 },
-      }),
-    ),
+    immer(() => ({
+      id: "",
+      name: "",
+      version: 0,
+    })),
   ),
 );
 
 export const useProjectSearch = createProjectState(() => ({
   sections: [],
   codeInfo: [],
-  focused: {},
 }));
 
 export const useRunGroups = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 
 export const useSectionInfos = createProjectState(
   temporal(
     subscribeWithSelector(
-      immer(() =>
-        withVersion({
-          x: {},
-        }),
-      ),
+      immer(() => ({
+        x: {},
+        version: 0,
+      })),
     ),
   ),
 );
@@ -162,21 +168,26 @@ export const useSectionRefs = createProjectState(
   })),
 );
 
-export const useSectionToParamIds = createProjectState(
+export const useSectionToParams = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        callables: {},
-        params: {},
-      }),
-    ),
+    immer(() => ({
+      callables: {},
+      params: {},
+    })),
   ),
 );
 
-export const useSettings = create(() => ({}));
+export const useSettings = create(() => ({
+  settingsLoaded: false,
+  ...jsonSettings,
+  ...otherConfigurableSettings,
+  ...initialShortcuts,
+}));
 
 export const useStateVersion = createProjectState(
-  temporal(() => withVersion({})),
+  temporal(() => ({
+    version: 0,
+  })),
 );
 
 // TODO: remove this hardcoded example error
@@ -193,21 +204,19 @@ export const useUIEditor = createProjectState(() => ({
 
 export const useUITypeCols = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        y: {},
-      }),
-    ),
+    immer(() => ({
+      y: {},
+      version: 0,
+    })),
   ),
 );
 
 export const useUITypes = createProjectState(
   temporal(
-    immer(() =>
-      withVersion({
-        x: {},
-      }),
-    ),
+    immer(() => ({
+      x: {},
+      version: 0,
+    })),
   ),
 );
 

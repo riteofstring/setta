@@ -11,14 +11,11 @@ from fastapi.staticfiles import StaticFiles
 
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBs
-from setta.database.settings_file import SettingsFile
 from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from setta.routers import (
-    artifact_router,
     code_info_router,
-    interactive_code_router,
     misc_router,
     projects_router,
     sections_router,
@@ -49,18 +46,22 @@ async def lifespan(app: FastAPI):
         C.DB_SPECS,
         C.CREATE_IF_NOT_EXISTS,
     )
-    app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
 
     maybe_create_tables_and_seed(
         app.state.dbs,
-        with_examples=C.WITH_EXAMPLES,
+        with_example_projects=C.WITH_EXAMPLE_PROJECTS,
         with_base_ui_types=True,
+        with_settings=True,
     )
 
     app.state.dbs.connect()
     await app.state.lsp.start_server()
     await app.state.lsp_reader.start_listener()
     await app.state.lsp_writer.send_initialize_request()
+
+    i_path = C.I_PATH
+    if i_path:
+        app.state.tasks.add_fns_from_path(i_path)
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
@@ -89,12 +90,7 @@ async def lifespan(app: FastAPI):
     app.state.lsp.kill_server()
 
 
-app = FastAPI(
-    lifespan=lifespan,
-    openapi_url=f"{C.ROUTE_PREFIX}{C.ROUTE_OPENAPI_DOCS}",
-    docs_url=f"{C.ROUTE_PREFIX}{C.ROUTE_SWAGGER_DOCS}",
-    redoc_url=f"{C.ROUTE_PREFIX}{C.ROUTE_REDOC_DOCS}",
-)
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -103,15 +99,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-kwargs = {"prefix": C.ROUTE_PREFIX}
-app.include_router(projects_router, **kwargs)
-app.include_router(sections_router, **kwargs)
-app.include_router(terminals_router, **kwargs)
-app.include_router(websocket_router, **kwargs)
-app.include_router(code_info_router, **kwargs)
-app.include_router(misc_router, **kwargs)
-app.include_router(interactive_code_router, **kwargs)
-app.include_router(artifact_router, **kwargs)
+app.include_router(projects_router)
+app.include_router(sections_router)
+app.include_router(terminals_router)
+app.include_router(websocket_router)
+app.include_router(code_info_router)
+app.include_router(misc_router)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

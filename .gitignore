@@ -24,7 +24,6 @@ yarn-debug.log*
 yarn-error.log*
 
 setta.db
-setta-settings.json
 
 __pycache__/
 *.py[cod]

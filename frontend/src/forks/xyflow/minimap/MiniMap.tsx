@@ -146,7 +146,7 @@ function MiniMap({
         // @TODO: how to calculate the correct next position? Math.max(1, transform[2]) is a workaround.
         const moveScale =
           viewScaleRef.current *
-          Math.max(transform[2], Math.log(transform[2])) *
+          Math.max(1, transform[2]) *
           (inversePan ? -1 : 1);
         const position = {
           x: transform[0] - event.sourceEvent.movementX * moveScale,
@@ -186,10 +186,7 @@ function MiniMap({
   const onSvgClick = onClick
     ? (event: MouseEvent) => {
         const rfCoord = pointer(event);
-        onClick(event, {
-          x: rfCoord[0] - localStorageFns.overviewTrueWidth.state()[0],
-          y: rfCoord[1],
-        });
+        onClick(event, { x: rfCoord[0], y: rfCoord[1] });
       }
     : undefined;
 

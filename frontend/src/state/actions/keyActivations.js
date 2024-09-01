@@ -1,14 +1,15 @@
+import {
+  openLoadModal,
+  openSaveAsModal,
+} from "components/AppContainer/Header/SubNav/FileMenu/FileMenu";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { resetZoom } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { useSettings } from "state/definitions";
-import { copy } from "./copyPaste/copy";
-import { paste } from "./copyPaste/paste";
-import { updateInteractiveCode } from "./interactive";
-import { openLoadModal, openSaveAsModal } from "./modal";
-import { saveProject } from "./project/saveProject";
-import { groupSections } from "./sections/groupSections";
-import { focusOnArgsFilter } from "./sections/sectionParamFilter";
+import { copy } from "./copy";
+import { focusOnArgsFilter } from "./focusOnArgsFilter";
+import { groupSections } from "./groupSections";
+import { paste } from "./paste";
+import { saveProject } from "./save";
 import { redoProjectState, undoProjectState } from "./undo";
 
 function attachKeyDownListener(action) {
@@ -29,9 +30,11 @@ function attachKeyUpListener(action) {
   };
 }
 
-// shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
-  const parts = shortcutString.split("+").map((part) => part.trim());
+  const parts = shortcutString
+    .toLowerCase()
+    .split("+")
+    .map((part) => part.trim());
   return {
     mod: parts.includes("mod"),
     ctrl: parts.includes("ctrl"),
@@ -66,17 +69,6 @@ export function attachKeyEventListeners() {
     [settings.resetZoomShortcut, resetZoom],
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
-    [settings.updateInteractiveCode, updateInteractiveCode],
-    [
-      settings.drawSelectionShortcut,
-      activateSelectionKeyPressed,
-      deactivateSelectionKeyPressed,
-    ],
-    [
-      settings.multiSelectionShortcut,
-      activateMultiSelectionPressed,
-      deactivateMultiSelectionPressed,
-    ],
     [
       settings.sortingShortcut,
       useDndState.getState().activateSortingMode,
@@ -93,26 +85,14 @@ export function attachKeyEventListeners() {
   const keyUpActions = [];
   for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
     let cleanup;
-    let lowercaseKeyCombo = keyCombo.toLowerCase();
     // if (typeof condition === "string") {
     //   cleanup = attachBuiltInListener(condition, action);
     // } else {
     cleanup = attachKeyDownListener((e) => {
-      if (lowercaseKeyCombo && isShortcutPressed(e, lowercaseKeyCombo)) {
+      if (isShortcutPressed(e, keyCombo)) {
         // We don't want to prevent default if the shortcut is just Control or Alt
         // because this would prevent things like Ctrl + R for refreshing the page.
-        if (
-          ![
-            "mod",
-            "ctrl",
-            "alt",
-            "shift",
-            "ctrl + c",
-            "ctrl + v",
-            "mod + c",
-            "mod + v",
-          ].includes(lowercaseKeyCombo)
-        ) {
+        if (!["mod", "ctrl", "alt"].includes(keyCombo)) {
           e.preventDefault();
         }
         action();
@@ -143,26 +123,14 @@ export function attachKeyEventListeners() {
 
 // Below functions are used in various onClick functions
 
+export function multiSectionSelect(e) {
+  return e.ctrlKey && !e.shiftKey;
+}
+
 export function variableClick(e) {
   return e.ctrlKey && !e.shiftKey;
 }
 
 export function paramSelect(e) {
   return e.ctrlKey && e.shiftKey;
-}
-
-function activateSelectionKeyPressed() {
-  useReactFlow.setState({ selectionKeyPressed: true });
-}
-
-function deactivateSelectionKeyPressed() {
-  useReactFlow.setState({ selectionKeyPressed: false });
-}
-
-function activateMultiSelectionPressed() {
-  useReactFlow.setState({ multiSelectionActive: true });
-}
-
-function deactivateMultiSelectionPressed() {
-  useReactFlow.setState({ multiSelectionActive: false });
 }

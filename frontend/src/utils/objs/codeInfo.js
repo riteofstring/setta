@@ -12,7 +12,6 @@ export function newCodeInfo({
   isPinned = false,
   isFrozen = false,
   isSelected = false,
-  keywordPositions = [],
 }) {
   return {
     id: maybeNewId(id),
@@ -26,6 +25,5 @@ export function newCodeInfo({
     isPinned,
     isFrozen,
     isSelected,
-    keywordPositions,
   };
 }

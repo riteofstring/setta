@@ -4,11 +4,11 @@ import _ from "lodash";
 export function getValueForUIType({ uiType, currValue }) {
   switch (uiType.type) {
     case C.TEXT:
-      return convertValueForText({ currValue });
+      return "";
     case C.SLIDER:
       return convertValueForSlider({ uiType, currValue });
     case C.SWITCH:
-      return convertValueForSwitch({ currValue });
+      return "false";
     default:
       return "";
   }
@@ -19,13 +19,6 @@ export function newEV(uiType) {
   return getValueForUIType({ uiType });
 }
 
-function convertValueForText({ currValue }) {
-  if (!_.isNil(currValue)) {
-    return currValue;
-  }
-  return "";
-}
-
 function convertValueForSlider({ uiType, currValue }) {
   const x = _.toNumber(currValue);
   if (_.isFinite(x)) {
@@ -34,11 +27,4 @@ function convertValueForSlider({ uiType, currValue }) {
     );
   }
   return uiType.config.min;
-}
-
-function convertValueForSwitch({ currValue }) {
-  if (!_.isNil(currValue)) {
-    return currValue === "0" ? "false" : "true";
-  }
-  return "false";
 }

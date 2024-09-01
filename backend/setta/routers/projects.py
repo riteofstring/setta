@@ -1,25 +1,25 @@
-import sqlite3
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.database.db.projects.delete import delete_project_configs
+from setta.database.db.projects.delete import delete_projects
 from setta.database.db.projects.load import (
-    load_all_project_config_metadata,
+    load_all_projects,
     load_full_project,
-    load_project_config,
-    load_project_config_names,
+    load_project,
 )
 from setta.database.db.projects.save import (
-    create_project_config,
+    create_project,
     save_project_config_name,
     save_project_details,
+    save_project_name,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
+from setta.database.utils import convert_to_backend_format
 from setta.utils.constants import C
 
 from .dependencies import get_dbs
@@ -27,16 +27,9 @@ from .dependencies import get_dbs
 router = APIRouter()
 
 
-class ProjectLoadRequest(BaseModel):
-    projectConfigName: str
-
-
-class ProjectLoadFullRequest(BaseModel):
-    excludeProjectConfigName: str
-
-
-class ProjectLoadConfigNamesRequest(BaseModel):
-    excludeProjectConfigName: str
+class ProjectRequest(BaseModel):
+    format: str
+    projectId: Optional[str] = None
 
 
 class ProjectSaveRequest(BaseModel):
@@ -46,7 +39,6 @@ class ProjectSaveRequest(BaseModel):
 class SaveAsNewProjectConfigRequest(BaseModel):
     project: dict
     newConfigName: str
-    withRefs: bool
 
 
 class SaveAsExistingProjectConfigRequest(BaseModel):
@@ -54,59 +46,55 @@ class SaveAsExistingProjectConfigRequest(BaseModel):
     configName: str
 
 
-class CreateProjectConfigRequest(BaseModel):
+class CreateProjectRequest(BaseModel):
     name: Optional[str] = None
     previewImgColor: str
 
 
-class DeleteProjectConfigsRequest(BaseModel):
+class DeleteProjectsRequest(BaseModel):
     ids: List[str]
 
 
+class SetProjectNameRequest(BaseModel):
+    currProjectName: str
+    newProjectName: str
+
+
 class SetProjectConfigNameRequest(BaseModel):
+    projectId: str
     currProjectConfigName: str
     newProjectConfigName: str
 
 
-@router.post(C.ROUTE_ALL_PROJECT_CONFIG_METADATA)
-def route_all_project_config_metadata(dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_PROJECTS)
+def route_projects(x: ProjectRequest, dbs=Depends(get_dbs)):
     with dbs:
-        return load_all_project_config_metadata(dbs)
+        return load_all_projects(dbs, x.format, x.projectId)
 
 
-@router.post(C.ROUTE_LOAD_PROJECT_CONFIG_NAMES)
-def route_load_project_config_names(dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_LOAD_PROJECT)
+def route_load_project(projectName, configName, dbs=Depends(get_dbs)):
     with dbs:
-        return load_project_config_names(dbs)
+        return load_project(dbs, projectName, configName)
 
 
-@router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
-def route_load_project_config(
-    x: ProjectLoadRequest,
-    dbs=Depends(get_dbs),
-):
+@router.post(C.ROUTE_LOAD_FULL_PROJCT)
+def route_load_full_project(projectName, dbs=Depends(get_dbs)):
     with dbs:
-        return load_project_config(dbs, x.projectConfigName)
-
-
-@router.post(C.ROUTE_LOAD_FULL_PROJECT)
-def route_load_full_project(x: ProjectLoadFullRequest, dbs=Depends(get_dbs)):
-    with dbs:
-        return load_full_project(
-            dbs, excludeProjectConfigName=x.excludeProjectConfigName
-        )
+        return load_full_project(dbs, projectName)
 
 
 @router.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest, dbs=Depends(get_dbs)):
+    formatted = convert_to_backend_format(x.project)
     with dbs:
-        save_project_details(dbs, x.project)
+        save_project_details(dbs, formatted)
 
 
-@router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
-def route_create_project_config(x: CreateProjectConfigRequest, dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_CREATE_PROJECT)
+def route_create_project(x: CreateProjectRequest, dbs=Depends(get_dbs)):
     with dbs:
-        return create_project_config(dbs, x.name, x.previewImgColor)
+        return create_project(dbs, x.name, x.previewImgColor)
 
 
 @router.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)
@@ -114,7 +102,7 @@ def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, dbs=Depends(get_dbs)
 ):
     with dbs:
-        return save_as_new_project_config(dbs, x.project, x.newConfigName, x.withRefs)
+        return save_as_new_project_config(dbs, x.project, x.newConfigName)
 
 
 @router.post(C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG)
@@ -125,18 +113,21 @@ def route_save_as_existing_project_config(
         return save_as_existing_project_config(dbs, x.project, x.configName)
 
 
-@router.post(C.ROUTE_DELETE_PROJECT_CONFIGS)
-def route_delete_project_configs(x: DeleteProjectConfigsRequest, dbs=Depends(get_dbs)):
+@router.post(C.ROUTE_DELETE_PROJECTS)
+def route_delete_projects(x: DeleteProjectsRequest, dbs=Depends(get_dbs)):
     with dbs:
-        return delete_project_configs(dbs, x.ids)
+        return delete_projects(dbs, x.ids)
+
+
+@router.post(C.ROUTE_SET_PROJECT_NAME)
+def route_set_project_name(x: SetProjectNameRequest, dbs=Depends(get_dbs)):
+    with dbs:
+        save_project_name(dbs, x.currProjectName, x.newProjectName)
 
 
 @router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
 def route_set_project_config_name(x: SetProjectConfigNameRequest, dbs=Depends(get_dbs)):
-    try:
-        with dbs:
-            save_project_config_name(
-                dbs, x.currProjectConfigName, x.newProjectConfigName
-            )
-    except sqlite3.IntegrityError as e:
-        raise HTTPException(status_code=422, detail=repr(e))
+    with dbs:
+        save_project_config_name(
+            dbs, x.projectId, x.currProjectConfigName, x.newProjectConfigName
+        )

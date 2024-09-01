@@ -1,62 +1,47 @@
-from collections import defaultdict
-
-from setta.code_gen.export_selected import (
-    get_section_type,
-    get_section_variants,
-    get_selected_item_name,
-    get_selected_section_variant,
-)
 from setta.database.utils import create_new_id, generate_memorable_string
-from setta.utils.constants import C
 
 from ..codeInfo.save import save_code_info
+from ..enteredValues.save import save_ev_cols
 from ..paramSweeps.save import save_param_sweeps
 from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
-from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
 
 
 def save_project_details(dbs, p):
-    save_section_variants(dbs, p["sectionVariants"])
-    save_code_info(dbs, p["codeInfo"])
-    save_ui_types(dbs, p["uiTypes"])
-    save_ui_type_cols(dbs, p["uiTypeCols"])
-    save_param_sweeps(dbs, p["paramSweeps"])
-    save_sections(dbs, p["sections"])
-    save_project(dbs, p["projectConfig"])
-    save_section_configs(dbs, p["projectConfig"]["id"], p["sections"])
-    update_linked_project_configs(dbs, p)
-    save_run_groups(dbs, p["runGroups"])
+    save_code_info(dbs, merge_configs(p, "codeInfo"), merge_configs(p, "evCols"))
+    save_ev_cols(dbs, merge_configs(p, "evCols"))
+    save_ui_types(dbs, merge_configs(p, "uiTypes"))
+    save_ui_type_cols(dbs, merge_configs(p, "uiTypeCols"))
+    save_param_sweeps(dbs, merge_configs(p, "paramSweeps"))
+    save_sections(dbs, merge_configs(p, "sections"))
+    save_project(dbs, p)
+    save_project_configs(dbs, p["id"], p["configs"])
+    save_run_groups(dbs, merge_configs(p, "runGroups"))
+    update_default_project_config(dbs, p)
 
 
 def save_project(dbs, project):
     db = dbs.default
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom)
-        VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom)
+        INSERT INTO Project (id, name, previewImgNodes)
+        VALUES (:id, :name, :previewImgNodes)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
-        previewImgNodes = :previewImgNodes,
-        isDefault = :isDefault,
-        x = :x,
-        y = :y,
-        zoom = :zoom
+        previewImgNodes = :previewImgNodes
     """
 
     query_params = {
         "id": project["id"],
         "name": project["name"],
         "previewImgNodes": project["previewImgNodes"],
-        "isDefault": project["isDefault"],
-        **project["viewport"],
     }
     db.execute(query, query_params)
 
     if "previewImgColor" in project:
         query = """
-            UPDATE ProjectConfig
+            UPDATE Project
             SET previewImgColor = :previewImgColor
             WHERE ID = :id
         """
@@ -64,37 +49,82 @@ def save_project(dbs, project):
             query, {"id": project["id"], "previewImgColor": project["previewImgColor"]}
         )
 
+
+def save_project_configs(dbs, projectId, configs):
+    db = dbs.default
     query = """
-        DELETE FROM ProjectConfigChildren
-        WHERE parentId = :parentId
+        INSERT INTO ProjectConfig (id, name, projectId, x, y, zoom)
+        VALUES (:id, :name, :projectId, :x, :y, :zoom)
+        ON CONFLICT (id)
+        DO UPDATE SET
+            name = :name,
+            projectId = :projectId,
+            x = :x,
+            y = :y,
+            zoom = :zoom
     """
-    db.execute(query, {"parentId": project["id"]})
+
+    query_params = []
+    for c in configs:
+        c = c["projectConfig"]
+        query_params.append(
+            {
+                "id": c["id"],
+                "name": c["name"],
+                "projectId": projectId,
+                **c["viewport"],
+            }
+        )
+    print(query_params, flush=True)
+    db.executemany(query, query_params)
+
+    placeholders = ", ".join(["?"] * len(configs))
+    query = f"""
+        DELETE FROM ProjectConfigChildren
+        WHERE parentId IN ({placeholders})
+    """
+    query_params = [c["projectConfig"]["id"] for c in configs]
+    db.execute(query, query_params)
 
     query = """
         INSERT INTO ProjectConfigChildren (parentId, childId, x, y, zIndex)
         VALUES (:parentId, :childId, :x, :y, :zIndex)
     """
     query_params = []
-    query_params.extend(
-        [
-            {
-                "parentId": project["id"],
-                "childId": childId,
-                "x": details["x"],
-                "y": details["y"],
-                "zIndex": details["zIndex"],
-            }
-            for childId, details in project["children"].items()
-        ]
-    )
+    for c in configs:
+        c = c["projectConfig"]
+        query_params.extend(
+            [
+                {
+                    "parentId": c["id"],
+                    "childId": childId,
+                    "x": details["x"],
+                    "y": details["y"],
+                    "zIndex": details["zIndex"],
+                }
+                for childId, details in c["children"].items()
+            ]
+        )
     db.executemany(query, query_params)
 
 
-def create_project_config(dbs, name, previewImgColor):
+def update_default_project_config(dbs, p):
+    db = dbs.default
+    query = """
+        UPDATE Project
+        SET defaultConfigId = :defaultConfigId
+        WHERE ID = :id
+    """
+
+    query_params = {"id": p["id"], "defaultConfigId": p["defaultConfigId"]}
+    db.execute(query, query_params)
+
+
+def create_project(dbs, name, previewImgColor):
     db = dbs.default
     query = """
         SELECT name
-        FROM ProjectConfig
+        FROM Project
     """
     db.execute(query)
     taken_names = [row[0] for row in db.fetchall()]
@@ -103,7 +133,7 @@ def create_project_config(dbs, name, previewImgColor):
         name = generate_memorable_string()
 
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgColor)
+        INSERT INTO Project (id, name, previewImgColor)
         VALUES (:id, :name, :previewImgColor)
     """
     projectId = create_new_id()
@@ -111,23 +141,54 @@ def create_project_config(dbs, name, previewImgColor):
     db.execute(query, query_params)
 
     query = """
-        SELECT
-            name
-        FROM
-            ProjectConfig
-        WHERE
-            id = :id
+        INSERT INTO ProjectConfig (id, name, projectId)
+        VALUES (:id, :name, :projectId)
     """
-    query_params = {"id": projectId}
+    projectConfigId = create_new_id()
+    query_params = {
+        "id": projectConfigId,
+        "name": "config1",
+        "projectId": projectId,
+    }
+    db.execute(query, query_params)
+
+    query = """
+        UPDATE Project
+        SET defaultConfigId = :defaultConfigId
+        WHERE Project.id = :projectId
+    """
+    query_params = {"projectId": projectId, "defaultConfigId": projectConfigId}
+    db.execute(query, query_params)
+
+    query = """
+        SELECT
+            Project.id,
+            Project.name,
+            Project.defaultConfigId,
+            ProjectConfig.id as configId,
+            ProjectConfig.name as configName
+        FROM
+            Project
+        JOIN
+            ProjectConfig
+        ON
+            ProjectConfig.projectId = Project.id
+        WHERE
+            Project.id = :projectId
+    """
+    query_params = {"projectId": projectId}
     db.execute(query, query_params)
     out = dict(db.fetchone())
-    return out["name"]
+    out["configs"] = [{"id": out["configId"], "name": out["configName"]}]
+    del out["configId"]
+    del out["configName"]
+    return out
 
 
-def save_project_config_name(dbs, curr_name, new_name):
+def save_project_name(dbs, curr_name, new_name):
     db = dbs.default
     query = """
-        UPDATE ProjectConfig
+        UPDATE Project
         SET name = :new_name
         WHERE name = :curr_name
     """
@@ -135,135 +196,26 @@ def save_project_config_name(dbs, curr_name, new_name):
     db.execute(query, query_params)
 
 
-def save_section_configs(dbs, project_config_id, sections):
+def save_project_config_name(dbs, project_id, curr_name, new_name):
     db = dbs.default
-
-    query_params = []
-    for section_id in sections.keys():
-        query_params.extend([project_config_id, section_id])
-    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
-    query = f"""
-        DELETE FROM SectionConfig
-        WHERE (projectConfigId, sectionId) IN ({placeholders})
+    query = """
+        UPDATE ProjectConfig
+        SET name = :new_name
+        WHERE
+            name = :curr_name
+        AND
+            projectId = :projectId
     """
+    query_params = {
+        "projectId": project_id,
+        "curr_name": curr_name,
+        "new_name": new_name,
+    }
     db.execute(query, query_params)
 
-    id_pairs = [(project_config_id, s) for s in sections.keys()]
-    insert_section_configs(dbs, sections, id_pairs)
 
-
-def insert_section_configs(dbs, sections, id_pairs):
-    db = dbs.default
-    query = """
-        INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation)
-        VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :isHorizontalOrientation)
-    """
-
-    query_params = [
-        {
-            "projectConfigId": projectConfigId,
-            "sectionId": sections[c]["id"],
-            "width": convert_size(sections[c]["size"]["width"]),
-            "height": convert_size(sections[c]["size"]["height"]),
-            "variantId": sections[c]["variantId"],
-            "paramSweepId": sections[c]["paramSweepId"],
-            "isHorizontalOrientation": sections[c]["isHorizontalOrientation"],
-        }
-        for projectConfigId, c in id_pairs
-    ]
-
-    db.executemany(query, query_params)
-
-
-# If multiple project configs share a section,
-# and that section has children,
-# then if a new child is added in one of those project configs,
-# an entry in SectionConfig needs to be added for ALL project configs.
-# Otherwise when loading those other project configs,
-# the data for the new child will be missing.
-def update_linked_project_configs(dbs, project):
-    db = dbs.default
-    query = """
-        SELECT projectConfigId, sectionId
-        FROM SectionConfig
-        WHERE projectConfigId != ?
-    """
-    project_config = project["projectConfig"]
-    db.execute(query, (project_config["id"],))
-    sections_to_project_configs = defaultdict(set)
-    project_configs_to_sections = defaultdict(set)
-    for row in db.fetchall():
-        row = dict(row)
-        sections_to_project_configs[row["sectionId"]].add(row["projectConfigId"])
-        project_configs_to_sections[row["projectConfigId"]].add(row["sectionId"])
-
-    section_configs_to_add = set()
-    children_have_been_visited = set()
-    has_been_visited_as_child = set()
-    # we start with top level sections that are also in other project configs
-    ids = set(
-        k for k in project_config["children"].keys() if k in sections_to_project_configs
-    )
-    while len(ids) > 0:
-        curr = ids.pop()
-        if curr in children_have_been_visited:
-            continue
-        children_have_been_visited.add(curr)
-        for variant in get_section_variants(project, curr):
-            children = variant["children"]
-            for c in children:
-                if c in has_been_visited_as_child:
-                    continue
-                has_been_visited_as_child.add(c)
-                c_already_in_at_least_one_other_config = False
-                for other_project_config in sections_to_project_configs[curr]:
-                    other_project_section_configs = project_configs_to_sections[
-                        other_project_config
-                    ]
-                    # The parent (curr) is in other project configs, but the child is not.
-                    # So we need to add the child to the other project configs that it's not in.
-                    if c not in other_project_section_configs:
-                        section_configs_to_add.add((other_project_config, c))
-                        missing_referenced_section_id = (
-                            get_missing_referenced_section_id(
-                                project, c, other_project_section_configs
-                            )
-                        )
-                        if missing_referenced_section_id:
-                            section_configs_to_add.add(
-                                (other_project_config, missing_referenced_section_id)
-                            )
-
-                    else:
-                        c_already_in_at_least_one_other_config = True
-
-                # The child is already in at least one other project config.
-                # So we need to recurse into the child, to see if its children
-                # need to be added.
-                if (
-                    c_already_in_at_least_one_other_config
-                    and c not in children_have_been_visited
-                ):
-                    ids.add(c)
-
-    print("section_configs_to_add", section_configs_to_add, flush=True)
-    insert_section_configs(dbs, project["sections"], section_configs_to_add)
-
-
-def convert_size(x):
-    return -1 if x == "auto" else x
-
-
-def get_missing_referenced_section_id(
-    project, section_id, other_project_section_configs
-):
-    if get_section_type(project, section_id) == C.REFERENCE_SECTION:
-        r = project["fullNameToInfo"][get_selected_item_name(project, section_id)]
-        if (
-            r["sectionId"]
-            and not r["paramInfoId"]
-            and not r["isArgsObj"]
-            and r["sectionId"] not in other_project_section_configs
-        ):
-            return r["sectionId"]
-    return None
+def merge_configs(p, key):
+    output = {}
+    for c in p["configs"]:
+        output.update(c[key])
+    return output

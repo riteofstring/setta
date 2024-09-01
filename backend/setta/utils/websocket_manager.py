@@ -1,17 +1,16 @@
 import json
-from collections import defaultdict
 
 from fastapi import WebSocket
 
 from setta.database.utils import generate_memorable_string
 from setta.tasks.fns.utils import TaskMessage
-from setta.utils.constants import C
 
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class WebsocketManager:
     def __init__(self, tasks):
         self.sockets = {}
+        self.use_server_as_cli = True
         self.server_cli_id = "main"
         self.tasks = tasks
         self.message_id_to_sender_id = {}
@@ -21,11 +20,21 @@ class WebsocketManager:
         id = websocket.headers.get("websocketId")
         while (not id) or id in self.sockets:
             id = generate_memorable_string()
-        self.sockets[id] = {
-            "websocket": websocket,
-            "isCLI": websocket.headers.get("isCLI", False),
-            "location": None,
-        }
+        isCLI = "Python" in websocket.headers.get("user-agent", "")
+        self.sockets[id] = {"websocket": websocket, "isCLI": isCLI}
+        await self.send_message(
+            {"toWebsocketId": id, "messageType": "connection", "websocketId": id},
+            fromWebsocketId=self.server_cli_id,
+        )
+        await self.send_message(
+            {
+                "toWebsocketId": id,
+                "messageType": "interactiveProjects",
+                "websocketId": id,
+                "content": self.tasks.custom_fn_names,
+            },
+            fromWebsocketId=self.server_cli_id,
+        )
         await self.broadcast_connections()
         return id
 
@@ -43,37 +52,29 @@ class WebsocketManager:
                 result = await self.tasks(
                     message["messageType"], TaskMessage.parse_obj(message)
                 )
-                if result["content"]:
+                if result["output"]:
                     websocket = self.sockets[fromWebsocketId]["websocket"]
                     await websocket.send_text(
                         json.dumps(
                             {
                                 "id": message["id"],
-                                "content": result["content"],
-                                "messageType": result["messageType"],
+                                "content": result["output"],
+                                "toWebsocketId": wid,
+                                "messageType": result["name"],
                             }
                         )
                     )
             else:
                 # just send data to target websocket
                 websocket = self.sockets[wid]["websocket"]
-                await websocket.send_text(json.dumps(message))
-
-        if "location" in message:
-            self.sockets[fromWebsocketId]["location"] = message["location"]
+                await websocket.send_text(
+                    json.dumps({**message, "websocketId": fromWebsocketId})
+                )
 
     async def send_message_to_requester(self, id, content):
         # just send data to target websocket
         websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
         await websocket.send_text(json.dumps({"id": id, "content": content}))
-
-    async def send_message_to_location(self, content, messageType, location):
-        for w in self.sockets.values():
-            if w["location"] == location:
-                websocket = w["websocket"]
-                await websocket.send_text(
-                    json.dumps({"content": content, "messageType": messageType})
-                )
 
     async def broadcast(self, message):
         for s in self.sockets.values():
@@ -83,7 +84,8 @@ class WebsocketManager:
         connections = []
         for id, s in self.sockets.items():
             connections.append({"websocketId": id, "isCLI": s["isCLI"]})
-        connections.append({"websocketId": self.server_cli_id, "isCLI": True})
+        if self.use_server_as_cli:
+            connections.append({"websocketId": self.server_cli_id, "isCLI": True})
         await self.broadcast(
-            {"messageType": C.WS_ALL_CONNECTIONS, "connections": connections}
+            {"messageType": "allConnections", "connections": connections}
         )

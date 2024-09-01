@@ -1,21 +1,15 @@
 import asyncio
 import copy
 import json
-import os
 import platform
 import time
 from asyncio import CancelledError
 from collections import defaultdict, deque
-from datetime import datetime
 
 import psutil
 from fastapi import WebSocketDisconnect
 
-from setta.code_gen.export_selected import (
-    export_selected,
-    get_section_type,
-    get_selected_section_variant,
-)
+from setta.code_gen.export_selected import export_selected, get_section_type
 from setta.code_gen.find_placeholders import (
     double_braces,
     needs_generated_python,
@@ -24,11 +18,7 @@ from setta.code_gen.find_placeholders import (
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
-from setta.utils.constants import (
-    CODE_FOLDER_ENV_VARIABLE,
-    SEND_ARTIFACT_TO_ENV_VARIABLE,
-    C,
-)
+from setta.utils.constants import C
 
 if platform.system() == "Windows":
     from winpty import PtyProcess
@@ -118,10 +108,10 @@ class TerminalWebsockets:
                 try:
                     json_val = json.loads(input_data)
                     if isinstance(json_val, dict):
-                        doResize = json_val["messageType"] == "resize"
+                        doResize = json_val["type"] == "resize"
                         if doResize:
                             pty_process.setwinsize(json_val["rows"], json_val["cols"])
-                        elif json_val["messageType"] == C.WS_RUN_CODE:
+                        elif json_val["type"] == "runCode":
                             runCode(json_val, terminal_write_fn=pty_process.write)
                             self.set_terminal_start_time(id)
                         pty_info["wasJustResized"] = doResize
@@ -163,8 +153,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     }
     dependencies = {}
     for s in code_sections.values():
-        section_variant = get_selected_section_variant(p, s["id"])
-        curr_code = section_variant["code"]
+        curr_code = s["code"]
         curr_dependencies = []
         replacements = {}
         for other_s in code_sections.values():
@@ -180,21 +169,20 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 folder_path, "SETTA_YAML", "yaml"
             )
         if needs_generated_python(curr_code):
-            replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
+            replacements["SETTA_GENERATED_CODE"] = generate_code(
                 selected, curr_code, replace_templated_code=False
             )[0]
 
-        section_variant["code"] = replace_keywords(curr_code, replacements)
+        s["code"] = replace_keywords(s["code"], replacements)
         dependencies[s["id"]] = curr_dependencies
 
     to_write = topological_sort(dependencies)
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
-        code = get_selected_section_variant(p, sid)["code"]
         extension = languageToExtension(curr_section["codeLanguage"])
         filepath = write_string_to_file(
-            folder_path, f"{curr_section['name']}{extension}", code
+            folder_path, f"{curr_section['name']}{extension}", curr_section["code"]
         )
         filepath = os.path.relpath(filepath).replace(os.sep, "/")
         id_to_filepath[sid] = filepath
@@ -216,9 +204,6 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
         filepath = id_to_filepath[sid]
         callingProgram = languageToCall(code_sections[sid]["codeLanguage"])
         command = f"{callingProgram} {filepath}"
-
-    env_variable_str = create_env_variable_str(folder_path, p["projectConfig"]["name"])
-    command = f"{env_variable_str}{command}"
 
     if terminal_write_fn:
         terminal_write_fn(f"\x15{command}\n")
@@ -243,6 +228,10 @@ def codePathStr(folder_path, filename, codeLanguage):
 def codeCallStr(folder_path, section):
     codePath = codePathStr(folder_path, section["name"], section["codeLanguage"])
     return f"{languageToCall(section['codeLanguage'])} {codePath}\n"
+
+
+import os
+from datetime import datetime
 
 
 def topological_sort(objects):
@@ -292,8 +281,3 @@ def write_string_to_file(folder, filename, content):
     with open(file_path, "w") as file:
         file.write(content)
     return file_path
-
-
-def create_env_variable_str(folder_path, project_config_name):
-    location = f"/{project_config_name}"
-    return f"{CODE_FOLDER_ENV_VARIABLE}={folder_path} {SEND_ARTIFACT_TO_ENV_VARIABLE}={location} "

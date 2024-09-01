@@ -44,7 +44,7 @@ class TaskRunner:
     async def run(self, id, fn, fn_args, run_as):
         await self.cancel_existing(id)
         if run_as == RunType.NONE:
-            return fn(*fn_args)
+            fn(*fn_args)
         elif run_as in [RunType.THREAD, RunType.SUBPROCESS]:
             if run_as == RunType.SUBPROCESS:
                 executor = self.pool_executor

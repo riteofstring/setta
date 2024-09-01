@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { memo } from "react";
 
 import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection/NodesSelection";
-import { useReactFlow } from "../../store";
+import useGlobalKeyHandler from "../../hooks/useGlobalKeyHandler";
+import useKeyPress from "../../hooks/useKeyPress";
 import { GraphViewProps } from "../GraphView";
 import Pane from "../Pane";
 import ZoomPane from "../ZoomPane";
@@ -16,24 +17,36 @@ export type FlowRendererProps = Omit<
 
 const FlowRenderer = ({
   children,
+  selectionKeyCode,
   selectionOnDrag,
   selectionMode,
+  multiSelectionKeyCode,
+  panActivationKeyCode,
+  zoomActivationKeyCode,
   elementsSelectable,
   zoomOnScroll,
   zoomOnPinch,
-  panOnScroll,
+  panOnScroll: _panOnScroll,
   panOnScrollSpeed,
   panOnScrollMode,
   zoomOnDoubleClick,
-  panOnDrag,
+  panOnDrag: _panOnDrag,
   translateExtent,
+  minZoom,
+  maxZoom,
   preventScrolling,
   noWheelClassName,
   noPanClassName,
 }: FlowRendererProps) => {
-  const selectionKeyPressed = useReactFlow((x) => x.selectionKeyPressed);
+  const selectionKeyPressed = useKeyPress(selectionKeyCode);
+  const panActivationKeyPressed = useKeyPress(panActivationKeyCode);
+
+  const panOnDrag = panActivationKeyPressed || _panOnDrag;
+  const panOnScroll = panActivationKeyPressed || _panOnScroll;
   const isSelecting =
     selectionKeyPressed || (selectionOnDrag && panOnDrag !== true);
+
+  useGlobalKeyHandler({ multiSelectionKeyCode });
 
   return (
     <ZoomPane
@@ -46,6 +59,9 @@ const FlowRenderer = ({
       zoomOnDoubleClick={zoomOnDoubleClick}
       panOnDrag={!selectionKeyPressed && panOnDrag}
       translateExtent={translateExtent}
+      minZoom={minZoom}
+      maxZoom={maxZoom}
+      zoomActivationKeyCode={zoomActivationKeyCode}
       preventScrolling={preventScrolling}
       noWheelClassName={noWheelClassName}
       noPanClassName={noPanClassName}

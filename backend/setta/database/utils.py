@@ -1,5 +1,4 @@
 import copy
-import json
 import random
 from collections import defaultdict
 from uuid import uuid4
@@ -68,13 +67,10 @@ def create_id_map(old_ids):
 def remap_ids(x):
     old_ids = list(x.keys())
     id_map = create_id_map(old_ids)
-    new_obj = rename_keys(x, id_map)
-    return new_obj, id_map
+    new_ids = rename_keys(x, id_map)
+    return new_ids, id_map
 
 
-def parse_keyword_positions_string(x):
-    return json.loads(x) if x is not None else []
-
-
-def dump_keyword_positions_as_string(x):
-    return json.dumps(x) if len(x) > 0 else None
+def convert_to_backend_format(p):
+    p_metadata = p.pop("project")
+    return {**p_metadata, "configs": [{**p}]}

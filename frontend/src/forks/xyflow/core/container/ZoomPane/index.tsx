@@ -8,12 +8,13 @@ import {
   type D3ZoomEvent,
   type ZoomTransform,
 } from "d3-zoom";
-import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import { useEffect, useRef } from "react";
-import { closeAllContextMenus } from "state/actions/contextMenus";
-import { useProjectConfig, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
+
+import { useReactFlow } from "forks/xyflow/core/store";
+import { closeAllContextMenus } from "state/actions/contextMenus";
+import { REACT_FLOW_STORE } from "utils/constants";
+import useKeyPress from "../../hooks/useKeyPress";
 import useResizeHandler from "../../hooks/useResizeHandler";
 import { containerStyle } from "../../styles";
 import {
@@ -27,7 +28,10 @@ import type { FlowRendererProps } from "../FlowRenderer";
 
 type ZoomPaneProps = Omit<
   FlowRendererProps,
-  "noDragClassName" | "selectionOnDrag"
+  | "selectionKeyCode"
+  | "multiSelectionKeyCode"
+  | "noDragClassName"
+  | "selectionOnDrag"
 >;
 
 const viewChanged = (
@@ -79,6 +83,9 @@ const ZoomPane = ({
   elementsSelectable,
   panOnDrag = true,
   translateExtent,
+  minZoom,
+  maxZoom,
+  zoomActivationKeyCode,
   preventScrolling = true,
   children,
   noWheelClassName,
@@ -91,12 +98,10 @@ const ZoomPane = ({
   const prevTransform = useRef<Viewport>({ x: 0, y: 0, zoom: 0 });
   const { d3Zoom, d3Selection, d3ZoomHandler, userSelectionActive } =
     useReactFlow(selector, shallow);
-  // const zoomActivationKeyPressed = useKeyPress(zoomActivationKeyCode);
-  const zoomActivationKeyPressed = false;
+  const zoomActivationKeyPressed = useKeyPress(zoomActivationKeyCode);
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const initialViewport = useProjectConfig((x) => x.viewport, _.isEqual);
 
   useResizeHandler(zoomPane);
 
@@ -104,7 +109,6 @@ const ZoomPane = ({
     if (zoomPane.current) {
       const bbox = zoomPane.current.getBoundingClientRect();
       // .interpolate(interpolate) makes the interpolations linear instead of curved
-      const { minZoom, maxZoom } = useSettings.getState();
       const d3ZoomInstance = zoom()
         .interpolate(interpolate)
         .scaleExtent([minZoom, maxZoom])
@@ -112,9 +116,10 @@ const ZoomPane = ({
       const selection = select(zoomPane.current as Element).call(
         d3ZoomInstance,
       );
+      const defaultViewport = REACT_FLOW_STORE.initialViewport;
       const updatedTransform = zoomIdentity
-        .translate(initialViewport.x, initialViewport.y)
-        .scale(clamp(initialViewport.zoom, minZoom, maxZoom));
+        .translate(defaultViewport.x, defaultViewport.y)
+        .scale(clamp(defaultViewport.zoom, minZoom, maxZoom));
       const extent: CoordinateExtent = [
         [0, 0],
         [bbox.width, bbox.height],
@@ -141,7 +146,7 @@ const ZoomPane = ({
         domNode: zoomPane.current.closest(".react-flow") as HTMLDivElement,
       });
     }
-  }, [initialViewport.x, initialViewport.y, initialViewport.zoom]);
+  }, []);
 
   useEffect(() => {
     if (d3Selection && d3Zoom) {
