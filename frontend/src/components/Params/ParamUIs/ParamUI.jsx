@@ -1,6 +1,5 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import { useCodeInfo } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
@@ -35,7 +34,6 @@ export function ParamUI({
     sectionId,
     paramInfoId,
   });
-  const paramNameIsValid = useCodeInfo((x) => !!x.x[paramInfoId].name);
 
   switch (uiType.type) {
     default:
@@ -47,15 +45,14 @@ export function ParamUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            isDisabled={isDisabled}
             dummyCodeClassName={`section-value self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words font-mono text-xs [tab-size:4] [word-break:break-word]`}
             realCodeClassName={`nodrag self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value`}
             language="python"
             sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
-            initializeGenCode={paramNameIsValid}
-            autocomplete={paramNameIsValid}
+            initializeGenCode={!isDisabled}
+            autocomplete={!isDisabled}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
