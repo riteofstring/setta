@@ -24,5 +24,6 @@
   "snapGrid": [15, 15],
   "minZoom": 0.1,
   "maxZoom": 10,
-  "showDefaultConfigOnLoad": true
+  "showDefaultConfigOnLoad": true,
+  "defaultZoomLevel": 1
 }
