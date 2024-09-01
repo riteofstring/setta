@@ -25,8 +25,7 @@ def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
 ):
     p = x.project
-    exporter_obj = simple_export_selected(p)
-    print(yaml.safe_dump(exporter_obj.output), flush=True)
+    projectAsSimpleDict = simple_export_selected(p).output
 
     codeDict = {}
     for id in p["sections"].keys():
@@ -34,5 +33,7 @@ def route_update_interactive_code(
             codeDict[id] = get_selected_section_variant(p, id)["code"]
 
     projectConfigName = x.project["projectConfig"]["name"]
-    task_names, error_msgs = tasks.add_custom_fns(codeDict, projectConfigName)
+    task_names, error_msgs = tasks.add_custom_fns(
+        codeDict, projectConfigName, projectAsSimpleDict
+    )
     return {"taskNames": task_names, "errorMsgs": error_msgs}

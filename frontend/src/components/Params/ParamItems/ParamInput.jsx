@@ -8,7 +8,7 @@ import {
   setParamKeywordPositions,
 } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
-import { useInteractive } from "state/definitions";
+import { useCodeInfo, useInteractive } from "state/definitions";
 import {
   useGetParamEnteredValue,
   useGetParamKeywordPositions,
@@ -38,7 +38,7 @@ export function ParamInput({
     setValue(vStr);
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr, enteredValue);
     setDidUpdate(true);
-    sendToInteractiveTasks(vStr);
+    sendToInteractiveTasks(paramInfoId, vStr);
   }
 
   useEffect(() => {
@@ -68,9 +68,10 @@ export function ParamInput({
   );
 }
 
-function sendToInteractiveTasks(v) {
+function sendToInteractiveTasks(paramInfoId, v) {
+  const content = { [useCodeInfo.getState().x[paramInfoId].name]: v };
   for (const t of useInteractive.getState().taskNames) {
-    sendMessage({ id: createNewId(), content: v, messageType: t });
+    sendMessage({ id: createNewId(), content, messageType: t });
   }
 }
 

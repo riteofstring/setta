@@ -14,11 +14,17 @@ class Tasks:
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
         self.custom_fn_names = {}
+        self.custom_fn_name_to_project_dict = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
         try:
             print(f"Start processing message ID: {message.id}", flush=True)
+            if fn_name in self.custom_fn_name_to_project_dict:
+                message.content = {
+                    **self.custom_fn_name_to_project_dict[fn_name],
+                    **message.content
+                }
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
             fn_args = [message, *(getattr(self, k) for k in fn.dependencies)]
@@ -49,7 +55,7 @@ class Tasks:
                 task_names.append(attr.name)
         return task_names
 
-    def add_custom_fns(self, codeDict, project_config_name):
+    def add_custom_fns(self, codeDict, project_config_name, projectAsSimpleDict):
         error_msgs = {}
         task_names = []
         self.remove_existing_custom_fns(project_config_name)
@@ -64,6 +70,8 @@ class Tasks:
             except Exception as e:
                 error_msgs[task_name] = str(e)
         self.custom_fn_names[project_config_name] = task_names
+        for n in task_names:
+            self.custom_fn_name_to_project_dict[n] = projectAsSimpleDict
         print("add_fns_from_string", self.fns.keys(), flush=True)
         return task_names, error_msgs
 
@@ -72,3 +80,5 @@ class Tasks:
             return
         for x in self.custom_fn_names[project_config_name]:
             del self.fns[x]
+            del self.custom_fn_name_to_project_dict[x]
+        del self.custom_fn_names[project_config_name]
