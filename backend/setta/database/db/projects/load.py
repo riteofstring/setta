@@ -123,3 +123,18 @@ def load_full_project(dbs, excludeProjectConfigName=None):
         configs.append(p)
 
     return configs
+
+
+def load_default_config_name(dbs):
+    query = """
+        SELECT
+            name
+        FROM
+            ProjectConfig
+        WHERE
+            isDefault = 1
+    """
+
+    db = dbs.default
+    db.execute(query)
+    return db.fetchall()[0][0]

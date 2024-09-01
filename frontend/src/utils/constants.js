@@ -98,7 +98,8 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
   "bg-orange-500/60 dark:bg-orange-600/30",
 ];
 
-export const HOME_ROUTER_PATH = "/";
+export const INDEX_ROUTER_PATH = "/";
+export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SETTINGS_ROUTER_PATH = "/settings";
 

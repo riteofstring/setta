@@ -4,6 +4,7 @@ import { useLocation, useParams } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
 import {
   dbGetAllProjectConfigMetadata,
+  dbGetDefaultConfigName,
   dbLoadFullProject,
   dbLoadProjectConfigNames,
 } from "requests/projects";
@@ -109,11 +110,6 @@ export function useConfigAddress({ project, configId }) {
   return `${project.name}/${configName}`;
 }
 
-export function useDefaultConfigAddress(project) {
-  const configId = project.defaultConfigId;
-  return useConfigAddress({ project, configId });
-}
-
 export function useLoadFullProject(previewEnabled) {
   const [doneLoading, setDoneLoading] = useState(false);
   const { projectConfigName: currProjectConfigName } = useParams();
@@ -158,4 +154,21 @@ export function useLoadFullProject(previewEnabled) {
   }, [previewEnabled, currProjectConfigName]);
 
   return { doneLoading, currProjectConfigName };
+}
+
+export function useDefaultConfigName() {
+  const [defaultConfigName, setDefaultConfigName] = useState(null);
+
+  async function fn() {
+    const res = await dbGetDefaultConfigName();
+    if (res.status == 200) {
+      setDefaultConfigName(res.data);
+    }
+  }
+
+  useEffect(() => {
+    fn();
+  }, []);
+
+  return defaultConfigName;
 }

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
     load_all_project_config_metadata,
+    load_default_config_name,
     load_full_project,
     load_project_config,
     load_project_config_names,
@@ -140,3 +141,9 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest, dbs=Depends(ge
             )
     except sqlite3.IntegrityError as e:
         raise HTTPException(status_code=422, detail=repr(e))
+
+
+@router.post(C.ROUTE_GET_DEFAULT_CONFIG_NAME)
+def router_get_default_config_name(dbs=Depends(get_dbs)):
+    with dbs:
+        return load_default_config_name(dbs)

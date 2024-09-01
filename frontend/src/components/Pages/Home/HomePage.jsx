@@ -125,9 +125,10 @@ const ProjectItem = forwardRef(
     return (
       <div ref={forwardedRef} className={itemStyles}>
         <Link
-          to={project.name}
+          to={`/${project.name}`}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
           className="contents"
+          relative="path"
         >
           <ThumbnailArea
             project={project}

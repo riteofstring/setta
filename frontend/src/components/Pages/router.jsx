@@ -6,10 +6,11 @@ import { GridContainer } from "components/Utils/atoms/gridContainer/GridContaine
 import { createBrowserRouter } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
+  INDEX_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { GlobalWrapper } from "./GlobalWrapper";
+import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
 
 const homeRoute = {
@@ -20,6 +21,15 @@ const homeRoute = {
       <GridContainer>
         <HomePage />
       </GridContainer>
+    </GlobalWrapper>
+  ),
+};
+
+const indexRoute = {
+  path: INDEX_ROUTER_PATH,
+  element: (
+    <GlobalWrapper>
+      <IndexRouteComponent />
     </GlobalWrapper>
   ),
 };
@@ -51,6 +61,7 @@ const settingsRoute = {
 };
 
 export const router = createBrowserRouter([
+  indexRoute,
   homeRoute,
   projectRoute,
   settingsRoute,

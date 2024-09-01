@@ -23,5 +23,6 @@
   "defaultSectionSize": { "width": "auto", "height": "auto" },
   "snapGrid": [15, 15],
   "minZoom": 0.1,
-  "maxZoom": 10
+  "maxZoom": 10,
+  "showDefaultConfigOnLoad": true
 }

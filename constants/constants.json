@@ -58,6 +58,7 @@
   "ROUTE_UPDATE_INTERACTIVE_CODE": "/updateInteractiveCode",
   "ROUTE_SEND_ARTIFACT": "/sendArtfiact",
   "ROUTE_LOAD_ARTIFACTS": "/loadArtifacts",
+  "ROUTE_GET_DEFAULT_CONFIG_NAME": "/getDefaultConfigName",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "WS_ALL_CONNECTIONS": "allConnections",
