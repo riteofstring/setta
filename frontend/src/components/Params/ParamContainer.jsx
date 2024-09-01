@@ -49,26 +49,26 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
     (x) => paramInfo.children.map((c) => x.x[c]),
     _.isEqual,
   );
-
-  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
+  function onClickSelect(e) {
+    if (useParamShortcuts.getState().isSelectingParams) {
+      e.stopPropagation();
+      toggleCodeInfoSelected(paramInfo.id);
+    }
+  }
 
   return paramChildren.length === 0 ? (
     <>
       <article
         className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
-        onClick={(e) => {
-          if (useParamShortcuts.getState().isSelectingParams) {
-            toggleCodeInfoSelected(paramInfo.id);
-          }
-        }}
+        onClick={onClickSelect}
       >
         {children}
         <ParamInput
           sectionId={sectionId}
           paramInfoId={paramInfo.id}
           defaultVal={paramInfo.defaultVal}
-          isDisabled={isSelectingParams || !paramInfo.name}
+          isDisabled={!paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />
@@ -81,6 +81,7 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
     <article
       className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
+      onClick={onClickSelect}
     >
       {children}
       <div className="section-args-nested section-key-value relative grid gap-y-1">

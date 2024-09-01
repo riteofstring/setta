@@ -97,7 +97,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
               </>
             )}
           </section>
-          {anyParamsSelected && (
+          {/* {anyParamsSelected && (
             <section className="flex">
               <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
                 Position
@@ -116,7 +116,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
                 <i className="gg-push-down mb-[2px]" />
               </button>
             </section>
-          )}
+          )} */}
         </article>
 
         <search className="nodrag relative mx-2 flex min-w-20 flex-1 items-center justify-self-center">

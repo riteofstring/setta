@@ -1,5 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
+import { useParamShortcuts } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
@@ -34,6 +35,8 @@ export function ParamUI({
     sectionId,
     paramInfoId,
   });
+  const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
+  const _isDisabled = isDisabled || isSelectingParams;
 
   switch (uiType.type) {
     default:
@@ -45,13 +48,13 @@ export function ParamUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            dummyCodeClassName={`section-value self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+            dummyCodeClassName={`section-value self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!_isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
             realCodeClassName={`nodrag self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language="python"
             sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
-            isDisabled={isDisabled}
+            isDisabled={_isDisabled}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -69,12 +72,12 @@ export function ParamUI({
           min={min}
           max={max}
           step={step}
-          isDisabled={isDisabled}
+          isDisabled={_isDisabled}
           sliderRootClassName="section-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
           sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
           sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
           sliderThumbClassName="block h-3 w-3 cursor-pointer
-      rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600"
+      rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none"
         />
       );
     }
@@ -84,7 +87,7 @@ export function ParamUI({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
-          isDisabled={isDisabled}
+          isDisabled={_isDisabled}
           outerDivClassName="section-value flex justify-self-start self-center"
           twRootClasses="nodrag"
         />
