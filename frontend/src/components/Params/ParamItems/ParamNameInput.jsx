@@ -1,7 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
-export function ParamNameInput({
+function _ParamNameInput({
   sectionId,
   paramInfoId,
   value,
@@ -18,8 +18,13 @@ export function ParamNameInput({
   }
 
   useEffect(() => {
-    setLiveValue(value ?? "");
+    if (value !== liveValue) {
+      console.log("value !== liveValue")
+      setLiveValue(value ?? "");
+    }
   }, [value]);
+
+  console.log("_ParamNameInput")
 
   return (
     <>
@@ -46,3 +51,11 @@ export function ParamNameInput({
     </>
   );
 }
+
+export const ParamNameInput = React.memo(
+  _ParamNameInput,
+  (p, n) =>
+    p.sectionId === n.sectionId &&
+    p.paramInfoId === n.paramInfoId &&
+    p.value === n.value,
+);

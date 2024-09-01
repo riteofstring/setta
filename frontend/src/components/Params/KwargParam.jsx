@@ -1,13 +1,19 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { useCallback } from "react";
 import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 
 export function KwargParam(props) {
   const { sectionId, parentId, paramInfo: kwargInfo, setDidUpdate } = props;
-  const onBlur = (v) => {
-    changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
-  };
+  const onBlur = useCallback(
+    (v) => {
+      changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
+    },
+    [sectionId, kwargInfo.id],
+  );
+
+  console.log("KwargParam", kwargInfo.id)
 
   const onClick = () => {
     deleteKwarg({
@@ -39,7 +45,7 @@ export function KwargParam(props) {
           value={kwargInfo.name}
           hasChildren={hasChildren}
           onBlur={onBlur}
-          onClick={props.onNameClick}
+          // onClick={props.onNameClick}
           setDidUpdate={setDidUpdate}
         />
       </ParamContainer>

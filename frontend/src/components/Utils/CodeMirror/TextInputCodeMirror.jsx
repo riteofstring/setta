@@ -1,6 +1,6 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
@@ -12,7 +12,7 @@ import { getExtensions } from "./getExtensions";
 import { getKeywordStylizer } from "./getKeywordStylizer";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
 
-export function TextInputCodeMirror({
+export function _TextInputCodeMirror({
   sectionId,
   paramInfoId,
   value,
@@ -110,6 +110,8 @@ export function TextInputCodeMirror({
     </>
   );
 }
+
+export const TextInputCodeMirror = React.memo(_TextInputCodeMirror)
 
 function CoreCodeMirror({
   sectionId,
