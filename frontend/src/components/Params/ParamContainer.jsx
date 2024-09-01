@@ -105,7 +105,10 @@ function _ParamContainer({
           />
         )}
         {showButtons && (
-          <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
+          <ParamOptionsButton
+            variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400"
+            paramInfoId={paramInfo.id}
+          />
         )}
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
@@ -156,7 +159,10 @@ function _ParamContainer({
         />
       )}
       {showButtons && (
-        <ParamOptionsButton variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400" />
+        <ParamOptionsButton
+          variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400"
+          paramInfoId={paramInfo.id}
+        />
       )}
     </article>
   );

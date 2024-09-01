@@ -1,9 +1,11 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { toggleCodeInfoSelected } from "state/actions/codeInfo";
 
-export function ParamOptionsButton({ variants = "" }) {
+export function ParamOptionsButton({ paramInfoId, variants = "" }) {
   //hover:!bg-white dark:hover:!bg-setta-900
   return (
     <IconButton
+      onClick={() => toggleCodeInfoSelected(paramInfoId)}
       twClasses={`section-value arg-select-btn justify-self-end self-center ${variants}`}
       size="h-3 w-3"
       icon={<i className="gg-check"></i>}

@@ -1,19 +1,9 @@
 import _ from "lodash";
 import React from "react";
-import { toggleCodeInfoSelected } from "state/actions/codeInfo";
-import { paramSelect } from "state/actions/keyActivations";
-import { updateParams } from "state/actions/sections/sectionContents";
 import { KwargParam } from "./KwargParam";
 import { RegularParam } from "./RegularParam";
 
 function _ParamSwitch(props) {
-  function onNameClick(e) {
-    if (paramSelect(e)) {
-      toggleCodeInfoSelected(props.paramInfo.id);
-      updateParams(props.sectionId);
-    }
-  }
-
   return props.isKwarg ? (
     <KwargParam {...props} onNameClick={onNameClick} />
   ) : (
