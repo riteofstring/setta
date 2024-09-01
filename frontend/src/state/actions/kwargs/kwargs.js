@@ -10,6 +10,7 @@ import {
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
+import { deleteParamsFromParamSweep } from "../runGroups/paramSweep";
 import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
@@ -85,6 +86,7 @@ function deleteKwargIds({ sectionId, ids, parent, incrementVersion }) {
   deleteCodeInfo({ ids, parent });
   deleteParamInfoFromSectionVariant({ dbSource, variantId, ids });
   deleteParamInfoFromUITypeCol({ uiTypeColId, ids });
+  deleteParamsFromParamSweep({ sectionId, ids });
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 

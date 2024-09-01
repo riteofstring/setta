@@ -1,4 +1,5 @@
 import { useParamSweep } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 
 export function setAllParamSweeps(payload) {
   useParamSweep.setState({ x: payload });
@@ -69,5 +70,14 @@ export function addParamSweepParamInfoId({
     } else if (variantId) {
       state.x[paramSweepId].sweep.push({ variantId });
     }
+  });
+}
+
+export function deleteParamsFromParamSweep({ sectionId, ids }) {
+  const { paramSweepId } = getSectionInfo(sectionId);
+  useParamSweep.setState((x) => {
+    x.x[paramSweepId].sweep = x.x[paramSweepId].sweep.filter(
+      (y) => !ids.includes(y.paramInfoId),
+    );
   });
 }
