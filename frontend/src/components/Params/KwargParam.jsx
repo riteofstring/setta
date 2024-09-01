@@ -1,13 +1,10 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { changeKwargName, deleteKwarg } from "state/actions/kwargs/kwargs";
+import { deleteKwarg } from "state/actions/kwargs/kwargs";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 
 export function KwargParam(props) {
   const { sectionId, parentId, paramInfo: kwargInfo, setDidUpdate } = props;
-  const onBlur = (v) => {
-    changeKwargName({ sectionId, paramInfoId: kwargInfo.id, name: v });
-  };
 
   const onClick = () => {
     deleteKwarg({
@@ -17,6 +14,8 @@ export function KwargParam(props) {
       incrementVersion: true,
     });
   };
+
+  console.log("kwargInfo", kwargInfo)
 
   const hasChildren = kwargInfo.children.length > 0;
 
@@ -38,7 +37,6 @@ export function KwargParam(props) {
           paramInfoId={kwargInfo.id}
           value={kwargInfo.name}
           hasChildren={hasChildren}
-          onBlur={onBlur}
           onClick={props.onNameClick}
           setDidUpdate={setDidUpdate}
         />

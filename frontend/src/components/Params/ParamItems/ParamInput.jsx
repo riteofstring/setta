@@ -22,7 +22,7 @@ export function ParamInput({
   sectionId,
   paramInfoId,
   defaultVal,
-  isDisabled,
+  // isDisabled,
   maybeErrorMessage,
   setDidUpdate,
 }) {
@@ -52,6 +52,8 @@ export function ParamInput({
     setLocalKeywordPositions(keywordPositions);
   }, [keywordPositions]);
 
+  console.log("ParamUI", paramInfoId)
+
   return (
     <ParamUI
       sectionId={sectionId}
@@ -59,7 +61,7 @@ export function ParamInput({
       value={value}
       defaultVal={defaultVal}
       onChange={onChange}
-      isDisabled={isDisabled}
+      // isDisabled={isDisabled}
       maybeErrorMessage={maybeErrorMessage}
       sectionIdToBeActive={sectionId}
       keywordPositions={localKeywordPositions}

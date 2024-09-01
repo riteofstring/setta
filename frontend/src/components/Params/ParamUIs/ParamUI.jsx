@@ -30,12 +30,13 @@ export function ParamUI({
   keywordPositions,
   setKeywordPositions,
 }) {
+  console.log("ParamUI", paramInfoId)
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
     paramInfoId,
   });
-  const paramNameIsValid = useCodeInfo((x) => !!x.x[paramInfoId].name);
+  // const paramNameIsValid = useCodeInfo((x) => !!x.x[paramInfoId].name);
 
   switch (uiType.type) {
     default:
@@ -47,15 +48,15 @@ export function ParamUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            isDisabled={isDisabled}
+            // isDisabled={isDisabled}
             dummyCodeClassName={`section-value self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag cursor-text select-text break-words font-mono text-xs [tab-size:4] [word-break:break-word]`}
             realCodeClassName={`nodrag self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value`}
             language="python"
             sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
-            initializeGenCode={paramNameIsValid}
-            autocomplete={paramNameIsValid}
+            // initializeGenCode={paramNameIsValid}
+            // autocomplete={paramNameIsValid}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

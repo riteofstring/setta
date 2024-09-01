@@ -77,7 +77,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 export function changeKwargName({ sectionId, paramInfoId, name }) {
   console.log("changeKwargName",name)
   setCodeInfoName({ id: paramInfoId, name });
-  updateKeywordRegex();
+  // updateKeywordRegex();
   // updateParams(sectionId);
   // maybeIncrementProjectStateVersion(true);
 }
