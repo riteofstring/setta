@@ -9,10 +9,14 @@ export async function updateInteractiveCode() {
   setNotificationMessage("Done importing");
   if (res.status == 200) {
     useInteractive.setState({ taskNames: res.data.taskNames });
+    updateInteractiveData(res.data.content);
   }
 }
 
 export async function updateInteractiveData(data) {
+  if (data.length === 0) {
+    return;
+  }
   const dataInArtifactForm = {};
   for (const d of data) {
     dataInArtifactForm[`interactive:${d.displayName}`] = d;
