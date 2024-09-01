@@ -7,6 +7,7 @@ import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { FreezeButton } from "./FreezeButton";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
+import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
 
@@ -53,6 +54,10 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
 
         {[C.SECTION].includes(sectionTypeName) && (
           <HideShowParamsButton sectionId={sectionId} />
+        )}
+
+        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
+          <HideShowUnpinnedParamsButton sectionId={sectionId} />
         )}
 
         <FreezeButton sectionId={sectionId} />

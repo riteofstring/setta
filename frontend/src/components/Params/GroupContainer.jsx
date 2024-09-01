@@ -1,6 +1,9 @@
 import React from "react";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useSectionHasMultipleVariants } from "state/hooks/sections";
+import {
+  useGetSectionInfo,
+  useSectionHasMultipleVariants,
+} from "state/hooks/sections";
 import { useOverflow, useParamsDidUpdate } from "state/hooks/sectionSizes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
@@ -9,6 +12,7 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 
   const hasVersions = useSectionHasMultipleVariants(sectionId);
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
+  const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
 
   return (
     <div
@@ -24,11 +28,13 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
             objInfoId={objInfoId}
             setDidUpdate={setDidUpdate}
           />
-          <GetParams
-            sectionId={sectionId}
-            objInfoId={objInfoId}
-            setDidUpdate={setDidUpdate}
-          />
+          {!hideUnpinnedParams && (
+            <GetParams
+              sectionId={sectionId}
+              objInfoId={objInfoId}
+              setDidUpdate={setDidUpdate}
+            />
+          )}
         </>
       )}
     </div>
