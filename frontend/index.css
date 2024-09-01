@@ -113,10 +113,6 @@ input {
   all: unset;
 }
 
-html {
-  scrollbar-gutter: stable;
-}
-
 html,
 body {
   overflow: hidden;
@@ -199,7 +195,7 @@ body {
 
 .section-grid {
   display: grid;
-  grid-template-columns: [c1] 1.25rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 1.25rem [c6];
+  grid-template-columns: [c1] 0.75rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 0.75rem [c6];
   grid-template-rows:
     [r1]
     0.25rem
@@ -228,7 +224,7 @@ body {
 /* utility classes */
 
 .section-args-nested {
-  grid-template-columns: 0.85rem 1fr 0.75rem 1fr 1.25rem;
+  grid-template-columns: 0.75rem 1fr 0.75rem 1fr 0.75rem;
   grid-template-areas: "left-gutter key center-gutter value right-gutter";
 }
 

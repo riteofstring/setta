@@ -62,7 +62,7 @@ function _ParamContainer({
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between ${bg} ${border}`}
+        className={`section-w-full group/arg-group section-min-rows mx-1 grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
         onMouseOver={() => {
           setIsMousedOver(true);
@@ -77,7 +77,7 @@ function _ParamContainer({
             icon={<i className="gg-check" />}
             bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent  border-solid border-[1px]"
             color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
-            twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center z-50 scale-125`}
+            twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center -mr-2 z-50 scale-125`}
             padding=""
             // size="h-1 w-1"
             tabIndex="-1"
@@ -99,7 +99,7 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg ${bg} ${border}`}
+      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
       onMouseOver={() => {
         setIsMousedOver(true);
@@ -115,7 +115,7 @@ function _ParamContainer({
           icon={<i className="gg-check" />}
           bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent border-solid border-[1px]"
           color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
-          twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center z-50 scale-125`}
+          twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center -mr-2 z-50 scale-125`}
           padding=""
           // size="h-1 w-1"
           tabIndex="-1"
@@ -131,7 +131,7 @@ function _ParamContainer({
           setChildIsMousedOver(false);
         }}
       >
-        <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-2 rounded-full bg-setta-200/20 dark:bg-setta-400/15" />
+        <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}
@@ -154,7 +154,7 @@ export const ParamContainer = React.memo(
 function ErrorSection({ maybeErrorMessage }) {
   return (
     <Accordion.Root
-      className="card-arg-group-error group/arg-group -mx-3 rounded-b-lg"
+      className="card-arg-group-error group/arg-group rounded-b-lg "
       type="single"
       // defaultValue="item-1"
       collapsible
@@ -185,7 +185,7 @@ const AccordionTrigger = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Header className="flex">
       <Accordion.Trigger
-        className="group -mx-2 mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden bg-red-500 px-5 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
+        className="group -mx-2 mt-1 flex h-6 flex-1 cursor-default items-center justify-between overflow-hidden rounded-lg bg-red-500 px-2 font-mono text-xs font-bold text-red-50 outline-none transition-all hover:cursor-pointer dark:bg-red-800"
         {...props}
         ref={forwardedRef}
       >
@@ -200,11 +200,11 @@ const AccordionTrigger = React.forwardRef(
 const AccordionContent = React.forwardRef(
   ({ children, className, ...props }, forwardedRef) => (
     <Accordion.Content
-      className="nowheel nodrag relative -mx-2 overflow-hidden bg-white text-xs dark:bg-setta-950"
+      className="nowheel nodrag relative -mx-2 -mb-1 overflow-hidden rounded-md bg-white text-xs dark:bg-setta-950"
       {...props}
       ref={forwardedRef}
     >
-      <aside className=" my-1 h-full cursor-text select-text overflow-y-scroll px-5 py-3 font-mono dark:text-setta-100">
+      <aside className=" mt-1 h-full cursor-text select-text overflow-y-scroll px-2 py-2 font-mono dark:text-setta-100">
         {children}
       </aside>
       <IconButton
