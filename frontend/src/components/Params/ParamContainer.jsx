@@ -23,7 +23,6 @@ function _ParamContainer({
   isKwarg,
   children,
   onClick,
-  kwargInfo,
   notifyParentOfMouseOver,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
@@ -62,7 +61,6 @@ function _ParamContainer({
   const [isMousedOver, setIsMousedOver] = useState(false);
   const [childIsMousedOver, setChildIsMousedOver] = useState(0);
   const showButtons = isMousedOver && childIsMousedOver === 0;
-  console.log("childIsMousedOver", childIsMousedOver);
 
   return paramChildren.length === 0 ? (
     <>
@@ -78,13 +76,13 @@ function _ParamContainer({
           setIsMousedOver(false);
         }}
       >
-        {showButtons && (
+        {isKwarg && showButtons && (
           <IconButton
             onClick={onClick}
             icon={<i className="gg-close" />}
             bg="bg-transparent"
             color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-            twClasses={`arg-close-btn section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+            twClasses={`arg-close-btn section-left-gutter cursor-pointer place-self-center z-20`}
             padding=""
             size="h-[.5rem] w-[.5rem]"
             tabIndex="-1"
@@ -128,13 +126,13 @@ function _ParamContainer({
         setChildIsMousedOver(0);
       }}
     >
-      {showButtons && (
+      {isKwarg && showButtons && (
         <IconButton
           onClick={onClick}
           icon={<i className="gg-close" />}
           bg="bg-transparent"
           color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-          twClasses={`arg-close-btn section-left-gutter cursor-pointer ${kwargInfo.children.length > 0 ? "self-start justify-self-center mt-[0.3rem]" : "place-self-center"} z-20`}
+          twClasses={`arg-close-btn section-left-gutter cursor-pointer self-start justify-self-center mt-[0.3rem] z-20`}
           padding=""
           size="h-[.5rem] w-[.5rem]"
           tabIndex="-1"
