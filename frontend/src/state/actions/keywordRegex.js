@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getTopLevelParamIds } from "state/actions/sections/sectionContents";
+import { getParamIds } from "state/actions/sections/sectionContents";
 import {
   useCodeInfo,
   useKeywordRegex,
@@ -150,7 +150,7 @@ function setFullParamRegex(
   const codeInfoState = useCodeInfo.getState().x;
   const childParamInfos = paramInfoId
     ? codeInfoState[paramInfoId].children.map((x) => codeInfoState[x])
-    : getTopLevelParamIds(sectionId);
+    : getParamIds(sectionId).map((x) => codeInfoState[x]);
 
   for (const p of childParamInfos) {
     if (!p.name) {

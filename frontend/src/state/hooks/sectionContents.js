@@ -1,11 +1,12 @@
 import _ from "lodash";
 import {
   getAllParamIds,
-  getTopLevelParamIds,
+  getParamIds,
 } from "state/actions/sections/sectionContents";
 import { useCodeInfo } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useGetSectionInfo } from "./sections";
+import { useSectionSelectedItem } from "./sectionVariants";
 
 // export function useGetAllCallables(sectionId) {
 //   const ids = useSectionToParamIds(
@@ -16,16 +17,25 @@ import { useGetSectionInfo } from "./sections";
 // }
 
 export function useTopLevelParamInfos(sectionId) {
+  const selectedItem = useSectionSelectedItem(sectionId);
+  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+
   return useCodeInfo(
-    (x) => getTopLevelParamIds(sectionId, x).map((id) => x.x[id]),
+    (x) =>
+      getParamIds(sectionId, x.x, selectedItem, codeInfoId).map(
+        (id) => x.x[id],
+      ),
     _.isEqual,
   );
 }
 
 export function useAreAnyParamsSelected(sectionId) {
+  const selectedItem = useSectionSelectedItem(sectionId);
+  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+
   return useCodeInfo(
     (x) =>
-      getAllParamIds(sectionId, x)
+      getAllParamIds(sectionId, x.x, selectedItem, codeInfoId)
         .map((id) => x.x[id])
         .filter((x) => x.isSelected).length > 0,
     _.isEqual,
@@ -33,8 +43,11 @@ export function useAreAnyParamsSelected(sectionId) {
 }
 
 export function useGetParamInfosThatHaveNames(sectionId) {
+  const selectedItem = useSectionSelectedItem(sectionId);
+  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+
   return useCodeInfo((x) => {
-    const ids = getAllParamIds(sectionId, x);
+    const ids = getAllParamIds(sectionId, x.x, selectedItem, codeInfoId);
     const haveName = [];
     for (const id of ids) {
       if (x.x[id].name) {
@@ -59,5 +72,5 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
 }
 
 export function useHasParams(sectionId) {
-  return useCodeInfo((x) => getTopLevelParamIds(sectionId, x).length > 0);
+  return useCodeInfo((x) => getParamIds(sectionId, x).length > 0);
 }

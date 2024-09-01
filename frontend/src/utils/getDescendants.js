@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 
+// Modified function to fix the order
 function _findAllDescendants(
   allCodeInfo,
   codeInfoIds,
@@ -7,7 +8,9 @@ function _findAllDescendants(
   stackCondition,
 ) {
   const output = [];
-  const idStack = codeInfoIds.filter((x) => stackCondition(allCodeInfo[x]));
+  const idStack = codeInfoIds
+    .filter((x) => stackCondition(allCodeInfo[x]))
+    .reverse();
   const visited = new Set();
   while (idStack.length > 0) {
     const id = idStack.pop();
@@ -20,10 +23,10 @@ function _findAllDescendants(
       output.push(currInfo.id);
     }
     if (stackCondition(currInfo)) {
-      idStack.push(...currInfo.children);
+      idStack.push(...currInfo.children.slice().reverse());
     }
   }
-  return output.reverse();
+  return output; // No need to reverse the output
 }
 
 export function findAllCallables(allCodeInfo, codeInfoIds) {

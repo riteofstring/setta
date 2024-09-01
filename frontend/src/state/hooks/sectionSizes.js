@@ -85,8 +85,6 @@ export function useOverflow(sectionId) {
 
 export function useParamsDidUpdate({ sectionId, setDidUpdate }) {
   const params = useTopLevelParamInfos(sectionId);
-  console.log("params", params)
-
   useDeepCompareEffect(() => {
     setDidUpdate(true);
   }, [params]);
