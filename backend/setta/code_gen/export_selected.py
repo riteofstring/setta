@@ -13,6 +13,8 @@ def get_section_type(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
     return p["uiTypes"][ui_type_id]["type"]
 
+def get_artifacts(p, id):
+    return p["sections"][id]["artifacts"]
 
 def get_section_name(p, id):
     return p["sections"][id]["name"]
@@ -148,13 +150,13 @@ def flatten_groups(p):
             )
 
 
-def export_global_variables_and_remove_script(p, fn_export_global_variables):
+def export_global_variables_and_remove_script(p, keep_section_types, fn_export_global_variables):
     to_pop = []
     for id in p["sections"].keys():
         section_type = get_section_type(p, id)
         if section_type == C.GLOBAL_VARIABLES:
             fn_export_global_variables(id, is_global=True)
-        if section_type not in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT]:
+        if section_type not in keep_section_types:
             to_pop.append(id)
     for id in to_pop:
         p["sections"].pop(id)
@@ -170,7 +172,7 @@ class Exporter:
 
     def export(self):
         flatten_groups(self.p)
-        export_global_variables_and_remove_script(self.p, self.export_section_params)
+        export_global_variables_and_remove_script(self.p, [C.SECTION, C.LIST_ROOT, C.DICT_ROOT], self.export_section_params)
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
 
     def export_sections(self, ids):
@@ -336,7 +338,7 @@ class SimpleExporter:
 
     def export(self):
         flatten_groups(self.p)
-        export_global_variables_and_remove_script(self.p, self.export_global_variables)
+        export_global_variables_and_remove_script(self.p, [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.ARTIFACT], self.export_global_variables)
         for id in list(self.p["projectConfig"]["children"].keys()):
             name = get_section_name(self.p, id)
             self.output[name] = self.export_section(id)
@@ -359,6 +361,8 @@ class SimpleExporter:
                     get_section_name(self.p, c): self.export_section(c)
                     for c in children
                 }
+        elif type == C.ARTIFACT:
+            value = get_artifacts(self.p, id)
         else:
             raise ValueError
         return value

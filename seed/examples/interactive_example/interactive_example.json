@@ -4,21 +4,21 @@
     "name": "interactive_example",
     "isDefault": 0,
     "viewport": {
-      "x": 423.86257589921314,
-      "y": -25.072617307361952,
+      "x": 309.8625758992132,
+      "y": -53.27261730736194,
       "zoom": 0.5896782961306088
     },
-    "previewImgNodes": "[{\"x\":533,\"y\":777,\"w\":700,\"h\":310},{\"x\":-126,\"y\":699,\"w\":502,\"h\":370},{\"x\":406,\"y\":718,\"w\":486,\"h\":318},{\"x\":379,\"y\":405,\"w\":202,\"h\":302},{\"x\":689,\"y\":185,\"w\":202,\"h\":192}]",
+    "previewImgNodes": "[{\"x\":820,\"y\":695,\"w\":703,\"h\":614},{\"x\":-126,\"y\":699,\"w\":502,\"h\":370},{\"x\":406,\"y\":718,\"w\":486,\"h\":318},{\"x\":379,\"y\":405,\"w\":202,\"h\":302},{\"x\":689,\"y\":185,\"w\":434,\"h\":373}]",
     "children": {
       "2850a0f2-2c4a-4128-8a0b-e5510bae2b0d": {
-        "x": 532.9974967181889,
-        "y": 776.8850139381564,
-        "zIndex": 6
+        "x": 819.5944447641925,
+        "y": 695.4846973333741,
+        "zIndex": 5
       },
       "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
         "x": -125.50523952598954,
         "y": 698.6057406644343,
-        "zIndex": 1
+        "zIndex": 0
       },
       "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
         "x": 406.4859203982463,
@@ -28,7 +28,7 @@
       "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
         "x": 379.2946580000827,
         "y": 404.6359514177424,
-        "zIndex": 4
+        "zIndex": 1
       },
       "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
         "x": 689.293197588284,
@@ -47,6 +47,10 @@
         "values": {
           "20512036-3e0f-41f3-9738-6573ee71bdaf": {
             "value": "5",
+            "keywordPositions": []
+          },
+          "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
+            "value": "0",
             "keywordPositions": []
           },
           "f14239d6-f206-4655-8c34-ddd6873391a5": {
@@ -72,14 +76,6 @@
         "values": {},
         "children": []
       },
-      "7e24d2dc-ff61-4947-89ed-dfe0448c5c17": {
-        "name": "conservation_tan",
-        "selectedItem": null,
-        "code": "",
-        "keywordPositions": [],
-        "values": {},
-        "children": []
-      },
       "91b7814e-8f93-4ad1-a966-00851b4e41d9": {
         "name": "victorious_white",
         "selectedItem": null,
@@ -91,17 +87,8 @@
       "a35b5004-ba1b-4774-99bb-d496127b2909": {
         "name": "scattered_gold",
         "selectedItem": null,
-        "code": "from setta.tasks.fns import InteractiveTaskDefinition\nfrom scipy.ndimage import gaussian_filter\n\ndef fn(message):\n    data = message.content\n    img = data[\"royal_orange\"][\"artifacts\"][0]\n    value = [((i - 10) / 5) ** c for i in range(n)]\n    return_content = {\"value\": value, \"type\": \"list\", \"displayName\": \"Fancy Graph\"}\n    return {\"content\": [return_content]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
-        "keywordPositions": [
-          {
-            "startPos": 219,
-            "endPos": 220
-          },
-          {
-            "startPos": 236,
-            "endPos": 237
-          }
-        ],
+        "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
+        "keywordPositions": [],
         "values": {},
         "children": []
       }
@@ -116,6 +103,17 @@
       "config": {
         "min": 0,
         "max": 10,
+        "step": 1
+      }
+    },
+    "f0593fb7-1a06-419b-af84-67d36995e1e2": {
+      "id": "f0593fb7-1a06-419b-af84-67d36995e1e2",
+      "name": "blur_radius",
+      "type": "SLIDER",
+      "presetType": null,
+      "config": {
+        "min": 0,
+        "max": 5,
         "step": 1
       }
     },
@@ -251,12 +249,15 @@
     }
   },
   "uiTypeCols": {
-    "67b6905e-9201-4543-8fbb-10254db0410b": {},
     "a3934747-efba-49aa-a500-100b033196d2": {},
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
         "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
+      },
+      "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
+        "uiTypeId": "f0593fb7-1a06-419b-af84-67d36995e1e2",
+        "nonPresetUITypeIds": ["f0593fb7-1a06-419b-af84-67d36995e1e2"]
       },
       "f14239d6-f206-4655-8c34-ddd6873391a5": {
         "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f",
@@ -288,8 +289,8 @@
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
-        "width": 698,
-        "height": 308
+        "width": 701,
+        "height": 612
       },
       "variantId": "a35b5004-ba1b-4774-99bb-d496127b2909",
       "paramSweepId": null,
@@ -394,8 +395,8 @@
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
-        "width": "auto",
-        "height": "auto"
+        "width": 432,
+        "height": 371
       },
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
       "paramSweepId": null,
@@ -459,20 +460,6 @@
       "keywordPositions": [],
       "children": []
     },
-    "3f3a699c-253a-45ff-9c94-c921558b1d55": {
-      "id": "3f3a699c-253a-45ff-9c94-c921558b1d55",
-      "name": "Contents",
-      "editable": 0,
-      "rcType": "collection",
-      "defaultVal": null,
-      "description": "",
-      "positionalOnly": 0,
-      "isPinned": 0,
-      "isFrozen": 0,
-      "isSelected": 0,
-      "keywordPositions": [],
-      "children": []
-    },
     "40f91ca3-090a-40df-be40-7e0ea9c2efec": {
       "id": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
       "name": "Contents",
@@ -487,7 +474,8 @@
       "keywordPositions": [],
       "children": [
         "20512036-3e0f-41f3-9738-6573ee71bdaf",
-        "f14239d6-f206-4655-8c34-ddd6873391a5"
+        "f14239d6-f206-4655-8c34-ddd6873391a5",
+        "c24c860d-2519-4a20-8acd-90fc0ffe48a8"
       ]
     },
     "8727077c-44ce-4187-95c0-d96de7279463": {
@@ -495,6 +483,20 @@
       "name": "Contents",
       "editable": 0,
       "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "isSelected": 0,
+      "keywordPositions": [],
+      "children": []
+    },
+    "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
+      "id": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
+      "name": "blur_radius",
+      "editable": 1,
+      "rcType": "parameter",
       "defaultVal": null,
       "description": "",
       "positionalOnly": 0,
@@ -533,6 +535,12 @@
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "f14239d6-f206-4655-8c34-ddd6873391a5",
       "componentIndices": [1],
+      "isArgsObj": false
+    },
+    "blur_radius": {
+      "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
+      "paramInfoId": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
+      "componentIndices": [11],
       "isArgsObj": false
     }
   }

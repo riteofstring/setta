@@ -44,14 +44,16 @@ export function getProjectData() {
   const sectionInfosState = useSectionInfos.getState();
   const sections = _.mapValues(sectionInfosState.x, (x) => {
     const artifactState = useArtifacts.getState().x;
-    const output = _.omit(x, ["parentId"]);
+    const currSection = _.omit(x, ["parentId"]);
     // keep only artifact paths that are actually saved to disk
-    output.artifacts = output.artifacts.filter((a) => artifactState[a].isSaved);
-    output.artifacts = output.artifacts.map((a) => ({
+    currSection.artifacts = currSection.artifacts.filter(
+      (a) => artifactState[a].isSaved,
+    );
+    currSection.artifacts = currSection.artifacts.map((a) => ({
       path: a,
       ..._.pick(artifactState[a], ["type", "displayName"]),
     }));
-    return output;
+    return currSection;
   });
 
   const codeInfo = useCodeInfo.getState().x;
