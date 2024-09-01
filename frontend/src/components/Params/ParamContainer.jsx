@@ -5,7 +5,6 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleCodeInfoSelected } from "state/actions/codeInfo";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useCodeInfo,
@@ -71,7 +70,7 @@ function _ParamContainer({
           setIsMousedOver(false);
         }}
       >
-        {showButtons && (
+        {/* {showButtons && (
           <IconButton
             onClick={() => toggleCodeInfoSelected(paramInfo.id)}
             icon={<i className="gg-check" />}
@@ -82,7 +81,7 @@ function _ParamContainer({
             // size="h-1 w-1"
             tabIndex="-1"
           />
-        )}
+        )} */}
         {children}
         <ParamInput
           sectionId={sectionId}
@@ -109,7 +108,7 @@ function _ParamContainer({
         setChildIsMousedOver(false);
       }}
     >
-      {showButtons && (
+      {/* {showButtons && (
         <IconButton
           onClick={() => toggleCodeInfoSelected(paramInfo.id)}
           icon={<i className="gg-check" />}
@@ -120,7 +119,7 @@ function _ParamContainer({
           // size="h-1 w-1"
           tabIndex="-1"
         />
-      )}
+      )} */}
       {children}
       <div
         className="section-args-nested section-key-value relative grid gap-y-1"

@@ -92,6 +92,7 @@ function CustomResizableCore({
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={enable}
       className={inputClasses}
+      handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}
