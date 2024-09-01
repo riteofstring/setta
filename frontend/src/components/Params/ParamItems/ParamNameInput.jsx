@@ -1,29 +1,24 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import _ from "lodash";
 import { useEffect, useState } from "react";
-import { changeKwargName } from "state/actions/kwargs/kwargs";
 
 export function ParamNameInput({
   sectionId,
   paramInfoId,
   value,
+  onBlur,
   hasChildren,
   onClick,
   setDidUpdate,
 }) {
   const [liveValue, setLiveValue] = useState(value);
-  // const [dummyValue, setDummyValue] = useState()
 
   function onChange(v) {
     setLiveValue(v);
-    debouncedChangeKwargName(sectionId, paramInfoId, v);
     setDidUpdate(true);
   }
 
   useEffect(() => {
-    if (liveValue !== value) {
-      setLiveValue(value ?? "");
-    }
+    setLiveValue(value ?? "");
   }, [value]);
 
   return (
@@ -34,6 +29,7 @@ export function ParamNameInput({
         value={liveValue}
         defaultVal={"Please Enter Key"}
         onChange={onChange}
+        onBlur={() => onBlur(liveValue)}
         dummyCodeClassName={`min-w-0 self-end truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} nodrag peer cursor-text select-text break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400`}
         realCodeClassName={`nodrag cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} peer font-mono dark:focus-visible:border-blue-400`}
         color="green"
@@ -50,9 +46,3 @@ export function ParamNameInput({
     </>
   );
 }
-
-const debouncedChangeKwargName = _.debounce(
-  (sectionId, paramInfoId, name) =>
-    changeKwargName({ sectionId, paramInfoId, name }),
-  100,
-);

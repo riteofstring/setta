@@ -23,7 +23,6 @@ function _ParamContainer({
   isKwarg,
   children,
 }) {
-  console.log("_ParamContainer", paramInfo)
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isFocusedSearchResult = useProjectSearch((x) =>
@@ -73,7 +72,7 @@ function _ParamContainer({
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-key-value group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 ${bg} ${border}`}
+        className={`section-key-value group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2 [&_>_.arg-pin-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-pin-btn]:hover:bg-setta-800/75 [&_>_.arg-pin-btn_>_*]:hover:text-setta-400 dark:[&_>_.arg-pin-btn_>_*]:hover:text-setta-400 [&_>_.arg-select-btn]:hover:bg-setta-200/50 dark:[&_>_.arg-select-btn]:hover:bg-setta-800/75 [&_>_.arg-select-btn_>_*]:hover:after:border-setta-400 dark:[&_>_.arg-select-btn_>_*]:hover:after:border-setta-400  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
       >
         {children}
@@ -81,7 +80,7 @@ function _ParamContainer({
           sectionId={sectionId}
           paramInfoId={paramInfo.id}
           defaultVal={paramInfo.defaultVal}
-          // isDisabled={!paramInfo.name}
+          isDisabled={!paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />

@@ -1,6 +1,6 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import React, { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   dbTextFieldCompletion,
   dbTextFieldInitializeCode,
@@ -12,7 +12,7 @@ import { getExtensions } from "./getExtensions";
 import { getKeywordStylizer } from "./getKeywordStylizer";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
 
-function _TextInputCodeMirror({
+export function TextInputCodeMirror({
   sectionId,
   paramInfoId,
   value,
@@ -67,7 +67,6 @@ function _TextInputCodeMirror({
       setActivationEvent("tab");
     }
   }
-  console.log("value", paramInfoId, isKeyName, value);
 
   return (
     <>
@@ -112,15 +111,6 @@ function _TextInputCodeMirror({
   );
 }
 
-export const TextInputCodeMirror = React.memo(
-  _TextInputCodeMirror,
-  (p, n) =>
-    p.sectionId === n.sectionId &&
-    p.paramInfoId === n.paramInfoId &&
-    p.value === n.value &&
-    p.isKeyName === n.isKeyName,
-);
-
 function CoreCodeMirror({
   sectionId,
   paramInfoId,
@@ -143,7 +133,6 @@ function CoreCodeMirror({
   isKeyName,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
-  console.log("divId", divId)
 
   const keywordStylizer = useMemo(
     () => getKeywordStylizer(keywordPositions),
