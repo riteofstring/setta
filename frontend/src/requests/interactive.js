@@ -4,7 +4,7 @@ import { post } from "./utils";
 
 export async function dbUpdateInteractiveCode() {
   const project = getProjectDataForInteractive();
-  console.log("dbUpdateInteractiveCode", project)
+  console.log("dbUpdateInteractiveCode", project);
   return await post({
     body: { project, runOnImport: true },
     address: C.ROUTE_UPDATE_INTERACTIVE_CODE,

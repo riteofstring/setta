@@ -10,7 +10,6 @@ import { getMappedSectionDBSource } from "../getters/sectionInfo";
 import { initValue } from "../utils";
 import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
-import { varControlUpdate } from "./varControl";
 
 export function setAllSectionVariants(x) {
   useSectionVariants.setState({ x });
@@ -137,9 +136,6 @@ export function setParamEnteredValue({
   const { variantId, dbSource } =
     getSectionVariantIdAndMappedDBSource(sectionId);
   setEnteredValue({ dbSource, collectionId: variantId, paramInfoId, value });
-  if (incrementVersion) {
-    varControlUpdate();
-  }
   maybeIncrementProjectStateVersion(incrementVersion);
   debouncedRequestTypeCheck();
 }

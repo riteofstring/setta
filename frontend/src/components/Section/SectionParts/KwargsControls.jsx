@@ -53,7 +53,11 @@ export function KwargsControls({ sectionId, objInfoId }) {
         <div className="-mx-[0.125rem] flex w-full min-w-0 flex-wrap">
           <article className=" flex items-center">
             {/* <h3 className="pr-1 font-heading text-xs uppercase text-setta-600/70 before:content-['arguments'] @[11.99rem]:before:content-['arguments'] @[12rem]:before:content-['args'] @[16rem]:before:content-['arguments'] dark:text-setta-400/70 "></h3> */}
-            <button className={classes} onClick={onClickDeleteKwarg} tabIndex="-1">
+            <button
+              className={classes}
+              onClick={onClickDeleteKwarg}
+              tabIndex="-1"
+            >
               <i className="gg-math-minus w-full" />
             </button>
             <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">

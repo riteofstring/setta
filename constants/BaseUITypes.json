@@ -101,13 +101,6 @@
     "presetType": "BASE",
     "config": {}
   },
-  "a2ecb6fe-45c7-4e8b-8424-8d5955256f89": {
-    "id": "a2ecb6fe-45c7-4e8b-8424-8d5955256f89",
-    "type": "VAR_CONTROL",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
   "af0538a7-9667-400e-987e-ae3c844e0fcd": {
     "id": "af0538a7-9667-400e-987e-ae3c844e0fcd",
     "type": "PARAM_SWEEP",

@@ -9,11 +9,11 @@ import {
 } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
+import { updateKeywordRegex } from "../keywordRegex";
 import { updateParams } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "../undo";
-import { updateKeywordRegex } from "../keywordRegex";
 
 export function addKwarg({
   sectionId,
@@ -75,7 +75,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 }
 
 export function changeKwargName({ sectionId, paramInfoId, name }) {
-  console.log("changeKwargName",name)
+  console.log("changeKwargName", name);
   setCodeInfoName({ id: paramInfoId, name });
   updateKeywordRegex();
   // updateParams(sectionId);

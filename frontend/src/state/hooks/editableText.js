@@ -30,7 +30,6 @@ export function useTitleIsEditable(sectionId) {
     C.GLOBAL_VARIABLES,
     C.PARAM_SWEEP,
     C.GLOBAL_PARAM_SWEEP,
-    C.VAR_CONTROL,
   ]);
 
   const isListElement = useIsListElement(sectionId);

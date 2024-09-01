@@ -73,16 +73,6 @@ export function PaneContextMenu() {
       >
         New Bash Script
       </Item>
-      {!SINGLETON_SECTIONS.varControl && (
-        <Item
-          onClick={getOnClickFn({
-            type: C.VAR_CONTROL,
-            inputSectionProps: { codeLanguage: "javascript" },
-          })}
-        >
-          New Variable Control
-        </Item>
-      )}
       <Item onClick={getOnClickFn({ type: C.TERMINAL })}>New Terminal</Item>
       {!SINGLETON_SECTIONS.globalParamSweep && (
         <Item onClick={getOnClickFn({ type: C.GLOBAL_PARAM_SWEEP })}>

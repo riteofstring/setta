@@ -2,10 +2,11 @@ import asyncio
 import os
 from typing import Dict
 
+from setta.database.utils import create_new_id
+
 from . import fns
 from .fns.utils import TaskDefinition, TaskMessage, import_code_from_string
 from .task_runner import TaskRunner
-from setta.database.utils import create_new_id
 
 
 class Tasks:
@@ -24,7 +25,7 @@ class Tasks:
             if fn_name in self.custom_fn_name_to_project_dict:
                 message.content = {
                     **self.custom_fn_name_to_project_dict[fn_name],
-                    **message.content
+                    **message.content,
                 }
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
@@ -56,7 +57,9 @@ class Tasks:
                 task_names.append(attr.name)
         return task_names
 
-    async def add_custom_fns(self, codeDict, project_config_name, projectAsSimpleDict, runOnImport):
+    async def add_custom_fns(
+        self, codeDict, project_config_name, projectAsSimpleDict, runOnImport
+    ):
         error_msgs = {}
         task_names = []
         content = []
@@ -74,7 +77,7 @@ class Tasks:
         self.custom_fn_names[project_config_name] = task_names
         for n in task_names:
             self.custom_fn_name_to_project_dict[n] = projectAsSimpleDict
-        
+
         if runOnImport:
             for n in task_names:
                 task_output = await self(n, TaskMessage(id=create_new_id(), content={}))

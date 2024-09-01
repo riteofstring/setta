@@ -33,7 +33,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           />
         }
       >
-        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionTypeName) && (
+        {![C.PARAM_SWEEP, C.CODE].includes(sectionTypeName) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
         )}
 
@@ -43,7 +43,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           <CreateNewVersionButton sectionId={sectionId} />
         )}
 
-        {![C.PARAM_SWEEP, C.CODE, C.VAR_CONTROL].includes(sectionTypeName) && (
+        {![C.PARAM_SWEEP, C.CODE].includes(sectionTypeName) && (
           <MultirunButton sectionId={sectionId} />
         )}
 

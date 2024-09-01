@@ -55,7 +55,7 @@ function niceState() {
   const output = {};
   for (const v of Object.values(useSectionInfos.getState().x)) {
     const sectionType = getSectionType(v.id).type;
-    if ([C.CODE, C.VAR_CONTROL].includes(sectionType)) {
+    if ([C.CODE].includes(sectionType)) {
       continue;
     }
     if (sectionType === C.GLOBAL_VARIABLES) {
@@ -76,15 +76,6 @@ function niceState() {
 function getGlobalVarsSection() {
   for (const s of Object.values(useSectionInfos.getState().x)) {
     if (getSectionType(s.id).type === C.GLOBAL_VARIABLES) {
-      return s;
-    }
-  }
-  return null;
-}
-
-function getVarControlSection() {
-  for (const s of Object.values(useSectionInfos.getState().x)) {
-    if (getSectionType(s.id).type === C.VAR_CONTROL) {
       return s;
     }
   }

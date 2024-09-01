@@ -8,7 +8,6 @@ export function GetParamSwitch({ sectionId, parentId, infos, setDidUpdate }) {
     ? matchSorter(infos, paramFilter, { keys: ["name"] })
     : infos;
 
-
   // do not use e.name as part of the key.
   // It causes remounting of components when
   // kwarg name changes, which messes up textinputcodemirror

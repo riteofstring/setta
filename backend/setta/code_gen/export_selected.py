@@ -13,8 +13,10 @@ def get_section_type(p, id):
     ui_type_id = p["sections"][id]["uiTypeId"]
     return p["uiTypes"][ui_type_id]["type"]
 
+
 def get_artifacts(p, id):
     return p["sections"][id]["artifacts"]
+
 
 def get_section_name(p, id):
     return p["sections"][id]["name"]
@@ -150,7 +152,9 @@ def flatten_groups(p):
             )
 
 
-def export_global_variables_and_remove_script(p, keep_section_types, fn_export_global_variables):
+def export_global_variables_and_remove_script(
+    p, keep_section_types, fn_export_global_variables
+):
     to_pop = []
     for id in p["sections"].keys():
         section_type = get_section_type(p, id)
@@ -172,7 +176,9 @@ class Exporter:
 
     def export(self):
         flatten_groups(self.p)
-        export_global_variables_and_remove_script(self.p, [C.SECTION, C.LIST_ROOT, C.DICT_ROOT], self.export_section_params)
+        export_global_variables_and_remove_script(
+            self.p, [C.SECTION, C.LIST_ROOT, C.DICT_ROOT], self.export_section_params
+        )
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
 
     def export_sections(self, ids):
@@ -338,7 +344,11 @@ class SimpleExporter:
 
     def export(self):
         flatten_groups(self.p)
-        export_global_variables_and_remove_script(self.p, [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.ARTIFACT], self.export_global_variables)
+        export_global_variables_and_remove_script(
+            self.p,
+            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.ARTIFACT],
+            self.export_global_variables,
+        )
         for id in list(self.p["projectConfig"]["children"].keys()):
             name = get_section_name(self.p, id)
             self.output[name] = self.export_section(id)

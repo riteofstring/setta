@@ -5,7 +5,6 @@ import {
 } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { varControlUpdate } from "state/actions/varControl";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 import { getSectionInfo } from "../../getters/sectionInfo";
@@ -94,9 +93,6 @@ function setSelectedItemChildren(sectionId, selectedItem, incrementVersion) {
     codeInfoIds: [selectedItem],
   });
   updateParams(sectionId);
-  if (incrementVersion) {
-    varControlUpdate();
-  }
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
