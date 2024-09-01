@@ -10,7 +10,7 @@ import {
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
-import { getAllSelectedParams, getParamIds } from "../sections/sectionContents";
+import { getParamIds } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "../undo";
@@ -59,8 +59,16 @@ export function deleteKwarg(payload) {
   });
 }
 
-export function deleteSelectedKwargs(sectionId) {
-  const selectedParams = getAllSelectedParams(sectionId);
+export function deleteSelectedKwargs({ sectionId, parentId }) {
+  const _parentId = parentId ?? getSectionInfo(sectionId).codeInfoId;
+  const cState = useCodeInfo.getState().x;
+  const children = cState[_parentId].children;
+  const toDelete = [];
+  for (const c of children) {
+    if (cState[c].isSelected) {
+      toDelete.push(c);
+    }
+  }
   deleteKwargIds({
     sectionId,
     ids: toDelete,

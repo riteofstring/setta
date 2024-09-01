@@ -38,6 +38,12 @@ export function setCodeInfoDescription({ id, description }) {
   });
 }
 
+export function toggleCodeInfoPinned(id) {
+  useCodeInfo.setState((state) => {
+    state.x[id].isPinned = !state.x[id].isPinned;
+  });
+}
+
 export function toggleCodeInfoSelected(id) {
   useCodeInfo.setState((state) => {
     state.x[id].isSelected = !state.x[id].isSelected;
