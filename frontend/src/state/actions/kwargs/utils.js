@@ -1,20 +1,4 @@
-import C from "constants/constants.json";
 import { useCodeInfo } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
-import { findAll } from "utils/getDescendants";
-
-export function getAllSelectedParams(sectionId) {
-  const codeInfoState = useCodeInfo.getState().x;
-  const codeInfos = findAll(codeInfoState, [
-    getSectionInfo(sectionId).codeInfoId,
-  ]).map((x) => codeInfoState[x]);
-  return {
-    codeInfos,
-    selectedParams: codeInfos.filter(
-      (x) => x.rcType === C.PARAMETER && x.isSelected,
-    ),
-  };
-}
 
 export function computeNewChildrenForRightPush(
   codeInfos,

@@ -1,12 +1,10 @@
-import {
-  batchUpdateCodeInfoChildren,
-  toggleCodeInfoPinned,
-} from "state/actions/codeInfo";
+import { batchUpdateCodeInfoChildren } from "state/actions/codeInfo";
 import {
   addKwarg,
   deleteKwarg,
   deleteSelectedKwargs,
 } from "state/actions/kwargs/kwargs";
+import { getAllSelectedParams } from "state/actions/sections/sectionContents";
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
@@ -15,7 +13,6 @@ import {
   computeNewChildrenForLeftPush,
   computeNewChildrenForRightPush,
   computeNewChildrenForVerticalPush,
-  getAllSelectedParams,
 } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({ sectionId, objInfoId }) {
@@ -32,7 +29,7 @@ export function KwargsControls({ sectionId, objInfoId }) {
   };
 
   function onClickPinParam() {
-    toggleCodeInfoPinned(paramInfoId);
+    pinSelectedParams({ sectionId, parentId: objInfoId });
   }
 
   function onPush(computeFn, processInReverse = false) {
