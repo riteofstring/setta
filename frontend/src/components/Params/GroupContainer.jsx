@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useOverflow, useParamsDidUpdate } from "state/hooks/sectionSizes";
+import { createSwapy } from "swapy";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId, objInfoId }) {
@@ -9,6 +10,15 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
   const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
+
+  useEffect(() => {
+    if (ref.current) {
+      const swapy = createSwapy(ref.current);
+      swapy.onSwap(({ data }) => {
+        console.log("swapy", data);
+      });
+    }
+  }, []);
 
   return (
     <div
