@@ -13,6 +13,7 @@ export const localStorageFns = {
   overviewVis: { init: true },
   overviewWidth: { init: INITIAL_OVERVIEW_WIDTH },
   overviewTrueWidth: { init: INITIAL_OVERVIEW_WIDTH },
+  overviewTab: { init: "tab1" },
   uiEditorVis: { init: false },
   uiEditorWidth: { init: INITIAL_UI_EDITOR_WIDTH },
   uiEditorTrueWidth: { init: CLOSED_PANE_WIDTH },

@@ -27,13 +27,13 @@ export function Overview() {
 }
 
 function TabsVisible() {
+  const [tab, setTab] = localStorageFns.overviewTab.hook();
+
   return (
     <Tabs.Root
       // className={`contents ${vis ? "visible" : "invisible"}`}
-      defaultValue="tab1"
-      // defaultValue={SECTION_CONFIG_TAB}
-      // value={tab}
-      // onValueChange={setTab}
+      value={tab}
+      onValueChange={setTab}
       className="flex h-full min-h-0 w-[calc(100%_-_2rem)] min-w-0 flex-1 flex-col overflow-hidden pr-2"
     >
       <Tabs.List>

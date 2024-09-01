@@ -33,7 +33,6 @@ export function KwargParam(props) {
           value={kwargInfo.name}
           hasChildren={hasChildren}
           onBlur={onBlur}
-          onClick={props.onNameClick}
           setDidUpdate={setDidUpdate}
         />
       </ParamContainer>

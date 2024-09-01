@@ -5,9 +5,9 @@ import { RegularParam } from "./RegularParam";
 
 function _ParamSwitch(props) {
   return props.isKwarg ? (
-    <KwargParam {...props} onNameClick={onNameClick} />
+    <KwargParam {...props} />
   ) : (
-    <RegularParam {...props} onNameClick={onNameClick} />
+    <RegularParam {...props} />
   );
 }
 
