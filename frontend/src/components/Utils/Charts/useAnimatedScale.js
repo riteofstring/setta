@@ -20,7 +20,7 @@ export function useAnimatedScale({
         domain: [lowerBound, upperBound],
         range: pixelRangeIncreases ? [0, maxPixelRange] : [maxPixelRange, 0],
       }),
-    [(lowerBound, upperBound, maxPixelRange)],
+    [lowerBound, upperBound, maxPixelRange],
   );
 
   return scale;

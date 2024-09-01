@@ -29,7 +29,6 @@ function OneChart({ series, title }) {
     seriesWithX.push({ name, values: data.map((y, i) => ({ x: i, y })) });
   }
 
-  console.log("seriesWithX", seriesWithX);
   return (
     <figure className="section-figure">
       <ParentSize

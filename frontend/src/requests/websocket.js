@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import { updateArtifacts } from "state/actions/artifacts";
+import { updateInteractiveData } from "state/actions/interactive";
 import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
 import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
@@ -43,6 +44,8 @@ function receiveMessage(message) {
     useTypeErrors.setState(m.content, true);
   } else if (m.messageType === C.WS_ARTIFACT) {
     updateArtifacts({ artifacts: m.content, addSection: true });
+  } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
+    updateInteractiveData(m.content);
   } else if (m.id) {
     console.log(m);
     setWebsocketRoomMessage(m.id, m.content);
