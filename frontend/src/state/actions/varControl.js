@@ -5,7 +5,7 @@ import { setParamEnteredValue } from "state/actions/sectionVariants";
 import {
   useCodeInfo,
   useSectionInfos,
-  useSectionToParams,
+  useSectionToParamIds,
   useSectionVariants,
 } from "state/definitions";
 import { getSectionByName, getSectionType } from "state/getters/sectionInfo";
@@ -24,7 +24,7 @@ export function varControlUpdate() {
       const sectionName = split[0];
       const section = getSectionByName(sectionName);
       const paramName = split[1];
-      const param = useSectionToParams
+      const param = useSectionToParamIds
         .getState()
         .params[section.id].find((x) => x.name === paramName);
       setParamEnteredValue({
@@ -59,7 +59,7 @@ function niceState() {
       continue;
     }
     if (sectionType === C.GLOBAL_VARIABLES) {
-      for (const p of useSectionToParams.getState().params[v.id]) {
+      for (const p of useSectionToParamIds.getState().params[v.id]) {
         output[p.name] =
           useSectionVariants.getState().x[v.variantId].values[p.id];
       }
@@ -98,7 +98,7 @@ function getGlobalVar(varName) {
   }
   return {
     globalVarSection,
-    globalVar: useSectionToParams
+    globalVar: useSectionToParamIds
       .getState()
       .params[globalVarSection.id].find((x) => x.name === varName),
   };

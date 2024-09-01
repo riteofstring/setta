@@ -1,21 +1,32 @@
 import _ from "lodash";
-import { useCodeInfo, useSectionToParams } from "state/definitions";
+import { useCodeInfo, useSectionToParamIds } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useGetSectionInfo } from "./sections";
 
 export function useGetAllCallables(sectionId) {
-  return useSectionToParams((x) => x.callables[sectionId] ?? [], _.isEqual);
+  const ids = useSectionToParamIds(
+    (x) => x.callables[sectionId] ?? [],
+    _.isEqual,
+  );
+  return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
 }
 
 export function useGetParamInfos(sectionId) {
-  return useSectionToParams((x) => x.params[sectionId] ?? [], _.isEqual);
+  const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
+  return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
 }
 
 export function useGetParamInfosThatHaveNames(sectionId) {
-  return useSectionToParams(
-    (x) => x.params[sectionId]?.filter((x) => x.name) ?? [],
-    _.isEqual,
-  );
+  const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
+  return useCodeInfo((x) => {
+    const haveName = [];
+    for (const id of ids) {
+      if (x.x[id].name) {
+        haveName.push(x.x[id]);
+      }
+    }
+    return haveName;
+  }, _.isEqual);
 }
 
 function useGetSelectedCollections(sectionId) {
@@ -32,5 +43,5 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
 }
 
 export function useHasParams(sectionId) {
-  return useSectionToParams((x) => (x.params[sectionId] ?? []).length > 0);
+  return useSectionToParamIds((x) => (x.params[sectionId] ?? []).length > 0);
 }

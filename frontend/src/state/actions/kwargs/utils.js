@@ -4,9 +4,10 @@ import { getSectionInfo } from "state/getters/sectionInfo";
 import { findAll } from "utils/getDescendants";
 
 export function getAllSelectedParams(sectionId) {
-  const codeInfos = findAll(useCodeInfo.getState().x, [
+  const codeInfoState = useCodeInfo.getState().x;
+  const codeInfos = findAll(codeInfoState, [
     getSectionInfo(sectionId).codeInfoId,
-  ]);
+  ]).map((x) => codeInfoState[x]);
   return {
     codeInfos,
     selectedParams: codeInfos.filter(

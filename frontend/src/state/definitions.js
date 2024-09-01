@@ -162,7 +162,7 @@ export const useSectionRefs = createProjectState(
   })),
 );
 
-export const useSectionToParams = createProjectState(
+export const useSectionToParamIds = createProjectState(
   temporal(
     immer(() =>
       withVersion({
