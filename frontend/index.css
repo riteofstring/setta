@@ -32,6 +32,10 @@
     grid-column: left-gutter / right-gutter;
   }
 
+  .section-lg-value {
+    grid-column: left-gutter / value;
+  }
+
   .section-row-search-gutter {
     grid-row: search / left-gutter;
   }
@@ -224,8 +228,8 @@ body {
 /* utility classes */
 
 .section-args-nested {
-  grid-template-columns: 0.75rem 1fr 0.75rem 1fr 0.75rem;
-  grid-template-areas: "left-gutter key center-gutter value right-gutter";
+  grid-template-columns: 0.75rem 1fr 0.75rem 1fr;
+  grid-template-areas: "left-gutter key center-gutter value";
 }
 
 @supports (-moz-appearance: none) {

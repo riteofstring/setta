@@ -62,7 +62,7 @@ function _ParamContainer({
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`section-w-full group/arg-group section-min-rows mx-1 grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
+        className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
         onMouseOver={() => {
           setIsMousedOver(true);
@@ -77,7 +77,7 @@ function _ParamContainer({
             icon={<i className="gg-check" />}
             bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent  border-solid border-[1px]"
             color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
-            twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center -mr-2 z-50 scale-125`}
+            twClasses={`arg-close-btn section-value cursor-pointer items-center justify-self-end  -mr-2 z-50 scale-125`}
             padding=""
             // size="h-1 w-1"
             tabIndex="-1"
@@ -99,7 +99,7 @@ function _ParamContainer({
     </>
   ) : (
     <article
-      className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
+      className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
       onMouseOver={() => {
         setIsMousedOver(true);
@@ -115,7 +115,7 @@ function _ParamContainer({
           icon={<i className="gg-check" />}
           bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent border-solid border-[1px]"
           color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
-          twClasses={`arg-close-btn section-right-gutter cursor-pointer place-self-center -mr-2 z-50 scale-125`}
+          twClasses={`arg-close-btn section-value cursor-pointer items-center justify-self-end -mr-2 z-50 scale-125`}
           padding=""
           // size="h-1 w-1"
           tabIndex="-1"
@@ -123,7 +123,7 @@ function _ParamContainer({
       )}
       {children}
       <div
-        className="section-args-nested section-key-right-gutter relative grid gap-y-1"
+        className="section-args-nested section-key-value relative grid gap-y-1"
         onMouseOver={() => {
           setChildIsMousedOver(true);
         }}
