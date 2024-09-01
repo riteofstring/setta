@@ -27,10 +27,16 @@ export function VersionList({ sectionId }) {
 
   return (
     <section
-      className="section-grid -my-4 flex-1 self-stretch pb-8 pt-6"
+      className="section-grid -mx-3 -my-4 flex-1 self-stretch"
       onMouseLeave={onMouseLeave}
     >
       <ul className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-2">
+        <p className="section-key text-xs text-setta-400 dark:text-setta-600">
+          Name
+        </p>
+        <p className="section-value ml-auto text-xs text-setta-400 dark:text-setta-600">
+          Date
+        </p>
         {sectionTypeName === C.PARAM_SWEEP ? (
           <ParamSweepItems sectionId={sectionId} />
         ) : (
@@ -118,7 +124,7 @@ function OneItem({ id, name, isCurr, onMouseOver, onClick }) {
       >
         {name}
       </p>
-      <p className="section-value italic text-setta-400 dark:text-setta-500">
+      <p className="section-value ml-auto italic text-setta-400 dark:text-setta-500">
         01/04/2024
       </p>
     </li>
