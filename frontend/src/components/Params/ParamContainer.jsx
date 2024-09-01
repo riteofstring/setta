@@ -79,7 +79,7 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
     </>
   ) : (
     <article
-      className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${border}`}
+      className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
       onClick={onClickSelect}
     >
