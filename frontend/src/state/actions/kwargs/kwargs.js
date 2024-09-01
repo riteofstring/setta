@@ -78,6 +78,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 
 export function changeKwargName({ sectionId, paramInfoId, name }) {
   setCodeInfoName({ id: paramInfoId, name });
+  updateKeywordRegex();
   // updateParams(sectionId);
   // maybeIncrementProjectStateVersion(true);
 }

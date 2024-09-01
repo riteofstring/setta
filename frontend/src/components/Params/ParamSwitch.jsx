@@ -15,7 +15,7 @@ function _ParamSwitch(props) {
   }
 
   return props.isKwarg ? (
-    <KwargParam {...props} />
+    <KwargParam {...props} onNameClick={onNameClick} />
   ) : (
     <RegularParam {...props} onNameClick={onNameClick} />
   );
