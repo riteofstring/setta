@@ -18,6 +18,7 @@
   "sortingShortcut": "Shift",
   "movingFreeShortcut": "Alt",
   "updateInteractiveCode": "Mod + Enter",
+  "paramSelect": "Mod + Shift",
   "defaultCodeSectionSize": { "width": 500, "height": "auto" },
   "defaultTerminalSectionSize": { "width": 700, "height": "auto" },
   "defaultSectionSize": { "width": "auto", "height": "auto" },
