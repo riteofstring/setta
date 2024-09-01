@@ -12,11 +12,20 @@ import { getSectionInfo } from "../../getters/sectionInfo";
 import { updateKeywordRegex } from "../keywordRegex";
 import { getSectionSelectedItem } from "../sectionVariants";
 
-export function getTopLevelParamInfos(sectionId) {
+export function getParamInfos(sectionId) {
+  const ids = useSectionToParamIds.getState().params[sectionId] ?? [];
   const cState = useCodeInfo.getState().x;
-  const selectedItem = getSectionSelectedItem(sectionId);
-  const objParamInfoIds = selectedItem
-    ? findAllParametersOfCallables(cState, [selectedItem])
+  return ids.map((x) => cState[x]);
+}
+
+function computeAllCallables(sectionId) {
+  const { codeInfoId } = getSectionInfo(sectionId);
+  return findAllCallables(useCodeInfo.getState().x, [codeInfoId]);
+}
+
+function computeAllParams(sectionId, objInfoId) {
+  const objParamInfoIds = objInfoId
+    ? findAllParametersOfCallables(useCodeInfo.getState().x, [objInfoId])
     : [];
 
   const { codeInfoId } = getSectionInfo(sectionId);
@@ -27,18 +36,6 @@ export function getTopLevelParamInfos(sectionId) {
 
   return [...objParamInfoIds, ...paramCollectionIds];
 }
-
-export function getAllParamInfos(sectionId) {
-  const topLevel = getTopLevelParamInfos(sectionId);
-  return findAllParameters(useCodeInfo.getState().x, topLevel);
-}
-
-function computeAllCallables(sectionId) {
-  const { codeInfoId } = getSectionInfo(sectionId);
-  return findAllCallables(useCodeInfo.getState().x, [codeInfoId]);
-}
-
-function computeAllParams(sectionId, objInfoId) {}
 
 export function updateManyParamsAndCallables(sectionIds) {
   sectionIds.forEach((x) => updateParamsAndCallables(x, false));

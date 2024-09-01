@@ -14,10 +14,7 @@ import {
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
 import { updateKeywordRegex } from "../keywordRegex";
-import {
-  getTopLevelParamInfos,
-  updateParams,
-} from "../sections/sectionContents";
+import { updateParams } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
 import { maybeIncrementProjectStateVersion } from "../undo";
