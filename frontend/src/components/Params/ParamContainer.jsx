@@ -23,7 +23,6 @@ function _ParamContainer({
   isKwarg,
   children,
   onClick,
-  notifyParentOfMouseOver,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
@@ -59,8 +58,8 @@ function _ParamContainer({
   );
 
   const [isMousedOver, setIsMousedOver] = useState(false);
-  const [childIsMousedOver, setChildIsMousedOver] = useState(0);
-  const showButtons = isMousedOver && childIsMousedOver === 0;
+  const [childIsMousedOver, setChildIsMousedOver] = useState(false);
+  const showButtons = isMousedOver && !childIsMousedOver;
 
   return paramChildren.length === 0 ? (
     <>
@@ -68,11 +67,9 @@ function _ParamContainer({
         className={`section-w-full group/arg-group section-min-rows -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2   ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
         onMouseOver={() => {
-          if (!isMousedOver) notifyParentOfMouseOver?.((x) => x + 1);
           setIsMousedOver(true);
         }}
         onMouseLeave={() => {
-          if (isMousedOver) notifyParentOfMouseOver?.((x) => x - 1);
           setIsMousedOver(false);
         }}
       >
@@ -120,13 +117,11 @@ function _ParamContainer({
       className={`section-w-full group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
       {...getInfoViewHandlers(paramInfo.description)}
       onMouseOver={() => {
-        if (!isMousedOver) notifyParentOfMouseOver?.((x) => x + 1);
         setIsMousedOver(true);
       }}
       onMouseLeave={() => {
-        if (isMousedOver) notifyParentOfMouseOver?.((x) => x - 1);
         setIsMousedOver(false);
-        setChildIsMousedOver(0);
+        setChildIsMousedOver(false);
       }}
     >
       {isKwarg && showButtons && (
@@ -142,13 +137,20 @@ function _ParamContainer({
         />
       )}
       {children}
-      <div className="section-args-nested section-key-value grid gap-y-1">
+      <div
+        className="section-args-nested section-key-value grid gap-y-1"
+        onMouseOver={() => {
+          setChildIsMousedOver(true);
+        }}
+        onMouseLeave={() => {
+          setChildIsMousedOver(false);
+        }}
+      >
         <GetParamSwitch
           sectionId={sectionId}
           parentId={paramInfo.id}
           infos={paramChildren}
           setDidUpdate={setDidUpdate}
-          notifyParentOfMouseOver={setChildIsMousedOver}
         />
       </div>
       {showButtons && (

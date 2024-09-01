@@ -7,7 +7,6 @@ export function GetParamSwitch({
   parentId,
   infos,
   setDidUpdate,
-  notifyParentOfMouseOver,
 }) {
   const paramFilter = useSectionParamFilter((x) => x.x[sectionId]);
   const filteredInfos = paramFilter
@@ -25,7 +24,6 @@ export function GetParamSwitch({
       paramInfo={e}
       isKwarg={e.editable}
       setDidUpdate={setDidUpdate}
-      notifyParentOfMouseOver={notifyParentOfMouseOver}
     />
   ));
 }
