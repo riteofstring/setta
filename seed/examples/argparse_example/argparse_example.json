@@ -45,7 +45,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3dbb4893-bd44-4e67-a6c3-1148d7205d42"],
+      "variantIds": [
+        "3dbb4893-bd44-4e67-a6c3-1148d7205d42"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "size": {
@@ -69,7 +71,9 @@
       "codeLanguage": "python",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3ec298ce-5d49-42f8-8700-3e2efb26855b"],
+      "variantIds": [
+        "3ec298ce-5d49-42f8-8700-3e2efb26855b"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "size": {
@@ -93,7 +97,9 @@
       "codeLanguage": "bash",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["40fd1a3c-6fca-4b87-b427-5bee353cef09"],
+      "variantIds": [
+        "40fd1a3c-6fca-4b87-b427-5bee353cef09"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "size": {
@@ -117,7 +123,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["dc1879dd-4591-46c0-8fc6-f733c6b177ca"],
+      "variantIds": [
+        "dc1879dd-4591-46c0-8fc6-f733c6b177ca"
+      ],
       "paramSweepIds": [
         "e30db601-cda1-4b31-bafe-a8dd047af670",
         "4fe62be1-f939-4d84-9c3f-f20412754e0c"
@@ -189,7 +197,10 @@
       "sweep": [
         {
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-          "values": ["Kevin", "Jeff"]
+          "values": [
+            "Kevin",
+            "Jeff"
+          ]
         }
       ]
     },
@@ -198,7 +209,10 @@
       "sweep": [
         {
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-          "values": ["Aaron", "Joseph"]
+          "values": [
+            "Aaron",
+            "Joseph"
+          ]
         }
       ]
     }
@@ -214,7 +228,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -228,7 +241,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [
         "305eb7df-068a-419a-a321-2bf87d2c833b",
         "61948f59-832b-4a29-9dac-facf187f8fc3",
@@ -246,7 +258,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -260,7 +271,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [
         "80b6429e-fbb9-4070-a574-b32e0e061ab4",
         "0da2c277-e1d8-4838-ba1a-71d5638a4ade"
@@ -277,7 +287,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -291,7 +300,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -305,8 +313,9 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
-      "children": ["0eac6e6f-6f26-47af-a9a3-89d9c365b26b"],
+      "children": [
+        "0eac6e6f-6f26-47af-a9a3-89d9c365b26b"
+      ],
       "positionalOnly": false,
       "keywordPositions": []
     },
@@ -319,7 +328,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -333,7 +341,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -347,7 +354,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -361,7 +367,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -375,7 +380,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []
@@ -389,7 +393,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [
         "20fe3b32-be65-4b59-9f32-013435901dcc",
         "03b6a0ad-0815-4697-af57-167d2accc06a",
@@ -408,7 +411,6 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "children": [],
       "positionalOnly": false,
       "keywordPositions": []

@@ -246,11 +246,15 @@
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
-        "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
+        "nonPresetUITypeIds": [
+          "76c639bd-eae5-4497-bf8b-0e668d8baf6c"
+        ]
       },
       "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
         "uiTypeId": "f0593fb7-1a06-419b-af84-67d36995e1e2",
-        "nonPresetUITypeIds": ["f0593fb7-1a06-419b-af84-67d36995e1e2"]
+        "nonPresetUITypeIds": [
+          "f0593fb7-1a06-419b-af84-67d36995e1e2"
+        ]
       },
       "f14239d6-f206-4655-8c34-ddd6873391a5": {
         "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f",
@@ -277,7 +281,9 @@
       "dbSource": "",
       "codeInfoId": "8727077c-44ce-4187-95c0-d96de7279463",
       "nonPresetUITypeIds": [],
-      "variantIds": ["a35b5004-ba1b-4774-99bb-d496127b2909"],
+      "variantIds": [
+        "a35b5004-ba1b-4774-99bb-d496127b2909"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -302,7 +308,9 @@
       "dbSource": "",
       "codeInfoId": "15dc4270-4e4e-4799-93eb-c309801d6349",
       "nonPresetUITypeIds": [],
-      "variantIds": ["56218716-8dc7-4a8b-a253-1eb2bb9cfc56"],
+      "variantIds": [
+        "56218716-8dc7-4a8b-a253-1eb2bb9cfc56"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -327,7 +335,9 @@
       "dbSource": "",
       "codeInfoId": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
       "nonPresetUITypeIds": [],
-      "variantIds": ["91b7814e-8f93-4ad1-a966-00851b4e41d9"],
+      "variantIds": [
+        "91b7814e-8f93-4ad1-a966-00851b4e41d9"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -352,7 +362,9 @@
       "dbSource": "",
       "codeInfoId": "14d87eca-54fe-4b0b-9c8b-07477168c7e1",
       "nonPresetUITypeIds": [],
-      "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
+      "variantIds": [
+        "61ce0033-a59e-4c8e-8a52-d658feb18017"
+      ],
       "paramSweepIds": [],
       "artifacts": [
         {
@@ -383,7 +395,9 @@
       "dbSource": null,
       "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
       "nonPresetUITypeIds": [],
-      "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
+      "variantIds": [
+        "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -407,7 +421,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": []
     },
@@ -421,7 +434,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": []
     },
@@ -435,7 +447,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": []
     },
@@ -449,7 +460,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": []
     },
@@ -463,7 +473,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": [
         "20512036-3e0f-41f3-9738-6573ee71bdaf",
@@ -481,7 +490,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": []
     },
@@ -495,7 +503,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": []
     },
@@ -509,7 +516,6 @@
       "positionalOnly": 0,
       "isPinned": 0,
       "isFrozen": 0,
-      "isSelected": 0,
       "keywordPositions": [],
       "children": []
     }
@@ -521,19 +527,25 @@
     "c": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "20512036-3e0f-41f3-9738-6573ee71bdaf",
-      "componentIndices": [1],
+      "componentIndices": [
+        1
+      ],
       "isArgsObj": false
     },
     "n": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "f14239d6-f206-4655-8c34-ddd6873391a5",
-      "componentIndices": [1],
+      "componentIndices": [
+        1
+      ],
       "isArgsObj": false
     },
     "blur_radius": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
-      "componentIndices": [11],
+      "componentIndices": [
+        11
+      ],
       "isArgsObj": false
     }
   }

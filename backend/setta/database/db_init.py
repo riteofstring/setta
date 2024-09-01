@@ -15,7 +15,6 @@ CREATE_TABLES_COMMANDS = [
         positionalOnly BOOLEAN,
         isPinned BOOLEAN,
         isFrozen BOOLEAN,
-        isSelected BOOLEAN,
         keywordPositions TEXT
     );
     """,
