@@ -246,6 +246,7 @@ class Exporter:
 
     def export_params(self, section_id, ids, is_global=False):
         var_names = [self.export_param(section_id, x, is_global) for x in ids]
+        var_names = [x for x in var_names if x]
         params = []
         unused_params = []
         positionalOnlyParams = set()
@@ -264,6 +265,8 @@ class Exporter:
     def export_param(self, section_id, id, is_global=False):
         codeInfo = self.p["codeInfo"][id]
         param_name = codeInfo["name"]
+        if not param_name:
+            return None
         var_name = maybe_create_var_name(
             section_id,
             id,

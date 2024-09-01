@@ -29,6 +29,9 @@ export function TextInputCodeMirror({
   sectionIdToBeActive,
   keywordPositions,
   setKeywordPositions,
+  autocomplete = true,
+  initializeGenCode = true,
+  isKeyName = false,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -48,7 +51,6 @@ export function TextInputCodeMirror({
   function localOnMouseDown(event) {
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
       setActivationEvent(event);
       if (sectionIdToBeActive) {
         setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
@@ -58,8 +60,10 @@ export function TextInputCodeMirror({
 
   // focused via tab key
   function onFocus() {
-    if (!activationEvent) {
+    if (initializeGenCode) {
       dbTextFieldInitializeCode({ sectionId, paramInfoId });
+    }
+    if (!activationEvent) {
       setActivationEvent("tab");
     }
   }
@@ -99,6 +103,8 @@ export function TextInputCodeMirror({
           keywordPositions={keywordPositions}
           setKeywordPositions={setKeywordPositions}
           language={language}
+          autocomplete={autocomplete}
+          isKeyName={isKeyName}
         />
       )}
     </>
@@ -123,8 +129,10 @@ function CoreCodeMirror({
   keywordPositions,
   setKeywordPositions,
   language,
+  autocomplete,
+  isKeyName,
 }) {
-  const divId = `CodeMirror-${sectionId}-${paramInfoId}`;
+  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
 
   const keywordStylizer = useMemo(
     () => getKeywordStylizer(keywordPositions),
@@ -132,13 +140,15 @@ function CoreCodeMirror({
   );
 
   const completionsFn = useCallback(
-    getCompletionsFn(
-      sectionId,
-      paramInfoId,
-      dbTextFieldCompletion,
-      setKeywordPositions,
-    ),
-    [sectionId, paramInfoId],
+    autocomplete
+      ? getCompletionsFn(
+          sectionId,
+          paramInfoId,
+          dbTextFieldCompletion,
+          setKeywordPositions,
+        )
+      : () => null,
+    [sectionId, paramInfoId, autocomplete],
   );
 
   const extensions = getExtensions({

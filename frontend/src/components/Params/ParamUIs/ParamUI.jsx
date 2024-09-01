@@ -1,5 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
+import { useCodeInfo } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
@@ -34,6 +35,8 @@ export function ParamUI({
     sectionId,
     paramInfoId,
   });
+  const paramNameIsValid = useCodeInfo((x) => !!x.x[paramInfoId].name);
+
   switch (uiType.type) {
     default:
       return (
@@ -51,6 +54,8 @@ export function ParamUI({
             sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
+            initializeGenCode={paramNameIsValid}
+            autocomplete={paramNameIsValid}
           />
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

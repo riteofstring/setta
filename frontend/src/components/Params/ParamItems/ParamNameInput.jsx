@@ -36,6 +36,9 @@ export function ParamNameInput({
         language="python"
         keywordPositions={[]}
         setKeywordPositions={() => {}}
+        initializeGenCode={false}
+        autocomplete={false}
+        isKeyName={true}
       />
       <span
         className={`${hasChildren ? "section-key-value grid-row-start-1" : "section-key"} border-box self-end border-b border-setta-100 peer-focus-within:border-blue-400 dark:border-setta-800`}

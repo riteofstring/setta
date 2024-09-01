@@ -9,6 +9,7 @@ import {
 } from "../../getters/sectionInfo";
 import { addCodeInfo, deleteCodeInfo, setCodeInfoName } from "../codeInfo";
 import { initializeParam } from "../initializeParam";
+import { updateKeywordRegex } from "../keywordRegex";
 import { updateParams } from "../sections/sectionContents";
 import { deleteParamInfoFromSectionVariant } from "../sectionVariants";
 import { deleteParamInfoFromUITypeCol } from "../uiTypes/uiTypeCols";
@@ -77,6 +78,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 
 export function changeKwargName({ sectionId, paramInfoId, name }) {
   setCodeInfoName({ id: paramInfoId, name });
-  updateParams(sectionId);
-  maybeIncrementProjectStateVersion(true);
+  updateKeywordRegex();
+  // updateParams(sectionId);
+  // maybeIncrementProjectStateVersion(true);
 }
