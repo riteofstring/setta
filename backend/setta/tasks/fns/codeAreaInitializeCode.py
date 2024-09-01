@@ -2,7 +2,7 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_code
+from setta.code_gen.export_selected import export_selected, get_selected_section_variant
 from setta.code_gen.find_placeholders import needs_generated_python
 from setta.code_gen.python.generate_code import (
     count_lines,
@@ -12,6 +12,7 @@ from setta.code_gen.python.generate_code import (
     replace_keywords,
 )
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 
 from .utils import TaskDefinition
 
@@ -24,10 +25,9 @@ class CodeAreaInitializeCodeContent(BaseModel):
 async def _codeAreaInitializeCode(message, lsp_writer):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    code = project["sections"][message.sectionId]["code"]
+    code = get_selected_section_variant(project, message.sectionId)["code"]
     codeJson = None
     gen_code = None
-    num_gen_code_lines = None
     referencable_var_names = None
     exporter_obj = None
     generated_var_names = set()
@@ -38,7 +38,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
         gen_code, var_name_to_line_num = generate_code(
             codeJson, code, replace_templated_code=False
         )
-        num_gen_code_lines = count_lines(gen_code)
         generated_var_names = var_name_to_line_num.keys()
         infoToFullName = {
             tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
@@ -52,7 +51,7 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     # print("var_name_to_line_num", var_name_to_line_num, flush=True)
     # print("referencable_var_names", referencable_var_names, flush=True)
 
-    code = replace_keywords(code, {"SETTA_GENERATED_CODE": gen_code})
+    code = replace_keywords(code, {C.SETTA_GENERATED_PYTHON: gen_code})
 
     print("code", code, flush=True)
 
@@ -61,11 +60,9 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     )
 
     return {
-        "output": None,
-        "name": "codeAreaInitializeCode",
+        "content": True,
         "cache": [
             gen_code,
-            num_gen_code_lines,
             generated_var_names,
             referencable_var_names,
             exporter_obj,
@@ -79,7 +76,7 @@ def get_cache_key(projectConfigId, sectionId):
 
 def write_cache(cache, message, result):
     print("writing to cache", cache)
-    if result["cache"] is None:
+    if result.get("cache") is None:
         return
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     cache[
@@ -90,6 +87,7 @@ def write_cache(cache, message, result):
 
 codeAreaInitializeCode = TaskDefinition(
     name="codeAreaInitializeCode",
+    return_message_type="codeAreaInitializeCodeReturn",
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,

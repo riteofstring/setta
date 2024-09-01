@@ -1,12 +1,11 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { dbTextFieldCompletion } from "requests/sections";
 import { variableClick } from "state/actions/keyActivations";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useKeywordRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
 
-function getContentDomEventListener(keywordLocations, editor) {
+function getContentDomEventListener(keywordPositions, editor) {
   return (event) => {
     if (!variableClick(event)) {
       return;
@@ -22,7 +21,7 @@ function getContentDomEventListener(keywordLocations, editor) {
 
     let keywordInfo = null;
 
-    for (const k of keywordLocations.current) {
+    for (const k of keywordPositions) {
       if (pos >= k.startPos && pos < k.endPos) {
         keywordInfo = k;
         break;
@@ -56,7 +55,7 @@ function fixPlaceholderCursor(divId, value, defaultVal) {
 }
 
 export function getOnCreateEditor({
-  keywordLocations,
+  keywordPositions,
   initialEvent,
   setRealIsInitialized,
   divId,
@@ -66,7 +65,7 @@ export function getOnCreateEditor({
   return (view) => {
     view.contentDOM.addEventListener(
       "click",
-      getContentDomEventListener(keywordLocations, view),
+      getContentDomEventListener(keywordPositions, view),
     );
     view.focus();
     if (initialEvent !== "tab") {
@@ -80,7 +79,12 @@ export function getOnCreateEditor({
   };
 }
 
-export function getCompletionsFn(sectionId, paramInfoId) {
+export function getCompletionsFn(
+  sectionId,
+  paramInfoId,
+  dbCompletionFn,
+  setKeywordPositions,
+) {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
@@ -89,12 +93,13 @@ export function getCompletionsFn(sectionId, paramInfoId) {
       sectionId,
       paramInfoId,
     });
-    const res = await dbTextFieldCompletion({
+    const res = await dbCompletionFn({
       sectionId,
       paramInfoId,
       fullText,
       beforeText: before.text,
       position: context.pos,
+      setKeywordPositions,
     });
     setToNotWaiting();
     console.log("res", res);

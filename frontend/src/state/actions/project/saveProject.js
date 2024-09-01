@@ -6,6 +6,7 @@ import {
   dbSaveProject,
 } from "requests/projects";
 import {
+  useArtifacts,
   useCodeInfo,
   useKeywordRegex,
   useNodeInternals,
@@ -41,9 +42,19 @@ export function getProjectData() {
   }));
 
   const sectionInfosState = useSectionInfos.getState();
-  const sections = _.mapValues(sectionInfosState.x, (x) =>
-    _.omit(x, ["parentId"]),
-  );
+  const sections = _.mapValues(sectionInfosState.x, (x) => {
+    const artifactState = useArtifacts.getState().x;
+    const currSection = _.omit(x, ["parentId"]);
+    // keep only artifact paths that are actually saved to disk
+    currSection.artifacts = currSection.artifacts.filter(
+      (a) => artifactState[a].isSaved,
+    );
+    currSection.artifacts = currSection.artifacts.map((a) => ({
+      path: a,
+      ..._.pick(artifactState[a], ["type", "displayName"]),
+    }));
+    return currSection;
+  });
 
   const codeInfo = useCodeInfo.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;

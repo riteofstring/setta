@@ -1,4 +1,7 @@
-import { findRefs } from "components/Utils/CodeMirror/utils";
+import {
+  findCandidateKeywords,
+  findRefs,
+} from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
@@ -25,22 +28,28 @@ export async function dbParametersRequest({
   fullText,
   beforeText,
   position,
+  evRefs,
 }) {
-  return await dbTextFieldCompletion({
-    sectionId,
-    paramInfoId: null,
-    fullText,
-    beforeText,
-    position,
-    address: C.ROUTE_PARAMETERS_REQUEST,
+  const projectConfigId = useProjectConfig.getState().id;
+  return await sendMessageInRoom({
+    id: `${C.ROUTE_PARAMETERS_REQUEST}-${sectionId}-${null}`,
     messageType: "parametersRequest",
+    content: {
+      projectConfigId,
+      sectionId,
+      paramInfoId: null,
+      fullText,
+      beforeText,
+      position,
+      evRefs,
+    },
   });
 }
 
 export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
   const project = getProjectDataToGenerateCode({});
   const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}-${paramInfoId}`;
-  sendMessage({
+  await sendMessage({
     id,
     messageType: "textFieldInitializeCode",
     content: { project, sectionId, paramInfoId },
@@ -49,8 +58,8 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
 
 export async function dbCodeAreaInitializeCode({ sectionId }) {
   const project = getProjectDataToGenerateCode({});
-  const id = `${C.ROUTE_TEXT_FIELD_INITIALIZE_CODE}-${sectionId}`;
-  sendMessage({
+  const id = `${C.ROUTE_CODE_AREA_INITIALIZE_CODE}-${sectionId}`;
+  return await sendMessageInRoom({
     id,
     messageType: "codeAreaInitializeCode",
     content: { project, sectionId },
@@ -61,16 +70,44 @@ export async function dbCodeAreaCompletion({
   sectionId,
   fullText,
   beforeText,
-  line,
-  column,
+  position,
+  setKeywordPositions,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const id = `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`;
-  return await sendMessageInRoom({
-    id,
-    messageType: "codeAreaAutocomplete",
-    content: { projectConfigId, sectionId, fullText, beforeText, line, column },
+  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
+    sectionId,
+    paramInfoId: null,
+    fullText,
+    regexPatternKey: "codeAreaPattern",
   });
+
+  setKeywordPositions(keywordPositions);
+
+  const autoCompleteProps = {
+    id: `${C.ROUTE_CODE_AREA_COMPLETION}-${sectionId}`,
+    messageType: "codeAreaAutocomplete",
+    content: {
+      projectConfigId,
+      sectionId,
+      fullText,
+      beforeText,
+      position,
+      evRefs,
+    },
+  };
+
+  const res = await sendMessageInRoom(autoCompleteProps);
+
+  if (res === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
+    const initialized = await dbCodeAreaInitializeCode({ sectionId });
+    if (initialized) {
+      return await sendMessageInRoom(autoCompleteProps);
+    } else {
+      console.log("dbCodeAreaCompletion initialization failed!");
+      return [];
+    }
+  }
+  return res;
 }
 
 export async function dbTypeCheckRequest() {
@@ -87,21 +124,20 @@ export async function dbTextFieldCompletion({
   fullText,
   beforeText,
   position,
-  address = C.ROUTE_TEXT_FIELD_COMPLETION,
-  messageType = "textFieldCompletion",
+  setKeywordPositions,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
-  const evRefs = findRefs({
+  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
     sectionId,
     paramInfoId,
-    keywordRegex,
-    fullNameToInfo,
-    value: fullText,
+    fullText,
   });
+
+  setKeywordPositions(keywordPositions);
+
   return await sendMessageInRoom({
-    id: `${address}-${sectionId}-${paramInfoId}`,
-    messageType,
+    id: `${C.ROUTE_TEXT_FIELD_COMPLETION}-${sectionId}-${paramInfoId}`,
+    messageType: "textFieldCompletion",
     content: {
       projectConfigId,
       sectionId,
@@ -112,4 +148,49 @@ export async function dbTextFieldCompletion({
       evRefs,
     },
   });
+}
+
+export async function getKeywordPositionsAndEVRefs({
+  sectionId,
+  paramInfoId,
+  fullText,
+  messageIdSuffix = "",
+  regexPatternKey = "pattern",
+}) {
+  const { fullNameToInfo } = useKeywordRegex.getState();
+  let evRefs = [];
+  let keywordPositions = [];
+  const candidateKeywords = findCandidateKeywords({
+    sectionId,
+    paramInfoId,
+    value: fullText,
+    fullNameToInfo,
+    regexPatternKey,
+  });
+  console.log("candidateKeywords", candidateKeywords);
+  if (candidateKeywords.length > 0) {
+    let count = 0;
+    keywordPositions = [];
+    await sendMessageInRoom({
+      id: `${sectionId}-${paramInfoId}-find-references${messageIdSuffix}`,
+      messageType: "textFieldFindReferences",
+      content: { sectionId, paramInfoId, candidateKeywords, fullText },
+      condition: (x) => {
+        keywordPositions.push(...x);
+        count += 1;
+        return count === candidateKeywords.length;
+      },
+    });
+
+    // CodeMirror's RangeSetBuilder needs the list to be sorted
+    keywordPositions.sort((a, b) => a.startPos - b.startPos);
+
+    evRefs = findRefs({
+      keywordPositions,
+      fullNameToInfo,
+      fullText,
+    });
+  }
+
+  return { evRefs, keywordPositions };
 }

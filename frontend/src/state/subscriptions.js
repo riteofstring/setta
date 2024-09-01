@@ -40,10 +40,6 @@ export function subscribe() {
     },
   );
 
-  useSectionInfos.subscribe(getSingletonSubscriptionFn(C.VAR_CONTROL), (x) => {
-    SINGLETON_SECTIONS.varControl = x;
-  });
-
   useSectionInfos.subscribe(
     (state) => _.mapValues(state.x, (v) => v.name),
     (x) => updateKeywordRegex(x),

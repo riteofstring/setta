@@ -1,9 +1,13 @@
 import jedi
 
-from setta.code_gen.python.generate_code import append_to_line, var_declaration
+from setta.code_gen.python.generate_code import (
+    append_to_line,
+    position_to_line_col,
+    var_declaration,
+)
 from setta.tasks.task_runner import RunType
 
-from .autocomplete import completionHelper, read_cache
+from .textFieldAutocomplete import completionHelper, read_cache
 from .utils import TaskDefinition
 
 
@@ -13,18 +17,16 @@ def parametersRequestFn(lsp_writer, use_jedi=False):
         request_id,
         code,
         codeJson,
-        var_name_to_line_num,
-        var_name,
+        line,
         column,
         **_,
     ):
-        print("parametersRequest", flush=True)
-        line = var_name_to_line_num[var_name]
         code = append_to_line(code, line, "()")
+        # the +1 below is to move the cursor into the parentheses.
+        column += 1
+        print("parametersRequest", flush=True)
         print(code, flush=True)
         await lsp_writer.send_document_update(code_id, code, codeJson)
-        # the +1 below is to move the cursor into the parentheses.
-        column = column + len(var_declaration(var_name, "")) + 1
         if use_jedi:
             return jedi_get_signature(code, line, column)
         else:
@@ -36,13 +38,12 @@ def parametersRequestFn(lsp_writer, use_jedi=False):
 
 
 async def _parametersRequest(message, lsp_writer):
-    return await completionHelper(
-        message, "parameters", parametersRequestFn(lsp_writer)
-    )
+    return await completionHelper(message, parametersRequestFn(lsp_writer))
 
 
 parametersRequest = TaskDefinition(
     name="parametersRequest",
+    return_message_type="parametersRequestReturn",
     fn=_parametersRequest,
     read_cache=read_cache,
     run_as=RunType.THREAD,

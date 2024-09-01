@@ -50,11 +50,11 @@ export const useInfoView = createProjectState(() => ({
 
 export const useInteractive = create(() => ({
   taskNames: [],
-  data: null,
 }));
 
 export const useKeywordRegex = create(() => ({
   pattern: "",
+  codeAreaPattern: "",
   fullNameToInfo: {},
 }));
 
@@ -92,13 +92,7 @@ export const useAllProjectConfigs = createProjectState(() => ({
   names: [],
 }));
 
-export const useOutputGroups = createProjectState(
-  immer(() => ({
-    x: {},
-  })),
-);
-
-export const useOutputs = createProjectState(
+export const useArtifacts = createProjectState(
   immer(() => ({
     x: {},
   })),
@@ -168,7 +162,7 @@ export const useSectionRefs = createProjectState(
   })),
 );
 
-export const useSectionToParams = createProjectState(
+export const useSectionToParamIds = createProjectState(
   temporal(
     immer(() =>
       withVersion({

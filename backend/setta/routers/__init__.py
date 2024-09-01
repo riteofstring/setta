@@ -1,3 +1,4 @@
+from .artifact import router as artifact_router
 from .code_info import router as code_info_router
 from .interactive import router as interactive_code_router
 from .misc import router as misc_router

@@ -20,56 +20,40 @@ export function roundUpIdx(numList, x) {
 
 export function computeEVReferences(project) {
   const evRefs = {};
-  const { pattern: keywordRegex, fullNameToInfo } = useKeywordRegex.getState();
+  const { fullNameToInfo } = useKeywordRegex.getState();
   for (const sectionId of Object.keys(project["sections"])) {
     evRefs[sectionId] = {};
     const dbSource = getSectionDBSource(sectionId);
     const { variantId } = useSectionInfos.getState().x[sectionId];
     const sectionVariant = project["sectionVariants"][dbSource][variantId];
-    for (const [paramInfoId, value] of Object.entries(sectionVariant.values)) {
+    for (const [paramInfoId, valueInfo] of Object.entries(
+      sectionVariant.values,
+    )) {
       evRefs[sectionId][paramInfoId] = findRefs({
-        sectionId,
-        paramInfoId,
-        keywordRegex,
+        keywordPositions: valueInfo.keywordPositions,
         fullNameToInfo,
-        value,
+        fullText: valueInfo.value,
       });
     }
   }
 
-  project["evRefs"] = evRefs;
+  return evRefs;
 }
 
-export function findRefs({
-  sectionId,
-  paramInfoId,
-  keywordRegex,
-  fullNameToInfo,
-  value,
-}) {
-  let match;
+export function findRefs({ keywordPositions, fullNameToInfo, fullText }) {
   const output = [];
-  while ((match = keywordRegex.exec(value))) {
-    const startPos = match.index;
-    const endPos = startPos + match[0].length;
-    if (
-      doesNotReferToSelf({
-        fullNameToInfo,
-        keyword: match[0],
-        sectionId: sectionId,
-        paramInfoId: paramInfoId,
-      })
-    ) {
-      const info = fullNameToInfo[match[0]];
-      output.push({
-        sectionId: info["sectionId"],
-        paramInfoId: info["paramInfoId"],
-        isArgsObj: info["isArgsObj"],
-        startPos,
-        endPos,
-      });
-    }
+  for (const k of keywordPositions) {
+    const keyword = fullText.substring(k["startPos"], k["endPos"]);
+    const info = fullNameToInfo[keyword];
+    output.push({
+      sectionId: info["sectionId"],
+      paramInfoId: info["paramInfoId"],
+      isArgsObj: info["isArgsObj"],
+      startPos: k["startPos"],
+      endPos: k["endPos"],
+    });
   }
+
   return output;
 }
 
@@ -109,4 +93,28 @@ export function doesNotReferToSelf({
     (fullNameToInfo[keyword].sectionId === sectionId &&
       fullNameToInfo[keyword].paramInfoId === paramInfoId)
   );
+}
+
+export function findCandidateKeywords({
+  sectionId,
+  paramInfoId,
+  value,
+  fullNameToInfo,
+  regexPatternKey,
+}) {
+  let match;
+  const output = new Set();
+  const keywordRegex = useKeywordRegex.getState()[regexPatternKey];
+  while ((match = keywordRegex.exec(value))) {
+    if (
+      doesNotReferToSelf({
+        fullNameToInfo,
+        keyword: match[0],
+        sectionId,
+        paramInfoId,
+      })
+    )
+      output.add(match[0]);
+  }
+  return Array.from(output);
 }

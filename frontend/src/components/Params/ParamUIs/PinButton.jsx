@@ -17,7 +17,7 @@ export function PinButton({ variants, sectionId, paramInfoId }) {
   //hover:!bg-white dark:hover:!bg-setta-900
   return (
     <IconButton
-      twClasses={`arg-pin-btn ${variants}`}
+      twClasses={`arg-pin-btn section-key ${variants}`}
       size="h-3 w-3"
       icon={<MdOutlinePushPin />}
       color={` ${

@@ -2,6 +2,8 @@ import copy
 import itertools
 from collections import defaultdict
 
+from setta.database.utils import parse_keyword_positions_string
+
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
@@ -19,7 +21,8 @@ def load_sections(dbs, ids):
             S.*,
             U.nonPresetUITypeIds,
             E.variantIds,
-            P.paramSweepIds
+            P.paramSweepIds,
+            A.artifacts
         FROM
             Section S
         LEFT JOIN
@@ -52,6 +55,16 @@ def load_sections(dbs, ids):
                 GROUP BY
                     originSectionId
             ) AS P ON S.id = P.originSectionId
+        LEFT JOIN
+            (
+                SELECT
+                    sectionId,
+                    GROUP_CONCAT(artifactPath) AS artifacts
+                FROM
+                    SectionArtifacts
+                GROUP BY
+                    sectionId
+            ) AS A ON S.id = A.sectionId
         WHERE
             S.id IN ({placeholders})
         GROUP BY
@@ -62,13 +75,12 @@ def load_sections(dbs, ids):
     sections = {}
     for v in db.fetchall():
         v = dict(v)
-        outputGroup = v.pop("outputGroupId")
         sections[v["id"]] = {
             **v,
             "isInOtherProjectConfigs": section_id_to_config_count[v["id"]] > 1,
             "parentId": child_to_parent_id.get(v["id"], None),
-            "outputGroup": outputGroup,
             "variantIds": v["variantIds"].split(",") if v["variantIds"] else [],
+            "artifacts": v["artifacts"].split(",") if v["artifacts"] else [],
             "nonPresetUITypeIds": (
                 v["nonPresetUITypeIds"].split(",") if v["nonPresetUITypeIds"] else []
             ),
@@ -193,4 +205,23 @@ def num_projects_each_section_exists_in(dbs, section_ids):
     for row in db.fetchall():
         output[row[0]] = row[1]
 
+    return output
+
+
+def load_artifact_metadata(dbs, section_id, artifact_paths):
+    db = dbs.default
+    query_params = []
+    for a in artifact_paths:
+        query_params.extend([section_id, a])
+    placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
+    query = f"""
+        SELECT artifactPath as path, type, displayName
+        FROM SectionArtifacts
+        WHERE (sectionId, artifactPath) IN ({placeholders})
+    """
+    db.execute(query, query_params)
+
+    output = []
+    for row in db.fetchall():
+        output.append(dict(row))
     return output

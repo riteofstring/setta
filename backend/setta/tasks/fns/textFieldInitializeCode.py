@@ -2,7 +2,10 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_code
+from setta.code_gen.export_selected import (
+    export_selected,
+    get_code_containing_generated_python,
+)
 from setta.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
     prepend_with_imports,
@@ -23,7 +26,7 @@ async def _textFieldInitializeCode(message, lsp_writer):
     project = message.project
     exporter_obj = export_selected(project)
     codeJson = exporter_obj.output
-    templatedCode = get_code(project)
+    templatedCode = get_code_containing_generated_python(project)
     sectionId = message.sectionId
     paramInfoId = message.paramInfoId
     push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
@@ -55,8 +58,7 @@ async def _textFieldInitializeCode(message, lsp_writer):
     )
 
     return {
-        "output": None,
-        "name": "textFieldInitializeCode",
+        "content": None,
         "cache": [
             lines,
             var_name_to_line_num,
@@ -72,7 +74,7 @@ def get_cache_key(projectConfigId, sectionId, paramInfoId):
 
 
 def write_cache(cache, message, result):
-    if result["cache"] is None:
+    if result.get("cache") is None:
         return
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     key = get_cache_key(
@@ -83,6 +85,7 @@ def write_cache(cache, message, result):
 
 textFieldInitializeCode = TaskDefinition(
     name="textFieldInitializeCode",
+    return_message_type="textFieldInitializeCodeReturn",
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,

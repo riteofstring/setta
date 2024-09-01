@@ -16,6 +16,7 @@ from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
 from setta.lsp.writer import LanguageServerWriter
 from setta.routers import (
+    artifact_router,
     code_info_router,
     interactive_code_router,
     misc_router,
@@ -110,6 +111,7 @@ app.include_router(websocket_router, **kwargs)
 app.include_router(code_info_router, **kwargs)
 app.include_router(misc_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
+app.include_router(artifact_router, **kwargs)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

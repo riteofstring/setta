@@ -5,36 +5,38 @@ from pprint import pprint
 
 import docstring_parser
 
+from setta.code_gen.python.generate_code import line_col_to_position_batch
 from setta.utils.constants import C
 
 from .server import LanguageServerInteractor
 
 type_mapping = {
-    1: "text",
-    2: "method",
-    3: "function",
-    4: "constructor",
-    5: "field",
-    6: "variable",
-    7: "class",
-    8: "interface",
-    9: "module",
-    10: "property",
-    11: "unit",
-    12: "value",
-    13: "enum",
-    14: "keyword",
-    15: "snippet",
-    16: "color",
-    17: "file",
-    18: "reference",
-    19: "folder",
-    20: "enummember",
-    21: "constant",
-    22: "struct",
-    23: "event",
-    24: "operator",
-    25: "typeparameter",
+    1: "File",
+    2: "Module",
+    3: "Namespace",
+    4: "Package",
+    5: "Class",
+    6: "Method",
+    7: "Property",
+    8: "Field",
+    9: "Constructor",
+    10: "Enum",
+    11: "Interface",
+    12: "Function",
+    13: "Variable",
+    14: "Constant",
+    15: "String",
+    16: "Number",
+    17: "Boolean",
+    18: "Array",
+    19: "Object",
+    20: "Key",
+    21: "Null",
+    22: "EnumMember",
+    23: "Struct",
+    24: "Event",
+    25: "Operator",
+    26: "TypeParameter",
 }
 
 
@@ -209,18 +211,18 @@ class LanguageServerReader(LanguageServerInteractor):
     async def process_response(self, response):
         id = response.get("id", None)
         method = response.get("method", None)
-        # pprint(response)
         if id:
-            method = method if method else self.msg_id_to_method[id]
+            method = method if method else self.msg_id_to_metadata[id]["method"]
             if method == "textDocument/completion":
                 content = [
                     {"label": x["label"], "type": type_mapping[x["kind"]]}
                     for x in response["result"]["items"]
-                    if x["label"] not in self.msg_id_to_generated_var_names[id]
+                    if x["label"]
+                    not in self.msg_id_to_metadata[id]["generated_var_names"]
                 ]
                 referencable_var_names = [
                     {"label": x, "type": "variable"}
-                    for x in self.msg_id_to_referencable_var_names[id]
+                    for x in self.msg_id_to_metadata[id]["referencable_var_names"]
                 ]
                 content = [*referencable_var_names, *content]
                 await self.websocket_manager.send_message_to_requester(id, content)
@@ -231,6 +233,39 @@ class LanguageServerReader(LanguageServerInteractor):
                 else:
                     content = None
                 await self.websocket_manager.send_message_to_requester(id, content)
+            elif method == "textDocument/references":
+                print("response", response, flush=True)
+                content = []
+                if len(response["result"]) > 0:
+                    code = self.get_version(response["result"][0]["uri"])["code"]
+                    line_cols = []
+                    for x in response["result"]:
+                        line_cols.append(
+                            (
+                                x["range"]["start"]["line"],
+                                x["range"]["start"]["character"],
+                            )
+                        )
+                        line_cols.append(
+                            (x["range"]["end"]["line"], x["range"]["end"]["character"])
+                        )
+                    positions = line_col_to_position_batch(code, line_cols)
+                    position_offset = self.msg_id_to_metadata[id]["position_offset"]
+                    for idx in range(0, len(positions), 2):
+                        startPos = positions[idx] - position_offset
+                        endPos = positions[idx + 1] - position_offset
+                        content.append(
+                            {
+                                "startPos": startPos,
+                                "endPos": endPos,
+                            }
+                        )
+
+                print(content, flush=True)
+                return_id = self.msg_id_to_metadata[id]["return_id"]
+                await self.websocket_manager.send_message_to_requester(
+                    return_id, content
+                )
         elif method == "textDocument/publishDiagnostics":
             # print(response)
             params = response["params"]
@@ -241,10 +276,11 @@ class LanguageServerReader(LanguageServerInteractor):
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")
             content = process_diagnostics(diagnostics, code_split, codeJson)
-            # print("content", content, flush=True)
-            await self.websocket_manager.broadcast(
-                {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-            )
+            if content:
+                # print("content", content, flush=True)
+                await self.websocket_manager.broadcast(
+                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+                )
 
         # print(self.received_messages.keys())
         # process_response(response)

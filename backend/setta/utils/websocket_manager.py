@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 
 from fastapi import WebSocket
 
@@ -23,6 +24,7 @@ class WebsocketManager:
         self.sockets[id] = {
             "websocket": websocket,
             "isCLI": websocket.headers.get("isCLI", False),
+            "location": None,
         }
         await self.broadcast_connections()
         return id
@@ -41,29 +43,37 @@ class WebsocketManager:
                 result = await self.tasks(
                     message["messageType"], TaskMessage.parse_obj(message)
                 )
-                if result["output"]:
+                if result["content"]:
                     websocket = self.sockets[fromWebsocketId]["websocket"]
                     await websocket.send_text(
                         json.dumps(
                             {
                                 "id": message["id"],
-                                "content": result["output"],
-                                "toWebsocketId": wid,
-                                "messageType": result["name"],
+                                "content": result["content"],
+                                "messageType": result["messageType"],
                             }
                         )
                     )
             else:
                 # just send data to target websocket
                 websocket = self.sockets[wid]["websocket"]
-                await websocket.send_text(
-                    json.dumps({**message, "websocketId": fromWebsocketId})
-                )
+                await websocket.send_text(json.dumps(message))
+
+        if "location" in message:
+            self.sockets[fromWebsocketId]["location"] = message["location"]
 
     async def send_message_to_requester(self, id, content):
         # just send data to target websocket
         websocket = self.sockets[self.message_id_to_sender_id[id]]["websocket"]
         await websocket.send_text(json.dumps({"id": id, "content": content}))
+
+    async def send_message_to_location(self, content, messageType, location):
+        for w in self.sockets.values():
+            if w["location"] == location:
+                websocket = w["websocket"]
+                await websocket.send_text(
+                    json.dumps({"content": content, "messageType": messageType})
+                )
 
     async def broadcast(self, message):
         for s in self.sockets.values():

@@ -54,27 +54,29 @@ export function getExtensions({
   }
 
   if (onEnter) {
-    const keyBinding = Prec.highest(
-      keymap.of([
-        {
-          key: "Enter",
-          run: onEnter,
-        },
-      ]),
+    extensions.push(
+      Prec.highest(
+        keymap.of([
+          {
+            key: "Enter",
+            run: onEnter,
+          },
+        ]),
+      ),
     );
-    extensions.push(keyBinding);
   }
 
   if (onEscape) {
-    const keyBinding = Prec.highest(
-      keymap.of([
-        {
-          key: "Escape",
-          run: onEscape,
-        },
-      ]),
+    extensions.push(
+      Prec.highest(
+        keymap.of([
+          {
+            key: "Escape",
+            run: onEscape,
+          },
+        ]),
+      ),
     );
-    extensions.push(keyBinding);
   }
 
   if (tabToAutocomplete) {

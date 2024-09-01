@@ -1,3 +1,6 @@
+from setta.database.utils import dump_keyword_positions_as_string
+
+
 def save_section_variants(dbs, section_variants):
     for dbSource, variants_for_one_db in section_variants.items():
         save_section_variants_to_one_db(dbs[dbSource], variants_for_one_db)
@@ -5,16 +8,24 @@ def save_section_variants(dbs, section_variants):
 
 def save_section_variants_to_one_db(db, section_variants):
     query = """
-        INSERT INTO SectionVariantId (id, name, selectedItemId)
-        VALUES (:id, :name, :selectedItemId)
+        INSERT INTO SectionVariantId (id, name, selectedItem, code, keywordPositions)
+        VALUES (:id, :name, :selectedItem, :code, :keywordPositions)
         ON CONFLICT (id)
         DO UPDATE SET 
         name = :name,
-        selectedItemId = :selectedItemId
+        selectedItem = :selectedItem,
+        code = :code,
+        keywordPositions = :keywordPositions
     """
 
     query_params = [
-        {"id": k, "name": v["name"], "selectedItemId": v["selectedItem"]}
+        {
+            "id": k,
+            "name": v["name"],
+            "selectedItem": v["selectedItem"],
+            "code": v["code"],
+            "keywordPositions": dump_keyword_positions_as_string(v["keywordPositions"]),
+        }
         for k, v in section_variants.items()
     ]
     db.executemany(query, query_params)
@@ -30,14 +41,21 @@ def save_section_variants_to_one_db(db, section_variants):
 
     # add entered values
     query = """
-        INSERT INTO SectionVariantEV (idid, codeInfoId, value)
-        VALUES (:idid, :codeInfoId, :value)
+        INSERT INTO SectionVariantEV (idid, codeInfoId, value, keywordPositions)
+        VALUES (:idid, :codeInfoId, :value, :keywordPositions)
     """
     query_params = []
     for idid, variant in section_variants.items():
-        for code_info_id, value in variant["values"].items():
+        for code_info_id, value_info in variant["values"].items():
             query_params.append(
-                {"idid": idid, "codeInfoId": code_info_id, "value": value}
+                {
+                    "idid": idid,
+                    "codeInfoId": code_info_id,
+                    "value": value_info["value"],
+                    "keywordPositions": dump_keyword_positions_as_string(
+                        value_info["keywordPositions"]
+                    ),
+                }
             )
     db.executemany(query, query_params)
 

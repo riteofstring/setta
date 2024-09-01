@@ -5,7 +5,7 @@ import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
 import { useKeywordRegex } from "state/definitions";
 import { goToSectionOnNameClick } from "./getOnCreateEditor";
-import { doesNotReferToSelf, roundUpIdx } from "./utils";
+import { roundUpIdx } from "./utils";
 
 const lineWrapStyle = {
   whiteSpace: "break-spaces",
@@ -22,7 +22,7 @@ export function DummyCodeMirror({
   onMouseDown,
   onFocus,
   className,
-  keywordRegex,
+  keywordPositions,
   placeholder,
   sectionId,
   paramInfoId,
@@ -35,7 +35,7 @@ export function DummyCodeMirror({
       onMouseDown={onMouseDown}
       onFocus={onFocus}
       className={className}
-      keywordRegex={keywordRegex}
+      keywordPositions={keywordPositions}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       language={language}
@@ -70,7 +70,7 @@ function HighlightedCode({
   theme,
   onMouseDown,
   className,
-  keywordRegex,
+  keywordPositions,
   sectionId,
   paramInfoId,
   language,
@@ -81,14 +81,11 @@ function HighlightedCode({
   const markCache = {};
   const builder = new RangeSetBuilder();
 
-  let match;
   const matchedIndices = {};
-  while ((match = keywordRegex.exec(code))) {
-    const [from, to] = [match.index, match.index + match[0].length];
-    matchedIndices[match.index] = {
-      keywordStartIdx: from,
-      keywordEndIdx: to,
-      keyword: code.substring(from, to),
+  for (const kp of keywordPositions) {
+    matchedIndices[kp.startPos] = {
+      keywordEndIdx: kp.endPos,
+      keyword: code.substring(kp.startPos, kp.endPos),
     };
   }
 
@@ -130,18 +127,12 @@ function HighlightedCode({
       }
 
       if (currKeyword === null && cursor.from in matchedIndices) {
-        const { keyword, keywordStartIdx, keywordEndIdx } =
-          matchedIndices[cursor.from];
-        if (
-          doesNotReferToSelf({
-            fullNameToInfo,
-            keyword,
-            sectionId,
-            paramInfoId,
-          })
-        ) {
+        const { keyword, keywordEndIdx } = matchedIndices[cursor.from];
+        // not guaranteed to be a valid keyword due to debounced functions
+        // and delays in getting latest information from language server.
+        if (keyword in fullNameToInfo) {
           currKeyword = keyword;
-          currKeywordStartIdx = keywordStartIdx;
+          currKeywordStartIdx = cursor.from;
           currKeywordEndIdx = keywordEndIdx;
           currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
         }

@@ -9,6 +9,7 @@ from typing import Any, Callable, List, Optional
 from pydantic import BaseModel
 
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import C
 
 
 def import_from_path(file_path):
@@ -107,6 +108,7 @@ def do_nothing(*args, **kwargs):
 
 class TaskDefinition(BaseModel):
     name: Optional[str] = ""
+    return_message_type: str
     fn: Callable
     read_cache: Optional[Callable] = do_nothing
     write_cache: Optional[Callable] = do_nothing
@@ -117,3 +119,7 @@ class TaskDefinition(BaseModel):
 class TaskMessage(BaseModel):
     id: str
     content: Any
+
+
+class InteractiveTaskDefinition(TaskDefinition):
+    return_message_type: str = C.WS_INTERACTIVE_RETURN

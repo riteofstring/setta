@@ -1,31 +1,25 @@
-import C from "constants/constants.json";
 import { dbUpdateInteractiveCode } from "requests/interactive";
-import { useInteractive, useSectionInfos } from "state/definitions";
-import { getSectionType } from "state/getters/sectionInfo";
+import { useInteractive } from "state/definitions";
+import { updateArtifacts } from "./artifacts";
 import { setNotificationMessage } from "./notification";
 
-export function setInteractiveData(payload) {
-  useInteractive.setState({ data: payload });
-}
-
 export async function updateInteractiveCode() {
-  // const ids = useActiveSection.getState().ids;
-  // const codeDict = {};
-  // for (const id of ids) {
-  //   if (getSectionType(id).type === C.INTERACTIVE_CODE) {
-  //     codeDict[id] = useSectionInfos.getState().x[id].code;
-  //   }
-  // }
-
-  const codeDict = {};
-  for (const [id, s] of Object.entries(useSectionInfos.getState().x))
-    if (getSectionType(id).type === C.INTERACTIVE_CODE) {
-      codeDict[id] = s.code;
-    }
   setNotificationMessage("Importing your code...");
-  const res = await dbUpdateInteractiveCode(codeDict);
+  const res = await dbUpdateInteractiveCode();
   setNotificationMessage("Done importing");
   if (res.status == 200) {
     useInteractive.setState({ taskNames: res.data.taskNames });
+    updateInteractiveData(res.data.content);
   }
+}
+
+export async function updateInteractiveData(data) {
+  if (data.length === 0) {
+    return;
+  }
+  const dataInArtifactForm = {};
+  for (const d of data) {
+    dataInArtifactForm[`interactive:${d.displayName}`] = d;
+  }
+  updateArtifacts({ artifacts: dataInArtifactForm, addSection: true });
 }

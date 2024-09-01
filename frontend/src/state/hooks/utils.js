@@ -1,15 +1,12 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HOME_ROUTER_PATH } from "utils/constants";
 
 export function useMatchSorterFilter(completeList, keys, delay) {
   const [filter, setFilter] = useState("");
-  const setFilterWithDelay = useCallback(
-    _.debounce((x) => setFilter(x), delay),
-    [],
-  );
+  const setFilterWithDelay = createDebouncedSetFilter(setFilter, delay);
 
   const filteredList = filter
     ? matchSorter(completeList, filter, { keys })
@@ -62,3 +59,6 @@ export function useGoBackOrToHome() {
     }
   };
 }
+
+const createDebouncedSetFilter = (setFilter, delay) =>
+  _.debounce((x) => setFilter(x), delay);

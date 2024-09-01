@@ -15,7 +15,8 @@ CREATE_TABLES_COMMANDS = [
         positionalOnly BOOLEAN,
         isPinned BOOLEAN,
         isFrozen BOOLEAN,
-        isSelected BOOLEAN
+        isSelected BOOLEAN,
+        keywordPositions TEXT
     );
     """,
     # CodeInfoCol model
@@ -38,9 +39,7 @@ CREATE_TABLES_COMMANDS = [
         uiTypeId TEXT,
         uiTypeColId TEXT,
         social TEXT,
-        outputGroupId TEXT,
         description TEXT,
-        code TEXT,
         codeLanguage TEXT,
         isFrozen BOOLEAN,
         dbSource TEXT,
@@ -48,7 +47,6 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
-        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE,
         FOREIGN KEY (codeInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
     );
     """,
@@ -75,7 +73,9 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS SectionVariantId (
         id TEXT PRIMARY KEY,
         name TEXT,
-        selectedItemId TEXT,
+        selectedItem TEXT,
+        code TEXT,
+        keywordPositions TEXT,
         originSectionId TEXT
     );
     """,
@@ -86,6 +86,7 @@ CREATE_TABLES_COMMANDS = [
         idid TEXT,
         codeInfoId TEXT,
         value TEXT,
+        keywordPositions TEXT,
         PRIMARY KEY (idid, codeInfoId),
         FOREIGN KEY (idid) REFERENCES SectionVariantId(id) ON DELETE CASCADE
     );
@@ -163,34 +164,15 @@ CREATE_TABLES_COMMANDS = [
         FOREIGN KEY (childId) REFERENCES Section(id) ON DELETE CASCADE
     );
     """,
-    # Run model
+    # SectionArtifacts model
     """
-    CREATE TABLE IF NOT EXISTS Run (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        projectConfigId TEXT,
-        code TEXT,
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
-    );
-    """,
-    # OutputGroup model
-    """
-    CREATE TABLE IF NOT EXISTS OutputGroup (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        runId TEXT,
-        UNIQUE (name, runId),
-        FOREIGN KEY (runId) REFERENCES Run(id) ON DELETE CASCADE
-    );
-    """,
-    # Output model
-    """
-    CREATE TABLE IF NOT EXISTS Output (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        "values" REAL,
-        outputGroupId TEXT,
-        FOREIGN KEY (outputGroupId) REFERENCES OutputGroup(id) ON DELETE CASCADE
+    CREATE TABLE IF NOT EXISTS SectionArtifacts (
+        sectionId TEXT,
+        artifactPath TEXT,
+        type TEXT,
+        displayName TEXT,
+        PRIMARY KEY (sectionId, artifactPath),
+        FOREIGN KEY (sectionId) REFERENCES Section(id)
     );
     """,
     """

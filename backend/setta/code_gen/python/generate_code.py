@@ -143,7 +143,7 @@ def prepend_with_imports(
         lines[line_num] = original_force_appear_var_str
 
     num_preceding_lines = count_lines(
-        templated_code.split(double_braces("SETTA_GENERATED_CODE"))[0] + imports
+        templated_code.split(double_braces(C.SETTA_GENERATED_PYTHON))[0] + imports
     )
     new_var_name_to_line_num = {
         k: v + num_preceding_lines for k, v in var_name_to_line_num.items()
@@ -151,7 +151,7 @@ def prepend_with_imports(
 
     generated_code = imports + "\n".join(lines)
     output = (
-        replace_keywords(templated_code, {"SETTA_GENERATED_CODE": generated_code})
+        replace_keywords(templated_code, {C.SETTA_GENERATED_PYTHON: generated_code})
         if replace_templated_code
         else generated_code
     )
@@ -211,3 +211,38 @@ def find_line_number(code, search_term):
         if search_term in line:
             return i
     return -1
+
+
+def position_to_line_col(text, position):
+    if position < 0 or position > len(text):
+        return None
+
+    lines = text.split("\n")
+    current_pos = 0
+
+    for line_num, line in enumerate(lines):
+        line_length = len(line) + 1  # +1 for the newline character
+        if current_pos + line_length > position:
+            col = position - current_pos
+            return line_num, col
+        current_pos += line_length
+
+    # If we get here, the position is at the very end of the text
+    return len(lines) - 1, len(lines[-1])
+
+
+def line_col_to_position_batch(text, line_col_pairs):
+    lines = text.split("\n")
+    line_starts = [0]
+    for line in lines[:-1]:
+        line_starts.append(line_starts[-1] + len(line) + 1)
+
+    results = []
+    for line, col in line_col_pairs:
+        if line < 0 or line >= len(lines) or col < 0:
+            results.append(None)
+        else:
+            position = line_starts[line] + min(col, len(lines[line]))
+            results.append(position)
+
+    return results

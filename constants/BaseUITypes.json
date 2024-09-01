@@ -61,7 +61,7 @@
   },
   "06b511f3-dced-43be-97d7-1ceaddc763d5": {
     "id": "06b511f3-dced-43be-97d7-1ceaddc763d5",
-    "type": "OUTPUT",
+    "type": "ARTIFACT",
     "name": "",
     "presetType": "BASE",
     "config": {}
@@ -97,13 +97,6 @@
   "4520be53-fc28-47ad-bb7f-70d1133e4d44": {
     "id": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
     "type": "INTERACTIVE_CODE",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
-  "a2ecb6fe-45c7-4e8b-8424-8d5955256f89": {
-    "id": "a2ecb6fe-45c7-4e8b-8424-8d5955256f89",
-    "type": "VAR_CONTROL",
     "name": "",
     "presetType": "BASE",
     "config": {}

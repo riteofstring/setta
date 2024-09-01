@@ -26,6 +26,12 @@ export function setCodeInfoName({ id, name }) {
   });
 }
 
+export function setCodeInfoKeywordPositions({ id, keywordPositions }) {
+  useCodeInfo.setState((state) => {
+    state.x[id].keywordPositions = keywordPositions;
+  });
+}
+
 export function setCodeInfoDescription({ id, description }) {
   useCodeInfo.setState((state) => {
     state.x[id].description = description;
@@ -91,4 +97,9 @@ export function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
 export function itemIsAlreadySelected(sectionId, selectedItemName) {
   const currSelectedItem = getSectionSelectedItem(sectionId);
   return useCodeInfo.getState().x[currSelectedItem]?.name === selectedItemName;
+}
+
+export function setSelectedItemKeywordPositions(sectionId, keywordPositions) {
+  const currSelectedItem = getSectionSelectedItem(sectionId);
+  setCodeInfoKeywordPositions({ id: currSelectedItem, keywordPositions });
 }

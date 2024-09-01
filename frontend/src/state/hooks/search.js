@@ -5,7 +5,7 @@ import { goToSection } from "state/actions/sections/sectionPositions";
 import {
   useCodeInfo,
   useProjectSearch,
-  useSectionToParams,
+  useSectionToParamIds,
 } from "state/definitions";
 import { findAllParameters } from "utils/getDescendants";
 import { useSectionIdToChildren } from "./sectionVariants";
@@ -78,20 +78,22 @@ function useAllVisibleParams() {
     });
   });
 
-  return useSectionToParams((x) => {
+  return useSectionToParamIds((x) => {
     const output = [];
     const cState = useCodeInfo.getState().x;
     for (const id of allIds) {
-      const topLevelParams = x.params[id];
-      if (!topLevelParams) {
+      const topLevelParamIds = x.params[id];
+      if (!topLevelParamIds) {
         continue;
       }
-      for (const topLevelParam of topLevelParams) {
-        for (const param of findAllParameters(cState, [topLevelParam.id])) {
+      for (const topLevelParamId of topLevelParamIds) {
+        for (const paramInfoId of findAllParameters(cState, [
+          topLevelParamId,
+        ])) {
           output.push({
             sectionId: id,
-            paramInfoId: param.id,
-            name: param.name,
+            paramInfoId,
+            name: cState[paramInfoId].name,
           });
         }
       }
