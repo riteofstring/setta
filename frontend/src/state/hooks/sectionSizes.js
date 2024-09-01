@@ -1,4 +1,7 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSectionInfos } from "state/definitions";
+import useDeepCompareEffect from "use-deep-compare-effect";
+import { useTopLevelParamInfos } from "./sectionContents";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
 import { useIsArtifact, useIsRoot } from "./uiTypes";
@@ -48,10 +51,43 @@ export function useMaxSectionWidth(sectionId) {
   return undefined;
 }
 
-export function useOverflow() {
+export function useOverflow(sectionId) {
   const ref = useRef();
-  return {
-    nowheel: ref.current?.scrollHeight > ref.current?.clientHeight,
-    ref,
-  };
+  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
+  const [didUpdate, setDidUpdate] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+
+  // Add overflow whenever resizing.
+  // Add the end of resizing, compare scrollHeight to clientHeight and remove overflow if scrollHeight <= clientHeight
+  useEffect(() => {
+    if (resizeEvent === "start") {
+      setOverflow(true);
+    } else if (resizeEvent === "end") {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [resizeEvent]);
+
+  // If params update (didUpdate goes from false->true), overflow may be needed. So set overflow to true
+  // Then set didUpdate to false.
+  // Then detect didUpdate going from true->false and check if overflow is actually needed
+  // TODO: find better way to do this?
+  useEffect(() => {
+    if (didUpdate) {
+      setOverflow(true);
+      setDidUpdate(false);
+    } else {
+      setOverflow(ref.current.scrollHeight > ref.current.clientHeight);
+    }
+  }, [didUpdate]);
+
+  return { overflow, ref, setDidUpdate };
+}
+
+export function useParamsDidUpdate({ sectionId, setDidUpdate, isPinned }) {
+  const params = useTopLevelParamInfos(sectionId, isPinned);
+  useDeepCompareEffect(() => {
+    setDidUpdate(true);
+  }, [params]);
+
+  return params;
 }

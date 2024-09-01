@@ -24,6 +24,7 @@ export function ParamInput({
   defaultVal,
   isDisabled,
   maybeErrorMessage,
+  setDidUpdate,
 }) {
   const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const keywordPositions = useGetParamKeywordPositions(sectionId, paramInfoId);
@@ -36,12 +37,14 @@ export function ParamInput({
     const vStr = _.toString(v);
     setValue(vStr);
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr, enteredValue);
+    setDidUpdate(true);
     sendToInteractiveTasks(paramInfoId, vStr);
   }
 
   useEffect(() => {
     if (value !== enteredValue) {
       setValue(enteredValue);
+      setDidUpdate(true);
     }
   }, [enteredValue]);
 
