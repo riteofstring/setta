@@ -24,7 +24,6 @@ export function KwargParam(props) {
       <ParamContainer
         {...props}
         isKwarg={true}
-        onClick={onClick}
         kwargInfo={kwargInfo}
       >
         <ParamNameInput

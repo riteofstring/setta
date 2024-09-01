@@ -5,6 +5,7 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
+import { toggleCodeInfoSelected } from "state/actions/codeInfo";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import {
   useCodeInfo,
@@ -20,7 +21,6 @@ function _ParamContainer({
   setDidUpdate,
   isKwarg,
   children,
-  onClick,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
@@ -73,7 +73,7 @@ function _ParamContainer({
       >
         {showButtons && (
           <IconButton
-            onClick={onClick}
+            onClick={() => toggleCodeInfoSelected(paramInfo.id)}
             icon={<i className="gg-check" />}
             bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent  border-solid border-[1px]"
             color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
@@ -92,19 +92,6 @@ function _ParamContainer({
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />
-        {/* {showButtons && (
-          <PinButton
-            sectionId={sectionId}
-            paramInfoId={paramInfo.id}
-            variants="justify-self-end self-center section-key bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
-          />
-        )}
-        {showButtons && (
-          <ParamOptionsButton
-            variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400"
-            paramInfoId={paramInfo.id}
-          />
-        )} */}
         {!!maybeErrorMessage && (
           <ErrorSection maybeErrorMessage={maybeErrorMessage} />
         )}
@@ -124,7 +111,7 @@ function _ParamContainer({
     >
       {showButtons && (
         <IconButton
-          onClick={onClick}
+          onClick={() => toggleCodeInfoSelected(paramInfo.id)}
           icon={<i className="gg-check" />}
           bg="dark:bg-setta-800 dark:hover:bg-blue-900 bg-setta-50 hover:bg-blue-400 border-white shadow-md dark:border-setta-700 hover:border-transparent border-solid border-[1px]"
           color="[&_*]:hover:after:border-white [&_*]:after:border-setta-400 dark:[&_*]:after:border-setta-500 dark:[&_*]:hover:after:!border-setta-100"
@@ -152,19 +139,6 @@ function _ParamContainer({
           setDidUpdate={setDidUpdate}
         />
       </div>
-      {/* {showButtons && (
-        <PinButton
-          sectionId={sectionId}
-          paramInfoId={paramInfo.id}
-          variants="justify-self-end self-center section-value mr-6 bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:text-setta-400"
-        />
-      )}
-      {showButtons && (
-        <ParamOptionsButton
-          variants="bg-setta-200/50 dark:bg-setta-800/75 text-setta-400 opacity-75 [&_>_*]:after:border-setta-400"
-          paramInfoId={paramInfo.id}
-        />
-      )} */}
     </article>
   );
 }

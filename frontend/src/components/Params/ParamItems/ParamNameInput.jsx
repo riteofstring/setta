@@ -7,7 +7,6 @@ export function ParamNameInput({
   value,
   onBlur,
   hasChildren,
-  onClick,
   setDidUpdate,
 }) {
   const [liveValue, setLiveValue] = useState(value);
