@@ -562,8 +562,8 @@
       "variantId": "e007e751-1687-43ff-91e5-faeb1f7d15dc",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "29ca4fd3-de9b-4986-831a-e632a95b6081": {
       "id": "29ca4fd3-de9b-4986-831a-e632a95b6081",
@@ -591,8 +591,8 @@
       "variantId": "9a6859c2-a79d-4da2-b460-b57fc982d495",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "40c921b7-10e8-4c69-a9fa-f39db37ea98f": {
       "id": "40c921b7-10e8-4c69-a9fa-f39db37ea98f",
@@ -620,8 +620,8 @@
       "variantId": "3383d9b9-5cee-445f-a242-fde820c76c73",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "46dc6cab-03ac-4e73-919d-63b30da0688d": {
       "id": "46dc6cab-03ac-4e73-919d-63b30da0688d",
@@ -649,8 +649,8 @@
       "variantId": "54571c59-7a51-42d5-bb8e-b6c06b41b023",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
       "id": "6bce72ee-335b-42f4-9949-af8cd83c9ffe",
@@ -678,8 +678,8 @@
       "variantId": "69220358-73c1-49c3-9b78-d7cf733b2aa8",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
       "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
@@ -707,8 +707,8 @@
       "variantId": "fca181fc-c326-4d50-b028-37b368372f49",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "d96cb110-6f72-435a-b745-2d55e277f983": {
       "id": "d96cb110-6f72-435a-b745-2d55e277f983",
@@ -738,8 +738,8 @@
       "variantId": "66e4192c-c1fc-4935-b862-e722726c1217",
       "paramSweepId": "39e067ec-8392-4e83-86b7-010f60f5abce",
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "e209e428-eea6-4e14-b61e-0648ec28dd76": {
       "id": "e209e428-eea6-4e14-b61e-0648ec28dd76",
@@ -768,8 +768,8 @@
       "variantId": "22f7a029-5660-4f3d-ba54-e79637f2ba61",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     },
     "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7": {
       "id": "f7283c2c-8732-4ca1-83ee-4bb9a7f9d5d7",
@@ -797,8 +797,8 @@
       "variantId": "fb460dcd-d460-44fc-aeae-b0b8aca93c5b",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false
     }
   },
   "codeInfo": {

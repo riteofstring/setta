@@ -1,6 +1,5 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
-import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
@@ -30,7 +29,6 @@ export function SectionContainerCoreResizable({
     sectionId,
     "isInOtherProjectConfigs",
   );
-  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
 
   const getOutlineColor = () => {
     if (!dbSourceIsAvailable) {
@@ -101,22 +99,16 @@ export function SectionContainerCoreResizable({
           isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
-        {!isMinimized && (
-          <AreaSwitch
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            bgColor={bgColor}
-          />
-        )}
+        <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
       </>
     </CustomResizable>
   );
 }
 
-function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
+function AreaSwitch({ sectionId, sectionTypeName }) {
   switch (sectionTypeName) {
     case C.SECTION:
-      return <InputArea sectionId={sectionId} bgColor={bgColor} />;
+      return <InputArea sectionId={sectionId} />;
     case C.REFERENCE_SECTION:
       return <ReferenceArea sectionId={sectionId} />;
     case C.ARTIFACT:
@@ -126,7 +118,7 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
     case C.INFO:
       return <InfoArea sectionId={sectionId} />;
     case C.GLOBAL_VARIABLES:
-      return <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />;
+      return <GlobalVariablesArea sectionId={sectionId} />;
     case C.CODE:
     case C.INTERACTIVE_CODE:
       return <CodeArea sectionId={sectionId} />;

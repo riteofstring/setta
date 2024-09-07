@@ -9,7 +9,6 @@ import { isRoot } from "utils/sectionTypeHelpers";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { CustomCloseButton } from "./CustomCloseButton";
 import MenuButton from "./MenuButton/MenuButton";
-import { MinimizeButton } from "./MinimizeButton";
 import { SectionTitle } from "./SectionTitle";
 
 function _SectionHeader({
@@ -80,7 +79,7 @@ function _SectionHeader({
             header={"Description for Infoview"}
           />
         )}
-        <MinimizeButton sectionId={sectionId}/>
+        {/* <MinimizeButton /> */}
         <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
       </div>
     </header>

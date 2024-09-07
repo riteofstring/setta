@@ -174,10 +174,6 @@ export const useTypeErrors = createProjectState(() => ({
     "0aa0f46a-e923-4528-a411-500cbda6e77b":
       "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
   },
-  "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
-    "80b6429e-fbb9-4070-a574-b32e0e061ab4":
-      "error: Argument 1 to 'process_data' of 'DataProcessor' has incompatible type 'List[Union[int, str, List[Any]]]'; expected 'List[Union[int, float, Dict[str, Union[int, float]]]]'",
-  },
 }));
 
 export const useUIEditor = createProjectState(() => ({

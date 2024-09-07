@@ -61,14 +61,6 @@
     grid-row: left-gutter;
   }
 
-  .section-row-pin {
-    grid-row: pin-lg;
-  }
-
-  .section-row-pin-main {
-    grid-row: pin-lg / left-gutter;
-  }
-
   .section-left-gutter {
     grid-column: left-gutter / span 1;
   }
@@ -218,18 +210,15 @@ body {
     [r4]
     minmax(0, min-content)
     [r5]
-    minmax(0, min-content)
-    [r6]
     minmax(0, 1fr)
-    [r7]
+    [r6]
     0.5rem
-    [r8];
+    [r7];
   grid-template-areas:
     "top-gutter top-gutter top-gutter top-gutter top-gutter"
     "title title title title title"
     "search search search search search"
     "args args args args args"
-    "pin-lg pin-key pin-cg pin-value pin-rg"
     "left-gutter key center-gutter value right-gutter"
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
 }

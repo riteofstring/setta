@@ -58,7 +58,7 @@ export function getProjectData() {
 
   const codeInfo = useCodeInfo.getState().x;
   const fullNameToInfo = useKeywordRegex.getState().fullNameToInfo;
-  console.log("fullNameToInfo", fullNameToInfo);
+  console.log("fullNameToInfo", fullNameToInfo)
 
   const output = {
     projectConfig,
