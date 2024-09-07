@@ -11,6 +11,7 @@ import { SectionListItems } from "./SectionListItems";
 
 export const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
+
   return (
     <>
       <ProjectName />
