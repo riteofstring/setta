@@ -56,7 +56,10 @@ function GetPinnedParams({ sectionId, objInfoId, setDidUpdate }) {
   });
 
   return (
-    <section className="section-lg-value section-min-rows grid grid-cols-subgrid items-center justify-between bg-red-500">
+    <section className="section-lg-value section-min-rows my-1 -mr-1 ml-2 grid grid-cols-subgrid items-center justify-between rounded-lg border border-setta-200/50 px-2 py-1 dark:border-setta-700/30 dark:bg-setta-700/20">
+      <p className="section-key-value w-full text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
+        Pinned Params
+      </p>
       <GetParamSwitch
         sectionId={sectionId}
         parentId={objInfoId}
