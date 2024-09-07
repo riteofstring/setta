@@ -16,7 +16,13 @@ import {
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
-function _ParamContainer({ sectionId, paramInfoId, setDidUpdate, children }) {
+function _ParamContainer({
+  sectionId,
+  paramInfoId,
+  requiredParamIds,
+  setDidUpdate,
+  children,
+}) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfoId]);
   const isFocusedSearchResult = useProjectSearch((x) =>
@@ -88,6 +94,7 @@ function _ParamContainer({ sectionId, paramInfoId, setDidUpdate, children }) {
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={paramChildren}
+          requiredParamIds={requiredParamIds}
           setDidUpdate={setDidUpdate}
         />
       </div>

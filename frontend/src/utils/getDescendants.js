@@ -5,17 +5,19 @@ function _findAllDescendants(
   codeInfoIds,
   outputCondition,
   stackCondition,
-  includePath = false,
+  paramPathCondition = false, // false or a function
 ) {
   const output = [];
   const idStack = codeInfoIds
     .filter((x) => stackCondition(allCodeInfo[x]))
     .reverse();
   const visited = new Set();
-  const pathMap = includePath ? new Map() : null;
+  const pathMap = paramPathCondition ? new Map() : null;
 
-  if (includePath) {
-    idStack.forEach((id) => pathMap.set(id, [id]));
+  if (paramPathCondition) {
+    idStack.forEach((id) =>
+      pathMap.set(id, paramPathCondition(allCodeInfo[id]) ? [id] : []),
+    );
   }
 
   while (idStack.length > 0) {
@@ -27,7 +29,7 @@ function _findAllDescendants(
     const currInfo = allCodeInfo[id];
 
     if (outputCondition(currInfo)) {
-      if (includePath) {
+      if (paramPathCondition) {
         const currentPath = pathMap.get(id);
         output.push({ id: currInfo.id, path: [...currentPath] });
       } else {
@@ -37,10 +39,15 @@ function _findAllDescendants(
 
     if (stackCondition(currInfo)) {
       const children = currInfo.children.slice().reverse();
-      if (includePath) {
+      if (paramPathCondition) {
         const currentPath = pathMap.get(id);
         children.forEach((childId) => {
-          pathMap.set(childId, [...currentPath, childId]);
+          pathMap.set(
+            childId,
+            paramPathCondition(allCodeInfo[childId])
+              ? [...currentPath, childId]
+              : [...currentPath],
+          );
         });
       }
       idStack.push(...children);
@@ -52,65 +59,65 @@ function _findAllDescendants(
 export function findAllCallables(
   allCodeInfo,
   codeInfoIds,
-  includePaths = false,
+  paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.CALLABLE,
     () => true,
-    includePaths,
+    paramPathCondition,
   );
 }
 
 export function findAllParametersOfCallables(
   allCodeInfo,
   codeInfoIds,
-  includePaths = false,
+  paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     (c) => c?.rcType === C.CALLABLE,
-    includePaths,
+    paramPathCondition,
   );
 }
 
 export function findAllParametersOfCollections(
   allCodeInfo,
   codeInfoIds,
-  includePaths = false,
+  paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     (c) => c?.rcType === C.COLLECTION,
-    includePaths,
+    paramPathCondition,
   );
 }
 
 export function findAllParameters(
   allCodeInfo,
   codeInfoIds,
-  includePaths = false,
+  paramPathCondition = false,
 ) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     () => true,
-    includePaths,
+    paramPathCondition,
   );
 }
 
-export function findAll(allCodeInfo, codeInfoIds, includePaths = false) {
+export function findAll(allCodeInfo, codeInfoIds, paramPathCondition = false) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     () => true,
     () => true,
-    includePaths,
+    paramPathCondition,
   );
 }

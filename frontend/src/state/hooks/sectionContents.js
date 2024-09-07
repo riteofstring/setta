@@ -76,7 +76,7 @@ export function useHasParams(sectionId) {
   return useCodeInfo((x) => getParamIds(sectionId, x).length > 0);
 }
 
-export function useParamPaths(sectionId) {
+export function useParamIdsToShowInArea(sectionId, isPinned) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
@@ -86,17 +86,25 @@ export function useParamPaths(sectionId) {
       x.x,
       selectedItem,
       codeInfoId,
-      true,
+      (p) => p.rcType === C.PARAMETER,
     );
-    const output = [];
+    const topLevelParamIds = [];
+    const topLevelParamIdsSet = new Set();
+    const requiredParamIds = new Set();
     for (const a of allIdsAndPaths) {
-      if (!x.x[a.id].isPinned) {
-        continue;
+      if (
+        (!x.x[a.id].isPinned && !isPinned) ||
+        (x.x[a.id].isPinned && isPinned)
+      ) {
+        for (const p of a.path) {
+          requiredParamIds.add(p);
+          if (!topLevelParamIdsSet.has(a.path[0])) {
+            topLevelParamIds.push(a.path[0]);
+            topLevelParamIdsSet.add(a.path[0]);
+          }
+        }
       }
-      output.push(
-        a.path.filter((p) => x.x[p].rcType === C.PARAMETER).map((p) => x.x[p]),
-      );
     }
-    return output;
+    return { requiredParamIds, topLevelParamIds };
   }, _.isEqual);
 }

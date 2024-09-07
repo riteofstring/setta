@@ -3,8 +3,9 @@ import { getNewSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import React, { useRef } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
+import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
 import { useGetSectionInfo } from "state/hooks/sections";
-import { useOverflow, useParamsDidUpdate } from "state/hooks/sectionSizes";
+import { useOverflow } from "state/hooks/sectionSizes";
 import { PINNED_PARAMS_AREA_MIN_HEIGHT } from "utils/constants";
 import { GetParamSwitch } from "./GetParamSwitch";
 
@@ -43,20 +44,24 @@ function _ParamGroupContainer({ sectionId }) {
   );
 }
 
-function GetPinnedParams({ sectionId, objInfoId, setDidUpdate, outerRef }) {
-  // const pinnedParamPaths = usePinnedParamPaths(sectionId);
-
-  const paramIds = useParamsDidUpdate({
+function GetPinnedParams({ sectionId, setDidUpdate, outerRef }) {
+  const { requiredParamIds, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
-    setDidUpdate,
-    isPinned: true,
-  });
+    true,
+  );
+
+  // const paramIds = useParamsDidUpdate({
+  //   sectionId,
+  //   setDidUpdate,
+  //   isPinned: true,
+  // });
 
   return (
-    paramIds.length > 0 && (
+    topLevelParamIds.length > 0 && (
       <ResizablePinnedArea
         sectionId={sectionId}
-        paramIds={paramIds}
+        topLevelParamIds={topLevelParamIds}
+        requiredParamIds={requiredParamIds}
         setDidUpdate={setDidUpdate}
         outerRef={outerRef}
       />
@@ -64,7 +69,13 @@ function GetPinnedParams({ sectionId, objInfoId, setDidUpdate, outerRef }) {
   );
 }
 
-function ResizablePinnedArea({ sectionId, paramIds, setDidUpdate, outerRef }) {
+function ResizablePinnedArea({
+  sectionId,
+  topLevelParamIds,
+  requiredParamIds,
+  setDidUpdate,
+  outerRef,
+}) {
   const height = useGetSectionInfo(sectionId, "pinnedAreaHeight");
 
   function onResizeStop(...props) {
@@ -106,7 +117,8 @@ function ResizablePinnedArea({ sectionId, paramIds, setDidUpdate, outerRef }) {
       <div className="section-args-nested section-key-value grid w-full grid-cols-subgrid overflow-y-scroll">
         <GetParamSwitch
           sectionId={sectionId}
-          paramIds={paramIds}
+          paramIds={topLevelParamIds}
+          requiredParamIds={requiredParamIds}
           setDidUpdate={setDidUpdate}
         />
       </div>
@@ -115,16 +127,22 @@ function ResizablePinnedArea({ sectionId, paramIds, setDidUpdate, outerRef }) {
 }
 
 function GetParams({ sectionId, setDidUpdate }) {
-  const paramIds = useParamsDidUpdate({
+  // const paramIds = useParamsDidUpdate({
+  //   sectionId,
+  //   setDidUpdate,
+  //   isPinned: false,
+  // });
+
+  const { requiredParamIds, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
-    setDidUpdate,
-    isPinned: false,
-  });
+    false,
+  );
 
   return (
     <GetParamSwitch
       sectionId={sectionId}
-      paramIds={paramIds}
+      paramIds={topLevelParamIds}
+      requiredParamIds={requiredParamIds}
       setDidUpdate={setDidUpdate}
     />
   );

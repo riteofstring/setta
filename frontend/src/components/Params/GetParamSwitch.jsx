@@ -1,6 +1,11 @@
 import { ParamSwitch } from "./ParamSwitch";
 
-export function GetParamSwitch({ sectionId, paramIds, setDidUpdate }) {
+export function GetParamSwitch({
+  sectionId,
+  paramIds,
+  requiredParamIds,
+  setDidUpdate,
+}) {
   // const paramFilter = useSectionParamFilter((x) => x.x[sectionId]);
   // const filteredInfos = paramFilter
   //   ? matchSorter(infos, paramFilter, { keys: ["name"] })
@@ -10,11 +15,14 @@ export function GetParamSwitch({ sectionId, paramIds, setDidUpdate }) {
   // It causes remounting of components when
   // kwarg name changes, which messes up textinputcodemirror
 
-  return paramIds.map((e, idx) => (
+  const filteredIds = paramIds.filter((x) => requiredParamIds.has(x));
+
+  return filteredIds.map((e) => (
     <ParamSwitch
       key={e}
       sectionId={sectionId}
       paramInfoId={e}
+      requiredParamIds={requiredParamIds}
       setDidUpdate={setDidUpdate}
     />
   ));
