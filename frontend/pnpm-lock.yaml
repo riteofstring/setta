@@ -203,9 +203,6 @@ dependencies:
   remark-gfm:
     specifier: 3.0.1
     version: 3.0.1
-  swapy:
-    specifier: 0.1.2
-    version: 0.1.2
   tailwindcss:
     specifier: 3.4.1
     version: 3.4.1
@@ -7770,10 +7767,6 @@ packages:
 
   /svg-parser@2.0.4:
     resolution: {integrity: sha512-e4hG1hRwoOdRb37cIMSgzNsxyzKfayW6VOflrwvR+/bzrkyxY/31WkbgnQpgtrNp1SdpJvpUAGTa/ZoiPNDuRQ==}
-    dev: false
-
-  /swapy@0.1.2:
-    resolution: {integrity: sha512-FUT+k9HkFh3moto/64oNcsE9cY8l8SElcYSUggMepAwGLNixD4SRzCeVND5Mw3pogjVWiyscN2q5zpvMUwcqcQ==}
     dev: false
 
   /symbol-tree@3.2.4:

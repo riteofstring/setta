@@ -10,7 +10,6 @@ export function SectionListItems({
       // className="-mx-3"
       style={{ paddingLeft: `${0.75 * e.depth}rem` }}
       key={`SectionItem-${e.id}-${idx}`}
-      data-swapy-slot={idx}
     >
       <SectionItem
         sectionId={e.id}
@@ -45,7 +44,6 @@ function _SectionItem({ sectionId, sectionHeading, checkbox }) {
     <p
       className="dark:text-rx-300 cursor-pointer truncate rounded px-1 py-0.5 text-sm text-setta-700 hover:bg-white hover:shadow-md dark:text-setta-200  dark:hover:bg-setta-700"
       onClick={onClick}
-      data-swapy-item={sectionId}
     >
       {sectionHeading}
     </p>
