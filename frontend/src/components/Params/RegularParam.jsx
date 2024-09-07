@@ -4,7 +4,7 @@ import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 export function RegularParam(props) {
   return (
     <ParamContainer {...props}>
-      <ParamTextLabel {...props} />
+      <ParamTextLabel paramInfoId={props.paramInfoId} />
     </ParamContainer>
   );
 }

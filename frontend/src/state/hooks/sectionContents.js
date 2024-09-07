@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import {
   getAllParamIds,
@@ -73,4 +74,29 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
 
 export function useHasParams(sectionId) {
   return useCodeInfo((x) => getParamIds(sectionId, x).length > 0);
+}
+
+export function useParamPaths(sectionId) {
+  const selectedItem = useSectionSelectedItem(sectionId);
+  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+
+  return useCodeInfo((x) => {
+    const allIdsAndPaths = getAllParamIds(
+      sectionId,
+      x.x,
+      selectedItem,
+      codeInfoId,
+      true,
+    );
+    const output = [];
+    for (const a of allIdsAndPaths) {
+      if (!x.x[a.id].isPinned) {
+        continue;
+      }
+      output.push(
+        a.path.filter((p) => x.x[p].rcType === C.PARAMETER).map((p) => x.x[p]),
+      );
+    }
+    return output;
+  }, _.isEqual);
 }

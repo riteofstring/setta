@@ -16,17 +16,15 @@ import {
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
-function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
+function _ParamContainer({ sectionId, paramInfoId, setDidUpdate, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
+  const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfoId]);
   const isFocusedSearchResult = useProjectSearch((x) =>
-    _.isEqual(x.focused, { sectionId, paramInfoId: paramInfo.id }),
+    _.isEqual(x.focused, { sectionId, paramInfoId }),
   );
 
   const isSearchResult = useProjectSearch((x) =>
-    x.codeInfo.some((c) =>
-      _.isEqual(c, { sectionId, paramInfoId: paramInfo.id }),
-    ),
+    x.codeInfo.some((c) => _.isEqual(c, { sectionId, paramInfoId })),
   );
 
   // warnings should be AMBER
@@ -37,8 +35,11 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
       : isSearchResult
         ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
         : "";
-  const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
-  const paramIsSelected = paramInfo.isSelected;
+  const canBeOverriden = useCodeInfo(
+    (x) => sectionIsFrozen && x.x[paramInfoId].isFrozen,
+  );
+  const paramIsSelected = useCodeInfo((x) => x.x[paramInfoId].isSelected);
+  const paramDescription = useCodeInfo((x) => x.x[paramInfoId].description);
 
   // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
   // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
@@ -46,13 +47,13 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
   const bg = paramIsSelected ? "bg-lime-400/50" : "";
 
   const paramChildren = useCodeInfo(
-    (x) => paramInfo.children.map((c) => x.x[c]),
+    (x) => x.x[paramInfoId].children,
     _.isEqual,
   );
   function onClickSelect(e) {
     if (useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
-      toggleCodeInfoSelected(paramInfo.id);
+      toggleCodeInfoSelected(paramInfoId);
     }
   }
 
@@ -60,15 +61,13 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
     <>
       <article
         className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
-        {...getInfoViewHandlers(paramInfo.description)}
+        {...getInfoViewHandlers(paramDescription)}
         onClick={onClickSelect}
       >
         {children}
         <ParamInput
           sectionId={sectionId}
-          paramInfoId={paramInfo.id}
-          defaultVal={paramInfo.defaultVal}
-          isDisabled={!paramInfo.name}
+          paramInfoId={paramInfoId}
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />
@@ -80,7 +79,7 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
   ) : (
     <article
       className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
-      {...getInfoViewHandlers(paramInfo.description)}
+      {...getInfoViewHandlers(paramDescription)}
       onClick={onClickSelect}
     >
       {children}
@@ -88,8 +87,7 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
         <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
-          parentId={paramInfo.id}
-          infos={paramChildren}
+          paramIds={paramChildren}
           setDidUpdate={setDidUpdate}
         />
       </div>
@@ -97,13 +95,7 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
   );
 }
 
-export const ParamContainer = React.memo(
-  _ParamContainer,
-  (p, n) =>
-    p.sectionId === n.sectionId &&
-    _.isEqual(p.paramInfo, n.paramInfo) &&
-    _.isEqual(p.uiType, n.uiType),
-);
+export const ParamContainer = React.memo(_ParamContainer);
 
 function ErrorSection({ maybeErrorMessage }) {
   return (

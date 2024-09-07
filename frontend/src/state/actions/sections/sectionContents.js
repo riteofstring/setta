@@ -13,6 +13,7 @@ export function getParamIds(
   _selectedItem = undefined,
   _codeInfoId = null,
   allParams = false,
+  includePaths = false,
 ) {
   const cState = _cState ?? useCodeInfo.getState().x;
   const selectedItem =
@@ -20,13 +21,13 @@ export function getParamIds(
       ? getSectionSelectedItem(sectionId)
       : _selectedItem;
   const objParamInfoIds = selectedItem
-    ? findAllParametersOfCallables(cState, [selectedItem])
+    ? findAllParametersOfCallables(cState, [selectedItem], includePaths)
     : [];
 
   const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
   const paramCollectionIds = allParams
-    ? findAllParameters(cState, [codeInfoId])
-    : findAllParametersOfCollections(cState, [codeInfoId]);
+    ? findAllParameters(cState, [codeInfoId], includePaths)
+    : findAllParametersOfCollections(cState, [codeInfoId], includePaths);
 
   return [...objParamInfoIds, ...paramCollectionIds];
 }
@@ -36,8 +37,16 @@ export function getAllParamIds(
   _cState = null,
   _selectedItem = undefined,
   _codeInfoId = null,
+  includePaths = false,
 ) {
-  return getParamIds(sectionId, _cState, _selectedItem, _codeInfoId, true);
+  return getParamIds(
+    sectionId,
+    _cState,
+    _selectedItem,
+    _codeInfoId,
+    true,
+    includePaths,
+  );
 }
 
 export function getAllParamInfos(sectionId, _cState = null) {
