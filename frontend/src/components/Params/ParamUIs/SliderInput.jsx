@@ -1,6 +1,7 @@
 import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { clamp } from "utils/utils";
 import { SimpleConfig } from "./SimpleConfig";
 
 export function SliderInputConfig({ onChange, config }) {
@@ -77,12 +78,86 @@ export function SliderInput({
   max,
   step,
   isDisabled,
+  wrapperDivClass,
+  sliderRootClassName,
+  sliderTrackClassName,
+  sliderRangeClassName,
+  sliderThumbClassName,
+  textInputClassName,
+}) {
+  return (
+    <div className={wrapperDivClass}>
+      <SliderOnly
+        value={value}
+        defaultVal={defaultVal}
+        onChange={onChange}
+        min={min}
+        max={max}
+        step={step}
+        isDisabled={isDisabled}
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+      />
+      <SliderTextField
+        className={textInputClassName}
+        value={value}
+        onChange={onChange}
+        min={min}
+        max={max}
+      />
+    </div>
+  );
+}
+
+function SliderTextField({ className, value, onChange, min, max, step }) {
+  const [tempValue, setTempValue] = useState(value);
+  function localOnChange(e) {
+    const num = _.toNumber(e.target.value);
+    if (e.target.value === "" || !_.isFinite(num)) {
+      setTempValue(e.target.value);
+    } else {
+      setTempValue(num);
+      onChange(num);
+    }
+  }
+
+  function onBlur(e) {
+    const num = _.toNumber(e.target.value);
+    if (e.target.value === "" || !_.isFinite(num)) {
+      setTempValue(value);
+    }
+  }
+
+  useEffect(() => {
+    setTempValue(value);
+  }, [value]);
+
+  return (
+    <input
+      className={className}
+      value={tempValue}
+      onChange={localOnChange}
+      onBlur={onBlur}
+    />
+  );
+}
+
+function SliderOnly({
+  value,
+  defaultVal,
+  onChange,
+  min,
+  max,
+  step,
+  isDisabled,
   sliderRootClassName,
   sliderTrackClassName,
   sliderRangeClassName,
   sliderThumbClassName,
 }) {
-  const valueNum = _.toNumber(value);
+  const valueNum = clamp(_.toNumber(value), min, max);
 
   return (
     <Slider.Root

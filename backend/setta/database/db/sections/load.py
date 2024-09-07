@@ -182,7 +182,7 @@ def load_section_configs(dbs, project_config_id):
             "paramSweepId": row["paramSweepId"],
             "isHorizontalOrientation": row["isHorizontalOrientation"],
             "pinnedAreaHeight": convert_size(row["pinnedAreaHeight"]),
-            "isMinimized": row["isMinimized"],
+            "isMinimized": row["isMinimized"]
         }
 
     return output

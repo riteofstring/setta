@@ -8,10 +8,9 @@ from setta.code_gen.export_selected import (
 )
 from setta.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
-    maybe_prepend_with_imports_and_replace_templated_code,
+    prepend_with_imports,
 )
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import USER_SETTINGS
 
 from .utils import TaskDefinition
 
@@ -48,12 +47,8 @@ async def _textFieldInitializeCode(message, lsp_writer):
     print("textFieldInitializeCode", flush=True)
     print(referencable_var_names, flush=True)
 
-    code, _ = maybe_prepend_with_imports_and_replace_templated_code(
-        lines,
-        templatedCode,
-        push_var_name,
-        var_name_to_line_num,
-        inferImports=USER_SETTINGS["inferImports"],
+    code, _ = prepend_with_imports(
+        lines, templatedCode, push_var_name, var_name_to_line_num
     )
 
     print("code\n", code, flush=True)
