@@ -5,6 +5,7 @@ import {
 } from "@codemirror/autocomplete";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
+import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
 import { keymap, tooltips } from "@codemirror/view";
 import { EditorView } from "@uiw/react-codemirror";
@@ -31,6 +32,8 @@ export function getExtensions({
     extensions.push(python());
   } else if (language === "javascript") {
     extensions.push(javascript());
+  } else if (language === "yaml") {
+    extensions.push(yaml());
   }
 
   // autocomplete

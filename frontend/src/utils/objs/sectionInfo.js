@@ -28,7 +28,8 @@ export function newSectionInfo({
   isHorizontalOrientation = false,
   hideParams = false,
   hideSearch = false,
-  hideUnpinnedParams,
+  hideUnpinnedParams = false,
+  showYaml = false,
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -60,5 +61,6 @@ export function newSectionInfo({
     hideParams,
     hideSearch,
     hideUnpinnedParams,
+    showYaml,
   };
 }
