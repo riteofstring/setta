@@ -14,7 +14,7 @@ import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { createNewId } from "utils/idNameCreation";
 import { newCodeInfo } from "utils/objs/codeInfo";
-import { parse, stringify } from "yaml";
+import { parseAllDocuments, stringify } from "yaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 
@@ -61,7 +61,13 @@ async function toYaml(sectionId, setYamlValue, setOriginalObj) {
     setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
     const pinnedStr = stringify(fullOriginalObj.prettyPinned);
     const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned);
-    setYamlValue(`${pinnedStr}\n---\n\n${unpinnedStr}`);
+    if (_.size(fullOriginalObj.prettyPinned) === 0) {
+      setYamlValue(`${unpinnedStr}`);
+    } else if (_.size(fullOriginalObj.prettyUnpinned) === 0) {
+      setYamlValue(`${pinnedStr}\n---\n`);
+    } else {
+      setYamlValue(`${pinnedStr}\n---\n\n${unpinnedStr}`);
+    }
   }
 }
 
@@ -81,9 +87,25 @@ function parseValues(obj) {
 }
 
 async function toGUI(sectionId, yamlValue, originalObj) {
-  const newObj = parse(yamlValue);
-  const fOriginalObj = flattenObject(originalObj);
-  const fNewObj = flattenObject(newObj, true);
+  const docs = parseAllDocuments(yamlValue);
+  let pinned = {};
+  let unpinned = {};
+  if (docs.length > 1) {
+    pinned = docs[0].toJS();
+    unpinned = docs[1].toJS();
+  } else {
+    unpinned = docs[0].toJS();
+  }
+
+  const fOriginalObj = mergePinnedAndUnpinned(
+    flattenObject(originalObj.pinned),
+    flattenObject(originalObj.unpinned),
+  );
+  const fNewObj = mergePinnedAndUnpinned(
+    flattenObject(pinned, true),
+    flattenObject(unpinned, true),
+  );
+
   const output = [];
   const usedOriginalIds = new Set();
   const usedPaths = new Set();
@@ -122,7 +144,7 @@ async function toGUI(sectionId, yamlValue, originalObj) {
     if (usedPaths.has(JSON.stringify(v.keyPath))) {
       continue;
     }
-    const curr = _.pick(v, ["key", "keyPath", "value"]);
+    const curr = _.pick(v, ["key", "keyPath", "value", "isPinned"]);
     curr.id = createNewId();
     output.push(curr);
   }
@@ -168,7 +190,7 @@ async function toGUI(sectionId, yamlValue, originalObj) {
       name: v.key,
       editable: true,
       rcType: C.PARAMETER,
-      value: v.value,
+      isPinned: v.isPinned,
     });
     if (!(v.id in cState)) {
       newInfoIds.push(v.id);
@@ -181,7 +203,7 @@ async function toGUI(sectionId, yamlValue, originalObj) {
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
-  const curr = _.pick(matches[0], ["key", "keyPath", "value"]);
+  const curr = _.pick(matches[0], ["key", "keyPath", "value", "isPinned"]);
   curr.id = v.id;
   output.push(curr);
   usedOriginalIds.add(v.id);
@@ -248,4 +270,20 @@ function sortPathsBySimilarity(matches, referencePath) {
     const similarityB = calculatePathSimilarity(b.keyPath, referencePath);
     return similarityB - similarityA; // Sort in descending order of similarity
   });
+}
+
+function mergePinnedAndUnpinned(pinned, unpinned) {
+  for (const p of unpinned) {
+    p.isPinned = false;
+  }
+
+  const pinnedNotInUnpinned = [];
+  for (const p of pinned) {
+    const match = unpinned.find((x) => _.isEqual(x.keyPath, p.keyPath));
+    if (!match) {
+      pinnedNotInUnpinned.push({ ...p, isPinned: true });
+    }
+  }
+
+  return [...pinnedNotInUnpinned, ...unpinned];
 }
