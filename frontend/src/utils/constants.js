@@ -72,6 +72,7 @@ export const CONST_INFO_VIEWS = {
 };
 
 export const SECTION_CONFIG_TAB = "SectionConfig";
+export const QUICKINFO_CONFIG_TAB = "QuickInfoConfig";
 export const UI_CONFIG_TAB = "UIConfig";
 export const INFO_CONFIG_TAB = "InfoConfig";
 export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
@@ -81,12 +82,13 @@ export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 export const tabNameToPretty = Object.freeze(
   new Map(
     Object.entries({
-      [UI_CONFIG_TAB]: "Parameters",
+      [UI_CONFIG_TAB]: "Params",
       [SECTION_CONFIG_TAB]: "Card",
-      [INFO_CONFIG_TAB]: "Info",
+      [QUICKINFO_CONFIG_TAB]: "Quick Info",
+      [INFO_CONFIG_TAB]: "Markdown",
       // [RUNTIME_CONFIG_TAB]: "Runtime",
       [DB_SOURCES_TAB]: "DB",
-      [SECTION_VARIANTS_TAB]: "Variants",
+      [SECTION_VARIANTS_TAB]: "Ver.",
     }),
   ),
 );

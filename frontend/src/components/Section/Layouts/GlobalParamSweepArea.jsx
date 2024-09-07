@@ -2,7 +2,6 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useState } from "react";
-import { BiFilter } from "react-icons/bi";
 import {
   createNewRunGroup,
   toggleRunGroup,
@@ -209,7 +208,7 @@ function FilterSection() {
   return (
     <search className="flex min-w-0 items-center pb-1">
       <StandardSearch
-        leftElement={<BiFilter className="text-setta-400" />}
+        leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
         placeholder="Filter"
         inputStyles={inputStyles}
         outerClasses="flex-1"
