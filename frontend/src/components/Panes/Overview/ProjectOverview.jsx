@@ -1,10 +1,9 @@
 import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { BiFilter } from "react-icons/bi";
 import { getInfoViewHandlers } from "state/actions/infoView";
 import { useGetOverviewListing } from "state/hooks/overview";
-import { createSwapy } from "swapy";
 import { CONST_INFO_VIEWS } from "utils/constants";
 import { InfoView } from "./InfoView";
 import { ProjectName } from "./ProjectName";
@@ -12,16 +11,6 @@ import { SectionListItems } from "./SectionListItems";
 
 export const ProjectOverview = React.forwardRef(() => {
   const [filteredList, setFilter] = useGetOverviewListing();
-  const ref = useRef();
-
-  useEffect(() => {
-    if (ref.current && filteredList.length > 0) {
-      const swapy = createSwapy(ref.current);
-      swapy.onSwap(({ data }) => {
-        console.log("swapy", data);
-      });
-    }
-  }, [filteredList.length]);
 
   return (
     <>
@@ -42,7 +31,6 @@ export const ProjectOverview = React.forwardRef(() => {
         <ul
           className="min-h-0 flex-grow"
           {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW)}
-          ref={ref}
         >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>

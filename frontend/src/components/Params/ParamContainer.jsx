@@ -62,25 +62,19 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
         className={`nodrag section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
         onClick={onClickSelect}
-        data-swapy-slot={paramInfo.id}
       >
-        <div
-          className="section-lg-value section-min-rows grid grid-cols-subgrid items-center justify-between"
-          data-swapy-item={paramInfo.id}
-        >
-          {children}
-          <ParamInput
-            sectionId={sectionId}
-            paramInfoId={paramInfo.id}
-            defaultVal={paramInfo.defaultVal}
-            isDisabled={!paramInfo.name}
-            maybeErrorMessage={maybeErrorMessage}
-            setDidUpdate={setDidUpdate}
-          />
-          {!!maybeErrorMessage && (
-            <ErrorSection maybeErrorMessage={maybeErrorMessage} />
-          )}
-        </div>
+        {children}
+        <ParamInput
+          sectionId={sectionId}
+          paramInfoId={paramInfo.id}
+          defaultVal={paramInfo.defaultVal}
+          isDisabled={!paramInfo.name}
+          maybeErrorMessage={maybeErrorMessage}
+          setDidUpdate={setDidUpdate}
+        />
+        {!!maybeErrorMessage && (
+          <ErrorSection maybeErrorMessage={maybeErrorMessage} />
+        )}
       </article>
     </>
   ) : (
