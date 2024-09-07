@@ -5,7 +5,7 @@ import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
 
-function _InputArea({ sectionId }) {
+function _InputArea({ sectionId, bgColor }) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
@@ -17,7 +17,11 @@ function _InputArea({ sectionId }) {
       )}
       {!hideParams && (
         <>
-          <KwargsControls sectionId={sectionId} objInfoId={selectedItem} />
+          <KwargsControls
+            sectionId={sectionId}
+            objInfoId={selectedItem}
+            bgColor={bgColor}
+          />
           <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
         </>
       )}

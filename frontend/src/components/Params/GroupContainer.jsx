@@ -11,30 +11,31 @@ function _ParamGroupContainer({ sectionId, objInfoId }) {
   const hideUnpinnedParams = useGetSectionInfo(sectionId, "hideUnpinnedParams");
 
   return (
-    <div
-      className={`section-args-list section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-1 ${overflow ? "nowheel" : ""} min-w-0 !max-w-full`}
-      ref={ref}
-    >
+    <>
       {waitingForResult ? (
         <i className="section-args gg-spinner !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
       ) : (
-        <>
+        <div className="section-w-full section-row-pin-main -mt-3 flex flex-col overflow-y-hidden pt-2">
           <GetPinnedParams
             sectionId={sectionId}
             objInfoId={objInfoId}
             setDidUpdate={setDidUpdate}
           />
-          {!hideUnpinnedParams && (
-            <GetParams
-              sectionId={sectionId}
-              objInfoId={objInfoId}
-              setDidUpdate={setDidUpdate}
-            />
-          )}
-        </>
+          <div
+            className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-1 ${overflow ? "nowheel" : ""} min-w-0 !max-w-full`}
+            ref={ref}
+          >
+            {!hideUnpinnedParams && (
+              <GetParams
+                sectionId={sectionId}
+                objInfoId={objInfoId}
+                setDidUpdate={setDidUpdate}
+              />
+            )}
+          </div>
+        </div>
       )}
-    </div>
-    // </ScrollingArea>
+    </>
   );
 }
 
@@ -46,20 +47,22 @@ function GetPinnedParams({ sectionId, objInfoId, setDidUpdate }) {
   });
 
   return (
-    <section className="section-lg-value section-min-rows my-1 -mr-1 ml-2 grid grid-cols-subgrid items-center justify-between rounded-lg border border-setta-200/50 px-2 py-1 dark:border-setta-700/30 dark:bg-setta-700/20">
-      <header className="section-key-value flex w-full gap-1">
+    <section className="nowheel relative -mt-1 flex h-min max-h-[50%] flex-col items-center justify-between overflow-hidden border-b border-setta-200/50 pb-3 pt-4 dark:border-setta-700/30 dark:bg-setta-700/40">
+      <header className="flex w-full gap-2 px-2">
         <i className="gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500" />
         <p className=" text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
           Pinned Params
         </p>
       </header>
 
-      <GetParamSwitch
-        sectionId={sectionId}
-        parentId={objInfoId}
-        infos={params}
-        setDidUpdate={setDidUpdate}
-      />
+      <div className="section-args-nested section-key-value grid w-full grid-cols-subgrid overflow-y-scroll">
+        <GetParamSwitch
+          sectionId={sectionId}
+          parentId={objInfoId}
+          infos={params}
+          setDidUpdate={setDidUpdate}
+        />
+      </div>
     </section>
   );
 }

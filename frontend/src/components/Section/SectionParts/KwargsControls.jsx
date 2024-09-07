@@ -10,7 +10,11 @@ import { useCodeInfo } from "state/definitions";
 import { useAreAnyParamsSelected } from "state/hooks/sectionContents";
 import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
-export function KwargsControls({ sectionId, objInfoId }) {
+export function KwargsControls({
+  sectionId,
+  objInfoId,
+  bgColor = "bg-transparent",
+}) {
   const anyParamsSelected = useAreAnyParamsSelected(sectionId);
 
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
@@ -34,7 +38,9 @@ export function KwargsControls({ sectionId, objInfoId }) {
 
   return (
     <>
-      <section className="section-args mt-1 flex min-w-0 flex-wrap rounded-xl border-b border-solid border-white  px-1 pb-1 shadow-sm @container dark:border-setta-700 dark:from-transparent">
+      <section
+        className={`section-args z-10 mt-1 flex min-w-0 flex-wrap rounded-xl border-b border-solid  border-white px-1 pb-1 shadow-sm @container dark:border-setta-700 ${bgColor}`}
+      >
         <article className="flex flex-wrap items-center">
           <section className="flex">
             <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
