@@ -350,7 +350,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "01982661-ade6-41de-a509-7e16a4e1fd5a": {
       "id": "01982661-ade6-41de-a509-7e16a4e1fd5a",
@@ -378,7 +380,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "019a0d99-67f4-4dd6-962d-94c4302a795d": {
       "id": "019a0d99-67f4-4dd6-962d-94c4302a795d",
@@ -406,7 +410,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "020de69d-4fdb-45be-8c46-29492e4d5604": {
       "id": "020de69d-4fdb-45be-8c46-29492e4d5604",
@@ -434,7 +440,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "032b5bd5-4441-4d9e-9e14-991d01644be7": {
       "id": "032b5bd5-4441-4d9e-9e14-991d01644be7",
@@ -462,7 +470,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "03887b8d-9d66-4463-b6e6-7dbb8fa6ab26": {
       "id": "03887b8d-9d66-4463-b6e6-7dbb8fa6ab26",
@@ -490,7 +500,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "03f87fb1-ad53-4bf2-a10a-4de143ad7298": {
       "id": "03f87fb1-ad53-4bf2-a10a-4de143ad7298",
@@ -518,7 +530,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "04237024-d233-4659-9ae4-a6565942e211": {
       "id": "04237024-d233-4659-9ae4-a6565942e211",
@@ -546,7 +560,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "04bbc4f6-53db-4886-8ba4-1bfe6a2079d9": {
       "id": "04bbc4f6-53db-4886-8ba4-1bfe6a2079d9",
@@ -574,7 +590,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "064d26e0-c94b-45e1-b57f-7e5aad68477b": {
       "id": "064d26e0-c94b-45e1-b57f-7e5aad68477b",
@@ -602,7 +620,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "066b7e6f-813f-4ab5-9f17-84382b75eaaa": {
       "id": "066b7e6f-813f-4ab5-9f17-84382b75eaaa",
@@ -630,7 +650,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "07745a42-552a-4820-a167-2d99ea802a6e": {
       "id": "07745a42-552a-4820-a167-2d99ea802a6e",
@@ -658,7 +680,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "077cc4ba-bbe7-444c-8099-a2d6279ed508": {
       "id": "077cc4ba-bbe7-444c-8099-a2d6279ed508",
@@ -686,7 +710,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "098327ba-5890-4410-840b-d23eaa080522": {
       "id": "098327ba-5890-4410-840b-d23eaa080522",
@@ -714,7 +740,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "0b1f380c-f3f9-419d-aa41-f4bcdd64760d": {
       "id": "0b1f380c-f3f9-419d-aa41-f4bcdd64760d",
@@ -742,7 +770,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "0e62e340-483b-4e5f-adc1-b4100571e69b": {
       "id": "0e62e340-483b-4e5f-adc1-b4100571e69b",
@@ -770,7 +800,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "0f021eea-b4b8-4c9f-b84d-6e5fcfdad82c": {
       "id": "0f021eea-b4b8-4c9f-b84d-6e5fcfdad82c",
@@ -798,7 +830,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "11ab7754-4b5c-485b-8911-bcc6f13336b6": {
       "id": "11ab7754-4b5c-485b-8911-bcc6f13336b6",
@@ -826,7 +860,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "13bd30d2-3e39-41f7-873b-1569df6414b7": {
       "id": "13bd30d2-3e39-41f7-873b-1569df6414b7",
@@ -854,7 +890,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "14f262de-739f-4de1-bf0b-7b1a53847b02": {
       "id": "14f262de-739f-4de1-bf0b-7b1a53847b02",
@@ -882,7 +920,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "15f16fe2-6a6e-48fa-9454-8dae0425f2db": {
       "id": "15f16fe2-6a6e-48fa-9454-8dae0425f2db",
@@ -910,7 +950,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "1799c718-a31e-4c77-beb0-b412d29ef9ec": {
       "id": "1799c718-a31e-4c77-beb0-b412d29ef9ec",
@@ -938,7 +980,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "18ad20d0-125a-431c-bb68-cc735828d7f2": {
       "id": "18ad20d0-125a-431c-bb68-cc735828d7f2",
@@ -966,7 +1010,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "19464d3e-b816-49fa-ac92-5f0aff3f323f": {
       "id": "19464d3e-b816-49fa-ac92-5f0aff3f323f",
@@ -994,7 +1040,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "197230e0-4b59-4a73-a316-3ec1e8dde453": {
       "id": "197230e0-4b59-4a73-a316-3ec1e8dde453",
@@ -1022,7 +1070,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "197a33c1-8c4b-4c3e-9b3d-c7909e5c0418": {
       "id": "197a33c1-8c4b-4c3e-9b3d-c7909e5c0418",
@@ -1050,7 +1100,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "1983a2c5-8821-44d5-ab19-a038a4224b3d": {
       "id": "1983a2c5-8821-44d5-ab19-a038a4224b3d",
@@ -1078,7 +1130,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "1a4a1cdb-a9fc-4ca9-b893-75b0258c6ca9": {
       "id": "1a4a1cdb-a9fc-4ca9-b893-75b0258c6ca9",
@@ -1106,7 +1160,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "1c78a43d-df55-4a41-88b6-e77dfb26a065": {
       "id": "1c78a43d-df55-4a41-88b6-e77dfb26a065",
@@ -1134,7 +1190,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "1d7508b4-438f-4fd0-adde-9b93f7512ee8": {
       "id": "1d7508b4-438f-4fd0-adde-9b93f7512ee8",
@@ -1162,7 +1220,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "1ea1757f-1886-40d4-9bbe-b78e12b4c802": {
       "id": "1ea1757f-1886-40d4-9bbe-b78e12b4c802",
@@ -1190,7 +1250,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "1f42f402-fc06-43c9-bc36-604044f26020": {
       "id": "1f42f402-fc06-43c9-bc36-604044f26020",
@@ -1218,7 +1280,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2068ff26-b217-4c7e-920f-a8a6583e157d": {
       "id": "2068ff26-b217-4c7e-920f-a8a6583e157d",
@@ -1246,7 +1310,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "23357038-b694-4da2-a666-48ac71d6e8c1": {
       "id": "23357038-b694-4da2-a666-48ac71d6e8c1",
@@ -1274,7 +1340,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "234bf7c5-8adf-4406-9ad4-814844a28bda": {
       "id": "234bf7c5-8adf-4406-9ad4-814844a28bda",
@@ -1302,7 +1370,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "25818a9b-34e9-4430-83bd-9785e4dee107": {
       "id": "25818a9b-34e9-4430-83bd-9785e4dee107",
@@ -1330,7 +1400,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2a3560f7-0297-4bc0-a88d-bbd26c53cd9d": {
       "id": "2a3560f7-0297-4bc0-a88d-bbd26c53cd9d",
@@ -1358,7 +1430,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2af867f0-e863-4334-8bd2-a0bed835a010": {
       "id": "2af867f0-e863-4334-8bd2-a0bed835a010",
@@ -1386,7 +1460,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2b3320ed-cb4e-4511-8758-baf903ba7234": {
       "id": "2b3320ed-cb4e-4511-8758-baf903ba7234",
@@ -1414,7 +1490,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2b476ecd-299b-4a36-b9f7-2f30802b996a": {
       "id": "2b476ecd-299b-4a36-b9f7-2f30802b996a",
@@ -1442,7 +1520,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2c85d25a-c4c2-4e96-bef6-5fd903f78051": {
       "id": "2c85d25a-c4c2-4e96-bef6-5fd903f78051",
@@ -1470,7 +1550,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2e287df0-b16e-48c8-95b5-b1d64e623d2c": {
       "id": "2e287df0-b16e-48c8-95b5-b1d64e623d2c",
@@ -1498,7 +1580,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2ebe8342-754e-4f45-8953-da7e8739adf5": {
       "id": "2ebe8342-754e-4f45-8953-da7e8739adf5",
@@ -1526,7 +1610,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2f735045-9d77-42a9-9ec4-62b6e65ac7ed": {
       "id": "2f735045-9d77-42a9-9ec4-62b6e65ac7ed",
@@ -1554,7 +1640,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "2f783904-f150-48d0-b88e-187d8385acdb": {
       "id": "2f783904-f150-48d0-b88e-187d8385acdb",
@@ -1582,7 +1670,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "304b676b-d5bb-4478-b91f-7c9eec3e15fb": {
       "id": "304b676b-d5bb-4478-b91f-7c9eec3e15fb",
@@ -1610,7 +1700,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "31ed0236-e893-4865-8367-1b62602f61b2": {
       "id": "31ed0236-e893-4865-8367-1b62602f61b2",
@@ -1638,7 +1730,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "32e3fea7-883f-4aff-bd58-ceb629c75427": {
       "id": "32e3fea7-883f-4aff-bd58-ceb629c75427",
@@ -1666,7 +1760,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "32e92d1c-1e29-486a-923f-e95158a2828a": {
       "id": "32e92d1c-1e29-486a-923f-e95158a2828a",
@@ -1694,7 +1790,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "343b5cab-0506-4052-9cac-7d159d3ddcb0": {
       "id": "343b5cab-0506-4052-9cac-7d159d3ddcb0",
@@ -1722,7 +1820,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "354c1178-caf8-4697-81bc-966c8f1a3612": {
       "id": "354c1178-caf8-4697-81bc-966c8f1a3612",
@@ -1750,7 +1850,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "358d756b-0b1b-4df9-ac40-497e97ca2348": {
       "id": "358d756b-0b1b-4df9-ac40-497e97ca2348",
@@ -1778,7 +1880,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "36feec84-03d4-4f9a-8990-4730701f6010": {
       "id": "36feec84-03d4-4f9a-8990-4730701f6010",
@@ -1806,7 +1910,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "38e95602-a02b-4b44-8573-6aaf6b05cd33": {
       "id": "38e95602-a02b-4b44-8573-6aaf6b05cd33",
@@ -1834,7 +1940,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "39845fd4-2acf-45f6-bbd9-c8fb176c44a4": {
       "id": "39845fd4-2acf-45f6-bbd9-c8fb176c44a4",
@@ -1862,7 +1970,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "3b8b7704-cec4-40d7-90c2-121d32948581": {
       "id": "3b8b7704-cec4-40d7-90c2-121d32948581",
@@ -1890,7 +2000,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "3beb4d3b-dd8d-414a-8523-c53c369341c7": {
       "id": "3beb4d3b-dd8d-414a-8523-c53c369341c7",
@@ -1918,7 +2030,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "3d140bbb-4171-4ae2-a486-39b0f16d1e0b": {
       "id": "3d140bbb-4171-4ae2-a486-39b0f16d1e0b",
@@ -1946,7 +2060,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "3d381b1e-dfab-4048-bb5d-88ff408b7c35": {
       "id": "3d381b1e-dfab-4048-bb5d-88ff408b7c35",
@@ -1974,7 +2090,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "402d8ea2-18a7-4d02-b738-3e8d686921e0": {
       "id": "402d8ea2-18a7-4d02-b738-3e8d686921e0",
@@ -2002,7 +2120,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "416fed1f-a4be-4e5f-a488-2bd50162b2b7": {
       "id": "416fed1f-a4be-4e5f-a488-2bd50162b2b7",
@@ -2030,7 +2150,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "4190dce2-15e0-41ff-9cab-7ac15054d818": {
       "id": "4190dce2-15e0-41ff-9cab-7ac15054d818",
@@ -2058,7 +2180,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "41b1d87d-6aa7-4fca-924f-ea38c71671c3": {
       "id": "41b1d87d-6aa7-4fca-924f-ea38c71671c3",
@@ -2086,7 +2210,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "421ba264-3070-4e66-b56e-088aaf11e87e": {
       "id": "421ba264-3070-4e66-b56e-088aaf11e87e",
@@ -2114,7 +2240,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "44762f05-5005-44ad-affb-e5006da5f888": {
       "id": "44762f05-5005-44ad-affb-e5006da5f888",
@@ -2142,7 +2270,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "46103a05-0cb1-400b-b8a2-181ada6ff712": {
       "id": "46103a05-0cb1-400b-b8a2-181ada6ff712",
@@ -2170,7 +2300,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "482f99d2-0d57-4a98-ad93-767df1386369": {
       "id": "482f99d2-0d57-4a98-ad93-767df1386369",
@@ -2198,7 +2330,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "4b2ed0b3-86c7-469d-b258-23eadc716072": {
       "id": "4b2ed0b3-86c7-469d-b258-23eadc716072",
@@ -2226,7 +2360,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "4cff8291-6aa2-424a-afb9-8b8d3f940dcb": {
       "id": "4cff8291-6aa2-424a-afb9-8b8d3f940dcb",
@@ -2254,7 +2390,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "4d03c516-f266-46c3-b855-ecdcc47e7dbb": {
       "id": "4d03c516-f266-46c3-b855-ecdcc47e7dbb",
@@ -2282,7 +2420,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "50abd836-18d1-48ab-8c21-dd7d9a46f6b1": {
       "id": "50abd836-18d1-48ab-8c21-dd7d9a46f6b1",
@@ -2310,7 +2450,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "50d18b0a-cb7c-46a6-b7c2-1b95dd9b07d6": {
       "id": "50d18b0a-cb7c-46a6-b7c2-1b95dd9b07d6",
@@ -2338,7 +2480,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "51f81cf7-ed8c-47fd-9ae5-b38481510cc2": {
       "id": "51f81cf7-ed8c-47fd-9ae5-b38481510cc2",
@@ -2366,7 +2510,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "53e7a51d-3387-42ac-b38d-4f2eaad29509": {
       "id": "53e7a51d-3387-42ac-b38d-4f2eaad29509",
@@ -2394,7 +2540,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "56693f09-f1f0-45ac-8acf-1b2c02c2641e": {
       "id": "56693f09-f1f0-45ac-8acf-1b2c02c2641e",
@@ -2422,7 +2570,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5797d5cc-52ad-4e98-a93d-5f16f672b86f": {
       "id": "5797d5cc-52ad-4e98-a93d-5f16f672b86f",
@@ -2450,7 +2600,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5803cc8c-f6be-4fc9-85ac-2f1dd27aaf92": {
       "id": "5803cc8c-f6be-4fc9-85ac-2f1dd27aaf92",
@@ -2478,7 +2630,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5813d18e-73f7-4d94-8b2c-385c3cff2931": {
       "id": "5813d18e-73f7-4d94-8b2c-385c3cff2931",
@@ -2506,7 +2660,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "58bd2b92-f4d1-4e47-82ee-e4ec24b5b506": {
       "id": "58bd2b92-f4d1-4e47-82ee-e4ec24b5b506",
@@ -2534,7 +2690,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5a45a9e8-c3a0-46d1-927f-aef15f783bdc": {
       "id": "5a45a9e8-c3a0-46d1-927f-aef15f783bdc",
@@ -2562,7 +2720,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5aa86eeb-f689-4359-a000-ecfd10e07443": {
       "id": "5aa86eeb-f689-4359-a000-ecfd10e07443",
@@ -2590,7 +2750,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5cdd296f-24b7-4c71-96e4-46b84c50f183": {
       "id": "5cdd296f-24b7-4c71-96e4-46b84c50f183",
@@ -2618,7 +2780,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5ced057c-7c3e-4e0e-978b-8116497d2d9f": {
       "id": "5ced057c-7c3e-4e0e-978b-8116497d2d9f",
@@ -2646,7 +2810,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5d52f821-a170-4d90-b7a5-de3f8df5862a": {
       "id": "5d52f821-a170-4d90-b7a5-de3f8df5862a",
@@ -2674,7 +2840,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5e50e155-5a7d-494e-a974-75765357f008": {
       "id": "5e50e155-5a7d-494e-a974-75765357f008",
@@ -2702,7 +2870,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5e5f99ff-89f7-4263-9cea-4f1a0f4cb3c9": {
       "id": "5e5f99ff-89f7-4263-9cea-4f1a0f4cb3c9",
@@ -2730,7 +2900,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5ecaaf3d-dbb8-4327-b4e4-bdbee84ca746": {
       "id": "5ecaaf3d-dbb8-4327-b4e4-bdbee84ca746",
@@ -2758,7 +2930,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "5ed45a33-0026-4b33-a200-9fbe90d3117d": {
       "id": "5ed45a33-0026-4b33-a200-9fbe90d3117d",
@@ -2786,7 +2960,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "61259ca8-afb6-4802-a413-3bd505385794": {
       "id": "61259ca8-afb6-4802-a413-3bd505385794",
@@ -2814,7 +2990,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "61a8c0af-ef3f-41c3-a0ee-a1312965cd91": {
       "id": "61a8c0af-ef3f-41c3-a0ee-a1312965cd91",
@@ -2842,7 +3020,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "640a3ad9-f2f1-4f7f-907a-b539475580f3": {
       "id": "640a3ad9-f2f1-4f7f-907a-b539475580f3",
@@ -2870,7 +3050,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "649f7d31-01db-4fe9-a8f5-00ee5af75e7d": {
       "id": "649f7d31-01db-4fe9-a8f5-00ee5af75e7d",
@@ -2898,7 +3080,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "67563715-a744-45c8-9485-98a3e75c63e7": {
       "id": "67563715-a744-45c8-9485-98a3e75c63e7",
@@ -2926,7 +3110,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "67d334dc-987f-49d8-ae01-5fcb8af0a68c": {
       "id": "67d334dc-987f-49d8-ae01-5fcb8af0a68c",
@@ -2954,7 +3140,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "68377d80-80ad-42fe-9edc-328e108fa35a": {
       "id": "68377d80-80ad-42fe-9edc-328e108fa35a",
@@ -2982,7 +3170,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "6900fd62-8e8a-49c4-94ba-8694a0f5b2f8": {
       "id": "6900fd62-8e8a-49c4-94ba-8694a0f5b2f8",
@@ -3010,7 +3200,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "69e9a7d4-4fad-4e32-859a-9acbe815051b": {
       "id": "69e9a7d4-4fad-4e32-859a-9acbe815051b",
@@ -3038,7 +3230,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "6b969221-0c5f-4eef-aba8-0248742e52b6": {
       "id": "6b969221-0c5f-4eef-aba8-0248742e52b6",
@@ -3066,7 +3260,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "6c45acb2-364e-4b66-858d-e0e30d2fc3da": {
       "id": "6c45acb2-364e-4b66-858d-e0e30d2fc3da",
@@ -3094,7 +3290,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "6e6ecd9e-29a6-4c29-aed4-25a67fe44a07": {
       "id": "6e6ecd9e-29a6-4c29-aed4-25a67fe44a07",
@@ -3122,7 +3320,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "6edcd39f-b09d-4da2-8b3e-73c2064c3fa9": {
       "id": "6edcd39f-b09d-4da2-8b3e-73c2064c3fa9",
@@ -3150,7 +3350,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "6f87ba78-f8e1-4710-a1e6-e5e327e6d37b": {
       "id": "6f87ba78-f8e1-4710-a1e6-e5e327e6d37b",
@@ -3178,7 +3380,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "71baa5da-3b21-4467-aa95-beca8cd5866b": {
       "id": "71baa5da-3b21-4467-aa95-beca8cd5866b",
@@ -3206,7 +3410,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "73a666af-fbb8-45c1-923a-d5620668839c": {
       "id": "73a666af-fbb8-45c1-923a-d5620668839c",
@@ -3234,7 +3440,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "7428da77-2e85-4fbe-9a43-c2ee40d61dee": {
       "id": "7428da77-2e85-4fbe-9a43-c2ee40d61dee",
@@ -3262,7 +3470,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "74793eea-62fb-46ae-a3b0-e399f9365f95": {
       "id": "74793eea-62fb-46ae-a3b0-e399f9365f95",
@@ -3290,7 +3500,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "751e0506-9002-4645-8ce8-e4d34900d4b3": {
       "id": "751e0506-9002-4645-8ce8-e4d34900d4b3",
@@ -3318,7 +3530,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "78802578-ba73-4cea-b2f8-1027b3a085ae": {
       "id": "78802578-ba73-4cea-b2f8-1027b3a085ae",
@@ -3346,7 +3560,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "79aaef09-0a3c-45ba-b484-0a1e448f061b": {
       "id": "79aaef09-0a3c-45ba-b484-0a1e448f061b",
@@ -3374,7 +3590,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "7a4c8c67-3752-4708-97bc-ec956757aacc": {
       "id": "7a4c8c67-3752-4708-97bc-ec956757aacc",
@@ -3402,7 +3620,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "7ce37d85-b6cd-4a56-9cb1-e9e5d197593e": {
       "id": "7ce37d85-b6cd-4a56-9cb1-e9e5d197593e",
@@ -3430,7 +3650,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "7d7726e2-25e3-45c4-9ec1-f22bf13d011b": {
       "id": "7d7726e2-25e3-45c4-9ec1-f22bf13d011b",
@@ -3458,7 +3680,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "7ecf7962-e2ee-4a38-9a99-e64d8c20e9ea": {
       "id": "7ecf7962-e2ee-4a38-9a99-e64d8c20e9ea",
@@ -3486,7 +3710,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "7fcef3e6-8591-4e91-b4a7-ab4151b9979a": {
       "id": "7fcef3e6-8591-4e91-b4a7-ab4151b9979a",
@@ -3514,7 +3740,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "7fd35806-bfd3-465e-9e40-48049cc4ce53": {
       "id": "7fd35806-bfd3-465e-9e40-48049cc4ce53",
@@ -3542,7 +3770,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "807347bc-ccbc-4aa1-81ea-995ddb1f7a73": {
       "id": "807347bc-ccbc-4aa1-81ea-995ddb1f7a73",
@@ -3570,7 +3800,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "80ade79d-cb4c-4e0a-b155-2c76b06be31b": {
       "id": "80ade79d-cb4c-4e0a-b155-2c76b06be31b",
@@ -3598,7 +3830,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8144c422-4550-40b8-aeee-f66a3906f69f": {
       "id": "8144c422-4550-40b8-aeee-f66a3906f69f",
@@ -3626,7 +3860,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8232d928-0d41-489c-ae07-281a2c570287": {
       "id": "8232d928-0d41-489c-ae07-281a2c570287",
@@ -3654,7 +3890,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "83fbb1a7-a288-45e7-8a63-86214da592a3": {
       "id": "83fbb1a7-a288-45e7-8a63-86214da592a3",
@@ -3682,7 +3920,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "861f5b2d-0f70-43cf-9bd0-a6705cd01cee": {
       "id": "861f5b2d-0f70-43cf-9bd0-a6705cd01cee",
@@ -3710,7 +3950,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "869c9329-e9f1-43e0-aca7-f7696f68ca50": {
       "id": "869c9329-e9f1-43e0-aca7-f7696f68ca50",
@@ -3738,7 +3980,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "86e0be70-aa92-446d-a1a3-c90810d8b938": {
       "id": "86e0be70-aa92-446d-a1a3-c90810d8b938",
@@ -3766,7 +4010,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "87b6225d-ea15-4aaa-a149-537af2270e41": {
       "id": "87b6225d-ea15-4aaa-a149-537af2270e41",
@@ -3794,7 +4040,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "88600a29-7111-4de5-bf71-bbbe59cf21cf": {
       "id": "88600a29-7111-4de5-bf71-bbbe59cf21cf",
@@ -3822,7 +4070,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "88f0d921-9691-4009-9723-448f6228b534": {
       "id": "88f0d921-9691-4009-9723-448f6228b534",
@@ -3850,7 +4100,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "891358ea-c506-4228-94aa-b73ee0a93984": {
       "id": "891358ea-c506-4228-94aa-b73ee0a93984",
@@ -3878,7 +4130,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "898fbae5-685c-4795-92c3-2b9ec9349da0": {
       "id": "898fbae5-685c-4795-92c3-2b9ec9349da0",
@@ -3906,7 +4160,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8b910229-9578-4b2a-b2fc-beeadca46bf6": {
       "id": "8b910229-9578-4b2a-b2fc-beeadca46bf6",
@@ -3934,7 +4190,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8be026d0-0e65-41e0-97dd-c8d2aae21171": {
       "id": "8be026d0-0e65-41e0-97dd-c8d2aae21171",
@@ -3962,7 +4220,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8d276ed1-b05c-47c1-819b-7afee636544b": {
       "id": "8d276ed1-b05c-47c1-819b-7afee636544b",
@@ -3990,7 +4250,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8f5d1c33-e556-4f52-a154-8ad5fa7bb388": {
       "id": "8f5d1c33-e556-4f52-a154-8ad5fa7bb388",
@@ -4018,7 +4280,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8f6a4657-5933-475d-a5dc-bea4b85ef5fd": {
       "id": "8f6a4657-5933-475d-a5dc-bea4b85ef5fd",
@@ -4046,7 +4310,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "901de543-e51f-4c55-a9cc-3c7672128fb7": {
       "id": "901de543-e51f-4c55-a9cc-3c7672128fb7",
@@ -4074,7 +4340,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "925ce3d0-c219-44cc-aa5d-1b4802757443": {
       "id": "925ce3d0-c219-44cc-aa5d-1b4802757443",
@@ -4102,7 +4370,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "9380c3b5-9626-491b-adfd-853eb5928c02": {
       "id": "9380c3b5-9626-491b-adfd-853eb5928c02",
@@ -4130,7 +4400,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "957c399c-6b97-4459-88db-cd89d5b17b53": {
       "id": "957c399c-6b97-4459-88db-cd89d5b17b53",
@@ -4158,7 +4430,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "967176a2-6bc3-4f05-a6bc-b4424a937a77": {
       "id": "967176a2-6bc3-4f05-a6bc-b4424a937a77",
@@ -4186,7 +4460,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "97e4e21e-d1b0-4a50-a4fd-70380e9bfbdd": {
       "id": "97e4e21e-d1b0-4a50-a4fd-70380e9bfbdd",
@@ -4214,7 +4490,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "982e3bc8-6978-44bc-a450-05aac991bda1": {
       "id": "982e3bc8-6978-44bc-a450-05aac991bda1",
@@ -4242,7 +4520,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "98707bd8-dea4-44d7-9ac8-98aaa2252d03": {
       "id": "98707bd8-dea4-44d7-9ac8-98aaa2252d03",
@@ -4270,7 +4550,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "98b46038-2a89-4d08-9129-364aa439e418": {
       "id": "98b46038-2a89-4d08-9129-364aa439e418",
@@ -4298,7 +4580,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "9d99885f-2169-4bb3-a00c-43e83e1b2f61": {
       "id": "9d99885f-2169-4bb3-a00c-43e83e1b2f61",
@@ -4326,7 +4610,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "9d9ae886-21db-498d-8b4c-960130f389c4": {
       "id": "9d9ae886-21db-498d-8b4c-960130f389c4",
@@ -4354,7 +4640,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "9ee1b74f-a7ab-4cd5-abac-5b6353ea409b": {
       "id": "9ee1b74f-a7ab-4cd5-abac-5b6353ea409b",
@@ -4382,7 +4670,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "9f44bba8-bad2-48dc-9562-9d3bcbd67167": {
       "id": "9f44bba8-bad2-48dc-9562-9d3bcbd67167",
@@ -4410,7 +4700,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "9f71da29-c849-44a8-9c88-5b54648823b9": {
       "id": "9f71da29-c849-44a8-9c88-5b54648823b9",
@@ -4438,7 +4730,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a02012ee-01fe-4243-ac76-1a4b5cb41b0c": {
       "id": "a02012ee-01fe-4243-ac76-1a4b5cb41b0c",
@@ -4466,7 +4760,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a0bb3727-5649-4068-b729-1a0c70d432e8": {
       "id": "a0bb3727-5649-4068-b729-1a0c70d432e8",
@@ -4494,7 +4790,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a1d1226d-9d19-44fb-a754-f58484b1161e": {
       "id": "a1d1226d-9d19-44fb-a754-f58484b1161e",
@@ -4522,7 +4820,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a316bf9b-4af7-416b-9192-2387e63cfdcc": {
       "id": "a316bf9b-4af7-416b-9192-2387e63cfdcc",
@@ -4550,7 +4850,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a471eacb-8c54-4eee-89fa-68796ba705c8": {
       "id": "a471eacb-8c54-4eee-89fa-68796ba705c8",
@@ -4578,7 +4880,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a59fe7ff-ac5a-4cc3-a698-1df9e75ddbfb": {
       "id": "a59fe7ff-ac5a-4cc3-a698-1df9e75ddbfb",
@@ -4606,7 +4910,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a5b16ab8-7b87-4636-a668-702ee56402af": {
       "id": "a5b16ab8-7b87-4636-a668-702ee56402af",
@@ -4634,7 +4940,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a5ec550d-7fb3-41cf-ad60-62bcf2003ffd": {
       "id": "a5ec550d-7fb3-41cf-ad60-62bcf2003ffd",
@@ -4662,7 +4970,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a649e191-b13c-4f61-9ae0-ab7cb1c072ca": {
       "id": "a649e191-b13c-4f61-9ae0-ab7cb1c072ca",
@@ -4690,7 +5000,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a73abd05-2479-498b-8487-9879b6a73146": {
       "id": "a73abd05-2479-498b-8487-9879b6a73146",
@@ -4718,7 +5030,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a8508ee3-7fc4-4e11-b079-f949f0f3234f": {
       "id": "a8508ee3-7fc4-4e11-b079-f949f0f3234f",
@@ -4746,7 +5060,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "a9877cb9-1769-4558-89e8-0402bc6bd931": {
       "id": "a9877cb9-1769-4558-89e8-0402bc6bd931",
@@ -4774,7 +5090,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ab02217b-b2df-4e99-ae64-9b8408080ff7": {
       "id": "ab02217b-b2df-4e99-ae64-9b8408080ff7",
@@ -4802,7 +5120,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ab4a601c-acf8-42a0-907a-2e1e807aad07": {
       "id": "ab4a601c-acf8-42a0-907a-2e1e807aad07",
@@ -4830,7 +5150,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "acb365ab-5ea5-454d-9dfe-3ccb940879b6": {
       "id": "acb365ab-5ea5-454d-9dfe-3ccb940879b6",
@@ -4858,7 +5180,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ad6868af-85bf-4e6e-8000-a938c4538209": {
       "id": "ad6868af-85bf-4e6e-8000-a938c4538209",
@@ -4886,7 +5210,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "adaf10e3-828b-4254-8dbf-b25c3e8d950f": {
       "id": "adaf10e3-828b-4254-8dbf-b25c3e8d950f",
@@ -4914,7 +5240,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b018347a-7462-4013-86a6-95ca03c6127c": {
       "id": "b018347a-7462-4013-86a6-95ca03c6127c",
@@ -4942,7 +5270,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b06e8cea-0c0a-4608-b8dc-7d75f68f1de4": {
       "id": "b06e8cea-0c0a-4608-b8dc-7d75f68f1de4",
@@ -4970,7 +5300,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b0de929a-30b8-4395-a18d-fa92ddd9dc68": {
       "id": "b0de929a-30b8-4395-a18d-fa92ddd9dc68",
@@ -4998,7 +5330,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b1b9eb08-3dd4-408c-bd9f-3d659e742506": {
       "id": "b1b9eb08-3dd4-408c-bd9f-3d659e742506",
@@ -5026,7 +5360,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b2179be7-df81-48c9-a075-2e2b9e5fa576": {
       "id": "b2179be7-df81-48c9-a075-2e2b9e5fa576",
@@ -5054,7 +5390,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b26da8b0-7c9e-44e2-af89-8cea15588178": {
       "id": "b26da8b0-7c9e-44e2-af89-8cea15588178",
@@ -5082,7 +5420,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b3a50e2a-4aed-4f48-be4e-681eb9f05a21": {
       "id": "b3a50e2a-4aed-4f48-be4e-681eb9f05a21",
@@ -5110,7 +5450,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b490c14f-29d2-40c3-9814-2e859acbfa88": {
       "id": "b490c14f-29d2-40c3-9814-2e859acbfa88",
@@ -5138,7 +5480,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b590bc1c-00bc-420b-9ea0-0f4fcf85adca": {
       "id": "b590bc1c-00bc-420b-9ea0-0f4fcf85adca",
@@ -5166,7 +5510,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b5c8a789-40b9-40a6-a4ee-d426926d0834": {
       "id": "b5c8a789-40b9-40a6-a4ee-d426926d0834",
@@ -5194,7 +5540,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b6fb78ca-352e-42e3-a184-c5fa4b2b06fa": {
       "id": "b6fb78ca-352e-42e3-a184-c5fa4b2b06fa",
@@ -5222,7 +5570,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b6feef70-5fdc-4559-9f82-910d9430937b": {
       "id": "b6feef70-5fdc-4559-9f82-910d9430937b",
@@ -5250,7 +5600,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b80525d3-e66d-4204-ad0b-39e3386f44c4": {
       "id": "b80525d3-e66d-4204-ad0b-39e3386f44c4",
@@ -5278,7 +5630,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "b85f4915-6f05-4a7e-ad27-b6855921f1ae": {
       "id": "b85f4915-6f05-4a7e-ad27-b6855921f1ae",
@@ -5306,7 +5660,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ba5941dc-2d82-4f79-bfb6-e2cdc9d2f430": {
       "id": "ba5941dc-2d82-4f79-bfb6-e2cdc9d2f430",
@@ -5334,7 +5690,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "bbcc4e1d-5d7f-4325-b7eb-06943023ab87": {
       "id": "bbcc4e1d-5d7f-4325-b7eb-06943023ab87",
@@ -5362,7 +5720,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "bc03c096-8b6a-473a-a7c9-19926b3fe711": {
       "id": "bc03c096-8b6a-473a-a7c9-19926b3fe711",
@@ -5390,7 +5750,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "bd171912-df3b-4df3-a984-5f20477709c6": {
       "id": "bd171912-df3b-4df3-a984-5f20477709c6",
@@ -5418,7 +5780,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "bd49d580-20b2-4a1f-9495-854199ecc297": {
       "id": "bd49d580-20b2-4a1f-9495-854199ecc297",
@@ -5446,7 +5810,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "be03c045-ac0e-484a-a4f6-fc80965e240f": {
       "id": "be03c045-ac0e-484a-a4f6-fc80965e240f",
@@ -5474,7 +5840,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c04e622f-1c9b-47a5-b780-5dcfe01340d0": {
       "id": "c04e622f-1c9b-47a5-b780-5dcfe01340d0",
@@ -5502,7 +5870,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c057a412-87c8-4a34-8ad3-f5f6e0c66cf5": {
       "id": "c057a412-87c8-4a34-8ad3-f5f6e0c66cf5",
@@ -5530,7 +5900,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c06a7aff-7e66-4b8a-aa03-97d23015b560": {
       "id": "c06a7aff-7e66-4b8a-aa03-97d23015b560",
@@ -5558,7 +5930,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c1a665c9-7ea3-4dea-ae0f-d181ab8822ae": {
       "id": "c1a665c9-7ea3-4dea-ae0f-d181ab8822ae",
@@ -5586,7 +5960,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c2bf9cfa-ffe6-4792-9139-278fa24ee898": {
       "id": "c2bf9cfa-ffe6-4792-9139-278fa24ee898",
@@ -5614,7 +5990,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c34ec476-0e79-4ee8-bf3c-b393a0368b2c": {
       "id": "c34ec476-0e79-4ee8-bf3c-b393a0368b2c",
@@ -5642,7 +6020,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c3bba839-ad41-41ad-8e5a-d5e6fff261f9": {
       "id": "c3bba839-ad41-41ad-8e5a-d5e6fff261f9",
@@ -5670,7 +6050,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c4aa1ac6-82e8-4dd1-ab97-4133fccda678": {
       "id": "c4aa1ac6-82e8-4dd1-ab97-4133fccda678",
@@ -5698,7 +6080,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c54f3354-a17f-4b20-a4b9-d1dfa410eef7": {
       "id": "c54f3354-a17f-4b20-a4b9-d1dfa410eef7",
@@ -5726,7 +6110,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c855a4dc-e05d-4ca8-b877-e6a35d4492c9": {
       "id": "c855a4dc-e05d-4ca8-b877-e6a35d4492c9",
@@ -5754,7 +6140,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c92bc20f-a087-4d18-9259-32fc818756a2": {
       "id": "c92bc20f-a087-4d18-9259-32fc818756a2",
@@ -5782,7 +6170,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c9653f74-160e-4950-b72c-51f8c6322abc": {
       "id": "c9653f74-160e-4950-b72c-51f8c6322abc",
@@ -5810,7 +6200,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "c9d73913-db26-4fcd-8b63-f4c7134a765a": {
       "id": "c9d73913-db26-4fcd-8b63-f4c7134a765a",
@@ -5838,7 +6230,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ca94cffb-1f9e-4e6b-904a-0dc577abd46a": {
       "id": "ca94cffb-1f9e-4e6b-904a-0dc577abd46a",
@@ -5866,7 +6260,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "cabbdb80-40d2-4d8b-acfe-949aee51f9f1": {
       "id": "cabbdb80-40d2-4d8b-acfe-949aee51f9f1",
@@ -5894,7 +6290,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "cbdba0b2-9b44-41f4-9838-7fc5248abe8f": {
       "id": "cbdba0b2-9b44-41f4-9838-7fc5248abe8f",
@@ -5922,7 +6320,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "cc1c4b41-eccc-4bfb-9a53-ea1e48a944b4": {
       "id": "cc1c4b41-eccc-4bfb-9a53-ea1e48a944b4",
@@ -5950,7 +6350,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "cd15e81e-ee34-450e-bca8-718ff7e26529": {
       "id": "cd15e81e-ee34-450e-bca8-718ff7e26529",
@@ -5978,7 +6380,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ced55ae7-37d7-4824-b833-008990ceed81": {
       "id": "ced55ae7-37d7-4824-b833-008990ceed81",
@@ -6006,7 +6410,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d18e5017-b4e3-44eb-960a-33e242615207": {
       "id": "d18e5017-b4e3-44eb-960a-33e242615207",
@@ -6034,7 +6440,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d2388e31-02a9-45d4-a733-f06963816672": {
       "id": "d2388e31-02a9-45d4-a733-f06963816672",
@@ -6062,7 +6470,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d38102f1-23ef-418f-a871-84d49e46ed79": {
       "id": "d38102f1-23ef-418f-a871-84d49e46ed79",
@@ -6090,7 +6500,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d384e513-6241-4445-971b-7e46e110c2f4": {
       "id": "d384e513-6241-4445-971b-7e46e110c2f4",
@@ -6118,7 +6530,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d3d689b8-362e-4f86-8cb9-91f2611c18c9": {
       "id": "d3d689b8-362e-4f86-8cb9-91f2611c18c9",
@@ -6146,7 +6560,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d3d8b010-f6a0-4bb1-b56c-49937d8cab10": {
       "id": "d3d8b010-f6a0-4bb1-b56c-49937d8cab10",
@@ -6174,7 +6590,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d4b5a26e-631d-4d05-9244-98ec71ca3911": {
       "id": "d4b5a26e-631d-4d05-9244-98ec71ca3911",
@@ -6202,7 +6620,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d4be2d0d-05f9-43a4-942b-bd493c373a45": {
       "id": "d4be2d0d-05f9-43a4-942b-bd493c373a45",
@@ -6230,7 +6650,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d584050c-9ac4-4af6-bcaa-c6c3e24683ed": {
       "id": "d584050c-9ac4-4af6-bcaa-c6c3e24683ed",
@@ -6258,7 +6680,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d6030489-9fd8-467d-a2a9-f9fad9389456": {
       "id": "d6030489-9fd8-467d-a2a9-f9fad9389456",
@@ -6286,7 +6710,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d73e7f49-05e1-4b1d-b795-2b80bb32676a": {
       "id": "d73e7f49-05e1-4b1d-b795-2b80bb32676a",
@@ -6314,7 +6740,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d784dd31-9be2-490e-a985-894ec96a5043": {
       "id": "d784dd31-9be2-490e-a985-894ec96a5043",
@@ -6342,7 +6770,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d90eae7f-b8ad-46d0-bdb7-c7ab668f1740": {
       "id": "d90eae7f-b8ad-46d0-bdb7-c7ab668f1740",
@@ -6370,7 +6800,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d9460284-624f-4d60-af3b-2dd87a318473": {
       "id": "d9460284-624f-4d60-af3b-2dd87a318473",
@@ -6398,7 +6830,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d9b12a0a-8496-4a3b-a3b7-1ac15f1e1491": {
       "id": "d9b12a0a-8496-4a3b-a3b7-1ac15f1e1491",
@@ -6426,7 +6860,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "daa04ce9-c421-4ae3-a826-bac3de3642f7": {
       "id": "daa04ce9-c421-4ae3-a826-bac3de3642f7",
@@ -6454,7 +6890,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "dab53025-2e58-480c-862b-9b0f6e831e0a": {
       "id": "dab53025-2e58-480c-862b-9b0f6e831e0a",
@@ -6482,7 +6920,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "dc2c325d-100f-47d0-a4fe-64e814ff45e9": {
       "id": "dc2c325d-100f-47d0-a4fe-64e814ff45e9",
@@ -6510,7 +6950,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "dd0b01e7-543a-4340-9b76-0ac851632b75": {
       "id": "dd0b01e7-543a-4340-9b76-0ac851632b75",
@@ -6538,7 +6980,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "de544a2c-2d7b-41b8-a5dc-8be18f9fdf84": {
       "id": "de544a2c-2d7b-41b8-a5dc-8be18f9fdf84",
@@ -6566,7 +7010,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "de8bd6f0-88f8-4756-a521-e799c4fd9b55": {
       "id": "de8bd6f0-88f8-4756-a521-e799c4fd9b55",
@@ -6594,7 +7040,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "dfca1ef6-dddb-4a94-9ebb-a28a7e763b00": {
       "id": "dfca1ef6-dddb-4a94-9ebb-a28a7e763b00",
@@ -6622,7 +7070,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e0496d7b-9104-46e8-bc43-8ac2cb9ef7cb": {
       "id": "e0496d7b-9104-46e8-bc43-8ac2cb9ef7cb",
@@ -6650,7 +7100,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e08b668b-9f4b-424c-83d8-cc45f713bd60": {
       "id": "e08b668b-9f4b-424c-83d8-cc45f713bd60",
@@ -6678,7 +7130,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e18051fb-e97d-4707-b863-aa2abe22f2d7": {
       "id": "e18051fb-e97d-4707-b863-aa2abe22f2d7",
@@ -6706,7 +7160,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e1b53221-f28a-4e95-a633-70c513c59955": {
       "id": "e1b53221-f28a-4e95-a633-70c513c59955",
@@ -6734,7 +7190,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e2055906-2826-4432-9bca-0a5b2454d87a": {
       "id": "e2055906-2826-4432-9bca-0a5b2454d87a",
@@ -6762,7 +7220,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e20c6416-1125-430a-914f-7808d064dd16": {
       "id": "e20c6416-1125-430a-914f-7808d064dd16",
@@ -6790,7 +7250,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e33dcfef-5e57-4efb-b06a-146fc6add187": {
       "id": "e33dcfef-5e57-4efb-b06a-146fc6add187",
@@ -6818,7 +7280,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e41f05be-72e4-4142-9360-246ded62a17d": {
       "id": "e41f05be-72e4-4142-9360-246ded62a17d",
@@ -6846,7 +7310,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e4619d2f-9f47-49b5-896b-0ec3edb29f7a": {
       "id": "e4619d2f-9f47-49b5-896b-0ec3edb29f7a",
@@ -6874,7 +7340,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e49f7c06-f778-40de-8f3b-19a9bb364991": {
       "id": "e49f7c06-f778-40de-8f3b-19a9bb364991",
@@ -6902,7 +7370,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e56e1adc-60fa-413c-8334-5b1008f696cc": {
       "id": "e56e1adc-60fa-413c-8334-5b1008f696cc",
@@ -6930,7 +7400,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "e96a79b0-fee7-489f-9f58-1d72a23e4bfd": {
       "id": "e96a79b0-fee7-489f-9f58-1d72a23e4bfd",
@@ -6958,7 +7430,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "eab1527e-20a4-423f-87db-78c159c17335": {
       "id": "eab1527e-20a4-423f-87db-78c159c17335",
@@ -6986,7 +7460,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "eb7c6133-09fa-427f-b432-5527efe4895e": {
       "id": "eb7c6133-09fa-427f-b432-5527efe4895e",
@@ -7014,7 +7490,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "eb7cfaf9-e653-4e0f-8d73-46e71689a879": {
       "id": "eb7cfaf9-e653-4e0f-8d73-46e71689a879",
@@ -7042,7 +7520,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ec7ab43f-2986-4a20-8932-aa96e8b61bfe": {
       "id": "ec7ab43f-2986-4a20-8932-aa96e8b61bfe",
@@ -7070,7 +7550,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ec94cb9c-9a67-4e8e-b155-f5d2feb94bab": {
       "id": "ec94cb9c-9a67-4e8e-b155-f5d2feb94bab",
@@ -7098,7 +7580,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ed27a24a-8c51-48d0-a6a0-44621513a0f0": {
       "id": "ed27a24a-8c51-48d0-a6a0-44621513a0f0",
@@ -7126,7 +7610,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ee35c5e2-dd18-4846-b01c-a5e97dc69a0c": {
       "id": "ee35c5e2-dd18-4846-b01c-a5e97dc69a0c",
@@ -7154,7 +7640,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ee60c0e9-22e0-45ea-a43b-787931d6a530": {
       "id": "ee60c0e9-22e0-45ea-a43b-787931d6a530",
@@ -7182,7 +7670,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ef2a600f-ef0a-41e3-bb0e-553ab2d786c6": {
       "id": "ef2a600f-ef0a-41e3-bb0e-553ab2d786c6",
@@ -7210,7 +7700,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ef912aae-d9eb-4b56-b272-34154e1f6a35": {
       "id": "ef912aae-d9eb-4b56-b272-34154e1f6a35",
@@ -7238,7 +7730,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f0a0302a-d89e-47c5-8c79-f29abe123999": {
       "id": "f0a0302a-d89e-47c5-8c79-f29abe123999",
@@ -7266,7 +7760,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f14a44bf-362e-4e98-94db-70f7c1f820dc": {
       "id": "f14a44bf-362e-4e98-94db-70f7c1f820dc",
@@ -7294,7 +7790,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f1f1c7bd-98cb-45f7-8ec1-2c4c0a171b29": {
       "id": "f1f1c7bd-98cb-45f7-8ec1-2c4c0a171b29",
@@ -7322,7 +7820,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f22507ec-5a0d-4185-8985-92ede9442ed5": {
       "id": "f22507ec-5a0d-4185-8985-92ede9442ed5",
@@ -7350,7 +7850,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f25fbb76-d535-4e74-a3a1-17bd01e3bf27": {
       "id": "f25fbb76-d535-4e74-a3a1-17bd01e3bf27",
@@ -7378,7 +7880,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f6a67e14-046e-4fa3-9509-76b729cdde49": {
       "id": "f6a67e14-046e-4fa3-9509-76b729cdde49",
@@ -7406,7 +7910,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f6ef9e2e-0c76-4995-907a-49d79cfc55db": {
       "id": "f6ef9e2e-0c76-4995-907a-49d79cfc55db",
@@ -7434,7 +7940,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f795103d-2b08-4526-b3a7-0074a56f997c": {
       "id": "f795103d-2b08-4526-b3a7-0074a56f997c",
@@ -7462,7 +7970,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f820a5f8-05be-43f1-9ef6-a8b08d75c7cd": {
       "id": "f820a5f8-05be-43f1-9ef6-a8b08d75c7cd",
@@ -7490,7 +8000,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f8b1eb5a-3d08-4d2d-bf68-568fafcad3aa": {
       "id": "f8b1eb5a-3d08-4d2d-bf68-568fafcad3aa",
@@ -7518,7 +8030,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "f9faadca-13cd-4b66-a1a4-71a35b07e746": {
       "id": "f9faadca-13cd-4b66-a1a4-71a35b07e746",
@@ -7546,7 +8060,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "fc146525-42dd-45ba-b60b-fa6be7c60126": {
       "id": "fc146525-42dd-45ba-b60b-fa6be7c60126",
@@ -7574,7 +8090,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "fdd0e07f-f24c-4b2e-984a-11c201044fb5": {
       "id": "fdd0e07f-f24c-4b2e-984a-11c201044fb5",
@@ -7602,7 +8120,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "feb8977f-bd49-483a-8741-4da0f03612cc": {
       "id": "feb8977f-bd49-483a-8741-4da0f03612cc",
@@ -7630,7 +8150,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "ff2eb8c3-a136-47ab-97e5-eaf91e5f7bf9": {
       "id": "ff2eb8c3-a136-47ab-97e5-eaf91e5f7bf9",
@@ -7658,7 +8180,9 @@
       "isHorizontalOrientation": false,
       "artifacts": [],
       "showYaml": false,
-      "hideUnpinnedParams": false
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     }
   },
   "uiTypes": {},

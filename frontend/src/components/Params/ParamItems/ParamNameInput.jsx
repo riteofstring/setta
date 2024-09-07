@@ -1,15 +1,15 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useEffect, useState } from "react";
-import { useParamShortcuts } from "state/definitions";
+import { useCodeInfo, useParamShortcuts } from "state/definitions";
 
 export function ParamNameInput({
   sectionId,
   paramInfoId,
-  value,
   onBlur,
-  hasChildren,
   setDidUpdate,
 }) {
+  const value = useCodeInfo((x) => x.x[paramInfoId].name);
+  const hasChildren = useCodeInfo((x) => x.x[paramInfoId].children.length > 0);
   const [liveValue, setLiveValue] = useState(value);
 
   function onChange(v) {

@@ -4,10 +4,6 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   activateParamSelect,
   deactivateParamSelect,
-  moveSelectedParamsDown,
-  moveSelectedParamsLeft,
-  moveSelectedParamsRight,
-  moveSelectedParamsUp,
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
@@ -76,10 +72,6 @@ export function attachKeyEventListeners() {
     [settings.pasteShortcut, paste],
     [settings.updateInteractiveCode, updateInteractiveCode],
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
-    [settings.paramSelectMoveRight, moveSelectedParamsRight],
-    [settings.paramSelectMoveLeft, moveSelectedParamsLeft],
-    [settings.paramSelectMoveUp, moveSelectedParamsUp],
-    [settings.paramSelectMoveDown, moveSelectedParamsDown],
     [
       settings.drawSelectionShortcut,
       activateSelectionKeyPressed,

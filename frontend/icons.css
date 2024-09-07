@@ -64,7 +64,7 @@ main {
   /* transform: rotate(45deg); */
   border-radius: 5px;
   top: 8px;
-  left: 1px;
+  left: -2px;
 }
 
 .gg-push-left {

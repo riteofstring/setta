@@ -144,9 +144,9 @@ function useCodeAreaHeight({ sectionId }) {
   const wrapperScrollTop = wrapperRef.current?.scrollTop;
 
   useEffect(() => {
-    if (resizeEvent === "start") {
+    if (wrapperRef.current && resizeEvent === "start") {
       wrapperRef.current.scrollTop = editorScrollTop;
-    } else if (resizeEvent === "end") {
+    } else if (editorRef.current && resizeEvent === "end") {
       editorRef.current.scrollDOM.scrollTop = wrapperScrollTop;
     }
   }, [resizeEvent]);

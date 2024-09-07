@@ -30,6 +30,8 @@ export function newSectionInfo({
   hideSearch = false,
   hideUnpinnedParams = false,
   showYaml = false,
+  pinnedAreaHeight = "auto",
+  isMinimized = false,
 }) {
   const existingVarNames = _.map(useSectionInfos.getState().x, (s) => s.name);
   const _variantId = maybeNewId(variantId);
@@ -62,5 +64,7 @@ export function newSectionInfo({
     hideSearch,
     hideUnpinnedParams,
     showYaml,
+    pinnedAreaHeight,
+    isMinimized,
   };
 }

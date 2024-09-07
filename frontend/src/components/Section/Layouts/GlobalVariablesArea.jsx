@@ -17,7 +17,7 @@ import { parse, stringify } from "yaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 
-function _GlobalVariablesArea({ sectionId }) {
+function _GlobalVariablesArea({ sectionId, bgColor }) {
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
   const [yamlValue, setYamlValue] = useState("");
   const [originalObj, setOriginalObj] = useState({});
@@ -32,8 +32,12 @@ function _GlobalVariablesArea({ sectionId }) {
 
   return !showYaml ? (
     <>
-      <KwargsControls sectionId={sectionId} objInfoId={null} />
-      <ParamGroupContainer sectionId={sectionId} objInfoId={null} />
+      <KwargsControls
+        sectionId={sectionId}
+        objInfoId={null}
+        bgColor={bgColor}
+      />
+      <ParamGroupContainer sectionId={sectionId} />
     </>
   ) : (
     <YamlView

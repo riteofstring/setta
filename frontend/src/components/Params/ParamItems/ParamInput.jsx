@@ -21,8 +21,6 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 export function ParamInput({
   sectionId,
   paramInfoId,
-  defaultVal,
-  isDisabled,
   maybeErrorMessage,
   setDidUpdate,
 }) {
@@ -57,9 +55,7 @@ export function ParamInput({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      defaultVal={defaultVal}
       onChange={onChange}
-      isDisabled={isDisabled}
       maybeErrorMessage={maybeErrorMessage}
       sectionIdToBeActive={sectionId}
       keywordPositions={localKeywordPositions}

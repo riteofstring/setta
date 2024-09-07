@@ -1,6 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import { useParamShortcuts } from "state/definitions";
+import { useCodeInfo, useParamShortcuts } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
@@ -22,9 +22,7 @@ export function ParamUI({
   sectionId,
   paramInfoId,
   value,
-  defaultVal,
   onChange,
-  isDisabled,
   maybeErrorMessage,
   sectionIdToBeActive,
   keywordPositions,
@@ -36,6 +34,8 @@ export function ParamUI({
     paramInfoId,
   });
   const isSelectingParams = useParamShortcuts((x) => x.isSelectingParams);
+  const defaultVal = useCodeInfo((x) => x.x[paramInfoId].defaultVal);
+  const isDisabled = useCodeInfo((x) => x.x[paramInfoId].isDisabled);
   const _isDisabled = isDisabled || isSelectingParams;
 
   switch (uiType.type) {
