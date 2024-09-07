@@ -56,12 +56,14 @@ function GetPinnedParams({ sectionId, objInfoId, setDidUpdate }) {
   });
 
   return (
-    <GetParamSwitch
-      sectionId={sectionId}
-      parentId={objInfoId}
-      infos={params}
-      setDidUpdate={setDidUpdate}
-    />
+    <section className="section-lg-value section-min-rows grid grid-cols-subgrid items-center justify-between bg-red-500">
+      <GetParamSwitch
+        sectionId={sectionId}
+        parentId={objInfoId}
+        infos={params}
+        setDidUpdate={setDidUpdate}
+      />
+    </section>
   );
 }
 

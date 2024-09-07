@@ -64,7 +64,10 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
         onClick={onClickSelect}
         data-swapy-slot={paramInfo.id}
       >
-        <div data-swapy-item={paramInfo.id}>
+        <div
+          className="section-lg-value section-min-rows grid grid-cols-subgrid items-center justify-between"
+          data-swapy-item={paramInfo.id}
+        >
           {children}
           <ParamInput
             sectionId={sectionId}

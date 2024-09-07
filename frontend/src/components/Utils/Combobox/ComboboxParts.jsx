@@ -17,7 +17,7 @@ export function ComboboxInput({
 
   return (
     <StandardSearch
-      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-setta-900 rounded-full shadow-sm text-xs font-mono text-setta-600 font-medium px-3 focus-visible:border-white dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-800 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
+      inputStyles={`flex-grow outline-0 cursor-auto bg-white dark:bg-setta-900 rounded-full text-xs font-mono text-setta-600 font-medium px-3 focus-visible:border-white dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-800 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
         small ? "h-6" : "h-7"
       }`}
       noLeftElement={true}
