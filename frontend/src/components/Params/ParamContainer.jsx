@@ -59,7 +59,7 @@ function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
   return paramChildren.length === 0 ? (
     <>
       <article
-        className={`nodrag section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
+        className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
         {...getInfoViewHandlers(paramInfo.description)}
         onClick={onClickSelect}
       >
