@@ -169,7 +169,7 @@ def insert_section_configs(dbs, sections, id_pairs):
             "paramSweepId": sections[c]["paramSweepId"],
             "isHorizontalOrientation": sections[c]["isHorizontalOrientation"],
             "pinnedAreaHeight": convert_size(sections[c]["pinnedAreaHeight"]),
-            "isMinimized": sections[c]["isMinimized"]
+            "isMinimized": sections[c]["isMinimized"],
         }
         for projectConfigId, c in id_pairs
     ]
