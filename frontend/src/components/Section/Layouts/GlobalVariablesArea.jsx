@@ -78,6 +78,9 @@ async function toGUI(sectionId, yamlValue, originalObj) {
   const usedOriginalIds = new Set();
   const usedPaths = new Set();
 
+  console.log("fOriginalObj", fOriginalObj)
+  console.log("fNewObj", fNewObj)
+
   // match by key
   for (const v of fOriginalObj) {
     if (usedOriginalIds.has(v.id)) {
@@ -173,6 +176,7 @@ async function toGUI(sectionId, yamlValue, originalObj) {
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
   const curr = _.pick(matches[0], ["key", "keyPath", "value"]);
   curr.id = v.id;
+  curr.isPinned = v.isPinned
   output.push(curr);
   usedOriginalIds.add(v.id);
   usedPaths.add(JSON.stringify(curr.keyPath));
@@ -181,7 +185,7 @@ function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
 function flattenObject(obj, isPrettyObj = false) {
   let result = [];
 
-  function flatten(id, item, keyPath) {
+  function flatten(id, item, isPinned, keyPath) {
     if (typeof item === "object" && item !== null) {
       if (keyPath.length > 0) {
         result.push({
@@ -189,14 +193,15 @@ function flattenObject(obj, isPrettyObj = false) {
           keyPath,
           value: null,
           key: keyPath[keyPath.length - 1],
+          isPinned,
         });
       }
       for (const [key, value] of Object.entries(item)) {
         const newKeyPath = [...keyPath, key];
         if (isPrettyObj) {
-          flatten(null, value, newKeyPath);
+          flatten(null, value, false, newKeyPath);
         } else {
-          flatten(value.id, value.value, newKeyPath);
+          flatten(value.id, value.value, value.isPinned, newKeyPath);
         }
       }
     } else {
@@ -205,11 +210,12 @@ function flattenObject(obj, isPrettyObj = false) {
         keyPath,
         value: item,
         key: keyPath[keyPath.length - 1],
+        isPinned,
       });
     }
   }
 
-  flatten(null, obj, []);
+  flatten(null, obj, false, []);
   return result;
 }
 
