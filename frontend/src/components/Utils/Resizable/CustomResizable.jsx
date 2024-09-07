@@ -14,7 +14,7 @@ import {
   youtubeSectionAspectRatio,
 } from "state/hooks/social";
 import { useGetSectionType } from "state/hooks/uiTypes";
-import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
+import { ROOT_SECTION_HEIGHT } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 
@@ -50,7 +50,7 @@ function CustomResizableCore({
   const size = useSectionInfos((x) => {
     const s = x.x[sectionId];
     return s.isMinimized
-      ? { width: s.size.width, height: MINIMIZE_SECTION_HEIGHT }
+      ? { width: s.size.width, height: ROOT_SECTION_HEIGHT }
       : s.size;
   });
   const aspectRatio = useAspectRatio(sectionId);

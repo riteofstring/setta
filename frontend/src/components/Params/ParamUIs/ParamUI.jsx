@@ -65,23 +65,20 @@ export function ParamUI({
     case C.SLIDER: {
       const { min, max, step } = uiType.config;
       return (
-        <div className="section-value flex gap-1">
-          <SliderInput
-            value={value}
-            defaultVal={defaultVal}
-            onChange={onChange}
-            min={min}
-            max={max}
-            step={step}
-            isDisabled={_isDisabled}
-            sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
-            sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
-            sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
-            sliderThumbClassName="block h-3 w-3 cursor-pointer
+        <SliderInput
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          min={min}
+          max={max}
+          step={step}
+          isDisabled={_isDisabled}
+          sliderRootClassName="section-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
+          sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
+          sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
+          sliderThumbClassName="block h-3 w-3 cursor-pointer
       rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none"
-          />
-          <input className="my-auto mr-[1px] h-5/6 w-4 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300" />
-        </div>
+        />
       );
     }
     case C.SWITCH:
@@ -141,23 +138,20 @@ export function ParamSweepUI({
     case C.SLIDER: {
       const { min, max, step } = uiType.config;
       return (
-        <div className="section-key-value flex gap-1">
-          <SliderInput
-            value={value}
-            defaultVal={defaultVal}
-            onChange={onChange}
-            min={min}
-            max={max}
-            step={step}
-            isDisabled={isDisabled}
-            sliderRootClassName="data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
-            sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
-            sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
-            sliderThumbClassName="block h-3 w-3 cursor-pointer
+        <SliderInput
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          min={min}
+          max={max}
+          step={step}
+          isDisabled={isDisabled}
+          sliderRootClassName="section-key-value data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
+          sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
+          sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
+          sliderThumbClassName="block h-3 w-3 cursor-pointer
       rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600"
-          />
-          <input className="w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300" />
-        </div>
+        />
       );
     }
     case C.SWITCH:
