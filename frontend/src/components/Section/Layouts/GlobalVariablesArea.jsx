@@ -7,6 +7,7 @@ import {
   addCodeInfoBatch,
   batchUpdateCodeInfoChildren,
 } from "state/actions/codeInfo";
+import { initializeParam } from "state/actions/initializeParam";
 import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -138,20 +139,24 @@ async function toGUI(sectionId, yamlValue, originalObj) {
   }
 
   const cState = useCodeInfo.getState().x;
-  const newInfos = {};
+  const infos = {};
+  const newInfoIds = [];
   for (const v of output) {
+    infos[v.id] = newCodeInfo({
+      id: v.id,
+      name: v.key,
+      editable: true,
+      rcType: C.PARAMETER,
+      value: v.value,
+    });
     if (!(v.id in cState)) {
-      newInfos[v.id] = newCodeInfo({
-        id: v.id,
-        name: v.key,
-        editable: true,
-        rcType: C.PARAMETER,
-        value: v.value,
-      });
+      newInfoIds.push(v.id);
     }
   }
-  addCodeInfoBatch(newInfos);
+
+  addCodeInfoBatch(infos);
   batchUpdateCodeInfoChildren(idsToChildren);
+  initializeParam(sectionId, newInfoIds);
 }
 
 function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
