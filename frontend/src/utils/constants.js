@@ -11,6 +11,8 @@ export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 40;
 export const INITIAL_CHART_SIZE = { width: 200, height: 200 };
 
+export const PINNED_PARAMS_AREA_MIN_HEIGHT = 30;
+
 export const REACT_FLOW_STORE = {
   lastPaneClickLocation: {},
 };

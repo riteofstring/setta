@@ -75,7 +75,10 @@ function CustomResizableCore({
           left: false,
           bottom: heightResizable,
           right: widthResizable,
+          topRight: false,
           bottomRight: heightResizable && widthResizable,
+          topLeft: false,
+          bottomLeft: false,
         };
 
   return (
