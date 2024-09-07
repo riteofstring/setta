@@ -1,7 +1,17 @@
 import { YamlView } from "components/Params/YamlView";
+import C from "constants/constants.json";
+import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { dbSectionToDict } from "requests/sections";
+import {
+  addCodeInfoBatch,
+  batchUpdateCodeInfoChildren,
+} from "state/actions/codeInfo";
+import { useCodeInfo } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
+import { createNewId } from "utils/idNameCreation";
+import { newCodeInfo } from "utils/objs/codeInfo";
 import { parse, stringify } from "yaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
@@ -15,7 +25,7 @@ function _GlobalVariablesArea({ sectionId }) {
     if (showYaml) {
       toYaml(sectionId, setYamlValue, setOriginalObj);
     } else {
-      toGUI(yamlValue, originalObj);
+      toGUI(sectionId, yamlValue, originalObj);
     }
   }, [showYaml]);
 
@@ -39,8 +49,8 @@ async function toYaml(sectionId, setYamlValue, setOriginalObj) {
   const res = await dbSectionToDict(sectionId);
   if (res.status === 200) {
     const originalObj = parseValues(res.data);
-    setOriginalObj(originalObj);
-    setYamlValue(stringify(originalObj));
+    setOriginalObj(originalObj.output);
+    setYamlValue(stringify(originalObj.prettyOutput));
   }
 }
 
@@ -59,36 +69,123 @@ function parseValues(obj) {
   return obj;
 }
 
-async function toGUI(yamlValue, originalObj) {
+async function toGUI(sectionId, yamlValue, originalObj) {
   const newObj = parse(yamlValue);
   const fOriginalObj = flattenObject(originalObj);
-  const fNewObj = flattenObject(newObj);
-  console.log(fOriginalObj);
-  console.log(fNewObj);
+  const fNewObj = flattenObject(newObj, true);
+  const output = [];
+  const usedOriginalIds = new Set();
+  const usedPaths = new Set();
+
+  // match by key
   for (const v of fOriginalObj) {
-    console.log(v.keyPath);
-    const matches = fNewObj.filter((x) => x.key === v.key);
+    if (usedOriginalIds.has(v.id)) {
+      continue;
+    }
+    let matches = fNewObj.filter(
+      (x) => x.key === v.key && !usedPaths.has(JSON.stringify(x.keyPath)),
+    );
     if (matches.length > 0) {
       sortPathsBySimilarity(matches, v.keyPath);
-      console.log(matches[0].keyPath);
+      updateOutputs({ v, matches, usedOriginalIds, usedPaths, output });
     }
   }
+
+  // match by value
+  // maybe this can be improved, like match by value + number of children
+  for (const v of fOriginalObj) {
+    if (usedOriginalIds.has(v.id)) {
+      continue;
+    }
+    let matches = fNewObj.filter(
+      (x) => x.value === v.value && !usedPaths.has(JSON.stringify(x.keyPath)),
+    );
+    if (matches.length > 0) {
+      sortPathsBySimilarity(matches, v.keyPath);
+      updateOutputs({ v, matches, usedOriginalIds, usedPaths, output });
+    }
+  }
+
+  // add remaining new entries
+  for (const v of fNewObj) {
+    if (usedPaths.has(JSON.stringify(v.keyPath))) {
+      continue;
+    }
+    const curr = _.pick(v, ["key", "keyPath", "value"]);
+    curr.id = createNewId();
+    output.push(curr);
+  }
+
+  const { codeInfoId } = getSectionInfo(sectionId);
+  const idsToChildren = { [codeInfoId]: [] };
+
+  for (const v of output) {
+    idsToChildren[v.id] = [];
+  }
+
+  for (const v of output) {
+    if (v.keyPath.length > 1) {
+      // find parent
+      const match = _.find(output, (x) =>
+        _.isEqual(x.keyPath, v.keyPath.slice(0, -1)),
+      );
+      if (match) {
+        idsToChildren[match.id].push(v.id);
+      }
+    } else {
+      idsToChildren[codeInfoId].push(v.id);
+    }
+  }
+
+  const cState = useCodeInfo.getState().x;
+  const newInfos = {};
+  for (const v of output) {
+    if (!(v.id in cState)) {
+      newInfos[v.id] = newCodeInfo({
+        id: v.id,
+        name: v.key,
+        editable: true,
+        rcType: C.PARAMETER,
+        value: v.value,
+      });
+    }
+  }
+  addCodeInfoBatch(newInfos);
+  batchUpdateCodeInfoChildren(idsToChildren);
 }
 
-function flattenObject(obj) {
+function updateOutputs({ v, matches, usedOriginalIds, usedPaths, output }) {
+  const curr = _.pick(matches[0], ["key", "keyPath", "value"]);
+  curr.id = v.id;
+  output.push(curr);
+  usedOriginalIds.add(v.id);
+  usedPaths.add(JSON.stringify(curr.keyPath));
+}
+
+function flattenObject(obj, isPrettyObj = false) {
   let result = [];
 
-  function flatten(item, keyPath) {
-    if (Array.isArray(item)) {
-      item.forEach((element, index) => {
-        flatten(element, [...keyPath, `[${index}]`]);
-      });
-    } else if (typeof item === "object" && item !== null) {
+  function flatten(id, item, keyPath) {
+    if (typeof item === "object" && item !== null) {
+      if (keyPath.length > 0) {
+        result.push({
+          id,
+          keyPath,
+          value: null,
+          key: keyPath[keyPath.length - 1],
+        });
+      }
       for (const [key, value] of Object.entries(item)) {
-        flatten(value, [...keyPath, key]);
+        const newKeyPath = [...keyPath, key];
+        if (isPrettyObj) {
+          flatten(null, value, newKeyPath);
+        } else {
+          flatten(value.id, value.value, newKeyPath);
+        }
       }
     } else {
       result.push({
+        id,
         keyPath,
         value: item,
         key: keyPath[keyPath.length - 1],
@@ -96,7 +193,7 @@ function flattenObject(obj) {
     }
   }
 
-  flatten(obj, []);
+  flatten(null, obj, []);
   return result;
 }
 

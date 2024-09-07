@@ -37,6 +37,6 @@ def route_sections_make_copy(x: SectionsMakeCopyRequest):
 @router.post(C.ROUTE_SECTION_TO_DICT)
 def route_section_to_yaml(x: SectionToDictRequest):
     e = export_section_to_dict(x.project, x.sectionId)
-    return e.output
+    return {'output': e.output, 'prettyOutput': e.prettyOutput}
 
 

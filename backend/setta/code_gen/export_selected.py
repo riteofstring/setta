@@ -389,6 +389,9 @@ class SimpleExporter:
         params = {}
         for param_id in ids:
             codeInfo = self.p["codeInfo"][param_id]
+            param_name = codeInfo["name"]
+            if not param_name:
+                continue
             param_children = codeInfo["children"]
             if len(param_children) > 0:
                 value = self.export_params(section_id, param_children)
@@ -408,29 +411,35 @@ class SimpleExporter:
 class SectionToDict:
     def __init__(self, p, section_id):
         self.output = {}
+        self.prettyOutput = {}
         self.p = copy.deepcopy(p)
         self.section_id = section_id
 
     def export(self):
-        self.output.update(self.export_section_params())
+        self.output, self.prettyOutput = self.export_section_params()
 
     def export_section_params(self):
         return self.export_params(get_param_ids(self.p, self.section_id))
 
     def export_params(self, ids):
         params = {}
+        prettyParams = {}
         for param_id in ids:
             codeInfo = self.p["codeInfo"][param_id]
+            param_name = codeInfo["name"]
+            if not param_name:
+                continue
             param_children = codeInfo["children"]
             if len(param_children) > 0:
-                value = self.export_params(param_children)
+                value, prettyValue = self.export_params(param_children)
             else:
-                value = self.export_param_value(param_id)
+                value, prettyValue = self.export_param_value(param_id)
             if not no_entered_value(value):
-                params[codeInfo["name"]] = value
-        return params
+                params[codeInfo["name"]] = {"value": value, "id": param_id}
+                prettyParams[codeInfo["name"]] = prettyValue
+        return params, prettyParams
 
     def export_param_value(self, id):
         dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, self.section_id)
         value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
-        return value
+        return value, value
