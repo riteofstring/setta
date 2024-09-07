@@ -294,8 +294,10 @@
       "variantId": "a35b5004-ba1b-4774-99bb-d496127b2909",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
@@ -323,8 +325,10 @@
       "variantId": "56218716-8dc7-4a8b-a253-1eb2bb9cfc56",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -352,8 +356,10 @@
       "variantId": "91b7814e-8f93-4ad1-a966-00851b4e41d9",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -387,8 +393,10 @@
       "variantId": "61ce0033-a59e-4c8e-8a52-d658feb18017",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -416,8 +424,10 @@
       "variantId": "00d5ac58-7a66-4ff1-a62f-af873c0a094b",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false
+      "showYaml": false,
+      "hideUnpinnedParams": false,
+      "isMinimized": false,
+      "pinnedAreaHeight": "auto"
     }
   },
   "codeInfo": {
