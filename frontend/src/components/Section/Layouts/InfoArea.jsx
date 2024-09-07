@@ -1,4 +1,3 @@
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -6,9 +5,9 @@ import { useSectionInfos } from "state/definitions";
 
 function _InfoArea({ sectionId }) {
   return (
-    <ScrollingArea styles="section-main ml-2 my-4 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
+    <div className="section-main nodrag nowheel [&_.prose]flex-1 my-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0">
       <Markdown sectionId={sectionId} />
-    </ScrollingArea>
+    </div>
   );
 }
 
