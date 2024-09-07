@@ -9,24 +9,43 @@ export function SliderInputConfig({ onChange, config }) {
   const [localConfig, setLocalConfig] = useState(config);
 
   function localOnChange(configName, value) {
+    // set local value to whatever the user enters
     setLocalConfig({ ...localConfig, [configName]: value });
-  }
 
-  function onBlur(configName, value) {
-    const asNum = _.toNumber(value);
-    if (
-      value === "" ||
-      !_.isFinite(asNum) ||
-      !configMakesSense(configName, asNum, localConfig)
-    ) {
-      setLocalConfig(config);
+    // update global state to local state whenever the local state changes, if the local state is valid
+    if (value === "") {
       return;
     }
-    onChange(configName, () => asNum);
+    const asNum = _.toNumber(value);
+    if (
+      asNum !== config[configName] &&
+      _.isFinite(asNum) &&
+      configMakesSense(configName, asNum, config)
+    ) {
+      onChange(configName, () => asNum);
+    }
   }
 
+  // set local value to whatever the global state is
+  function onBlur(configName) {
+    setLocalConfig({ ...localConfig, [configName]: config[configName] });
+  }
+
+  // update local value if global state changes
+  // But it's more complicated because we don't want to overwrite local state unnecessarily
+  // because it ends up changing the text formatting which is very annoying.
+  // For example, if the user types 1e2, we don't want it to immediately change to "100".
+  // It should only change to "100" onBlur
   useEffect(() => {
-    setLocalConfig(config);
+    let shouldUpdate = false;
+    for (const [k, v] of Object.entries(localConfig)) {
+      if (_.toNumber(v) !== config[k]) {
+        shouldUpdate = true;
+      }
+    }
+    if (shouldUpdate) {
+      setLocalConfig(config);
+    }
   }, [config]);
 
   return (

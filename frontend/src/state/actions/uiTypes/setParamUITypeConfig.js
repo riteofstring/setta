@@ -104,15 +104,12 @@ function _updateEVs(uiType) {
       if (s.uiTypeColId === colId) {
         const dbSource = getMappedSectionDBSource(s.id);
         const variantId = s.variantId;
-        for (const [pid, valueInfo] of Object.entries(
+        for (const [pid, currValue] of Object.entries(
           eState.x[dbSource][variantId].values,
         )) {
           if (paramsWithUITypeId.has(pid)) {
-            const newVal = getValueForUIType({
-              uiType,
-              currValue: valueInfo.value,
-            });
-            if (newVal !== valueInfo.value) {
+            const newVal = getValueForUIType({ uiType, currValue });
+            if (newVal !== currValue) {
               setEnteredValue({
                 dbSource,
                 collectionId: variantId,
