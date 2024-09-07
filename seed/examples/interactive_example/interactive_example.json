@@ -4,12 +4,17 @@
     "name": "interactive_example",
     "isDefault": 0,
     "viewport": {
-      "x": 334.8625758992132,
-      "y": -12.27261730736194,
+      "x": 309.8625758992132,
+      "y": -53.27261730736194,
       "zoom": 0.5896782961306088
     },
-    "previewImgNodes": "[{\"x\":-126,\"y\":699,\"w\":502,\"h\":370},{\"x\":406,\"y\":718,\"w\":486,\"h\":318},{\"x\":379,\"y\":405,\"w\":202,\"h\":302},{\"x\":689,\"y\":185,\"w\":434,\"h\":373}]",
+    "previewImgNodes": "[{\"x\":820,\"y\":695,\"w\":703,\"h\":614},{\"x\":-126,\"y\":699,\"w\":502,\"h\":370},{\"x\":406,\"y\":718,\"w\":486,\"h\":318},{\"x\":379,\"y\":405,\"w\":202,\"h\":302},{\"x\":689,\"y\":185,\"w\":434,\"h\":373}]",
     "children": {
+      "2850a0f2-2c4a-4128-8a0b-e5510bae2b0d": {
+        "x": 819.5944447641925,
+        "y": 695.4846973333741,
+        "zIndex": 5
+      },
       "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
         "x": -125.50523952598954,
         "y": 698.6057406644343,
@@ -241,11 +246,15 @@
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
         "uiTypeId": "76c639bd-eae5-4497-bf8b-0e668d8baf6c",
-        "nonPresetUITypeIds": ["76c639bd-eae5-4497-bf8b-0e668d8baf6c"]
+        "nonPresetUITypeIds": [
+          "76c639bd-eae5-4497-bf8b-0e668d8baf6c"
+        ]
       },
       "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
         "uiTypeId": "f0593fb7-1a06-419b-af84-67d36995e1e2",
-        "nonPresetUITypeIds": ["f0593fb7-1a06-419b-af84-67d36995e1e2"]
+        "nonPresetUITypeIds": [
+          "f0593fb7-1a06-419b-af84-67d36995e1e2"
+        ]
       },
       "f14239d6-f206-4655-8c34-ddd6873391a5": {
         "uiTypeId": "eab8f446-17cc-4512-bab5-42bff8570f1f",
@@ -259,6 +268,35 @@
   "paramSweeps": {},
   "runGroups": {},
   "sections": {
+    "2850a0f2-2c4a-4128-8a0b-e5510bae2b0d": {
+      "id": "2850a0f2-2c4a-4128-8a0b-e5510bae2b0d",
+      "name": "breezy_black",
+      "paramSweepSectionId": null,
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "uiTypeColId": "dc8e3f40-40e1-4811-98b9-5079391fd7d4",
+      "social": null,
+      "description": "",
+      "codeLanguage": "python",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "8727077c-44ce-4187-95c0-d96de7279463",
+      "nonPresetUITypeIds": [],
+      "variantIds": [
+        "a35b5004-ba1b-4774-99bb-d496127b2909"
+      ],
+      "paramSweepIds": [],
+      "artifacts": [],
+      "isInOtherProjectConfigs": false,
+      "size": {
+        "width": 701,
+        "height": 612
+      },
+      "variantId": "a35b5004-ba1b-4774-99bb-d496127b2909",
+      "paramSweepId": null,
+      "isHorizontalOrientation": 0,
+      "pinnedAreaHeight": "auto",
+      "isMinimized": false
+    },
     "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
       "id": "4609e4a0-49b2-4065-b1a1-e037a33641f4",
       "name": "Code",
@@ -271,10 +309,10 @@
       "isFrozen": 0,
       "dbSource": "",
       "codeInfoId": "15dc4270-4e4e-4799-93eb-c309801d6349",
-      "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["56218716-8dc7-4a8b-a253-1eb2bb9cfc56"],
+      "variantIds": [
+        "56218716-8dc7-4a8b-a253-1eb2bb9cfc56"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -286,7 +324,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": false
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -300,10 +338,10 @@
       "isFrozen": 0,
       "dbSource": "",
       "codeInfoId": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
-      "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["91b7814e-8f93-4ad1-a966-00851b4e41d9"],
+      "variantIds": [
+        "91b7814e-8f93-4ad1-a966-00851b4e41d9"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -315,7 +353,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": false
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -329,10 +367,10 @@
       "isFrozen": 0,
       "dbSource": "",
       "codeInfoId": "14d87eca-54fe-4b0b-9c8b-07477168c7e1",
-      "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["61ce0033-a59e-4c8e-8a52-d658feb18017"],
+      "variantIds": [
+        "61ce0033-a59e-4c8e-8a52-d658feb18017"
+      ],
       "paramSweepIds": [],
       "artifacts": [
         {
@@ -350,7 +388,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": false
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -364,10 +402,10 @@
       "isFrozen": 0,
       "dbSource": null,
       "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
-      "hideUnpinnedParams": 0,
-      "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["00d5ac58-7a66-4ff1-a62f-af873c0a094b"],
+      "variantIds": [
+        "00d5ac58-7a66-4ff1-a62f-af873c0a094b"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -379,7 +417,7 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": false
     }
   },
   "codeInfo": {
@@ -499,19 +537,25 @@
     "c": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "20512036-3e0f-41f3-9738-6573ee71bdaf",
-      "componentIndices": [1],
+      "componentIndices": [
+        1
+      ],
       "isArgsObj": false
     },
     "n": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "f14239d6-f206-4655-8c34-ddd6873391a5",
-      "componentIndices": [1],
+      "componentIndices": [
+        1
+      ],
       "isArgsObj": false
     },
     "blur_radius": {
       "sectionId": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
       "paramInfoId": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
-      "componentIndices": [11],
+      "componentIndices": [
+        11
+      ],
       "isArgsObj": false
     }
   }

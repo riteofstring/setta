@@ -10,7 +10,6 @@ import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
-import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
   // hover:bg-setta-100 dark:hover:bg-setta-900
@@ -59,10 +58,6 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
 
         {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
           <HideShowUnpinnedParamsButton sectionId={sectionId} />
-        )}
-
-        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
-          <ShowYaml sectionId={sectionId} />
         )}
 
         <FreezeButton sectionId={sectionId} />
