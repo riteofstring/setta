@@ -117,6 +117,17 @@ async function toGUI(sectionId, yamlValue, originalObj) {
     output.push(curr);
   }
 
+  const keyPathToIndex = {};
+  for (const [idx, v] of fNewObj.entries()) {
+    keyPathToIndex[JSON.stringify(v.keyPath)] = idx;
+  }
+
+  output.sort((a, b) => {
+    const indexA = keyPathToIndex[JSON.stringify(a.keyPath)];
+    const indexB = keyPathToIndex[JSON.stringify(b.keyPath)];
+    return indexA - indexB;
+  });
+
   const { codeInfoId } = getSectionInfo(sectionId);
   const idsToChildren = { [codeInfoId]: [] };
 
