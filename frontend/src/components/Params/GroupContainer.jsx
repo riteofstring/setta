@@ -1,6 +1,6 @@
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "components/Utils/Resizable/utils";
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
@@ -77,6 +77,7 @@ function ResizablePinnedArea({
   outerRef,
 }) {
   const height = useGetSectionInfo(sectionId, "pinnedAreaHeight");
+  const [initialMaxHeight, setInitialMaxHeight] = useState(100000);
 
   function onResizeStop(...props) {
     const { height } = getNewSize({
@@ -87,6 +88,12 @@ function ResizablePinnedArea({
     setSectionInfoAttr({ sectionId, attr: "pinnedAreaHeight", value: height });
   }
 
+  useEffect(() => {
+    setInitialMaxHeight(outerRef.current.clientHeight);
+  }, []);
+
+  const maxHeight = outerRef.current?.clientHeight ?? initialMaxHeight;
+
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
@@ -95,7 +102,7 @@ function ResizablePinnedArea({
       size={{ height }}
       onResizeStop={onResizeStop}
       minHeight={`${PINNED_PARAMS_AREA_MIN_HEIGHT}px`}
-      maxHeight={`${outerRef.current?.clientHeight}px`}
+      maxHeight={`${maxHeight}px`}
       enable={{
         top: false,
         left: false,
