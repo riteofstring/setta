@@ -97,7 +97,7 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className="nowheel items-startjustify-between relative -mt-1 flex max-h-[50%] flex-col overflow-hidden border-b border-white pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-setta-900"
+      className="nowheel items-startjustify-between relative -mt-1 flex max-h-[50%] flex-col overflow-hidden border-b border-white bg-setta-200/20 pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-setta-900"
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
@@ -121,7 +121,7 @@ function ResizablePinnedArea({
         </p>
       </header>
 
-      <div className="section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid overflow-y-scroll">
+      <div className="section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid gap-y-1 overflow-y-scroll">
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={topLevelParamIds}
