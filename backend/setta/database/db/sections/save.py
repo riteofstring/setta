@@ -14,9 +14,7 @@ def save_sections(dbs, sections):
             codeLanguage,
             isFrozen,
             dbSource,
-            codeInfoId,
-            hideUnpinnedParams,
-            showYaml
+            codeInfoId
         )
         VALUES (
             :id,
@@ -28,9 +26,7 @@ def save_sections(dbs, sections):
             :codeLanguage,
             :isFrozen,
             :dbSource,
-            :codeInfoId,
-            :hideUnpinnedParams,
-            :showYaml
+            :codeInfoId
         )
         ON CONFLICT (id)
         DO UPDATE SET
@@ -42,9 +38,7 @@ def save_sections(dbs, sections):
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
             dbSource = :dbSource,
-            codeInfoId = :codeInfoId,
-            hideUnpinnedParams = :hideUnpinnedParams,
-            showYaml = :showYaml
+            codeInfoId = :codeInfoId
     """
 
     query_params = [
@@ -59,8 +53,6 @@ def save_sections(dbs, sections):
             "isFrozen": s["isFrozen"],
             "dbSource": s.get("dbSource"),
             "codeInfoId": s["codeInfoId"],
-            "hideUnpinnedParams": s["hideUnpinnedParams"],
-            "showYaml": s["showYaml"]
         }
         for s in sections.values()
     ]

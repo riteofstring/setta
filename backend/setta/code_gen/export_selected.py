@@ -114,11 +114,6 @@ def simple_export_selected(p):
     e.export()
     return e
 
-def export_section_to_dict(p, section_id):
-    e = SectionToDict(p, section_id)
-    e.export()
-    return e
-
 
 def get_code_containing_generated_python(p):
     for id, s in p["sections"].items():
@@ -389,9 +384,6 @@ class SimpleExporter:
         params = {}
         for param_id in ids:
             codeInfo = self.p["codeInfo"][param_id]
-            param_name = codeInfo["name"]
-            if not param_name:
-                continue
             param_children = codeInfo["children"]
             if len(param_children) > 0:
                 value = self.export_params(section_id, param_children)
@@ -405,40 +397,3 @@ class SimpleExporter:
         dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
         value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
         return value
-
-
-
-class SectionToDict:
-    def __init__(self, p, section_id):
-        self.output = {}
-        self.prettyOutput = {}
-        self.p = copy.deepcopy(p)
-        self.section_id = section_id
-
-    def export(self):
-        self.output, self.prettyOutput = self.export_section_params()
-
-    def export_section_params(self):
-        return self.export_params(get_param_ids(self.p, self.section_id))
-
-    def export_params(self, ids):
-        params = {}
-        prettyParams = {}
-        for param_id in ids:
-            codeInfo = self.p["codeInfo"][param_id]
-            param_name = codeInfo["name"]
-            if not param_name:
-                continue
-            param_children = codeInfo["children"]
-            if len(param_children) > 0:
-                value, prettyValue = self.export_params(param_children)
-            else:
-                value, prettyValue = self.export_param_value(param_id)
-            params[codeInfo["name"]] = {"value": value, "id": param_id}
-            prettyParams[codeInfo["name"]] = prettyValue
-        return params, prettyParams
-
-    def export_param_value(self, id):
-        dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, self.section_id)
-        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
-        return value, value

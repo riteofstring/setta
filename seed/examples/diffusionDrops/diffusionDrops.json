@@ -692,9 +692,7 @@
       "variantId": "9b39ad4c-8887-43ea-b759-a1fc067ac3ef",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba": {
       "id": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
@@ -722,9 +720,7 @@
       "variantId": "4253da34-9a1a-43eb-b80f-c6708e339024",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "45ee78a4-2ad3-4541-8a65-87a21a798887": {
       "id": "45ee78a4-2ad3-4541-8a65-87a21a798887",
@@ -751,9 +747,7 @@
       "variantId": "e3280349-7dda-43f6-9cea-0b98971435a5",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
       "id": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
@@ -780,9 +774,7 @@
       "variantId": "9083beca-25c9-4a31-885a-fb19064efd3d",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
       "id": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -810,9 +802,7 @@
       "variantId": "fb08c4e1-9809-46ef-bfa5-52a4a944ef74",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "67c603f7-a536-4603-83b3-0b882ee098b2": {
       "id": "67c603f7-a536-4603-83b3-0b882ee098b2",
@@ -839,9 +829,7 @@
       "variantId": "645069e7-0657-4c2e-9128-88c701bbd069",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "70355b9b-16ab-462f-8cfc-f23e2399ec1e": {
       "id": "70355b9b-16ab-462f-8cfc-f23e2399ec1e",
@@ -868,9 +856,7 @@
       "variantId": "4c9bee35-38ab-471e-873d-62e1233eeaaf",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "93b410c0-33e9-4d66-95be-37d223d99c0a": {
       "id": "93b410c0-33e9-4d66-95be-37d223d99c0a",
@@ -897,9 +883,7 @@
       "variantId": "dbb76902-0b6c-46fa-a765-46bdfcf92d92",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7": {
       "id": "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
@@ -926,9 +910,7 @@
       "variantId": "10ea5acf-9c24-4351-bc81-252625623507",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3": {
       "id": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
@@ -956,9 +938,7 @@
       "variantId": "0022f0d8-b97f-4345-90ac-66615e576fb2",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "baf34852-dfdb-4a2f-850a-6c903acbf1f5": {
       "id": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
@@ -985,9 +965,7 @@
       "variantId": "756e7bb0-ac13-4790-a05c-f10425d508e9",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
@@ -1014,9 +992,7 @@
       "variantId": "8481e81d-f417-4914-b5d8-2797202392ab",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91": {
       "id": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
@@ -1043,9 +1019,7 @@
       "variantId": "c58d323d-382a-47b2-919f-a7f06bcac760",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     },
     "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
       "id": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
@@ -1072,9 +1046,7 @@
       "variantId": "a853185e-5b0d-400a-a94c-6c14a9c9809e",
       "paramSweepId": null,
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false
+      "artifacts": []
     }
   },
   "codeInfo": {

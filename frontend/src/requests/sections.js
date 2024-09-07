@@ -9,14 +9,6 @@ import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
-export async function dbSectionToDict(sectionId) {
-  const project = getProjectDataToGenerateCode({});
-  return await post({
-    body: { project, sectionId },
-    address: C.ROUTE_SECTION_TO_DICT,
-  });
-}
-
 export async function dbGetSections() {
   return await post({
     body: {},
