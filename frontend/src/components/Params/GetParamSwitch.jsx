@@ -5,6 +5,7 @@ export function GetParamSwitch({
   paramIds,
   requiredParamIds,
   setDidUpdate,
+  ancestorIsSelected = false,
 }) {
   // const paramFilter = useSectionParamFilter((x) => x.x[sectionId]);
   // const filteredInfos = paramFilter
@@ -24,6 +25,7 @@ export function GetParamSwitch({
       paramInfoId={e}
       requiredParamIds={requiredParamIds}
       setDidUpdate={setDidUpdate}
+      ancestorIsSelected={ancestorIsSelected}
     />
   ));
 }

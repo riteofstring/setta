@@ -5,8 +5,8 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
-import { toggleCodeInfoSelected } from "state/actions/codeInfo";
 import { getInfoViewHandlers } from "state/actions/infoView";
+import { toggleParamSelected } from "state/actions/kwargs/kwargs";
 import {
   useCodeInfo,
   useParamShortcuts,
@@ -21,6 +21,7 @@ function _ParamContainer({
   paramInfoId,
   requiredParamIds,
   setDidUpdate,
+  ancestorIsSelected,
   children,
 }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
@@ -57,9 +58,9 @@ function _ParamContainer({
     _.isEqual,
   );
   function onClickSelect(e) {
-    if (useParamShortcuts.getState().isSelectingParams) {
+    if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
-      toggleCodeInfoSelected(paramInfoId);
+      toggleParamSelected(paramInfoId);
     }
   }
 
@@ -96,6 +97,7 @@ function _ParamContainer({
           paramIds={paramChildren}
           requiredParamIds={requiredParamIds}
           setDidUpdate={setDidUpdate}
+          ancestorIsSelected={ancestorIsSelected || paramIsSelected}
         />
       </div>
     </article>
