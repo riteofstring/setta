@@ -61,7 +61,7 @@ export function deleteKwarg(payload) {
 }
 
 export function deleteSelectedKwargs({ sectionId }) {
-  const { selectedParams } = getAllSelectedParams(sectionId);
+  const selectedParams = getAllSelectedParams(sectionId);
   deleteKwargIds({
     sectionId,
     ids: selectedParams.map((x) => x.id),
@@ -101,10 +101,33 @@ export function changeKwargName({ sectionId, paramInfoId, name }) {
 }
 
 export function pinSelectedKwargs(sectionId) {
-  const { selectedParams } = getAllSelectedParams(sectionId);
+  const selectedParams = getAllSelectedParams(sectionId);
+  console.log("selectedParams", selectedParams)
   useCodeInfo.setState((x) => {
     for (const p of selectedParams) {
-      x.x[p.id].isPinned = !x.x[p.id].isPinned;
+      setAttrOfSelfAndDescendants(x.x, p.id, "isPinned", !x.x[p.id].isPinned);
     }
   });
+}
+
+export function toggleParamSelected(paramInfoId) {
+  useCodeInfo.setState((x) => {
+    const newVal = !x.x[paramInfoId].isSelected;
+    console.log("toggleParamSelected", newVal)
+    x.x[paramInfoId].isSelected = newVal;
+    // We want only the parent to be true
+    // just because of the way other states interpret isSelected
+    const childrenNewVal = false 
+    setAttrOfSelfAndDescendants(x.x, paramInfoId, "isSelected", childrenNewVal, false);
+  });
+}
+
+function setAttrOfSelfAndDescendants(state, id, attr, value, setSelf = true) {
+  if (setSelf) {
+    state[id][attr] = value;
+  }
+  for (const paramId of state[id].children) {
+    state[paramId][attr] = value;
+    setAttrOfSelfAndDescendants(state, paramId, attr, value, true);
+  }
 }

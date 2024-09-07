@@ -115,7 +115,7 @@ export function KwargsControls({
 
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
-    const { selectedParams } = getAllSelectedParams(sectionId);
+    const selectedParams = getAllSelectedParams(sectionId);
     if (selectedParams.length > 0) {
       for (const p of selectedParams) {
         const parent = Object.values(useCodeInfo.getState().x).find((x) =>
@@ -133,7 +133,7 @@ function onClickAddKwargFn(sectionId, objInfoId) {
 
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
-    const { selectedParams } = getAllSelectedParams(sectionId);
+    const selectedParams = getAllSelectedParams(sectionId);
     if (selectedParams.length > 0) {
       for (const p of selectedParams) {
         const parent = Object.values(useCodeInfo.getState().x).find((x) =>

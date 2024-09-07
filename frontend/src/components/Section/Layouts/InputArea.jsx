@@ -22,7 +22,7 @@ function _InputArea({ sectionId, bgColor }) {
             objInfoId={selectedItem}
             bgColor={bgColor}
           />
-          <ParamGroupContainer sectionId={sectionId} objInfoId={selectedItem} />
+          <ParamGroupContainer sectionId={sectionId} />
         </>
       )}
     </>

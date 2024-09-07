@@ -89,5 +89,5 @@ export function useParamsDidUpdate({ sectionId, setDidUpdate, isPinned }) {
     setDidUpdate(true);
   }, [params]);
 
-  return params;
+  return params.map((x) => x.id);
 }

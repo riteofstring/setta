@@ -1,17 +1,25 @@
 import C from "constants/constants.json";
 
-// Modified function to fix the order
 function _findAllDescendants(
   allCodeInfo,
   codeInfoIds,
   outputCondition,
   stackCondition,
+  paramPathCondition = false, // false or a function
 ) {
   const output = [];
   const idStack = codeInfoIds
     .filter((x) => stackCondition(allCodeInfo[x]))
     .reverse();
   const visited = new Set();
+  const pathMap = paramPathCondition ? new Map() : null;
+
+  if (paramPathCondition) {
+    idStack.forEach((id) =>
+      pathMap.set(id, paramPathCondition(allCodeInfo[id]) ? [id] : []),
+    );
+  }
+
   while (idStack.length > 0) {
     const id = idStack.pop();
     if (!id || visited.has(id)) {
@@ -19,57 +27,97 @@ function _findAllDescendants(
     }
     visited.add(id);
     const currInfo = allCodeInfo[id];
+
     if (outputCondition(currInfo)) {
-      output.push(currInfo.id);
+      if (paramPathCondition) {
+        const currentPath = pathMap.get(id);
+        output.push({ id: currInfo.id, path: [...currentPath] });
+      } else {
+        output.push(currInfo.id);
+      }
     }
+
     if (stackCondition(currInfo)) {
-      idStack.push(...currInfo.children.slice().reverse());
+      const children = currInfo.children.slice().reverse();
+      if (paramPathCondition) {
+        const currentPath = pathMap.get(id);
+        children.forEach((childId) => {
+          pathMap.set(
+            childId,
+            paramPathCondition(allCodeInfo[childId])
+              ? [...currentPath, childId]
+              : [...currentPath],
+          );
+        });
+      }
+      idStack.push(...children);
     }
   }
-  return output; // No need to reverse the output
+  return output;
 }
 
-export function findAllCallables(allCodeInfo, codeInfoIds) {
+export function findAllCallables(
+  allCodeInfo,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.CALLABLE,
     () => true,
+    paramPathCondition,
   );
 }
 
-export function findAllParametersOfCallables(allCodeInfo, codeInfoIds) {
+export function findAllParametersOfCallables(
+  allCodeInfo,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     (c) => c?.rcType === C.CALLABLE,
+    paramPathCondition,
   );
 }
 
-export function findAllParametersOfCollections(allCodeInfo, codeInfoIds) {
+export function findAllParametersOfCollections(
+  allCodeInfo,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     (c) => c?.rcType === C.COLLECTION,
+    paramPathCondition,
   );
 }
 
-export function findAllParameters(allCodeInfo, codeInfoIds) {
+export function findAllParameters(
+  allCodeInfo,
+  codeInfoIds,
+  paramPathCondition = false,
+) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
     () => true,
+    paramPathCondition,
   );
 }
 
-export function findAll(allCodeInfo, codeInfoIds) {
+export function findAll(allCodeInfo, codeInfoIds, paramPathCondition = false) {
   return _findAllDescendants(
     allCodeInfo,
     codeInfoIds,
     () => true,
     () => true,
+    paramPathCondition,
   );
 }

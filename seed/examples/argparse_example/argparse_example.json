@@ -289,7 +289,7 @@
       "rcType": "parameter",
       "defaultVal": null,
       "description": "",
-      "isPinned": 0,
+      "isPinned": 1,
       "isFrozen": 0,
       "children": [],
       "positionalOnly": false,
