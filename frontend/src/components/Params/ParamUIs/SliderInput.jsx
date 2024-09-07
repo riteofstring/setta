@@ -11,23 +11,22 @@ export function SliderInputConfig({ onChange, config }) {
   function localOnChange(configName, value) {
     // set local value to whatever the user enters
     setLocalConfig({ ...localConfig, [configName]: value });
-
-    // update global state to local state whenever the local state changes, if the local state is valid
-    if (value === "") {
-      return;
-    }
-    const asNum = _.toNumber(value);
-    if (
-      asNum !== config[configName] &&
-      _.isFinite(asNum) &&
-      configMakesSense(configName, asNum, config)
-    ) {
-      onChange(configName, () => asNum);
-    }
   }
 
   // set local value to whatever the global state is
   function onBlur(configName) {
+ // update global state to local state whenever the local state changes, if the local state is valid
+ if (value === "") {
+  return;
+}
+const asNum = _.toNumber(value);
+if (
+  asNum !== config[configName] &&
+  _.isFinite(asNum) &&
+  configMakesSense(configName, asNum, config)
+) {
+  onChange(configName, () => asNum);
+}
     setLocalConfig({ ...localConfig, [configName]: config[configName] });
   }
 
