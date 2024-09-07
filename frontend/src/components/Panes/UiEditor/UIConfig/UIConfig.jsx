@@ -4,7 +4,7 @@ import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingare
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React, { useState } from "react";
-import { BiPencil } from "react-icons/bi";
+import { BiFilter, BiPencil } from "react-icons/bi";
 import { setCodeInfoDescription } from "state/actions/codeInfo";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
@@ -36,7 +36,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         placeholder="Filter"
         leftElement={
-          <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
+          <BiFilter className="text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
       />
@@ -85,10 +85,10 @@ function _UIElement({ sectionId, paramInfo }) {
           {paramName}
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
-          {/* <InfoViewDescription
+          <InfoViewDescription
             sectionId={sectionId}
             paramInfoId={paramInfoId}
-          /> */}
+          />
           <SaveUITypeConfig />
         </div>
       </div>
