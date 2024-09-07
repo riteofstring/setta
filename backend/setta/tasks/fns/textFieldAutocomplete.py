@@ -3,14 +3,15 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import (
-    position_to_line_col,
     maybe_prepend_with_imports_and_replace_templated_code,
+    position_to_line_col,
     set_line,
     var_declaration,
 )
 from setta.code_gen.utils import process_refs
 from setta.tasks.fns.textFieldInitializeCode import get_cache_key
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import USER_SETTINGS
 
 from .utils import TaskDefinition
 
@@ -26,9 +27,8 @@ class CodeCompletionContent(BaseModel):
     cached: Optional[Any] = None
 
 
-async def _textFieldCompletion(message, lsp_writer, settings_file):
-    inferImports = settings_file.settings["inferImports"]
-    return await completionHelper(message, textFieldCompletionFn(lsp_writer), inferImports)
+async def _textFieldCompletion(message, lsp_writer):
+    return await completionHelper(message, textFieldCompletionFn(lsp_writer))
 
 
 def textFieldCompletionFn(lsp_writer):
@@ -59,7 +59,7 @@ def textFieldCompletionFn(lsp_writer):
     return fn
 
 
-async def completionHelper(message, fn, inferImports):
+async def completionHelper(message, fn):
     request_id = message.id
     message = CodeCompletionContent.parse_obj(message.content)
     cached = message.cached
@@ -85,7 +85,11 @@ async def completionHelper(message, fn, inferImports):
     set_line(lines, var_name_to_line_num, var_name, fullText)
 
     code, var_name_to_line_num = maybe_prepend_with_imports_and_replace_templated_code(
-        lines, templatedCode, var_name, var_name_to_line_num, inferImports=inferImports
+        lines,
+        templatedCode,
+        var_name,
+        var_name_to_line_num,
+        inferImports=USER_SETTINGS["inferImports"],
     )
 
     line_within_fullText, column = position_to_line_col(fullText, position)
@@ -123,5 +127,5 @@ textFieldCompletion = TaskDefinition(
     fn=_textFieldCompletion,
     read_cache=read_cache,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer", "settings_file"],
+    dependencies=["lsp_writer"],
 )

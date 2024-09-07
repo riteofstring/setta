@@ -172,7 +172,7 @@ def generate_code(
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
-    inferImports=True
+    inferImports=True,
 ):
     (
         lines,
@@ -189,7 +189,7 @@ def generate_code(
         force_appear_var_name,
         var_name_to_line_num,
         replace_templated_code,
-        inferImports
+        inferImports,
     )
 
 

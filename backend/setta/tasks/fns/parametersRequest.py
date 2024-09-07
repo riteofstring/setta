@@ -37,8 +37,8 @@ def parametersRequestFn(lsp_writer, use_jedi=False):
     return fn
 
 
-async def _parametersRequest(message, lsp_writer, settings_file):
-    return await completionHelper(message, parametersRequestFn(lsp_writer), settings_file.settings["inferImports"])
+async def _parametersRequest(message, lsp_writer):
+    return await completionHelper(message, parametersRequestFn(lsp_writer))
 
 
 parametersRequest = TaskDefinition(
@@ -47,7 +47,7 @@ parametersRequest = TaskDefinition(
     fn=_parametersRequest,
     read_cache=read_cache,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer", "settings_file"],
+    dependencies=["lsp_writer"],
 )
 
 

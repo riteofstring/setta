@@ -6,17 +6,20 @@ from setta.code_gen.export_selected import (
 )
 from setta.code_gen.python.generate_code import generate_code
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import USER_SETTINGS
 
 from .utils import TaskDefinition
 
 
 # this just initializes a document which gets the lsp to send back diagnostics
-async def _typeCheck(message, lsp_writer, settings_file):
+async def _typeCheck(message, lsp_writer):
     project = message.content
     exporter_obj = export_selected(project)
     codeJson = exporter_obj.output
     templatedCode = get_code_containing_generated_python(project)
-    code = generate_code(codeJson, templatedCode, inferImports=settings_file.settings["inferImports"])[0]
+    code = generate_code(
+        codeJson, templatedCode, inferImports=USER_SETTINGS["inferImports"]
+    )[0]
     await lsp_writer.send_document_open_request(
         project["projectConfig"]["id"], code, codeJson
     )
@@ -29,5 +32,5 @@ typeCheck = TaskDefinition(
     return_message_type="typeCheckReturn",
     fn=_typeCheck,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer", "settings_file"],
+    dependencies=["lsp_writer"],
 )

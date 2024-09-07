@@ -19,9 +19,9 @@ from setta.routers import (
     artifact_router,
     code_info_router,
     interactive_code_router,
-    settings_router,
     projects_router,
     sections_router,
+    settings_router,
     terminals_router,
     websocket_router,
 )
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
         root_path=Path(os.getcwd()) / ".setta_code",
     )
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
-    app.state.tasks = Tasks(app.state.lsp_writer, app.state.settings_file)
+    app.state.tasks = Tasks(app.state.lsp_writer)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
     app.state.lsp_reader = LanguageServerReader(

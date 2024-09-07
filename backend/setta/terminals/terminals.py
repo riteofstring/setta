@@ -27,6 +27,7 @@ from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
+    USER_SETTINGS,
     C,
 )
 
@@ -181,7 +182,10 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
             )
         if needs_generated_python(curr_code):
             replacements[C.SETTA_GENERATED_PYTHON] = generate_code(
-                selected, curr_code, replace_templated_code=False
+                selected,
+                curr_code,
+                replace_templated_code=False,
+                inferImports=USER_SETTINGS["inferImports"],
             )[0]
 
         section_variant["code"] = replace_keywords(curr_code, replacements)

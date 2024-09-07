@@ -4,12 +4,9 @@ from pydantic import BaseModel
 
 from setta.code_gen.export_selected import export_selected, get_selected_section_variant
 from setta.code_gen.find_placeholders import needs_generated_python
-from setta.code_gen.python.generate_code import (
-    generate_code,
-    replace_keywords,
-)
+from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import C
+from setta.utils.constants import USER_SETTINGS, C
 
 from .utils import TaskDefinition
 
@@ -33,7 +30,10 @@ async def _codeAreaInitializeCode(message, lsp_writer):
         exporter_obj = export_selected(project)
         codeJson = exporter_obj.output
         gen_code, var_name_to_line_num = generate_code(
-            codeJson, code, replace_templated_code=False
+            codeJson,
+            code,
+            replace_templated_code=False,
+            inferImports=USER_SETTINGS["inferImports"],
         )
         generated_var_names = var_name_to_line_num.keys()
         infoToFullName = {

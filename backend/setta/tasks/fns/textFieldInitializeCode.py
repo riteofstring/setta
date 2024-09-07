@@ -11,6 +11,7 @@ from setta.code_gen.python.generate_code import (
     maybe_prepend_with_imports_and_replace_templated_code,
 )
 from setta.tasks.task_runner import RunType
+from setta.utils.constants import USER_SETTINGS
 
 from .utils import TaskDefinition
 
@@ -21,7 +22,7 @@ class TextFieldInitializeCodeContent(BaseModel):
     paramInfoId: str | None
 
 
-async def _textFieldInitializeCode(message, lsp_writer, settings_file):
+async def _textFieldInitializeCode(message, lsp_writer):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
     exporter_obj = export_selected(project)
@@ -48,7 +49,11 @@ async def _textFieldInitializeCode(message, lsp_writer, settings_file):
     print(referencable_var_names, flush=True)
 
     code, _ = maybe_prepend_with_imports_and_replace_templated_code(
-        lines, templatedCode, push_var_name, var_name_to_line_num, inferImports=settings_file.settings["inferImports"]
+        lines,
+        templatedCode,
+        push_var_name,
+        var_name_to_line_num,
+        inferImports=USER_SETTINGS["inferImports"],
     )
 
     print("code\n", code, flush=True)
@@ -89,5 +94,5 @@ textFieldInitializeCode = TaskDefinition(
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer", "settings_file"],
+    dependencies=["lsp_writer"],
 )
