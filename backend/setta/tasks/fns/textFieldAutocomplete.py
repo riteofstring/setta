@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.python.generate_code import (
     position_to_line_col,
-    prepend_with_imports,
+    maybe_prepend_with_imports_and_replace_templated_code,
     set_line,
     var_declaration,
 )
@@ -26,8 +26,9 @@ class CodeCompletionContent(BaseModel):
     cached: Optional[Any] = None
 
 
-async def _textFieldCompletion(message, lsp_writer):
-    return await completionHelper(message, textFieldCompletionFn(lsp_writer))
+async def _textFieldCompletion(message, lsp_writer, settings_file):
+    inferImports = settings_file.settings["inferImports"]
+    return await completionHelper(message, textFieldCompletionFn(lsp_writer), inferImports)
 
 
 def textFieldCompletionFn(lsp_writer):
@@ -58,7 +59,7 @@ def textFieldCompletionFn(lsp_writer):
     return fn
 
 
-async def completionHelper(message, fn):
+async def completionHelper(message, fn, inferImports):
     request_id = message.id
     message = CodeCompletionContent.parse_obj(message.content)
     cached = message.cached
@@ -82,8 +83,9 @@ async def completionHelper(message, fn):
         message.position,
     )
     set_line(lines, var_name_to_line_num, var_name, fullText)
-    code, var_name_to_line_num = prepend_with_imports(
-        lines, templatedCode, var_name, var_name_to_line_num
+
+    code, var_name_to_line_num = maybe_prepend_with_imports_and_replace_templated_code(
+        lines, templatedCode, var_name, var_name_to_line_num, inferImports=inferImports
     )
 
     line_within_fullText, column = position_to_line_col(fullText, position)
@@ -121,5 +123,5 @@ textFieldCompletion = TaskDefinition(
     fn=_textFieldCompletion,
     read_cache=read_cache,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer"],
+    dependencies=["lsp_writer", "settings_file"],
 )

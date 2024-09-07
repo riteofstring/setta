@@ -5,10 +5,7 @@ from pydantic import BaseModel
 from setta.code_gen.export_selected import export_selected, get_selected_section_variant
 from setta.code_gen.find_placeholders import needs_generated_python
 from setta.code_gen.python.generate_code import (
-    count_lines,
     generate_code,
-    generate_lines_of_code_without_imports,
-    prepend_with_imports,
     replace_keywords,
 )
 from setta.tasks.task_runner import RunType

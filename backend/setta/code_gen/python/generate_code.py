@@ -119,28 +119,32 @@ def count_lines(string):
     return line_count + 1  # Adjusting for the last line
 
 
-def prepend_with_imports(
+def maybe_prepend_with_imports_and_replace_templated_code(
     lines,
     templated_code,
     force_appear_var_name,
     var_name_to_line_num,
     replace_templated_code=True,
+    inferImports=True,
 ):
-    if force_appear_var_name:
-        line_num = var_name_to_line_num[force_appear_var_name]
-        original_force_appear_var_str = lines[line_num]
-        var_str = original_force_appear_var_str.rstrip(".(")
-        try:
-            ast.parse(var_str)
-        except SyntaxError:
-            var_str = var_declaration(force_appear_var_name, "None")
-        lines[line_num] = var_str
+    if inferImports:
+        if force_appear_var_name:
+            line_num = var_name_to_line_num[force_appear_var_name]
+            original_force_appear_var_str = lines[line_num]
+            var_str = original_force_appear_var_str.rstrip(".(")
+            try:
+                ast.parse(var_str)
+            except SyntaxError:
+                var_str = var_declaration(force_appear_var_name, "None")
+            lines[line_num] = var_str
 
-    imports = get_import_text("\n".join(lines))
-    imports = imports + "\n\n"
+        imports = get_import_text("\n".join(lines))
+        imports = imports + "\n\n"
 
-    if force_appear_var_name:
-        lines[line_num] = original_force_appear_var_str
+        if force_appear_var_name:
+            lines[line_num] = original_force_appear_var_str
+    else:
+        imports = ""
 
     num_preceding_lines = count_lines(
         templated_code.split(double_braces(C.SETTA_GENERATED_PYTHON))[0] + imports
@@ -168,6 +172,7 @@ def generate_code(
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
+    inferImports=True
 ):
     (
         lines,
@@ -178,12 +183,13 @@ def generate_code(
         force_appear_var_name=force_appear_var_name,
     )
 
-    return prepend_with_imports(
+    return maybe_prepend_with_imports_and_replace_templated_code(
         lines,
         templated_code,
         force_appear_var_name,
         var_name_to_line_num,
         replace_templated_code,
+        inferImports
     )
 
 

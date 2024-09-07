@@ -19,7 +19,7 @@ from setta.routers import (
     artifact_router,
     code_info_router,
     interactive_code_router,
-    misc_router,
+    settings_router,
     projects_router,
     sections_router,
     terminals_router,
@@ -35,11 +35,12 @@ from setta.utils.websocket_manager import WebsocketManager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
+    app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
     app.state.lsp = LanguageServer(
         root_path=Path(os.getcwd()) / ".setta_code",
     )
     app.state.lsp_writer = LanguageServerWriter(app.state.lsp)
-    app.state.tasks = Tasks(app.state.lsp_writer)
+    app.state.tasks = Tasks(app.state.lsp_writer, app.state.settings_file)
     app.state.terminal_websockets = TerminalWebsockets()
     app.state.websocket_manager = WebsocketManager(app.state.tasks)
     app.state.lsp_reader = LanguageServerReader(
@@ -49,7 +50,6 @@ async def lifespan(app: FastAPI):
         C.DB_SPECS,
         C.CREATE_IF_NOT_EXISTS,
     )
-    app.state.settings_file = SettingsFile(C.SETTINGS_PATH, C.CREATE_IF_NOT_EXISTS)
 
     maybe_create_tables_and_seed(
         app.state.dbs,
@@ -109,7 +109,7 @@ app.include_router(sections_router, **kwargs)
 app.include_router(terminals_router, **kwargs)
 app.include_router(websocket_router, **kwargs)
 app.include_router(code_info_router, **kwargs)
-app.include_router(misc_router, **kwargs)
+app.include_router(settings_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 

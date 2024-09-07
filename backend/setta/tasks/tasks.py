@@ -10,8 +10,9 @@ from .task_runner import TaskRunner
 
 
 class Tasks:
-    def __init__(self, lsp_writer):
+    def __init__(self, lsp_writer, settings_file):
         self.lsp_writer = lsp_writer
+        self.settings_file = settings_file
         self.task_runner = TaskRunner()
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
