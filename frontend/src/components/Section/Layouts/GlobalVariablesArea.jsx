@@ -10,7 +10,7 @@ function _GlobalVariablesArea({ sectionId, bgColor }) {
         objInfoId={null}
         bgColor={bgColor}
       />
-      <ParamGroupContainer sectionId={sectionId} />
+      <ParamGroupContainer sectionId={sectionId} objInfoId={null} />
     </>
   );
 }

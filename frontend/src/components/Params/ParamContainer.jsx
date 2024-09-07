@@ -5,8 +5,8 @@ import _ from "lodash";
 import React from "react";
 import { BiChevronUp } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
+import { toggleCodeInfoSelected } from "state/actions/codeInfo";
 import { getInfoViewHandlers } from "state/actions/infoView";
-import { toggleParamSelected } from "state/actions/kwargs/kwargs";
 import {
   useCodeInfo,
   useParamShortcuts,
@@ -16,22 +16,17 @@ import {
 import { useGetSectionInfo } from "state/hooks/sections";
 import { ParamInput } from "./ParamItems/ParamInput";
 
-function _ParamContainer({
-  sectionId,
-  paramInfoId,
-  requiredParamIds,
-  setDidUpdate,
-  ancestorIsSelected,
-  children,
-}) {
+function _ParamContainer({ sectionId, paramInfo, setDidUpdate, children }) {
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
-  const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfoId]);
+  const maybeErrorMessage = useTypeErrors((x) => x[sectionId]?.[paramInfo.id]);
   const isFocusedSearchResult = useProjectSearch((x) =>
-    _.isEqual(x.focused, { sectionId, paramInfoId }),
+    _.isEqual(x.focused, { sectionId, paramInfoId: paramInfo.id }),
   );
 
   const isSearchResult = useProjectSearch((x) =>
-    x.codeInfo.some((c) => _.isEqual(c, { sectionId, paramInfoId })),
+    x.codeInfo.some((c) =>
+      _.isEqual(c, { sectionId, paramInfoId: paramInfo.id }),
+    ),
   );
 
   // warnings should be AMBER
@@ -42,11 +37,8 @@ function _ParamContainer({
       : isSearchResult
         ? "outline outline-4 outline-blue-500 dark:outline-cyan-300/80"
         : "";
-  const canBeOverriden = useCodeInfo(
-    (x) => sectionIsFrozen && x.x[paramInfoId].isFrozen,
-  );
-  const paramIsSelected = useCodeInfo((x) => x.x[paramInfoId].isSelected);
-  const paramDescription = useCodeInfo((x) => x.x[paramInfoId].description);
+  const canBeOverriden = sectionIsFrozen && !paramInfo.isFrozen;
+  const paramIsSelected = paramInfo.isSelected;
 
   // hover:bg-setta-200/20 dark:hover:bg-setta-700/25
   // maybe use this for in bg hover state: div:hover:not(:has(div:hover))
@@ -54,13 +46,13 @@ function _ParamContainer({
   const bg = paramIsSelected ? "bg-lime-400/50" : "";
 
   const paramChildren = useCodeInfo(
-    (x) => x.x[paramInfoId].children,
+    (x) => paramInfo.children.map((c) => x.x[c]),
     _.isEqual,
   );
   function onClickSelect(e) {
-    if (!ancestorIsSelected && useParamShortcuts.getState().isSelectingParams) {
+    if (useParamShortcuts.getState().isSelectingParams) {
       e.stopPropagation();
-      toggleParamSelected(paramInfoId);
+      toggleCodeInfoSelected(paramInfo.id);
     }
   }
 
@@ -68,13 +60,15 @@ function _ParamContainer({
     <>
       <article
         className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between rounded-lg  ${bg} ${border}`}
-        {...getInfoViewHandlers(paramDescription)}
+        {...getInfoViewHandlers(paramInfo.description)}
         onClick={onClickSelect}
       >
         {children}
         <ParamInput
           sectionId={sectionId}
-          paramInfoId={paramInfoId}
+          paramInfoId={paramInfo.id}
+          defaultVal={paramInfo.defaultVal}
+          isDisabled={!paramInfo.name}
           maybeErrorMessage={maybeErrorMessage}
           setDidUpdate={setDidUpdate}
         />
@@ -86,7 +80,7 @@ function _ParamContainer({
   ) : (
     <article
       className={`section-lg-value group/arg-group section-min-rows grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-lg  ${bg} ${border}`}
-      {...getInfoViewHandlers(paramDescription)}
+      {...getInfoViewHandlers(paramInfo.description)}
       onClick={onClickSelect}
     >
       {children}
@@ -94,17 +88,22 @@ function _ParamContainer({
         <div className="absolute bottom-0 h-[calc(100%_-_0.25rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
         <GetParamSwitch
           sectionId={sectionId}
-          paramIds={paramChildren}
-          requiredParamIds={requiredParamIds}
+          parentId={paramInfo.id}
+          infos={paramChildren}
           setDidUpdate={setDidUpdate}
-          ancestorIsSelected={ancestorIsSelected || paramIsSelected}
         />
       </div>
     </article>
   );
 }
 
-export const ParamContainer = React.memo(_ParamContainer);
+export const ParamContainer = React.memo(
+  _ParamContainer,
+  (p, n) =>
+    p.sectionId === n.sectionId &&
+    _.isEqual(p.paramInfo, n.paramInfo) &&
+    _.isEqual(p.uiType, n.uiType),
+);
 
 function ErrorSection({ maybeErrorMessage }) {
   return (
