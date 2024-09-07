@@ -8,6 +8,7 @@ import {
   batchUpdateCodeInfoChildren,
 } from "state/actions/codeInfo";
 import { initializeParam } from "state/actions/initializeParam";
+import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -51,11 +52,16 @@ function _GlobalVariablesArea({ sectionId, bgColor }) {
 export const GlobalVariablesArea = React.memo(_GlobalVariablesArea);
 
 async function toYaml(sectionId, setYamlValue, setOriginalObj) {
-  const res = await dbSectionToDict(sectionId);
+  const pinnedIds = getParamIdsToShowInArea(sectionId, true);
+  const unpinnedIds = getParamIdsToShowInArea(sectionId, false);
+
+  const res = await dbSectionToDict(sectionId, pinnedIds, unpinnedIds);
   if (res.status === 200) {
-    const originalObj = parseValues(res.data);
-    setOriginalObj(originalObj.output);
-    setYamlValue(stringify(originalObj.prettyOutput));
+    const fullOriginalObj = parseValues(res.data);
+    setOriginalObj(_.pick(fullOriginalObj, ["pinned", "unpinned"]));
+    const pinnedStr = stringify(fullOriginalObj.prettyPinned);
+    const unpinnedStr = stringify(fullOriginalObj.prettyUnpinned);
+    setYamlValue(`${pinnedStr}\n---\n\n${unpinnedStr}`);
   }
 }
 

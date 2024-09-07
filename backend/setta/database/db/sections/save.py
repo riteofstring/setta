@@ -60,7 +60,7 @@ def save_sections(dbs, sections):
             "dbSource": s.get("dbSource"),
             "codeInfoId": s["codeInfoId"],
             "hideUnpinnedParams": s["hideUnpinnedParams"],
-            "showYaml": s["showYaml"]
+            "showYaml": s["showYaml"],
         }
         for s in sections.values()
     ]

@@ -114,8 +114,9 @@ def simple_export_selected(p):
     e.export()
     return e
 
-def export_section_to_dict(p, section_id):
-    e = SectionToDict(p, section_id)
+
+def export_section_to_dict(p, section_id, topLevelParamIds, requiredParamIds):
+    e = SectionToDict(p, section_id, topLevelParamIds, requiredParamIds)
     e.export()
     return e
 
@@ -407,24 +408,24 @@ class SimpleExporter:
         return value
 
 
-
 class SectionToDict:
-    def __init__(self, p, section_id):
+    def __init__(self, p, section_id, topLevelParamIds, requiredParamIds):
         self.output = {}
         self.prettyOutput = {}
         self.p = copy.deepcopy(p)
         self.section_id = section_id
+        self.topLevelParamIds = topLevelParamIds
+        self.requiredParamIds = set(requiredParamIds)
 
     def export(self):
-        self.output, self.prettyOutput = self.export_section_params()
-
-    def export_section_params(self):
-        return self.export_params(get_param_ids(self.p, self.section_id))
+        self.output, self.prettyOutput = self.export_params(self.topLevelParamIds)
 
     def export_params(self, ids):
         params = {}
         prettyParams = {}
         for param_id in ids:
+            if param_id not in self.requiredParamIds:
+                continue
             codeInfo = self.p["codeInfo"][param_id]
             param_name = codeInfo["name"]
             if not param_name:
@@ -439,6 +440,8 @@ class SectionToDict:
         return params, prettyParams
 
     def export_param_value(self, id):
-        dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, self.section_id)
+        dbSource, variantId = get_mapped_db_source_and_variant_id(
+            self.p, self.section_id
+        )
         value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
         return value, value
