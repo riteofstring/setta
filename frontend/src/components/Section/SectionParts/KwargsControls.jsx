@@ -7,7 +7,6 @@ import {
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
-import { useAreAnyParamsSelected } from "state/hooks/sectionContents";
 import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
@@ -15,8 +14,6 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const anyParamsSelected = useAreAnyParamsSelected(sectionId);
-
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
@@ -34,7 +31,7 @@ export function KwargsControls({
   const inputStyles = "";
 
   const classes =
-    "focus-visible:ring-2 scale-75 nodrag cursor-pointer bg-transparent  text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full h-6 w-6";
+    "focus-visible:ring-2 grid grid-cols-[1fr] grid-rows-[1fr] place-items-center nodrag cursor-pointer bg-transparent hover:bg-setta-100 dark:hover:bg-setta-950/50 text-setta-500 dark:hover:text-setta-300 rounded-full h-6 w-6";
 
   return (
     <>
@@ -43,7 +40,7 @@ export function KwargsControls({
       >
         <article className="flex flex-wrap items-center">
           <section className="flex">
-            <h3 className="leading-tighter my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
+            <h3 className="my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
               Args
             </h3>
 
@@ -57,24 +54,16 @@ export function KwargsControls({
             <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">
               <i className="gg-math-plus" />
             </button>
-            {anyParamsSelected && (
-              <>
-                <button
-                  className={classes}
-                  onClick={onClickPinParam}
-                  tabIndex="-1"
-                >
-                  <i className="gg-pin-alt mt-1" />
-                </button>
-                <button
-                  className={classes}
-                  onClick={onClickDeleteSelectedKwargs}
-                  tabIndex="-1"
-                >
-                  <i className="gg-close-r" />
-                </button>
-              </>
-            )}
+            <button className={classes} onClick={onClickPinParam} tabIndex="-1">
+              <i className="gg-pin-alt mt-1" />
+            </button>
+            <button
+              className={classes}
+              onClick={onClickDeleteSelectedKwargs}
+              tabIndex="-1"
+            >
+              <i className="gg-close-r" />
+            </button>
           </section>
           {/* {anyParamsSelected && (
             <section className="flex">
@@ -98,7 +87,7 @@ export function KwargsControls({
           )} */}
         </article>
 
-        <search className="nodrag relative mx-2 flex min-w-16 flex-1 items-center justify-self-center">
+        <search className="nodrag relative mx-2 flex min-w-20 flex-1 items-center justify-self-center">
           <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
           <input
             id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut

@@ -28,7 +28,8 @@ export function newSectionInfo({
   isHorizontalOrientation = false,
   hideParams = false,
   hideSearch = false,
-  hideUnpinnedParams,
+  hideUnpinnedParams = false,
+  showYaml = false,
   pinnedAreaHeight = "auto",
   isMinimized = false,
 }) {
@@ -62,6 +63,7 @@ export function newSectionInfo({
     hideParams,
     hideSearch,
     hideUnpinnedParams,
+    showYaml,
     pinnedAreaHeight,
     isMinimized,
   };

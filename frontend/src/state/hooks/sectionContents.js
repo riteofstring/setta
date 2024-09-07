@@ -1,12 +1,11 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import {
   getAllParamIds,
   getParamIds,
+  getParamIdsToShowInArea,
 } from "state/actions/sections/sectionContents";
 import { useCodeInfo } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
-import { bothTruthyOrFalsey } from "utils/utils";
 import { useGetSectionInfo } from "./sections";
 import { useSectionSelectedItem } from "./sectionVariants";
 
@@ -82,41 +81,12 @@ export function useParamIdsToShowInArea(sectionId, isPinned) {
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
   return useCodeInfo((x) => {
-    const allIdsAndPaths = getAllParamIds(
+    return getParamIdsToShowInArea(
       sectionId,
+      isPinned,
       x.x,
       selectedItem,
       codeInfoId,
-      (p) => p.rcType === C.PARAMETER,
     );
-    allIdsAndPaths.reverse();
-
-    let topLevelParamIds = [];
-    const topLevelParamIdsSet = new Set();
-    let requiredParamIds = new Set();
-    for (const a of allIdsAndPaths) {
-      // Evalutes to true if:
-      // 1. The current param's isPinned matches the isPinned condition
-      // 2. And: either the param has no children or at least one of its children is required
-      // This logic is why it's REQUIRED for allIdsAndPaths to be reversed (processed starting with children up to ancestors)
-      if (
-        bothTruthyOrFalsey(x.x[a.id].isPinned, isPinned) &&
-        (x.x[a.id].children.length === 0 ||
-          x.x[a.id].children.some((child) => requiredParamIds.has(child)))
-      ) {
-        for (const p of a.path) {
-          requiredParamIds.add(p);
-          if (!topLevelParamIdsSet.has(a.path[0])) {
-            topLevelParamIds.push(a.path[0]);
-            topLevelParamIdsSet.add(a.path[0]);
-          }
-        }
-      }
-    }
-
-    // unreverse results
-    topLevelParamIds.reverse();
-
-    return { requiredParamIds, topLevelParamIds };
   }, _.isEqual);
 }
