@@ -19,6 +19,7 @@ import { useCodeInfo, useSectionVariants } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
+import { SectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -26,6 +27,7 @@ function _ParamSweepArea({ sectionId }) {
 
   return (
     <>
+      <SectionSearch sectionId={sectionId} />
       <FilterSection />
       <Args
         paramSweepId={paramSweepId}
