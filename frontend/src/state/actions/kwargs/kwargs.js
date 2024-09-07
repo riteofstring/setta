@@ -104,7 +104,15 @@ export function pinSelectedKwargs(sectionId) {
   const { selectedParams } = getAllSelectedParams(sectionId);
   useCodeInfo.setState((x) => {
     for (const p of selectedParams) {
-      x.x[p.id].isPinned = !x.x[p.id].isPinned;
+      pinSelfAndDescendants(x.x, p.id, !x.x[p.id].isPinned);
     }
   });
+}
+
+function pinSelfAndDescendants(state, id, value) {
+  state[id].isPinned = value;
+  for (const paramId of state[id].children) {
+    state[paramId].isPinned = value;
+    pinSelfAndDescendants(state, paramId, value);
+  }
 }
