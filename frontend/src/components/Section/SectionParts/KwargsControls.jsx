@@ -34,7 +34,7 @@ export function KwargsControls({
   const inputStyles = "";
 
   const classes =
-    "focus-visible:ring-2 flex nodrag cursor-pointer bg-transparent  text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 w-[18px] rounded-full items-center justify-center";
+    "focus-visible:ring-2 scale-75 nodrag cursor-pointer bg-transparent  text-setta-500 hover:text-blue-500 dark:hover:text-blue-500 rounded-full h-6 w-6";
 
   return (
     <>
@@ -42,8 +42,8 @@ export function KwargsControls({
         className={`section-args z-10 mt-1 flex min-w-0 flex-wrap rounded-xl border-b border-solid  border-white px-1 pb-1 shadow-sm @container dark:border-setta-700 ${bgColor}`}
       >
         <article className="flex flex-wrap items-center">
-          <section className="ml-1 flex gap-1 @[16rem]:ml-0">
-            <h3 className="leading-tighter my-auto ml-2 hidden pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 @[16rem]:block dark:text-setta-400/50 ">
+          <section className="flex">
+            <h3 className="leading-tighter my-auto ml-2 pr-1 font-heading text-[0.6rem] font-bold uppercase text-setta-600/70 dark:text-setta-400/50 ">
               Args
             </h3>
 
@@ -52,10 +52,10 @@ export function KwargsControls({
               onClick={onClickDeleteKwarg}
               tabIndex="-1"
             >
-              <i className="gg-math-minus before:!left-0 " />
+              <i className="gg-math-minus w-full" />
             </button>
             <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">
-              <i className="gg-math-plus !scale-50" />
+              <i className="gg-math-plus" />
             </button>
             {anyParamsSelected && (
               <>
@@ -64,14 +64,14 @@ export function KwargsControls({
                   onClick={onClickPinParam}
                   tabIndex="-1"
                 >
-                  <i className="gg-pin-alt mt-1 !scale-50" />
+                  <i className="gg-pin-alt mt-1" />
                 </button>
                 <button
                   className={classes}
                   onClick={onClickDeleteSelectedKwargs}
                   tabIndex="-1"
                 >
-                  <i className="gg-close !scale-50" />
+                  <i className="gg-close-r" />
                 </button>
               </>
             )}
@@ -98,7 +98,7 @@ export function KwargsControls({
           )} */}
         </article>
 
-        <search className="nodrag relative mx-2 flex min-w-16 flex-1 items-center justify-self-center ">
+        <search className="nodrag relative mx-2 flex min-w-16 flex-1 items-center justify-self-center">
           <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
           <input
             id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
