@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import {
@@ -6,7 +5,6 @@ import {
   findAllParametersOfCallables,
   findAllParametersOfCollections,
 } from "utils/getDescendants";
-import { bothTruthyOrFalsey } from "utils/utils";
 import { getSectionSelectedItem } from "../sectionVariants";
 
 export function getParamIds(
@@ -57,51 +55,19 @@ export function getAllParamInfos(sectionId, _cState = null) {
   return ids.map((x) => cState[x]);
 }
 
-export function getParamIdsToShowInArea(
-  sectionId,
-  isPinned,
-  _cState = null,
-  _selectedItem = null,
-  _codeInfoId = null,
-) {
-  const cState = _cState ?? useCodeInfo.getState().x;
-  const selectedItem = _selectedItem ?? getSectionInfo(sectionId).selectedItem;
-  const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
+function movePinnedToFront(params) {
+  const pinnedObjects = [];
+  const unpinnedObjects = [];
 
-  const allIdsAndPaths = getAllParamIds(
-    sectionId,
-    cState,
-    selectedItem,
-    codeInfoId,
-    (p) => p.rcType === C.PARAMETER,
-  );
-  allIdsAndPaths.reverse();
-
-  let topLevelParamIds = [];
-  const topLevelParamIdsSet = new Set();
-  let requiredParamIds = new Set();
-  for (const a of allIdsAndPaths) {
-    // Evalutes to true if:
-    // 1. The current param's isPinned matches the isPinned condition
-    // 2. And: either the param has no children or at least one of its children is required
-    // This logic is why it's REQUIRED for allIdsAndPaths to be reversed (processed starting with children up to ancestors)
-    if (
-      bothTruthyOrFalsey(cState[a.id].isPinned, isPinned) &&
-      (cState[a.id].children.length === 0 ||
-        cState[a.id].children.some((child) => requiredParamIds.has(child)))
-    ) {
-      for (const p of a.path) {
-        requiredParamIds.add(p);
-        if (!topLevelParamIdsSet.has(a.path[0])) {
-          topLevelParamIds.push(a.path[0]);
-          topLevelParamIdsSet.add(a.path[0]);
-        }
-      }
+  // Separate objects into pinned and unpinned arrays
+  params.forEach((p) => {
+    if (p.isPinned) {
+      pinnedObjects.push(p);
+    } else {
+      unpinnedObjects.push(p);
     }
-  }
+  });
 
-  // unreverse results
-  topLevelParamIds.reverse();
-
-  return { requiredParamIds, topLevelParamIds };
+  // Concatenating the pinned and unpinned objects
+  return pinnedObjects.concat(unpinnedObjects);
 }

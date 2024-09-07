@@ -1,5 +1,6 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
+import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React, { useState } from "react";
@@ -39,7 +40,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
+      <ScrollingArea styles="mt-4 flex flex-col gap-2">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -48,7 +49,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
               key={`${e.name}-${idx}`}
             />
           ))}
-      </div>
+      </ScrollingArea>
     </div>
   );
 });
