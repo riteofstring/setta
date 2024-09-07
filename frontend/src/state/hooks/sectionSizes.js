@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { ROOT_SECTION_HEIGHT } from "utils/constants";
 import { useTopLevelParamInfos } from "./sectionContents";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
@@ -11,12 +12,13 @@ export function useMinSectionHeight(sectionId) {
   const isRoot = useIsRoot(sectionId);
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
+  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
   const hasTitle = true;
   const hasSearch = !isRoot && !hideSearch;
   const hasKwargControl = !hideParams && !isRoot;
 
-  if (isRoot) {
-    return 50;
+  if (isMinimized || isRoot) {
+    return ROOT_SECTION_HEIGHT;
   }
 
   if (isOutput) {

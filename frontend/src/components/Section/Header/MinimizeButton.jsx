@@ -1,6 +1,15 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 
-export function MinimizeButton({ twClasses, ...props }) {
+export function MinimizeButton({ sectionId, twClasses, ...props }) {
+  function onClick() {
+    setSectionInfoAttr({
+      sectionId,
+      attr: "isMinimized",
+      newValueFn: (x) => !x,
+    });
+  }
+
   return (
     <IconButton
       {...props}
@@ -10,7 +19,7 @@ export function MinimizeButton({ twClasses, ...props }) {
       size="w-4 h-4"
       padding="p-0"
       twClasses={twClasses}
-      // onClick={onClick}
+      onClick={onClick}
     />
   );
 }
