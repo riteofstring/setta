@@ -98,13 +98,28 @@ export function useParamIdsToShowInArea(sectionId, isPinned) {
       ) {
         for (const p of a.path) {
           requiredParamIds.add(p);
-          if (!topLevelParamIdsSet.has(a.path[0])) {
-            topLevelParamIds.push(a.path[0]);
-            topLevelParamIdsSet.add(a.path[0]);
-          }
+        }
+        addAllDescendantsToRequiredParamIds(
+          requiredParamIds,
+          x.x,
+          a.path[a.path.length - 1],
+        );
+        for (const child of x.x[a.path[a.path.length - 1]].children) {
+          requiredParamIds.add(child);
+        }
+        if (!topLevelParamIdsSet.has(a.path[0])) {
+          topLevelParamIds.push(a.path[0]);
+          topLevelParamIdsSet.add(a.path[0]);
         }
       }
     }
     return { requiredParamIds, topLevelParamIds };
   }, _.isEqual);
+}
+
+function addAllDescendantsToRequiredParamIds(requiredParamIds, state, id) {
+  for (const child of state[id].children) {
+    requiredParamIds.add(child);
+    addAllDescendantsToRequiredParamIds(requiredParamIds, state, child);
+  }
 }

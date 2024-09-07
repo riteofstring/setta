@@ -54,20 +54,3 @@ export function getAllParamInfos(sectionId, _cState = null) {
   const ids = getAllParamIds(sectionId, cState);
   return ids.map((x) => cState[x]);
 }
-
-function movePinnedToFront(params) {
-  const pinnedObjects = [];
-  const unpinnedObjects = [];
-
-  // Separate objects into pinned and unpinned arrays
-  params.forEach((p) => {
-    if (p.isPinned) {
-      pinnedObjects.push(p);
-    } else {
-      unpinnedObjects.push(p);
-    }
-  });
-
-  // Concatenating the pinned and unpinned objects
-  return pinnedObjects.concat(unpinnedObjects);
-}
