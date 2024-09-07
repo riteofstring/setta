@@ -1,4 +1,3 @@
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import React from "react";
 import { createPortal } from "react-dom";
@@ -57,7 +56,7 @@ export function ComboboxList({ isOpen, children, getMenuProps, listDims }) {
       {...getMenuProps()}
       style={{ width, left: `${x}px`, top: `${y}px` }}
     >
-      <ScrollingArea styles="w-full">{children}</ScrollingArea>
+      <div className="w-full overflow-y-scroll">{children}</div>
     </div>,
     document.body,
   );

@@ -29,14 +29,9 @@ function OneChart({ series, title }) {
     seriesWithX.push({ name, values: data.map((y, i) => ({ x: i, y })) });
   }
 
-  // ParentSize has min-w-0 and min-h-0 to avoid resizing bug:
-  // https://github.com/airbnb/visx/issues/1014#issuecomment-1180677878
   return (
     <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
-      <ParentSize
-        className="single-cell-child -my-2 min-h-0 min-w-0 py-1"
-        debounceTime={0}
-      >
+      <ParentSize className="single-cell-child -my-2 py-1" debounceTime={0}>
         {(parent) => (
           <LineChart
             width={parent.width}

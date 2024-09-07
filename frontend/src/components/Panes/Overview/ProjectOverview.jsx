@@ -1,4 +1,3 @@
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import React from "react";
 import { BiFilter } from "react-icons/bi";
@@ -27,14 +26,14 @@ export const ProjectOverview = React.forwardRef(() => {
         {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW_SEARCH)}
       />
 
-      <ScrollingArea styles="flex-grow min-h-0">
+      <div className="min-h-0 flex-grow overflow-y-scroll">
         <ul
           className="min-h-0 flex-grow"
           {...getInfoViewHandlers(CONST_INFO_VIEWS.OVERVIEW)}
         >
           <SectionListItems listOfSectionIdsAndNames={filteredList} />
         </ul>
-      </ScrollingArea>
+      </div>
       <InfoView />
     </>
   );
