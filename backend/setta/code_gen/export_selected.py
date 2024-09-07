@@ -434,9 +434,8 @@ class SectionToDict:
                 value, prettyValue = self.export_params(param_children)
             else:
                 value, prettyValue = self.export_param_value(param_id)
-            if not no_entered_value(value):
-                params[codeInfo["name"]] = {"value": value, "id": param_id}
-                prettyParams[codeInfo["name"]] = prettyValue
+            params[codeInfo["name"]] = {"value": value, "id": param_id}
+            prettyParams[codeInfo["name"]] = prettyValue
         return params, prettyParams
 
     def export_param_value(self, id):
