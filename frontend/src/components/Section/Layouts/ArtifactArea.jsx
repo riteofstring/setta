@@ -30,11 +30,8 @@ function OneChart({ series, title }) {
   }
 
   return (
-    <figure className="section-figure">
-      <ParentSize
-        className="-my-5 flex flex-1 flex-col px-8 pt-6"
-        debounceTime={0}
-      >
+    <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
+      <ParentSize className="single-cell-child -my-2 py-1" debounceTime={0}>
         {(parent) => (
           <LineChart
             width={parent.width}
@@ -49,15 +46,11 @@ function OneChart({ series, title }) {
 
 function OneImg({ img }) {
   return (
-    <figure className="section-figure">
+    <figure className="section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1">
       <img
         src={`data:image/png;base64,${img}`}
         // alt={altText}
-        // className="h-auto max-w-full rounded-lg shadow-md"
-        style={{
-          width: "100%",
-          height: "100%",
-        }}
+        className="h-auto max-h-full w-full self-center object-contain"
       />
     </figure>
   );
