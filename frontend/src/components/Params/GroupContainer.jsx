@@ -31,7 +31,7 @@ function _ParamGroupContainer({ sectionId }) {
             outerRef={outerRef}
           />
           <div
-            className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-1 ${overflow ? "nowheel" : ""} min-w-0 !max-w-full`}
+            className={`section-args-nested section-w-full section-row-main grid auto-rows-min grid-cols-subgrid gap-y-1 overflow-x-clip overflow-y-scroll py-2 ${overflow ? "nowheel" : ""} min-w-0 !max-w-full`}
             ref={ref}
           >
             {!hideUnpinnedParams && (
@@ -97,7 +97,7 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className="nowheel relative -mt-1 flex h-min max-h-[50%] flex-col items-center justify-between overflow-hidden border-b border-setta-200/50 pb-3 pt-4 dark:border-setta-700/30 dark:bg-setta-700/40"
+      className="nowheel items-startjustify-between relative -mt-1 flex max-h-[50%] flex-col overflow-hidden border-b border-white pb-3 pt-4 shadow-sm dark:border-setta-700/30 dark:bg-setta-900"
       as="section"
       size={{ height }}
       onResizeStop={onResizeStop}
@@ -121,7 +121,7 @@ function ResizablePinnedArea({
         </p>
       </header>
 
-      <div className="section-args-nested section-key-value grid w-full grid-cols-subgrid overflow-y-scroll">
+      <div className="section-args-nested section-key-value section-min-rows grid w-full grid-cols-subgrid overflow-y-scroll">
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={topLevelParamIds}
