@@ -1,6 +1,5 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import C from "constants/constants.json";
-import { useSectionInfos } from "state/definitions";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
@@ -30,7 +29,6 @@ export function SectionContainerCoreResizable({
     sectionId,
     "isInOtherProjectConfigs",
   );
-  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
 
   const getOutlineColor = () => {
     if (!dbSourceIsAvailable) {
@@ -101,9 +99,7 @@ export function SectionContainerCoreResizable({
           isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         {_isRoot && <Incrementer sectionId={sectionId} isRoot={_isRoot} />}
-        {!isMinimized && (
-          <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
-        )}
+        <AreaSwitch sectionId={sectionId} sectionTypeName={sectionTypeName} />
       </>
     </CustomResizable>
   );

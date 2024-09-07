@@ -80,7 +80,7 @@ function _SectionHeader({
             header={"Description for Infoview"}
           />
         )}
-        <MinimizeButton sectionId={sectionId}/>
+        <MinimizeButton />
         <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
       </div>
     </header>

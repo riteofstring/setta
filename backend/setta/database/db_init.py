@@ -61,7 +61,6 @@ CREATE_TABLES_COMMANDS = [
         variantId TEXT,
         paramSweepId TEXT,
         isHorizontalOrientation BOOLEAN,
-        isMinimized BOOLEAN,
         PRIMARY KEY (projectConfigId, sectionId),
         FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
         FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
