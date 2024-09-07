@@ -1,3 +1,4 @@
+import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { checkboxChangeFn, radioChangeFn } from "utils/utils";
 
@@ -14,7 +15,7 @@ export function SectionConfigSearch({
   return (
     <div className="flex h-full min-h-0 flex-grow flex-col overflow-y-hidden [&>form]:flex-grow-0">
       <Search onSubmit={onSearch} />
-      <div className="mt-4 overflow-y-scroll">
+      <ScrollingArea styles="mt-4">
         <ul className="flex flex-grow flex-col gap-4">
           {Object.values(results).map((x) => (
             <SearchItem
@@ -31,7 +32,7 @@ export function SectionConfigSearch({
             />
           ))}
         </ul>
-      </div>
+      </ScrollingArea>
     </div>
   );
 }
