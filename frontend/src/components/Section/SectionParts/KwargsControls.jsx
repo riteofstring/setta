@@ -7,7 +7,6 @@ import {
 import { setSectionParamFilter } from "state/actions/sections/sectionParamFilter";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useCodeInfo } from "state/definitions";
-import { useAreAnyParamsSelected } from "state/hooks/sectionContents";
 import { getAllSelectedParams } from "../../../state/actions/kwargs/utils";
 
 export function KwargsControls({
@@ -15,8 +14,6 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const anyParamsSelected = useAreAnyParamsSelected(sectionId);
-
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);
   function onSearchChange(e) {
@@ -57,24 +54,16 @@ export function KwargsControls({
             <button className={classes} onClick={onClickAddKwarg} tabIndex="-1">
               <i className="gg-math-plus" />
             </button>
-            {anyParamsSelected && (
-              <>
-                <button
-                  className={classes}
-                  onClick={onClickPinParam}
-                  tabIndex="-1"
-                >
-                  <i className="gg-pin-alt mt-1" />
-                </button>
-                <button
-                  className={classes}
-                  onClick={onClickDeleteSelectedKwargs}
-                  tabIndex="-1"
-                >
-                  <i className="gg-close-r" />
-                </button>
-              </>
-            )}
+            <button className={classes} onClick={onClickPinParam} tabIndex="-1">
+              <i className="gg-pin-alt mt-1" />
+            </button>
+            <button
+              className={classes}
+              onClick={onClickDeleteSelectedKwargs}
+              tabIndex="-1"
+            >
+              <i className="gg-close-r" />
+            </button>
           </section>
           {/* {anyParamsSelected && (
             <section className="flex">
