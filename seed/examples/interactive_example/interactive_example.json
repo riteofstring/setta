@@ -4,11 +4,11 @@
     "name": "interactive_example",
     "isDefault": 0,
     "viewport": {
-      "x": 473.8625758992132,
-      "y": 21.72738269263806,
+      "x": 363.8625758992133,
+      "y": -136.27261730736188,
       "zoom": 0.5896782961306088
     },
-    "previewImgNodes": "[{\"x\":-126,\"y\":699,\"w\":502,\"h\":370},{\"x\":406,\"y\":718,\"w\":486,\"h\":318},{\"x\":379,\"y\":342,\"w\":202,\"h\":302},{\"x\":689,\"y\":185,\"w\":434,\"h\":373},{\"x\":88,\"y\":258,\"w\":202,\"h\":192}]",
+    "previewImgNodes": "[{\"x\":-126,\"y\":699,\"w\":502,\"h\":370},{\"x\":406,\"y\":718,\"w\":486,\"h\":318},{\"x\":379,\"y\":342,\"w\":202,\"h\":302},{\"x\":689,\"y\":185,\"w\":434,\"h\":373},{\"x\":88,\"y\":258,\"w\":202,\"h\":302},{\"x\":896,\"y\":684,\"w\":737,\"h\":533}]",
     "children": {
       "4609e4a0-49b2-4065-b1a1-e037a33641f4": {
         "x": -125.50523952598954,
@@ -18,7 +18,7 @@
       "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
         "x": 406.4859203982463,
         "y": 717.7720319213637,
-        "zIndex": 1
+        "zIndex": 2
       },
       "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
         "x": 379.2946580000827,
@@ -28,12 +28,17 @@
       "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
         "x": 689.293197588284,
         "y": 185.10592177931196,
-        "zIndex": 2
+        "zIndex": 3
       },
       "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
         "x": 88.41672559920502,
         "y": 258.22998456371,
-        "zIndex": 0
+        "zIndex": 1
+      },
+      "25d0e656-bec2-44a0-9728-f41d657b8508": {
+        "x": 895.6365319299606,
+        "y": 683.8858068095496,
+        "zIndex": 6
       }
     }
   },
@@ -86,10 +91,18 @@
       },
       "efbf1e64-8932-4fa6-928a-e930314db45c": {
         "name": "tropical_harlequin",
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
+      },
+      "8055d10b-3623-4665-b85c-977327fa40c6": {
+        "name": "involved_red",
         "values": {},
         "children": [],
         "selectedItem": null,
-        "code": "",
+        "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    blur_radius = float(data[\"blur_radius\"])\n    img = data[\"royal_orange\"][0][\"value\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
         "keywordPositions": []
       }
     }
@@ -242,6 +255,7 @@
     }
   },
   "uiTypeCols": {
+    "3072250c-fb83-4b58-9e3b-303f13b1e623": {},
     "a3934747-efba-49aa-a500-100b033196d2": {},
     "b3449dbb-8328-43bb-8e45-b76173bf679c": {
       "20512036-3e0f-41f3-9738-6573ee71bdaf": {
@@ -259,7 +273,7 @@
     },
     "ce01027b-26ed-4ea2-971a-fefde787cbb2": {},
     "ecab60b1-3cd7-4947-a61b-ccbef507c9ae": {},
-    "3072250c-fb83-4b58-9e3b-303f13b1e623": {}
+    "5dd0a464-e86b-4f9c-a195-303e56dcc96d": {}
   },
   "paramSweeps": {},
   "runGroups": {},
@@ -389,17 +403,20 @@
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
       "name": "institutional_fuchsia",
-      "children": [],
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "zIndex": 0,
-      "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
+      "paramSweepSectionId": null,
       "uiTypeId": "06b511f3-dced-43be-97d7-1ceaddc763d5",
       "uiTypeColId": "3072250c-fb83-4b58-9e3b-303f13b1e623",
-      "paramSweepId": null,
       "social": null,
+      "description": "",
+      "codeLanguage": "",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "75191a70-d625-4122-868e-1081e37fbe4c",
+      "hideUnpinnedParams": 0,
+      "showYaml": 0,
+      "nonPresetUITypeIds": [],
+      "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
+      "paramSweepIds": [],
       "artifacts": [
         {
           "path": "seed/examples/interactive_example/losses.csv",
@@ -407,9 +424,35 @@
           "displayName": "fancy graph"
         }
       ],
+      "isInOtherProjectConfigs": false,
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "variantId": "efbf1e64-8932-4fa6-928a-e930314db45c",
+      "paramSweepId": null,
+      "isHorizontalOrientation": 0,
+      "pinnedAreaHeight": "auto",
+      "isMinimized": 0
+    },
+    "25d0e656-bec2-44a0-9728-f41d657b8508": {
+      "id": "25d0e656-bec2-44a0-9728-f41d657b8508",
+      "name": "spatial_orange",
+      "children": [],
+      "size": {
+        "width": 735,
+        "height": "auto"
+      },
+      "zIndex": 0,
+      "variantId": "8055d10b-3623-4665-b85c-977327fa40c6",
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "uiTypeColId": "5dd0a464-e86b-4f9c-a195-303e56dcc96d",
+      "paramSweepId": null,
+      "social": null,
+      "artifacts": [],
       "description": "",
-      "codeLanguage": "",
-      "variantIds": ["efbf1e64-8932-4fa6-928a-e930314db45c"],
+      "codeLanguage": "python",
+      "variantIds": ["8055d10b-3623-4665-b85c-977327fa40c6"],
       "paramSweepIds": [],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
@@ -422,7 +465,8 @@
       "showYaml": false,
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
-      "codeInfoId": "75191a70-d625-4122-868e-1081e37fbe4c"
+      "codeInfoId": "c8807916-43ef-421f-a404-96bb75d6a79e",
+      "resizeEvent": "end"
     }
   },
   "codeInfo": {
@@ -495,6 +539,19 @@
         "c24c860d-2519-4a20-8acd-90fc0ffe48a8"
       ]
     },
+    "75191a70-d625-4122-868e-1081e37fbe4c": {
+      "id": "75191a70-d625-4122-868e-1081e37fbe4c",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": [],
+      "children": []
+    },
     "c24c860d-2519-4a20-8acd-90fc0ffe48a8": {
       "id": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
       "name": "blur_radius",
@@ -521,8 +578,8 @@
       "keywordPositions": [],
       "children": []
     },
-    "75191a70-d625-4122-868e-1081e37fbe4c": {
-      "id": "75191a70-d625-4122-868e-1081e37fbe4c",
+    "c8807916-43ef-421f-a404-96bb75d6a79e": {
+      "id": "c8807916-43ef-421f-a404-96bb75d6a79e",
       "name": "Contents",
       "editable": false,
       "rcType": "collection",
@@ -557,18 +614,6 @@
       "paramInfoId": "c24c860d-2519-4a20-8acd-90fc0ffe48a8",
       "componentIndices": [11],
       "isArgsObj": false
-    },
-    "institutional_fuchsia": {
-      "sectionId": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
-      "paramInfoId": null,
-      "componentIndices": [21],
-      "isArgsObj": false
-    },
-    "__institutional_fuchsia": {
-      "sectionId": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
-      "paramInfoId": null,
-      "componentIndices": [23],
-      "isArgsObj": true
     }
   }
 }
