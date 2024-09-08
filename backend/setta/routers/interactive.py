@@ -18,7 +18,6 @@ router = APIRouter()
 
 class UpdateInteractiveCodeRequest(BaseModel):
     project: dict
-    runOnImport: bool
 
 
 @router.post(C.ROUTE_UPDATE_INTERACTIVE_CODE)
@@ -34,7 +33,7 @@ async def route_update_interactive_code(
             codeDict[id] = get_selected_section_variant(p, id)["code"]
 
     projectConfigName = x.project["projectConfig"]["name"]
-    task_names, error_msgs, content = await tasks.add_custom_fns(
-        codeDict, projectConfigName, projectAsSimpleDict, x.runOnImport
+    task_metadata, error_msgs, content = await tasks.add_custom_fns(
+        codeDict, projectConfigName, projectAsSimpleDict
     )
-    return {"taskNames": task_names, "errorMsgs": error_msgs, "content": content}
+    return {"taskMetadata": task_metadata, "errorMsgs": error_msgs, "content": content}

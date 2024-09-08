@@ -9,7 +9,7 @@ export async function updateInteractiveCode() {
   const res = await dbUpdateInteractiveCode();
   setNotificationMessage("Done importing");
   if (res.status == 200) {
-    useInteractive.setState({ taskNames: res.data.taskNames });
+    useInteractive.setState({ taskMetadata: res.data.taskMetadata });
     updateInteractiveData(res.data.content);
   }
 }
