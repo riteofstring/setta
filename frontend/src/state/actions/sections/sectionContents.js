@@ -31,8 +31,6 @@ export function getParamIds(
     ? findAllParameters(cState, [codeInfoId], paramPathCondition)
     : findAllParametersOfCollections(cState, [codeInfoId], paramPathCondition);
 
-  console.log("objParamInfoIds", objParamInfoIds)
-
   return [...objParamInfoIds, ...paramCollectionIds];
 }
 
