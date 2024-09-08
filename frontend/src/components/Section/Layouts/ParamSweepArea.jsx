@@ -16,19 +16,24 @@ import {
 } from "state/actions/runGroups/paramSweep";
 import { useCodeInfo } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import { SectionSearch } from "../SectionParts/Search";
+import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
-  const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
+  const { paramSweepId, paramSweep, forSectionId, objInfoId } =
     useParamSweepInfo(sectionId);
 
   return (
     <>
-      <SectionSearch sectionId={sectionId} />
+      <ParamSweepSectionSearch
+        sectionId={sectionId}
+        forSectionId={forSectionId}
+        selectedItem={objInfoId}
+        paramSweepId={paramSweepId}
+      />
       <FilterSection />
       <Args
         paramSweepId={paramSweepId}
-        objInfoId={codeInfoId}
+        objInfoId={objInfoId}
         paramSweep={paramSweep}
         forSectionId={forSectionId}
         sectionId={sectionId}
