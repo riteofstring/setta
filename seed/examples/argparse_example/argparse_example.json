@@ -212,7 +212,6 @@
       "name": "raspy_peach",
       "sweep": [
         {
-          "selectedItem": null,
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
           "values": [
             "Kevin",
@@ -225,7 +224,6 @@
       "name": "blueberries",
       "sweep": [
         {
-          "selectedItem": null,
           "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
           "values": [
             "Aaron",
