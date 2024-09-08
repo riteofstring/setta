@@ -14,7 +14,7 @@ import { addSectionInEmptySpace } from "../sections/createSections";
 import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
-  const project = getProjectData({});
+  const project = getProjectData();
   if (includeEVReferences) {
     project["evRefs"] = computeEVReferences(project);
     project["infoToFullName"] = computeInfoToFullName(project);
@@ -114,15 +114,20 @@ function* getProjectRuns(project) {
 
 function* getProjectVariants(project) {
   const allSweeps = [];
+  const versions = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
     for (const sweep of details.sweep) {
       const curr = [];
-      for (const value of sweep.values) {
-        curr.push({
-          paramSweepId,
-          paramInfoId: sweep.paramInfoId,
-          value,
-        });
+      if ("paramInfoId" in sweep) {
+        for (const value of sweep.values) {
+          curr.push({
+            paramSweepId,
+            paramInfoId: sweep.paramInfoId,
+            value,
+          });
+        }
+      } else {
+        versions.push({ paramSweepId, variantId: sweep.variantId });
       }
       if (curr.length > 0) {
         allSweeps.push(curr);
@@ -148,7 +153,19 @@ function* getProjectVariants(project) {
     }
   }
 
-  if (allSweeps.length === 0) {
+  if (versions.length > 0) {
+    for (const version of versions) {
+      const variant = _.cloneDeep(project);
+      const { paramSweepId, variantId } = version;
+      const forSectionId = Object.values(project.sections).find((x) =>
+        x.paramSweepIds.includes(paramSweepId),
+      ).id;
+      variant.sections[forSectionId].variantId = variantId;
+      yield variant;
+    }
+  }
+
+  if (allSweeps.length === 0 && versions.length === 0) {
     yield project;
   }
 }

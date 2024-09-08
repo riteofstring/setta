@@ -43,8 +43,6 @@ CREATE_TABLES_COMMANDS = [
         isFrozen BOOLEAN,
         dbSource TEXT,
         codeInfoId TEXT,
-        hideUnpinnedParams BOOLEAN,
-        showYaml BOOLEAN,
         FOREIGN KEY (paramSweepSectionId) REFERENCES Section(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeId) REFERENCES UIType(id) ON DELETE CASCADE,
         FOREIGN KEY (uiTypeColId) REFERENCES UITypeColId(id) ON DELETE CASCADE,
@@ -62,8 +60,6 @@ CREATE_TABLES_COMMANDS = [
         variantId TEXT,
         paramSweepId TEXT,
         isHorizontalOrientation BOOLEAN,
-        pinnedAreaHeight INTEGER,
-        isMinimized BOOLEAN,
         PRIMARY KEY (projectConfigId, sectionId),
         FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE,
         FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
@@ -211,14 +207,14 @@ CREATE_TABLES_COMMANDS = [
     """
     CREATE TABLE IF NOT EXISTS ParamSweep (
         idid TEXT,
-        selectedItem TEXT,
         paramInfoId TEXT,
+        variantId TEXT,
         "order" INTEGER,
         value TEXT,
-        PRIMARY KEY (idid, selectedItem, paramInfoId, "order"),
+        PRIMARY KEY (idid, paramInfoId, variantId),
         FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
-        FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
-        FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
+        FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE,
+        CHECK (paramInfoId IS NOT NULL OR variantId IS NOT NULL)
     );
     """,
 ]

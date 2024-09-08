@@ -1,5 +1,4 @@
 import { useParamSweep } from "state/definitions";
-import { getSectionInfo } from "state/getters/sectionInfo";
 
 export function setAllParamSweeps(payload) {
   useParamSweep.setState({ x: payload });
@@ -36,11 +35,11 @@ export function deleteParamSweepValue({ paramSweepId, idx, valueIdx }) {
 }
 
 export function deleteLastParamSweepValue({ paramSweepId, idx }) {
-  const state = useParamSweep.getState().x;
-  deleteParamSweepValue({
+  const { deleteValue, x } = get();
+  deleteValue({
     paramSweepId,
     idx,
-    valueIdx: state[paramSweepId].sweep[idx].values.length - 1,
+    valueIdx: x[paramSweepId].sweep[idx].values.length - 1,
   });
 }
 
@@ -48,27 +47,27 @@ export function changeParamSweepParamInfoId({
   paramSweepId,
   idx,
   paramInfoId,
+  variantId,
 }) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep[idx] = { paramInfoId, values: [""] };
+    } else if (variantId) {
+      state.x[paramSweepId].sweep[idx] = { variantId };
     }
   });
 }
 
-export function addParamSweepParamInfoId({ paramSweepId, paramInfoId }) {
+export function addParamSweepParamInfoId({
+  paramSweepId,
+  paramInfoId,
+  variantId,
+}) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep.push({ paramInfoId, values: [""] });
+    } else if (variantId) {
+      state.x[paramSweepId].sweep.push({ variantId });
     }
-  });
-}
-
-export function deleteParamsFromParamSweep({ sectionId, ids }) {
-  const { paramSweepId } = getSectionInfo(sectionId);
-  useParamSweep.setState((x) => {
-    x.x[paramSweepId].sweep = x.x[paramSweepId].sweep.filter(
-      (y) => !ids.includes(y.paramInfoId),
-    );
   });
 }

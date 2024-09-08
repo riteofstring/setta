@@ -48,7 +48,7 @@ function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes = {};
   for (const paramId of paramIds) {
-    const ev = sectionVariant.values[paramId];
+    const ev = sectionVariant[paramId];
     if (_.isNil(ev)) {
       paramIdsToUITypes[paramId] = uiTypeState.x[paramIdToUITypeId[paramId]];
     }

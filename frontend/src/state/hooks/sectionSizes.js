@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import { MINIMIZE_SECTION_HEIGHT, ROOT_SECTION_HEIGHT } from "utils/constants";
+import useDeepCompareEffect from "use-deep-compare-effect";
+import { useGetParamInfos } from "./sectionContents";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
 import { useIsArtifact, useIsRoot } from "./uiTypes";
@@ -10,17 +11,12 @@ export function useMinSectionHeight(sectionId) {
   const isRoot = useIsRoot(sectionId);
   const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
   const hideParams = useGetSectionInfo(sectionId, "hideParams");
-  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
   const hasTitle = true;
   const hasSearch = !isRoot && !hideSearch;
   const hasKwargControl = !hideParams && !isRoot;
 
   if (isRoot) {
-    return ROOT_SECTION_HEIGHT;
-  }
-
-  if (isMinimized) {
-    return MINIMIZE_SECTION_HEIGHT;
+    return 50;
   }
 
   if (isOutput) {
@@ -85,4 +81,14 @@ export function useOverflow(sectionId) {
   }, [didUpdate]);
 
   return { overflow, ref, setDidUpdate };
+}
+
+export function useParamsDidUpdate({ sectionId, setDidUpdate }) {
+  const params = useGetParamInfos(sectionId);
+
+  useDeepCompareEffect(() => {
+    setDidUpdate(true);
+  }, [params]);
+
+  return params;
 }

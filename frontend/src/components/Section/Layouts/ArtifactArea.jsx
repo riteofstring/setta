@@ -29,12 +29,10 @@ function OneChart({ series, title }) {
     seriesWithX.push({ name, values: data.map((y, i) => ({ x: i, y })) });
   }
 
-  // ParentSize has min-w-0 and min-h-0 to avoid resizing bug:
-  // https://github.com/airbnb/visx/issues/1014#issuecomment-1180677878
   return (
-    <figure className="section-w-full section-row-main single-cell-container h-auto w-full max-w-full overflow-clip">
+    <figure className="section-figure">
       <ParentSize
-        className="single-cell-child -my-2 min-h-0 min-w-0 py-1"
+        className="-my-5 flex flex-1 flex-col px-8 pt-6"
         debounceTime={0}
       >
         {(parent) => (
@@ -51,11 +49,15 @@ function OneChart({ series, title }) {
 
 function OneImg({ img }) {
   return (
-    <figure className="section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1">
+    <figure className="section-figure">
       <img
         src={`data:image/png;base64,${img}`}
         // alt={altText}
-        className="h-auto max-h-full w-full self-center object-contain"
+        // className="h-auto max-w-full rounded-lg shadow-md"
+        style={{
+          width: "100%",
+          height: "100%",
+        }}
       />
     </figure>
   );

@@ -1,5 +1,6 @@
 import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import { updateParams } from "state/actions/sections/sectionContents";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { getSectionIdToChildren } from "state/actions/sectionVariants";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
@@ -52,10 +53,12 @@ function EVItems({ sectionId }) {
 
   function onMouseOver(id) {
     setSectionInfoAttr({ sectionId, attr: "previewVariantId", value: id });
+    updateParams(sectionId);
   }
 
   function onClick(id) {
     setSectionInfoAttr({ sectionId, attr: "variantId", value: id });
+    updateParams(sectionId);
     useDndChildren
       .getState()
       .update(getSectionIdToChildren(useSectionVariants.getState().x));

@@ -1,27 +1,24 @@
 import _ from "lodash";
-import {
-  getParamIds,
-  getParamIdsToShowInArea,
-} from "state/actions/sections/sectionContents";
-import { useCodeInfo } from "state/definitions";
+import { useCodeInfo, useSectionToParamIds } from "state/definitions";
 import { assembleCollectionsForSectionConfig } from "utils/codeInfoUtils";
 import { useGetSectionInfo } from "./sections";
-import { useSectionSelectedItem } from "./sectionVariants";
 
-// export function useGetAllCallables(sectionId) {
-//   const ids = useSectionToParamIds(
-//     (x) => x.callables[sectionId] ?? [],
-//     _.isEqual,
-//   );
-//   return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
-// }
+export function useGetAllCallables(sectionId) {
+  const ids = useSectionToParamIds(
+    (x) => x.callables[sectionId] ?? [],
+    _.isEqual,
+  );
+  return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
+}
+
+export function useGetParamInfos(sectionId) {
+  const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
+  return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
+}
 
 export function useGetParamInfosThatHaveNames(sectionId) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
-
+  const ids = useSectionToParamIds((x) => x.params[sectionId] ?? [], _.isEqual);
   return useCodeInfo((x) => {
-    const ids = getParamIds(sectionId, x.x, selectedItem, codeInfoId);
     const haveName = [];
     for (const id of ids) {
       if (x.x[id].name) {
@@ -46,20 +43,5 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
 }
 
 export function useHasParams(sectionId) {
-  return useCodeInfo((x) => getParamIds(sectionId, x).length > 0);
-}
-
-export function useParamIdsToShowInArea(sectionId, isPinned) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
-
-  return useCodeInfo((x) => {
-    return getParamIdsToShowInArea(
-      sectionId,
-      isPinned,
-      x.x,
-      selectedItem,
-      codeInfoId,
-    );
-  }, _.isEqual);
+  return useSectionToParamIds((x) => (x.params[sectionId] ?? []).length > 0);
 }

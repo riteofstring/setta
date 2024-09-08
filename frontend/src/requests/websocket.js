@@ -47,6 +47,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
     updateInteractiveData(m.content);
   } else if (m.id) {
+    console.log(m);
     setWebsocketRoomMessage(m.id, m.content);
   }
 }

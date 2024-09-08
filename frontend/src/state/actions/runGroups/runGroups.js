@@ -1,7 +1,4 @@
 import { useRunGroups } from "state/definitions";
-import { getSectionByName } from "state/getters/sectionInfo";
-import { SINGLETON_SECTIONS } from "utils/constants";
-import { createNewId } from "utils/idNameCreation";
 
 export function setAllRunGroups(payload) {
   useRunGroups.setState({ x: payload });
@@ -42,41 +39,4 @@ export function toggleRunGroupParamSweep({ id, sectionId, paramSweepId }) {
       }
     }
   });
-}
-
-export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
-  const stateFormat = {};
-  for (const [name, runGroup] of Object.entries(runGroups)) {
-    stateFormat[createNewId()] = {
-      name,
-      selected: runGroup.selected,
-      sections: parsePrettyRunGroupSections(runGroup),
-    };
-  }
-
-  console.log("stateFormt", stateFormat);
-
-  setAllRunGroups(stateFormat);
-  if (!SINGLETON_SECTIONS.globalParamSweep) {
-    console.log("will create section");
-  } else {
-    console.log("section already exists");
-  }
-}
-
-function parsePrettyRunGroupSections(runGroup) {
-  const sections = {};
-  for (const [sectionName, sectionDetails] of Object.entries(
-    runGroup.sections,
-  )) {
-    const s = getSectionByName(sectionName);
-    sections[s.id] = {};
-    // TODO
-    // for (const [paramSweepName, paramSweepIsSelected] of Object.entries(
-    //   sectionDetails,
-    // )) {
-    //   sections[s.id][]
-    // }
-  }
-  return sections;
 }

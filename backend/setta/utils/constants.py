@@ -37,7 +37,6 @@ class Constants:
 
 
 C = Constants()
-USER_SETTINGS = {}
 
 
 def set_constants(**kwargs):

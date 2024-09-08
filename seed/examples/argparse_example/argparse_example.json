@@ -45,7 +45,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3dbb4893-bd44-4e67-a6c3-1148d7205d42"],
+      "variantIds": [
+        "3dbb4893-bd44-4e67-a6c3-1148d7205d42"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "size": {
@@ -56,11 +58,7 @@
       "paramSweepId": null,
       "codeInfoId": "ee41213d-8390-4c70-a922-49887874461b",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false,
-      "isMinimized": false,
-      "pinnedAreaHeight": "auto"
+      "artifacts": []
     },
     "350241fe-50f9-44a9-8553-fb57eb72f881": {
       "id": "350241fe-50f9-44a9-8553-fb57eb72f881",
@@ -73,7 +71,9 @@
       "codeLanguage": "python",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["3ec298ce-5d49-42f8-8700-3e2efb26855b"],
+      "variantIds": [
+        "3ec298ce-5d49-42f8-8700-3e2efb26855b"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "size": {
@@ -84,11 +84,7 @@
       "paramSweepId": null,
       "codeInfoId": "6b0467c1-584c-436c-8d18-5a86fa6eddfa",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false,
-      "isMinimized": false,
-      "pinnedAreaHeight": "auto"
+      "artifacts": []
     },
     "8d73c344-5501-4790-98ed-c00cb9d87393": {
       "id": "8d73c344-5501-4790-98ed-c00cb9d87393",
@@ -101,7 +97,9 @@
       "codeLanguage": "bash",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["40fd1a3c-6fca-4b87-b427-5bee353cef09"],
+      "variantIds": [
+        "40fd1a3c-6fca-4b87-b427-5bee353cef09"
+      ],
       "paramSweepIds": [],
       "parentId": null,
       "size": {
@@ -112,11 +110,7 @@
       "paramSweepId": null,
       "codeInfoId": "cbf1bb45-39f1-433f-9107-a790449a47bc",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": false,
-      "hideUnpinnedParams": false,
-      "isMinimized": false,
-      "pinnedAreaHeight": "auto"
+      "artifacts": []
     },
     "c27f4f05-7a54-44e6-b222-c77581c4ea37": {
       "id": "c27f4f05-7a54-44e6-b222-c77581c4ea37",
@@ -129,7 +123,9 @@
       "codeLanguage": "",
       "isFrozen": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["dc1879dd-4591-46c0-8fc6-f733c6b177ca"],
+      "variantIds": [
+        "dc1879dd-4591-46c0-8fc6-f733c6b177ca"
+      ],
       "paramSweepIds": [
         "e30db601-cda1-4b31-bafe-a8dd047af670",
         "4fe62be1-f939-4d84-9c3f-f20412754e0c"
@@ -144,11 +140,7 @@
       "paramSweepId": "e30db601-cda1-4b31-bafe-a8dd047af670",
       "codeInfoId": "ceb322b7-b346-4a16-aedc-484c4ecf7b4e",
       "isHorizontalOrientation": false,
-      "artifacts": [],
-      "showYaml": true,
-      "hideUnpinnedParams": false,
-      "isMinimized": false,
-      "pinnedAreaHeight": "auto"
+      "artifacts": []
     }
   },
   "uiTypes": {},
@@ -204,12 +196,10 @@
       "name": "raspy_peach",
       "sweep": [
         {
-          "selectedItem": null,
-          "params": [
-            {
-              "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-              "values": ["Kevin", "Jeff"]
-            }
+          "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
+          "values": [
+            "Kevin",
+            "Jeff"
           ]
         }
       ]
@@ -218,12 +208,10 @@
       "name": "blueberries",
       "sweep": [
         {
-          "selectedItem": null,
-          "params": [
-            {
-              "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-              "values": ["Aaron", "Joseph"]
-            }
+          "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
+          "values": [
+            "Aaron",
+            "Joseph"
           ]
         }
       ]
@@ -238,7 +226,7 @@
       "rcType": "parameter",
       "defaultVal": null,
       "description": "",
-      "isPinned": 1,
+      "isPinned": 0,
       "isFrozen": 0,
       "children": [],
       "positionalOnly": false,
@@ -325,7 +313,9 @@
       "description": "",
       "isPinned": 0,
       "isFrozen": 0,
-      "children": ["0eac6e6f-6f26-47af-a9a3-89d9c365b26b"],
+      "children": [
+        "0eac6e6f-6f26-47af-a9a3-89d9c365b26b"
+      ],
       "positionalOnly": false,
       "keywordPositions": []
     },

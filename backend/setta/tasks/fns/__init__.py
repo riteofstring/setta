@@ -5,5 +5,4 @@ from .parametersRequest import parametersRequest
 from .textFieldAutocomplete import textFieldCompletion
 from .textFieldFindReferences import textFieldFindReferences
 from .textFieldInitializeCode import textFieldInitializeCode
-from .typeCheck import typeCheck
 from .utils import InteractiveTaskDefinition, TaskDefinition

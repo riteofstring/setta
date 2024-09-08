@@ -1,5 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
+import { paramSelect } from "state/actions/keyActivations";
 import {
   addActiveSectionIds,
   removeActiveSectionIds,
@@ -8,7 +9,7 @@ import {
 import { getParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
-import { useActiveSection, useParamShortcuts } from "state/definitions";
+import { useActiveSection } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import {
   useGetSectionInfo,
@@ -26,7 +27,7 @@ function _SectionContainerCore({ sectionId }) {
   const dbSourceIsAvailable = useSectionDBSourceIsAvailable(sectionId);
 
   function onClick(e) {
-    if (useParamShortcuts.getState().isSelectingParams) {
+    if (paramSelect(e)) {
       // depends on bubbling behavior (child div onclicks get executed first)
       const atLeastOneParamSelected = getParamInfos(sectionId).some(
         (x) => x.isSelected,

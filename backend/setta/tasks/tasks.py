@@ -5,12 +5,7 @@ from typing import Dict
 from setta.database.utils import create_new_id
 
 from . import fns
-from .fns.utils import (
-    TaskDefinition,
-    TaskMessage,
-    get_task_metadata_for_frontend,
-    import_code_from_string,
-)
+from .fns.utils import TaskDefinition, TaskMessage, import_code_from_string
 from .task_runner import TaskRunner
 
 
@@ -48,7 +43,7 @@ class Tasks:
 
     def add_fns_from_module(self, module, task_name=None):
         count = 1
-        task_metadata = []
+        task_names = []
         for attr in vars(module).values():
             if isinstance(attr, TaskDefinition):
                 if not attr.name:
@@ -59,12 +54,14 @@ class Tasks:
                     attr.name = f"{task_name}-{count}"
                     count += 1
                 self.add_fn(attr)
-                task_metadata.append(get_task_metadata_for_frontend(attr))
-        return task_metadata
+                task_names.append(attr.name)
+        return task_names
 
-    async def add_custom_fns(self, codeDict, project_config_name, projectAsSimpleDict):
+    async def add_custom_fns(
+        self, codeDict, project_config_name, projectAsSimpleDict, runOnImport
+    ):
         error_msgs = {}
-        task_metadata = []
+        task_names = []
         content = []
         self.remove_existing_custom_fns(project_config_name)
         for id, code in codeDict.items():
@@ -72,23 +69,21 @@ class Tasks:
             try:
                 module = import_code_from_string(code)
                 if module:
-                    task_metadata.extend(
+                    task_names.extend(
                         self.add_fns_from_module(module, task_name=task_name)
                     )
             except Exception as e:
                 error_msgs[task_name] = str(e)
-        self.custom_fn_names[project_config_name] = [x["name"] for x in task_metadata]
-        for t in task_metadata:
-            self.custom_fn_name_to_project_dict[t["name"]] = projectAsSimpleDict
+        self.custom_fn_names[project_config_name] = task_names
+        for n in task_names:
+            self.custom_fn_name_to_project_dict[n] = projectAsSimpleDict
 
-        for t in task_metadata:
-            if t["runOnImport"]:
-                task_output = await self(
-                    t["name"], TaskMessage(id=create_new_id(), content={})
-                )
+        if runOnImport:
+            for n in task_names:
+                task_output = await self(n, TaskMessage(id=create_new_id(), content={}))
                 content.extend(task_output["content"])
 
-        return task_metadata, error_msgs, content
+        return task_names, error_msgs, content
 
     def remove_existing_custom_fns(self, project_config_name):
         if project_config_name not in self.custom_fn_names:

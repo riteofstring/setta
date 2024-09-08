@@ -1,4 +1,5 @@
 import { addNodes } from "state/actions/nodeInternals";
+import { updateManyParamsAndCallables } from "state/actions/sections/sectionContents";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { addCodeInfoBatch } from "../codeInfo";
 import { updateSectionVariants } from "../sectionVariants";
@@ -60,4 +61,5 @@ export function updateStateWithSectionCopy({
   updateUITypeCols({ uiTypeCols });
   addCodeInfoBatch(codeInfo);
   updateSections(sections);
+  updateManyParamsAndCallables(Object.keys(sections));
 }

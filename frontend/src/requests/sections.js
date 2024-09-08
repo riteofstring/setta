@@ -6,28 +6,8 @@ import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
 import { useKeywordRegex, useProjectConfig } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
-
-export function dbRequestTypeCheck() {
-  const project = getProjectDataToGenerateCode({});
-  sendMessage({
-    content: project,
-    id: createNewId(),
-    messageType: "typeCheck",
-  });
-}
-
-export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
-  const project = getProjectDataToGenerateCode({});
-  pinnedIds.requiredParamIds = Array.from(pinnedIds.requiredParamIds);
-  unpinnedIds.requiredParamIds = Array.from(unpinnedIds.requiredParamIds);
-  return await post({
-    body: { project, sectionId, pinnedIds, unpinnedIds },
-    address: C.ROUTE_SECTION_TO_DICT,
-  });
-}
 
 export async function dbGetSections() {
   return await post({

@@ -14,7 +14,6 @@ import {
   youtubeSectionAspectRatio,
 } from "state/hooks/social";
 import { useGetSectionType } from "state/hooks/uiTypes";
-import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
 
@@ -47,12 +46,7 @@ function CustomResizableCore({
 }) {
   const { isSorting, isMovingFree } = useDndMode();
   const sizeMode = useSizeMode(sectionId);
-  const size = useSectionInfos((x) => {
-    const s = x.x[sectionId];
-    return s.isMinimized
-      ? { width: s.size.width, height: MINIMIZE_SECTION_HEIGHT }
-      : s.size;
-  });
+  const size = useSectionInfos((x) => x.x[sectionId].size);
   const aspectRatio = useAspectRatio(sectionId);
 
   function onResizeStart() {
@@ -81,10 +75,7 @@ function CustomResizableCore({
           left: false,
           bottom: heightResizable,
           right: widthResizable,
-          topRight: false,
           bottomRight: heightResizable && widthResizable,
-          topLeft: false,
-          bottomLeft: false,
         };
 
   return (
@@ -101,7 +92,6 @@ function CustomResizableCore({
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={enable}
       className={inputClasses}
-      handleStyles={{ right: { right: "-8px" }, bottom: { bottom: "-8px" } }}
       // handleComponent={{ bottomRight: <ResizeIcon /> }}
     >
       {children}

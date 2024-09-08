@@ -1,22 +1,29 @@
+import { matchSorter } from "match-sorter";
+import { useSectionParamFilter } from "state/definitions";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
   sectionId,
-  paramIds,
-  requiredParamIds,
+  parentId,
+  infos,
   setDidUpdate,
-  ancestorIsSelected = false,
 }) {
-  const filteredIds = paramIds.filter((x) => requiredParamIds.has(x));
+  const paramFilter = useSectionParamFilter((x) => x.x[sectionId]);
+  const filteredInfos = paramFilter
+    ? matchSorter(infos, paramFilter, { keys: ["name"] })
+    : infos;
 
-  return filteredIds.map((e) => (
+  // do not use e.name as part of the key.
+  // It causes remounting of components when
+  // kwarg name changes, which messes up textinputcodemirror
+  return filteredInfos.map((e, idx) => (
     <ParamSwitch
-      key={e}
+      key={`${e.id}`}
       sectionId={sectionId}
-      paramInfoId={e}
-      requiredParamIds={requiredParamIds}
+      parentId={parentId}
+      paramInfo={e}
+      isKwarg={e.editable}
       setDidUpdate={setDidUpdate}
-      ancestorIsSelected={ancestorIsSelected}
     />
   ));
 }

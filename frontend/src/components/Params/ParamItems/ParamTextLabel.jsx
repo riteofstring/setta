@@ -1,11 +1,7 @@
-import { useCodeInfo } from "state/definitions";
-
-export function ParamTextLabel({ paramInfoId }) {
-  const name = useCodeInfo((x) => x.x[paramInfoId].name);
-
+export function ParamTextLabel(props) {
   return (
-    <p className="section-key truncate py-[.125rem] font-sans text-xs font-semibold  text-setta-800 dark:text-setta-400">
-      {name}
+    <p className="section-key truncate font-sans text-xs font-semibold  text-setta-800 dark:text-setta-400">
+      {props.paramInfo.name}
     </p>
   );
 }

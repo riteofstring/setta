@@ -1,10 +1,12 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { TextAreaPopover } from "components/Utils/atoms/popover/textareapopover";
+import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React, { useState } from "react";
-import { BiPencil } from "react-icons/bi";
+import { BiFilter, BiPencil } from "react-icons/bi";
 import { setCodeInfoDescription } from "state/actions/codeInfo";
+import { updateParams } from "state/actions/sections/sectionContents";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useCodeInfo } from "state/definitions";
@@ -35,11 +37,11 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
         leftElementStyles="pl-1"
         placeholder="Filter"
         leftElement={
-          <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
+          <BiFilter className="text-setta-600 dark:text-setta-400" />
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll">
+      <ScrollingArea styles="mt-4 flex flex-col gap-2">
         {sectionId &&
           filteredList.map((e, idx) => (
             <UIElement
@@ -48,7 +50,7 @@ const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
               key={`${e.name}-${idx}`}
             />
           ))}
-      </div>
+      </ScrollingArea>
     </div>
   );
 });
@@ -84,10 +86,10 @@ function _UIElement({ sectionId, paramInfo }) {
           {paramName}
         </p>
         <div className="col-start-1 col-end-2 row-start-1 row-end-2 flex gap-[0.1rem] place-self-end">
-          {/* <InfoViewDescription
+          <InfoViewDescription
             sectionId={sectionId}
             paramInfoId={paramInfoId}
-          /> */}
+          />
           <SaveUITypeConfig />
         </div>
       </div>
@@ -119,6 +121,7 @@ function InfoViewDescription({ sectionId, paramInfoId }) {
       header={"Description for Infoview"}
       onClick={() => {
         setCodeInfoDescription({ id: paramInfoId, description: value });
+        updateParams(sectionId);
       }}
       value={value}
       onChange={(e) => setValue(e.target.value)}
