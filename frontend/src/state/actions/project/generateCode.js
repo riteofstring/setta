@@ -14,7 +14,7 @@ import { addSectionInEmptySpace } from "../sections/createSections";
 import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
-  const project = getProjectData();
+  const project = getProjectData({});
   if (includeEVReferences) {
     project["evRefs"] = computeEVReferences(project);
     project["infoToFullName"] = computeInfoToFullName(project);
