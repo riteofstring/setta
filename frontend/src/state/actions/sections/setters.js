@@ -33,19 +33,39 @@ export async function setSelectedItem(
     setSectionVariantAttr(sectionId, "selectedItem", prevSelected);
     maybeIncrementProjectStateVersion(changedByUser);
   } else {
-    const { id, evRefs } = await createNewCodeInfoAndKeywordPositions({
+    const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
       sectionId,
-      selectedItemName,
+      paramInfoId: null,
+      fullText: selectedItemName,
     });
+    const info = newCodeInfo({
+      name: selectedItemName,
+      editable: false,
+      rcType: C.CALLABLE,
+      keywordPositions,
+    });
+    const { codeInfoId } = getSectionInfo(sectionId);
+    addCodeInfo({ info, parent: codeInfoId });
+
+    const id = info.id;
     setSectionVariantAttr(sectionId, "selectedItem", id);
-    await createCodeInfoChildren({
-      dataSectionId: sectionId,
-      visualSectionId: sectionId,
-      selectedItemName,
+
+    const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
+
+    const res = await dbParametersRequest({
+      sectionId,
+      fullText: selectedItemName,
+      beforeText: "",
+      position: selectedItemName.length,
       evRefs,
-      codeInfoId: id,
-      changedByUser,
     });
+    if (res) {
+      createChildrenCodeInfo(id, res);
+      setSelectedItemChildren(sectionId, id, changedByUser);
+    } else {
+      setNotificationMessage("No parameters found");
+    }
+    setToNotWaiting();
   }
   updateKeywordRegex();
 }
@@ -91,50 +111,4 @@ export function setSectionParentId(sectionId, parentId) {
 
 export function setSectionSize(sectionId, size) {
   setSectionInfoAttr({ sectionId, attr: "size", value: size });
-}
-
-export async function createNewCodeInfoAndKeywordPositions({
-  sectionId,
-  selectedItemName,
-}) {
-  const { evRefs, keywordPositions } = await getKeywordPositionsAndEVRefs({
-    sectionId,
-    paramInfoId: null,
-    fullText: selectedItemName,
-  });
-  const info = newCodeInfo({
-    name: selectedItemName,
-    editable: false,
-    rcType: C.CALLABLE,
-    keywordPositions,
-  });
-  const { codeInfoId } = getSectionInfo(sectionId);
-  addCodeInfo({ info, parent: codeInfoId });
-  return { id: info.id, evRefs };
-}
-
-export async function createCodeInfoChildren({
-  dataSectionId,
-  visualSectionId,
-  selectedItemName,
-  evRefs,
-  codeInfoId,
-  changedByUser,
-}) {
-  const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
-
-  const res = await dbParametersRequest({
-    sectionId: dataSectionId,
-    fullText: selectedItemName,
-    beforeText: "",
-    position: selectedItemName.length,
-    evRefs,
-  });
-  if (res) {
-    createChildrenCodeInfo(codeInfoId, res);
-    setSelectedItemChildren(dataSectionId, codeInfoId, changedByUser);
-  } else {
-    setNotificationMessage("No parameters found");
-  }
-  setToNotWaiting();
 }

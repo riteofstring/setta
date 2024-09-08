@@ -5,7 +5,7 @@ import {
   removeActiveSectionIds,
   setActiveSectionIds,
 } from "state/actions/sections/activeSections";
-import { getParamInfos } from "state/actions/sections/sectionContents";
+import { getAllParamInfos } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
 import { useActiveSection, useParamShortcuts } from "state/definitions";
@@ -28,7 +28,7 @@ function _SectionContainerCore({ sectionId }) {
   function onClick(e) {
     if (useParamShortcuts.getState().isSelectingParams) {
       // depends on bubbling behavior (child div onclicks get executed first)
-      const atLeastOneParamSelected = getParamInfos(sectionId).some(
+      const atLeastOneParamSelected = getAllParamInfos(sectionId).some(
         (x) => x.isSelected,
       );
       if (!isActiveSection && atLeastOneParamSelected) {

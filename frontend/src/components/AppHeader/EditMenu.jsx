@@ -5,8 +5,8 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
-import { dbRequestTypeCheck } from "requests/sections";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
+import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 
@@ -42,7 +42,7 @@ function Items() {
         Group
       </MenuItem>
       <MenuItem
-        onClick={dbRequestTypeCheck}
+        onClick={requestTypeCheck}
         shortcut={shortcuts.typeCheckShortcut}
       >
         Type Check

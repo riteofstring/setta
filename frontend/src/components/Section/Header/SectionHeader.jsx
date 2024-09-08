@@ -34,13 +34,14 @@ function _SectionHeader({
 
   return (
     <header className="section-title mx-2 flex flex-row items-center">
-      <MenuButton
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-      />
       {!isInfo && (
         <>
+          <MenuButton
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            isInOtherProjectConfigs={isInOtherProjectConfigs}
+          />
+
           <CardTitle
             sectionId={sectionId}
             isActiveSection={isActiveSection}
@@ -79,7 +80,7 @@ function _SectionHeader({
             header={"Description for Infoview"}
           />
         )}
-        <MinimizeButton sectionId={sectionId} />
+        <MinimizeButton sectionId={sectionId}/>
         <CustomCloseButton onClick={onCustomCloseButtonClick} isInfo={isInfo} />
       </div>
     </header>

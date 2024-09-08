@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { updateSearch } from "state/actions/search/projectSearch";
-import { getParamIds } from "state/actions/sections/sectionContents";
+import { getAllParamIds } from "state/actions/sections/sectionContents";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useCodeInfo, useProjectSearch } from "state/definitions";
 import { useSectionIdToChildren } from "./sectionVariants";
@@ -77,7 +77,7 @@ function useAllVisibleParams() {
   return useCodeInfo((x) => {
     const output = [];
     for (const id of allIds) {
-      const paramIds = getParamIds(id, x.x);
+      const paramIds = getAllParamIds(id, x.x);
       for (const p of paramIds) {
         output.push({
           sectionId: id,

@@ -84,7 +84,7 @@ export function findAllParametersOfCallables(
   );
 }
 
-export function findAllParametersOfNotCallables(
+export function findAllParametersOfCollections(
   allCodeInfo,
   codeInfoIds,
   paramPathCondition = false,
@@ -93,7 +93,7 @@ export function findAllParametersOfNotCallables(
     allCodeInfo,
     codeInfoIds,
     (c) => c?.rcType === C.PARAMETER,
-    (c) => c?.rcType !== C.CALLABLE,
+    (c) => c?.rcType === C.COLLECTION,
     paramPathCondition,
   );
 }

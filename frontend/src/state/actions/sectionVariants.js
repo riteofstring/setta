@@ -8,6 +8,7 @@ import { createRandomName } from "utils/idNameCreation";
 import { getValueForUIType, newEV } from "utils/objs/ev";
 import { getMappedSectionDBSource } from "../getters/sectionInfo";
 import { initValue } from "../utils";
+import { debouncedRequestTypeCheck } from "./typeCheck";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function setAllSectionVariants(x) {
@@ -136,6 +137,7 @@ export function setParamEnteredValue({
     getSectionVariantIdAndMappedDBSource(sectionId);
   setEnteredValue({ dbSource, collectionId: variantId, paramInfoId, value });
   maybeIncrementProjectStateVersion(incrementVersion);
+  debouncedRequestTypeCheck();
 }
 
 export function setParamKeywordPositions({

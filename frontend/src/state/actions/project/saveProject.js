@@ -22,7 +22,7 @@ import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
 import { getProjectConfigMetadata } from "./projectConfig";
 
-export function getProjectData({ withArtifactMetadata = false }) {
+export function getProjectData() {
   const projectConfig = getProjectConfigMetadata();
   projectConfig.viewport = getViewport();
   projectConfig.previewImgNodes = getPreviewImgNodes();
@@ -44,9 +44,6 @@ export function getProjectData({ withArtifactMetadata = false }) {
   const sectionInfosState = useSectionInfos.getState();
   const sections = _.mapValues(sectionInfosState.x, (x) => {
     const artifactState = useArtifacts.getState().x;
-    if (!withArtifactMetadata) {
-      return _.omit(x, ["parentId", "artifacts"]);
-    }
     const currSection = _.omit(x, ["parentId"]);
     // keep only artifact paths that are actually saved to disk
     currSection.artifacts = currSection.artifacts.filter(
@@ -81,9 +78,7 @@ export function getProjectData({ withArtifactMetadata = false }) {
 
 export async function saveProject() {
   setNotificationMessage("Saving...");
-  const res = await dbSaveProject({
-    project: getProjectData({ withArtifactMetadata: true }),
-  });
+  const res = await dbSaveProject({ project: getProjectData() });
   if (res.status === 200) {
     setNotificationMessage("Saved!");
   }
@@ -104,10 +99,7 @@ export async function saveAsExistingProjectConfig({ configName }) {
 }
 
 async function saveProjectAs({ fn, otherArgs }) {
-  await fn({
-    project: getProjectData({ withArtifactMetadata: true }),
-    ...otherArgs,
-  });
+  await fn({ project: getProjectData(), ...otherArgs });
 }
 
 function getPreviewImgNodes() {
