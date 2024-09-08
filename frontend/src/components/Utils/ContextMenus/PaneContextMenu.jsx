@@ -79,6 +79,7 @@ export function PaneContextMenu() {
           New Global Param Sweep
         </Item>
       )}
+      <Item onClick={getOnClickFn({ type: C.DRAW })}>New Drawing Area</Item>
       <DialogDropdownTriggerItem
         onClick={() => openLoadModal(MODAL_TYPE.CREATE_FROM_ARGPARSE)}
       >

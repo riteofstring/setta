@@ -66,6 +66,13 @@
     "presetType": "BASE",
     "config": {}
   },
+  "4ec2f5eb-3f66-4bce-a9e2-1eb4fdd96d6f": {
+    "id": "4ec2f5eb-3f66-4bce-a9e2-1eb4fdd96d6f",
+    "type": "DRAW",
+    "name": "",
+    "presetType": "BASE",
+    "config": {}
+  },
   "2b06a83b-b96a-490d-a2d7-3631619e6495": {
     "id": "2b06a83b-b96a-490d-a2d7-3631619e6495",
     "type": "INFO",
