@@ -43,9 +43,7 @@ export function useGetAllProjectConfigMetadataForFileMenu(open) {
 export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});
   function exportProjectJson() {
-    const { project, ...theRest } = getProjectData({
-      withArtifactMetadata: true,
-    });
+    const { project, ...theRest } = getProjectData();
     setProjectJson(theRest);
   }
   async function exportFullProjectJson() {

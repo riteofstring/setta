@@ -7,7 +7,7 @@ import { useColorScale } from "./useColorScale";
 import { useCustomTooltip } from "./useCustomTooltip";
 
 const accentColorDark = "#75daad";
-const defaultMargin = { top: 50, right: 40, bottom: 60, left: 60 };
+const defaultMargin = { top: 16, right: 32, bottom: 32, left: 48 };
 const defaultLegendHeight = 30;
 const minHeight = 0;
 const minWidth = 0;
@@ -47,7 +47,7 @@ export function LineChart({
   //
   const legendGlyphSize = 15;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex w-full flex-col gap-4">
       <div className="overflow-hidden rounded-2xl ">
         <svg width={width} height={svgHeight}>
           <rect
@@ -113,7 +113,7 @@ export function LineChart({
         style={{ height: legendHeight, display: "flex" }}
       >
         {(labels) => (
-          <figcaption className="flex gap-2">
+          <figcaption className="mx-4 flex gap-2">
             {labels.map((label, i) => (
               <LegendItem key={`legend-quantile-${i}`} margin="0 5px">
                 <svg width={legendGlyphSize} height={legendGlyphSize}>

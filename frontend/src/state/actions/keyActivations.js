@@ -8,7 +8,7 @@ import {
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
-import { formatCode, updateInteractiveCode } from "./interactive";
+import { updateInteractiveCode } from "./interactive";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
@@ -36,30 +36,23 @@ function attachKeyUpListener(action) {
 // shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
   const parts = shortcutString.split("+").map((part) => part.trim());
-  let key = parts.find(
-    (part) => !["ctrl", "shift", "alt", "mod"].includes(part),
-  );
-  if (key !== undefined && key !== "enter") {
-    key = `key${key}`;
-  }
-
   return {
     mod: parts.includes("mod"),
     ctrl: parts.includes("ctrl"),
     shift: parts.includes("shift"),
     alt: parts.includes("alt"),
-    key,
+    key: parts.find((part) => !["ctrl", "shift", "alt", "mod"].includes(part)),
   };
 }
 
 function isShortcutPressed(event, shortcut) {
-  const { mod, ctrl, shift, alt, key } = shortcut;
+  const { mod, ctrl, shift, alt, key } = parseShortcut(shortcut);
   return (
     event.metaKey === (ctrl || mod) &&
     event.ctrlKey === ctrl &&
     event.shiftKey === shift &&
     event.altKey === alt &&
-    (key === undefined || event.code.toLowerCase() === key)
+    (key === undefined || event.key.toLowerCase() === key)
   );
 }
 
@@ -78,7 +71,6 @@ export function attachKeyEventListeners() {
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
     [settings.updateInteractiveCode, updateInteractiveCode],
-    [settings.formatCode, formatCode],
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
     [
       settings.drawSelectionShortcut,
@@ -107,12 +99,11 @@ export function attachKeyEventListeners() {
   for (const [keyCombo, action, keyUpAction] of conditionAndAction) {
     let cleanup;
     let lowercaseKeyCombo = keyCombo.toLowerCase();
-    const parsedShortcut = parseShortcut(lowercaseKeyCombo);
     // if (typeof condition === "string") {
     //   cleanup = attachBuiltInListener(condition, action);
     // } else {
     cleanup = attachKeyDownListener((e) => {
-      if (lowercaseKeyCombo && isShortcutPressed(e, parsedShortcut)) {
+      if (lowercaseKeyCombo && isShortcutPressed(e, lowercaseKeyCombo)) {
         // We don't want to prevent default if the shortcut is just Control or Alt
         // because this would prevent things like Ctrl + R for refreshing the page.
         if (

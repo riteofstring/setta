@@ -8,6 +8,7 @@ import { useRequiredUIEditorTabs } from "state/hooks/uiTypes";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
+  QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   SECTION_VARIANTS_TAB,
   tabNameToPretty,
@@ -16,6 +17,7 @@ import {
 } from "utils/constants";
 import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
+import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { SectionVariants } from "./SectionVariants/SectionVariants";
 import { UIConfig } from "./UIConfig/UIConfig";
@@ -119,6 +121,14 @@ function UIConfigTab({ sectionId }) {
   );
 }
 
+function QuickInfoConfigTab({ sectionId }) {
+  return (
+    <TabContent value={QUICKINFO_CONFIG_TAB}>
+      <QuickInfoConfig sectionId={sectionId} />
+    </TabContent>
+  );
+}
+
 function InfoTab({ sectionId }) {
   return (
     <TabContent value={INFO_CONFIG_TAB}>
@@ -154,5 +164,7 @@ function TabContentSelector({ sectionId, tabName }) {
     return <DBSourcesTab sectionId={sectionId} />;
   } else if (tabName === SECTION_VARIANTS_TAB) {
     return <SectionVariantsTab sectionId={sectionId} />;
+  } else if (tabName === QUICKINFO_CONFIG_TAB) {
+    return <QuickInfoConfigTab sectionId={sectionId} />;
   }
 }
