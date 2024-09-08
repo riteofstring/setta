@@ -2,6 +2,7 @@ import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
@@ -14,22 +15,29 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { useCodeInfo } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
+import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, objInfoId } =
     useParamSweepInfo(sectionId);
 
+  const hideSearch = useSectionInfos((x) => x.x[forSectionId].hideSearch);
+  const _isGlobalVariables =
+    useSectionTypeName(forSectionId) === C.GLOBAL_VARIABLES;
+
   return (
     <>
-      <ParamSweepSectionSearch
-        sectionId={sectionId}
-        forSectionId={forSectionId}
-        selectedItem={objInfoId}
-        paramSweepId={paramSweepId}
-      />
+      {!hideSearch && !_isGlobalVariables && (
+        <ParamSweepSectionSearch
+          sectionId={sectionId}
+          forSectionId={forSectionId}
+          selectedItem={objInfoId}
+          paramSweepId={paramSweepId}
+        />
+      )}
       <FilterSection />
       <Args
         paramSweepId={paramSweepId}
