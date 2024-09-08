@@ -64,9 +64,9 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           <HideShowUnpinnedParamsButton sectionId={sectionId} />
         )}
 
-        {[C.SECTION, C.GLOBAL_VARIABLES].includes(sectionTypeName) && (
-          <ShowYaml sectionId={sectionId} />
-        )}
+        {[C.SECTION, C.GLOBAL_VARIABLES, C.GLOBAL_PARAM_SWEEP].includes(
+          sectionTypeName,
+        ) && <ShowYaml sectionId={sectionId} />}
 
         <FreezeButton sectionId={sectionId} />
       </CardHeaderMenuButton>

@@ -1,23 +1,68 @@
+import CodeMirror from "@uiw/react-codemirror";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
 import _ from "lodash";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   createNewRunGroup,
   toggleRunGroup,
   toggleRunGroupParamSweep,
   toggleRunGroupSection,
 } from "state/actions/runGroups/runGroups";
+import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
+import { useGetSectionInfo } from "state/hooks/sections";
+import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
-export function GlobalParamSweepArea() {
+export function GlobalParamSweepArea({ sectionId }) {
+  const showYaml = useGetSectionInfo(sectionId, "showYaml");
+  return !showYaml ? (
+    <GlobalParamSweepGUI />
+  ) : (
+    <GlobalParamSweepCode sectionId={sectionId} />
+  );
+}
+
+function GlobalParamSweepCode({ sectionId }) {
+  const code = useGetSectionInfo(sectionId, "code");
+  const theme = useCodeMirrorStyle();
+  const extensions = getExtensions({ sectionId, language: "python" });
+
+  function onChange(v) {
+    setSectionVariantAttr(sectionId, "code", v);
+  }
+
+  return (
+    <article
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0`}
+    >
+      <CodeMirror
+        value={code}
+        onChange={onChange}
+        theme={theme}
+        extensions={extensions}
+      />
+    </article>
+  );
+}
+
+function GlobalParamSweepGUI() {
   const runGroups = useRunGroups((x) => x.x);
-  const [shownRunGroup, setShownRunGroup] = useState(Object.keys(runGroups)[0]);
+  const firstRunGroupId = Object.keys(runGroups)[0];
+  const [shownRunGroup, setShownRunGroup] = useState(firstRunGroupId);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
+
+  useEffect(() => {
+    if (firstRunGroupId) {
+      setShownRunGroup(firstRunGroupId);
+    }
+  }, [firstRunGroupId]);
 
   return (
     <>
@@ -99,22 +144,36 @@ function SectionList({ runGroupId, runGroup }) {
 }
 
 function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
-  // const variants = "flex flex-col gap-2";
-  return (
-    <ParamSweepVersionsList
-      sectionInfo={sectionInfo}
-      runGroupId={runGroupId}
-      runGroupSection={runGroupSection}
-    />
-  );
-}
-
-function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
-  const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
-
   function onSectionCheckboxChange() {
     toggleRunGroupSection({ id: runGroupId, sectionId: sectionInfo.id });
   }
+
+  return (
+    <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
+      <li className="flex flex-col">
+        <CheckboxGroup
+          checked={!_.isNil(runGroupSection)}
+          onChange={onSectionCheckboxChange}
+        >
+          {sectionInfo.name}
+        </CheckboxGroup>
+        <VersionsList
+          sectionInfo={sectionInfo}
+          runGroupId={runGroupId}
+          runGroupSection={runGroupSection}
+        />
+        <ParamSweepVersionsList
+          sectionInfo={sectionInfo}
+          runGroupId={runGroupId}
+          runGroupSection={runGroupSection}
+        />
+      </li>
+    </div>
+  );
+}
+
+function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
+  const allVersions = useGetSectionVariantNames(sectionInfo.id);
 
   function getOnParamSweepCheckboxChange(paramSweepId) {
     return () =>
@@ -125,36 +184,78 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
       });
   }
 
+  function isChecked(id) {
+    return !!runGroupSection?.[id];
+  }
+
   return (
-    <li className="flex flex-col">
-      <CheckboxGroup
-        checked={!_.isNil(runGroupSection)}
-        onChange={onSectionCheckboxChange}
-      >
-        {sectionInfo.name}
-      </CheckboxGroup>
-      {allParamSweeps.length > 0 && (
+    <GenericList
+      minLength={1}
+      inputList={allVersions}
+      listName="Versions"
+      isChecked={isChecked}
+      onChange={getOnParamSweepCheckboxChange}
+    />
+  );
+}
+
+const VersionsList = React.memo(_VersionsList, _.isEqual);
+
+function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
+  const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
+
+  function getOnParamSweepCheckboxChange(paramSweepId) {
+    return () =>
+      toggleRunGroupParamSweep({
+        id: runGroupId,
+        sectionId: sectionInfo.id,
+        paramSweepId,
+      });
+  }
+
+  function isChecked(id) {
+    return !!runGroupSection?.[id];
+  }
+
+  return (
+    <GenericList
+      minLength={0}
+      inputList={allParamSweeps}
+      listName="Param Sweeps"
+      isChecked={isChecked}
+      onChange={getOnParamSweepCheckboxChange}
+    />
+  );
+}
+
+const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
+
+function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
+  return (
+    inputList.length > minLength && (
+      <>
+        <label className="text-setta-700 dark:text-setta-200">{listName}</label>
         <ul className="pl-4">
-          {allParamSweeps.map((e, idx) => (
+          {inputList.map((e, idx) => (
             <li
               key={idx}
               className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
             >
               <CheckboxGroup
-                checked={!!runGroupSection?.[e.id]}
-                onChange={getOnParamSweepCheckboxChange(e.id)}
+                checked={isChecked(e.id)}
+                onChange={onChange(e.id)}
               >
                 {e.name}
               </CheckboxGroup>
             </li>
           ))}
         </ul>
-      )}
-    </li>
+      </>
+    )
   );
 }
 
-const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
+const GenericList = React.memo(_GenericList, _.isEqual);
 
 function CheckboxGroup({ children, checked, onChange }) {
   return (
