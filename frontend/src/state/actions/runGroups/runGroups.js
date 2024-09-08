@@ -1,4 +1,5 @@
 import { useRunGroups } from "state/definitions";
+import { SINGLETON_SECTIONS } from "utils/constants";
 
 export function setAllRunGroups(payload) {
   useRunGroups.setState({ x: payload });
@@ -39,4 +40,13 @@ export function toggleRunGroupParamSweep({ id, sectionId, paramSweepId }) {
       }
     }
   });
+}
+
+export function setAllRunGroupsAndMaybeCreateSection(runGroups) {
+  setAllRunGroups(runGroups);
+  if (!SINGLETON_SECTIONS.globalParamSweep) {
+    console.log("will create section");
+  } else {
+    console.log("section already exists");
+  }
 }

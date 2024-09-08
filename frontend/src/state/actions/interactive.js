@@ -2,6 +2,7 @@ import { dbUpdateInteractiveCode } from "requests/interactive";
 import { useInteractive } from "state/definitions";
 import { updateArtifacts } from "./artifacts";
 import { setNotificationMessage } from "./notification";
+import { setAllRunGroupsAndMaybeCreateSection } from "./runGroups/runGroups";
 
 export async function updateInteractiveCode() {
   setNotificationMessage("Importing your code...");
@@ -19,7 +20,13 @@ export async function updateInteractiveData(data) {
   }
   const dataInArtifactForm = {};
   for (const d of data) {
-    dataInArtifactForm[`interactive:${d.displayName}`] = d;
+    if (d.type === "runGroupControl") {
+      setAllRunGroupsAndMaybeCreateSection(d.value);
+    } else if (["list", "img"].includes(d.type)) {
+      dataInArtifactForm[`interactive:${d.displayName}`] = d;
+    } else {
+      console.error("incorrect interactive type", d);
+    }
   }
   updateArtifacts({ artifacts: dataInArtifactForm, addSection: true });
 }
