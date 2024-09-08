@@ -1,4 +1,6 @@
 import { GridWrapper } from "components/Utils/GridWrapper";
+import { useEffect } from "react";
+import { dbRequestTypeCheck } from "requests/sections";
 import { useLoadProjectConfig } from "state/hooks/project";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
@@ -19,6 +21,12 @@ export function MainContainer() {
 
 function LoadingSpinner({ children }) {
   const doneLoading = useLoadProjectConfig();
+
+  useEffect(() => {
+    if (doneLoading) {
+      dbRequestTypeCheck();
+    }
+  }, [doneLoading]);
 
   return !doneLoading ? (
     <div className="single-cell-container absolute h-full w-full">

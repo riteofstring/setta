@@ -57,6 +57,7 @@ export function ParamInput({
       value={value}
       onChange={onChange}
       maybeErrorMessage={maybeErrorMessage}
+      sectionIdToBeActive={sectionId}
       keywordPositions={localKeywordPositions}
       setKeywordPositions={setLocalKeywordPositions}
     />
@@ -65,8 +66,10 @@ export function ParamInput({
 
 function sendToInteractiveTasks(paramInfoId, v) {
   const content = { [useCodeInfo.getState().x[paramInfoId].name]: v };
-  for (const t of useInteractive.getState().taskNames) {
-    sendMessage({ id: createNewId(), content, messageType: t });
+  for (const t of useInteractive.getState().taskMetadata) {
+    if (t.runOnProjectChange) {
+      sendMessage({ id: createNewId(), content, messageType: t.name });
+    }
   }
 }
 

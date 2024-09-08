@@ -1,23 +1,68 @@
+import CodeMirror from "@uiw/react-codemirror";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
+import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import C from "constants/constants.json";
 import _ from "lodash";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { BiFilter } from "react-icons/bi";
 import {
   createNewRunGroup,
   toggleRunGroup,
   toggleRunGroupParamSweep,
   toggleRunGroupSection,
 } from "state/actions/runGroups/runGroups";
+import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
-export function GlobalParamSweepArea() {
+export function GlobalParamSweepArea({ sectionId }) {
+  const showYaml = useGetSectionInfo(sectionId, "showYaml");
+  return !showYaml ? (
+    <GlobalParamSweepGUI />
+  ) : (
+    <GlobalParamSweepCode sectionId={sectionId} />
+  );
+}
+
+function GlobalParamSweepCode({ sectionId }) {
+  const code = useGetSectionInfo(sectionId, "code");
+  const theme = useCodeMirrorStyle();
+  const extensions = getExtensions({ sectionId, language: "python" });
+
+  function onChange(v) {
+    setSectionVariantAttr(sectionId, "code", v);
+  }
+
+  return (
+    <article
+      className={`nodrag nowheel section-full-no-title cursor-auto [&_*]:!outline-0`}
+    >
+      <CodeMirror
+        value={code}
+        onChange={onChange}
+        theme={theme}
+        extensions={extensions}
+      />
+    </article>
+  );
+}
+
+function GlobalParamSweepGUI() {
   const runGroups = useRunGroups((x) => x.x);
-  const [shownRunGroup, setShownRunGroup] = useState(Object.keys(runGroups)[0]);
+  const firstRunGroupId = Object.keys(runGroups)[0];
+  const [shownRunGroup, setShownRunGroup] = useState(firstRunGroupId);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
+
+  useEffect(() => {
+    if (firstRunGroupId) {
+      setShownRunGroup(firstRunGroupId);
+    }
+  }, [firstRunGroupId]);
 
   return (
     <>
@@ -208,7 +253,7 @@ function FilterSection() {
   return (
     <search className="flex min-w-0 items-center pb-1">
       <StandardSearch
-        leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
+        leftElement={<BiFilter className="text-setta-400" />}
         placeholder="Filter"
         inputStyles={inputStyles}
         outerClasses="flex-1"

@@ -19,6 +19,7 @@
   "movingFreeShortcut": "Alt",
   "updateInteractiveCode": "Mod + Enter",
   "paramSelect": "Mod + Shift",
+  "formatCode": "Shift + Alt + F",
   "defaultCodeSectionSize": { "width": 500, "height": "auto" },
   "defaultTerminalSectionSize": { "width": 700, "height": "auto" },
   "defaultSectionSize": { "width": "auto", "height": "auto" },
@@ -26,5 +27,6 @@
   "minZoom": 0.1,
   "maxZoom": 10,
   "showDefaultConfigOnLoad": true,
-  "defaultZoomLevel": 1
+  "defaultZoomLevel": 1,
+  "inferImports": true
 }

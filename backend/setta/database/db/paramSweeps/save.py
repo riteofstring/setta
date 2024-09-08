@@ -8,10 +8,7 @@ def save_param_sweeps(dbs, param_sweeps):
             name = :name
     """
 
-    query_params = [
-        {"id": id, "name": p["name"]}
-        for id, p in param_sweeps.items()
-    ]
+    query_params = [{"id": id, "name": p["name"]} for id, p in param_sweeps.items()]
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(param_sweeps))
@@ -23,30 +20,36 @@ def save_param_sweeps(dbs, param_sweeps):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ParamSweep (idid, selectedItem, paramInfoId, "order", value)
-        VALUES (:idid, :selectedItem, :paramInfoId, :order, :value)
+        INSERT INTO ParamSweep (idid, paramInfoId, variantId, "order", value)
+        VALUES (:idid, :paramInfoId, :variantId, :order, :value)
     """
 
     query_params = []
     for id, p in param_sweeps.items():
         order = 0
         for s in p["sweep"]:
-            selectedItem = s["selectedItem"]
-            for param in s["params"]:
-                for value in param["values"]:
+            if "paramInfoId" in s:
+                for v in s["values"]:
                     query_params.append(
                         {
                             "idid": id,
-                            "selectedItem": selectedItem,
-                            "paramInfoId": param["paramInfoId"],
+                            "paramInfoId": s["paramInfoId"],
+                            "variantId": None,
                             "order": order,
-                            "value": value,
+                            "value": v,
                         }
                     )
                     order += 1
-
-    from pprint import pprint
-
-    pprint(query_params)
+            else:
+                query_params.append(
+                    {
+                        "idid": id,
+                        "paramInfoId": None,
+                        "variantId": s["variantId"],
+                        "order": order,
+                        "value": None,
+                    }
+                )
+                order += 1
 
     db.executemany(query, query_params)
