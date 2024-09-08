@@ -114,20 +114,15 @@ function* getProjectRuns(project) {
 
 function* getProjectVariants(project) {
   const allSweeps = [];
-  const versions = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
     for (const sweep of details.sweep) {
       const curr = [];
-      if ("paramInfoId" in sweep) {
-        for (const value of sweep.values) {
-          curr.push({
-            paramSweepId,
-            paramInfoId: sweep.paramInfoId,
-            value,
-          });
-        }
-      } else {
-        versions.push({ paramSweepId, variantId: sweep.variantId });
+      for (const value of sweep.values) {
+        curr.push({
+          paramSweepId,
+          paramInfoId: sweep.paramInfoId,
+          value,
+        });
       }
       if (curr.length > 0) {
         allSweeps.push(curr);
@@ -153,19 +148,7 @@ function* getProjectVariants(project) {
     }
   }
 
-  if (versions.length > 0) {
-    for (const version of versions) {
-      const variant = _.cloneDeep(project);
-      const { paramSweepId, variantId } = version;
-      const forSectionId = Object.values(project.sections).find((x) =>
-        x.paramSweepIds.includes(paramSweepId),
-      ).id;
-      variant.sections[forSectionId].variantId = variantId;
-      yield variant;
-    }
-  }
-
-  if (allSweeps.length === 0 && versions.length === 0) {
+  if (allSweeps.length === 0) {
     yield project;
   }
 }

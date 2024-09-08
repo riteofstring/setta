@@ -48,27 +48,18 @@ export function changeParamSweepParamInfoId({
   paramSweepId,
   idx,
   paramInfoId,
-  variantId,
 }) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep[idx] = { paramInfoId, values: [""] };
-    } else if (variantId) {
-      state.x[paramSweepId].sweep[idx] = { variantId };
     }
   });
 }
 
-export function addParamSweepParamInfoId({
-  paramSweepId,
-  paramInfoId,
-  variantId,
-}) {
+export function addParamSweepParamInfoId({ paramSweepId, paramInfoId }) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
       state.x[paramSweepId].sweep.push({ paramInfoId, values: [""] });
-    } else if (variantId) {
-      state.x[paramSweepId].sweep.push({ variantId });
     }
   });
 }
