@@ -57,7 +57,6 @@ export function ParamInput({
       value={value}
       onChange={onChange}
       maybeErrorMessage={maybeErrorMessage}
-      sectionIdToBeActive={sectionId}
       keywordPositions={localKeywordPositions}
       setKeywordPositions={setLocalKeywordPositions}
     />

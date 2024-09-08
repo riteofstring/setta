@@ -24,7 +24,6 @@ export function ParamUI({
   value,
   onChange,
   maybeErrorMessage,
-  sectionIdToBeActive,
   keywordPositions,
   setKeywordPositions,
 }) {
@@ -45,7 +44,8 @@ export function ParamUI({
       return (
         <>
           <TextInputCodeMirror
-            sectionId={sectionId}
+            dataSectionId={sectionId}
+            visualSectionId={sectionId}
             paramInfoId={paramInfoId}
             value={value}
             defaultVal={defaultVal}
@@ -53,7 +53,6 @@ export function ParamUI({
             dummyCodeClassName={`section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!_isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
             realCodeClassName={`nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language="python"
-            sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
             isDisabled={_isDisabled}
@@ -100,19 +99,19 @@ export function ParamUI({
 }
 
 export function ParamSweepUI({
-  sectionId,
+  dataSectionId,
+  visualSectionId,
   paramInfoId,
   value,
   defaultVal,
   onChange,
   isDisabled,
-  sectionIdToBeActive,
   keywordPositions,
   setKeywordPositions,
 }) {
-  const uiType = useGetParamUIType(sectionId, paramInfoId);
+  const uiType = useGetParamUIType(dataSectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
-    sectionId,
+    dataSectionId,
     paramInfoId,
   });
   switch (uiType.type) {
@@ -120,7 +119,8 @@ export function ParamSweepUI({
       return (
         <>
           <TextInputCodeMirror
-            sectionId={sectionId}
+            dataSectionId={dataSectionId}
+            visualSectionId={visualSectionId}
             paramInfoId={paramInfoId}
             value={value}
             defaultVal={defaultVal}
@@ -129,7 +129,6 @@ export function ParamSweepUI({
             dummyCodeClassName="section-key-value self-end grid-row-start-1 mx-3 py-[.125rem] nodrag cursor-text select-text break-words px-0 font-mono text-xs [tab-size:4] [word-break:break-word]"
             realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] mx-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
             language="python"
-            sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
           />

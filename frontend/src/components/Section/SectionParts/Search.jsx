@@ -92,7 +92,8 @@ export function SectionSearch({ sectionId, selectedItem }) {
   return (
     <>
       <TextInputCodeMirror
-        sectionId={sectionId}
+        dataSectionId={sectionId}
+        visualSectionId={sectionId}
         paramInfoId={null}
         value={value}
         onChange={onChange}
@@ -103,7 +104,6 @@ export function SectionSearch({ sectionId, selectedItem }) {
         onEscape={onEscape}
         onBlur={onBlur}
         language="python"
-        sectionIdToBeActive={sectionId}
         keywordPositions={localKeywordPositions}
         setKeywordPositions={setLocalKeywordPositions}
       />

@@ -304,12 +304,12 @@ function Input({
       />
       <article className="section-key-value group/arg-group group/textinput -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
         <ParamSweepUI
-          sectionId={forSectionId}
+          dataSectionId={forSectionId}
+          visualSectionId={sectionId}
           paramInfoId={paramInfoId}
           value={value}
           onChange={onChange}
           className="nodrag"
-          sectionIdToBeActive={sectionId}
           keywordPositions={[]}
           setKeywordPositions={() => {}}
         />
