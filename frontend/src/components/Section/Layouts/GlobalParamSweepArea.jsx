@@ -17,6 +17,7 @@ import { useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
+import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 
 export function GlobalParamSweepArea({ sectionId }) {
@@ -144,22 +145,36 @@ function SectionList({ runGroupId, runGroup }) {
 }
 
 function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
-  // const variants = "flex flex-col gap-2";
-  return (
-    <ParamSweepVersionsList
-      sectionInfo={sectionInfo}
-      runGroupId={runGroupId}
-      runGroupSection={runGroupSection}
-    />
-  );
-}
-
-function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
-  const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
-
   function onSectionCheckboxChange() {
     toggleRunGroupSection({ id: runGroupId, sectionId: sectionInfo.id });
   }
+
+  return (
+    <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
+      <li className="flex flex-col">
+        <CheckboxGroup
+          checked={!_.isNil(runGroupSection)}
+          onChange={onSectionCheckboxChange}
+        >
+          {sectionInfo.name}
+        </CheckboxGroup>
+        <VersionsList
+          sectionInfo={sectionInfo}
+          runGroupId={runGroupId}
+          runGroupSection={runGroupSection}
+        />
+        <ParamSweepVersionsList
+          sectionInfo={sectionInfo}
+          runGroupId={runGroupId}
+          runGroupSection={runGroupSection}
+        />
+      </li>
+    </div>
+  );
+}
+
+function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
+  const allVersions = useGetSectionVariantNames(sectionInfo.id);
 
   function getOnParamSweepCheckboxChange(paramSweepId) {
     return () =>
@@ -170,36 +185,78 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
       });
   }
 
+  function isChecked(id) {
+    return !!runGroupSection?.[id];
+  }
+
   return (
-    <li className="flex flex-col">
-      <CheckboxGroup
-        checked={!_.isNil(runGroupSection)}
-        onChange={onSectionCheckboxChange}
-      >
-        {sectionInfo.name}
-      </CheckboxGroup>
-      {allParamSweeps.length > 0 && (
+    <GenericList
+      minLength={1}
+      inputList={allVersions}
+      listName="Versions"
+      isChecked={isChecked}
+      onChange={getOnParamSweepCheckboxChange}
+    />
+  );
+}
+
+const VersionsList = React.memo(_VersionsList, _.isEqual);
+
+function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
+  const allParamSweeps = useGetParamSweepNames(sectionInfo.id);
+
+  function getOnParamSweepCheckboxChange(paramSweepId) {
+    return () =>
+      toggleRunGroupParamSweep({
+        id: runGroupId,
+        sectionId: sectionInfo.id,
+        paramSweepId,
+      });
+  }
+
+  function isChecked(id) {
+    return !!runGroupSection?.[id];
+  }
+
+  return (
+    <GenericList
+      minLength={0}
+      inputList={allParamSweeps}
+      listName="Param Sweeps"
+      isChecked={isChecked}
+      onChange={getOnParamSweepCheckboxChange}
+    />
+  );
+}
+
+const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
+
+function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
+  return (
+    inputList.length > minLength && (
+      <>
+        <label className="text-setta-700 dark:text-setta-200">{listName}</label>
         <ul className="pl-4">
-          {allParamSweeps.map((e, idx) => (
+          {inputList.map((e, idx) => (
             <li
               key={idx}
               className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
             >
               <CheckboxGroup
-                checked={!!runGroupSection?.[e.id]}
-                onChange={getOnParamSweepCheckboxChange(e.id)}
+                checked={isChecked(e.id)}
+                onChange={onChange(e.id)}
               >
                 {e.name}
               </CheckboxGroup>
             </li>
           ))}
         </ul>
-      )}
-    </li>
+      </>
+    )
   );
 }
 
-const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
+const GenericList = React.memo(_GenericList, _.isEqual);
 
 function CheckboxGroup({ children, checked, onChange }) {
   return (
