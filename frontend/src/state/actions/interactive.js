@@ -1,8 +1,9 @@
-import { dbUpdateInteractiveCode } from "requests/interactive";
+import { dbFormateCode, dbUpdateInteractiveCode } from "requests/interactive";
 import { useInteractive } from "state/definitions";
 import { updateArtifacts } from "./artifacts";
 import { setNotificationMessage } from "./notification";
 import { setAllRunGroupsAndMaybeCreateSection } from "./runGroups/runGroups";
+import { setSectionVariantAttr } from "./sectionVariants";
 
 export async function updateInteractiveCode() {
   setNotificationMessage("Importing your code...");
@@ -29,4 +30,13 @@ export async function updateInteractiveData(data) {
     }
   }
   updateArtifacts({ artifacts: dataInArtifactForm, addSection: true });
+}
+
+export async function formatCode() {
+  const res = await dbFormateCode();
+  if (res.status == 200) {
+    for (const [sectionId, code] of Object.entries(res.data)) {
+      setSectionVariantAttr(sectionId, "code", code);
+    }
+  }
 }

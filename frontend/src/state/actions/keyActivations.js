@@ -8,7 +8,7 @@ import {
 import { useSettings } from "state/definitions";
 import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
-import { updateInteractiveCode } from "./interactive";
+import { formatCode, updateInteractiveCode } from "./interactive";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { groupSections } from "./sections/groupSections";
@@ -52,7 +52,7 @@ function isShortcutPressed(event, shortcut) {
     event.ctrlKey === ctrl &&
     event.shiftKey === shift &&
     event.altKey === alt &&
-    (key === undefined || event.key.toLowerCase() === key)
+    (key === undefined || event.code.toLowerCase() === `key${key}`)
   );
 }
 
@@ -71,6 +71,7 @@ export function attachKeyEventListeners() {
     [settings.copyShortcut, copy],
     [settings.pasteShortcut, paste],
     [settings.updateInteractiveCode, updateInteractiveCode],
+    [settings.formatCode, formatCode],
     [settings.paramSelect, activateParamSelect, deactivateParamSelect],
     [
       settings.drawSelectionShortcut,
