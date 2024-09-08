@@ -7,15 +7,6 @@ export function GetParamSwitch({
   setDidUpdate,
   ancestorIsSelected = false,
 }) {
-  // const paramFilter = useSectionParamFilter((x) => x.x[sectionId]);
-  // const filteredInfos = paramFilter
-  //   ? matchSorter(infos, paramFilter, { keys: ["name"] })
-  //   : infos;
-
-  // do not use e.name as part of the key.
-  // It causes remounting of components when
-  // kwarg name changes, which messes up textinputcodemirror
-
   const filteredIds = paramIds.filter((x) => requiredParamIds.has(x));
 
   return filteredIds.map((e) => (

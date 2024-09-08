@@ -4,7 +4,7 @@ import { getProjectData } from "./saveProject";
 
 // TODO make this more efficient
 export function getProjectDataForInteractive() {
-  const project = getProjectData({});
+  const project = getProjectData();
   const sectionInfosState = useSectionInfos.getState().x;
   const artifactState = useArtifacts.getState().x;
   const sections = _.mapValues(sectionInfosState, (x) => {

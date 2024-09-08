@@ -1,6 +1,5 @@
 from typing import Dict
 
-import black
 import yaml
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -19,10 +18,7 @@ router = APIRouter()
 
 class UpdateInteractiveCodeRequest(BaseModel):
     project: dict
-
-
-class FormatCodeRequest(BaseModel):
-    project: dict
+    runOnImport: bool
 
 
 @router.post(C.ROUTE_UPDATE_INTERACTIVE_CODE)
@@ -38,27 +34,7 @@ async def route_update_interactive_code(
             codeDict[id] = get_selected_section_variant(p, id)["code"]
 
     projectConfigName = x.project["projectConfig"]["name"]
-    task_metadata, error_msgs, content = await tasks.add_custom_fns(
-        codeDict, projectConfigName, projectAsSimpleDict
+    task_names, error_msgs, content = await tasks.add_custom_fns(
+        codeDict, projectConfigName, projectAsSimpleDict, x.runOnImport
     )
-    return {"taskMetadata": task_metadata, "errorMsgs": error_msgs, "content": content}
-
-
-@router.post(C.ROUTE_FORMAT_CODE)
-async def route_format_code(x: FormatCodeRequest):
-    p = x.project
-    formattedCode = {}
-    for id, s in p["sections"].items():
-        if get_section_type(p, id) in [C.CODE, C.INTERACTIVE_CODE]:
-            code = get_selected_section_variant(p, id)["code"]
-            if s["codeLanguage"] == "python":
-                formattedCode[id] = format_python_code(code)
-
-    return formattedCode
-
-
-def format_python_code(code: str) -> str:
-    try:
-        return black.format_str(code, mode=black.Mode())
-    except black.InvalidInput:
-        pass
+    return {"taskNames": task_names, "errorMsgs": error_msgs, "content": content}

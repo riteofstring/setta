@@ -102,9 +102,6 @@ def get_docstring_parser_param_proposals(_, docstring):
 def get_pyright_param_proposals(signature, _):
     parameters = signature["parameters"]
     params = [(p["label"], p["documentation"]["value"]) for p in parameters]
-    if len(params) == 0:
-        params = signature["label"].split(",")
-
     proposals = []
     for param, description in params:
         # Extract parameter name and default value
