@@ -1,14 +1,23 @@
-import { ScrollingArea } from "components/Utils/atoms/scrollingarea/scrollingarea";
+import { MarkdownEditor } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSectionInfos } from "state/definitions";
+import { useGetSectionInfo } from "state/hooks/sections";
 
 function _InfoArea({ sectionId }) {
-  return (
-    <ScrollingArea styles="section-main ml-2 my-4 nodrag nowheel cursor-auto select-text [&_.prose]:p-0 [&_.prose]flex-1">
+  //TODO change this variable name
+  const showYaml = useGetSectionInfo(sectionId, "showYaml");
+
+  return !showYaml ? (
+    <div className="section-main nodrag nowheel [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0">
       <Markdown sectionId={sectionId} />
-    </ScrollingArea>
+    </div>
+  ) : (
+    <MarkdownEditor
+      containerClasses="section-main nowheel [&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-lg mb-1.5  [&_.w-md-editor-bar]:hidden"
+      sectionId={sectionId}
+    />
   );
 }
 

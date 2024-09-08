@@ -26,7 +26,8 @@ export function zoomTo(zoomLevel, options) {
 }
 
 export function resetZoom() {
-  zoomTo(1, { duration: 100 });
+  const { defaultZoomLevel } = useSettings.getState();
+  zoomTo(defaultZoomLevel, { duration: 100 });
 }
 
 export function getZoom() {

@@ -13,7 +13,8 @@ import { getKeywordStylizer } from "./getKeywordStylizer";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
 
 export function TextInputCodeMirror({
-  sectionId,
+  dataSectionId,
+  visualSectionId,
   paramInfoId,
   value,
   defaultVal,
@@ -26,12 +27,12 @@ export function TextInputCodeMirror({
   onEscape,
   color,
   language,
-  sectionIdToBeActive,
   keywordPositions,
   setKeywordPositions,
   autocomplete = true,
   initializeGenCode = true,
   isKeyName = false,
+  isDisabled = false,
 }) {
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -49,19 +50,23 @@ export function TextInputCodeMirror({
   }
 
   function localOnMouseDown(event) {
+    if (isDisabled) {
+      return;
+    }
     // if (!variableClick(event)) {
     if (!variableClick(event) && event.button === 0) {
       setActivationEvent(event);
-      if (sectionIdToBeActive) {
-        setActiveSectionIdAndUpdateZIndex(sectionIdToBeActive);
-      }
+      setActiveSectionIdAndUpdateZIndex(visualSectionId);
     }
   }
 
   // focused via tab key
   function onFocus() {
+    if (isDisabled) {
+      return;
+    }
     if (initializeGenCode) {
-      dbTextFieldInitializeCode({ sectionId, paramInfoId });
+      dbTextFieldInitializeCode({ sectionId: dataSectionId, paramInfoId });
     }
     if (!activationEvent) {
       setActivationEvent("tab");
@@ -79,14 +84,14 @@ export function TextInputCodeMirror({
           theme={theme}
           keywordPositions={keywordPositions}
           placeholder={defaultVal}
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
           language={language}
+          isDisabled={isDisabled}
         />
       )}
       {activationEvent && (
         <CoreCodeMirror
-          sectionId={sectionId}
+          dataSectionId={dataSectionId}
+          visualSectionId={visualSectionId}
           paramInfoId={paramInfoId}
           value={value}
           defaultVal={defaultVal}
@@ -112,7 +117,8 @@ export function TextInputCodeMirror({
 }
 
 function CoreCodeMirror({
-  sectionId,
+  dataSectionId,
+  visualSectionId,
   paramInfoId,
   value,
   defaultVal,
@@ -132,7 +138,7 @@ function CoreCodeMirror({
   autocomplete,
   isKeyName,
 }) {
-  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
+  const divId = `CodeMirror-${visualSectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
 
   const keywordStylizer = useMemo(
     () => getKeywordStylizer(keywordPositions),
@@ -142,17 +148,17 @@ function CoreCodeMirror({
   const completionsFn = useCallback(
     autocomplete
       ? getCompletionsFn(
-          sectionId,
+          dataSectionId,
           paramInfoId,
           dbTextFieldCompletion,
           setKeywordPositions,
         )
       : () => null,
-    [sectionId, paramInfoId, autocomplete],
+    [dataSectionId, paramInfoId, autocomplete],
   );
 
   const extensions = getExtensions({
-    sectionId,
+    sectionId: visualSectionId,
     language,
     completionsFn,
     keywordStylizer,

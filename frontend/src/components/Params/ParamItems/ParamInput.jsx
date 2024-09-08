@@ -21,8 +21,6 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 export function ParamInput({
   sectionId,
   paramInfoId,
-  defaultVal,
-  isDisabled,
   maybeErrorMessage,
   setDidUpdate,
 }) {
@@ -57,11 +55,8 @@ export function ParamInput({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      defaultVal={defaultVal}
       onChange={onChange}
-      isDisabled={isDisabled}
       maybeErrorMessage={maybeErrorMessage}
-      sectionIdToBeActive={sectionId}
       keywordPositions={localKeywordPositions}
       setKeywordPositions={setLocalKeywordPositions}
     />
@@ -70,8 +65,10 @@ export function ParamInput({
 
 function sendToInteractiveTasks(paramInfoId, v) {
   const content = { [useCodeInfo.getState().x[paramInfoId].name]: v };
-  for (const t of useInteractive.getState().taskNames) {
-    sendMessage({ id: createNewId(), content, messageType: t });
+  for (const t of useInteractive.getState().taskMetadata) {
+    if (t.runOnProjectChange) {
+      sendMessage({ id: createNewId(), content, messageType: t.name });
+    }
   }
 }
 

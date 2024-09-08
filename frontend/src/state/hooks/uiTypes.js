@@ -4,6 +4,7 @@ import { useSectionInfos, useUITypeCols, useUITypes } from "state/definitions";
 import {
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
+  QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
@@ -120,7 +121,8 @@ export function useRequiredUIEditorTabs(sectionId) {
     default:
       return [
         UI_CONFIG_TAB,
-        SECTION_CONFIG_TAB,
+        QUICKINFO_CONFIG_TAB,
+        // SECTION_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
         DB_SOURCES_TAB,
       ];

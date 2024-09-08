@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { getParamInfos } from "state/actions/sections/sectionContents";
+import { getParamIds } from "state/actions/sections/sectionContents";
 import {
   useCodeInfo,
   useKeywordRegex,
@@ -19,12 +19,6 @@ export function updateKeywordRegex(idsToNames = null) {
     x = _.mapValues(useSectionInfos.getState().x, (v) => v.name);
   }
   useKeywordRegex.setState(getRegexAndColorMap(x));
-}
-
-export function updateGlobalVariablesRegex(globalVariableId) {
-  if (globalVariableId) {
-    useKeywordRegex.setState(getRegexAndColorMap({ [globalVariableId]: null }));
-  }
 }
 
 function getRegexAndColorMap(sectionIdsToNames) {
@@ -150,7 +144,7 @@ function setFullParamRegex(
   const codeInfoState = useCodeInfo.getState().x;
   const childParamInfos = paramInfoId
     ? codeInfoState[paramInfoId].children.map((x) => codeInfoState[x])
-    : getParamInfos(sectionId);
+    : getParamIds(sectionId).map((x) => codeInfoState[x]);
 
   for (const p of childParamInfos) {
     if (!p.name) {

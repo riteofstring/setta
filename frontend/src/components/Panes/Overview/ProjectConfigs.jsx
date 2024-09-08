@@ -2,7 +2,6 @@ import { router } from "components/Pages/router";
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import React, { useState } from "react";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
-import { updateAllParams } from "state/actions/sections/sectionContents";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sections/sectionInfos";
 import { useAllProjectConfigs, useSectionInfos } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -94,10 +93,8 @@ function onMouseOver({
         }
       }
     });
-    updateAllParams();
   } else {
     setAllPreviewVariantIdsToNull();
-    updateAllParams();
   }
 }
 
@@ -111,5 +108,4 @@ function onClick({ currProjectConfigName, clickedOnName }) {
 
 function onMouseLeave() {
   setAllPreviewVariantIdsToNull();
-  updateAllParams();
 }

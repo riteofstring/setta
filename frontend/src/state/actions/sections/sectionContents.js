@@ -1,92 +1,93 @@
+import C from "constants/constants.json";
+import { useCodeInfo } from "state/definitions";
+import { getSectionInfo } from "state/getters/sectionInfo";
 import {
-  useCodeInfo,
-  useSectionInfos,
-  useSectionToParamIds,
-} from "state/definitions";
-import {
-  findAllCallables,
   findAllParametersOfCallables,
-  findAllParametersOfCollections,
+  findAllParametersOfNotCallables,
 } from "utils/getDescendants";
-import { getSectionInfo } from "../../getters/sectionInfo";
-import { updateKeywordRegex } from "../keywordRegex";
+import { bothTruthyOrFalsey } from "utils/utils";
 import { getSectionSelectedItem } from "../sectionVariants";
 
-export function getParamInfos(sectionId) {
-  const ids = useSectionToParamIds.getState().params[sectionId] ?? [];
-  const cState = useCodeInfo.getState().x;
+export function getParamIds(
+  sectionId,
+  _cState = null,
+  _selectedItem = undefined,
+  _codeInfoId = null,
+  paramPathCondition = false,
+) {
+  const cState = _cState ?? useCodeInfo.getState().x;
+  const selectedItem =
+    _selectedItem === undefined
+      ? getSectionSelectedItem(sectionId)
+      : _selectedItem;
+  const objParamInfoIds = selectedItem
+    ? findAllParametersOfCallables(cState, [selectedItem], paramPathCondition)
+    : [];
+
+  if (!selectedItem) {
+    const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
+    const paramCollectionIds = findAllParametersOfNotCallables(
+      cState,
+      [codeInfoId],
+      paramPathCondition,
+    );
+    return [...objParamInfoIds, ...paramCollectionIds];
+  } else {
+    return objParamInfoIds;
+  }
+}
+
+export function getParamInfos(sectionId, _cState = null) {
+  const cState = _cState ?? useCodeInfo.getState().x;
+  const ids = getParamIds(sectionId, cState);
   return ids.map((x) => cState[x]);
 }
 
-function computeAllCallables(sectionId) {
-  const { codeInfoId } = getSectionInfo(sectionId);
-  return findAllCallables(useCodeInfo.getState().x, [codeInfoId]);
-}
-
-function computeAllParams(sectionId, objInfoId) {
-  const objParamInfoIds = objInfoId
-    ? findAllParametersOfCallables(useCodeInfo.getState().x, [objInfoId])
-    : [];
-
-  const { codeInfoId } = getSectionInfo(sectionId);
-  const paramCollectionIds = findAllParametersOfCollections(
-    useCodeInfo.getState().x,
-    [codeInfoId],
-  );
-
-  return [...objParamInfoIds, ...paramCollectionIds];
-}
-
-export function updateManyParamsAndCallables(sectionIds) {
-  sectionIds.forEach((x) => updateParamsAndCallables(x, false));
-  updateKeywordRegex();
-}
-
-export function updateAllParams() {
-  for (const k of Object.keys(useSectionInfos.getState().x)) {
-    updateParams(k);
-  }
-}
-
-export function updateParamsAndCallables(
+export function getParamIdsToShowInArea(
   sectionId,
-  doUpdateKeywordRegex = true,
+  isPinned,
+  _cState = null,
+  _selectedItem = null,
+  _codeInfoId = null,
 ) {
-  updateCallables(sectionId);
-  updateParams(sectionId);
-  if (doUpdateKeywordRegex) {
-    updateKeywordRegex();
-  }
-}
+  const cState = _cState ?? useCodeInfo.getState().x;
+  const selectedItem = _selectedItem ?? getSectionInfo(sectionId).selectedItem;
+  const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
 
-export function updateCallables(sectionId) {
-  const callableIds = computeAllCallables(sectionId);
-  useSectionToParamIds.setState((state) => {
-    state.callables[sectionId] = callableIds;
-  });
-}
+  const allIdsAndPaths = getParamIds(
+    sectionId,
+    cState,
+    selectedItem,
+    codeInfoId,
+    (p) => p.rcType === C.PARAMETER,
+  );
+  allIdsAndPaths.reverse();
 
-export function updateParams(sectionId) {
-  const selectedItem = getSectionSelectedItem(sectionId);
-  const paramIds = computeAllParams(sectionId, selectedItem);
-  useSectionToParamIds.setState((state) => {
-    state.params[sectionId] = paramIds;
-  });
-}
-
-function movePinnedToFront(params) {
-  const pinnedObjects = [];
-  const unpinnedObjects = [];
-
-  // Separate objects into pinned and unpinned arrays
-  params.forEach((p) => {
-    if (p.isPinned) {
-      pinnedObjects.push(p);
-    } else {
-      unpinnedObjects.push(p);
+  let topLevelParamIds = [];
+  const topLevelParamIdsSet = new Set();
+  let requiredParamIds = new Set();
+  for (const a of allIdsAndPaths) {
+    // Evalutes to true if:
+    // 1. The current param's isPinned matches the isPinned condition
+    // 2. And: either the param has no children or at least one of its children is required
+    // This logic is why it's REQUIRED for allIdsAndPaths to be reversed (processed starting with children up to ancestors)
+    if (
+      bothTruthyOrFalsey(cState[a.id].isPinned, isPinned) &&
+      (cState[a.id].children.length === 0 ||
+        cState[a.id].children.some((child) => requiredParamIds.has(child)))
+    ) {
+      for (const p of a.path) {
+        requiredParamIds.add(p);
+        if (!topLevelParamIdsSet.has(a.path[0])) {
+          topLevelParamIds.push(a.path[0]);
+          topLevelParamIdsSet.add(a.path[0]);
+        }
+      }
     }
-  });
+  }
 
-  // Concatenating the pinned and unpinned objects
-  return pinnedObjects.concat(unpinnedObjects);
+  // unreverse results
+  topLevelParamIds.reverse();
+
+  return { requiredParamIds, topLevelParamIds };
 }

@@ -2,10 +2,10 @@ import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
-import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
 import {
   addParamSweepParamInfoId,
@@ -15,22 +15,56 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { useCodeInfo, useSectionVariants } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import { useMappedSectionDBSource } from "state/hooks/sections";
-import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
+import { useGetSectionInfo } from "state/hooks/sections";
+import { useSectionTypeName } from "state/hooks/uiTypes";
+import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
-  const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
+  const { paramSweepId, paramSweep, forSectionId } =
     useParamSweepInfo(sectionId);
+
+  return paramSweep.map((sweep) => (
+    <ParamSweepForOneSelectedItem
+      key={sweep.selectedItem}
+      section={sectionId}
+      forSectionId={forSectionId}
+      sweep={sweep}
+      paramSweepId={paramSweepId}
+    />
+  ));
+}
+
+export const ParamSweepArea = React.memo(_ParamSweepArea);
+
+function ParamSweepForOneSelectedItem({
+  sectionId,
+  forSectionId,
+  sweep,
+  paramSweepId,
+}) {
+  const hideSearch = useSectionInfos((x) => x.x[forSectionId].hideSearch);
+  const _isGlobalVariables =
+    useSectionTypeName(forSectionId) === C.GLOBAL_VARIABLES;
+
+  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
 
   return (
     <>
+      {!hideSearch && !_isGlobalVariables && (
+        <ParamSweepSectionSearch
+          sectionId={sectionId}
+          forSectionId={forSectionId}
+          selectedItem={sweep.selectedItem}
+          paramSweepId={paramSweepId}
+        />
+      )}
       <FilterSection />
       <Args
         paramSweepId={paramSweepId}
-        objInfoId={codeInfoId}
-        paramSweep={paramSweep}
+        objInfoId={sweep.selectedItem ?? codeInfoId}
+        paramSweep={sweep.params}
         forSectionId={forSectionId}
         sectionId={sectionId}
       />
@@ -38,17 +72,15 @@ function _ParamSweepArea({ sectionId }) {
   );
 }
 
-export const ParamSweepArea = React.memo(_ParamSweepArea);
-
 function FilterSection() {
   const inputStyles =
     "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
   // bg-gradient-to-t from-setta-50
   return (
     <>
-      <search className="section-args flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-3 pb-1 shadow-sm dark:border-setta-700 dark:from-transparent">
+      <search className="section-args flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-3 pb-1 shadow-sm dark:border-setta-700">
         <StandardSearch
-          leftElement={<BiFilter className="text-setta-400" />}
+          leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
           placeholder="Filter"
           inputStyles={inputStyles}
           outerClasses="flex-1"
@@ -65,7 +97,7 @@ function Args({
   forSectionId,
   sectionId,
 }) {
-  const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.variantId);
+  const alreadySelected = paramSweep.map((x) => x.paramInfoId);
 
   return (
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
@@ -85,7 +117,6 @@ function Args({
         paramSweepId={paramSweepId}
         objInfoId={objInfoId}
         alreadySelected={alreadySelected}
-        forSectionId={forSectionId}
       />
     </section>
   );
@@ -101,7 +132,7 @@ function ArgItem({
   sectionId,
   unused = false,
 }) {
-  const { paramInfoId, values, variantId } = singleParamSweep;
+  const { paramInfoId, values } = singleParamSweep;
 
   function getOnChange(valueIdx) {
     return (v) =>
@@ -121,11 +152,7 @@ function ArgItem({
   }
 
   function onSelectedItemChange(v) {
-    if (v in useCodeInfo.getState().x) {
-      changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
-    } else {
-      changeParamSweepParamInfoId({ paramSweepId, idx, variantId: v });
-    }
+    changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
   }
   // <article className="nodrag nowheel section-key-value auto-rows-min grid grid-cols-subgrid py-1">
 
@@ -135,7 +162,6 @@ function ArgItem({
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
-          variantId={variantId}
           onSelectedItemChange={onSelectedItemChange}
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
@@ -150,107 +176,50 @@ function ArgItem({
           <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
         </div>
       </div>
-
-      {paramInfoId ? (
-        values.map((x, valueIdx) => (
-          <Input
-            forSectionId={forSectionId}
-            paramInfoId={paramInfoId}
-            key={valueIdx}
-            onChange={getOnChange(valueIdx)}
-            onDelete={getOnDelete(valueIdx)}
-            value={x}
-            sectionId={sectionId}
-          />
-        ))
-      ) : (
-        <div className="section-key-value min-h-auto grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-setta-100 px-4 py-3 dark:bg-setta-850">
-          <p className="col-start-1 text-xs font-bold text-setta-300 dark:text-setta-600">
-            Name
-          </p>
-          <p className="col-start-2 text-xs font-bold text-setta-300 dark:text-setta-600">
-            Value
-          </p>
-
-          <ShowSectionVariant
-            forSectionId={forSectionId}
-            objInfoId={objInfoId}
-            variantId={variantId}
-          />
-        </div>
-      )}
+      {values.map((x, valueIdx) => (
+        <Input
+          forSectionId={forSectionId}
+          paramInfoId={paramInfoId}
+          key={valueIdx}
+          onChange={getOnChange(valueIdx)}
+          onDelete={getOnDelete(valueIdx)}
+          value={x}
+          sectionId={sectionId}
+        />
+      ))}
     </>
   );
 }
 
-function ShowSectionVariant({ forSectionId, objInfoId, variantId }) {
-  const dbSource = useMappedSectionDBSource(forSectionId);
-  const sectionVariant = useSectionVariants((x) => x.x[dbSource][variantId]);
-  const paramsWithValues = useCodeInfo((x) => {
-    const output = [];
-    for (const c of x.x[objInfoId].children) {
-      if (sectionVariant.values[c]) {
-        output.push({
-          name: x.x[c].name,
-          value: sectionVariant.values[c].value,
-        });
-      }
-    }
-    return output;
-  }, _.isEqual);
-
-  return paramsWithValues.map((x, idx) => (
-    <SectionVariantItem key={idx} name={x.name} value={x.value} />
-  ));
-}
-
-function SectionVariantItem({ name, value }) {
-  // TODO: show value next to name, like
-  // name value
-  return (
-    <dl className="col-span-2 grid grid-cols-subgrid font-mono text-xs text-setta-500 dark:text-setta-200">
-      <dt className="col-start-1 truncate">{name}</dt>
-      <dd className="col-start-2 truncate">{value}</dd>
-    </dl>
-  );
-}
-
-function PlaceholderArgItem({
-  paramSweepId,
-  objInfoId,
-  alreadySelected,
-  forSectionId,
-}) {
+function PlaceholderArgItem({ paramSweepId, objInfoId, alreadySelected }) {
   function onSelectedItemChange(v, changeByUser, setSelection) {
-    if (v in useCodeInfo.getState().x) {
-      addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
-    } else {
-      addParamSweepParamInfoId({ paramSweepId, variantId: v });
-    }
-
+    addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
     setSelection(null);
   }
 
+  const thereAreRemainingIds = useCodeInfo(
+    (x) => alreadySelected.length < x.x[objInfoId].children.length,
+  );
+
   return (
-    <ParamCombobox
-      objInfoId={objInfoId}
-      paramInfoId={null}
-      onSelectedItemChange={onSelectedItemChange}
-      alreadySelected={alreadySelected}
-      forSectionId={forSectionId}
-    />
+    thereAreRemainingIds && (
+      <ParamCombobox
+        objInfoId={objInfoId}
+        paramInfoId={null}
+        onSelectedItemChange={onSelectedItemChange}
+        alreadySelected={alreadySelected}
+      />
+    )
   );
 }
 
 function ParamCombobox({
   objInfoId,
   paramInfoId,
-  variantId,
   alreadySelected = [],
   onSelectedItemChange,
-  forSectionId,
 }) {
-  const initialSelection = paramInfoId ?? variantId;
+  const initialSelection = paramInfoId;
 
   const objParams = useCodeInfo((x) => {
     const output = [];
@@ -262,16 +231,9 @@ function ParamCombobox({
     return output;
   }, _.isEqual);
 
-  const sectionVariants = useGetSectionVariantNames(forSectionId).filter(
-    (x) => variantId === x.id || !alreadySelected.includes(x.id),
-  );
-
   return (
     <IdNameCombobox
-      allItems={[
-        { group: "Args", items: objParams },
-        { group: "Versions", items: sectionVariants },
-      ]}
+      allItems={[{ group: "Args", items: objParams }]}
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
@@ -303,12 +265,12 @@ function Input({
       />
       <article className="section-key-value group/arg-group group/textinput -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
         <ParamSweepUI
-          sectionId={forSectionId}
+          dataSectionId={forSectionId}
+          visualSectionId={sectionId}
           paramInfoId={paramInfoId}
           value={value}
           onChange={onChange}
           className="nodrag"
-          sectionIdToBeActive={sectionId}
           keywordPositions={[]}
           setKeywordPositions={() => {}}
         />

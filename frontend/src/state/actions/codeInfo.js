@@ -38,18 +38,6 @@ export function setCodeInfoDescription({ id, description }) {
   });
 }
 
-export function toggleCodeInfoPinned(id) {
-  useCodeInfo.setState((state) => {
-    state.x[id].isPinned = !state.x[id].isPinned;
-  });
-}
-
-export function toggleCodeInfoSelected(id) {
-  useCodeInfo.setState((state) => {
-    state.x[id].isSelected = !state.x[id].isSelected;
-  });
-}
-
 export function setCodeInfoFrozen({ ids, isFrozen }) {
   useCodeInfo.setState((state) => {
     for (const id of ids) {
@@ -58,13 +46,11 @@ export function setCodeInfoFrozen({ ids, isFrozen }) {
   });
 }
 
-export function deleteCodeInfo({ ids, parent }) {
+export function deleteCodeInfo({ ids }) {
   useCodeInfo.setState((state) => {
     state.x = _.omit(state.x, ids);
-    if (parent) {
-      state.x[parent].children = state.x[parent].children.filter(
-        (y) => !ids.includes(y),
-      );
+    for (const c of Object.values(state.x)) {
+      c.children = c.children.filter((y) => !ids.includes(y));
     }
   });
 }
