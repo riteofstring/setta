@@ -164,13 +164,19 @@ function PlaceholderArgItem({ paramSweepId, objInfoId, alreadySelected }) {
     setSelection(null);
   }
 
+  const thereAreRemainingIds = useCodeInfo(
+    (x) => alreadySelected.length < x.x[objInfoId].children.length,
+  );
+
   return (
-    <ParamCombobox
-      objInfoId={objInfoId}
-      paramInfoId={null}
-      onSelectedItemChange={onSelectedItemChange}
-      alreadySelected={alreadySelected}
-    />
+    thereAreRemainingIds && (
+      <ParamCombobox
+        objInfoId={objInfoId}
+        paramInfoId={null}
+        onSelectedItemChange={onSelectedItemChange}
+        alreadySelected={alreadySelected}
+      />
+    )
   );
 }
 

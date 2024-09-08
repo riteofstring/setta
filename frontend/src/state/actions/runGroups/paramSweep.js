@@ -36,11 +36,11 @@ export function deleteParamSweepValue({ paramSweepId, idx, valueIdx }) {
 }
 
 export function deleteLastParamSweepValue({ paramSweepId, idx }) {
-  const { deleteValue, x } = get();
-  deleteValue({
+  const state = useParamSweep.getState().x;
+  deleteParamSweepValue({
     paramSweepId,
     idx,
-    valueIdx: x[paramSweepId].sweep[idx].values.length - 1,
+    valueIdx: state[paramSweepId].sweep[idx].values.length - 1,
   });
 }
 
