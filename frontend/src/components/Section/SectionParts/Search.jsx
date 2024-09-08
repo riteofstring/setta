@@ -8,50 +8,30 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
-  // const [completions, sendCompletionRequest] =
-  //   useCodeCompletionWebsocketRoom(sectionId);
-  // const _searchableItems = useGetAllCallables(sectionId);
-  // const searchableItems = mergeCompletionsAndHistory(
-  //   completions,
-  //   _searchableItems,
-  // );
-  // const groupedItems = groupedObjInfo(searchableItems);
-  // const groupedItemsAsList = Object.keys(groupedItems).map((k) => ({
-  //   group: k,
-  //   items: groupedItems[k],
-  // }));
-  // const hasSearchableItems = groupedItemsAsList.length > 0;
+  return (
+    <SectionSearchCore
+      sectionId={sectionId}
+      selectedItem={selectedItem}
+      setSelectedItem={setSelectedItem}
+    />
+  );
+}
 
-  // function onSelectedItemChange(value, changedByUser) {
-  //   setSelectedItem(sectionId, value, changedByUser);
-  // }
-
-  // function onInputMouseDown() {
-  //   dbTextFieldInitializeCode({ sectionId, paramInfoId: null });
-  // }
-
-  // // searchableItems becomes empty, then set the selected item to null
-  // useEffect(() => {
-  //   if (!hasSearchableItems && initialSelection) {
-  //     onSelectedItemChange(null);
-  //   }
-  // }, [hasSearchableItems]);
-
-  // const isSearchResult = useProjectSearch((x) =>
-  //   x.codeInfo.includes(initialSelection),
+export function ParamSweepSectionSearch({ sectionId, selectedItem }) {
+  // const sectionVariants = useGetSectionVariantNames(forSectionId).filter(
+  //   (x) => !alreadySelected.includes(x.id),
   // );
 
-  // return (
-  //   <IdNameCombobox
-  //     allItems={groupedItemsAsList}
-  //     onSelectedItemChange={onSelectedItemChange}
-  //     initialSelection={initialSelection}
-  //     outerDivClasses={`${isSearchResult ? "outline outline-green-400" : ""}`}
-  //     inputCallback={sendCompletionRequest}
-  //     onInputMouseDown={onInputMouseDown}
-  //   />
-  // );
+  return (
+    <SectionSearchCore sectionId={sectionId} selectedItem={selectedItem} />
+  );
+}
 
+export function SectionSearchCore({
+  sectionId,
+  selectedItem,
+  setSelectedItem,
+}) {
   const { name: codeInfoName, keywordPositions } = useCodeInfo((x) => {
     if (selectedItem) {
       const { name, keywordPositions } = x.x[selectedItem];
@@ -61,8 +41,6 @@ export function SectionSearch({ sectionId, selectedItem }) {
   });
 
   const [value, setValue] = useState(codeInfoName);
-  const [localKeywordPositions, setLocalKeywordPositions] =
-    useState(keywordPositions);
 
   useEffect(() => {
     setValue(codeInfoName);
@@ -71,6 +49,9 @@ export function SectionSearch({ sectionId, selectedItem }) {
   useDeepCompareEffect(() => {
     setLocalKeywordPositions(keywordPositions);
   }, [keywordPositions]);
+
+  const [localKeywordPositions, setLocalKeywordPositions] =
+    useState(keywordPositions);
 
   function onEnter() {
     setSelectedItem(sectionId, value, true);

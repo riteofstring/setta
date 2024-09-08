@@ -1,7 +1,7 @@
 def load_param_sweeps(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
-        SELECT ParamSweepId.id, ParamSweepId.name, ParamSweep.selectedItem, ParamSweep.paramInfoId, ParamSweep.variantId, ParamSweep.value
+        SELECT ParamSweepId.id, ParamSweepId.name, ParamSweepId.selectedItem, ParamSweep.paramInfoId, ParamSweep.value
         FROM ParamSweepId
         LEFT JOIN ParamSweep
         ON ParamSweepId.id = ParamSweep.idid
@@ -13,7 +13,11 @@ def load_param_sweeps(db, ids):
     for row in db.fetchall():
         id = row["id"]
         if id not in output:
-            output[id] = {"name": row["name"], "sweep": []}
+            output[id] = {
+                "name": row["name"],
+                "selectedItem": row["selectedItem"],
+                "sweep": [],
+            }
         curr = output[id]["sweep"]
         if row["paramInfoId"] is not None:
             matching_param = None
@@ -24,9 +28,7 @@ def load_param_sweeps(db, ids):
                 matching_param["values"].append(row["value"])
             else:
                 curr.append(
-                    {"selectedItem": row["selectedItem"], "paramInfoId": row["paramInfoId"], "values": [row["value"]]}
+                    {"paramInfoId": row["paramInfoId"], "values": [row["value"]]}
                 )
-        elif row["variantId"] is not None:
-            curr.append({"variantId": row["variantId"]})
 
     return output

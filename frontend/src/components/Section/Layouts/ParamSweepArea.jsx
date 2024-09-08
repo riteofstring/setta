@@ -14,10 +14,8 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
-import { useCodeInfo, useSectionVariants } from "state/definitions";
+import { useCodeInfo } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import { useMappedSectionDBSource } from "state/hooks/sections";
-import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
 import { SectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
@@ -66,7 +64,7 @@ function Args({
   forSectionId,
   sectionId,
 }) {
-  const alreadySelected = paramSweep.map((x) => x.paramInfoId ?? x.variantId);
+  const alreadySelected = paramSweep.map((x) => x.paramInfoId);
 
   return (
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
@@ -86,7 +84,6 @@ function Args({
         paramSweepId={paramSweepId}
         objInfoId={objInfoId}
         alreadySelected={alreadySelected}
-        forSectionId={forSectionId}
       />
     </section>
   );
@@ -102,7 +99,7 @@ function ArgItem({
   sectionId,
   unused = false,
 }) {
-  const { paramInfoId, values, variantId } = singleParamSweep;
+  const { paramInfoId, values } = singleParamSweep;
 
   function getOnChange(valueIdx) {
     return (v) =>
@@ -122,11 +119,7 @@ function ArgItem({
   }
 
   function onSelectedItemChange(v) {
-    if (v in useCodeInfo.getState().x) {
-      changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
-    } else {
-      changeParamSweepParamInfoId({ paramSweepId, idx, variantId: v });
-    }
+    changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
   }
   // <article className="nodrag nowheel section-key-value auto-rows-min grid grid-cols-subgrid py-1">
 
@@ -136,7 +129,6 @@ function ArgItem({
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
-          variantId={variantId}
           onSelectedItemChange={onSelectedItemChange}
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
@@ -151,84 +143,24 @@ function ArgItem({
           <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
         </div>
       </div>
-
-      {paramInfoId ? (
-        values.map((x, valueIdx) => (
-          <Input
-            forSectionId={forSectionId}
-            paramInfoId={paramInfoId}
-            key={valueIdx}
-            onChange={getOnChange(valueIdx)}
-            onDelete={getOnDelete(valueIdx)}
-            value={x}
-            sectionId={sectionId}
-          />
-        ))
-      ) : (
-        <div className="section-key-value min-h-auto grid grid-cols-2 flex-col gap-x-4 rounded-lg bg-setta-100 px-4 py-3 dark:bg-setta-850">
-          <p className="col-start-1 text-xs font-bold text-setta-300 dark:text-setta-600">
-            Name
-          </p>
-          <p className="col-start-2 text-xs font-bold text-setta-300 dark:text-setta-600">
-            Value
-          </p>
-
-          <ShowSectionVariant
-            forSectionId={forSectionId}
-            objInfoId={objInfoId}
-            variantId={variantId}
-          />
-        </div>
-      )}
+      {values.map((x, valueIdx) => (
+        <Input
+          forSectionId={forSectionId}
+          paramInfoId={paramInfoId}
+          key={valueIdx}
+          onChange={getOnChange(valueIdx)}
+          onDelete={getOnDelete(valueIdx)}
+          value={x}
+          sectionId={sectionId}
+        />
+      ))}
     </>
   );
 }
 
-function ShowSectionVariant({ forSectionId, objInfoId, variantId }) {
-  const dbSource = useMappedSectionDBSource(forSectionId);
-  const sectionVariant = useSectionVariants((x) => x.x[dbSource][variantId]);
-  const paramsWithValues = useCodeInfo((x) => {
-    const output = [];
-    for (const c of x.x[objInfoId].children) {
-      if (sectionVariant.values[c]) {
-        output.push({
-          name: x.x[c].name,
-          value: sectionVariant.values[c].value,
-        });
-      }
-    }
-    return output;
-  }, _.isEqual);
-
-  return paramsWithValues.map((x, idx) => (
-    <SectionVariantItem key={idx} name={x.name} value={x.value} />
-  ));
-}
-
-function SectionVariantItem({ name, value }) {
-  // TODO: show value next to name, like
-  // name value
-  return (
-    <dl className="col-span-2 grid grid-cols-subgrid font-mono text-xs text-setta-500 dark:text-setta-200">
-      <dt className="col-start-1 truncate">{name}</dt>
-      <dd className="col-start-2 truncate">{value}</dd>
-    </dl>
-  );
-}
-
-function PlaceholderArgItem({
-  paramSweepId,
-  objInfoId,
-  alreadySelected,
-  forSectionId,
-}) {
+function PlaceholderArgItem({ paramSweepId, objInfoId, alreadySelected }) {
   function onSelectedItemChange(v, changeByUser, setSelection) {
-    if (v in useCodeInfo.getState().x) {
-      addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
-    } else {
-      addParamSweepParamInfoId({ paramSweepId, variantId: v });
-    }
-
+    addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
     setSelection(null);
   }
 
@@ -238,7 +170,6 @@ function PlaceholderArgItem({
       paramInfoId={null}
       onSelectedItemChange={onSelectedItemChange}
       alreadySelected={alreadySelected}
-      forSectionId={forSectionId}
     />
   );
 }
@@ -246,12 +177,10 @@ function PlaceholderArgItem({
 function ParamCombobox({
   objInfoId,
   paramInfoId,
-  variantId,
   alreadySelected = [],
   onSelectedItemChange,
-  forSectionId,
 }) {
-  const initialSelection = paramInfoId ?? variantId;
+  const initialSelection = paramInfoId;
 
   const objParams = useCodeInfo((x) => {
     const output = [];
@@ -263,16 +192,9 @@ function ParamCombobox({
     return output;
   }, _.isEqual);
 
-  const sectionVariants = useGetSectionVariantNames(forSectionId).filter(
-    (x) => variantId === x.id || !alreadySelected.includes(x.id),
-  );
-
   return (
     <IdNameCombobox
-      allItems={[
-        { group: "Args", items: objParams },
-        { group: "Versions", items: sectionVariants },
-      ]}
+      allItems={[{ group: "Args", items: objParams }]}
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"

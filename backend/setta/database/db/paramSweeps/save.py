@@ -1,14 +1,18 @@
 def save_param_sweeps(dbs, param_sweeps):
     db = dbs.default
     query = """
-        INSERT INTO ParamSweepId (id, name)
-        VALUES (:id, :name)
+        INSERT INTO ParamSweepId (id, selectedItem, name)
+        VALUES (:id, :selectedItem, :name)
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name
+            name = :name,
+            selectedItem = :selectedItem
     """
 
-    query_params = [{"id": id, "name": p["name"]} for id, p in param_sweeps.items()]
+    query_params = [
+        {"id": id, "selectedItem": p["selectedItem"], "name": p["name"]}
+        for id, p in param_sweeps.items()
+    ]
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(param_sweeps))
@@ -20,38 +24,27 @@ def save_param_sweeps(dbs, param_sweeps):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ParamSweep (idid, selectedItem, paramInfoId, variantId, "order", value)
-        VALUES (:idid, :selectedItem, :paramInfoId, :variantId, :order, :value)
+        INSERT INTO ParamSweep (idid, paramInfoId, "order", value)
+        VALUES (:idid, :paramInfoId, :order, :value)
     """
 
     query_params = []
     for id, p in param_sweeps.items():
         order = 0
         for s in p["sweep"]:
-            if "paramInfoId" in s:
-                for v in s["values"]:
-                    query_params.append(
-                        {
-                            "idid": id,
-                            "selectedItem": s["selectedItem"],
-                            "paramInfoId": s["paramInfoId"],
-                            "variantId": None,
-                            "order": order,
-                            "value": v,
-                        }
-                    )
-                    order += 1
-            else:
+            for v in s["values"]:
                 query_params.append(
                     {
                         "idid": id,
-                        "selectedItem": None,
-                        "paramInfoId": None,
-                        "variantId": s["variantId"],
+                        "paramInfoId": s["paramInfoId"],
                         "order": order,
-                        "value": None,
+                        "value": v,
                     }
                 )
                 order += 1
+
+    from pprint import pprint
+
+    pprint(query_params)
 
     db.executemany(query, query_params)
