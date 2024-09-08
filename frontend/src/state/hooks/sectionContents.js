@@ -36,7 +36,7 @@ export function useAreAnyParamsSelected(sectionId) {
 
   return useCodeInfo(
     (x) =>
-      getAllParamIds(sectionId, x.x, selectedItem, codeInfoId)
+      getParamIds(sectionId, x.x, selectedItem, codeInfoId)
         .map((id) => x.x[id])
         .filter((x) => x.isSelected).length > 0,
     _.isEqual,
@@ -48,7 +48,7 @@ export function useGetParamInfosThatHaveNames(sectionId) {
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
   return useCodeInfo((x) => {
-    const ids = getAllParamIds(sectionId, x.x, selectedItem, codeInfoId);
+    const ids = getParamIds(sectionId, x.x, selectedItem, codeInfoId);
     const haveName = [];
     for (const id of ids) {
       if (x.x[id].name) {
