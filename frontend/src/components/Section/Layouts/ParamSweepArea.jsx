@@ -17,16 +17,38 @@ import {
 } from "state/actions/runGroups/paramSweep";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
-  const { paramSweepId, paramSweep, forSectionId, objInfoId } =
+  const { paramSweepId, paramSweep, forSectionId } =
     useParamSweepInfo(sectionId);
 
+  return paramSweep.map((sweep) => (
+    <ParamSweepForOneSelectedItem
+      key={sweep.selectedItem}
+      section={sectionId}
+      forSectionId={forSectionId}
+      sweep={sweep}
+      paramSweepId={paramSweepId}
+    />
+  ));
+}
+
+export const ParamSweepArea = React.memo(_ParamSweepArea);
+
+function ParamSweepForOneSelectedItem({
+  sectionId,
+  forSectionId,
+  sweep,
+  paramSweepId,
+}) {
   const hideSearch = useSectionInfos((x) => x.x[forSectionId].hideSearch);
   const _isGlobalVariables =
     useSectionTypeName(forSectionId) === C.GLOBAL_VARIABLES;
+
+  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
 
   return (
     <>
@@ -34,23 +56,21 @@ function _ParamSweepArea({ sectionId }) {
         <ParamSweepSectionSearch
           sectionId={sectionId}
           forSectionId={forSectionId}
-          selectedItem={objInfoId}
+          selectedItem={sweep.selectedItem}
           paramSweepId={paramSweepId}
         />
       )}
       <FilterSection />
       <Args
         paramSweepId={paramSweepId}
-        objInfoId={objInfoId}
-        paramSweep={paramSweep}
+        objInfoId={sweep.selectedItem ?? codeInfoId}
+        paramSweep={sweep.params}
         forSectionId={forSectionId}
         sectionId={sectionId}
       />
     </>
   );
 }
-
-export const ParamSweepArea = React.memo(_ParamSweepArea);
 
 function FilterSection() {
   const inputStyles =

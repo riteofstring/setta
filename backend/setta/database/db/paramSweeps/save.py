@@ -1,16 +1,15 @@
 def save_param_sweeps(dbs, param_sweeps):
     db = dbs.default
     query = """
-        INSERT INTO ParamSweepId (id, selectedItem, name)
-        VALUES (:id, :selectedItem, :name)
+        INSERT INTO ParamSweepId (id, name)
+        VALUES (:id, :name)
         ON CONFLICT (id)
         DO UPDATE SET
-            name = :name,
-            selectedItem = :selectedItem
+            name = :name
     """
 
     query_params = [
-        {"id": id, "selectedItem": p["selectedItem"], "name": p["name"]}
+        {"id": id, "name": p["name"]}
         for id, p in param_sweeps.items()
     ]
     db.executemany(query, query_params)
@@ -24,24 +23,27 @@ def save_param_sweeps(dbs, param_sweeps):
     db.execute(query, query_params)
 
     query = """
-        INSERT INTO ParamSweep (idid, paramInfoId, "order", value)
-        VALUES (:idid, :paramInfoId, :order, :value)
+        INSERT INTO ParamSweep (idid, selectedItem, paramInfoId, "order", value)
+        VALUES (:idid, :selectedItem, :paramInfoId, :order, :value)
     """
 
     query_params = []
     for id, p in param_sweeps.items():
         order = 0
         for s in p["sweep"]:
-            for v in s["values"]:
-                query_params.append(
-                    {
-                        "idid": id,
-                        "paramInfoId": s["paramInfoId"],
-                        "order": order,
-                        "value": v,
-                    }
-                )
-                order += 1
+            selectedItem = s["selectedItem"]
+            for param in s["params"]:
+                for value in param["values"]:
+                    query_params.append(
+                        {
+                            "idid": id,
+                            "selectedItem": selectedItem,
+                            "paramInfoId": param["paramInfoId"],
+                            "order": order,
+                            "value": value,
+                        }
+                    )
+                    order += 1
 
     from pprint import pprint
 

@@ -440,6 +440,10 @@
         "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
         "nonPresetUITypeIds": []
       },
+      "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
+        "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
+        "nonPresetUITypeIds": []
+      },
       "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
         "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
         "nonPresetUITypeIds": []
@@ -488,15 +492,28 @@
   "paramSweeps": {
     "39e067ec-8392-4e83-86b7-010f60f5abce": {
       "name": "big_elephant",
-      "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
       "sweep": [
         {
-          "paramInfoId": "159e0416-3873-469b-915b-1f186579c380",
-          "values": ["100", "200", "300"]
+          "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
+          "params": [
+            {
+              "paramInfoId": "159e0416-3873-469b-915b-1f186579c380",
+              "values": ["100", "200", "300"]
+            },
+            {
+              "paramInfoId": "2fae73d3-5756-42a9-beb0-7465b92ac626",
+              "values": ["True", "False"]
+            }
+          ]
         },
         {
-          "paramInfoId": "2fae73d3-5756-42a9-beb0-7465b92ac626",
-          "values": ["True", "False"]
+          "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
+          "params": [
+            {
+              "paramInfoId": "7ae757c9-9327-4931-95a3-bc200f7e10b7",
+              "values": ["6", "7"]
+            }
+          ]
         }
       ]
     }
