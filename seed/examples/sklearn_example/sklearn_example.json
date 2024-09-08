@@ -4,11 +4,11 @@
     "name": "sklearn_example",
     "isDefault": 0,
     "viewport": {
-      "x": -150.74351386911223,
-      "y": 641.206339721452,
-      "zoom": 0.593779833036712
+      "x": -471.83108603972846,
+      "y": 891.7736095510115,
+      "zoom": 0.8621435450176064
     },
-    "previewImgNodes": "[{\"x\":-416,\"y\":-357,\"w\":951,\"h\":783},{\"x\":437,\"y\":-863,\"w\":589,\"h\":419},{\"x\":761,\"y\":-10,\"w\":452,\"h\":192},{\"x\":1814,\"y\":27,\"w\":202,\"h\":192},{\"x\":1123,\"y\":-788,\"w\":575,\"h\":588},{\"x\":1467,\"y\":-224,\"w\":452,\"h\":192},{\"x\":766,\"y\":240,\"w\":452,\"h\":370},{\"x\":1252,\"y\":243,\"w\":202,\"h\":350},{\"x\":781,\"y\":-283,\"w\":202,\"h\":524}]",
+    "previewImgNodes": "[{\"x\":-416,\"y\":-357,\"w\":951,\"h\":783},{\"x\":437,\"y\":-863,\"w\":589,\"h\":419},{\"x\":761,\"y\":-10,\"w\":452,\"h\":192},{\"x\":1814,\"y\":27,\"w\":202,\"h\":192},{\"x\":1123,\"y\":-788,\"w\":708,\"h\":333},{\"x\":1467,\"y\":-224,\"w\":452,\"h\":192},{\"x\":766,\"y\":240,\"w\":452,\"h\":370},{\"x\":1252,\"y\":243,\"w\":202,\"h\":350},{\"x\":781,\"y\":-283,\"w\":202,\"h\":524}]",
     "children": {
       "29ca4fd3-de9b-4986-831a-e632a95b6081": {
         "x": -415.5291892529853,
@@ -218,7 +218,7 @@
       "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
         "name": "green_grass",
         "selectedItem": null,
-        "code": "import numpy as np\n\n{{ SETTA_GENERATED_PYTHON }}\n\nprint(\"here\")",
+        "code": "import numpy as np\n\n{{SETTA_GENERATED_PYTHON}}\n\nprint(\"here\")\n",
         "keywordPositions": [],
         "values": {},
         "children": []
@@ -234,7 +234,7 @@
       "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c": {
         "name": "decent_blue",
         "selectedItem": null,
-        "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\ndef fn(message):\n    value = {\n            \"6a2056d0-214e-4d82-9c91-ee915069c7d4\": {\n                \"name\": \"Big Run\",\n                \"selected\": 1,\n                \"sections\": {\n                    \"46dc6cab-03ac-4e73-919d-63b30da0688d\": {},\n                }\n            },\n            \"2226fedc-e7fd-4a8f-beee-9b9e91b6dec1\": {\n                \"name\": \"Regular Run\",\n                \"selected\": 1,\n                \"sections\": {\n                    \"6bce72ee-335b-42f4-9949-af8cd83c9ffe\": {},\n                }\n            }\n        }\n\n    return_value = {\"value\": value, \"type\": \"runGroupControl\"}\n\n    return {\"content\": [return_value]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn, run_on_project_change=False)\n\n\n",
+        "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\n\ndef fn(message):\n    value = {\n        \"Big Run\": {\"selected\": True, \"sections\": {\"Global Variables\": {}}},\n        \"Regular Run\": {\"selected\": True, \"sections\": {\"dataset\": {}}},\n    }\n\n    return_value = {\"value\": value, \"type\": \"runGroupControl\"}\n\n    return {\"content\": [return_value]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn, run_on_project_change=False)\n",
         "keywordPositions": [],
         "values": {},
         "children": []
@@ -656,14 +656,15 @@
       "artifacts": [],
       "isInOtherProjectConfigs": false,
       "size": {
-        "width": 573,
+        "width": 706,
         "height": "auto"
       },
       "variantId": "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c",
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "resizeEvent": "end"
     },
     "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
       "id": "bea52bce-2689-41d8-a870-fa8fedcfd78a",
