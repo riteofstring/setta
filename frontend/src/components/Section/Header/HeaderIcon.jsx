@@ -50,7 +50,7 @@ export function HeaderIcon({
       );
     case C.INFO:
       return (
-        <i className="gg-pen !scale-75 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-400/50 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+        <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
       );
     default:
       return (

@@ -38,6 +38,8 @@ export function ParamUI({
   const isDisabled = useCodeInfo((x) => x.x[paramInfoId].isDisabled);
   const _isDisabled = isDisabled || isSelectingParams;
 
+  // need to put the group/textinput in a higher div
+
   switch (uiType.type) {
     default:
       return (
@@ -48,8 +50,8 @@ export function ParamUI({
             value={value}
             defaultVal={defaultVal}
             onChange={onChange}
-            dummyCodeClassName={`section-value self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!_isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-            realCodeClassName={`nodrag self-end group/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+            dummyCodeClassName={`section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!_isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+            realCodeClassName={`nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language="python"
             sectionIdToBeActive={sectionIdToBeActive}
             keywordPositions={keywordPositions}
@@ -59,7 +61,7 @@ export function ParamUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-value grid-row- border-box self-end border-b border-setta-100 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
+          <span className="section-value grid-row-start-1 border-box self-end border-b border-setta-100 peer-focus-within/textinput:border-blue-400 dark:border-setta-800" />
         </>
       );
     case C.SLIDER: {
@@ -134,7 +136,7 @@ export function ParamSweepUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-100 group-focus-within/textinput:border-blue-400 dark:border-setta-800" />
+          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-100 peer-focus-within/textinput:border-blue-400 dark:border-setta-800" />
         </>
       );
     case C.SLIDER: {
