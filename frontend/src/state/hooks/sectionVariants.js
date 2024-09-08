@@ -22,7 +22,7 @@ export function useGetParamKeywordPositions(sectionId, paramInfoId) {
     useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (paramInfoId && dbSource in x.x) {
-      const vals = x.x[dbSource][previewVariantId ?? variantId];
+      const vals = x.x[dbSource][previewVariantId ?? variantId].values;
       if (paramInfoId in vals) {
         return vals[paramInfoId].keywordPositions;
       }
