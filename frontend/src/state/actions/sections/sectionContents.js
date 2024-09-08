@@ -2,7 +2,6 @@ import C from "constants/constants.json";
 import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import {
-  findAllParameters,
   findAllParametersOfCallables,
   findAllParametersOfCollections,
 } from "utils/getDescendants";
@@ -14,7 +13,6 @@ export function getParamIds(
   _cState = null,
   _selectedItem = undefined,
   _codeInfoId = null,
-  allParams = false,
   paramPathCondition = false,
 ) {
   const cState = _cState ?? useCodeInfo.getState().x;
@@ -26,34 +24,22 @@ export function getParamIds(
     ? findAllParametersOfCallables(cState, [selectedItem], paramPathCondition)
     : [];
 
-  const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
-  const paramCollectionIds = allParams
-    ? findAllParameters(cState, [codeInfoId], paramPathCondition)
-    : findAllParametersOfCollections(cState, [codeInfoId], paramPathCondition);
-
-  return [...objParamInfoIds, ...paramCollectionIds];
+  if (!selectedItem) {
+    const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
+    const paramCollectionIds = findAllParametersOfCollections(
+      cState,
+      [codeInfoId],
+      paramPathCondition,
+    );
+    return [...objParamInfoIds, ...paramCollectionIds];
+  } else {
+    return objParamInfoIds;
+  }
 }
 
-export function getAllParamIds(
-  sectionId,
-  _cState = null,
-  _selectedItem = undefined,
-  _codeInfoId = null,
-  paramPathCondition = false,
-) {
-  return getParamIds(
-    sectionId,
-    _cState,
-    _selectedItem,
-    _codeInfoId,
-    true,
-    paramPathCondition,
-  );
-}
-
-export function getAllParamInfos(sectionId, _cState = null) {
+export function getParamInfos(sectionId, _cState = null) {
   const cState = _cState ?? useCodeInfo.getState().x;
-  const ids = getAllParamIds(sectionId, cState);
+  const ids = getParamIds(sectionId, cState);
   return ids.map((x) => cState[x]);
 }
 
@@ -68,7 +54,7 @@ export function getParamIdsToShowInArea(
   const selectedItem = _selectedItem ?? getSectionInfo(sectionId).selectedItem;
   const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
 
-  const allIdsAndPaths = getAllParamIds(
+  const allIdsAndPaths = getParamIds(
     sectionId,
     cState,
     selectedItem,

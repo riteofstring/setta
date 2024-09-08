@@ -1,6 +1,5 @@
 import _ from "lodash";
 import {
-  getAllParamIds,
   getParamIds,
   getParamIdsToShowInArea,
 } from "state/actions/sections/sectionContents";
@@ -17,38 +16,12 @@ import { useSectionSelectedItem } from "./sectionVariants";
 //   return useCodeInfo((x) => ids.map((id) => x.x[id]), _.isEqual);
 // }
 
-export function useTopLevelParamInfos(sectionId, isPinned) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
-
-  return useCodeInfo(
-    (x) =>
-      getParamIds(sectionId, x.x, selectedItem, codeInfoId)
-        .map((id) => x.x[id])
-        .filter((y) => (isPinned ? y.isPinned : !y.isPinned)),
-    _.isEqual,
-  );
-}
-
-export function useAreAnyParamsSelected(sectionId) {
-  const selectedItem = useSectionSelectedItem(sectionId);
-  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
-
-  return useCodeInfo(
-    (x) =>
-      getAllParamIds(sectionId, x.x, selectedItem, codeInfoId)
-        .map((id) => x.x[id])
-        .filter((x) => x.isSelected).length > 0,
-    _.isEqual,
-  );
-}
-
 export function useGetParamInfosThatHaveNames(sectionId) {
   const selectedItem = useSectionSelectedItem(sectionId);
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
   return useCodeInfo((x) => {
-    const ids = getAllParamIds(sectionId, x.x, selectedItem, codeInfoId);
+    const ids = getParamIds(sectionId, x.x, selectedItem, codeInfoId);
     const haveName = [];
     for (const id of ids) {
       if (x.x[id].name) {

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSectionInfos } from "state/definitions";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import { MINIMIZE_SECTION_HEIGHT, ROOT_SECTION_HEIGHT } from "utils/constants";
-import { useTopLevelParamInfos } from "./sectionContents";
 import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
 import { useIsArtifact, useIsRoot } from "./uiTypes";
@@ -87,13 +85,4 @@ export function useOverflow(sectionId) {
   }, [didUpdate]);
 
   return { overflow, ref, setDidUpdate };
-}
-
-export function useParamsDidUpdate({ sectionId, setDidUpdate, isPinned }) {
-  const params = useTopLevelParamInfos(sectionId, isPinned);
-  useDeepCompareEffect(() => {
-    setDidUpdate(true);
-  }, [params]);
-
-  return params.map((x) => x.id);
 }
