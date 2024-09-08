@@ -3,7 +3,7 @@ import { useCodeInfo } from "state/definitions";
 import { getSectionInfo } from "state/getters/sectionInfo";
 import {
   findAllParametersOfCallables,
-  findAllParametersOfCollections,
+  findAllParametersOfNotCallables,
 } from "utils/getDescendants";
 import { bothTruthyOrFalsey } from "utils/utils";
 import { getSectionSelectedItem } from "../sectionVariants";
@@ -26,7 +26,7 @@ export function getParamIds(
 
   if (!selectedItem) {
     const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
-    const paramCollectionIds = findAllParametersOfCollections(
+    const paramCollectionIds = findAllParametersOfNotCallables(
       cState,
       [codeInfoId],
       paramPathCondition,
