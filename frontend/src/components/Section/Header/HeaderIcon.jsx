@@ -48,6 +48,10 @@ export function HeaderIcon({
       return (
         <TbArrowIteration className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-400/50 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
+    case C.INFO:
+      return (
+        <i className="gg-pen !scale-75 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-400/50 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
+      );
     default:
       return (
         <i className="gg-menu group/card-section:hover:bg text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
