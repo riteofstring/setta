@@ -8,8 +8,10 @@ export function useGetParamEnteredValue(sectionId, paramInfoId) {
     useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (dbSource in x.x) {
-      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
-        .value;
+      const vals = x.x[dbSource][previewVariantId ?? variantId].values;
+      if (paramInfoId in vals) {
+        return vals[paramInfoId].value;
+      }
     }
     return "";
   });
@@ -20,8 +22,10 @@ export function useGetParamKeywordPositions(sectionId, paramInfoId) {
     useSectionVariantMetadataIds(sectionId);
   return useSectionVariants((x) => {
     if (paramInfoId && dbSource in x.x) {
-      return x.x[dbSource][previewVariantId ?? variantId].values[paramInfoId]
-        .keywordPositions;
+      const vals = x.x[dbSource][previewVariantId ?? variantId];
+      if (paramInfoId in vals) {
+        return vals[paramInfoId].keywordPositions;
+      }
     }
     return [];
   }, _.isEqual);
