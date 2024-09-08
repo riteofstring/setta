@@ -5,6 +5,7 @@ import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
+import { BiFilter } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
 import {
   addParamSweepParamInfoId,
@@ -18,7 +19,6 @@ import { useCodeInfo, useSectionVariants } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useMappedSectionDBSource } from "state/hooks/sections";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
-import { SectionSearch } from "../SectionParts/Search";
 
 function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId, codeInfoId } =
@@ -26,7 +26,6 @@ function _ParamSweepArea({ sectionId }) {
 
   return (
     <>
-      <SectionSearch sectionId={sectionId} />
       <FilterSection />
       <Args
         paramSweepId={paramSweepId}
@@ -49,7 +48,7 @@ function FilterSection() {
     <>
       <search className="section-args flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-3 pb-1 shadow-sm dark:border-setta-700">
         <StandardSearch
-          leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
+          leftElement={<BiFilter className="text-setta-400" />}
           placeholder="Filter"
           inputStyles={inputStyles}
           outerClasses="flex-1"
