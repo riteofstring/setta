@@ -1,12 +1,21 @@
+import { MarkdownEditor } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSectionInfos } from "state/definitions";
+import { useGetSectionInfo } from "state/hooks/sections";
 
 function _InfoArea({ sectionId }) {
-  return (
+  //TODO change this variable name
+  const showYaml = useGetSectionInfo(sectionId, "showYaml");
+
+  return !showYaml ? (
     <div className="section-main nodrag nowheel [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0">
       <Markdown sectionId={sectionId} />
+    </div>
+  ) : (
+    <div className="section-main nodrag nowheel [&_.prose]flex-1 mb-4 ml-2 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0">
+      <MarkdownEditor sectionId={sectionId} />
     </div>
   );
 }

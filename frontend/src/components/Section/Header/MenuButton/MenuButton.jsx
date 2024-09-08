@@ -10,6 +10,7 @@ import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { MultirunButton } from "./MultiRunButton";
 import { SaveCustomArgumentsButton } from "./SaveCustomArgumentsButton";
+import { ShowMarkdown } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 
 function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
@@ -35,7 +36,9 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           />
         }
       >
-        {![C.PARAM_SWEEP, C.CODE].includes(sectionTypeName) && (
+        {sectionTypeName === C.INFO && <ShowMarkdown sectionId={sectionId} />}
+
+        {![C.PARAM_SWEEP, C.CODE, C.INFO].includes(sectionTypeName) && (
           <SaveCustomArgumentsButton sectionId={sectionId} />
         )}
 
@@ -45,7 +48,7 @@ function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
           <CreateNewVersionButton sectionId={sectionId} />
         )}
 
-        {![C.PARAM_SWEEP, C.CODE].includes(sectionTypeName) && (
+        {![C.PARAM_SWEEP, C.CODE, C.INFO].includes(sectionTypeName) && (
           <MultirunButton sectionId={sectionId} />
         )}
 
