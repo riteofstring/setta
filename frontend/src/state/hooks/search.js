@@ -9,6 +9,7 @@ import { useSectionIdToChildren } from "./sectionVariants";
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
   const allVisibleParams = useAllVisibleParams();
+  console.log("allVisibleParams", allVisibleParams);
 
   function onChange(v) {
     setValue(v);
@@ -32,6 +33,7 @@ export function useUpdateProjectSearch() {
 
 export function useOnEnterGoToSearchResult() {
   const searchResults = useProjectSearch((x) => x.codeInfo);
+  console.log("searchResults", searchResults);
   const [currIdx, setCurrIdx] = useState(-1);
   function onKeyDown(e) {
     if (e.key === "Enter") {
@@ -74,10 +76,13 @@ function useAllVisibleParams() {
     });
   });
 
+  console.log("allIds", allIds);
+
   return useCodeInfo((x) => {
     const output = [];
     for (const id of allIds) {
       const paramIds = getAllParamIds(id, x.x);
+      console.log("paramIds", paramIds);
       for (const p of paramIds) {
         output.push({
           sectionId: id,
