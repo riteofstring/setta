@@ -27,18 +27,33 @@ export function getParamIds(
     : [];
 
   const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
-  const paramCollectionIds = findAllParametersOfCollections(
-    cState,
-    [codeInfoId],
-    paramPathCondition,
-  );
+  const paramCollectionIds = allParams
+    ? findAllParameters(cState, [codeInfoId], paramPathCondition)
+    : findAllParametersOfCollections(cState, [codeInfoId], paramPathCondition);
 
   return [...objParamInfoIds, ...paramCollectionIds];
 }
 
+export function getAllParamIds(
+  sectionId,
+  _cState = null,
+  _selectedItem = undefined,
+  _codeInfoId = null,
+  paramPathCondition = false,
+) {
+  return getParamIds(
+    sectionId,
+    _cState,
+    _selectedItem,
+    _codeInfoId,
+    true,
+    paramPathCondition,
+  );
+}
+
 export function getAllParamInfos(sectionId, _cState = null) {
   const cState = _cState ?? useCodeInfo.getState().x;
-  const ids = getParamIds(sectionId, cState);
+  const ids = getAllParamIds(sectionId, cState);
   return ids.map((x) => cState[x]);
 }
 
