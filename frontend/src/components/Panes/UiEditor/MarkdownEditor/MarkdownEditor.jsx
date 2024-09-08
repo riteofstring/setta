@@ -4,35 +4,42 @@ import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 
-const _MarkdownEditor = React.forwardRef(({ sectionId }, ref) => {
-  const description = useSectionInfos((x) => x.x[sectionId].description);
-  const [localDescription, setLocalDescription] = useState(description);
+const _MarkdownEditor = React.forwardRef(
+  ({ sectionId, containerClasses, textAreaClasses }, ref) => {
+    const description = useSectionInfos((x) => x.x[sectionId].description);
+    const [localDescription, setLocalDescription] = useState(description);
 
-  useEffect(() => {
-    if (description !== localDescription) {
-      setLocalDescription(description);
+    const _TextAreaClasses = !textAreaClasses
+      ? "block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-sm text-setta-900 focus:outline-blue-500 focus:ring-blue-500 !outline-transparent !border-transparent dark:bg-setta-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500 resize-none"
+      : textAreaClasses;
+
+    const _ContainerClasses = !containerClasses
+      ? "[&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl  [&_.w-md-editor-bar]:hidden"
+      : containerClasses;
+
+    useEffect(() => {
+      if (description !== localDescription) {
+        setLocalDescription(description);
+      }
+    }, [description]);
+
+    function onChange(v) {
+      setLocalDescription(v);
+      debouncedSetDescription(sectionId, v, description);
     }
-  }, [description]);
 
-  function onChange(v) {
-    setLocalDescription(v);
-    debouncedSetDescription(sectionId, v, description);
-  }
-
-  return (
-    <div
-      data-color-mode="light"
-      className="[&_.w-md-editor-text_*]:font-code flex flex-1 flex-col items-stretch overflow-y-auto rounded-2xl border border-solid border-setta-300 dark:border-setta-600 [&_.w-md-editor-bar]:hidden"
-    >
-      <textarea
-        value={localDescription}
-        onChange={(v) => onChange(v.target.value)}
-        className="block w-full flex-1 self-stretch rounded-lg bg-white p-2.5 font-mono text-sm text-setta-900 focus:border-blue-500 focus:ring-blue-500 dark:border-setta-700 dark:bg-setta-800 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:ring-blue-500"
-        placeholder="Write your description in Markdown..."
-      />
-    </div>
-  );
-});
+    return (
+      <div data-color-mode="light" className={_ContainerClasses}>
+        <textarea
+          value={localDescription}
+          onChange={(v) => onChange(v.target.value)}
+          className={_TextAreaClasses}
+          placeholder="Write Using Markdown..."
+        />
+      </div>
+    );
+  },
+);
 
 export const MarkdownEditor = React.memo(_MarkdownEditor);
 

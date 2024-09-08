@@ -24,8 +24,6 @@ export function DummyCodeMirror({
   className,
   keywordPositions,
   placeholder,
-  sectionId,
-  paramInfoId,
   language,
 }) {
   return code ? (
@@ -36,8 +34,6 @@ export function DummyCodeMirror({
       onFocus={onFocus}
       className={className}
       keywordPositions={keywordPositions}
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
       language={language}
     />
   ) : (
@@ -71,8 +67,6 @@ function HighlightedCode({
   onMouseDown,
   className,
   keywordPositions,
-  sectionId,
-  paramInfoId,
   language,
   onFocus,
 }) {

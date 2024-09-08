@@ -20,14 +20,18 @@ import { KwargsControls } from "../SectionParts/KwargsControls";
 
 function _GlobalVariablesArea({ sectionId, bgColor }) {
   const showYaml = useGetSectionInfo(sectionId, "showYaml");
+  const [toYamlWasCalled, setToYamlWasCalled] = useState(false);
   const [yamlValue, setYamlValue] = useState("");
   const [originalObj, setOriginalObj] = useState({});
 
   useEffect(() => {
     if (showYaml) {
       toYaml(sectionId, setYamlValue, setOriginalObj);
+      setToYamlWasCalled(true);
     } else {
-      toGUI(sectionId, yamlValue, originalObj);
+      if (toYamlWasCalled) {
+        toGUI(sectionId, yamlValue, originalObj);
+      }
     }
   }, [showYaml]);
 

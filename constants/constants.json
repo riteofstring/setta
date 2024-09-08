@@ -56,6 +56,7 @@
   "ROUTE_SAVE_CODE_INFO": "/codeInfo/save",
   "ROUTE_COPY_SECTIONS": "/copySections",
   "ROUTE_UPDATE_INTERACTIVE_CODE": "/updateInteractiveCode",
+  "ROUTE_FORMAT_CODE": "/formatCode",
   "ROUTE_SEND_ARTIFACT": "/sendArtfiact",
   "ROUTE_LOAD_ARTIFACTS": "/loadArtifacts",
   "ROUTE_GET_DEFAULT_CONFIG_NAME": "/getDefaultConfigName",
