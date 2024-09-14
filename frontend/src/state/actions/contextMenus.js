@@ -22,10 +22,6 @@ export function openSelectionContextMenu(e, nodeIds) {
   openContextMenu(e, "selection", { nodeIds });
 }
 
-export function openDrawAreaContextMenu(e, img, canvas) {
-  openContextMenu(e, "draw", { img, canvas });
-}
-
 export function closeAllContextMenus() {
   useContextMenus.getState().reset();
 }

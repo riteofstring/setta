@@ -4,6 +4,7 @@ import { useArtifacts, useSectionInfos } from "state/definitions";
 import { addSectionInEmptySpace } from "./sections/createSections";
 
 export function updateArtifacts({ artifacts, addSection = false }) {
+  console.log("updateArtifacts", artifacts);
   useArtifacts.setState((x) => {
     for (const [fullPath, data] of Object.entries(artifacts)) {
       x.x[fullPath] = data;
