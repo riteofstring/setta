@@ -172,6 +172,7 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS SectionArtifacts (
         sectionId TEXT,
         artifactPath TEXT,
+        value TEXT,
         type TEXT,
         displayName TEXT,
         PRIMARY KEY (sectionId, artifactPath),

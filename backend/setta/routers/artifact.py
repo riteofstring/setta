@@ -39,10 +39,15 @@ def route_load_artifacts(x: LoadArtifactsRequest, dbs=Depends(get_dbs)):
         artifactMetadata = load_artifact_metadata(dbs, x.sectionId, x.artifactPaths)
     artifacts = {}
     for p in artifactMetadata:
-        wrapper = get_wrapper_for_loading(p["type"])
-        wrapper.load(p["path"])
+        if p["value"] is not None:
+            data = {"value": p["value"], "type": p["type"]}
+        else:
+            wrapper = get_wrapper_for_loading(p["type"])
+            wrapper.load(p["path"])
+            data = wrapper.serialize()
+
         artifacts[p["path"]] = {
-            **wrapper.serialize(),
+            **data,
             "displayName": p["displayName"],
             "isSaved": True,
         }

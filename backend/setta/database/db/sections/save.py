@@ -1,3 +1,5 @@
+import json
+
 from setta.database.utils import dump_keyword_positions_as_string
 
 
@@ -144,20 +146,21 @@ def save_sections(dbs, sections):
 
     # add children
     query = """
-        INSERT INTO SectionArtifacts (sectionId, artifactPath, type, displayName)
-        VALUES (:sectionId, :artifactPath, :type, :displayName)
+        INSERT INTO SectionArtifacts (sectionId, artifactPath, value, type, displayName)
+        VALUES (:sectionId, :artifactPath, :value, :type, :displayName)
     """
     query_params = []
     for s in sections.values():
-        query_params.extend(
-            [
+        for a in s["artifacts"]:
+            value = a.get("value")
+            value = json.dumps(value) if value is not None else None
+            query_params.append(
                 {
                     "sectionId": s["id"],
                     "artifactPath": a["path"],
+                    "value": value,
                     "type": a["type"],
                     "displayName": a["displayName"],
                 }
-                for a in s["artifacts"]
-            ]
-        )
+            )
     db.executemany(query, query_params)

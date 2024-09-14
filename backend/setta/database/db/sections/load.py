@@ -1,5 +1,6 @@
 import copy
 import itertools
+import json
 from collections import defaultdict
 
 from setta.database.utils import parse_keyword_positions_string
@@ -217,7 +218,7 @@ def load_artifact_metadata(dbs, section_id, artifact_paths):
         query_params.extend([section_id, a])
     placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
     query = f"""
-        SELECT artifactPath as path, type, displayName
+        SELECT artifactPath as path, value, type, displayName
         FROM SectionArtifacts
         WHERE (sectionId, artifactPath) IN ({placeholders})
     """
@@ -225,5 +226,8 @@ def load_artifact_metadata(dbs, section_id, artifact_paths):
 
     output = []
     for row in db.fetchall():
-        output.append(dict(row))
+        curr_output = dict(row)
+        if curr_output["value"]:
+            curr_output["value"] = json.loads(curr_output["value"]) 
+        output.append(curr_output)
     return output

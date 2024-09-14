@@ -22,18 +22,18 @@ def load_param_sweeps(db, ids):
             continue
         matching_selected_item = find_matching_and_append(curr, row, "selectedItem")
         if not matching_selected_item:
-            curr.append({"selectedItem":row["selectedItem"], "params":[]})
+            curr.append({"selectedItem": row["selectedItem"], "params": []})
             matching_selected_item = curr[-1]
-        
+
         curr = matching_selected_item["params"]
         matching_param = find_matching_and_append(curr, row, "paramInfoId")
         if not matching_param:
             curr.append({"paramInfoId": row["paramInfoId"], "values": []})
             matching_param = curr[-1]
-        
+
         curr = matching_param["values"]
         curr.append(row["value"])
-        
+
     return output
 
 

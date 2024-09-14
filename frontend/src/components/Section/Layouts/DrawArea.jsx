@@ -1,9 +1,10 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { setSectionSize } from "state/actions/sections/setters";
-import { useSectionInfos } from "state/definitions";
+import { useArtifacts, useSectionInfos } from "state/definitions";
 import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { createRandomName } from "utils/idNameCreation";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -115,30 +116,36 @@ export function DrawOnImage({ sectionId }) {
     ctx.lineCap = "round";
     let prevPoint = stroke.points[0];
     stroke.points.forEach((point) => {
-      ctx.moveTo(prevPoint.x, prevPoint.y);
-      ctx.lineTo(point.x, point.y);
+      ctx.moveTo(prevPoint[0], prevPoint[1]);
+      ctx.lineTo(point[0], point[1]);
       prevPoint = point;
     });
     ctx.stroke();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
-  useDeepCompareEffect(() => {
+  async function processLoadedArtifacts() {
     if (!isLoaded) {
       return;
     }
-    if (_.size(artifacts) > 0) {
-      const image = new Image();
-      image.src = `data:image/jpeg;base64,${Object.values(artifacts)[0].value}`;
-      image.onload = () => {
+    console.log(artifacts);
+    for (const v of Object.values(artifacts)) {
+      console.log("v", v);
+      if (v.type === "img") {
+        const image = new Image();
+        image.src = `data:image/jpeg;base64,${v.value}`;
+        await image.decode();
         imageRef.current = image;
-        setCanvasProperties({ doDrawStrokes: true });
-        setDraftCanvasProperties();
-      };
-    } else {
-      setCanvasProperties({ doDrawStrokes: true });
-      setDraftCanvasProperties();
+      } else if (v.type === "brushStrokes") {
+        strokesRef.current = _.cloneDeep(v.value);
+      }
     }
+    setCanvasProperties({ doDrawStrokes: true });
+    setDraftCanvasProperties();
+  }
+
+  useDeepCompareEffect(() => {
+    processLoadedArtifacts();
   }, [artifacts, isLoaded]);
 
   useEffect(() => {
@@ -181,8 +188,8 @@ export function DrawOnImage({ sectionId }) {
     const point = getXY(e);
     const ctx = getCtx(draftCanvasRef);
     ctx.beginPath();
-    ctx.moveTo(prevPointRef.current.x, prevPointRef.current.y);
-    ctx.lineTo(point.x, point.y);
+    ctx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
+    ctx.lineTo(point[0], point[1]);
     ctx.stroke();
     prevPointRef.current = point;
     strokesRef.current[strokesRef.current.length - 1].points.push(point);
@@ -198,6 +205,7 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
+    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
 
   function toggleEraserMode() {
@@ -258,7 +266,7 @@ export function DrawOnImage({ sectionId }) {
 
 function getXY(e) {
   const { offsetX, offsetY } = e.nativeEvent;
-  return { x: offsetX, y: offsetY };
+  return [offsetX, offsetY];
 }
 
 function clearCanvas(canvasRef) {
@@ -275,3 +283,19 @@ function getCanvasAndCtx(canvasRef) {
 function getCtx(canvasRef) {
   return canvasRef.current.getContext("2d");
 }
+
+const debouncedSetBrushStrokesArtifact = _.debounce((sectionId, strokes) => {
+  const path = `data:${sectionId}-brushStrokes`;
+  useArtifacts.setState((x) => {
+    if (path in x.x) {
+      x.x[path].value = strokes;
+    } else {
+      x.x[path] = {
+        type: "brushStrokes",
+        displayName: createRandomName(),
+        value: strokes,
+      };
+    }
+  });
+  console.log("useArtifacts", useArtifacts.getState().x);
+}, 500);
