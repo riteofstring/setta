@@ -16,13 +16,26 @@ export function DrawOnImage({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
   const [opacity, setOpacity] = useState(0.5);
+  const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
 
   const drawImageOnCanvas = () => {
     const canvas = canvasRef.current;
+    const draftCanvas = draftCanvasRef.current;
     const ctx = canvas.getContext("2d");
-    const image = imageRef.current;
+    const dCtx = draftCanvas.getContext("2d");
+    drawBackgroundImage({ canvas, ctx, doDrawStrokes: true });
 
+    draftCanvas.width = canvas.width;
+    draftCanvas.height = canvas.height;
+    dCtx.strokeStyle = color;
+    dCtx.lineWidth = 16;
+    dCtx.lineCap = "round";
+    draftCanvas.style.opacity = opacity;
+  };
+
+  function drawBackgroundImage({ canvas, ctx, doDrawStrokes }) {
+    const image = imageRef.current;
     if (image && image.complete) {
       canvas.width = width === "auto" ? image.width : width;
       canvas.height = height === "auto" ? image.height : height;
@@ -37,27 +50,27 @@ export function DrawOnImage({ sectionId }) {
       );
       const x = canvas.width / 2 - (image.width / 2) * scale;
       const y = canvas.height / 2 - (image.height / 2) * scale;
+      ctx.clearRect(0, 0, width, height);
+      if (doDrawStrokes) {
+        ctx.globalCompositeOperation = "source-over";
+        drawStrokes(ctx);
+      }
+      ctx.globalCompositeOperation = "destination-over";
+      ctx.globalAlpha = 1;
       ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
-
-      // Redraw all strokes
-      strokesRef.current.forEach((stroke) => {
-        drawStroke(ctx, stroke);
-      });
+      ctx.globalCompositeOperation = "source-over";
     }
+  }
 
-    const draftCanvas = draftCanvasRef.current;
-    draftCanvas.width = canvas.width;
-    draftCanvas.height = canvas.height;
-    const dCtx = draftCanvas.getContext("2d");
-    dCtx.strokeStyle = color;
-    dCtx.lineWidth = 16;
-    dCtx.lineCap = "round";
-
-    draftCanvas.style.opacity = opacity;
-  };
+  function drawStrokes(ctx) {
+    strokesRef.current.forEach((stroke) => {
+      drawStroke(ctx, stroke);
+    });
+  }
 
   const drawStroke = (ctx, stroke) => {
     ctx.beginPath();
+    ctx.globalCompositeOperation = stroke.globalCompositeOperation;
     ctx.strokeStyle = stroke.color;
     ctx.globalAlpha = stroke.opacity;
     ctx.lineWidth = 16;
@@ -82,13 +95,49 @@ export function DrawOnImage({ sectionId }) {
     drawImageOnCanvas();
   }, [height, width, color, opacity]);
 
+  useEffect(() => {
+    if (isEraser) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      drawBackgroundImage({ canvas, ctx, doDrawStrokes: false });
+      const draftCanvas = draftCanvasRef.current;
+      const dCtx = draftCanvas.getContext("2d");
+      dCtx.clearRect(
+        0,
+        0,
+        draftCanvasRef.current.width,
+        draftCanvasRef.current.height,
+      );
+
+      drawStrokes(dCtx);
+      dCtx.globalCompositeOperation = "destination-out";
+      dCtx.strokeStyle = "rgba(0,0,0,1)";
+      dCtx.lineWidth = 16;
+      dCtx.lineCap = "round";
+      draftCanvas.style.opacity = 1;
+    } else {
+      const draftCanvas = draftCanvasRef.current;
+      const dCtx = draftCanvas.getContext("2d");
+      drawImageOnCanvas();
+      dCtx.clearRect(
+        0,
+        0,
+        draftCanvasRef.current.width,
+        draftCanvasRef.current.height,
+      );
+    }
+  }, [isEraser]);
+
   function onMouseDown(e) {
     setIsDrawing(true);
+    const draftCanvas = draftCanvasRef.current;
+    const dCtx = draftCanvas.getContext("2d");
     prevPointRef.current = getXY(e);
     strokesRef.current.push({
-      color,
-      opacity,
+      color: color,
+      opacity: isEraser ? 1 : opacity,
       points: [prevPointRef.current],
+      globalCompositeOperation: dCtx.globalCompositeOperation,
     });
   }
 
@@ -106,17 +155,20 @@ export function DrawOnImage({ sectionId }) {
 
   function onMouseUp() {
     setIsDrawing(false);
-    const ctx = canvasRef.current.getContext("2d");
-    ctx.globalAlpha = opacity;
-    ctx.drawImage(draftCanvasRef.current, 0, 0);
+    if (!isEraser) {
+      drawImageOnCanvas();
+      const draftCtx = draftCanvasRef.current.getContext("2d");
+      draftCtx.clearRect(
+        0,
+        0,
+        draftCanvasRef.current.width,
+        draftCanvasRef.current.height,
+      );
+    }
+  }
 
-    const draftCtx = draftCanvasRef.current.getContext("2d");
-    draftCtx.clearRect(
-      0,
-      0,
-      draftCanvasRef.current.width,
-      draftCanvasRef.current.height,
-    );
+  function toggleEraserMode() {
+    setIsEraser(!isEraser);
   }
 
   return (
@@ -140,6 +192,9 @@ export function DrawOnImage({ sectionId }) {
           className="w-40"
         />
         <span>{opacity.toFixed(1)}</span>
+        <button onClick={toggleEraserMode}>
+          {isEraser ? "Erasing" : "Drawing"}
+        </button>
       </div>
       <div
         className="relative"
