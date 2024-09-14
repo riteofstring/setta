@@ -119,7 +119,7 @@ export function DrawOnImage({ sectionId }) {
       console.log("v", v);
       if (v.type === "img") {
         const image = new Image();
-        image.src = `data:image/jpeg;base64,${v.value}`;
+        image.src = `data:image/png;base64,${v.value}`;
         await image.decode();
         imageRef.current = image;
       } else if (v.type === "brushStrokes") {
@@ -371,5 +371,5 @@ function dataURLToBase64(dataURL) {
 }
 
 function canvasToBase64(canvas) {
-  return dataURLToBase64(canvas.toDataURL("image/jpeg"));
+  return dataURLToBase64(canvas.toDataURL("image/png"));
 }
