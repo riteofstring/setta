@@ -59,7 +59,7 @@ export function DrawOnImage({ sectionId }) {
       const y = canvas.height / 2 - (image.height / 2) * scale;
       clearCanvas(canvasRef);
       if (doDrawStrokes) {
-        drawStrokes(ctx, doScaleStrokes ? scale : undefined);
+        drawStrokes(canvas, ctx);
       }
       ctx.globalCompositeOperation = "destination-over";
       ctx.globalAlpha = 1;
@@ -68,7 +68,7 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function drawStrokes(ctx, scale) {
+  function drawStrokes(canvas, ctx) {
     const startingProps = _.pick(ctx, [
       "globalCompositeOperation",
       "strokeStyle",
@@ -77,18 +77,20 @@ export function DrawOnImage({ sectionId }) {
       "lineCap",
     ]);
     strokesRef.current.forEach((stroke) => {
-      drawStroke(ctx, stroke, scale);
+      drawStroke(canvas, ctx, stroke);
     });
     for (const [k, v] of Object.entries(startingProps)) {
       ctx[k] = v;
     }
   }
 
-  function drawStroke(ctx, stroke, scale) {
+  function drawStroke(canvas, ctx, stroke) {
+    const scale = Math.min(
+      canvas.width / stroke.canvasWidth,
+      canvas.height / stroke.canvasHeight,
+    );
+    ctx.scale(scale, scale);
     ctx.beginPath();
-    if (scale) {
-      ctx.scale(scale, scale);
-    }
     ctx.globalCompositeOperation = stroke.globalCompositeOperation;
     ctx.strokeStyle = stroke.color;
     ctx.globalAlpha = stroke.opacity;
@@ -122,12 +124,12 @@ export function DrawOnImage({ sectionId }) {
   }, [color, opacity]);
 
   useEffect(() => {
-    const dCtx = getCanvasAndCtx(draftCanvasRef)[1];
+    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     if (isEraser) {
       drawBackgroundImage({ doDrawStrokes: false, doScaleStrokes: false });
       clearCanvas(draftCanvasRef);
       setDraftCanvasProperties();
-      drawStrokes(dCtx);
+      drawStrokes(draftCanvas, dCtx);
     } else {
       drawBackgroundImage({ doDrawStrokes: true, doScaleStrokes: false });
       setDraftCanvasProperties();
@@ -144,6 +146,8 @@ export function DrawOnImage({ sectionId }) {
       color: isEraser ? dCtx.strokeStyle : color,
       opacity: isEraser ? 1 : opacity,
       points: [prevPointRef.current],
+      canvasHeight: draftCanvas.height,
+      canvasWidth: draftCanvas.width,
       globalCompositeOperation: dCtx.globalCompositeOperation,
     });
   }
@@ -203,26 +207,23 @@ export function DrawOnImage({ sectionId }) {
           {isEraser ? "Erasing" : "Drawing"}
         </button>
       </div>
-      <div
-        className="relative"
-        style={{
-          width: `${width}px`,
-          height: `${height}px`,
-        }}
-      >
-        <canvas
-          ref={canvasRef}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          className="absolute left-0 top-0 h-full w-full border border-gray-300"
-        />
-        <canvas
-          ref={draftCanvasRef}
-          className="pointer-events-none absolute left-0 top-0 z-10 h-full w-full border border-gray-300"
-        />
-      </div>
+
+      <canvas
+        ref={canvasRef}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        className="absolute left-0 top-0 h-full w-full border border-gray-300"
+        width="100%"
+        height="100%"
+      />
+      <canvas
+        ref={draftCanvasRef}
+        className="pointer-events-none absolute left-0 top-0 z-10 h-full w-full border border-gray-300"
+        width="100%"
+        height="100%"
+      />
     </div>
   );
 }
