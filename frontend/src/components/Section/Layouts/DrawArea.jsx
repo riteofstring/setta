@@ -3,9 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { setSectionSize } from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
 
-// TODO: use css or something
-const SIZE_PERCENTAGE = 50;
-
 export function DrawOnImage({ sectionId }) {
   const { width, height } = useSectionInfos(
     (x) => x.x[sectionId].size,
@@ -47,34 +44,26 @@ export function DrawOnImage({ sectionId }) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     const image = imageRef.current;
     if (image && image.complete) {
-      const imageWidth = image.width * (SIZE_PERCENTAGE / 100);
-      const imageHeight = image.height * (SIZE_PERCENTAGE / 100);
-      canvas.width =
-        width === "auto" ? imageWidth : width * (SIZE_PERCENTAGE / 100);
-      canvas.height =
-        height === "auto" ? imageHeight : height * (SIZE_PERCENTAGE / 100);
-        console.log("canvas.width", canvas.width)
+      canvas.width = width === "auto" ? image.width : width;
+      canvas.height = height === "auto" ? image.height : height;
 
-      // if (width === "auto" || height === "auto") {
-      //   setSectionSize(sectionId, {
-      //     width: canvas.width,
-      //     height: canvas.height,
-      //   });
-      // }
+      if (width === "auto" || height === "auto") {
+        setSectionSize(sectionId, { width: image.width, height: image.height });
+      }
 
       const scale = Math.min(
-        canvas.width / imageWidth,
-        canvas.height / imageHeight,
+        canvas.width / image.width,
+        canvas.height / image.height,
       );
-      const x = canvas.width / 2 - (imageWidth / 2) * scale;
-      const y = canvas.height / 2 - (imageHeight / 2) * scale;
+      const x = canvas.width / 2 - (image.width / 2) * scale;
+      const y = canvas.height / 2 - (image.height / 2) * scale;
       clearCanvas(canvasRef);
       if (doDrawStrokes) {
         drawStrokes(canvas, ctx);
       }
       ctx.globalCompositeOperation = "destination-over";
       ctx.globalAlpha = 1;
-      ctx.drawImage(image, x, y, imageWidth * scale, imageHeight * scale);
+      ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
       ctx.globalCompositeOperation = "source-over";
     }
   }
@@ -226,14 +215,14 @@ export function DrawOnImage({ sectionId }) {
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
         className="absolute left-0 top-0 h-full w-full border border-gray-300"
-        width={`${SIZE_PERCENTAGE}%`}
-        height={`${SIZE_PERCENTAGE}%`}
+        width="100%"
+        height="100%"
       />
       <canvas
         ref={draftCanvasRef}
         className="pointer-events-none absolute left-0 top-0 z-10 h-full w-full border border-gray-300"
-        width={`${SIZE_PERCENTAGE}%`}
-        height={`${SIZE_PERCENTAGE}%`}
+        width="100%"
+        height="100%"
       />
     </div>
   );
