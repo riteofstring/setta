@@ -187,7 +187,7 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
 
   function toggleEraserMode() {
@@ -198,7 +198,7 @@ export function DrawOnImage({ sectionId }) {
     strokesRef.current = [];
     setCanvasProperties({ doDrawStrokes: true });
     clearCanvas(draftCanvasRef);
-    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
 
   function toBase64() {
