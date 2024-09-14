@@ -168,6 +168,10 @@ export function DrawOnImage({ sectionId }) {
   }, [isEraser, opacity, color]);
 
   function onMouseDown(e) {
+    // nothing to erase
+    if (isEraser && strokesRef.current.length === 0) {
+      return;
+    }
     setIsDrawing(true);
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     prevPointRef.current = getXY(e);
@@ -212,6 +216,13 @@ export function DrawOnImage({ sectionId }) {
     setIsEraser(!isEraser);
   }
 
+  function clearStrokes() {
+    strokesRef.current = [];
+    setCanvasProperties({ doDrawStrokes: true });
+    clearCanvas(draftCanvasRef);
+    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+  }
+
   function toBase64() {
     const base64Canvas = canvasRef.current
       .toDataURL("image/jpeg")
@@ -242,6 +253,9 @@ export function DrawOnImage({ sectionId }) {
         <span>{opacity.toFixed(1)}</span>
         <button className="-mt-16" onClick={toggleEraserMode}>
           {isEraser ? "Erasing" : "Drawing"}
+        </button>
+        <button className="-mt-16" onClick={clearStrokes}>
+          Clear
         </button>
         <button className="-mt-16" onClick={toBase64}>
           To Base64
