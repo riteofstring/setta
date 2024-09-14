@@ -21,17 +21,19 @@ export function DrawOnImage({ sectionId }) {
 
   const drawImageOnCanvas = () => {
     const canvas = canvasRef.current;
-    const draftCanvas = draftCanvasRef.current;
     const ctx = canvas.getContext("2d");
-    const dCtx = draftCanvas.getContext("2d");
     drawBackgroundImage({ canvas, ctx, doDrawStrokes: true });
 
-    draftCanvas.width = canvas.width;
-    draftCanvas.height = canvas.height;
-    dCtx.strokeStyle = color;
-    dCtx.lineWidth = 16;
-    dCtx.lineCap = "round";
-    draftCanvas.style.opacity = opacity;
+    if (!isEraser) {
+      const draftCanvas = draftCanvasRef.current;
+      const dCtx = draftCanvas.getContext("2d");
+      draftCanvas.width = canvas.width;
+      draftCanvas.height = canvas.height;
+      dCtx.strokeStyle = color;
+      dCtx.lineWidth = 16;
+      dCtx.lineCap = "round";
+      draftCanvas.style.opacity = opacity;
+    }
   };
 
   function drawBackgroundImage({ canvas, ctx, doDrawStrokes }) {
@@ -115,6 +117,7 @@ export function DrawOnImage({ sectionId }) {
       dCtx.lineWidth = 16;
       dCtx.lineCap = "round";
       draftCanvas.style.opacity = 1;
+      dCtx.globalAlpha = 1;
     } else {
       const draftCanvas = draftCanvasRef.current;
       const dCtx = draftCanvas.getContext("2d");
@@ -134,7 +137,7 @@ export function DrawOnImage({ sectionId }) {
     const dCtx = draftCanvas.getContext("2d");
     prevPointRef.current = getXY(e);
     strokesRef.current.push({
-      color: color,
+      color: isEraser ? dCtx.strokeStyle : color,
       opacity: isEraser ? 1 : opacity,
       points: [prevPointRef.current],
       globalCompositeOperation: dCtx.globalCompositeOperation,
