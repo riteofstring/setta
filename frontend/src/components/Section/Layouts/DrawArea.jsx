@@ -1,7 +1,15 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { setSectionSize } from "state/actions/sections/setters";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import {
+  base64RequestId,
+  setTemporaryMiscState,
+} from "state/actions/temporaryMiscState";
+import {
+  useArtifacts,
+  useSectionInfos,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
@@ -145,6 +153,19 @@ export function DrawOnImage({ sectionId }) {
     }
   }, [isEraser, opacity, color]);
 
+  useEffect(() => {
+    const id = base64RequestId(sectionId);
+    const unsub = useTemporaryMiscState.subscribe(
+      (x) => x[id],
+      (x) => {
+        if (x === true) {
+          setTemporaryMiscState(id, toBase64());
+        }
+      },
+    );
+    return unsub;
+  }, []);
+
   function onMouseDown(e) {
     // nothing to erase
     if (isEraser && strokesRef.current.length === 0) {
@@ -213,14 +234,8 @@ export function DrawOnImage({ sectionId }) {
     if (imageRef.current) {
       base64["image"] = exportImageToBase64(imageRef.current, width, height);
     }
-    console.log(
-      "completeCanvas === strokes",
-      _.isEqual(base64["completeCanvas"], base64["strokes"]),
-    );
-    console.log(
-      "completeCanvas === image",
-      _.isEqual(base64["completeCanvas"], base64["image"]),
-    );
+    console.log("toBase64");
+    return base64;
   }
 
   return (
@@ -249,9 +264,6 @@ export function DrawOnImage({ sectionId }) {
         </button>
         <button className="-mt-16" onClick={clearStrokes}>
           Clear
-        </button>
-        <button className="-mt-16" onClick={toBase64}>
-          To Base64
         </button>
       </div>
 

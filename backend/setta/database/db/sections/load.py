@@ -228,6 +228,6 @@ def load_artifact_metadata(dbs, section_id, artifact_paths):
     for row in db.fetchall():
         curr_output = dict(row)
         if curr_output["value"]:
-            curr_output["value"] = json.loads(curr_output["value"]) 
+            curr_output["value"] = json.loads(curr_output["value"])
         output.append(curr_output)
     return output

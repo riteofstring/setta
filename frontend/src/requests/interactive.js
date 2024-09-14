@@ -4,7 +4,7 @@ import { getProjectData } from "state/actions/project/saveProject";
 import { post } from "./utils";
 
 export async function dbUpdateInteractiveCode() {
-  const project = getProjectDataForInteractive();
+  const project = await getProjectDataForInteractive();
   console.log("dbUpdateInteractiveCode", project);
   return await post({
     body: { project },
