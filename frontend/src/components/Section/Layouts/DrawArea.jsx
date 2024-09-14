@@ -2,13 +2,14 @@ import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { setSectionSize } from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
+import { useArtifactData } from "state/hooks/artifacts";
 
 export function DrawOnImage({ sectionId }) {
+  const { artifacts, isLoaded } = useArtifactData(sectionId);
   const { width, height } = useSectionInfos(
     (x) => x.x[sectionId].size,
     _.isEqual,
   );
-  const imageUrl = "https://kevinmusgrave.com/img/kevin-musgrave2.png";
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const imageRef = useRef(null);
@@ -107,14 +108,16 @@ export function DrawOnImage({ sectionId }) {
   }
 
   useEffect(() => {
-    const image = new Image();
-    image.src = imageUrl;
-    image.onload = () => {
-      imageRef.current = image;
-      drawBackgroundImage({ doDrawStrokes: true });
-      setDraftCanvasProperties();
-    };
-  }, [imageUrl]);
+    if (isLoaded) {
+      const image = new Image();
+      image.src = `data:image/jpeg;base64,${Object.values(artifacts)[0].value}`;
+      image.onload = () => {
+        imageRef.current = image;
+        drawBackgroundImage({ doDrawStrokes: true });
+        setDraftCanvasProperties();
+      };
+    }
+  }, [artifacts, isLoaded]);
 
   useEffect(() => {
     drawBackgroundImage({ doDrawStrokes: true });
