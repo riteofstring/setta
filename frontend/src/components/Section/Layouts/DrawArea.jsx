@@ -215,14 +215,10 @@ export function DrawOnImage({ sectionId }) {
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
         className="absolute left-0 top-0 h-full w-full border border-gray-300"
-        width="100%"
-        height="100%"
       />
       <canvas
         ref={draftCanvasRef}
         className="pointer-events-none absolute left-0 top-0 z-10 h-full w-full border border-gray-300"
-        width="100%"
-        height="100%"
       />
     </div>
   );
