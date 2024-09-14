@@ -1,8 +1,7 @@
 import copy
 import itertools
+import json
 from collections import defaultdict
-
-from setta.database.utils import parse_keyword_positions_string
 
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
@@ -163,7 +162,7 @@ def get_section_ids(dbs, top_level_ids):
 
 def load_section_configs(dbs, project_config_id):
     db = dbs.default
-    query = f"""SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
+    query = """SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
         FROM SectionConfig
         WHERE projectConfigId = :projectConfigId
     """
@@ -217,7 +216,7 @@ def load_artifact_metadata(dbs, section_id, artifact_paths):
         query_params.extend([section_id, a])
     placeholders = ", ".join(["(?, ?)"] * (len(query_params) // 2))
     query = f"""
-        SELECT artifactPath as path, type, displayName
+        SELECT artifactPath as path, value, type, displayName
         FROM SectionArtifacts
         WHERE (sectionId, artifactPath) IN ({placeholders})
     """
@@ -225,5 +224,8 @@ def load_artifact_metadata(dbs, section_id, artifact_paths):
 
     output = []
     for row in db.fetchall():
-        output.append(dict(row))
+        curr_output = dict(row)
+        if curr_output["value"]:
+            curr_output["value"] = json.loads(curr_output["value"])
+        output.append(curr_output)
     return output

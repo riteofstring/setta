@@ -1,10 +1,6 @@
 import jedi
 
-from setta.code_gen.python.generate_code import (
-    append_to_line,
-    position_to_line_col,
-    var_declaration,
-)
+from setta.code_gen.python.generate_code import append_to_line
 from setta.tasks.task_runner import RunType
 
 from .textFieldAutocomplete import completionHelper, read_cache

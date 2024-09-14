@@ -102,7 +102,7 @@ export function changeKwargName({ sectionId, paramInfoId, name }) {
 
 export function pinSelectedKwargs(sectionId) {
   const selectedParams = getAllSelectedParams(sectionId);
-  console.log("selectedParams", selectedParams)
+  console.log("selectedParams", selectedParams);
   useCodeInfo.setState((x) => {
     for (const p of selectedParams) {
       setAttrOfSelfAndDescendants(x.x, p.id, "isPinned", !x.x[p.id].isPinned);
@@ -113,12 +113,18 @@ export function pinSelectedKwargs(sectionId) {
 export function toggleParamSelected(paramInfoId) {
   useCodeInfo.setState((x) => {
     const newVal = !x.x[paramInfoId].isSelected;
-    console.log("toggleParamSelected", newVal)
+    console.log("toggleParamSelected", newVal);
     x.x[paramInfoId].isSelected = newVal;
     // We want only the parent to be true
     // just because of the way other states interpret isSelected
-    const childrenNewVal = false 
-    setAttrOfSelfAndDescendants(x.x, paramInfoId, "isSelected", childrenNewVal, false);
+    const childrenNewVal = false;
+    setAttrOfSelfAndDescendants(
+      x.x,
+      paramInfoId,
+      "isSelected",
+      childrenNewVal,
+      false,
+    );
   });
 }
 

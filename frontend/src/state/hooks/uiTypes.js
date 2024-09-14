@@ -109,6 +109,10 @@ export function useIsInteractiveCode(sectionId) {
   return useIsType(sectionId, C.INTERACTIVE_CODE);
 }
 
+export function useIsDrawArea(sectionId) {
+  return useIsType(sectionId, C.DRAW);
+}
+
 export function useRequiredUIEditorTabs(sectionId) {
   const uiTypeId = useGetSectionInfo(sectionId, "uiTypeId");
   const uiTypeType = useUITypes((x) => x.x[uiTypeId].type);

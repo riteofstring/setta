@@ -11,7 +11,7 @@ def save_section_variants_to_one_db(db, section_variants):
         INSERT INTO SectionVariantId (id, name, selectedItem, code, keywordPositions)
         VALUES (:id, :name, :selectedItem, :code, :keywordPositions)
         ON CONFLICT (id)
-        DO UPDATE SET 
+        DO UPDATE SET
         name = :name,
         selectedItem = :selectedItem,
         code = :code,

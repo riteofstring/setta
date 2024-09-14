@@ -13,7 +13,7 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "state/hooks/social";
-import { useGetSectionType } from "state/hooks/uiTypes";
+import { useGetSectionType, useIsDrawArea } from "state/hooks/uiTypes";
 import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
@@ -123,5 +123,6 @@ function useSizeMode(sectionId) {
 
 function useAspectRatio(sectionId) {
   const isYouTube = useIsYouTube(sectionId);
-  return isYouTube ? youtubeSectionAspectRatio : false;
+  const isDrawArea = useIsDrawArea(sectionId);
+  return isYouTube ? youtubeSectionAspectRatio : isDrawArea;
 }

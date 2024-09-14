@@ -1,17 +1,23 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useArtifacts, useSectionInfos } from "state/definitions";
+import { getSectionType } from "state/getters/sectionInfo";
+import { requestBase64FromDrawArea } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
-// TODO make this more efficient
-export function getProjectDataForInteractive() {
+export async function getProjectDataForInteractive() {
   const project = getProjectData({});
   const sectionInfosState = useSectionInfos.getState().x;
   const artifactState = useArtifacts.getState().x;
-  const sections = _.mapValues(sectionInfosState, (x) => {
+  const sections = {};
+  for (const x of Object.values(sectionInfosState)) {
     const currSection = _.omit(x, ["parentId"]);
     currSection.artifacts = currSection.artifacts.map((a) => artifactState[a]);
-    return currSection;
-  });
+    if (getSectionType(x.id).type === C.DRAW) {
+      currSection.drawings = await requestBase64FromDrawArea(x.id);
+    }
+    sections[x.id] = currSection;
+  }
   project.sections = sections;
   return project;
 }
