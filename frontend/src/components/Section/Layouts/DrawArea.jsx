@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { setSectionSize } from "state/actions/sections/setters";
 import { useSectionInfos } from "state/definitions";
 import { useArtifactData } from "state/hooks/artifacts";
+import useDeepCompareEffect from "use-deep-compare-effect";
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -41,7 +42,7 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function drawBackgroundImage({ doDrawStrokes }) {
+  function setCanvasProperties({ doDrawStrokes }) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     const image = imageRef.current;
     if (image && image.complete) {
@@ -65,6 +66,21 @@ export function DrawOnImage({ sectionId }) {
       ctx.globalCompositeOperation = "destination-over";
       ctx.globalAlpha = 1;
       ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
+      ctx.globalCompositeOperation = "source-over";
+    } else {
+      const [defaultWidth, defaultHeight] = [500, 500];
+      canvas.width = width === "auto" ? defaultWidth : width;
+      canvas.height = height === "auto" ? defaultHeight : height;
+      if (width === "auto" || height === "auto") {
+        setSectionSize(sectionId, {
+          width: canvas.width,
+          height: canvas.height,
+        });
+      }
+      clearCanvas(canvasRef);
+      if (doDrawStrokes) {
+        drawStrokes(canvas, ctx);
+      }
       ctx.globalCompositeOperation = "source-over";
     }
   }
@@ -107,32 +123,38 @@ export function DrawOnImage({ sectionId }) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
-  useEffect(() => {
-    if (isLoaded) {
+  useDeepCompareEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+    if (_.size(artifacts) > 0) {
       const image = new Image();
       image.src = `data:image/jpeg;base64,${Object.values(artifacts)[0].value}`;
       image.onload = () => {
         imageRef.current = image;
-        drawBackgroundImage({ doDrawStrokes: true });
+        setCanvasProperties({ doDrawStrokes: true });
         setDraftCanvasProperties();
       };
+    } else {
+      setCanvasProperties({ doDrawStrokes: true });
+      setDraftCanvasProperties();
     }
   }, [artifacts, isLoaded]);
 
   useEffect(() => {
-    drawBackgroundImage({ doDrawStrokes: true });
+    setCanvasProperties({ doDrawStrokes: true });
     setDraftCanvasProperties();
   }, [height, width]);
 
   useEffect(() => {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     if (isEraser) {
-      drawBackgroundImage({ doDrawStrokes: false });
+      setCanvasProperties({ doDrawStrokes: false });
       clearCanvas(draftCanvasRef);
       setDraftCanvasProperties();
       drawStrokes(draftCanvas, dCtx);
     } else {
-      drawBackgroundImage({ doDrawStrokes: true });
+      setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
@@ -172,7 +194,7 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
-      drawBackgroundImage({ doDrawStrokes: true });
+      setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
@@ -180,6 +202,13 @@ export function DrawOnImage({ sectionId }) {
 
   function toggleEraserMode() {
     setIsEraser(!isEraser);
+  }
+
+  function toBase64() {
+    const base64Canvas = canvasRef.current
+      .toDataURL("image/jpeg")
+      .split(";base64,")[1];
+    console.log(base64Canvas);
   }
 
   return (
@@ -205,6 +234,9 @@ export function DrawOnImage({ sectionId }) {
         <span>{opacity.toFixed(1)}</span>
         <button className="-mt-16" onClick={toggleEraserMode}>
           {isEraser ? "Erasing" : "Drawing"}
+        </button>
+        <button className="-mt-16" onClick={toBase64}>
+          To Base64
         </button>
       </div>
 
