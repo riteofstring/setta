@@ -52,25 +52,11 @@ export function DrawOnImage({ sectionId }) {
     drawImageOnCanvas();
   }, [height, width]);
 
-  const startDrawing = (e) => {
-    setIsDrawing(true);
-    const { offsetX, offsetY } = e.nativeEvent;
-    setPoints([[offsetX, offsetY, Date.now()]]);
-  };
-
-  const draw = (e) => {
-    if (!isDrawing) return;
-    const { offsetX, offsetY } = e.nativeEvent;
-    setPoints([...points, [offsetX, offsetY, Date.now()]]);
-
+  const drawStroke = (strokePoints) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    // Redraw the image
-    drawImageOnCanvas();
-
-    // Draw the stroke
-    const stroke = getStroke(points, {
+    const stroke = getStroke(strokePoints, {
       size: 20,
       thinning: 0.5,
       smoothing: 0.5,
@@ -79,24 +65,44 @@ export function DrawOnImage({ sectionId }) {
 
     ctx.beginPath();
     if (mode === "draw") {
-      ctx.fillStyle = "rgba(255, 0, 0, 0.5)"; // Semi-transparent red
-      for (const [x, y] of stroke) {
-        ctx.lineTo(x, y);
-      }
-      ctx.fill();
+      ctx.fillStyle = "rgba(255, 0, 0, 0.1)"; // Semi-transparent red
     } else {
       ctx.globalCompositeOperation = "destination-out";
-      for (const [x, y] of stroke) {
-        ctx.lineTo(x, y);
-      }
-      ctx.fill();
+    }
+
+    for (const [x, y] of stroke) {
+      ctx.lineTo(x, y);
+    }
+    ctx.fill();
+
+    if (mode === "erase") {
       ctx.globalCompositeOperation = "source-over";
     }
+  };
+
+  const startDrawing = (e) => {
+    setIsDrawing(true);
+    const { offsetX, offsetY } = e.nativeEvent;
+    const newPoints = [[offsetX, offsetY, Date.now()]];
+    setPoints(newPoints);
+    drawStroke(newPoints); // Draw a dot immediately on mouse down
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    const { offsetX, offsetY } = e.nativeEvent;
+    const newPoints = [...points, [offsetX, offsetY, Date.now()]];
+    setPoints(newPoints);
+    drawStroke(newPoints);
   };
 
   const endDrawing = () => {
     setIsDrawing(false);
     setPoints([]);
+  };
+
+  const toggleMode = () => {
+    setMode(mode === "draw" ? "erase" : "draw");
   };
 
   return (
@@ -113,6 +119,14 @@ export function DrawOnImage({ sectionId }) {
           height: `${height}px`,
         }}
       />
+      <div className="absolute right-2 top-2 flex space-x-2">
+        <button
+          onClick={toggleMode}
+          className={`rounded p-2 ${mode === "draw" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
+        >
+          {mode === "draw" ? "Eraser" : "Pencil"}
+        </button>
+      </div>
     </div>
   );
 }
