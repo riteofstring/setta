@@ -19,24 +19,34 @@ export function DrawOnImage({ sectionId }) {
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
 
-  const drawImageOnCanvas = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    drawBackgroundImage({ canvas, ctx, doDrawStrokes: true });
+  function drawImageOnCanvas() {
+    drawBackgroundImage({ doDrawStrokes: true });
+    setDraftCanvasProperties();
+  }
 
-    if (!isEraser) {
-      const draftCanvas = draftCanvasRef.current;
-      const dCtx = draftCanvas.getContext("2d");
-      draftCanvas.width = canvas.width;
-      draftCanvas.height = canvas.height;
+  function setDraftCanvasProperties() {
+    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+    draftCanvas.width = canvasRef.current.width;
+    draftCanvas.height = canvasRef.current.height;
+    if (isEraser) {
+      dCtx.globalCompositeOperation = "destination-out";
+      dCtx.strokeStyle = "rgba(0,0,0,1)";
+      dCtx.lineWidth = 16;
+      dCtx.lineCap = "round";
+      dCtx.globalAlpha = 1;
+      draftCanvas.style.opacity = 1;
+    } else {
+      dCtx.globalCompositeOperation = "source-over";
       dCtx.strokeStyle = color;
       dCtx.lineWidth = 16;
       dCtx.lineCap = "round";
+      dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = opacity;
     }
-  };
+  }
 
-  function drawBackgroundImage({ canvas, ctx, doDrawStrokes }) {
+  function drawBackgroundImage({ doDrawStrokes }) {
+    const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     const image = imageRef.current;
     if (image && image.complete) {
       canvas.width = width === "auto" ? image.width : width;
@@ -52,9 +62,8 @@ export function DrawOnImage({ sectionId }) {
       );
       const x = canvas.width / 2 - (image.width / 2) * scale;
       const y = canvas.height / 2 - (image.height / 2) * scale;
-      ctx.clearRect(0, 0, width, height);
+      clearCanvas(canvasRef);
       if (doDrawStrokes) {
-        ctx.globalCompositeOperation = "source-over";
         drawStrokes(ctx);
       }
       ctx.globalCompositeOperation = "destination-over";
@@ -65,9 +74,19 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function drawStrokes(ctx) {
+    const startingProps = _.pick(ctx, [
+      "globalCompositeOperation",
+      "strokeStyle",
+      "globalAlpha",
+      "lineWidth",
+      "lineCap",
+    ]);
     strokesRef.current.forEach((stroke) => {
       drawStroke(ctx, stroke);
     });
+    for (const [k, v] of Object.entries(startingProps)) {
+      ctx[k] = v;
+    }
   }
 
   const drawStroke = (ctx, stroke) => {
@@ -95,39 +114,22 @@ export function DrawOnImage({ sectionId }) {
 
   useEffect(() => {
     drawImageOnCanvas();
-  }, [height, width, color, opacity]);
+  }, [height, width]);
 
   useEffect(() => {
-    if (isEraser) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      drawBackgroundImage({ canvas, ctx, doDrawStrokes: false });
-      const draftCanvas = draftCanvasRef.current;
-      const dCtx = draftCanvas.getContext("2d");
-      dCtx.clearRect(
-        0,
-        0,
-        draftCanvasRef.current.width,
-        draftCanvasRef.current.height,
-      );
+    setDraftCanvasProperties();
+  }, [color, opacity]);
 
+  useEffect(() => {
+    const dCtx = getCanvasAndCtx(draftCanvasRef)[1];
+    if (isEraser) {
+      drawBackgroundImage({ doDrawStrokes: false });
+      clearCanvas(draftCanvasRef);
+      setDraftCanvasProperties();
       drawStrokes(dCtx);
-      dCtx.globalCompositeOperation = "destination-out";
-      dCtx.strokeStyle = "rgba(0,0,0,1)";
-      dCtx.lineWidth = 16;
-      dCtx.lineCap = "round";
-      draftCanvas.style.opacity = 1;
-      dCtx.globalAlpha = 1;
     } else {
-      const draftCanvas = draftCanvasRef.current;
-      const dCtx = draftCanvas.getContext("2d");
       drawImageOnCanvas();
-      dCtx.clearRect(
-        0,
-        0,
-        draftCanvasRef.current.width,
-        draftCanvasRef.current.height,
-      );
+      clearCanvas(draftCanvasRef);
     }
   }, [isEraser]);
 
@@ -160,13 +162,7 @@ export function DrawOnImage({ sectionId }) {
     setIsDrawing(false);
     if (!isEraser) {
       drawImageOnCanvas();
-      const draftCtx = draftCanvasRef.current.getContext("2d");
-      draftCtx.clearRect(
-        0,
-        0,
-        draftCanvasRef.current.width,
-        draftCanvasRef.current.height,
-      );
+      clearCanvas(draftCanvasRef);
     }
   }
 
@@ -226,4 +222,15 @@ export function DrawOnImage({ sectionId }) {
 function getXY(e) {
   const { offsetX, offsetY } = e.nativeEvent;
   return { x: offsetX, y: offsetY };
+}
+
+function clearCanvas(canvasRef) {
+  const ctx = getCanvasAndCtx(canvasRef)[1];
+  ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+}
+
+function getCanvasAndCtx(canvasRef) {
+  const canvas = canvasRef.current;
+  const ctx = canvas.getContext("2d");
+  return [canvas, ctx];
 }
