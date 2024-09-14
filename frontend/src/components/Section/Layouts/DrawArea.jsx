@@ -102,28 +102,6 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function drawStroke(canvas, ctx, stroke) {
-    const scale = Math.min(
-      canvas.width / stroke.canvasWidth,
-      canvas.height / stroke.canvasHeight,
-    );
-    ctx.scale(scale, scale);
-    ctx.beginPath();
-    ctx.globalCompositeOperation = stroke.globalCompositeOperation;
-    ctx.strokeStyle = stroke.color;
-    ctx.globalAlpha = stroke.opacity;
-    ctx.lineWidth = 16;
-    ctx.lineCap = "round";
-    let prevPoint = stroke.points[0];
-    stroke.points.forEach((point) => {
-      ctx.moveTo(prevPoint[0], prevPoint[1]);
-      ctx.lineTo(point[0], point[1]);
-      prevPoint = point;
-    });
-    ctx.stroke();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-  }
-
   async function processLoadedArtifacts() {
     if (!isLoaded) {
       return;
@@ -224,10 +202,25 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function toBase64() {
-    const base64Canvas = canvasRef.current
-      .toDataURL("image/jpeg")
-      .split(";base64,")[1];
-    console.log(base64Canvas);
+    const [width, height] = [canvasRef.current.width, canvasRef.current.height];
+    const base64 = {};
+    base64["completeCanvas"] = canvasToBase64(canvasRef.current);
+    base64["strokes"] = exportStrokesToBase64(
+      strokesRef.current,
+      width,
+      height,
+    );
+    if (imageRef.current) {
+      base64["image"] = exportImageToBase64(imageRef.current, width, height);
+    }
+    console.log(
+      "completeCanvas === strokes",
+      _.isEqual(base64["completeCanvas"], base64["strokes"]),
+    );
+    console.log(
+      "completeCanvas === image",
+      _.isEqual(base64["completeCanvas"], base64["image"]),
+    );
   }
 
   return (
@@ -302,14 +295,69 @@ const debouncedSetBrushStrokesArtifact = _.debounce((sectionId, strokes) => {
   const path = `data:${sectionId}-brushStrokes`;
   useArtifacts.setState((x) => {
     if (path in x.x) {
-      x.x[path].value = strokes;
+      x.x[path].value = _.cloneDeep(strokes);
     } else {
       x.x[path] = {
         type: "brushStrokes",
         displayName: createRandomName(),
-        value: strokes,
+        value: _.cloneDeep(strokes),
       };
     }
   });
   console.log("useArtifacts", useArtifacts.getState().x);
 }, 500);
+
+function exportStrokesToBase64(strokes, width, height) {
+  // Create a temporary canvas
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext("2d");
+
+  // Draw strokes on the temporary canvas
+  strokes.forEach((stroke) => {
+    drawStroke(tempCanvas, tempCtx, stroke);
+  });
+
+  return canvasToBase64(tempCanvas);
+}
+
+function exportImageToBase64(image, width, height) {
+  // Create a temporary canvas
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext("2d");
+  tempCtx.drawImage(image, 0, 0);
+  return canvasToBase64(tempCanvas);
+}
+
+function drawStroke(canvas, ctx, stroke) {
+  const scale = Math.min(
+    canvas.width / stroke.canvasWidth,
+    canvas.height / stroke.canvasHeight,
+  );
+  ctx.scale(scale, scale);
+  ctx.beginPath();
+  ctx.globalCompositeOperation = stroke.globalCompositeOperation;
+  ctx.strokeStyle = stroke.color;
+  ctx.globalAlpha = stroke.opacity;
+  ctx.lineWidth = 16;
+  ctx.lineCap = "round";
+  let prevPoint = stroke.points[0];
+  stroke.points.forEach((point) => {
+    ctx.moveTo(prevPoint[0], prevPoint[1]);
+    ctx.lineTo(point[0], point[1]);
+    prevPoint = point;
+  });
+  ctx.stroke();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function dataURLToBase64(dataURL) {
+  return dataURL.split(";base64,")[1];
+}
+
+function canvasToBase64(canvas) {
+  return dataURLToBase64(canvas.toDataURL("image/jpeg"));
+}
