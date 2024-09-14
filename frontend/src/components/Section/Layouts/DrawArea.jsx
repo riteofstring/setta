@@ -96,9 +96,11 @@ export function DrawOnImage({ sectionId }) {
     ctx.globalAlpha = stroke.opacity;
     ctx.lineWidth = 16;
     ctx.lineCap = "round";
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+    let prevPoint = stroke.points[0];
     stroke.points.forEach((point) => {
+      ctx.moveTo(prevPoint.x, prevPoint.y);
       ctx.lineTo(point.x, point.y);
+      prevPoint = point;
     });
     ctx.stroke();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
