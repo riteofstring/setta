@@ -1,5 +1,4 @@
 import asyncio
-import os
 from typing import Dict
 
 from setta.database.utils import create_new_id

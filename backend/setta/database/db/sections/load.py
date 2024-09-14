@@ -3,8 +3,6 @@ import itertools
 import json
 from collections import defaultdict
 
-from setta.database.utils import parse_keyword_positions_string
-
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
@@ -164,7 +162,7 @@ def get_section_ids(dbs, top_level_ids):
 
 def load_section_configs(dbs, project_config_id):
     db = dbs.default
-    query = f"""SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
+    query = """SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
         FROM SectionConfig
         WHERE projectConfigId = :projectConfigId
     """

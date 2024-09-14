@@ -1,5 +1,3 @@
-from pydantic import BaseModel
-
 from setta.code_gen.export_selected import (
     export_selected,
     get_code_containing_generated_python,

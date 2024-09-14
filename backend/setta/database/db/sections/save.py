@@ -1,7 +1,5 @@
 import json
 
-from setta.database.utils import dump_keyword_positions_as_string
-
 
 def save_sections(dbs, sections):
     db = dbs.default
