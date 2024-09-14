@@ -8,7 +8,10 @@ def save_param_sweeps(dbs, param_sweeps):
             name = :name
     """
 
-    query_params = [{"id": id, "name": p["name"]} for id, p in param_sweeps.items()]
+    query_params = [
+        {"id": id, "name": p["name"]}
+        for id, p in param_sweeps.items()
+    ]
     db.executemany(query, query_params)
 
     placeholders = ", ".join(["?"] * len(param_sweeps))

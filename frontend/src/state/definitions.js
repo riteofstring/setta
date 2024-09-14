@@ -209,7 +209,7 @@ export const useWebsocketConnectionList = create(() => ({
   connections: [],
 }));
 
-export const useTemporaryMiscState = createProjectState(
+export const useWebsocketRooms = createProjectState(
   subscribeWithSelector(() => ({})),
 );
 

@@ -54,7 +54,6 @@ export function getProjectData({ withArtifactMetadata = false }) {
     );
     currSection.artifacts = currSection.artifacts.map((a) => ({
       path: a,
-      value: a.startsWith("data:") ? artifactState[a].value : undefined,
       ..._.pick(artifactState[a], ["type", "displayName"]),
     }));
     return currSection;

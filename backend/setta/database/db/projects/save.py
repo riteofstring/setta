@@ -4,6 +4,7 @@ from setta.code_gen.export_selected import (
     get_section_type,
     get_section_variants,
     get_selected_item_name,
+    get_selected_section_variant,
 )
 from setta.database.utils import create_new_id, generate_memorable_string
 from setta.utils.constants import C

@@ -1,7 +1,7 @@
 import { Badge } from "components/Utils/atoms/badges/badge";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { setWebsocketConnectedTo } from "state/actions/websocketConnectionList";
+import { setWebsocketConnectedTo } from "state/actions/websocket/websocketConnectionList";
 import { useWebsocketConnectionList } from "state/definitions";
 import { useCLIWebsocketConnectionList } from "state/hooks/websocket";
 

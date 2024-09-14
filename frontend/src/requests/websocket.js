@@ -1,8 +1,8 @@
 import C from "constants/constants.json";
 import { updateArtifacts } from "state/actions/artifacts";
 import { updateInteractiveData } from "state/actions/interactive";
-import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
-import { updateConnectedTo } from "state/actions/websocketConnectionList";
+import { updateConnectedTo } from "state/actions/websocket/websocketConnectionList";
+import { setWebsocketRoomMessage } from "state/actions/websocket/websocketRooms";
 import { useTypeErrors, useWebsocketConnectionList } from "state/definitions";
 import { URLS } from "utils/constants";
 
@@ -47,7 +47,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
     updateInteractiveData(m.content);
   } else if (m.id) {
-    setTemporaryMiscState(m.id, m.content);
+    setWebsocketRoomMessage(m.id, m.content);
   }
 }
 

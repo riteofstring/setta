@@ -18,10 +18,6 @@ def get_artifacts(p, id):
     return p["sections"][id]["artifacts"]
 
 
-def get_drawings(p, id):
-    return p["sections"][id]["drawings"]
-
-
 def get_section_name(p, id):
     return p["sections"][id]["name"]
 
@@ -356,7 +352,7 @@ class SimpleExporter:
         flatten_groups(self.p)
         export_global_variables_and_remove_script(
             self.p,
-            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.ARTIFACT, C.DRAW],
+            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.ARTIFACT],
             self.export_global_variables,
         )
         for id in list(self.p["projectConfig"]["children"].keys()):
@@ -383,8 +379,6 @@ class SimpleExporter:
                 }
         elif type == C.ARTIFACT:
             value = get_artifacts(self.p, id)
-        elif type == C.DRAW:
-            value = get_drawings(self.p, id)
         else:
             raise ValueError
         return value

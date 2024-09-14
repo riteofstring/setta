@@ -6,7 +6,6 @@ import { isRoot } from "utils/sectionTypeHelpers";
 import { SectionHeader } from "../Header/SectionHeader";
 import { ArtifactArea } from "../Layouts/ArtifactArea";
 import { CodeArea } from "../Layouts/CodeArea";
-import { DrawOnImage } from "../Layouts/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { InfoArea } from "../Layouts/InfoArea";
@@ -122,8 +121,6 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
       return <ReferenceArea sectionId={sectionId} />;
     case C.ARTIFACT:
       return <ArtifactArea sectionId={sectionId} />;
-    case C.DRAW:
-      return <DrawOnImage sectionId={sectionId} />;
     case C.SOCIAL:
       return <SocialArea sectionId={sectionId} />;
     case C.INFO:

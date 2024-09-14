@@ -4,7 +4,7 @@ import {
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
-import { sendMessageAndWait } from "state/actions/temporaryMiscState";
+import { sendMessageInRoom } from "state/actions/websocket/websocketRooms";
 import { useKeywordRegex, useProjectConfig } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
@@ -51,7 +51,7 @@ export async function dbParametersRequest({
   evRefs,
 }) {
   const projectConfigId = useProjectConfig.getState().id;
-  return await sendMessageAndWait({
+  return await sendMessageInRoom({
     id: `${C.ROUTE_PARAMETERS_REQUEST}-${sectionId}-${null}`,
     messageType: "parametersRequest",
     content: {
@@ -79,7 +79,7 @@ export async function dbTextFieldInitializeCode({ sectionId, paramInfoId }) {
 export async function dbCodeAreaInitializeCode({ sectionId }) {
   const project = getProjectDataToGenerateCode({});
   const id = `${C.ROUTE_CODE_AREA_INITIALIZE_CODE}-${sectionId}`;
-  return await sendMessageAndWait({
+  return await sendMessageInRoom({
     id,
     messageType: "codeAreaInitializeCode",
     content: { project, sectionId },
@@ -116,12 +116,12 @@ export async function dbCodeAreaCompletion({
     },
   };
 
-  const res = await sendMessageAndWait(autoCompleteProps);
+  const res = await sendMessageInRoom(autoCompleteProps);
 
   if (res === C.CODE_AREA_GEN_CODE_NOT_INITIALIZED) {
     const initialized = await dbCodeAreaInitializeCode({ sectionId });
     if (initialized) {
-      return await sendMessageAndWait(autoCompleteProps);
+      return await sendMessageInRoom(autoCompleteProps);
     } else {
       console.log("dbCodeAreaCompletion initialization failed!");
       return [];
@@ -155,7 +155,7 @@ export async function dbTextFieldCompletion({
 
   setKeywordPositions(keywordPositions);
 
-  return await sendMessageAndWait({
+  return await sendMessageInRoom({
     id: `${C.ROUTE_TEXT_FIELD_COMPLETION}-${sectionId}-${paramInfoId}`,
     messageType: "textFieldCompletion",
     content: {
@@ -191,7 +191,7 @@ export async function getKeywordPositionsAndEVRefs({
   if (candidateKeywords.length > 0) {
     let count = 0;
     keywordPositions = [];
-    await sendMessageAndWait({
+    await sendMessageInRoom({
       id: `${sectionId}-${paramInfoId}-find-references${messageIdSuffix}`,
       messageType: "textFieldFindReferences",
       content: { sectionId, paramInfoId, candidateKeywords, fullText },
