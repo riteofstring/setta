@@ -122,10 +122,6 @@ export function DrawOnImage({ sectionId }) {
   }, [height, width]);
 
   useEffect(() => {
-    setDraftCanvasProperties();
-  }, [color, opacity]);
-
-  useEffect(() => {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     if (isEraser) {
       drawBackgroundImage({ doDrawStrokes: false });
@@ -137,7 +133,7 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-  }, [isEraser]);
+  }, [isEraser, opacity, color]);
 
   function onMouseDown(e) {
     setIsDrawing(true);
@@ -191,7 +187,7 @@ export function DrawOnImage({ sectionId }) {
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className="h-10 w-10 rounded border border-gray-300"
+          className="-mt-16 h-10 w-10 rounded border border-gray-300"
         />
         <input
           id="opacitySlider"
@@ -201,10 +197,10 @@ export function DrawOnImage({ sectionId }) {
           step="0.1"
           value={opacity}
           onChange={(e) => setOpacity(parseFloat(e.target.value))}
-          className="w-40"
+          className="-mt-16 w-40"
         />
         <span>{opacity.toFixed(1)}</span>
-        <button onClick={toggleEraserMode}>
+        <button className="-mt-16" onClick={toggleEraserMode}>
           {isEraser ? "Erasing" : "Drawing"}
         </button>
       </div>
