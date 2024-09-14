@@ -19,7 +19,7 @@ export function useArtifactData(sectionId) {
     } else {
       setIsLoaded(true);
     }
-  }, [artifactPaths]);
+  }, [artifactPaths, artifacts]);
 
   return { artifacts, isLoaded };
 }

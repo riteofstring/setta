@@ -26,6 +26,7 @@ export const useContextMenus = createProjectState(() => ({
   pane: { isOpen: false, x: 0, y: 0 },
   deck: { isOpen: false, x: 0, y: 0, sectionId: null },
   selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
+  draw: { isOpen: false, x: 0, y: 0, img: null, canvas: null },
 }));
 
 export const useSectionVariants = createProjectState(
