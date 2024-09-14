@@ -19,11 +19,6 @@ export function DrawOnImage({ sectionId }) {
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
 
-  function drawImageOnCanvas() {
-    drawBackgroundImage({ doDrawStrokes: true });
-    setDraftCanvasProperties();
-  }
-
   function setDraftCanvasProperties() {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     draftCanvas.width = canvasRef.current.width;
@@ -45,7 +40,7 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function drawBackgroundImage({ doDrawStrokes }) {
+  function drawBackgroundImage({ doDrawStrokes, doScaleStrokes }) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     const image = imageRef.current;
     if (image && image.complete) {
@@ -64,7 +59,7 @@ export function DrawOnImage({ sectionId }) {
       const y = canvas.height / 2 - (image.height / 2) * scale;
       clearCanvas(canvasRef);
       if (doDrawStrokes) {
-        drawStrokes(ctx);
+        drawStrokes(ctx, doScaleStrokes ? scale : undefined);
       }
       ctx.globalCompositeOperation = "destination-over";
       ctx.globalAlpha = 1;
@@ -73,7 +68,7 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function drawStrokes(ctx) {
+  function drawStrokes(ctx, scale) {
     const startingProps = _.pick(ctx, [
       "globalCompositeOperation",
       "strokeStyle",
@@ -82,15 +77,18 @@ export function DrawOnImage({ sectionId }) {
       "lineCap",
     ]);
     strokesRef.current.forEach((stroke) => {
-      drawStroke(ctx, stroke);
+      drawStroke(ctx, stroke, scale);
     });
     for (const [k, v] of Object.entries(startingProps)) {
       ctx[k] = v;
     }
   }
 
-  const drawStroke = (ctx, stroke) => {
+  function drawStroke(ctx, stroke, scale) {
     ctx.beginPath();
+    if (scale) {
+      ctx.scale(scale, scale);
+    }
     ctx.globalCompositeOperation = stroke.globalCompositeOperation;
     ctx.strokeStyle = stroke.color;
     ctx.globalAlpha = stroke.opacity;
@@ -101,19 +99,22 @@ export function DrawOnImage({ sectionId }) {
       ctx.lineTo(point.x, point.y);
     });
     ctx.stroke();
-  };
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
 
   useEffect(() => {
     const image = new Image();
     image.src = imageUrl;
     image.onload = () => {
       imageRef.current = image;
-      drawImageOnCanvas();
+      drawBackgroundImage({ doDrawStrokes: true, doScaleStrokes: true });
+      setDraftCanvasProperties();
     };
   }, [imageUrl]);
 
   useEffect(() => {
-    drawImageOnCanvas();
+    drawBackgroundImage({ doDrawStrokes: true, doScaleStrokes: true });
+    setDraftCanvasProperties();
   }, [height, width]);
 
   useEffect(() => {
@@ -123,12 +124,13 @@ export function DrawOnImage({ sectionId }) {
   useEffect(() => {
     const dCtx = getCanvasAndCtx(draftCanvasRef)[1];
     if (isEraser) {
-      drawBackgroundImage({ doDrawStrokes: false });
+      drawBackgroundImage({ doDrawStrokes: false, doScaleStrokes: false });
       clearCanvas(draftCanvasRef);
       setDraftCanvasProperties();
       drawStrokes(dCtx);
     } else {
-      drawImageOnCanvas();
+      drawBackgroundImage({ doDrawStrokes: true, doScaleStrokes: false });
+      setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
   }, [isEraser]);
@@ -147,7 +149,9 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function onMouseMove(e) {
-    if (!isDrawing) return;
+    if (!isDrawing) {
+      return;
+    }
     const point = getXY(e);
     const ctx = draftCanvasRef.current.getContext("2d");
     ctx.beginPath();
@@ -159,9 +163,13 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function onMouseUp() {
+    if (!isDrawing) {
+      return;
+    }
     setIsDrawing(false);
     if (!isEraser) {
-      drawImageOnCanvas();
+      drawBackgroundImage({ doDrawStrokes: true, doScaleStrokes: false });
+      setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
   }
