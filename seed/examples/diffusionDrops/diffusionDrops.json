@@ -4,26 +4,26 @@
     "name": "diffusionDrops",
     "isDefault": 0,
     "viewport": {
-      "x": 675.7621755656401,
-      "y": 172.9887593161227,
-      "zoom": 0.5325205641147801
+      "x": 971.4894942290575,
+      "y": -44.920059210765885,
+      "zoom": 0.34977051059177433
     },
-    "previewImgNodes": "[{\"x\":1402,\"y\":251,\"w\":202,\"h\":192},{\"x\":-621,\"y\":15,\"w\":722,\"h\":722},{\"x\":1658,\"y\":269,\"w\":472,\"h\":557},{\"x\":1133,\"y\":723,\"w\":202,\"h\":192},{\"x\":1159,\"y\":4,\"w\":202,\"h\":192},{\"x\":438,\"y\":8,\"w\":538,\"h\":1206},{\"x\":1146,\"y\":248,\"w\":202,\"h\":310}]",
+    "previewImgNodes": "[{\"x\":1402,\"y\":251,\"w\":202,\"h\":192},{\"x\":-621,\"y\":15,\"w\":722,\"h\":722},{\"x\":1658,\"y\":269,\"w\":472,\"h\":557},{\"x\":1133,\"y\":723,\"w\":202,\"h\":192},{\"x\":1159,\"y\":4,\"w\":202,\"h\":192},{\"x\":-665,\"y\":1221,\"w\":921,\"h\":623},{\"x\":438,\"y\":8,\"w\":538,\"h\":1206},{\"x\":1146,\"y\":248,\"w\":202,\"h\":310}]",
     "children": {
       "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
         "x": 1401.735665753063,
         "y": 250.56157941369565,
-        "zIndex": 1
+        "zIndex": 3
       },
       "56f3ff00-5aa3-4251-9720-d210908bc0b8": {
         "x": -621.1256388107244,
         "y": 15.04400247377217,
-        "zIndex": 0
+        "zIndex": 6
       },
       "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
         "x": 1657.735665753063,
         "y": 268.56157941369565,
-        "zIndex": 2
+        "zIndex": 4
       },
       "67c603f7-a536-4603-83b3-0b882ee098b2": {
         "x": 1132.7972384261527,
@@ -33,17 +33,22 @@
       "70355b9b-16ab-462f-8cfc-f23e2399ec1e": {
         "x": 1159.0873029671766,
         "y": 3.7768319561905197,
-        "zIndex": 0
+        "zIndex": 1
+      },
+      "c68c5feb-6ca2-487b-870d-3e4415700797": {
+        "x": -665.1316631307349,
+        "y": 1220.675437189027,
+        "zIndex": 8
       },
       "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
         "x": 437.988389841951,
         "y": 7.546789285075988,
-        "zIndex": 4
+        "zIndex": 5
       },
       "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
         "x": 1145.8538463987952,
         "y": 247.53329491261366,
-        "zIndex": 0
+        "zIndex": 2
       }
     }
   },
@@ -176,6 +181,14 @@
         "name": "uncomfortable_tan",
         "selectedItem": null,
         "code": "",
+        "keywordPositions": [],
+        "values": {},
+        "children": []
+      },
+      "56758b16-1bb1-4167-852c-321b23cfce38": {
+        "name": "ultimate_tomato",
+        "selectedItem": null,
+        "code": "from setta.tasks.fns import InteractiveTaskDefinition\nimport base64\nfrom io import BytesIO\nfrom PIL import Image, ImageFilter\n\ndef decode_img(base64_img):\n    image_data = base64.b64decode(base64_img)\n    return Image.open(BytesIO(image_data))\n\ndef encode_img(img):\n    buffered = BytesIO()\n    img.save(buffered, format=\"png\")\n    return base64.b64encode(buffered.getvalue()).decode('utf-8')    \n\n\n\ndef fn(message):\n    data = message.content\n    img = data[\"mid_peach\"][\"strokes\"]\n    img = decode_img(img)\n    img = img.filter(ImageFilter.GaussianBlur(radius=5))\n    img = encode_img(img)\n    return {\"content\": [{\"value\": img, \"type\": \"img\", \"displayName\": \"blurredImg\"}]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn)",
         "keywordPositions": [],
         "values": {},
         "children": []
@@ -614,6 +627,7 @@
     }
   },
   "uiTypeCols": {
+    "03d41248-1eba-4958-9a79-c87040cfbe31": {},
     "0fcc52ec-fc6b-4164-83b4-66fdbfa96699": {},
     "3562b0be-4c55-4496-a179-4a75ec91a524": {
       "1642efb6-c5cd-41e1-b346-cacb44d43c87": {
@@ -1175,6 +1189,35 @@
       "pinnedAreaHeight": "auto",
       "isMinimized": 0
     },
+    "c68c5feb-6ca2-487b-870d-3e4415700797": {
+      "id": "c68c5feb-6ca2-487b-870d-3e4415700797",
+      "name": "light_beige",
+      "paramSweepSectionId": null,
+      "uiTypeId": "4520be53-fc28-47ad-bb7f-70d1133e4d44",
+      "uiTypeColId": "03d41248-1eba-4958-9a79-c87040cfbe31",
+      "social": null,
+      "description": "",
+      "codeLanguage": "python",
+      "isFrozen": 0,
+      "dbSource": "",
+      "codeInfoId": "5f311a69-ec63-446a-a85a-9201578b1f0f",
+      "hideUnpinnedParams": 0,
+      "showYaml": 0,
+      "nonPresetUITypeIds": [],
+      "variantIds": ["56758b16-1bb1-4167-852c-321b23cfce38"],
+      "paramSweepIds": [],
+      "artifacts": [],
+      "isInOtherProjectConfigs": false,
+      "size": {
+        "width": 919,
+        "height": 621
+      },
+      "variantId": "56758b16-1bb1-4167-852c-321b23cfce38",
+      "paramSweepId": null,
+      "isHorizontalOrientation": 0,
+      "pinnedAreaHeight": "auto",
+      "isMinimized": 0
+    },
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
       "name": "premier_blue",
@@ -1639,6 +1682,19 @@
       "editable": 0,
       "rcType": "parameter",
       "defaultVal": "1",
+      "description": "",
+      "positionalOnly": 0,
+      "isPinned": 0,
+      "isFrozen": 0,
+      "keywordPositions": [],
+      "children": []
+    },
+    "5f311a69-ec63-446a-a85a-9201578b1f0f": {
+      "id": "5f311a69-ec63-446a-a85a-9201578b1f0f",
+      "name": "Contents",
+      "editable": 0,
+      "rcType": "collection",
+      "defaultVal": null,
       "description": "",
       "positionalOnly": 0,
       "isPinned": 0,
