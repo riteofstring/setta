@@ -108,6 +108,10 @@ export function DrawOnImage({ sectionId }) {
     >
       <canvas
         ref={canvasRef}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
         className="border border-gray-300"
         style={{
           position: "absolute",
@@ -119,11 +123,7 @@ export function DrawOnImage({ sectionId }) {
       />
       <canvas
         ref={draftCanvasRef}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-        className="border border-gray-300"
+        className="pointer-events-none border border-gray-300"
         style={{
           position: "absolute",
           top: 0,
