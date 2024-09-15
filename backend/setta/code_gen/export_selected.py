@@ -255,7 +255,7 @@ class Exporter:
                 info["dependencies"] = [*params, *used_ref_var_names]
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT]:
-                children = get_section_children(self.p, id)["children"]
+                children = get_section_children(self.p, id)
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
                 self.output[var_name] = info
@@ -266,7 +266,7 @@ class Exporter:
                 ):
                     # make sure any necessary variables get created.
                     process_refs(
-                        get_section_code(self.p, id)["code"],
+                        get_section_code(self.p, id),
                         self.p["codeEVRefs"][id],
                         self.maybe_create_ref_var_name,
                     )

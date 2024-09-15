@@ -25,6 +25,7 @@ from setta.code_gen.find_placeholders import (
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
+from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
@@ -188,6 +189,11 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 replace_templated_code=False,
                 inferImports=USER_SETTINGS["inferImports"],
             )[0]
+            curr_code, _ = process_refs(
+                curr_code,
+                p["codeEVRefs"][s["id"]],
+                exporter_obj.get_ref_var_name,
+            )
 
         section_variant["code"] = replace_keywords(curr_code, replacements)
         dependencies[s["id"]] = curr_dependencies
