@@ -134,6 +134,15 @@ def get_code_containing_generated_python(p):
     return double_braces(C.SETTA_GENERATED_PYTHON)
 
 
+def code_section_needs_generated_python(p, id):
+    code = get_selected_section_variant(p, id)["code"]
+    return (
+        get_section_type(p, id) == C.CODE
+        and p["sections"][id]["codeLanguage"] == "python"
+        and needs_generated_python(code)
+    )
+
+
 def flatten_groups(p):
     for sid in p["sections"].keys():
         if get_section_type(p, sid) != C.DECK:
@@ -188,7 +197,9 @@ class Exporter:
     def export(self):
         flatten_groups(self.p)
         export_global_variables_and_remove_script(
-            self.p, [C.SECTION, C.LIST_ROOT, C.DICT_ROOT], self.export_section_params
+            self.p,
+            [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.CODE, C.INTERACTIVE_CODE],
+            self.export_section_params,
         )
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
 
@@ -242,6 +253,17 @@ class Exporter:
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
                 self.output[var_name] = info
+            elif type in [C.CODE, C.INTERACTIVE_CODE]:
+                if (
+                    code_section_needs_generated_python(self.p, id)
+                    and id in self.p["codeEVRefs"]
+                ):
+                    # make sure any necessary variables get created.
+                    process_refs(
+                        get_selected_section_variant(self.p, id)["code"],
+                        self.p["codeEVRefs"][id],
+                        self.maybe_create_ref_var_name,
+                    )
             else:
                 raise ValueError
         return var_name
