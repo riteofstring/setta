@@ -13,7 +13,6 @@ from fastapi import WebSocketDisconnect
 
 from setta.code_gen.export_selected import (
     export_selected,
-    get_section_code,
     get_section_type,
     get_selected_section_variant,
 )
@@ -25,7 +24,6 @@ from setta.code_gen.find_placeholders import (
 )
 from setta.code_gen.python.generate_argparse import generate_argparse
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
-from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
@@ -155,7 +153,7 @@ class TerminalWebsockets:
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
-    exporter_obj = export_selected(p, always_export_args_objs=False)
+    exporter_obj = export_selected(p)
     selected = exporter_obj.output
     folder_path = create_timestamped_folder(".setta_code")
 
@@ -189,11 +187,6 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 replace_templated_code=False,
                 inferImports=USER_SETTINGS["inferImports"],
             )[0]
-            curr_code, _ = process_refs(
-                curr_code,
-                p["codeEVRefs"][s["id"]],
-                exporter_obj.get_ref_var_name,
-            )
 
         section_variant["code"] = replace_keywords(curr_code, replacements)
         dependencies[s["id"]] = curr_dependencies
@@ -202,7 +195,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
-        code = get_section_code(p, sid)
+        code = get_selected_section_variant(p, sid)["code"]
         extension = languageToExtension(curr_section["codeLanguage"])
         filepath = write_string_to_file(
             folder_path, f"{curr_section['name']}{extension}", code

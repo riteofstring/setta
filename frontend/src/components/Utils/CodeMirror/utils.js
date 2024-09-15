@@ -1,8 +1,4 @@
-import {
-  useCodeInfo,
-  useKeywordRegex,
-  useSectionInfos,
-} from "state/definitions";
+import { useKeywordRegex, useSectionInfos } from "state/definitions";
 import { getSectionDBSource } from "state/getters/sectionInfo";
 
 export function roundUpIdx(numList, x) {
@@ -23,48 +19,25 @@ export function roundUpIdx(numList, x) {
 }
 
 export function computeEVReferences(project) {
-  const paramEVRefs = {};
-  const selectedItemEVRefs = {};
-  const codeEVRefs = {};
+  const evRefs = {};
   const { fullNameToInfo } = useKeywordRegex.getState();
-  const cState = useCodeInfo.getState().x;
   for (const sectionId of Object.keys(project["sections"])) {
-    paramEVRefs[sectionId] = {};
+    evRefs[sectionId] = {};
     const dbSource = getSectionDBSource(sectionId);
     const { variantId } = useSectionInfos.getState().x[sectionId];
     const sectionVariant = project["sectionVariants"][dbSource][variantId];
-
     for (const [paramInfoId, valueInfo] of Object.entries(
       sectionVariant.values,
     )) {
-      paramEVRefs[sectionId][paramInfoId] = findRefs({
+      evRefs[sectionId][paramInfoId] = findRefs({
         keywordPositions: valueInfo.keywordPositions,
         fullNameToInfo,
         fullText: valueInfo.value,
       });
     }
-
-    if (sectionVariant.selectedItem) {
-      const codeInfo = cState[sectionVariant.selectedItem];
-      selectedItemEVRefs[sectionId] = findRefs({
-        keywordPositions: codeInfo.keywordPositions,
-        fullNameToInfo,
-        fullText: codeInfo.name,
-      });
-    }
-
-    if (sectionVariant.code) {
-      codeEVRefs[sectionId] = findRefs({
-        keywordPositions: sectionVariant.keywordPositions,
-        fullNameToInfo,
-        fullText: sectionVariant.code,
-      });
-    }
   }
 
-  console.log("codeEVRefs", codeEVRefs);
-
-  return { paramEVRefs, selectedItemEVRefs, codeEVRefs };
+  return evRefs;
 }
 
 export function findRefs({ keywordPositions, fullNameToInfo, fullText }) {

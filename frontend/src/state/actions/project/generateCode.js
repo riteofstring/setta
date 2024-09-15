@@ -16,7 +16,7 @@ import { getProjectData } from "./saveProject";
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
   const project = getProjectData({});
   if (includeEVReferences) {
-    Object.assign(project, computeEVReferences(project));
+    project["evRefs"] = computeEVReferences(project);
     project["infoToFullName"] = computeInfoToFullName(project);
   }
   console.log(project);
@@ -28,7 +28,7 @@ export async function runCode() {
   const project = getProjectDataToGenerateCode({ includeEVReferences: false });
   let count = 0;
   for (const projectVariant of getProjectRuns(project)) {
-    Object.assign(projectVariant, computeEVReferences(projectVariant));
+    projectVariant["evRefs"] = computeEVReferences(projectVariant);
     projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
     let message = {
       id: codeId,

@@ -97,5 +97,5 @@ textFieldFindReferences = TaskDefinition(
     return_message_type="textFieldFindReferencesReturn",
     fn=_textFieldFindReferences,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
+    dependencies=["lsp_writer"],
 )

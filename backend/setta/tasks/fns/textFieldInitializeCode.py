@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.code_gen.export_selected import (
     export_selected,
-    get_first_section_code_that_needs_generated_python,
+    get_code_containing_generated_python,
 )
 from setta.code_gen.python.generate_code import (
     generate_lines_of_code_without_imports,
@@ -25,9 +25,9 @@ class TextFieldInitializeCodeContent(BaseModel):
 async def _textFieldInitializeCode(message, lsp_writer):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    exporter_obj = export_selected(project, always_export_args_objs=True)
+    exporter_obj = export_selected(project)
     codeJson = exporter_obj.output
-    templatedCode = get_first_section_code_that_needs_generated_python(project)
+    templatedCode = get_code_containing_generated_python(project)
     sectionId = message.sectionId
     paramInfoId = message.paramInfoId
     push_var_name = exporter_obj.var_name_mapping[(sectionId, paramInfoId, False)]
@@ -94,5 +94,5 @@ textFieldInitializeCode = TaskDefinition(
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
+    dependencies=["lsp_writer"],
 )

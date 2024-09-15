@@ -43,7 +43,7 @@ parametersRequest = TaskDefinition(
     fn=_parametersRequest,
     read_cache=read_cache,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
+    dependencies=["lsp_writer"],
 )
 
 

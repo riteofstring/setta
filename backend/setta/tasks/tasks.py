@@ -1,9 +1,7 @@
 import asyncio
-import json
 from typing import Dict
 
 from setta.database.utils import create_new_id
-from setta.utils.utils import nested_access
 
 from . import fns
 from .fns.utils import (
@@ -22,17 +20,20 @@ class Tasks:
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
         self.custom_fn_names = {}
-        self.custom_fn_name_to_exporter_obj = {}
+        self.custom_fn_name_to_project_dict = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
         try:
             print(f"Start processing message ID: {message.id}", flush=True)
-            if fn_name in self.custom_fn_name_to_exporter_obj:
-                self.process_message_for_custom_fn(fn_name, message)
+            if fn_name in self.custom_fn_name_to_project_dict:
+                message.content = {
+                    **self.custom_fn_name_to_project_dict[fn_name],
+                    **message.content,
+                }
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
-            fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
+            fn_args = [message, *(getattr(self, k) for k in fn.dependencies)]
             result = await self.task_runner.run(message.id, fn.fn, fn_args, fn.run_as)
             fn.write_cache(self.cache, message, result)
             result["messageType"] = fn.return_message_type
@@ -44,7 +45,7 @@ class Tasks:
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
 
-    def add_fns_from_module(self, module, task_name=None, exporter_obj=None):
+    def add_fns_from_module(self, module, task_name=None):
         count = 1
         task_metadata = []
         for attr in vars(module).values():
@@ -57,10 +58,10 @@ class Tasks:
                     attr.name = f"{task_name}-{count}"
                     count += 1
                 self.add_fn(attr)
-                task_metadata.append(get_task_metadata_for_frontend(attr, exporter_obj))
+                task_metadata.append(get_task_metadata_for_frontend(attr))
         return task_metadata
 
-    async def add_custom_fns(self, codeDict, project_config_name, exporter_obj):
+    async def add_custom_fns(self, codeDict, project_config_name, projectAsSimpleDict):
         error_msgs = {}
         task_metadata = []
         content = []
@@ -71,15 +72,13 @@ class Tasks:
                 module = import_code_from_string(code)
                 if module:
                     task_metadata.extend(
-                        self.add_fns_from_module(
-                            module, task_name=task_name, exporter_obj=exporter_obj
-                        )
+                        self.add_fns_from_module(module, task_name=task_name)
                     )
             except Exception as e:
                 error_msgs[task_name] = str(e)
         self.custom_fn_names[project_config_name] = [x["name"] for x in task_metadata]
         for t in task_metadata:
-            self.custom_fn_name_to_exporter_obj[t["name"]] = exporter_obj
+            self.custom_fn_name_to_project_dict[t["name"]] = projectAsSimpleDict
 
         for t in task_metadata:
             if t["runOnImport"]:
@@ -95,13 +94,5 @@ class Tasks:
             return
         for x in self.custom_fn_names[project_config_name]:
             del self.fns[x]
-            del self.custom_fn_name_to_exporter_obj[x]
+            del self.custom_fn_name_to_project_dict[x]
         del self.custom_fn_names[project_config_name]
-
-    def process_message_for_custom_fn(self, fn_name, message):
-        exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
-        for k, v in message.content.items():
-            nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
-            p_dict, key = nested_access(exporter_obj.output, nice_str)
-            p_dict[key] = v
-        message.content = exporter_obj.output

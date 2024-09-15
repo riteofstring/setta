@@ -88,11 +88,13 @@ function setFullChildrenNamesForRegex(
   parentName,
   parentLengths,
 ) {
-  const sectionTypeName = getSectionType(sectionId).type;
+  const parentSectionIsListRoot =
+    getSectionType(sectionId).type === C.LIST_ROOT;
   for (const [idx, c] of getSectionChildren(sectionId).entries()) {
     const name = sectionIdsToNames[c];
-    const currComponentName =
-      sectionTypeName === C.LIST_ROOT ? `[${idx.toString()}]` : `["${name}"]`;
+    const currComponentName = parentSectionIsListRoot
+      ? `[${idx.toString()}]`
+      : `["${name}"]`;
     const currFullName = `${parentName}${currComponentName}`;
     setFullChildrenNamesForRegex(
       sectionState,
@@ -115,22 +117,19 @@ function setFullChildrenNamesForRegex(
     argsFullName,
     argsParentLengths,
   );
-  allNames.push(escapeRegExp(fullName));
+  allNames.push(escapeRegExp(fullName), escapeRegExp(argsFullName));
   fullNameToInfo[fullName] = {
     sectionId,
     paramInfoId: null,
     componentIndices: parentLengths,
     isArgsObj: false,
   };
-  if (sectionTypeName === C.SECTION) {
-    allNames.push(escapeRegExp(argsFullName));
-    fullNameToInfo[argsFullName] = {
-      sectionId,
-      paramInfoId: null,
-      componentIndices: argsParentLengths,
-      isArgsObj: true,
-    };
-  }
+  fullNameToInfo[argsFullName] = {
+    sectionId,
+    paramInfoId: null,
+    componentIndices: argsParentLengths,
+    isArgsObj: true,
+  };
 }
 
 function setFullParamRegex(
