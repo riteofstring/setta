@@ -46,7 +46,7 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
 }
 
 export function useHasParams(sectionId) {
-  return useCodeInfo((x) => getParamIds(sectionId, x).length > 0);
+  return useCodeInfo((x) => getParamIds(sectionId, x.x).length > 0);
 }
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
