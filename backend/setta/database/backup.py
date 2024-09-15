@@ -7,8 +7,6 @@ from typing import List, Optional
 
 from setta.utils.constants import DB_BACKUP_FOLDER, USER_SETTINGS
 
-from .db_path import get_default_db_path
-
 
 def ensure_backup_dir_exists():
     """Create the backup directory if it doesn't exist."""
@@ -62,6 +60,8 @@ def create_backup(db_path):
 
 def should_create_backup() -> bool:
     """Check if it's time to create a new backup."""
+    if not USER_SETTINGS["autobackup"]:
+        return False
     last_backup_time = get_last_backup_time()
     print("last_backup_time", last_backup_time)
     if last_backup_time is None:
