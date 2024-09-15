@@ -380,6 +380,11 @@ class Exporter:
             var_name = param_name if is_global else get_var_name(self.var_name_mapping)
             self.var_name_mapping[mapping_key] = var_name
             self.var_name_reverse_mapping[var_name] = mapping_key
+        elif var_name not in self.output:
+            # this means the var_name has already been created
+            # but it hasn't been added to the output.
+            # This only happens in a circular dependency.
+            raise RecursionError("There is a circular reference")
         return var_name
 
 
