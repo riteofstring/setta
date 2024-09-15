@@ -41,3 +41,4 @@ abcde_env
 .dmypy.json
 backend/setta/frontend
 .setta_code
+.setta_backups
