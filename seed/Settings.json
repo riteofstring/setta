@@ -30,6 +30,6 @@
   "defaultZoomLevel": 1,
   "inferImports": true,
   "autosave": false,
-  "autobackupFreq": 5,
+  "autobackupFreq": 300,
   "autobackupKeepLastN": 10 
 }

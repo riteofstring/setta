@@ -101,8 +101,8 @@ def route_load_full_project(x: ProjectLoadFullRequest, dbs=Depends(get_dbs)):
 
 @router.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest, dbs=Depends(get_dbs)):
-    maybe_create_backup()
     with dbs:
+        maybe_create_backup(dbs.default.path)
         save_project_details(dbs, x.project)
 
 
