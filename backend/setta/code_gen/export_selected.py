@@ -1,9 +1,10 @@
 import copy
 
+from setta.utils.utils import QuoteInsensitiveDict
+
 from ..utils.constants import C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
-from setta.utils.utils import QuoteInsensitiveDict
 
 
 def get_args_var_name(var_name):
@@ -386,7 +387,7 @@ class SimpleExporter:
     def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.var_name_mapping = QuoteInsensitiveDict()
+        self.var_name_mapping = {}
         self.var_name_reverse_mapping = QuoteInsensitiveDict()
 
     def export(self):
@@ -429,8 +430,10 @@ class SimpleExporter:
                     )
         elif type == C.ARTIFACT:
             value = get_artifacts(self.p, id)
+            self.create_var_mapping((id, "artifact"), name)
         elif type == C.DRAW:
             value = get_drawings(self.p, id)
+            self.create_var_mapping((id, "drawing"), name)
         else:
             raise ValueError
         return value

@@ -10,7 +10,12 @@ export async function updateInteractiveCode() {
   const res = await dbUpdateInteractiveCode();
   setNotificationMessage("Done importing");
   if (res.status == 200) {
-    useInteractive.setState({ taskMetadata: res.data.taskMetadata });
+    const taskMetadata = res.data.taskMetadata;
+    for (const t of taskMetadata) {
+      t.dependencies = new Set(t.dependencies.map((d) => JSON.stringify(d)));
+    }
+    console.log("taskMetadata", taskMetadata);
+    useInteractive.setState({ taskMetadata });
     updateInteractiveData(res.data.content);
   }
 }

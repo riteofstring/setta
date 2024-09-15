@@ -94,5 +94,5 @@ textFieldInitializeCode = TaskDefinition(
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer"],
+    server_dependencies=["lsp_writer"],
 )

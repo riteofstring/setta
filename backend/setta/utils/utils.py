@@ -38,18 +38,16 @@ def multireplace(string, replacements):
     return pattern.sub(lambda match: replacements[match.group(0)], string)
 
 
-
-
 class QuoteInsensitiveDict(dict):
     def __getitem__(self, key):
         return super().__getitem__(self.normalize_key(key))
-    
+
     def __setitem__(self, key, value):
         super().__setitem__(self.normalize_key(key), value)
-    
+
     def __contains__(self, key):
         return super().__contains__(self.normalize_key(key))
-    
+
     def normalize_key(self, key):
         # Remove outer quotes if present
         key = key.strip("'\"")

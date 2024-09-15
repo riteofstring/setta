@@ -28,8 +28,6 @@ async def route_update_interactive_code(
 ):
     p = x.project
     exporter_obj = simple_export_selected(p)
-    projectAsSimpleDict = exporter_obj.output
-    print("projectAsSimpleDict", exporter_obj.var_name_reverse_mapping, flush=True)
 
     codeDict = {}
     for id in p["sections"].keys():
@@ -38,7 +36,7 @@ async def route_update_interactive_code(
 
     projectConfigName = x.project["projectConfig"]["name"]
     task_metadata, error_msgs, content = await tasks.add_custom_fns(
-        codeDict, projectConfigName, projectAsSimpleDict
+        codeDict, projectConfigName, exporter_obj
     )
     return {"taskMetadata": task_metadata, "errorMsgs": error_msgs, "content": content}
 

@@ -30,5 +30,5 @@ typeCheck = TaskDefinition(
     return_message_type="typeCheckReturn",
     fn=_typeCheck,
     run_as=RunType.THREAD,
-    dependencies=["lsp_writer"],
+    server_dependencies=["lsp_writer"],
 )

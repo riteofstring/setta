@@ -33,7 +33,7 @@ class Tasks:
                 }
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
-            fn_args = [message, *(getattr(self, k) for k in fn.dependencies)]
+            fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
             result = await self.task_runner.run(message.id, fn.fn, fn_args, fn.run_as)
             fn.write_cache(self.cache, message, result)
             result["messageType"] = fn.return_message_type
@@ -45,7 +45,7 @@ class Tasks:
     def add_fn(self, task_def: TaskDefinition):
         self.fns[task_def.name] = task_def
 
-    def add_fns_from_module(self, module, task_name=None):
+    def add_fns_from_module(self, module, task_name=None, exporter_obj=None):
         count = 1
         task_metadata = []
         for attr in vars(module).values():
@@ -58,10 +58,10 @@ class Tasks:
                     attr.name = f"{task_name}-{count}"
                     count += 1
                 self.add_fn(attr)
-                task_metadata.append(get_task_metadata_for_frontend(attr))
+                task_metadata.append(get_task_metadata_for_frontend(attr, exporter_obj))
         return task_metadata
 
-    async def add_custom_fns(self, codeDict, project_config_name, projectAsSimpleDict):
+    async def add_custom_fns(self, codeDict, project_config_name, exporter_obj):
         error_msgs = {}
         task_metadata = []
         content = []
@@ -72,13 +72,15 @@ class Tasks:
                 module = import_code_from_string(code)
                 if module:
                     task_metadata.extend(
-                        self.add_fns_from_module(module, task_name=task_name)
+                        self.add_fns_from_module(
+                            module, task_name=task_name, exporter_obj=exporter_obj
+                        )
                     )
             except Exception as e:
                 error_msgs[task_name] = str(e)
         self.custom_fn_names[project_config_name] = [x["name"] for x in task_metadata]
         for t in task_metadata:
-            self.custom_fn_name_to_project_dict[t["name"]] = projectAsSimpleDict
+            self.custom_fn_name_to_project_dict[t["name"]] = exporter_obj.output
 
         for t in task_metadata:
             if t["runOnImport"]:

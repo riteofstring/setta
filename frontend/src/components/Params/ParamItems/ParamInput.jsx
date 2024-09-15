@@ -36,7 +36,7 @@ export function ParamInput({
     setValue(vStr);
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr, enteredValue);
     setDidUpdate(true);
-    sendToInteractiveTasks(paramInfoId, vStr);
+    sendToInteractiveTasks(sectionId, paramInfoId, vStr);
   }
 
   useEffect(() => {
@@ -63,10 +63,13 @@ export function ParamInput({
   );
 }
 
-function sendToInteractiveTasks(paramInfoId, v) {
+function sendToInteractiveTasks(sectionId, paramInfoId, v) {
   const content = { [useCodeInfo.getState().x[paramInfoId].name]: v };
   for (const t of useInteractive.getState().taskMetadata) {
-    if (t.runOnProjectChange) {
+    if (
+      t.runOnProjectChange &&
+      t.dependencies.has(JSON.stringify([sectionId, paramInfoId]))
+    ) {
       sendMessage({ id: createNewId(), content, messageType: t.name });
     }
   }
