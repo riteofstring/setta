@@ -110,7 +110,6 @@ def maybe_create_var_name(
 def export_selected(p):
     e = Exporter(p)
     e.export()
-    print(e.var_name_mapping)
     return e
 
 

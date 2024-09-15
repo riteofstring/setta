@@ -11,7 +11,7 @@ import {
   hasParentInFlattenedStructure,
 } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
-import { getParamEV, getSectionChildren } from "./sectionVariants";
+import { getSectionChildren } from "./sectionVariants";
 
 export function updateKeywordRegex(idsToNames = null) {
   let x = idsToNames;
@@ -152,7 +152,7 @@ function setFullParamRegex(
     }
     const fullName = isGlobalVar ? p.name : `${parentName}["${p.name}"]`;
     const newLengthsArray = [...parentLengths, fullName.length];
-    const hasChildren = setFullParamRegex(
+    setFullParamRegex(
       sectionId,
       p.id,
       allNames,
@@ -160,16 +160,12 @@ function setFullParamRegex(
       fullName,
       newLengthsArray,
     );
-    if (getParamEV(sectionId, p.id) || hasChildren) {
-      allNames.push(escapeRegExp(fullName));
-      fullNameToInfo[fullName] = {
-        sectionId,
-        paramInfoId: p.id,
-        componentIndices: newLengthsArray,
-        isArgsObj: false,
-      };
-    }
+    allNames.push(escapeRegExp(fullName));
+    fullNameToInfo[fullName] = {
+      sectionId,
+      paramInfoId: p.id,
+      componentIndices: newLengthsArray,
+      isArgsObj: false,
+    };
   }
-
-  return childParamInfos.length > 0;
 }
