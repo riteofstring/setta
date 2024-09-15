@@ -1,7 +1,9 @@
 import asyncio
+import json
 from typing import Dict
 
 from setta.database.utils import create_new_id
+from setta.utils.utils import nested_access
 
 from . import fns
 from .fns.utils import (
@@ -20,17 +22,14 @@ class Tasks:
         self.cache = {}
         self.fns: Dict[str, TaskDefinition] = {}
         self.custom_fn_names = {}
-        self.custom_fn_name_to_project_dict = {}
+        self.custom_fn_name_to_exporter_obj = {}
         self.add_fns_from_module(fns)
 
     async def __call__(self, fn_name, message: TaskMessage):
         try:
             print(f"Start processing message ID: {message.id}", flush=True)
-            if fn_name in self.custom_fn_name_to_project_dict:
-                message.content = {
-                    **self.custom_fn_name_to_project_dict[fn_name],
-                    **message.content,
-                }
+            if fn_name in self.custom_fn_name_to_exporter_obj:
+                self.process_message_for_custom_fn(fn_name, message)
             fn = self.fns[fn_name]
             fn.read_cache(self.cache, message)
             fn_args = [message, *(getattr(self, k) for k in fn.server_dependencies)]
@@ -80,7 +79,7 @@ class Tasks:
                 error_msgs[task_name] = str(e)
         self.custom_fn_names[project_config_name] = [x["name"] for x in task_metadata]
         for t in task_metadata:
-            self.custom_fn_name_to_project_dict[t["name"]] = exporter_obj.output
+            self.custom_fn_name_to_exporter_obj[t["name"]] = exporter_obj
 
         for t in task_metadata:
             if t["runOnImport"]:
@@ -96,5 +95,13 @@ class Tasks:
             return
         for x in self.custom_fn_names[project_config_name]:
             del self.fns[x]
-            del self.custom_fn_name_to_project_dict[x]
+            del self.custom_fn_name_to_exporter_obj[x]
         del self.custom_fn_names[project_config_name]
+
+    def process_message_for_custom_fn(self, fn_name, message):
+        exporter_obj = self.custom_fn_name_to_exporter_obj[fn_name]
+        for k, v in message.content.items():
+            nice_str = exporter_obj.var_name_mapping[tuple(json.loads(k))]
+            p_dict, key = nested_access(exporter_obj.output, nice_str)
+            p_dict[key] = v
+        message.content = exporter_obj.output

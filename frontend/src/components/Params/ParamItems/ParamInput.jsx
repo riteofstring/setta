@@ -8,7 +8,7 @@ import {
   setParamKeywordPositions,
 } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
-import { useCodeInfo, useInteractive } from "state/definitions";
+import { useInteractive } from "state/definitions";
 import {
   useGetParamEnteredValue,
   useGetParamKeywordPositions,
@@ -64,12 +64,10 @@ export function ParamInput({
 }
 
 function sendToInteractiveTasks(sectionId, paramInfoId, v) {
-  const content = { [useCodeInfo.getState().x[paramInfoId].name]: v };
+  const key = JSON.stringify([sectionId, paramInfoId]);
+  const content = { [key]: v };
   for (const t of useInteractive.getState().taskMetadata) {
-    if (
-      t.runOnProjectChange &&
-      t.dependencies.has(JSON.stringify([sectionId, paramInfoId]))
-    ) {
+    if (t.runOnProjectChange && t.dependencies.has(key)) {
       sendMessage({ id: createNewId(), content, messageType: t.name });
     }
   }

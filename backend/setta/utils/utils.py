@@ -54,3 +54,25 @@ class QuoteInsensitiveDict(dict):
         # Replace all quote characters with a standard one
         key = re.sub(r"['\"]", '"', key)
         return key
+
+
+def nested_access(input_dict, access_string):
+    # Split the string into keys/indices
+    keys = (
+        access_string.replace("][", ",").replace("[", ",").replace("]", "").split(",")
+    )
+
+    # Start with the input dictionary
+    result = input_dict
+
+    # Traverse the nested structure
+    for idx, key in enumerate(keys):
+        if idx == len(keys) - 1:
+            break
+        if isinstance(result, list):
+            result = result[int(key)]
+        else:
+            # If not an integer, use as a dictionary key
+            result = result[key]
+
+    return result, key
