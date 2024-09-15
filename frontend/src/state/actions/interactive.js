@@ -1,5 +1,7 @@
 import { dbFormateCode, dbUpdateInteractiveCode } from "requests/interactive";
+import { sendMessage } from "requests/websocket";
 import { useInteractive } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 import { updateArtifacts } from "./artifacts";
 import { setNotificationMessage } from "./notification";
 import { setAllRunGroupsAndMaybeCreateSection } from "./runGroups/runGroups";
@@ -42,6 +44,16 @@ export async function formatCode() {
   if (res.status == 200) {
     for (const [sectionId, code] of Object.entries(res.data)) {
       setSectionVariantAttr(sectionId, "code", code);
+    }
+  }
+}
+
+export function sendToInteractiveTasks(sourceInfo, value) {
+  const key = JSON.stringify(sourceInfo);
+  const content = { [key]: value };
+  for (const t of useInteractive.getState().taskMetadata) {
+    if (t.runOnProjectChange && t.dependencies.has(key)) {
+      sendMessage({ id: createNewId(), content, messageType: t.name });
     }
   }
 }
