@@ -36,7 +36,7 @@ function addResetter(state) {
     // we have to explicitly include resetFn in initialState
     // since the initialState defined above does not have "reset" as part of it.
     const initialStateWithReset = { ...initialState, reset: resetFn };
-    state.setState(initialStateWithReset);
+    state.setState(initialStateWithReset, true);
     if (state.temporal) {
       state.temporal.getState().clear();
     }

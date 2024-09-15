@@ -264,7 +264,7 @@ class LanguageServerReader(LanguageServerInteractor):
                     return_id, content
                 )
         elif method == "textDocument/publishDiagnostics":
-            # print(response)
+            # print(response, flush=True)
             params = response["params"]
             diagnostics = params["diagnostics"]
             uri = params["uri"]
@@ -273,11 +273,10 @@ class LanguageServerReader(LanguageServerInteractor):
             codeJson = version_info["codeJson"]
             code_split = code.split("\n")
             content = process_diagnostics(diagnostics, code_split, codeJson)
-            if content:
-                # print("content", content, flush=True)
-                await self.websocket_manager.broadcast(
-                    {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
-                )
+            # print("content", content, flush=True)
+            await self.websocket_manager.broadcast(
+                {"messageType": C.WS_LSP_DIAGNOSTICS, "content": content}
+            )
 
         # print(self.received_messages.keys())
         # process_response(response)

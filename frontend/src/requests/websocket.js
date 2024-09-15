@@ -41,7 +41,8 @@ function receiveMessage(message) {
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
-    useTypeErrors.setState(m.content, true);
+    useTypeErrors.getState().reset();
+    useTypeErrors.setState(m.content);
   } else if (m.messageType === C.WS_ARTIFACT) {
     updateArtifacts({ artifacts: m.content, addSection: true });
   } else if (m.messageType === C.WS_INTERACTIVE_RETURN) {
