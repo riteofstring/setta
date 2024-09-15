@@ -2,19 +2,17 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
-import { sendMessage } from "requests/websocket";
+import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   setParamEnteredValue,
   setParamKeywordPositions,
 } from "state/actions/sectionVariants";
 import { getParamUIType } from "state/actions/uiTypes/uiTypeCols";
-import { useCodeInfo, useInteractive } from "state/definitions";
 import {
   useGetParamEnteredValue,
   useGetParamKeywordPositions,
 } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
@@ -36,7 +34,7 @@ export function ParamInput({
     setValue(vStr);
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr, enteredValue);
     setDidUpdate(true);
-    sendToInteractiveTasks(paramInfoId, vStr);
+    sendParamValueToInteractiveTasks(sectionId, paramInfoId, vStr);
   }
 
   useEffect(() => {
@@ -63,13 +61,8 @@ export function ParamInput({
   );
 }
 
-function sendToInteractiveTasks(paramInfoId, v) {
-  const content = { [useCodeInfo.getState().x[paramInfoId].name]: v };
-  for (const t of useInteractive.getState().taskMetadata) {
-    if (t.runOnProjectChange) {
-      sendMessage({ id: createNewId(), content, messageType: t.name });
-    }
-  }
+function sendParamValueToInteractiveTasks(sectionId, paramInfoId, v) {
+  sendToInteractiveTasks([sectionId, paramInfoId], v);
 }
 
 const debouncedSetParamEnteredValue = asyncDebounce(

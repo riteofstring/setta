@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from setta.code_gen.export_selected import (
+    get_section_code,
     get_section_type,
-    get_selected_section_variant,
     simple_export_selected,
 )
 from setta.utils.constants import C
@@ -27,16 +27,16 @@ async def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
 ):
     p = x.project
-    projectAsSimpleDict = simple_export_selected(p).output
+    exporter_obj = simple_export_selected(p)
 
     codeDict = {}
     for id in p["sections"].keys():
         if get_section_type(p, id) == C.INTERACTIVE_CODE:
-            codeDict[id] = get_selected_section_variant(p, id)["code"]
+            codeDict[id] = get_section_code(p, id)
 
     projectConfigName = x.project["projectConfig"]["name"]
     task_metadata, error_msgs, content = await tasks.add_custom_fns(
-        codeDict, projectConfigName, projectAsSimpleDict
+        codeDict, projectConfigName, exporter_obj
     )
     return {"taskMetadata": task_metadata, "errorMsgs": error_msgs, "content": content}
 
@@ -47,7 +47,7 @@ async def route_format_code(x: FormatCodeRequest):
     formattedCode = {}
     for id, s in p["sections"].items():
         if get_section_type(p, id) in [C.CODE, C.INTERACTIVE_CODE]:
-            code = get_selected_section_variant(p, id)["code"]
+            code = get_section_code(p, id)
             if s["codeLanguage"] == "python":
                 formattedCode[id] = format_python_code(code)
 

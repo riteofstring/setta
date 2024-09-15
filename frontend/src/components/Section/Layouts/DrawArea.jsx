@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import { sendToInteractiveTasks } from "state/actions/interactive";
 import { setSectionSize } from "state/actions/sections/setters";
 import {
   base64RequestId,
@@ -209,6 +210,7 @@ export function DrawOnImage({ sectionId }) {
       clearCanvas(draftCanvasRef);
     }
     // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
   function toggleEraserMode() {
@@ -373,3 +375,10 @@ function dataURLToBase64(dataURL) {
 function canvasToBase64(canvas) {
   return dataURLToBase64(canvas.toDataURL("image/png"));
 }
+
+const debouncedSendDrawingToInteractiveTasks = _.debounce(
+  (sectionId, fnToBase64) => {
+    sendToInteractiveTasks([sectionId, "drawing"], fnToBase64());
+  },
+  500,
+);

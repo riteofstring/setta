@@ -123,7 +123,7 @@ function getParamEV(sectionId, paramInfoId) {
     getSectionVariantIdAndMappedDBSource(sectionId);
   return useSectionVariants.getState().x[dbSource][variantId].values[
     paramInfoId
-  ];
+  ].value;
 }
 
 export function setParamEnteredValue({
