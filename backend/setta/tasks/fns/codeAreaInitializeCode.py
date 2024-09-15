@@ -2,7 +2,7 @@ import json
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import export_selected, get_selected_section_variant
+from setta.code_gen.export_selected import export_selected, get_section_code
 from setta.code_gen.find_placeholders import needs_generated_python
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.tasks.task_runner import RunType
@@ -19,7 +19,7 @@ class CodeAreaInitializeCodeContent(BaseModel):
 async def _codeAreaInitializeCode(message, lsp_writer):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    code = get_selected_section_variant(project, message.sectionId)["code"]
+    code = get_section_code(project, message.sectionId)
     codeJson = None
     gen_code = None
     referencable_var_names = None

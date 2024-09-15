@@ -81,6 +81,14 @@ def get_section_variants(p, section_id):
     return [p["sectionVariants"][dbSource][v] for v in variantIds]
 
 
+def get_section_code(p, id):
+    return get_selected_section_variant(p, id)["code"]
+
+
+def get_section_children(p, id):
+    return get_selected_section_variant(p, id)["children"]
+
+
 def no_entered_value(value):
     return value is None or value == ""
 
@@ -125,17 +133,15 @@ def export_section_to_dict(p, section_id, topLevelParamIds, requiredParamIds):
     return e
 
 
-def get_code_containing_generated_python(p):
-    for id, s in p["sections"].items():
-        if get_section_type(p, id) == C.CODE and s["codeLanguage"] == "python":
-            code = get_selected_section_variant(p, id)["code"]
-            if needs_generated_python(code):
-                return code
+def get_first_section_code_that_needs_generated_python(p):
+    for id in p["sections"].keys():
+        if code_section_needs_generated_python(p, id):
+            return get_section_code(p, id)
     return double_braces(C.SETTA_GENERATED_PYTHON)
 
 
 def code_section_needs_generated_python(p, id):
-    code = get_selected_section_variant(p, id)["code"]
+    code = get_section_code(p, id)
     return (
         get_section_type(p, id) == C.CODE
         and p["sections"][id]["codeLanguage"] == "python"
@@ -148,14 +154,14 @@ def flatten_groups(p):
         if get_section_type(p, sid) != C.DECK:
             continue
 
-        children = get_selected_section_variant(p, sid)["children"]
+        children = get_section_children(p, sid)
         if sid in p["projectConfig"]["children"]:
             for c in children:
                 p["projectConfig"]["children"][c] = {}
         else:
             parentId = None
             for possible_parent_id in p["sections"].keys():
-                parent_idx = get_selected_section_variant(p, possible_parent_id)[
+                parent_idx = get_section_children(p, possible_parent_id)[
                     "children"
                 ].index(sid)
                 if parent_idx != -1:
@@ -249,7 +255,7 @@ class Exporter:
                 info["dependencies"] = [*params, *used_ref_var_names]
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT]:
-                children = get_selected_section_variant(self.p, id)["children"]
+                children = get_section_children(self.p, id)["children"]
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
                 self.output[var_name] = info
@@ -260,7 +266,7 @@ class Exporter:
                 ):
                     # make sure any necessary variables get created.
                     process_refs(
-                        get_selected_section_variant(self.p, id)["code"],
+                        get_section_code(self.p, id)["code"],
                         self.p["codeEVRefs"][id],
                         self.maybe_create_ref_var_name,
                     )
@@ -409,7 +415,7 @@ class SimpleExporter:
             params = self.export_section_params(id)
             value = {"selectedItem": selectedItem, "params": params}
         elif type in [C.LIST_ROOT, C.DICT_ROOT]:
-            children = get_selected_section_variant(self.p, id)["children"]
+            children = get_section_children(self.p, id)
             if type == C.LIST_ROOT:
                 value = [self.export_section(c) for c in children]
             elif type == C.DICT_ROOT:

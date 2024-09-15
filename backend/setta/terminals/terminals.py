@@ -13,6 +13,7 @@ from fastapi import WebSocketDisconnect
 
 from setta.code_gen.export_selected import (
     export_selected,
+    get_section_code,
     get_section_type,
     get_selected_section_variant,
 )
@@ -195,7 +196,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
     id_to_filepath = {}
     for sid in to_write:
         curr_section = code_sections[sid]
-        code = get_selected_section_variant(p, sid)["code"]
+        code = get_section_code(p, sid)
         extension = languageToExtension(curr_section["codeLanguage"])
         filepath = write_string_to_file(
             folder_path, f"{curr_section['name']}{extension}", code
