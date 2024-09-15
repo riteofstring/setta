@@ -218,13 +218,24 @@ class Exporter:
                     unused_params,
                     positionalOnlyParams,
                 ) = self.export_section_params(id)
+
+                if id in self.p["selectedItemEVRefs"]:
+                    callable, used_ref_var_names = process_refs(
+                        get_selected_item_name(self.p, id),
+                        self.p["selectedItemEVRefs"][id],
+                        self.maybe_create_ref_var_name,
+                    )
+                else:
+                    callable = get_selected_item_name(self.p, id)
+                    used_ref_var_names = []
+
                 info["value"] = {
-                    "callable": get_selected_item_name(self.p, id),
+                    "callable": callable,
                     "params": params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 }
-                info["dependencies"] = params
+                info["dependencies"] = [*params, *used_ref_var_names]
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT]:
                 children = get_selected_section_variant(self.p, id)["children"]
@@ -326,7 +337,7 @@ class Exporter:
     def export_param_value(self, section_id, id):
         dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
         value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
-        refs = self.p["evRefs"][section_id][id]
+        refs = self.p["paramEVRefs"][section_id][id]
         value, used_ref_var_names = process_refs(
             value, refs, self.maybe_create_ref_var_name
         )

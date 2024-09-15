@@ -123,7 +123,7 @@ function setFullChildrenNamesForRegex(
     isArgsObj: false,
   };
   if (sectionTypeName === C.SECTION) {
-    allNames.push(escapeRegExp(argsFullName))
+    allNames.push(escapeRegExp(argsFullName));
     fullNameToInfo[argsFullName] = {
       sectionId,
       paramInfoId: null,
