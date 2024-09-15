@@ -62,7 +62,6 @@ export function addSectionAtPosition({
   } else if (type === C.GLOBAL_VARIABLES) {
     sectionProps.name = "Global Variables";
   } else if (type === C.CODE) {
-    sectionProps.name = "Code";
     sectionProps.size = settings.defaultCodeSectionSize;
   } else if (type === C.TERMINAL) {
     sectionProps.size = settings.defaultTerminalSectionSize;
