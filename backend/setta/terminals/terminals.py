@@ -153,7 +153,7 @@ class TerminalWebsockets:
 
 def runCode(message, terminal_write_fn=None, command_callback=None):
     p = message["content"]
-    exporter_obj = export_selected(p)
+    exporter_obj = export_selected(p, always_export_args_objs=False)
     selected = exporter_obj.output
     folder_path = create_timestamped_folder(".setta_code")
 

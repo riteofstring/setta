@@ -107,8 +107,8 @@ def maybe_create_var_name(
     return var_name
 
 
-def export_selected(p):
-    e = Exporter(p)
+def export_selected(p, always_export_args_objs):
+    e = Exporter(p, always_export_args_objs=always_export_args_objs)
     e.export()
     return e
 
@@ -178,11 +178,12 @@ def export_global_variables_and_remove_script(
 
 
 class Exporter:
-    def __init__(self, p):
+    def __init__(self, p, always_export_args_objs):
         self.output = {}
         self.p = copy.deepcopy(p)
         self.var_name_mapping = {}
         self.var_name_reverse_mapping = {}
+        self.always_export_args_objs = always_export_args_objs
 
     def export(self):
         flatten_groups(self.p)
@@ -210,6 +211,8 @@ class Exporter:
                 "type": type,
             }
             if type == C.SECTION:
+                if self.always_export_args_objs:
+                    self.export_args_obj(id)
                 (
                     params,
                     unused_params,

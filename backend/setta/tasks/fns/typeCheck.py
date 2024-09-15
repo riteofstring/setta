@@ -12,7 +12,7 @@ from .utils import TaskDefinition
 # this just initializes a document which gets the lsp to send back diagnostics
 async def _typeCheck(message, lsp_writer):
     project = message.content
-    exporter_obj = export_selected(project)
+    exporter_obj = export_selected(project, always_export_args_objs=False)
     codeJson = exporter_obj.output
     templatedCode = get_code_containing_generated_python(project)
     code = generate_code(

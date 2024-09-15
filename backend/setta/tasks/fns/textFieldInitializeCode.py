@@ -25,7 +25,7 @@ class TextFieldInitializeCodeContent(BaseModel):
 async def _textFieldInitializeCode(message, lsp_writer):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
-    exporter_obj = export_selected(project)
+    exporter_obj = export_selected(project, always_export_args_objs=True)
     codeJson = exporter_obj.output
     templatedCode = get_code_containing_generated_python(project)
     sectionId = message.sectionId

@@ -27,7 +27,7 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     generated_var_names = set()
     if needs_generated_python(code):
         print("NEEDS GENERATED CODE", flush=True)
-        exporter_obj = export_selected(project)
+        exporter_obj = export_selected(project, always_export_args_objs=True)
         codeJson = exporter_obj.output
         gen_code, var_name_to_line_num = generate_code(
             codeJson,
