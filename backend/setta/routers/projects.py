@@ -4,7 +4,6 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from setta.database.backup import maybe_create_backup
 from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
     load_all_project_config_metadata,
@@ -102,7 +101,6 @@ def route_load_full_project(x: ProjectLoadFullRequest, dbs=Depends(get_dbs)):
 @router.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest, dbs=Depends(get_dbs)):
     with dbs:
-        maybe_create_backup(dbs.default.path)
         save_project_details(dbs, x.project)
 
 

@@ -29,8 +29,5 @@
   "showDefaultConfigOnLoad": true,
   "defaultZoomLevel": 1,
   "inferImports": true,
-  "autosave": false,
-  "autobackup": false,
-  "autobackupFreq": 300,
-  "autobackupKeepLastN": 10 
+  "autosave": false
 }
