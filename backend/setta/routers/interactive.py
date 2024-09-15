@@ -27,7 +27,9 @@ async def route_update_interactive_code(
     x: UpdateInteractiveCodeRequest, tasks=Depends(get_tasks)
 ):
     p = x.project
-    projectAsSimpleDict = simple_export_selected(p).output
+    exporter_obj = simple_export_selected(p)
+    projectAsSimpleDict = exporter_obj.output
+    print("projectAsSimpleDict", exporter_obj.var_name_reverse_mapping, flush=True)
 
     codeDict = {}
     for id in p["sections"].keys():
