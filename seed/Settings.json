@@ -28,5 +28,6 @@
   "maxZoom": 10,
   "showDefaultConfigOnLoad": true,
   "defaultZoomLevel": 1,
-  "inferImports": true
+  "inferImports": true,
+  "autosave": false
 }
