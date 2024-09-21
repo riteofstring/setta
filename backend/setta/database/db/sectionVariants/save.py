@@ -1,5 +1,5 @@
 from setta.database.utils import dump_keyword_positions_as_string
-
+from setta.utils.constants import is_from_json_source
 
 def save_section_variants(dbs, section_variants):
     for dbSource, variants_for_one_db in section_variants.items():
@@ -47,6 +47,8 @@ def save_section_variants_to_one_db(db, section_variants):
     query_params = []
     for idid, variant in section_variants.items():
         for code_info_id, value_info in variant["values"].items():
+            if is_from_json_source(code_info_id):
+                continue
             query_params.append(
                 {
                     "idid": idid,
