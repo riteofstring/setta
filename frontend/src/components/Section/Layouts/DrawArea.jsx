@@ -251,7 +251,7 @@ export function DrawOnImage({ sectionId }) {
   }
 
   const sliderRootClassName =
-    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
+    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
   const sliderTrackClassName =
     "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
@@ -262,7 +262,7 @@ export function DrawOnImage({ sectionId }) {
 
   return (
     <>
-      <div className="section-search section-w-full mb-5 flex gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
+      <div className="section-search section-w-full mb-5 flex flex-wrap gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
         <input
           id="colorPicker"
           type="color"
@@ -286,7 +286,7 @@ export function DrawOnImage({ sectionId }) {
           </Slider.Track>
           <Slider.Thumb className={sliderThumbClassName} />
         </Slider.Root>
-        <p className="my-auto w-20 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400">
+        <p className="my-auto min-w-8 max-w-20 flex-grow rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400">
           {opacity.toFixed(1)}
         </p>
         <button
