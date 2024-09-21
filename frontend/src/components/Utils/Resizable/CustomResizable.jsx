@@ -124,5 +124,5 @@ function useSizeMode(sectionId) {
 function useAspectRatio(sectionId) {
   const isYouTube = useIsYouTube(sectionId);
   const isDrawArea = useIsDrawArea(sectionId);
-  return isYouTube ? youtubeSectionAspectRatio : isDrawArea;
+  return isYouTube ? youtubeSectionAspectRatio : false;
 }
