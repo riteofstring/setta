@@ -54,3 +54,35 @@ export function asyncDebounce(func, wait) {
       debounced(resolve, reject, args);
     });
 }
+
+export async function getImageDimensionsFromBase64(base64String) {
+  const img = new Image();
+  img.src = base64String;
+  await img.decode();
+  return { width: img.width, height: img.height };
+}
+
+export function adjustDimensions(height, width, minHeight, minWidth) {
+  const aspectRatio = width / height;
+
+  if (height < minHeight || width < minWidth) {
+    if (height < minHeight) {
+      height = minHeight;
+      width = height * aspectRatio;
+    }
+
+    if (width < minWidth) {
+      width = minWidth;
+      height = width / aspectRatio;
+    }
+
+    // Round the dimensions to avoid floating-point issues
+    return {
+      height: Math.round(height),
+      width: Math.round(width),
+    };
+  }
+
+  // If no adjustment is needed, return the original dimensions
+  return { height, width };
+}

@@ -5,16 +5,14 @@ import { useGetSectionInfo } from "./sections";
 import { useIsTwitter } from "./social";
 import { useIsArtifact, useIsRoot } from "./uiTypes";
 
-export function useMinSectionHeight(sectionId) {
-  const isOutput = useIsArtifact(sectionId);
-  const isRoot = useIsRoot(sectionId);
-  const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
-  const hideParams = useGetSectionInfo(sectionId, "hideParams");
-  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
-  const hasTitle = true;
-  const hasSearch = !isRoot && !hideSearch;
-  const hasKwargControl = !hideParams && !isRoot;
-
+export function getMinSectionHeight({
+  isRoot,
+  isMinimized,
+  isOutput,
+  hasTitle,
+  hasSearch,
+  hasKwargControl,
+}) {
   if (isRoot) {
     return ROOT_SECTION_HEIGHT;
   }
@@ -33,9 +31,7 @@ export function useMinSectionHeight(sectionId) {
   );
 }
 
-export function useMinSectionWidth(sectionId) {
-  const isTwitter = useIsTwitter(sectionId);
-
+export function getMinSectionWidth({ isTwitter }) {
   if (isTwitter) {
     // 250 is min width of a tweet. Add 150 for margin
     // https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference
@@ -43,6 +39,31 @@ export function useMinSectionWidth(sectionId) {
   }
 
   return 200;
+}
+
+export function useMinSectionHeight(sectionId) {
+  const isOutput = useIsArtifact(sectionId);
+  const isRoot = useIsRoot(sectionId);
+  const hideSearch = useGetSectionInfo(sectionId, "hideSearch");
+  const hideParams = useGetSectionInfo(sectionId, "hideParams");
+  const isMinimized = useGetSectionInfo(sectionId, "isMinimized");
+  const hasTitle = true;
+  const hasSearch = !isRoot && !hideSearch;
+  const hasKwargControl = !hideParams && !isRoot;
+
+  return getMinSectionHeight({
+    isRoot,
+    isMinimized,
+    isOutput,
+    hasTitle,
+    hasSearch,
+    hasKwargControl,
+  });
+}
+
+export function useMinSectionWidth(sectionId) {
+  const isTwitter = useIsTwitter(sectionId);
+  return getMinSectionWidth({ isTwitter });
 }
 
 export function useMaxSectionWidth(sectionId) {

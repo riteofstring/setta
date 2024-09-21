@@ -3,6 +3,7 @@ import { useDndMode } from "forks/dnd-kit/dndState";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
+import { useArtifactIsImg } from "state/hooks/artifacts";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
@@ -13,7 +14,11 @@ import {
   useIsYouTube,
   youtubeSectionAspectRatio,
 } from "state/hooks/social";
-import { useGetSectionType, useIsDrawArea } from "state/hooks/uiTypes";
+import {
+  useGetSectionType,
+  useIsArtifact,
+  useIsDrawArea,
+} from "state/hooks/uiTypes";
 import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
@@ -124,5 +129,10 @@ function useSizeMode(sectionId) {
 function useAspectRatio(sectionId) {
   const isYouTube = useIsYouTube(sectionId);
   const isDrawArea = useIsDrawArea(sectionId);
-  return isYouTube ? youtubeSectionAspectRatio : isDrawArea;
+  const isArtifactArea = useIsArtifact(sectionId);
+  const artifactIsImg = useArtifactIsImg(sectionId);
+  if (isYouTube) {
+    return youtubeSectionAspectRatio;
+  }
+  return isDrawArea || (isArtifactArea && artifactIsImg);
 }
