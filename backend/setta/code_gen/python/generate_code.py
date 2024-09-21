@@ -1,7 +1,7 @@
 import ast
 import copy
 
-from ...utils.constants import C
+from ...utils.constants import USER_SETTINGS, C
 from ..find_placeholders import double_braces
 from ..utils import push_var_deep
 from .infer_imports import infer_imports
@@ -125,9 +125,8 @@ def maybe_prepend_with_imports_and_replace_templated_code(
     force_appear_var_name,
     var_name_to_line_num,
     replace_templated_code=True,
-    inferImports=True,
 ):
-    if inferImports:
+    if USER_SETTINGS["inferImports"]:
         if force_appear_var_name:
             line_num = var_name_to_line_num[force_appear_var_name]
             original_force_appear_var_str = lines[line_num]
@@ -138,7 +137,10 @@ def maybe_prepend_with_imports_and_replace_templated_code(
                 var_str = var_declaration(force_appear_var_name, "None")
             lines[line_num] = var_str
 
-        imports = get_import_text("\n".join(lines))
+        to_infer_imports_from = replace_keywords(
+            templated_code, {C.SETTA_GENERATED_PYTHON: "\n".join(lines)}
+        )
+        imports = get_import_text(to_infer_imports_from)
         imports = imports + "\n\n"
 
         if force_appear_var_name:
@@ -172,7 +174,6 @@ def generate_code(
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
-    inferImports=True,
 ):
     (
         lines,
@@ -189,7 +190,6 @@ def generate_code(
         force_appear_var_name,
         var_name_to_line_num,
         replace_templated_code,
-        inferImports,
     )
 
 

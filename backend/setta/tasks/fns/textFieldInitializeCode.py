@@ -11,7 +11,6 @@ from setta.code_gen.python.generate_code import (
     maybe_prepend_with_imports_and_replace_templated_code,
 )
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import USER_SETTINGS
 
 from .utils import TaskDefinition
 
@@ -53,7 +52,6 @@ async def _textFieldInitializeCode(message):
         templatedCode,
         push_var_name,
         var_name_to_line_num,
-        inferImports=USER_SETTINGS["inferImports"],
     )
 
     print("code\n", code, flush=True)
