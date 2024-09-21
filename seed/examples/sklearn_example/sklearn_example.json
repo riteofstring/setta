@@ -63,211 +63,209 @@
     }
   },
   "sectionVariants": {
-    "default": {
-      "1fc1e842-82fe-4a48-8794-23178822e22e": {
-        "name": "carrot_soup",
-        "selectedItem": null,
-        "code": "",
-        "keywordPositions": [],
-        "values": {
-          "3e754333-caea-451a-abba-dd254c49502f": {
-            "value": "10",
-            "keywordPositions": []
-          },
-          "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
-            "value": "dataset[0][:,::-1]",
-            "keywordPositions": []
-          },
-          "7b4b2118-7cbf-4275-8582-90c66a966441": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
-            "value": "n_clusters",
-            "keywordPositions": []
-          },
-          "c066af9f-42b4-4359-8b44-cf774c400e81": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "c2c05abc-dd95-4071-8f37-cb2019919bce": {
-            "value": "5000",
-            "keywordPositions": []
-          }
+    "1fc1e842-82fe-4a48-8794-23178822e22e": {
+      "name": "carrot_soup",
+      "selectedItem": null,
+      "code": "",
+      "keywordPositions": [],
+      "values": {
+        "3e754333-caea-451a-abba-dd254c49502f": {
+          "value": "10",
+          "keywordPositions": []
         },
-        "children": []
-      },
-      "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
-        "name": "tremendous_tree",
-        "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
-        "code": "",
-        "keywordPositions": [],
-        "values": {
-          "3e754333-caea-451a-abba-dd254c49502f": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
-            "value": "dataset[0][:,::-1]",
-            "keywordPositions": []
-          },
-          "7b4b2118-7cbf-4275-8582-90c66a966441": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
-            "value": "n_clusters",
-            "keywordPositions": []
-          },
-          "c066af9f-42b4-4359-8b44-cf774c400e81": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "c2c05abc-dd95-4071-8f37-cb2019919bce": {
-            "value": "0",
-            "keywordPositions": []
-          }
+        "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
+          "value": "",
+          "keywordPositions": []
         },
-        "children": []
-      },
-      "3383d9b9-5cee-445f-a242-fde820c76c73": {
-        "name": "superb_jade",
-        "selectedItem": null,
-        "code": "",
-        "keywordPositions": [],
-        "values": {},
-        "children": []
-      },
-      "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
-        "name": "purple_onion",
-        "selectedItem": null,
-        "code": "",
-        "keywordPositions": [],
-        "values": {
-          "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
-            "value": "4",
-            "keywordPositions": []
-          },
-          "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
-            "value": "4000",
-            "keywordPositions": []
-          }
+        "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
+          "value": "dataset[0][:,::-1]",
+          "keywordPositions": []
         },
-        "children": []
-      },
-      "66e4192c-c1fc-4935-b862-e722726c1217": {
-        "name": "water_fall",
-        "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
-        "code": "",
-        "keywordPositions": [],
-        "values": {
-          "03ee6530-d464-461c-a989-b310ee2d9b95": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "0aa0f46a-e923-4528-a411-500cbda6e77b": {
-            "value": "n_samples",
-            "keywordPositions": []
-          },
-          "159e0416-3873-469b-915b-1f186579c380": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "2fae73d3-5756-42a9-beb0-7465b92ac626": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "39ed839d-f632-4373-9d72-6ce95b5bc265": {
-            "value": "0",
-            "keywordPositions": []
-          },
-          "3e15081a-9ca5-48bf-9159-9a95331a7894": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "669986a2-03d6-4de4-af41-f9395cf0ef57": {
-            "value": "0.6",
-            "keywordPositions": []
-          },
-          "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
-            "value": "",
-            "keywordPositions": []
-          },
-          "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
-            "value": "n_clusters",
-            "keywordPositions": []
-          }
+        "7b4b2118-7cbf-4275-8582-90c66a966441": {
+          "value": "",
+          "keywordPositions": []
         },
-        "children": []
+        "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
+          "value": "n_clusters",
+          "keywordPositions": []
+        },
+        "c066af9f-42b4-4359-8b44-cf774c400e81": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "c2c05abc-dd95-4071-8f37-cb2019919bce": {
+          "value": "5000",
+          "keywordPositions": []
+        }
       },
-      "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
-        "name": "green_grass",
-        "selectedItem": null,
-        "code": "import numpy as np\n\n{{SETTA_GENERATED_PYTHON}}\n\nprint(\"here\")\n",
-        "keywordPositions": [],
-        "values": {},
-        "children": []
+      "children": []
+    },
+    "22f7a029-5660-4f3d-ba54-e79637f2ba61": {
+      "name": "tremendous_tree",
+      "selectedItem": "c9a3e19c-6876-468a-a9a1-6f289c9367eb",
+      "code": "",
+      "keywordPositions": [],
+      "values": {
+        "3e754333-caea-451a-abba-dd254c49502f": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "6f1450ea-93cf-441e-9bfd-5e6633b4a0a2": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "7ae757c9-9327-4931-95a3-bc200f7e10b7": {
+          "value": "dataset[0][:,::-1]",
+          "keywordPositions": []
+        },
+        "7b4b2118-7cbf-4275-8582-90c66a966441": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "8a13dbf9-e4ee-4310-bd89-2a1a9f2812f5": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "97e83315-adfc-4d50-a8ab-a8c34082eb93": {
+          "value": "n_clusters",
+          "keywordPositions": []
+        },
+        "c066af9f-42b4-4359-8b44-cf774c400e81": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "c2c05abc-dd95-4071-8f37-cb2019919bce": {
+          "value": "0",
+          "keywordPositions": []
+        }
       },
-      "9a6859c2-a79d-4da2-b460-b57fc982d495": {
-        "name": "inland_apricot",
-        "selectedItem": null,
-        "code": "",
-        "keywordPositions": [],
-        "values": {},
-        "children": []
+      "children": []
+    },
+    "3383d9b9-5cee-445f-a242-fde820c76c73": {
+      "name": "superb_jade",
+      "selectedItem": null,
+      "code": "",
+      "keywordPositions": [],
+      "values": {},
+      "children": []
+    },
+    "54571c59-7a51-42d5-bb8e-b6c06b41b023": {
+      "name": "purple_onion",
+      "selectedItem": null,
+      "code": "",
+      "keywordPositions": [],
+      "values": {
+        "4e70c873-ead7-4c5a-b3a0-fe504e73ad27": {
+          "value": "4",
+          "keywordPositions": []
+        },
+        "6da7a4ce-cf7a-4770-95c4-1ab78b9f80e4": {
+          "value": "4000",
+          "keywordPositions": []
+        }
       },
-      "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c": {
-        "name": "decent_blue",
-        "selectedItem": null,
-        "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\n\ndef fn(message):\n    value = {\n        \"Big Run\": {\"selected\": True, \"sections\": {\"Global Variables\": {}}},\n        \"Regular Run\": {\"selected\": True, \"sections\": {\"dataset\": {}}},\n    }\n\n    return_value = {\"value\": value, \"type\": \"runGroupControl\"}\n\n    return {\"content\": [return_value]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn, run_on_project_change=False)\n",
-        "keywordPositions": [],
-        "values": {},
-        "children": []
+      "children": []
+    },
+    "66e4192c-c1fc-4935-b862-e722726c1217": {
+      "name": "water_fall",
+      "selectedItem": "bb52a19f-d69c-4973-94ae-c1d85596cbb7",
+      "code": "",
+      "keywordPositions": [],
+      "values": {
+        "03ee6530-d464-461c-a989-b310ee2d9b95": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "0aa0f46a-e923-4528-a411-500cbda6e77b": {
+          "value": "n_samples",
+          "keywordPositions": []
+        },
+        "159e0416-3873-469b-915b-1f186579c380": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "1ea1732e-ccae-4c4f-b26a-c9b1b83f43af": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "2fae73d3-5756-42a9-beb0-7465b92ac626": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "39ed839d-f632-4373-9d72-6ce95b5bc265": {
+          "value": "0",
+          "keywordPositions": []
+        },
+        "3e15081a-9ca5-48bf-9159-9a95331a7894": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "669986a2-03d6-4de4-af41-f9395cf0ef57": {
+          "value": "0.6",
+          "keywordPositions": []
+        },
+        "70f4e095-c286-4379-a5f5-4d02df40e1a5": {
+          "value": "",
+          "keywordPositions": []
+        },
+        "8a10b368-9a0e-4390-b2f7-bd4ff27570d3": {
+          "value": "n_clusters",
+          "keywordPositions": []
+        }
       },
-      "fb460dcd-d460-44fc-aeae-b0b8aca93c5b": {
-        "name": "worthwhile_crimson",
-        "selectedItem": null,
-        "code": "",
-        "keywordPositions": [],
-        "values": {},
-        "children": []
-      },
-      "fca181fc-c326-4d50-b028-37b368372f49": {
-        "name": "apple_pear",
-        "selectedItem": null,
-        "code": "source activate abcde_env\ncat {{ Code }}\npython {{ Code }}\necho \"Done\"",
-        "keywordPositions": [],
-        "values": {},
-        "children": []
-      },
-      "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c": {
-        "name": "present_cyan",
-        "values": {},
-        "children": [],
-        "selectedItem": null,
-        "code": "",
-        "keywordPositions": []
-      }
+      "children": []
+    },
+    "69220358-73c1-49c3-9b78-d7cf733b2aa8": {
+      "name": "green_grass",
+      "selectedItem": null,
+      "code": "import numpy as np\n\n{{SETTA_GENERATED_PYTHON}}\n\nprint(\"here\")\n",
+      "keywordPositions": [],
+      "values": {},
+      "children": []
+    },
+    "9a6859c2-a79d-4da2-b460-b57fc982d495": {
+      "name": "inland_apricot",
+      "selectedItem": null,
+      "code": "",
+      "keywordPositions": [],
+      "values": {},
+      "children": []
+    },
+    "bc3f3f42-899b-4ef2-a550-d19fcbcfe38c": {
+      "name": "decent_blue",
+      "selectedItem": null,
+      "code": "from setta.tasks.fns import InteractiveTaskDefinition\n\n\ndef fn(message):\n    value = {\n        \"Big Run\": {\"selected\": True, \"sections\": {\"Global Variables\": {}}},\n        \"Regular Run\": {\"selected\": True, \"sections\": {\"dataset\": {}}},\n    }\n\n    return_value = {\"value\": value, \"type\": \"runGroupControl\"}\n\n    return {\"content\": [return_value]}\n\n\ninteractive_example = InteractiveTaskDefinition(fn=fn, run_on_project_change=False)\n",
+      "keywordPositions": [],
+      "values": {},
+      "children": []
+    },
+    "fb460dcd-d460-44fc-aeae-b0b8aca93c5b": {
+      "name": "worthwhile_crimson",
+      "selectedItem": null,
+      "code": "",
+      "keywordPositions": [],
+      "values": {},
+      "children": []
+    },
+    "fca181fc-c326-4d50-b028-37b368372f49": {
+      "name": "apple_pear",
+      "selectedItem": null,
+      "code": "source activate abcde_env\ncat {{ Code }}\npython {{ Code }}\necho \"Done\"",
+      "keywordPositions": [],
+      "values": {},
+      "children": []
+    },
+    "3fd1ddfd-e80f-41a2-bcad-c0702c39f04c": {
+      "name": "present_cyan",
+      "values": {},
+      "children": [],
+      "selectedItem": null,
+      "code": "",
+      "keywordPositions": []
     }
   },
   "uiTypes": {
