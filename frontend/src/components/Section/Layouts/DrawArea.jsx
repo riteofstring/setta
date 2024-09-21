@@ -234,7 +234,7 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-    // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
     debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
@@ -246,7 +246,7 @@ export function DrawOnImage({ sectionId }) {
     strokesRef.current = [];
     setCanvasProperties({ doDrawStrokes: true });
     clearCanvas(draftCanvasRef);
-    // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
 
   function toBase64() {
@@ -304,6 +304,7 @@ export function DrawOnImage({ sectionId }) {
         </Slider.Root>
         <input
           value={opacity.toFixed(1)}
+          onChange={() => {}}
           className="my-auto min-w-8 max-w-12 flex-grow rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400"
         ></input>
         <div className="flex">
@@ -400,6 +401,14 @@ const debouncedSetBrushStrokesArtifact = _.debounce((sectionId, strokes) => {
       };
     }
   });
+
+  useSectionInfos.setState((x) => {
+    const paths = x.x[sectionId].artifacts;
+    if (!paths.includes(path)) {
+      paths.push(path);
+    }
+  });
+
   console.log("useArtifacts", useArtifacts.getState().x);
 }, 500);
 
