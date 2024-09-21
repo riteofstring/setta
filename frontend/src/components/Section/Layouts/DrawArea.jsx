@@ -16,6 +16,8 @@ import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
 
+const SECTION_SIZE_CANVAS_DIFF = 200;
+
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
   const { width, height } = useSectionInfos(
@@ -57,11 +59,16 @@ export function DrawOnImage({ sectionId }) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     const image = imageRef.current;
     if (image && image.complete) {
-      canvas.width = width === "auto" ? image.width : width;
-      canvas.height = height === "auto" ? image.height : height;
+      canvas.width =
+        width === "auto" ? image.width : width - SECTION_SIZE_CANVAS_DIFF;
+      canvas.height =
+        height === "auto" ? image.height : height - SECTION_SIZE_CANVAS_DIFF;
 
       if (width === "auto" || height === "auto") {
-        setSectionSize(sectionId, { width: image.width, height: image.height });
+        setSectionSize(sectionId, {
+          width: image.width + SECTION_SIZE_CANVAS_DIFF,
+          height: image.height + SECTION_SIZE_CANVAS_DIFF,
+        });
       }
 
       const scale = Math.min(
@@ -80,12 +87,14 @@ export function DrawOnImage({ sectionId }) {
       ctx.globalCompositeOperation = "source-over";
     } else {
       const [defaultWidth, defaultHeight] = [500, 500];
-      canvas.width = width === "auto" ? defaultWidth : width;
-      canvas.height = height === "auto" ? defaultHeight : height;
+      canvas.width =
+        width === "auto" ? defaultWidth : width - SECTION_SIZE_CANVAS_DIFF;
+      canvas.height =
+        height === "auto" ? defaultHeight : height - SECTION_SIZE_CANVAS_DIFF;
       if (width === "auto" || height === "auto") {
         setSectionSize(sectionId, {
-          width: canvas.width,
-          height: canvas.height,
+          width: canvas.width + SECTION_SIZE_CANVAS_DIFF,
+          height: canvas.height + SECTION_SIZE_CANVAS_DIFF,
         });
       }
       clearCanvas(canvasRef);
@@ -248,7 +257,8 @@ export function DrawOnImage({ sectionId }) {
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName =
     "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
-  const canvasClassName = "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2"
+  const canvasClassName =
+    "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2";
 
   return (
     <>
