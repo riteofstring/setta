@@ -61,9 +61,9 @@ def get_value(x, selected):
         return str(get_boolean(x["value"]))
     elif type_value in [C.SECTION]:
         if not x["value"]["callable"]:
-            return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
+            return "{" + get_dict_contents(x["dependencies"], selected) + "}"
         else:
-            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], x['value']['positionalOnlyParams'], selected)})"
+            return f"{x['value']['callable']}({get_callable_params(x['dependencies'], x['value']['positionalOnlyParams'], selected)})"
     elif type_value == C.LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
     elif type_value in [C.DICT_ROOT, C.NESTED_PARAM]:
@@ -90,7 +90,7 @@ def generate_lines_of_code_without_imports(
                 isinstance(v["value"], dict)
                 and force_appear_var_name in v["value"]["unusedParams"]
             ):
-                v["value"]["params"].append(force_appear_var_name)
+                v["dependencies"].append(force_appear_var_name)
                 v["value"]["unusedParams"].remove(force_appear_var_name)
         selected = [{"var_name": k, **v} for k, v in selected.items()]
         selected = push_var_deep(selected, push_var_name)

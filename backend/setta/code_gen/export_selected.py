@@ -230,7 +230,6 @@ class Exporter:
 
                 info["value"] = {
                     "callable": callable,
-                    "params": params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 }
@@ -271,7 +270,6 @@ class Exporter:
                 "type": C.SECTION,
                 "value": {
                     "callable": None,
-                    "params": params,
                     "unusedParams": unused_params,
                     "positionalOnlyParams": positionalOnlyParams,
                 },
