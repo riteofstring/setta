@@ -5,12 +5,17 @@ import {
   setAspectRatioInfo,
   setSectionSize,
 } from "state/actions/sections/setters";
+import { useSectionInfos } from "state/definitions";
 import { useArtifactData } from "state/hooks/artifacts";
 import {
   getMinSectionHeight,
   getMinSectionWidth,
 } from "state/hooks/sectionSizes";
-import { adjustDimensions, getImageDimensionsFromBase64 } from "utils/utils";
+import {
+  adjustAspectRatio,
+  adjustSizeToBeAtLeastMin,
+  getImageDimensionsFromBase64,
+} from "utils/utils";
 
 function _ArtifactArea({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -62,14 +67,22 @@ function OneImg({ sectionId, img }) {
   const base64String = `data:image/png;base64,${img}`;
 
   async function setSectionSizeOnLoad() {
-    const size = await getImageDimensionsFromBase64(base64String);
+    const imgSize = await getImageDimensionsFromBase64(base64String);
     const minHeight = getMinSectionHeight({
       isOutput: true,
     });
     const minWidth = getMinSectionWidth({});
-    const adjustedSize = adjustDimensions(
-      size.height,
-      size.width,
+    const currSize = useSectionInfos.getState().x[sectionId].size;
+
+    let adjustedSize = adjustAspectRatio(
+      currSize.height,
+      currSize.width,
+      imgSize.height,
+      imgSize.width,
+    );
+    adjustedSize = adjustSizeToBeAtLeastMin(
+      adjustedSize.height,
+      adjustedSize.width,
       minHeight,
       minWidth,
     );
@@ -79,7 +92,7 @@ function OneImg({ sectionId, img }) {
     setSectionSize(sectionId, adjustedSize);
     setAspectRatioInfo({
       sectionId,
-      aspectRatio: size.width / size.height,
+      aspectRatio: imgSize.width / imgSize.height,
       aspectRatioExtraHeight: sectionHeaderHeight,
     });
   }
