@@ -1,7 +1,6 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { OVERVIEW } from "utils/constants";
 import { InfoViewBig } from "./InfoViewBig";
@@ -15,17 +14,12 @@ const paneProps = {
 
 export function Overview() {
   const [vis] = localStorageFns[`${paneProps.paneName}Vis`].hook();
-  function onResizeStop(widthDiff) {
-    if (useSettings.getState().leftSidePaneShiftsMap) {
-      updateMapPosition(widthDiff);
-    }
-  }
 
   return (
     <PaneContainer
       paneProps={paneProps}
       paneTitle="Overview"
-      onResizeStop={onResizeStop}
+      onResizeStop={updateMapPosition}
     >
       {vis && <TabsVisible />}
     </PaneContainer>

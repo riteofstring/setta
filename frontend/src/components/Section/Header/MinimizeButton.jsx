@@ -1,22 +1,23 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { useState } from "react";
 import { setSectionInfoAttr } from "state/actions/sections/sectionInfos";
-import { useSectionInfos } from "state/definitions";
-
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
-  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
+  // replace tempClick with real code:
+  const [tempClick, setTempClick] = useState(false);
   function onClick() {
     setSectionInfoAttr({
       sectionId,
       attr: "isMinimized",
       newValueFn: (x) => !x,
     });
+    setTempClick(!tempClick);
   }
 
   return (
     <IconButton
       {...props}
       icon={
-        !isMinimized ? (
+        !tempClick ? (
           <i className="gg-math-minus" />
         ) : (
           <i className="gg-maximize !scale-[.4]" />
