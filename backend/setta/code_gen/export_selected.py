@@ -2,7 +2,7 @@ import copy
 
 from setta.utils.utils import QuoteInsensitiveDict
 
-from ..utils.constants import BASE_UI_TYPE_IDS, C
+from ..utils.constants import C, BASE_UI_TYPE_IDS
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
@@ -61,30 +61,16 @@ def get_param_ui_type(p, section_id, id):
     return ui_type["type"]
 
 
-def get_mapped_db_source(p, section_id):
-    section = p["sections"][section_id]
-    dbSource = section["dbSource"]
-    dbSource = dbSource if dbSource else C.DEFAULT_DB_ALIAS
-    return p["dbSourceMapping"][dbSource]
-
-
-def get_mapped_db_source_and_variant_id(p, section_id):
-    section = p["sections"][section_id]
-    variantId = section["variantId"]
-    dbSource = get_mapped_db_source(p, section_id)
-    return dbSource, variantId
-
 
 def get_selected_section_variant(p, section_id):
-    dbSource, variantId = get_mapped_db_source_and_variant_id(p, section_id)
-    return p["sectionVariants"][dbSource][variantId]
+    variantId = p["sections"][section_id]["variantId"]
+    return p["sectionVariants"][variantId]
 
 
 def get_section_variants(p, section_id):
     section = p["sections"][section_id]
     variantIds = section["variantIds"]
-    dbSource = get_mapped_db_source(p, section_id)
-    return [p["sectionVariants"][dbSource][v] for v in variantIds]
+    return [p["sectionVariants"][v] for v in variantIds]
 
 
 def get_section_code(p, id):
@@ -345,8 +331,8 @@ class Exporter:
         return var_name
 
     def export_param_value(self, section_id, id):
-        dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
-        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
+        variant = get_selected_section_variant(self.p, section_id)
+        value = variant["values"][id]["value"]
         refs = self.p["paramEVRefs"][section_id][id]
         value, used_ref_var_names = process_refs(
             value, refs, self.maybe_create_ref_var_name
@@ -475,8 +461,8 @@ class SimpleExporter:
         return params
 
     def export_param_value(self, section_id, id):
-        dbSource, variantId = get_mapped_db_source_and_variant_id(self.p, section_id)
-        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
+        variant = get_selected_section_variant(self.p, section_id)
+        value = variant["values"][id]["value"]
         return value
 
     def create_var_mapping(self, key, value):
@@ -519,8 +505,6 @@ class SectionToDict:
         return params, prettyParams
 
     def export_param_value(self, id):
-        dbSource, variantId = get_mapped_db_source_and_variant_id(
-            self.p, self.section_id
-        )
-        value = self.p["sectionVariants"][dbSource][variantId]["values"][id]["value"]
+        variant = get_selected_section_variant(self.p, self.section_id)
+        value = variant["values"][id]["value"]
         return value, value

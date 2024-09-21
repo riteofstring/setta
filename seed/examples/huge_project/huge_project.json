@@ -9836,10 +9836,6 @@
       "keywordPositions": []
     }
   },
-  "dbSourceMapping": {
-    "default": "default",
-    "settings": "default"
-  },
   "sectionVariants": {
     "default": {
       "49a087f5-f154-4751-b77c-6527a4f74568": {

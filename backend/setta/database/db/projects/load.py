@@ -95,7 +95,6 @@ def load_project_config(dbs, project_config_name):
         "paramSweeps": paramSweeps,
         "runGroups": runGroups,
         "codeInfo": codeInfo,
-        "dbSourceMapping": dbs.db_source_mapping,
     }
 
 

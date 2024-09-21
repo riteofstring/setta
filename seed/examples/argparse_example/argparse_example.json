@@ -149,7 +149,6 @@
         "4fe62be1-f939-4d84-9c3f-f20412754e0c"
       ],
       "parentId": null,
-      "dbSource": "",
       "size": {
         "width": "auto",
         "height": "auto"
@@ -449,10 +448,6 @@
       "positionalOnly": false,
       "keywordPositions": []
     }
-  },
-  "dbSourceMapping": {
-    "default": "default",
-    "settings": "default"
   },
   "sectionVariants": {
     "default": {

@@ -292,7 +292,6 @@
       "description": "",
       "codeLanguage": "python",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "15dc4270-4e4e-4799-93eb-c309801d6349",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -325,7 +324,6 @@
       "description": "",
       "codeLanguage": "python",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "0e96e8a3-3d98-4fdc-ad46-56c5c85e5ea1",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -358,7 +356,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "14d87eca-54fe-4b0b-9c8b-07477168c7e1",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -397,7 +394,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": null,
       "codeInfoId": "40f91ca3-090a-40df-be40-7e0ea9c2efec",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -430,7 +426,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "75191a70-d625-4122-868e-1081e37fbe4c",
       "hideUnpinnedParams": 0,
       "showYaml": 0,
@@ -483,7 +478,6 @@
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "isFrozen": false,
-      "dbSource": "",
       "isHorizontalOrientation": false,
       "hideParams": false,
       "hideSearch": false,
@@ -620,9 +614,6 @@
       "isSelected": false,
       "keywordPositions": []
     }
-  },
-  "dbSourceMapping": {
-    "default": "default"
   },
   "fullNameToInfo": {
     "c": {

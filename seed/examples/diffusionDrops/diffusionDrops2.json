@@ -663,7 +663,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "6cf98492-2d4c-426e-beff-4b5a500e615a",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -696,7 +695,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "cdb23914-0147-4fad-9219-94d170315f34",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -730,7 +728,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "9a630340-9bfe-4cb0-81ac-2818d1647503",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -763,7 +760,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "acd91249-b338-43d4-8808-fc0a68525daf",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -796,7 +792,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "2a349a39-6990-48d2-8fe9-292d4735efd7",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -830,7 +825,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "ad4803fd-0052-40ad-a83d-7c4bea0501ef",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -863,7 +857,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "522bfdb5-96c4-42af-8a6b-26ae7b489743",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -896,7 +889,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "afd777fb-53e3-411c-a284-e7cb157e794e",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -930,7 +922,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "7844a257-44ab-4aa9-b0d1-25d6d4b08134",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -963,7 +954,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "1451f3ab-4361-4aba-82c4-625a96cdffff",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -996,7 +986,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "1d66cf3e-b6a1-4a63-a0aa-73bc7114b88c",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -1029,7 +1018,6 @@
       "description": "",
       "codeLanguage": "",
       "isFrozen": 0,
-      "dbSource": "",
       "codeInfoId": "d015737a-8207-4d29-86bf-d3e80c8c6e72",
       "nonPresetUITypeIds": [],
       "variantIds": [
@@ -1075,7 +1063,6 @@
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "isFrozen": false,
-      "dbSource": "",
       "isHorizontalOrientation": false,
       "hideParams": false,
       "hideSearch": false,
@@ -1989,9 +1976,6 @@
       "isFrozen": false,
       "keywordPositions": []
     }
-  },
-  "dbSourceMapping": {
-    "default": "default"
   },
   "artifacts": {}
 }

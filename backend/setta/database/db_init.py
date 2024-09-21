@@ -42,7 +42,6 @@ CREATE_TABLES_COMMANDS = [
         codeLanguage TEXT,
         configLanguage TEXT,
         isFrozen BOOLEAN,
-        dbSource TEXT,
         jsonSource TEXT,
         codeInfoId TEXT,
         hideUnpinnedParams BOOLEAN,
