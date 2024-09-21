@@ -1,4 +1,3 @@
-import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { sendToInteractiveTasks } from "state/actions/interactive";
@@ -241,73 +240,48 @@ export function DrawOnImage({ sectionId }) {
     return base64;
   }
 
-  const sliderRootClassName =
-    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5";
-  const sliderTrackClassName =
-    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
-  const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
-  const sliderThumbClassName =
-    "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
-
   return (
-    <>
-      <div className="section-search section-key-value flex gap-4">
+    <div className="nodrag">
+      <div className="flex items-center gap-4">
         <input
           id="colorPicker"
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className=""
+          className="-mt-16 h-10 w-10 rounded border border-gray-300"
         />
-
-        <Slider.Root
-          id="opacitySlider"
-          // type="range"
-          className={sliderRootClassName}
-          min={0}
-          max={1}
-          step={0.1}
-          value={[opacity]}
-          onValueChange={(v) => setOpacity(v[0])}
-        >
-          <Slider.Track className={sliderTrackClassName}>
-            <Slider.Range className={sliderRangeClassName} />
-          </Slider.Track>
-          <Slider.Thumb className={sliderThumbClassName} />
-        </Slider.Root>
-        {/* <input
+        <input
           id="opacitySlider"
           type="range"
           min="0"
           max="1"
           step="0.1"
           value={opacity}
-          
-          className="w-40"
-        /> */}
+          onChange={(e) => setOpacity(parseFloat(e.target.value))}
+          className="-mt-16 w-40"
+        />
         <span>{opacity.toFixed(1)}</span>
-        <button className="" onClick={toggleEraserMode}>
+        <button className="-mt-16" onClick={toggleEraserMode}>
           {isEraser ? "Erasing" : "Drawing"}
         </button>
-        <button className="" onClick={clearStrokes}>
+        <button className="-mt-16" onClick={clearStrokes}>
           Clear
         </button>
       </div>
-      <section className="section-row-main section-key-value relative mb-8 max-h-full min-w-0">
-        <canvas
-          ref={canvasRef}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          className="absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2"
-        />
-        <canvas
-          ref={draftCanvasRef}
-          className="pointer-events-none absolute z-10 h-auto max-h-full w-full self-center "
-        />
-      </section>
-    </>
+
+      <canvas
+        ref={canvasRef}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        className="absolute left-0 top-0 h-full w-full border border-gray-300"
+      />
+      <canvas
+        ref={draftCanvasRef}
+        className="pointer-events-none absolute left-0 top-0 z-10 h-full w-full border border-gray-300"
+      />
+    </div>
   );
 }
 
