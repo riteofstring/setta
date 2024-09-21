@@ -1,7 +1,10 @@
 import { ParentSize } from "@visx/responsive";
 import { LineChart } from "components/Utils/Charts/LineChart";
 import React, { useEffect } from "react";
-import { setSectionSize } from "state/actions/sections/setters";
+import {
+  setAspectRatioInfo,
+  setSectionSize,
+} from "state/actions/sections/setters";
 import { useArtifactData } from "state/hooks/artifacts";
 import {
   getMinSectionHeight,
@@ -74,6 +77,11 @@ function OneImg({ sectionId, img }) {
     const sectionHeaderHeight = 28;
     adjustedSize.height += sectionHeaderHeight;
     setSectionSize(sectionId, adjustedSize);
+    setAspectRatioInfo({
+      sectionId,
+      aspectRatio: size.width / size.height,
+      aspectRatioExtraHeight: sectionHeaderHeight,
+    });
   }
 
   useEffect(() => {

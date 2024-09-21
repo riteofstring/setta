@@ -5,6 +5,7 @@ import {
 } from "requests/sections";
 import { initializeChildParams } from "state/actions/initializeParam";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { getParamSweepSectionName } from "utils/sectionTypeHelpers";
 import { getSectionInfo } from "../../getters/sectionInfo";
@@ -137,4 +138,18 @@ export async function createCodeInfoChildren({
     setNotificationMessage("No parameters found");
   }
   setToNotWaiting();
+}
+
+export function setAspectRatioInfo({
+  sectionId,
+  aspectRatio,
+  aspectRatioExtraHeight,
+  aspectRatioExtraWidth,
+}) {
+  useSectionInfos.setState((x) => {
+    const s = x.x[sectionId];
+    s.aspectRatio = aspectRatio;
+    s.aspectRatioExtraHeight = aspectRatioExtraHeight;
+    s.aspectRatioExtraWidth = aspectRatioExtraWidth;
+  });
 }

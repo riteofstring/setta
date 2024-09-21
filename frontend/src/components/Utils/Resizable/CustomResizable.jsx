@@ -1,24 +1,16 @@
 import C from "constants/constants.json";
 import { useDndMode } from "forks/dnd-kit/dndState";
+import _ from "lodash";
 import { setSectionResizeEvent } from "state/actions/sections/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useSectionInfos } from "state/definitions";
-import { useArtifactIsImg } from "state/hooks/artifacts";
 import {
   useMaxSectionWidth,
   useMinSectionHeight,
   useMinSectionWidth,
 } from "state/hooks/sectionSizes";
-import {
-  useIsTwitter,
-  useIsYouTube,
-  youtubeSectionAspectRatio,
-} from "state/hooks/social";
-import {
-  useGetSectionType,
-  useIsArtifact,
-  useIsDrawArea,
-} from "state/hooks/uiTypes";
+import { useIsTwitter } from "state/hooks/social";
+import { useGetSectionType } from "state/hooks/uiTypes";
 import { MINIMIZE_SECTION_HEIGHT } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getNewSize, SIZE_MODE } from "./utils";
@@ -58,7 +50,8 @@ function CustomResizableCore({
       ? { width: s.size.width, height: MINIMIZE_SECTION_HEIGHT }
       : s.size;
   });
-  const aspectRatio = useAspectRatio(sectionId);
+  const { aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
+    useAspectRatio(sectionId);
 
   function onResizeStart() {
     setSectionResizeEvent({ sectionId, resizeEvent: "start" });
@@ -103,6 +96,8 @@ function CustomResizableCore({
       onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
       lockAspectRatio={aspectRatio}
+      lockAspectRatioExtraHeight={aspectRatioExtraHeight}
+      lockAspectRatioExtraWidth={aspectRatioExtraWidth}
       handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={enable}
       className={inputClasses}
@@ -127,12 +122,12 @@ function useSizeMode(sectionId) {
 }
 
 function useAspectRatio(sectionId) {
-  const isYouTube = useIsYouTube(sectionId);
-  const isDrawArea = useIsDrawArea(sectionId);
-  const isArtifactArea = useIsArtifact(sectionId);
-  const artifactIsImg = useArtifactIsImg(sectionId);
-  if (isYouTube) {
-    return youtubeSectionAspectRatio;
-  }
-  return isDrawArea || (isArtifactArea && artifactIsImg);
+  return useSectionInfos((x) => {
+    const s = x.x[sectionId];
+    return {
+      aspectRatio: s.aspectRatio ?? false,
+      aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
+      aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,
+    };
+  }, _.isEqual);
 }
