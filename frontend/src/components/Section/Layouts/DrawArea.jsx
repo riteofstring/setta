@@ -318,9 +318,9 @@ export function DrawOnImage({ sectionId }) {
             arrowClasses="fill-white dark:fill-setta-800"
             inputClasses="rounded-lg"
             trigger={
-              <buttom className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+              <button className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
-              </buttom>
+              </button>
             }
             header={"Brush Settings"}
           />
@@ -329,9 +329,17 @@ export function DrawOnImage({ sectionId }) {
           <button className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
             <i className="gg-erase" />
           </button>
-          <buttom className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
-            <i className="gg-chevron-down" />
-          </buttom>
+          <StandardPopover
+            popoverContent="things"
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
+            trigger={
+              <button className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+                <i className="gg-chevron-down" />
+              </button>
+            }
+            header={"Brush Settings"}
+          />
         </div>
 
         <button
