@@ -22,7 +22,7 @@ class TextFieldInitializeCodeContent(BaseModel):
     paramInfoId: str | None
 
 
-async def _textFieldInitializeCode(message, lsp_writer):
+async def _textFieldInitializeCode(message):
     message = TextFieldInitializeCodeContent.parse_obj(message.content)
     project = message.project
     exporter_obj = export_selected(project, always_export_args_objs=True)
@@ -58,10 +58,6 @@ async def _textFieldInitializeCode(message, lsp_writer):
 
     print("code\n", code, flush=True)
 
-    await lsp_writer.send_document_open_request(
-        project["projectConfig"]["id"], code, codeJson
-    )
-
     return {
         "content": None,
         "cache": [
@@ -94,5 +90,4 @@ textFieldInitializeCode = TaskDefinition(
     fn=_textFieldInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
 )

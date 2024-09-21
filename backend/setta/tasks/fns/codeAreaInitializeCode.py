@@ -16,7 +16,7 @@ class CodeAreaInitializeCodeContent(BaseModel):
     sectionId: str
 
 
-async def _codeAreaInitializeCode(message, lsp_writer):
+async def _codeAreaInitializeCode(message):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
     code = get_section_code(project, message.sectionId)
@@ -52,10 +52,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
 
     print("code", code, flush=True)
 
-    await lsp_writer.send_document_open_request(
-        project["projectConfig"]["id"], code, codeJson=codeJson
-    )
-
     return {
         "content": True,
         "cache": [
@@ -88,5 +84,4 @@ codeAreaInitializeCode = TaskDefinition(
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
 )
