@@ -84,5 +84,9 @@ function CodeLanguageIcon({ sectionId, classes }) {
 
 function ListElementIcon({ sectionId }) {
   const idx = useListElementIdx(sectionId);
-  return `[${idx}]`;
+  return (
+    <p className="group/card-section:hover:bg font-mono text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]">
+      [{idx}]
+    </p>
+  );
 }
