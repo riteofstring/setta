@@ -44,7 +44,7 @@ def export_section_variant(folder, config, section_id, variant):
     if output:
         os.makedirs(folder, exist_ok=True)
         with open(folder / f"{variant_name}.yaml", "w") as file:
-            yaml.dump(output, file, allow_unicode=True)
+            yaml.dump_all(output, file, allow_unicode=True)
 
     if variant["code"]:
         os.makedirs(folder, exist_ok=True)
@@ -58,7 +58,10 @@ def export_section_variant(folder, config, section_id, variant):
 
 def get_section_variant_representation(config, variant):
     if len(variant["children"]) > 0:
-        return [config["sections"][c]["name"] for c in variant["children"]]
+        metadata = {
+            "children": [config["sections"][c]["name"] for c in variant["children"]]
+        }
+        return [metadata, {}]
 
     output = {}
     codeInfo = config["codeInfo"]
@@ -75,7 +78,12 @@ def get_section_variant_representation(config, variant):
             continue
         curr_dict[paramName] = value
 
-    return output
+    selectedItem = variant["selectedItem"]
+    metadata = {
+        "selectedItem": codeInfo[selectedItem]["name"] if selectedItem else None
+    }
+
+    return [metadata, output]
 
 
 def get_parameter_ancestors(id, codeInfo, ancestors):
