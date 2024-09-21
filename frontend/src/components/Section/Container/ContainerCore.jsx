@@ -24,12 +24,13 @@ function _Container({
   }
 
   const commonProps = { ref: totalRef, ...trueDragListeners };
+  const width = !hasNested ? "min-w-[298px]" : "";
 
   // transition-all active:shadow-lg
   if (isDeck) {
     return (
       <div
-        className={`flex min-w-[298px] flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
+        className={`flex ${width} flex-col items-stretch px-6 pb-6 pt-3  ${className}`}
         {...commonProps}
         onContextMenu={(e) => openDeckContextMenu(e, sectionId)}
       >
