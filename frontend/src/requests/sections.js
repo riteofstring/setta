@@ -3,6 +3,7 @@ import {
   findRefs,
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
+import _ from "lodash";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useKeywordRegex, useProjectConfig } from "state/definitions";
@@ -18,6 +19,8 @@ export function dbRequestTypeCheck() {
     messageType: "typeCheck",
   });
 }
+
+export const debouncedTypeCheckRequest = _.debounce(dbRequestTypeCheck, 500);
 
 export async function dbSectionToDict(sectionId, pinnedIds, unpinnedIds) {
   const project = getProjectDataToGenerateCode({});

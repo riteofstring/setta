@@ -11,7 +11,6 @@ from setta.code_gen.python.generate_code import (
 from setta.code_gen.utils import process_refs
 from setta.tasks.fns.textFieldInitializeCode import get_cache_key
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import USER_SETTINGS
 
 from .utils import TaskDefinition
 
@@ -89,7 +88,6 @@ async def completionHelper(message, fn):
         templatedCode,
         var_name,
         var_name_to_line_num,
-        inferImports=USER_SETTINGS["inferImports"],
     )
 
     line_within_fullText, column = position_to_line_col(fullText, position)

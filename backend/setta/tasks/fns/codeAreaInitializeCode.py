@@ -6,7 +6,7 @@ from setta.code_gen.export_selected import export_selected, get_section_code
 from setta.code_gen.find_placeholders import needs_generated_python
 from setta.code_gen.python.generate_code import generate_code, replace_keywords
 from setta.tasks.task_runner import RunType
-from setta.utils.constants import USER_SETTINGS, C
+from setta.utils.constants import C
 
 from .utils import TaskDefinition
 
@@ -16,7 +16,7 @@ class CodeAreaInitializeCodeContent(BaseModel):
     sectionId: str
 
 
-async def _codeAreaInitializeCode(message, lsp_writer):
+async def _codeAreaInitializeCode(message):
     message = CodeAreaInitializeCodeContent.parse_obj(message.content)
     project = message.project
     code = get_section_code(project, message.sectionId)
@@ -33,7 +33,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
             codeJson,
             code,
             replace_templated_code=False,
-            inferImports=USER_SETTINGS["inferImports"],
         )
         generated_var_names = var_name_to_line_num.keys()
         infoToFullName = {
@@ -51,10 +50,6 @@ async def _codeAreaInitializeCode(message, lsp_writer):
     code = replace_keywords(code, {C.SETTA_GENERATED_PYTHON: gen_code})
 
     print("code", code, flush=True)
-
-    await lsp_writer.send_document_open_request(
-        project["projectConfig"]["id"], code, codeJson=codeJson
-    )
 
     return {
         "content": True,
@@ -88,5 +83,4 @@ codeAreaInitializeCode = TaskDefinition(
     fn=_codeAreaInitializeCode,
     write_cache=write_cache,
     run_as=RunType.THREAD,
-    server_dependencies=["lsp_writer"],
 )
