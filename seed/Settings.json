@@ -32,5 +32,6 @@
   "autosave": false,
   "autobackup": false,
   "autobackupFreq": 300,
-  "autobackupKeepLastN": 10 
+  "autobackupKeepLastN": 10,
+  "leftSidePaneShiftsMap": true 
 }
