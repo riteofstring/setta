@@ -20,7 +20,6 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
 
 const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 147;
-const SECTION_SIZE_CANVAS_WIDTH_DIFF = 16;
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
