@@ -1,101 +1,74 @@
 import os
-from collections import defaultdict
 from pathlib import Path
 
 import yaml
-from yaml.representer import Representer
 
-from setta.code_gen.export_selected import get_section_name, get_section_variants
-from setta.database.db.projects.load import load_full_project
+from setta.code_gen.export_selected import (
+    export_section_to_dict,
+    get_param_ids,
+    get_section_children,
+    get_section_code,
+    get_section_name,
+    get_section_type,
+    get_section_variants,
+    get_selected_item_name,
+)
 from setta.utils.constants import C
+
+from .utils import get_configs_and_root_folder
 
 
 def export_readable(dbs, filename):
-    # export defaultdict the same way as dict
-    yaml.add_representer(defaultdict, Representer.represent_dict)
-
-    configs = load_full_project(dbs)
-    # merge sectionConfigs into sections
+    configs, root_folder = get_configs_and_root_folder(dbs, filename)
     for c in configs:
-        for k, v in c["sections"].items():
-            c["sections"][k] = {**v, **c["sectionConfigs"][k]}
-
-    root_folder = Path(f"{filename}_export")
-    for c in configs:
-        export_config(root_folder, c)
+        export_config(root_folder / "clean", c)
 
 
 def export_config(folder, config):
     config_folder = Path(folder) / config["projectConfig"]["name"]
-    for k in config["sections"].keys():
+    for k in config["projectConfig"]["children"].keys():
         export_section(config_folder, config, k)
 
 
 def export_section(folder, config, section_id):
-    section_folder = folder / get_section_name(config, section_id)
-    variants = get_section_variants(config, section_id)
-    for v in variants:
-        export_section_variant(section_folder, config, section_id, v)
-
-
-def export_section_variant(folder, config, section_id, variant):
-    output = get_section_variant_representation(config, variant)
-    variant_name = variant["name"]
-    if output:
-        os.makedirs(folder, exist_ok=True)
-        with open(folder / f"{variant_name}.yaml", "w") as file:
-            yaml.dump_all(output, file, allow_unicode=True)
-
-    if variant["code"]:
-        os.makedirs(folder, exist_ok=True)
+    section_name = get_section_name(config, section_id)
+    stype = get_section_type(config, section_id)
+    if stype in [C.INTERACTIVE_CODE, C.CODE]:
+        code = get_section_code(config, section_id)
         export_code(
-            folder,
-            variant_name,
-            variant["code"],
-            config["sections"][section_id]["codeLanguage"],
+            folder, section_name, code, config["sections"][section_id]["codeLanguage"]
         )
+    elif stype in [C.SECTION, C.LIST_ROOT, C.DICT_ROOT, C.DECK]:
+        output = get_section_as_dict(config, section_id)
+        os.makedirs(folder, exist_ok=True)
+        with open(folder / f"{section_name}.yaml", "w") as file:
+            yaml.dump(output, file, allow_unicode=True)
 
 
-def get_section_variant_representation(config, variant):
-    if len(variant["children"]) > 0:
-        metadata = {
-            "children": [config["sections"][c]["name"] for c in variant["children"]]
-        }
-        return [metadata, {}]
-
-    output = {}
-    codeInfo = config["codeInfo"]
-    for codeInfoId, valueInfo in variant["values"].items():
-        value = valueInfo["value"]
-        paramName = codeInfo[codeInfoId]["name"]
-        ancestor_names = get_parameter_ancestors(codeInfoId, codeInfo, [])
-        curr_dict = output
-        for name in ancestor_names[::-1]:
-            if name not in curr_dict:
-                curr_dict[name] = {}
-            curr_dict = curr_dict[name]
-        if isinstance(curr_dict.get(paramName), dict):
-            continue
-        curr_dict[paramName] = value
-
-    selectedItem = variant["selectedItem"]
-    metadata = {
-        "selectedItem": codeInfo[selectedItem]["name"] if selectedItem else None
-    }
-
-    return [metadata, output]
-
-
-def get_parameter_ancestors(id, codeInfo, ancestors):
-    for c in codeInfo.values():
-        if id in c["children"] and c["rcType"] != C.COLLECTION:
-            ancestors.append(c["name"])
-            get_parameter_ancestors(c["id"], codeInfo, ancestors)
-    return ancestors
-
-
-def export_code(folder, variant_name, code, codeLanguage):
-    filename = folder / variant_name
+def export_code(folder, name, code, codeLanguage):
+    os.makedirs(folder, exist_ok=True)
+    filename = folder / name
     extension = {"javascript": "js", "python": "py", "bash": "sh"}[codeLanguage]
     with open(f"{filename}.{extension}", "w") as file:
         file.write(code)
+
+
+def get_section_as_dict(config, section_id):
+    children = get_section_children(config, section_id)
+    stype = get_section_type(config, section_id)
+    if len(children) > 0:
+        if stype == C.LIST_ROOT:
+            return [get_section_as_dict(config, c) for c in children]
+        elif stype in [C.DICT_ROOT, C.DECK]:
+            return {
+                get_section_name(config, c): get_section_as_dict(config, c)
+                for c in children
+            }
+    else:
+        selected_item_name = get_selected_item_name(config, section_id)
+        param_ids = get_param_ids(config, section_id)
+        param_dict = export_section_to_dict(config, section_id, param_ids).prettyOutput
+        param_dict = {k: v for k, v in param_dict.items() if v}
+        if selected_item_name:
+            param_dict["_target_"] = selected_item_name
+        return param_dict

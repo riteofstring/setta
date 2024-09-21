@@ -1,6 +1,7 @@
 import os
 
 from ..db_objs import create_dbs_with_input_as_default
+from .export_all_variants_readable import export_all_variants_readable
 from .export_raw import export_raw
 from .export_readable import export_readable
 
@@ -8,6 +9,7 @@ from .export_readable import export_readable
 def _export_database(dbs, filename):
     export_raw(dbs, filename)
     export_readable(dbs, filename)
+    export_all_variants_readable(dbs, filename)
 
 
 def export_database(path):

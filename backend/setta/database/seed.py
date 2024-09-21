@@ -8,11 +8,15 @@ from .db.projects.save import save_project_details
 from .db.uiTypes.save import save_ui_types
 
 
-def seed_base_ui_types(dbs):
+def load_base_ui_types():
     with open(
         get_absolute_path(__file__, CONSTANTS_FOLDER / "BaseUITypes.json"), "r"
     ) as f:
-        data = json.load(f)
+        return json.load(f)
+
+
+def seed_base_ui_types(dbs):
+    data = load_base_ui_types()
     save_ui_types(dbs, data)
 
 

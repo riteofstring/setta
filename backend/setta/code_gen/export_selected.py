@@ -44,13 +44,9 @@ def get_selected_item_name(p, id):
 
 def get_param_ids(p, id):
     selected_item = get_selected_item(p, id)
-    return get_param_ids_given_selected_item(p, id, selected_item)
-
-
-def get_param_ids_given_selected_item(p, section_id, selected_item):
     if selected_item:
         return selected_item["children"]
-    collection_id = p["sections"][section_id]["codeInfoId"]
+    collection_id = p["sections"][id]["codeInfoId"]
     return p["codeInfo"][collection_id]["children"]
 
 
@@ -115,7 +111,7 @@ def simple_export_selected(p):
     return e
 
 
-def export_section_to_dict(p, section_id, topLevelParamIds, requiredParamIds):
+def export_section_to_dict(p, section_id, topLevelParamIds, requiredParamIds=None):
     e = SectionToDict(p, section_id, topLevelParamIds, requiredParamIds)
     e.export()
     return e
@@ -483,13 +479,13 @@ class SimpleExporter:
 
 
 class SectionToDict:
-    def __init__(self, p, section_id, topLevelParamIds, requiredParamIds):
+    def __init__(self, p, section_id, topLevelParamIds, requiredParamIds=None):
         self.output = {}
         self.prettyOutput = {}
         self.p = copy.deepcopy(p)
         self.section_id = section_id
         self.topLevelParamIds = topLevelParamIds
-        self.requiredParamIds = set(requiredParamIds)
+        self.requiredParamIds = set(requiredParamIds) if requiredParamIds else None
 
     def export(self):
         self.output, self.prettyOutput = self.export_params(self.topLevelParamIds)
@@ -498,7 +494,10 @@ class SectionToDict:
         params = {}
         prettyParams = {}
         for param_id in ids:
-            if param_id not in self.requiredParamIds:
+            if (
+                self.requiredParamIds is not None
+                and param_id not in self.requiredParamIds
+            ):
                 continue
             codeInfo = self.p["codeInfo"][param_id]
             param_name = codeInfo["name"]
