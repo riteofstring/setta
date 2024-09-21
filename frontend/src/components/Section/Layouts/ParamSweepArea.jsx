@@ -27,7 +27,7 @@ function _ParamSweepArea({ sectionId }) {
 
   return (
     <>
-      <div className="section-main-full-w ml-1.5 flex flex-col gap-4 overflow-y-scroll">
+      <div className="section-main-full-w ml-1.5 flex flex-col gap-6 overflow-y-scroll">
         {paramSweep.map((sweep) => (
           <ParamSweepForOneSelectedItem
             key={sweep.selectedItem}
@@ -37,8 +37,8 @@ function _ParamSweepArea({ sectionId }) {
             paramSweepId={paramSweepId}
           />
         ))}
-        <button className="mb-1 flex cursor-pointer items-center justify-center gap-0.5 rounded-xl bg-setta-200/30 px-3 py-1 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
-          <i className="gg-add-r -ml-3" />
+        <button className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+          <i className="gg-play-list-add !scale-75" />
           <p>Callable</p>
         </button>
       </div>
@@ -213,12 +213,16 @@ function PlaceholderArgItem({ paramSweepId, objInfoId, alreadySelected }) {
 
   return (
     thereAreRemainingIds && (
-      <ParamCombobox
-        objInfoId={objInfoId}
-        paramInfoId={null}
-        onSelectedItemChange={onSelectedItemChange}
-        alreadySelected={alreadySelected}
-      />
+      <button className="section-w-full mt-1 flex cursor-pointer items-center justify-center  gap-0.5 rounded-xl bg-setta-200/30 px-3 py-1 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
+        <i className="gg-add-r -ml-3" />
+        <p>Param</p>
+      </button>
+      // <ParamCombobox
+      //   objInfoId={objInfoId}
+      //   paramInfoId={null}
+      //   onSelectedItemChange={onSelectedItemChange}
+      //   alreadySelected={alreadySelected}
+      // />
     )
   );
 }
