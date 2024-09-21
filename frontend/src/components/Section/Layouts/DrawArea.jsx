@@ -19,7 +19,8 @@ import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
 
-const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 140;
+const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 139;
+const SECTION_SIZE_CANVAS_WIDTH_DIFF = 24;
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -66,11 +67,11 @@ export function DrawOnImage({ sectionId }) {
         canvas.width = image.width;
         canvas.height = image.height;
         setSectionSize(sectionId, {
-          width: image.width,
+          width: image.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
           height: image.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
       } else {
-        canvas.width = width;
+        canvas.width = width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
         canvas.height = height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
       }
 
@@ -90,14 +91,17 @@ export function DrawOnImage({ sectionId }) {
       ctx.globalCompositeOperation = "source-over";
     } else {
       const [defaultWidth, defaultHeight] = [500, 500];
-      canvas.width = width === "auto" ? defaultWidth : width;
+      canvas.width =
+        width === "auto"
+          ? defaultWidth
+          : width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
       canvas.height =
         height === "auto"
           ? defaultHeight
           : height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
       if (width === "auto" || height === "auto") {
         setSectionSize(sectionId, {
-          width: canvas.width,
+          width: canvas.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
           height: canvas.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
       }
@@ -141,6 +145,7 @@ export function DrawOnImage({ sectionId }) {
           sectionId,
           aspectRatio: imageRef.current.width / imageRef.current.height,
           aspectRatioExtraHeight: SECTION_SIZE_CANVAS_HEIGHT_DIFF,
+          aspectRatioExtraWidth: SECTION_SIZE_CANVAS_WIDTH_DIFF,
         });
       } else if (v.type === "brushStrokes") {
         strokesRef.current = _.cloneDeep(v.value);
