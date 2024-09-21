@@ -2,6 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useSectionInfos, useUITypeCols, useUITypes } from "state/definitions";
 import {
+  BASE_UI_TYPE_IDS,
   DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
@@ -19,7 +20,18 @@ export function useGetParamUIType(sectionId, paramInfoId) {
 
 function useUITypeCol(sectionId, paramInfoId, key) {
   const uiTypeColId = useGetSectionInfo(sectionId, "uiTypeColId");
-  return useUITypeCols((x) => x.y[uiTypeColId][paramInfoId][key]);
+  return useUITypeCols((x) => {
+    if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
+      if (key === "uiTypeId") {
+        return BASE_UI_TYPE_IDS[C.TEXT];
+      } else if (key === "nonPresetUITypeIds") {
+        return [];
+      } else {
+        console.error("unexpected key in useUITypeCol", key);
+      }
+    }
+    return x.y[uiTypeColId][paramInfoId][key];
+  });
 }
 
 function useParamUITypeId(sectionId, paramInfoId) {

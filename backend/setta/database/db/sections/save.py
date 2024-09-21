@@ -14,6 +14,7 @@ def save_sections(dbs, sections):
             codeLanguage,
             isFrozen,
             dbSource,
+            jsonSource,
             codeInfoId,
             hideUnpinnedParams,
             showYaml
@@ -28,6 +29,7 @@ def save_sections(dbs, sections):
             :codeLanguage,
             :isFrozen,
             :dbSource,
+            :jsonSource,
             :codeInfoId,
             :hideUnpinnedParams,
             :showYaml
@@ -42,6 +44,7 @@ def save_sections(dbs, sections):
             codeLanguage = :codeLanguage,
             isFrozen = :isFrozen,
             dbSource = :dbSource,
+            jsonSource = :jsonSource,
             codeInfoId = :codeInfoId,
             hideUnpinnedParams = :hideUnpinnedParams,
             showYaml = :showYaml
@@ -58,6 +61,7 @@ def save_sections(dbs, sections):
             "codeLanguage": s["codeLanguage"],
             "isFrozen": s["isFrozen"],
             "dbSource": s.get("dbSource"),
+            "jsonSource": s.get("jsonSource"),
             "codeInfoId": s["codeInfoId"],
             "hideUnpinnedParams": s["hideUnpinnedParams"],
             "showYaml": s["showYaml"],

@@ -3,6 +3,9 @@ import itertools
 import json
 from collections import defaultdict
 
+from setta.database.seed import load_base_ui_types
+from setta.utils.constants import C
+
 from ..paramSweeps.load import load_param_sweeps
 from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
@@ -229,3 +232,29 @@ def load_artifact_metadata(dbs, section_id, artifact_paths):
             curr_output["value"] = json.loads(curr_output["value"])
         output.append(curr_output)
     return output
+
+
+def load_json_sources(sections, codeInfo, sectionVariants):
+    jsonSourceData = {}
+    for id, s in sections.items():
+        if s["jsonSource"]:
+            with open(s["jsonSource"], "r") as f:
+                jsonSourceData[id] = json.load(f)
+
+    for sectionId, jsonSource in jsonSourceData.items():
+        s = sections[sectionId]
+        collection_id = s["codeInfoId"]
+        for k, v in jsonSource.items():
+            key = f"{C.JSON_SOURCE_PREFIX}{sectionId}-{k}"
+            codeInfo[collection_id]["children"].append(key)
+            codeInfo[key] = {
+                "id": key,
+                "name": k,
+                "rcType": C.PARAMETER,
+                "children": [],
+            }
+            for variantId in s["variantIds"]:
+                sectionVariants["default"][variantId]["values"][key] = {
+                    "value": v,
+                    "keywordPositions": [],
+                }

@@ -841,7 +841,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["9b39ad4c-8887-43ea-b759-a1fc067ac3ef"],
+      "variantIds": [
+        "9b39ad4c-8887-43ea-b759-a1fc067ac3ef"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -853,7 +855,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba": {
       "id": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
@@ -885,7 +888,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "45ee78a4-2ad3-4541-8a65-87a21a798887": {
       "id": "45ee78a4-2ad3-4541-8a65-87a21a798887",
@@ -902,7 +906,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["e3280349-7dda-43f6-9cea-0b98971435a5"],
+      "variantIds": [
+        "e3280349-7dda-43f6-9cea-0b98971435a5"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -914,7 +920,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861": {
       "id": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
@@ -931,7 +938,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["9083beca-25c9-4a31-885a-fb19064efd3d"],
+      "variantIds": [
+        "9083beca-25c9-4a31-885a-fb19064efd3d"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -943,7 +952,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "56f3ff00-5aa3-4251-9720-d210908bc0b8": {
       "id": "56f3ff00-5aa3-4251-9720-d210908bc0b8",
@@ -960,7 +970,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["380a6d0c-a96e-48f1-b431-074c7e98eed9"],
+      "variantIds": [
+        "380a6d0c-a96e-48f1-b431-074c7e98eed9"
+      ],
       "paramSweepIds": [],
       "artifacts": [
         {
@@ -978,7 +990,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "5d1b3653-766a-4290-9da5-1cdee8f54c24": {
       "id": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
@@ -1010,7 +1023,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "67c603f7-a536-4603-83b3-0b882ee098b2": {
       "id": "67c603f7-a536-4603-83b3-0b882ee098b2",
@@ -1027,7 +1041,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["645069e7-0657-4c2e-9128-88c701bbd069"],
+      "variantIds": [
+        "645069e7-0657-4c2e-9128-88c701bbd069"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -1039,7 +1055,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "70355b9b-16ab-462f-8cfc-f23e2399ec1e": {
       "id": "70355b9b-16ab-462f-8cfc-f23e2399ec1e",
@@ -1056,7 +1073,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["4c9bee35-38ab-471e-873d-62e1233eeaaf"],
+      "variantIds": [
+        "4c9bee35-38ab-471e-873d-62e1233eeaaf"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -1068,7 +1087,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "93b410c0-33e9-4d66-95be-37d223d99c0a": {
       "id": "93b410c0-33e9-4d66-95be-37d223d99c0a",
@@ -1085,7 +1105,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["dbb76902-0b6c-46fa-a765-46bdfcf92d92"],
+      "variantIds": [
+        "dbb76902-0b6c-46fa-a765-46bdfcf92d92"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -1097,7 +1119,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7": {
       "id": "a335d03f-1d35-4daf-8f3c-f0e5cf85fed7",
@@ -1114,7 +1137,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["10ea5acf-9c24-4351-bc81-252625623507"],
+      "variantIds": [
+        "10ea5acf-9c24-4351-bc81-252625623507"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -1126,7 +1151,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3": {
       "id": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
@@ -1158,7 +1184,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "baf34852-dfdb-4a2f-850a-6c903acbf1f5": {
       "id": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
@@ -1175,7 +1202,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["756e7bb0-ac13-4790-a05c-f10425d508e9"],
+      "variantIds": [
+        "756e7bb0-ac13-4790-a05c-f10425d508e9"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -1187,7 +1216,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "c68c5feb-6ca2-487b-870d-3e4415700797": {
       "id": "c68c5feb-6ca2-487b-870d-3e4415700797",
@@ -1204,7 +1234,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["56758b16-1bb1-4167-852c-321b23cfce38"],
+      "variantIds": [
+        "56758b16-1bb1-4167-852c-321b23cfce38"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": false,
@@ -1216,7 +1248,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d": {
       "id": "d20ca8b6-ddbc-4fe2-a9d3-9082a3700f5d",
@@ -1233,7 +1266,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["8481e81d-f417-4914-b5d8-2797202392ab"],
+      "variantIds": [
+        "8481e81d-f417-4914-b5d8-2797202392ab"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -1245,7 +1280,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91": {
       "id": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
@@ -1262,7 +1298,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["c58d323d-382a-47b2-919f-a7f06bcac760"],
+      "variantIds": [
+        "c58d323d-382a-47b2-919f-a7f06bcac760"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -1274,7 +1312,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     },
     "fa8f5823-fd6b-43f0-a2df-a47e821de0de": {
       "id": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
@@ -1291,7 +1330,9 @@
       "hideUnpinnedParams": 0,
       "showYaml": 0,
       "nonPresetUITypeIds": [],
-      "variantIds": ["a853185e-5b0d-400a-a94c-6c14a9c9809e"],
+      "variantIds": [
+        "a853185e-5b0d-400a-a94c-6c14a9c9809e"
+      ],
       "paramSweepIds": [],
       "artifacts": [],
       "isInOtherProjectConfigs": true,
@@ -1303,7 +1344,8 @@
       "paramSweepId": null,
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
-      "isMinimized": 0
+      "isMinimized": 0,
+      "jsonSource": ""
     }
   },
   "codeInfo": {
@@ -1357,7 +1399,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["3fdec365-9d3f-4f5b-94fe-75adbb767d08"]
+      "children": [
+        "3fdec365-9d3f-4f5b-94fe-75adbb767d08"
+      ]
     },
     "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac": {
       "id": "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac",
@@ -1457,7 +1501,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["10aeb934-d614-4b88-a15a-890c825860e1"]
+      "children": [
+        "10aeb934-d614-4b88-a15a-890c825860e1"
+      ]
     },
     "1d6897b7-3dae-4f8a-8729-068e11a36008": {
       "id": "1d6897b7-3dae-4f8a-8729-068e11a36008",
@@ -1613,7 +1659,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["0a62f48a-54e6-4871-afa6-95c09bc49d61"]
+      "children": [
+        "0a62f48a-54e6-4871-afa6-95c09bc49d61"
+      ]
     },
     "4cc2b16e-0946-44de-85e6-131ccc8dec41": {
       "id": "4cc2b16e-0946-44de-85e6-131ccc8dec41",
@@ -1817,7 +1865,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["b9bf393b-96d9-4264-ad9f-bad777e6777a"]
+      "children": [
+        "b9bf393b-96d9-4264-ad9f-bad777e6777a"
+      ]
     },
     "7a9b411c-e319-4813-8bf2-f341cf05df4a": {
       "id": "7a9b411c-e319-4813-8bf2-f341cf05df4a",
@@ -1921,7 +1971,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["4c97d0f4-0221-4640-b5c8-6067d47fc131"]
+      "children": [
+        "4c97d0f4-0221-4640-b5c8-6067d47fc131"
+      ]
     },
     "ad4803fd-0052-40ad-a83d-7c4bea0501ef": {
       "id": "ad4803fd-0052-40ad-a83d-7c4bea0501ef",
@@ -1934,7 +1986,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["c8a7d3aa-02d6-456c-8247-efc02bf86332"]
+      "children": [
+        "c8a7d3aa-02d6-456c-8247-efc02bf86332"
+      ]
     },
     "afd777fb-53e3-411c-a284-e7cb157e794e": {
       "id": "afd777fb-53e3-411c-a284-e7cb157e794e",
@@ -2057,7 +2111,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["50b81980-75f1-4de8-bb0d-5042c44ecbd2"]
+      "children": [
+        "50b81980-75f1-4de8-bb0d-5042c44ecbd2"
+      ]
     },
     "d015737a-8207-4d29-86bf-d3e80c8c6e72": {
       "id": "d015737a-8207-4d29-86bf-d3e80c8c6e72",
@@ -2070,7 +2126,9 @@
       "isPinned": 0,
       "isFrozen": 0,
       "keywordPositions": [],
-      "children": ["ea138acc-58d2-4cfb-a2db-b5c44061f10f"]
+      "children": [
+        "ea138acc-58d2-4cfb-a2db-b5c44061f10f"
+      ]
     },
     "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819": {
       "id": "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819",
@@ -2236,373 +2294,565 @@
     "__other_models[\"retail_olive\"][\"weights\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "3ab421e7-1f82-4baa-a0bc-44875bf13adc",
-      "componentIndices": [14, 30, 41],
+      "componentIndices": [
+        14,
+        30,
+        41
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"][\"progress\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "944abf2e-f5ec-47c7-9286-370faa75c3bf",
-      "componentIndices": [14, 30, 42],
+      "componentIndices": [
+        14,
+        30,
+        42
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"][\"num_classes\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "e5a2037f-60a7-4052-bb72-0763319f6000",
-      "componentIndices": [14, 30, 45],
+      "componentIndices": [
+        14,
+        30,
+        45
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"][\"zero_init_residual\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "ffeb5e40-5c66-4e31-a47a-6eac10385294",
-      "componentIndices": [14, 30, 52],
+      "componentIndices": [
+        14,
+        30,
+        52
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"][\"groups\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "d23a2f7f-017d-4afa-ac90-4ae3aeb2c819",
-      "componentIndices": [14, 30, 40],
+      "componentIndices": [
+        14,
+        30,
+        40
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"][\"width_per_group\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "5ca935ba-3c2e-4ebd-a647-bb2db0020e19",
-      "componentIndices": [14, 30, 49],
+      "componentIndices": [
+        14,
+        30,
+        49
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"][\"replace_stride_with_dilation\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "0a8a909f-4821-4880-81ac-373b1ce09084",
-      "componentIndices": [14, 30, 62],
+      "componentIndices": [
+        14,
+        30,
+        62
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"][\"norm_layer\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": "d7b84c56-ded8-4ec2-9742-81f6850c9cf8",
-      "componentIndices": [14, 30, 44],
+      "componentIndices": [
+        14,
+        30,
+        44
+      ],
       "isArgsObj": false
     },
     "other_models[\"retail_olive\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": null,
-      "componentIndices": [12, 28],
+      "componentIndices": [
+        12,
+        28
+      ],
       "isArgsObj": false
     },
     "__other_models[\"retail_olive\"]": {
       "sectionId": "3a91a3bc-a7be-42b7-86f8-7e8e07ca4bba",
       "paramInfoId": null,
-      "componentIndices": [14, 30],
+      "componentIndices": [
+        14,
+        30
+      ],
       "isArgsObj": true
     },
     "__other_models[\"unpleasant_jade\"][\"weights\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "47377fe6-a365-4540-bf8a-468788f754e0",
-      "componentIndices": [14, 33, 44],
+      "componentIndices": [
+        14,
+        33,
+        44
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"][\"progress\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "810b3251-8d80-42f2-b01a-e36ec47928f8",
-      "componentIndices": [14, 33, 45],
+      "componentIndices": [
+        14,
+        33,
+        45
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"][\"num_classes\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "b8036ace-03dd-4dc3-88c5-069957276d1d",
-      "componentIndices": [14, 33, 48],
+      "componentIndices": [
+        14,
+        33,
+        48
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"][\"zero_init_residual\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "fc3182cc-369b-4a19-811f-b5e8c6d182c3",
-      "componentIndices": [14, 33, 55],
+      "componentIndices": [
+        14,
+        33,
+        55
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"][\"groups\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "5efb2418-747c-4bba-b1b6-0d53cac2ab40",
-      "componentIndices": [14, 33, 43],
+      "componentIndices": [
+        14,
+        33,
+        43
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"][\"width_per_group\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "c26ed01f-d91a-4fa1-8ec8-cfa938b29c86",
-      "componentIndices": [14, 33, 52],
+      "componentIndices": [
+        14,
+        33,
+        52
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"][\"replace_stride_with_dilation\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "197c09ec-176b-4b63-99d5-94522b8fc6f3",
-      "componentIndices": [14, 33, 65],
+      "componentIndices": [
+        14,
+        33,
+        65
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"][\"norm_layer\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": "1642efb6-c5cd-41e1-b346-cacb44d43c87",
-      "componentIndices": [14, 33, 47],
+      "componentIndices": [
+        14,
+        33,
+        47
+      ],
       "isArgsObj": false
     },
     "other_models[\"unpleasant_jade\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": null,
-      "componentIndices": [12, 31],
+      "componentIndices": [
+        12,
+        31
+      ],
       "isArgsObj": false
     },
     "__other_models[\"unpleasant_jade\"]": {
       "sectionId": "b6fbf2f1-71ed-4475-932b-dbd5298bc1d3",
       "paramInfoId": null,
-      "componentIndices": [14, 33],
+      "componentIndices": [
+        14,
+        33
+      ],
       "isArgsObj": true
     },
     "other_models": {
       "sectionId": "04a2d718-6476-446f-bda7-4b7fc22f8972",
       "paramInfoId": null,
-      "componentIndices": [12],
+      "componentIndices": [
+        12
+      ],
       "isArgsObj": false
     },
     "__other_models": {
       "sectionId": "04a2d718-6476-446f-bda7-4b7fc22f8972",
       "paramInfoId": null,
-      "componentIndices": [14],
+      "componentIndices": [
+        14
+      ],
       "isArgsObj": true
     },
     "__transform[\"transforms\"]": {
       "sectionId": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
       "paramInfoId": "0a62f48a-54e6-4871-afa6-95c09bc49d61",
-      "componentIndices": [11, 25],
+      "componentIndices": [
+        11,
+        25
+      ],
       "isArgsObj": false
     },
     "transform": {
       "sectionId": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
       "paramInfoId": null,
-      "componentIndices": [9],
+      "componentIndices": [
+        9
+      ],
       "isArgsObj": false
     },
     "__transform": {
       "sectionId": "4ee1b89c-eafc-49fb-bbef-c5a9a86ae861",
       "paramInfoId": null,
-      "componentIndices": [11],
+      "componentIndices": [
+        11
+      ],
       "isArgsObj": true
     },
     "__list_of_transforms[0][\"size\"]": {
       "sectionId": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
       "paramInfoId": "3fdec365-9d3f-4f5b-94fe-75adbb767d08",
-      "componentIndices": [20, 23, 31],
+      "componentIndices": [
+        20,
+        23,
+        31
+      ],
       "isArgsObj": false
     },
     "list_of_transforms[0]": {
       "sectionId": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
       "paramInfoId": null,
-      "componentIndices": [18, 21],
+      "componentIndices": [
+        18,
+        21
+      ],
       "isArgsObj": false
     },
     "__list_of_transforms[0]": {
       "sectionId": "e0d1eae9-c10d-4ee2-8fe9-fe56d3f74b91",
       "paramInfoId": null,
-      "componentIndices": [20, 23],
+      "componentIndices": [
+        20,
+        23
+      ],
       "isArgsObj": true
     },
     "__list_of_transforms[1][\"mean\"]": {
       "sectionId": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
       "paramInfoId": "b6862dbf-ddfd-4465-b4e5-fdb6a3ebbab1",
-      "componentIndices": [20, 23, 31],
+      "componentIndices": [
+        20,
+        23,
+        31
+      ],
       "isArgsObj": false
     },
     "__list_of_transforms[1][\"std\"]": {
       "sectionId": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
       "paramInfoId": "4a447d64-aa9e-4fff-8b5c-a6a2ace04c25",
-      "componentIndices": [20, 23, 30],
+      "componentIndices": [
+        20,
+        23,
+        30
+      ],
       "isArgsObj": false
     },
     "__list_of_transforms[1][\"inplace\"]": {
       "sectionId": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
       "paramInfoId": "7a9b411c-e319-4813-8bf2-f341cf05df4a",
-      "componentIndices": [20, 23, 34],
+      "componentIndices": [
+        20,
+        23,
+        34
+      ],
       "isArgsObj": false
     },
     "list_of_transforms[1]": {
       "sectionId": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
       "paramInfoId": null,
-      "componentIndices": [18, 21],
+      "componentIndices": [
+        18,
+        21
+      ],
       "isArgsObj": false
     },
     "__list_of_transforms[1]": {
       "sectionId": "baf34852-dfdb-4a2f-850a-6c903acbf1f5",
       "paramInfoId": null,
-      "componentIndices": [20, 23],
+      "componentIndices": [
+        20,
+        23
+      ],
       "isArgsObj": true
     },
     "list_of_transforms": {
       "sectionId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
       "paramInfoId": null,
-      "componentIndices": [18],
+      "componentIndices": [
+        18
+      ],
       "isArgsObj": false
     },
     "__list_of_transforms": {
       "sectionId": "5d1b3653-766a-4290-9da5-1cdee8f54c24",
       "paramInfoId": null,
-      "componentIndices": [20],
+      "componentIndices": [
+        20
+      ],
       "isArgsObj": true
     },
     "graceful_cyan": {
       "sectionId": "67c603f7-a536-4603-83b3-0b882ee098b2",
       "paramInfoId": null,
-      "componentIndices": [13],
+      "componentIndices": [
+        13
+      ],
       "isArgsObj": false
     },
     "__graceful_cyan": {
       "sectionId": "67c603f7-a536-4603-83b3-0b882ee098b2",
       "paramInfoId": null,
-      "componentIndices": [15],
+      "componentIndices": [
+        15
+      ],
       "isArgsObj": true
     },
     "minor_tomato": {
       "sectionId": "70355b9b-16ab-462f-8cfc-f23e2399ec1e",
       "paramInfoId": null,
-      "componentIndices": [12],
+      "componentIndices": [
+        12
+      ],
       "isArgsObj": false
     },
     "__minor_tomato": {
       "sectionId": "70355b9b-16ab-462f-8cfc-f23e2399ec1e",
       "paramInfoId": null,
-      "componentIndices": [14],
+      "componentIndices": [
+        14
+      ],
       "isArgsObj": true
     },
     "__optimizer[\"params\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "f807b59d-a434-41b6-a54c-9b35ffb61c8d",
-      "componentIndices": [11, 21],
+      "componentIndices": [
+        11,
+        21
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"lr\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "6c3fae29-caa1-4650-a2c4-7a1b1a816929",
-      "componentIndices": [11, 17],
+      "componentIndices": [
+        11,
+        17
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"betas\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "0472a28a-cc7b-42e7-8628-173a7b953214",
-      "componentIndices": [11, 20],
+      "componentIndices": [
+        11,
+        20
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"eps\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "4cc2b16e-0946-44de-85e6-131ccc8dec41",
-      "componentIndices": [11, 18],
+      "componentIndices": [
+        11,
+        18
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"weight_decay\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "44a300eb-c969-41fc-95e4-dcf3a5716d6e",
-      "componentIndices": [11, 27],
+      "componentIndices": [
+        11,
+        27
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"amsgrad\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "6553f807-4fc6-40d2-9df1-990bf1b094f5",
-      "componentIndices": [11, 22],
+      "componentIndices": [
+        11,
+        22
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"foreach\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "31d94ca2-5b68-41f5-8380-ad62348ef1b0",
-      "componentIndices": [11, 22],
+      "componentIndices": [
+        11,
+        22
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"maximize\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "d9a35253-835b-425d-abdf-2a678ddc1924",
-      "componentIndices": [11, 23],
+      "componentIndices": [
+        11,
+        23
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"capturable\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "13df1e1a-b6a6-49e5-bd57-992a5bcdd4ac",
-      "componentIndices": [11, 25],
+      "componentIndices": [
+        11,
+        25
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"differentiable\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "bbb754a2-06e5-4b57-8e5d-308865f81a94",
-      "componentIndices": [11, 29],
+      "componentIndices": [
+        11,
+        29
+      ],
       "isArgsObj": false
     },
     "__optimizer[\"fused\"]": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": "62bd6021-0834-4317-87f4-3961d8f2e890",
-      "componentIndices": [11, 20],
+      "componentIndices": [
+        11,
+        20
+      ],
       "isArgsObj": false
     },
     "optimizer": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": null,
-      "componentIndices": [9],
+      "componentIndices": [
+        9
+      ],
       "isArgsObj": false
     },
     "__optimizer": {
       "sectionId": "93b410c0-33e9-4d66-95be-37d223d99c0a",
       "paramInfoId": null,
-      "componentIndices": [11],
+      "componentIndices": [
+        11
+      ],
       "isArgsObj": true
     },
     "__model[\"weights\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "83f732ba-1244-40aa-b189-c324d1cbbccb",
-      "componentIndices": [7, 18],
+      "componentIndices": [
+        7,
+        18
+      ],
       "isArgsObj": false
     },
     "__model[\"progress\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "aa45a0fa-bc33-420a-9b1b-88792303e0a7",
-      "componentIndices": [7, 19],
+      "componentIndices": [
+        7,
+        19
+      ],
       "isArgsObj": false
     },
     "__model[\"num_classes\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "681f4df7-ddd9-4a84-979f-ff0d243cdbff",
-      "componentIndices": [7, 22],
+      "componentIndices": [
+        7,
+        22
+      ],
       "isArgsObj": false
     },
     "__model[\"zero_init_residual\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "2acbcb71-f180-42b0-94bf-46edfe809de3",
-      "componentIndices": [7, 29],
+      "componentIndices": [
+        7,
+        29
+      ],
       "isArgsObj": false
     },
     "__model[\"groups\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "5fda1f62-0834-41de-a58e-2fe7f0e97558",
-      "componentIndices": [7, 17],
+      "componentIndices": [
+        7,
+        17
+      ],
       "isArgsObj": false
     },
     "__model[\"width_per_group\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "6b52f167-e867-41c6-a398-4253147c5672",
-      "componentIndices": [7, 26],
+      "componentIndices": [
+        7,
+        26
+      ],
       "isArgsObj": false
     },
     "__model[\"replace_stride_with_dilation\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "f2098038-2341-47cc-95d1-c4653b1ba1d3",
-      "componentIndices": [7, 39],
+      "componentIndices": [
+        7,
+        39
+      ],
       "isArgsObj": false
     },
     "__model[\"norm_layer\"]": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": "17f3f1d8-4459-4d8b-a132-ab42df1bf241",
-      "componentIndices": [7, 21],
+      "componentIndices": [
+        7,
+        21
+      ],
       "isArgsObj": false
     },
     "model": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": null,
-      "componentIndices": [5],
+      "componentIndices": [
+        5
+      ],
       "isArgsObj": false
     },
     "__model": {
       "sectionId": "fa8f5823-fd6b-43f0-a2df-a47e821de0de",
       "paramInfoId": null,
-      "componentIndices": [7],
+      "componentIndices": [
+        7
+      ],
       "isArgsObj": true
     }
   }

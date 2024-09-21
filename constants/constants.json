@@ -62,6 +62,8 @@
   "ROUTE_LOAD_ARTIFACTS": "/loadArtifacts",
   "ROUTE_GET_DEFAULT_CONFIG_NAME": "/getDefaultConfigName",
   "ROUTE_SECTION_TO_DICT": "/sectionToDict",
+  "ROUTE_LOAD_SECTION_JSON_SOURCE": "/loadSectionJSONSource",
+  "JSON_SOURCE_PREFIX": "JSON-",
   "NESTED_PARAM": "NESTED_PARAM",
   "ARGS_PREFIX": "__",
   "WS_ALL_CONNECTIONS": "allConnections",
