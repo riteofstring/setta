@@ -80,16 +80,6 @@ export function PaneContextMenu() {
       )}
       <Item onClick={getOnClickFn({ type: C.DRAW })}>New Drawing Area</Item>
       <Item onClick={getOnClickFn({ type: C.SOCIAL })}>New Social</Item>
-      {/* <DialogDropdownTriggerItem
-        onClick={() => openLoadModal(MODAL_TYPE.CREATE_FROM_ARGPARSE)}
-      >
-        Create From Argparse
-      </DialogDropdownTriggerItem> */}
-      {/* <DialogDropdownTriggerItem
-        onClick={() => openLoadModal(MODAL_TYPE.LOAD_SECTION)}
-      >
-        Load Section
-      </DialogDropdownTriggerItem> */}
     </ContextMenuCore>
   );
 }

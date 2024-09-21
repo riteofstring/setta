@@ -10,7 +10,6 @@ import {
   ImportJSONModal,
 } from "./ImportExportModal/ImportExportModal";
 import { CreateFromArgparseModal } from "./PaneContextModal/CreateFromArgparseModal";
-import { LoadSectionModal } from "./PaneContextModal/LoadSectionModal";
 import { SaveUITypeConfigModal } from "./SaveUITypeConfigModal/SaveUITypeConfigModal";
 import { CreateNewParamSweepModal } from "./SectionSaveButtonModal/CreateNewParamSweepModal";
 import { CreateNewVersionModal } from "./SectionSaveButtonModal/CreateNewVersionModal";
@@ -59,8 +58,6 @@ function ModalContent({ open }) {
       return <ImportJSONModal modalType={modalType} />;
     case MODAL_TYPE.CREATE_FROM_ARGPARSE.title:
       return <CreateFromArgparseModal modalType={modalType} />;
-    case MODAL_TYPE.LOAD_SECTION.title:
-      return <LoadSectionModal open={open} modalType={modalType} />;
     case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
       return <SaveUITypeConfigModal open={open} modalType={modalType} />;
     case MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS.title:

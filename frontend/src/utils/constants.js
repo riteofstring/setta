@@ -147,11 +147,6 @@ export const MODAL_TYPE = {
     title: "Create From Argparse",
     buttonText: "Create",
   },
-  // LOAD_SECTION: {
-  //   purpose: MODAL_PURPOSE.LOAD,
-  //   title: "Load Section",
-  //   buttonText: "Load",
-  // },
   SAVE_UI_TYPE_CONFIG: {
     purpose: MODAL_PURPOSE.SAVE,
     title: "Save UI Type Config",

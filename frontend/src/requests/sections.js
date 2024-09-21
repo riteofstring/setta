@@ -39,13 +39,6 @@ export async function dbGetSections() {
   });
 }
 
-export async function dbLoadSection({ sectionId }) {
-  return await post({
-    body: { sectionId },
-    address: C.ROUTE_SECTIONS,
-  });
-}
-
 export async function dbParametersRequest({
   sectionId,
   fullText,

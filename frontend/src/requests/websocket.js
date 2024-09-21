@@ -41,7 +41,7 @@ function receiveMessage(message) {
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     updateConnectedTo(m);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
-    console.log(m.content)
+    console.log(m.content);
     useTypeErrors.getState().reset();
     useTypeErrors.setState(m.content);
   } else if (m.messageType === C.WS_ARTIFACT) {
