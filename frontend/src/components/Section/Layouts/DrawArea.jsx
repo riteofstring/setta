@@ -19,7 +19,7 @@ import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
 
-const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 147;
+const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 140;
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -266,12 +266,13 @@ export function DrawOnImage({ sectionId }) {
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName =
     "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
-  const canvasClassName =
-    "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2";
+  // const canvasClassName =
+  //   "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2";
+  const canvasClassName = "single-cell-child max-w-full";
 
   return (
     <>
-      <div className="section-search section-w-full mb-5 flex flex-wrap gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
+      <div className="section-search section-w-full mb-3 flex flex-wrap gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
         <input
           id="colorPicker"
           type="color"
@@ -313,7 +314,7 @@ export function DrawOnImage({ sectionId }) {
           <p>Clear</p>
         </button>
       </div>
-      <section className="nodrag section-row-main section-key-value relative mb-3 max-h-full min-w-0">
+      <section className="nodrag single-cell-container section-row-main section-key-value relative mb-3 max-h-full min-w-0">
         <canvas
           ref={canvasRef}
           onMouseDown={onMouseDown}
