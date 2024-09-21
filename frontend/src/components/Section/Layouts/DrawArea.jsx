@@ -1,4 +1,5 @@
 import * as Slider from "@radix-ui/react-slider";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { sendToInteractiveTasks } from "state/actions/interactive";
@@ -19,7 +20,7 @@ import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
 
-const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 139;
+const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 120;
 const SECTION_SIZE_CANVAS_WIDTH_DIFF = 24;
 
 export function DrawOnImage({ sectionId }) {
@@ -273,17 +274,17 @@ export function DrawOnImage({ sectionId }) {
     "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
   // const canvasClassName =
   //   "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2";
-  const canvasClassName = "single-cell-child max-w-full";
+  const canvasClassName = "single-cell-child max-w-full place-self-center";
 
   return (
     <>
-      <div className="section-search section-w-full mb-3 flex flex-wrap gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
+      <div className="section-search section-w-full  flex flex-wrap gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
         <input
           id="colorPicker"
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className="min-h-6 min-w-6"
+          className="min-h-6 min-w-6 cursor-pointer"
         />
 
         <Slider.Root
@@ -301,25 +302,46 @@ export function DrawOnImage({ sectionId }) {
           </Slider.Track>
           <Slider.Thumb className={sliderThumbClassName} />
         </Slider.Root>
-        <p className="my-auto min-w-8 max-w-20 flex-grow rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400">
-          {opacity.toFixed(1)}
-        </p>
+        <input
+          value={opacity.toFixed(1)}
+          className="my-auto min-w-8 max-w-12 flex-grow rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400"
+        ></input>
+        <div className="flex">
+          <button
+            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            onClick={toggleEraserMode}
+          >
+            <i className="gg-pen" />
+          </button>
+          <StandardPopover
+            popoverContent="things"
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
+            trigger={
+              <buttom className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+                <i className="gg-chevron-down" />
+              </buttom>
+            }
+            header={"Brush Settings"}
+          />
+        </div>
+        <div className="flex">
+          <button className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
+            <i className="gg-erase" />
+          </button>
+          <buttom className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+            <i className="gg-chevron-down" />
+          </buttom>
+        </div>
+
         <button
-          className="flex cursor-pointer items-center gap-1 rounded-lg bg-setta-200/30 px-3 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
-          onClick={toggleEraserMode}
-        >
-          <i className="gg-pen" />
-          <p>{isEraser ? "Erasing" : "Drawing"}</p>
-        </button>
-        <button
-          className="flex cursor-pointer items-center gap-1 rounded-lg bg-setta-200/30 px-3 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
+          className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
           onClick={clearStrokes}
         >
           <i className="gg-trash" />
-          <p>Clear</p>
         </button>
       </div>
-      <section className="nodrag single-cell-container section-row-main section-key-value relative mb-3 max-h-full min-w-0">
+      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
         <canvas
           ref={canvasRef}
           onMouseDown={onMouseDown}
