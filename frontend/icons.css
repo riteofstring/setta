@@ -815,3 +815,27 @@ main {
   top: 2px;
   left: 2px;
 }
+
+.gg-shape-square {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs, 1));
+  width: 16px;
+  height: 16px;
+  border: 3px solid;
+}
+
+.gg-maximize {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  transform: scale(var(--ggs, 1));
+  width: 14px;
+  height: 14px;
+  box-shadow:
+    -6px -6px 0 -4px,
+    6px 6px 0 -4px,
+    6px -6px 0 -4px,
+    -6px 6px 0 -4px;
+}

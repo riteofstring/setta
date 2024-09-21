@@ -1,4 +1,5 @@
 import C from "constants/constants.json";
+import { BiPaint } from "react-icons/bi";
 import { FaTerminal } from "react-icons/fa";
 import { IoLogoJavascript } from "react-icons/io";
 import { RiGlobalFill } from "react-icons/ri";
@@ -51,6 +52,14 @@ export function HeaderIcon({
     case C.INFO:
       return (
         <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
+      );
+    case C.ARTIFACT:
+      return (
+        <i className="gg-image !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
+      );
+    case C.DRAW:
+      return (
+        <BiPaint className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
       );
     default:
       return (
