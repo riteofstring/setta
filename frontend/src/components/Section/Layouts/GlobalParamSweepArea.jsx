@@ -251,7 +251,7 @@ function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
     inputList.length > minLength && (
       <>
         <StandardAccordion
-          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700 py-0.5 rounded-lg px-2 -mx-2"
+          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700 py-0.5 rounded-lg px-2 ml-4 -mr-2"
           itemStyles="focus-within:relative focus-within:z-10"
           headerStyles="flex flex-1 cursor-default items-center justify-between my-1"
           triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md text-xs text-setta-500 dark:text-setta-500 uppercase font-bold "
