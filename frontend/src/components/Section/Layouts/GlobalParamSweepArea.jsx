@@ -1,4 +1,5 @@
 import CodeMirror from "@uiw/react-codemirror";
+import { StandardAccordion } from "components/Utils/atoms/accordion/accordion";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
@@ -130,7 +131,7 @@ function SectionList({ runGroupId, runGroup }) {
   )[0];
 
   return (
-    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-y-scroll rounded-lg bg-setta-50/40 px-3 pt-2 dark:bg-setta-875">
+    <ul className="noscroll nowheel -mt-2 flex flex-grow flex-col overflow-y-scroll rounded-lg bg-setta-50/40 pl-3 pr-2 pt-2 dark:bg-setta-875">
       {allSections.map((x, idx) => (
         <SectionItem
           key={idx}
@@ -229,27 +230,54 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
 }
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
+{
+  /* <StandardAccordion
+rootStyles="w-full"
+itemStyles="focus-within:relative focus-within:z-10"
+headerStyles="flex flex-1 cursor-default items-center justify-between mb-2"
+triggerStyles="flex w-full items-center outline-none hover:cursor-pointer rounded-md"
+contentStyles="rounded-xl text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp bg-[rgba(226,_232,_240,_0.2)] overflow-hidden"
+heading={heading}
+value={value}
+defaultValue={defaultValue}
+data-state={open}
+>
+{children}
+</StandardAccordion> */
+}
 
 function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
   return (
     inputList.length > minLength && (
       <>
-        <label className="text-setta-700 dark:text-setta-200">{listName}</label>
-        <ul className="pl-4">
-          {inputList.map((e, idx) => (
-            <li
-              key={idx}
-              className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
-            >
-              <CheckboxGroup
-                checked={isChecked(e.id)}
-                onChange={onChange(e.id)}
+        <StandardAccordion
+          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700 py-0.5 rounded-lg px-2 -mx-2"
+          itemStyles="focus-within:relative focus-within:z-10"
+          headerStyles="flex flex-1 cursor-default items-center justify-between my-1"
+          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md text-xs text-setta-500 dark:text-setta-500 uppercase font-bold "
+          contentStyles="text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp overflow-hidden  mb-1"
+          heading={listName}
+          value={listName}
+          internalWrapper={false}
+          // defaultValue={defaultValue}
+          data-state={open}
+        >
+          <ul className="pl-4">
+            {inputList.map((e, idx) => (
+              <li
+                key={idx}
+                className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded"
               >
-                {e.name}
-              </CheckboxGroup>
-            </li>
-          ))}
-        </ul>
+                <CheckboxGroup
+                  checked={isChecked(e.id)}
+                  onChange={onChange(e.id)}
+                >
+                  {e.name}
+                </CheckboxGroup>
+              </li>
+            ))}
+          </ul>
+        </StandardAccordion>
       </>
     )
   );
