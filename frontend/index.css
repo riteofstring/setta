@@ -57,6 +57,10 @@
     grid-row: search / left-gutter;
     grid-column: key / value;
   }
+  .section-main-full-w {
+    grid-row: search / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
   .section-row-main {
     grid-row: left-gutter;
   }
@@ -200,9 +204,10 @@ body {
   background-size: cover;
 }
 
-.section-grid {
-  display: grid;
+.section-grid-cols {
   grid-template-columns: [c1] 0.75rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 0.75rem [c6];
+}
+.section-grid-rows {
   grid-template-rows:
     [r1]
     0.25rem
@@ -219,6 +224,8 @@ body {
     [r7]
     0.5rem
     [r8];
+}
+.section-grid-areas {
   grid-template-areas:
     "top-gutter top-gutter top-gutter top-gutter top-gutter"
     "title title title title title"
@@ -227,6 +234,19 @@ body {
     "pin-lg pin-key pin-cg pin-value pin-rg"
     "left-gutter key center-gutter value right-gutter"
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
+}
+
+.section-grid-sweep-areas {
+  grid-template-areas:
+    "search search search search search"
+    "left-gutter key center-gutter value right-gutter";
+}
+
+.section-main-areas {
+  grid-template-areas:
+    "args args args args args"
+    "pin-lg pin-key pin-cg pin-value pin-rg"
+    "left-gutter key center-gutter value right-gutter";
 }
 
 /* utility classes */

@@ -25,15 +25,25 @@ function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId } =
     useParamSweepInfo(sectionId);
 
-  return paramSweep.map((sweep) => (
-    <ParamSweepForOneSelectedItem
-      key={sweep.selectedItem}
-      section={sectionId}
-      forSectionId={forSectionId}
-      sweep={sweep}
-      paramSweepId={paramSweepId}
-    />
-  ));
+  return (
+    <>
+      <div className="section-main-full-w ml-1.5 flex flex-col gap-4 overflow-y-scroll">
+        {paramSweep.map((sweep) => (
+          <ParamSweepForOneSelectedItem
+            key={sweep.selectedItem}
+            section={sectionId}
+            forSectionId={forSectionId}
+            sweep={sweep}
+            paramSweepId={paramSweepId}
+          />
+        ))}
+        <button className="mb-1 flex cursor-pointer items-center justify-center gap-0.5 rounded-xl bg-setta-200/30 px-3 py-1 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
+          <i className="gg-add-r -ml-3" />
+          <p>Callable</p>
+        </button>
+      </div>
+    </>
+  );
 }
 
 export const ParamSweepArea = React.memo(_ParamSweepArea);
@@ -51,7 +61,7 @@ function ParamSweepForOneSelectedItem({
   const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
 
   return (
-    <>
+    <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
       {!hideSearch && !_isGlobalVariables && (
         <ParamSweepSectionSearch
           sectionId={sectionId}
@@ -60,7 +70,7 @@ function ParamSweepForOneSelectedItem({
           paramSweepId={paramSweepId}
         />
       )}
-      <FilterSection />
+      {/* <FilterSection /> */}
       <Args
         paramSweepId={paramSweepId}
         objInfoId={sweep.selectedItem ?? codeInfoId}
@@ -68,7 +78,7 @@ function ParamSweepForOneSelectedItem({
         forSectionId={forSectionId}
         sectionId={sectionId}
       />
-    </>
+    </div>
   );
 }
 
@@ -158,7 +168,7 @@ function ArgItem({
 
   return (
     <>
-      <div className="section-key-value mt-1 flex min-w-0 items-center">
+      <div className="section-w-full mt-1 flex min-w-0 items-center">
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
@@ -237,7 +247,7 @@ function ParamCombobox({
       initialSelection={initialSelection}
       onSelectedItemChange={onSelectedItemChange}
       placeholder="Filter & Add Sweep"
-      outerDivClasses="section-key-value justify-center not:last-child:mt-3"
+      outerDivClasses="section-w-full justify-center not:last-child:mt-3"
       small={true}
     />
   );
