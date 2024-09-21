@@ -8,10 +8,7 @@ import {
 } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { findAllParameters } from "utils/getDescendants";
-import {
-  getMappedSectionDBSource,
-  getSectionInfo,
-} from "../getters/sectionInfo";
+import { getSectionInfo } from "../getters/sectionInfo";
 import { initManyEnteredValues } from "./sectionVariants";
 import { setManyParamUITypeIds } from "./uiTypes/uiTypeCols";
 
@@ -43,8 +40,7 @@ export function initializeParam(
 
 function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
   const { variantId } = useSectionInfos.getState().x[sectionId];
-  const dbSource = getMappedSectionDBSource(sectionId);
-  const sectionVariant = useSectionVariants.getState().x[dbSource][variantId];
+  const sectionVariant = useSectionVariants.getState().x[variantId];
   const uiTypeState = useUITypes.getState();
   const paramIdsToUITypes = {};
   for (const paramId of paramIds) {
@@ -55,7 +51,6 @@ function initializeParamEnteredValue(sectionId, paramIds, paramIdToUITypeId) {
   }
 
   initManyEnteredValues({
-    dbSource: getMappedSectionDBSource(sectionId),
     collectionId: variantId,
     paramIdsToUITypes,
   });

@@ -18,7 +18,7 @@ import {
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
-import { DB_SOURCE_MAPPING, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { SETTINGS_PROJECT_NAME } from "utils/constants";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
 import { loadSettings } from "../settings";
@@ -75,7 +75,6 @@ export function getProjectData({ withArtifactMetadata = false }) {
     runGroups,
     sections,
     codeInfo,
-    dbSourceMapping: _.cloneDeep(DB_SOURCE_MAPPING),
     fullNameToInfo,
   };
 

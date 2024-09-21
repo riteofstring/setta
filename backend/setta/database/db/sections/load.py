@@ -95,7 +95,7 @@ def load_sections(dbs, ids):
     )
     sectionVariants = {}
     for k, dbq in dbs.items():
-        sectionVariants[k] = load_section_variants(dbq, variantIds)
+        sectionVariants = load_section_variants(dbq, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
@@ -256,7 +256,7 @@ def load_json_sources(sections, codeInfo, sectionVariants):
                 "children": [],
             }
             for variantId in s["variantIds"]:
-                sectionVariants["default"][variantId]["values"][key] = {
+                sectionVariants[variantId]["values"][key] = {
                     "value": v if isinstance(v, str) else json.dumps(v),
                     "keywordPositions": [],
                 }

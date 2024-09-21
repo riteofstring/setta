@@ -11,7 +11,7 @@ import { copySections } from "../copyPaste/copy";
 import { updateKeywordRegex } from "../keywordRegex";
 import {
   getSectionChildren,
-  getSectionVariantIdAndMappedDBSource,
+  getSectionVariantId,
   setSectionVariantChildren,
 } from "../sectionVariants";
 import { updateStateWithSectionCopy } from "./loadSections";
@@ -143,15 +143,15 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
   // have children that include sectionId.
   // If they do include sectionId, then make a copy of sectionId
   // to prevent the possibility of sectionId appearing in 2 places at once.
-  const { variantId: activeVariantId, dbSource } =
-    getSectionVariantIdAndMappedDBSource(oldParentId);
+  const { variantId: activeVariantId } =
+    getSectionVariantId(oldParentId);
   const variantState = useSectionVariants.getState().x;
   let isInOtherVariants = false;
   for (const variantId of variantIds) {
     if (variantId === activeVariantId) {
       continue;
     }
-    const children = variantState[dbSource][variantId].children;
+    const children = variantState[variantId].children;
     const sectionIdx = children.findIndex((x) => x === sectionId);
     if (sectionIdx !== -1) {
       isInOtherVariants = true;
@@ -188,7 +188,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
 //   // need to be replaced with a reference, to prevent
 //   // the possibility of sectionId appearing in 2 places at once.
 //   const { variantId: activeVariantId, dbSource } =
-//     getSectionVariantIdAndMappedDBSource(oldParentId);
+//     getSectionVariantId(oldParentId);
 //   const variantState = useSectionVariants.getState().x;
 //   const infoToFullName = computeInfoToFullName();
 //   for (const variantId of variantIds) {
