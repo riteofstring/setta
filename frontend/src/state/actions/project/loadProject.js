@@ -2,6 +2,7 @@ import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import _ from "lodash";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
+import { dbLoadSettingsProject } from "requests/settings";
 import {
   PAGE_LOAD_TYPES,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
@@ -20,6 +21,16 @@ import { setProjectConfig } from "./projectConfig";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await dbLoadProjectConfig(projectConfigName);
+  if (res.status === 200) {
+    console.log(res.data);
+    return loadProjectState(res.data);
+  } else {
+    return false;
+  }
+}
+
+export async function loadSettingsProjectConfig() {
+  const res = await dbLoadSettingsProject();
   if (res.status === 200) {
     console.log(res.data);
     return loadProjectState(res.data);

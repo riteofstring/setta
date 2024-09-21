@@ -7,7 +7,12 @@ import {
 } from "../sectionVariants";
 
 export function setAllSectionInfos({ sections, sectionConfigs }) {
-  const x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  let x;
+  if (sectionConfigs) {
+    x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  } else {
+    x = sections;
+  }
   useSectionInfos.setState({ x });
 }
 

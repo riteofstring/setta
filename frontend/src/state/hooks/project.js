@@ -8,12 +8,15 @@ import {
   dbLoadFullProject,
   dbLoadProjectConfigNames,
 } from "requests/projects";
-import { loadProjectConfig } from "state/actions/project/loadProject";
+import {
+  loadProjectConfig,
+  loadSettingsProjectConfig,
+} from "state/actions/project/loadProject";
 import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
 import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { PAGE_LOAD_TYPES } from "utils/constants";
+import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
@@ -60,7 +63,7 @@ export function useExportProjectJson() {
 
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
-  const { state } = useLocation();
+  const { pathname, state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
 
@@ -70,7 +73,16 @@ export function useLoadProjectConfig() {
     setDoneLoading(res);
   }
 
+  async function loadSettingsProject() {
+    const res = await loadSettingsProjectConfig();
+    setDoneLoading(res);
+  }
+
   useEffect(() => {
+    if (pathname === SETTINGS_ROUTER_PATH) {
+      loadSettingsProject();
+      return;
+    }
     // The first if-statement triggers for a page refresh or navigating to a different project
     if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
       loadFn();

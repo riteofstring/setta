@@ -1,0 +1,91 @@
+{
+  "projectConfig": {
+    "id": "a5dfa397-089a-4f5e-bbec-978a314b4266",
+    "name": "settings",
+    "isDefault": 0,
+    "viewport": {
+      "x": -50,
+      "y": 47,
+      "zoom": 1
+    },
+    "children": {
+      "69084c06-aa67-4e6b-8098-3334044eebc9": {
+        "x": 640,
+        "y": 119,
+        "zIndex": 0
+      }
+    }
+  },
+  "sectionVariants": {
+    "default": {
+      "efe36d90-cd07-4588-af5f-0492d01d8da0": {
+        "name": "financial_chocolate",
+        "values": {},
+        "children": [],
+        "selectedItem": null,
+        "code": "",
+        "keywordPositions": []
+      }
+    }
+  },
+  "uiTypes": {},
+  "uiTypeCols": {
+    "04f95495-52ba-4277-a79e-228bb1c6a5bc": {}
+  },
+  "paramSweeps": {},
+  "runGroups": {},
+  "sections": {
+    "69084c06-aa67-4e6b-8098-3334044eebc9": {
+      "id": "69084c06-aa67-4e6b-8098-3334044eebc9",
+      "name": "settings",
+      "children": [],
+      "size": {
+        "width": "auto",
+        "height": "auto"
+      },
+      "zIndex": 0,
+      "variantId": "efe36d90-cd07-4588-af5f-0492d01d8da0",
+      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+      "uiTypeColId": "04f95495-52ba-4277-a79e-228bb1c6a5bc",
+      "paramSweepId": null,
+      "social": null,
+      "artifacts": [],
+      "description": "",
+      "codeLanguage": "",
+      "variantIds": ["efe36d90-cd07-4588-af5f-0492d01d8da0"],
+      "paramSweepIds": [],
+      "paramSweepSectionId": null,
+      "nonPresetUITypeIds": [],
+      "isFrozen": false,
+      "dbSource": "",
+      "jsonSource": "setta-settings.json",
+      "isHorizontalOrientation": false,
+      "hideParams": false,
+      "hideSearch": true,
+      "hideUnpinnedParams": false,
+      "showYaml": false,
+      "pinnedAreaHeight": "auto",
+      "isMinimized": false,
+      "codeInfoId": "e188748d-886f-4412-aa23-49b5863f7c81"
+    }
+  },
+  "codeInfo": {
+    "e188748d-886f-4412-aa23-49b5863f7c81": {
+      "id": "e188748d-886f-4412-aa23-49b5863f7c81",
+      "name": "Contents",
+      "editable": false,
+      "rcType": "collection",
+      "defaultVal": null,
+      "children": [],
+      "description": "",
+      "positionalOnly": false,
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "keywordPositions": []
+    }
+  },
+  "dbSourceMapping": {
+    "default": "default"
+  }
+}
