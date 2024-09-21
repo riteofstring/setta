@@ -1,7 +1,10 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { getKeywordPositionsAndEVRefs } from "requests/sections";
+import {
+  debouncedTypeCheckRequest,
+  getKeywordPositionsAndEVRefs,
+} from "requests/sections";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   setParamEnteredValue,
@@ -33,6 +36,7 @@ export function ParamInput({
     const vStr = _.toString(v);
     setValue(vStr);
     debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr, enteredValue);
+    debouncedTypeCheckRequest();
     setDidUpdate(true);
     sendParamValueToInteractiveTasks(sectionId, paramInfoId, vStr);
   }
