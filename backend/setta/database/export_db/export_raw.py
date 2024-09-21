@@ -1,7 +1,10 @@
 import yaml
 
 
-def export_raw(filename, data, schema):
+def export_raw(dbs, filename):
+    schema = fetch_schema(dbs.default)
+    data = fetch_all_data(dbs.default)
+
     # Combined schema and data for JSON export
     database_export = {"schema": schema, "data": data}
 
@@ -19,3 +22,24 @@ def export_raw(filename, data, schema):
     # For YAML export, PyYAML is used; ensure it's installed
     with open(f"{filename}_export.yaml", "w") as file:
         yaml.dump(database_export, file, allow_unicode=True)
+
+
+def fetch_schema(cursor):
+    """Fetch the schema of all tables in the database."""
+    cursor.execute("SELECT type, name, sql FROM sqlite_master WHERE sql NOT NULL;")
+    schema = {}
+    for type, name, sql in cursor.fetchall():
+        if name not in schema:
+            schema[name] = {"type": type, "sql": sql}
+    return schema
+
+
+def fetch_all_data(cursor):
+    """Fetch all data from the database."""
+    data = {}
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    for (table_name,) in cursor.fetchall():
+        cursor.execute(f"SELECT * FROM {table_name}")
+        columns = [description[0] for description in cursor.description]
+        data[table_name] = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    return data
