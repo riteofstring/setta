@@ -16,7 +16,7 @@ import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
 
-const SECTION_SIZE_CANVAS_DIFF = 200;
+const SECTION_SIZE_CANVAS_DIFF = 32;
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -290,19 +290,21 @@ export function DrawOnImage({ sectionId }) {
           {opacity.toFixed(1)}
         </p>
         <button
-          className="cursor-pointer rounded-lg bg-setta-200/30 px-3 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+          className="flex cursor-pointer items-center gap-1 rounded-lg bg-setta-200/30 px-3 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
           onClick={toggleEraserMode}
         >
-          {isEraser ? "Erasing" : "Drawing"}
+          <i className="gg-pen" />
+          <p>{isEraser ? "Erasing" : "Drawing"}</p>
         </button>
         <button
-          className="cursor-pointer rounded-lg bg-setta-200/30 px-3 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+          className="flex cursor-pointer items-center gap-1 rounded-lg bg-setta-200/30 px-3 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
           onClick={clearStrokes}
         >
-          Clear
+          <i className="gg-trash" />
+          <p>Clear</p>
         </button>
       </div>
-      <section className="nodrag section-row-main section-key-value relative mb-8 max-h-full min-w-0">
+      <section className="nodrag section-row-main section-key-value relative mb-3 max-h-full min-w-0">
         <canvas
           ref={canvasRef}
           onMouseDown={onMouseDown}
