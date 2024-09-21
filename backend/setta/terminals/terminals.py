@@ -29,6 +29,7 @@ from setta.code_gen.utils import process_refs
 from setta.utils.constants import (
     CODE_FOLDER_ENV_VARIABLE,
     SEND_ARTIFACT_TO_ENV_VARIABLE,
+    USER_SETTINGS,
     C,
 )
 
@@ -186,6 +187,7 @@ def runCode(message, terminal_write_fn=None, command_callback=None):
                 selected,
                 curr_code,
                 replace_templated_code=False,
+                inferImports=USER_SETTINGS["inferImports"],
             )[0]
             curr_code, _ = process_refs(
                 curr_code,

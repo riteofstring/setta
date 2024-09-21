@@ -138,16 +138,6 @@ def process_diagnostics(diagnostics, code_split, codeJson):
             ]
             if codeJson:
                 set_message(codeJson, problem_var, output, d["message"])
-        elif d["code"] == "reportCallIssue":
-            if "missing" not in d["message"]:
-                continue
-            missing_params = extract_parameters(d["message"])
-            # get variable to the left of the equal sign
-            assigned_to = code_split[start["line"]].split("=")[0]
-            unusedParams = codeJson[assigned_to]["value"]["unusedParams"]
-            for potential_problem_var in unusedParams:
-                if codeJson[potential_problem_var]["name"] in missing_params:
-                    set_message(codeJson, potential_problem_var, output, d["message"])
     return output
 
 
@@ -164,12 +154,6 @@ def set_message(code_json, problem_var, output, message):
         output[section_id][param_info_id] = []
 
     output[section_id][param_info_id].append(message)
-
-
-def extract_parameters(error_string):
-    pattern = r'"([^"]+)"'
-    parameters = re.findall(pattern, error_string)
-    return parameters
 
 
 class LanguageServerReader(LanguageServerInteractor):

@@ -971,8 +971,8 @@
       ],
       "isInOtherProjectConfigs": false,
       "size": {
-        "width": 720,
-        "height": 720
+        "width": "auto",
+        "height": "auto"
       },
       "variantId": "380a6d0c-a96e-48f1-b431-074c7e98eed9",
       "paramSweepId": null,

@@ -1,7 +1,7 @@
 import ast
 import copy
 
-from ...utils.constants import USER_SETTINGS, C
+from ...utils.constants import C
 from ..find_placeholders import double_braces
 from ..utils import push_var_deep
 from .infer_imports import infer_imports
@@ -61,9 +61,9 @@ def get_value(x, selected):
         return str(get_boolean(x["value"]))
     elif type_value in [C.SECTION]:
         if not x["value"]["callable"]:
-            return "{" + get_dict_contents(x["dependencies"], selected) + "}"
+            return "{" + get_dict_contents(x["value"]["params"], selected) + "}"
         else:
-            return f"{x['value']['callable']}({get_callable_params(x['dependencies'], x['value']['positionalOnlyParams'], selected)})"
+            return f"{x['value']['callable']}({get_callable_params(x['value']['params'], x['value']['positionalOnlyParams'], selected)})"
     elif type_value == C.LIST_ROOT:
         return f"[{', '.join(map(str, x['value']))}]"
     elif type_value in [C.DICT_ROOT, C.NESTED_PARAM]:
@@ -90,7 +90,7 @@ def generate_lines_of_code_without_imports(
                 isinstance(v["value"], dict)
                 and force_appear_var_name in v["value"]["unusedParams"]
             ):
-                v["dependencies"].append(force_appear_var_name)
+                v["value"]["params"].append(force_appear_var_name)
                 v["value"]["unusedParams"].remove(force_appear_var_name)
         selected = [{"var_name": k, **v} for k, v in selected.items()]
         selected = push_var_deep(selected, push_var_name)
@@ -125,8 +125,9 @@ def maybe_prepend_with_imports_and_replace_templated_code(
     force_appear_var_name,
     var_name_to_line_num,
     replace_templated_code=True,
+    inferImports=True,
 ):
-    if USER_SETTINGS["inferImports"]:
+    if inferImports:
         if force_appear_var_name:
             line_num = var_name_to_line_num[force_appear_var_name]
             original_force_appear_var_str = lines[line_num]
@@ -137,10 +138,7 @@ def maybe_prepend_with_imports_and_replace_templated_code(
                 var_str = var_declaration(force_appear_var_name, "None")
             lines[line_num] = var_str
 
-        to_infer_imports_from = replace_keywords(
-            templated_code, {C.SETTA_GENERATED_PYTHON: "\n".join(lines)}
-        )
-        imports = get_import_text(to_infer_imports_from)
+        imports = get_import_text("\n".join(lines))
         imports = imports + "\n\n"
 
         if force_appear_var_name:
@@ -174,6 +172,7 @@ def generate_code(
     push_var_name=None,
     force_appear_var_name=None,
     replace_templated_code=True,
+    inferImports=True,
 ):
     (
         lines,
@@ -190,6 +189,7 @@ def generate_code(
         force_appear_var_name,
         var_name_to_line_num,
         replace_templated_code,
+        inferImports,
     )
 
 
