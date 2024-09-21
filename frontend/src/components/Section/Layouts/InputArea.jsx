@@ -27,7 +27,7 @@ function _InputArea({ sectionId, bgColor }) {
           <ParamGroupContainer sectionId={sectionId} />
         </>
       )}
-      {showYaml && <YamlView sectionId={sectionId} />}
+      {!!showYaml && <YamlView sectionId={sectionId} />}
     </>
   );
 }
