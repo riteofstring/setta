@@ -1,5 +1,5 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardDropdown } from "components/Utils/atoms/dropdown/dropdown";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
@@ -58,14 +58,16 @@ function _SectionHeader({
         }
       >
         {isSeriesElement && (
-          <StandardDropdown
-            content={
+          <StandardPopover
+            popoverContent={
               <Incrementer
                 sectionId={sectionId}
                 isRoot={_isRoot}
                 popover={true}
               />
             }
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
             trigger={
               <IconButton
                 twClasses="[&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400"
@@ -74,6 +76,7 @@ function _SectionHeader({
                 <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
               </IconButton>
             }
+            header={"Description for Infoview"}
           />
         )}
         {!_isRoot && <MinimizeButton sectionId={sectionId} />}
