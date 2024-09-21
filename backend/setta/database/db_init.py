@@ -40,6 +40,7 @@ CREATE_TABLES_COMMANDS = [
         social TEXT,
         description TEXT,
         codeLanguage TEXT,
+        configLanguage TEXT,
         isFrozen BOOLEAN,
         dbSource TEXT,
         jsonSource TEXT,

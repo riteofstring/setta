@@ -65,7 +65,7 @@ export function TextInputCodeMirror({
     if (isDisabled) {
       return;
     }
-    if (initializeGenCode) {
+    if (language === "python" && initializeGenCode) {
       dbTextFieldInitializeCode({ sectionId: dataSectionId, paramInfoId });
     }
     if (!activationEvent) {
@@ -152,9 +152,10 @@ function CoreCodeMirror({
           paramInfoId,
           dbTextFieldCompletion,
           setKeywordPositions,
+          language,
         )
       : () => null,
-    [dataSectionId, paramInfoId, autocomplete],
+    [dataSectionId, paramInfoId, autocomplete, language],
   );
 
   const extensions = getExtensions({

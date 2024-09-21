@@ -4,6 +4,7 @@ import {
   completionStatus,
 } from "@codemirror/autocomplete";
 import { javascript } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
 import { python } from "@codemirror/lang-python";
 import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Prec } from "@codemirror/state";
@@ -34,6 +35,8 @@ export function getExtensions({
     extensions.push(javascript());
   } else if (language === "yaml") {
     extensions.push(yaml());
+  } else if (language === "json") {
+    extensions.push(json());
   }
 
   // autocomplete

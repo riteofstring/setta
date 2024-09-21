@@ -312,7 +312,8 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "jsonSource": ""
+      "jsonSource": "",
+      "configLanguage": "python"
     },
     "8cdb6181-5794-40ea-bd7a-4585a2ae5d86": {
       "id": "8cdb6181-5794-40ea-bd7a-4585a2ae5d86",
@@ -344,7 +345,8 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "jsonSource": ""
+      "jsonSource": "",
+      "configLanguage": "python"
     },
     "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6": {
       "id": "9b43d47a-ec8c-4cea-866d-381fbdbb6ba6",
@@ -382,7 +384,8 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "jsonSource": ""
+      "jsonSource": "",
+      "configLanguage": "python"
     },
     "d4f5b8ac-ad17-44a3-8677-2086e89b5e88": {
       "id": "d4f5b8ac-ad17-44a3-8677-2086e89b5e88",
@@ -414,7 +417,8 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "jsonSource": ""
+      "jsonSource": "",
+      "configLanguage": "python"
     },
     "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01": {
       "id": "e3afa4e2-a55b-4b6d-9778-3dbc116bfc01",
@@ -452,7 +456,8 @@
       "isHorizontalOrientation": 0,
       "pinnedAreaHeight": "auto",
       "isMinimized": 0,
-      "jsonSource": ""
+      "jsonSource": "",
+      "configLanguage": "python"
     },
     "25d0e656-bec2-44a0-9728-f41d657b8508": {
       "id": "25d0e656-bec2-44a0-9728-f41d657b8508",
@@ -488,7 +493,8 @@
       "isMinimized": false,
       "codeInfoId": "c8807916-43ef-421f-a404-96bb75d6a79e",
       "resizeEvent": "end",
-      "jsonSource": ""
+      "jsonSource": "",
+      "configLanguage": "python"
     }
   },
   "codeInfo": {

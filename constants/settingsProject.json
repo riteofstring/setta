@@ -52,6 +52,7 @@
       "artifacts": [],
       "description": "",
       "codeLanguage": "",
+      "configLanguage": "json",
       "variantIds": ["efe36d90-cd07-4588-af5f-0492d01d8da0"],
       "paramSweepIds": [],
       "paramSweepSectionId": null,
