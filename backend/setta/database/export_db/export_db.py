@@ -31,7 +31,7 @@ def _export_database(dbs, filename):
     schema = fetch_schema(dbs.default)
     data = fetch_all_data(dbs.default)
     export_raw(filename, data, schema)
-    export_readable(dbs, filename, data)
+    export_readable(dbs, filename)
 
 
 def export_database(path):

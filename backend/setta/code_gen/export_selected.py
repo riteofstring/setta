@@ -44,9 +44,13 @@ def get_selected_item_name(p, id):
 
 def get_param_ids(p, id):
     selected_item = get_selected_item(p, id)
+    return get_param_ids_given_selected_item(p, id, selected_item)
+
+
+def get_param_ids_given_selected_item(p, section_id, selected_item):
     if selected_item:
         return selected_item["children"]
-    collection_id = p["sections"][id]["codeInfoId"]
+    collection_id = p["sections"][section_id]["codeInfoId"]
     return p["codeInfo"][collection_id]["children"]
 
 
