@@ -1,21 +1,11 @@
-import json
 import os
 from collections import defaultdict
 from pathlib import Path
-from pprint import pprint
 
 import yaml
 from yaml.representer import Representer
 
-from setta.code_gen.export_selected import (
-    get_param_ids_given_selected_item,
-    get_section_children,
-    get_section_code,
-    get_section_name,
-    get_section_variants,
-    get_selected_item,
-    get_selected_section_variant,
-)
+from setta.code_gen.export_selected import get_section_name, get_section_variants
 from setta.database.db.projects.load import load_full_project
 from setta.utils.constants import C
 
@@ -37,12 +27,8 @@ def export_readable(dbs, filename):
 
 def export_config(folder, config):
     config_folder = Path(folder) / config["projectConfig"]["name"]
-    for k in config["projectConfig"]["children"].keys():
+    for k in config["sections"].keys():
         export_section(config_folder, config, k)
-
-
-# TODO:
-# children are put in subfolders: <variant-name>/<child name>
 
 
 def export_section(folder, config, section_id):
@@ -50,11 +36,30 @@ def export_section(folder, config, section_id):
     variants = get_section_variants(config, section_id)
     for v in variants:
         export_section_variant(section_folder, config, section_id, v)
-    # for c in get_section_children(config, section["id"]):
-    #     export_section(section_folder, config, config["sections"][c])
 
 
 def export_section_variant(folder, config, section_id, variant):
+    output = get_section_variant_representation(config, variant)
+    variant_name = variant["name"]
+    if output:
+        os.makedirs(folder, exist_ok=True)
+        with open(folder / f"{variant_name}.yaml", "w") as file:
+            yaml.dump(output, file, allow_unicode=True)
+
+    if variant["code"]:
+        os.makedirs(folder, exist_ok=True)
+        export_code(
+            folder,
+            variant_name,
+            variant["code"],
+            config["sections"][section_id]["codeLanguage"],
+        )
+
+
+def get_section_variant_representation(config, variant):
+    if len(variant["children"]) > 0:
+        return [config["sections"][c]["name"] for c in variant["children"]]
+
     output = {}
     codeInfo = config["codeInfo"]
     for codeInfoId, valueInfo in variant["values"].items():
@@ -70,20 +75,7 @@ def export_section_variant(folder, config, section_id, variant):
             continue
         curr_dict[paramName] = value
 
-    variant_name = variant["name"]
-    if output:
-        os.makedirs(folder, exist_ok=True)
-        with open(folder / f"{variant_name}.yaml", "w") as file:
-            yaml.dump(output, file, allow_unicode=True)
-
-    if variant["code"]:
-        os.makedirs(folder, exist_ok=True)
-        export_code(
-            folder,
-            variant_name,
-            variant["code"],
-            config["sections"][section_id]["codeLanguage"],
-        )
+    return output
 
 
 def get_parameter_ancestors(id, codeInfo, ancestors):
