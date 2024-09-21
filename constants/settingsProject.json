@@ -40,7 +40,7 @@
       "name": "settings",
       "children": [],
       "size": {
-        "width": "auto",
+        "width": 550,
         "height": "auto"
       },
       "zIndex": 0,

@@ -11,15 +11,17 @@ import {
   useKeywordRegex,
   useNodeInternals,
   useParamSweep,
+  useProjectConfig,
   useRunGroups,
   useSectionInfos,
   useSectionVariants,
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
-import { DB_SOURCE_MAPPING } from "utils/constants";
+import { DB_SOURCE_MAPPING, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { getNodes } from "../nodeInternals";
 import { setNotificationMessage } from "../notification";
+import { loadSettings } from "../settings";
 import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({ withArtifactMetadata = false }) {
@@ -85,6 +87,9 @@ export async function saveProject() {
   const res = await dbSaveProject({
     project: getProjectData({ withArtifactMetadata: true }),
   });
+  if (useProjectConfig.getState().name === SETTINGS_PROJECT_NAME) {
+    await loadSettings();
+  }
   if (res.status === 200) {
     setNotificationMessage("Saved!");
   }

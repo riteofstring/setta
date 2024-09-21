@@ -16,7 +16,7 @@ import { setProjectConfigName } from "state/actions/project/projectConfig";
 import { getProjectData } from "state/actions/project/saveProject";
 import { useAllProjectConfigs, useProjectConfig } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
+import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { useEditableOnSubmit } from "./editableText";
 
 export function useGetAllProjectConfigMetadata() {
@@ -63,7 +63,7 @@ export function useExportProjectJson() {
 
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
-  const { pathname, state } = useLocation();
+  const { state } = useLocation();
   const pageLoadType = state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
 
@@ -79,7 +79,7 @@ export function useLoadProjectConfig() {
   }
 
   useEffect(() => {
-    if (pathname === SETTINGS_ROUTER_PATH) {
+    if (projectConfigName === SETTINGS_PROJECT_NAME) {
       loadSettingsProject();
       return;
     }
