@@ -43,6 +43,7 @@ function CustomResizableCore({
   as,
 }) {
   const { isSorting, isMovingFree } = useDndMode();
+  const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
   const sizeMode = useSizeMode(sectionId);
   const size = useSectionInfos((x) => {
     const s = x.x[sectionId];
@@ -68,7 +69,8 @@ function CustomResizableCore({
     setSectionResizeEvent({ sectionId, resizeEvent: "end" });
   }
 
-  const heightResizable = sizeMode.height !== SIZE_MODE.auto_only;
+  const heightResizable =
+    !isMinimized && sizeMode.height !== SIZE_MODE.auto_only;
   const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
 
   const enable =
@@ -124,6 +126,13 @@ function useSizeMode(sectionId) {
 function useAspectRatio(sectionId) {
   return useSectionInfos((x) => {
     const s = x.x[sectionId];
+    if (s.isMinimized) {
+      return {
+        aspectRatio: false,
+        aspectRatioExtraHeight: 0,
+        aspectRatioExtraWidth: 0,
+      };
+    }
     return {
       aspectRatio: s.aspectRatio ?? false,
       aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
