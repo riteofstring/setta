@@ -7,12 +7,12 @@ class ImportInferrer(ast.NodeVisitor):
     def __init__(self):
         self.modules = set()
         self.current_scope = set()
-        self.global_scope = set()  # New set to track global identifiers
+        self.global_scope = set()
 
     def visit_Module(self, node):
-        # Collect names of all functions and classes defined at the module level
+        # Collect names of all functions, classes, and assignments at the module level
         for stmt in node.body:
-            if isinstance(stmt, ast.FunctionDef) or isinstance(stmt, ast.ClassDef):
+            if isinstance(stmt, (ast.FunctionDef, ast.ClassDef)):
                 self.global_scope.add(stmt.name)
             elif isinstance(stmt, ast.Assign):
                 for target in stmt.targets:
@@ -42,7 +42,7 @@ class ImportInferrer(ast.NodeVisitor):
         for target in node.targets:
             if isinstance(target, ast.Name):
                 self.current_scope.add(target.id)
-            elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
+            elif isinstance(target, (ast.Tuple, ast.List)):
                 for elem in target.elts:
                     if isinstance(elem, ast.Name):
                         self.current_scope.add(elem.id)
