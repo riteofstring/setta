@@ -1,5 +1,5 @@
 from setta.database.utils import dump_keyword_positions_as_string
-from setta.utils.constants import is_from_json_source
+
 
 def save_code_info(dbs, codeInfo):
     db = dbs.default
@@ -22,8 +22,6 @@ def save_code_info(dbs, codeInfo):
     # insert into codeinfo table
     query_params = []
     for c in codeInfo.values():
-        if is_from_json_source(c["id"]):
-            continue
         query_params.append(
             {
                 **c,
@@ -53,8 +51,6 @@ def save_code_info(dbs, codeInfo):
     for c in codeInfo.values():
         order = 0
         for x in c["children"]:
-            if is_from_json_source(x):
-                continue
             query_params.append({"parentId": c["id"], "childId": x, "order": order})
             order += 1
     db.executemany(query, query_params)

@@ -3,7 +3,6 @@ import itertools
 import json
 from collections import defaultdict
 
-from setta.database.seed import load_base_ui_types
 from setta.utils.constants import C
 
 from ..paramSweeps.load import load_param_sweeps
@@ -237,15 +236,18 @@ def load_artifact_metadata(dbs, section_id, artifact_paths):
 def load_json_sources(sections, codeInfo, sectionVariants):
     jsonSourceData = {}
     for id, s in sections.items():
-        if s["jsonSource"]:
-            with open(s["jsonSource"], "r") as f:
-                jsonSourceData[id] = json.load(f)
+        filename = s["jsonSource"]
+        if filename:
+            with open(filename, "r") as f:
+                jsonSourceData[id] = {"filename": filename, "data": json.load(f)}
 
     for sectionId, jsonSource in jsonSourceData.items():
         s = sections[sectionId]
         collection_id = s["codeInfoId"]
-        for k, v in jsonSource.items():
-            key = f"{C.JSON_SOURCE_PREFIX}{sectionId}-{k}"
+        filename = jsonSource["filename"]
+        for k, v in jsonSource["data"].items():
+            key = json.dumps({"filename": filename, "key": k})
+            key = f"{C.JSON_SOURCE_PREFIX}{key}"
             codeInfo[collection_id]["children"].append(key)
             codeInfo[key] = {
                 "id": key,

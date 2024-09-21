@@ -2,7 +2,7 @@ import copy
 
 from setta.utils.utils import QuoteInsensitiveDict
 
-from ..utils.constants import C, BASE_UI_TYPE_IDS
+from ..utils.constants import BASE_UI_TYPE_IDS, C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
@@ -53,7 +53,7 @@ def get_param_ids(p, id):
 def get_param_ui_type(p, section_id, id):
     ui_type_col_id = p["sections"][section_id]["uiTypeColId"]
     ui_type_col = p["uiTypeCols"][ui_type_col_id]
-    if (id not in ui_type_col):
+    if id not in ui_type_col:
         ui_type_id = BASE_UI_TYPE_IDS[C.TEXT]
     else:
         ui_type_id = ui_type_col[id]["uiTypeId"]
@@ -299,7 +299,9 @@ class Exporter:
                 params.append(v)
 
             curr_param_info_id = self.output[v]["paramInfoId"]
-            positionalOnly = self.p["codeInfo"][curr_param_info_id].get("positionalOnly", False)
+            positionalOnly = self.p["codeInfo"][curr_param_info_id].get(
+                "positionalOnly", False
+            )
             if positionalOnly:
                 positionalOnlyParams.add(v)
         return params, unused_params, positionalOnlyParams

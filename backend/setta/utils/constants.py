@@ -53,8 +53,10 @@ def load_constants():
     ) as f:
         set_constants(**json.load(f))
 
-    with open(get_absolute_path(__file__, CONSTANTS_FOLDER / "BaseUITypes.json"), "r") as f:
-        for k,v in json.load(f).items():
+    with open(
+        get_absolute_path(__file__, CONSTANTS_FOLDER / "BaseUITypes.json"), "r"
+    ) as f:
+        for k, v in json.load(f).items():
             BASE_UI_TYPE_IDS[v["type"]] = k
 
 

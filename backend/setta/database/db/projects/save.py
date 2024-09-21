@@ -14,9 +14,12 @@ from ..runGroups.save import save_run_groups
 from ..sections.save import save_sections
 from ..sectionVariants.save import save_section_variants
 from ..uiTypes.save import save_ui_type_cols, save_ui_types
+from .utils import remove_json_source_data, save_json_source_data
 
 
 def save_project_details(dbs, p):
+    save_json_source_data(p)
+    remove_json_source_data(p)
     save_section_variants(dbs, p["sectionVariants"])
     save_code_info(dbs, p["codeInfo"])
     save_ui_types(dbs, p["uiTypes"])
