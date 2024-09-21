@@ -90,7 +90,6 @@ export function setSectionParentId(sectionId, parentId) {
 }
 
 export function setSectionSize(sectionId, size) {
-  console.log("setSectionSize", size)
   setSectionInfoAttr({ sectionId, attr: "size", value: size });
 }
 
