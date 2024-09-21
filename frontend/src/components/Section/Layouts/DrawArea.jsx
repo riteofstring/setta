@@ -301,7 +301,7 @@ export function DrawOnImage({ sectionId }) {
           Clear
         </button>
       </div>
-      <section className="section-row-main section-key-value relative mb-8 max-h-full min-w-0">
+      <section className="nodrag section-row-main section-key-value relative mb-8 max-h-full min-w-0">
         <canvas
           ref={canvasRef}
           onMouseDown={onMouseDown}
@@ -312,7 +312,7 @@ export function DrawOnImage({ sectionId }) {
         />
         <canvas
           ref={draftCanvasRef}
-          className="pointer-events-none absolute z-10 h-auto max-h-full w-full self-center "
+          className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2"
         />
       </section>
     </>
