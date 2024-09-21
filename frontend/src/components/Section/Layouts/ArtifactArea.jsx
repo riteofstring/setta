@@ -86,7 +86,7 @@ function OneImg({ sectionId, img }) {
 
   useEffect(() => {
     setSectionSizeOnLoad();
-  }, []);
+  }, [base64String]);
 
   return (
     <figure className="section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1">

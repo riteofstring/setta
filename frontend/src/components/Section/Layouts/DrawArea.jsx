@@ -2,7 +2,10 @@ import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { sendToInteractiveTasks } from "state/actions/interactive";
-import { setSectionSize } from "state/actions/sections/setters";
+import {
+  setAspectRatioInfo,
+  setSectionSize,
+} from "state/actions/sections/setters";
 import {
   base64RequestId,
   setTemporaryMiscState,
@@ -16,7 +19,7 @@ import { useArtifactData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { createRandomName } from "utils/idNameCreation";
 
-const SECTION_SIZE_CANVAS_DIFF = 32;
+const SECTION_SIZE_CANVAS_HEIGHT_DIFF = 147;
 
 export function DrawOnImage({ sectionId }) {
   const { artifacts, isLoaded } = useArtifactData(sectionId);
@@ -59,16 +62,16 @@ export function DrawOnImage({ sectionId }) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     const image = imageRef.current;
     if (image && image.complete) {
-      canvas.width =
-        width === "auto" ? image.width : width - SECTION_SIZE_CANVAS_DIFF;
-      canvas.height =
-        height === "auto" ? image.height : height - SECTION_SIZE_CANVAS_DIFF;
-
       if (width === "auto" || height === "auto") {
+        canvas.width = image.width;
+        canvas.height = image.height;
         setSectionSize(sectionId, {
-          width: image.width + SECTION_SIZE_CANVAS_DIFF,
-          height: image.height + SECTION_SIZE_CANVAS_DIFF,
+          width: image.width,
+          height: image.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
+      } else {
+        canvas.width = width;
+        canvas.height = height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
       }
 
       const scale = Math.min(
@@ -87,14 +90,15 @@ export function DrawOnImage({ sectionId }) {
       ctx.globalCompositeOperation = "source-over";
     } else {
       const [defaultWidth, defaultHeight] = [500, 500];
-      canvas.width =
-        width === "auto" ? defaultWidth : width - SECTION_SIZE_CANVAS_DIFF;
+      canvas.width = width === "auto" ? defaultWidth : width;
       canvas.height =
-        height === "auto" ? defaultHeight : height - SECTION_SIZE_CANVAS_DIFF;
+        height === "auto"
+          ? defaultHeight
+          : height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
       if (width === "auto" || height === "auto") {
         setSectionSize(sectionId, {
-          width: canvas.width + SECTION_SIZE_CANVAS_DIFF,
-          height: canvas.height + SECTION_SIZE_CANVAS_DIFF,
+          width: canvas.width,
+          height: canvas.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
       }
       clearCanvas(canvasRef);
@@ -133,6 +137,11 @@ export function DrawOnImage({ sectionId }) {
         image.src = `data:image/png;base64,${v.value}`;
         await image.decode();
         imageRef.current = image;
+        setAspectRatioInfo({
+          sectionId,
+          aspectRatio: imageRef.current.width / imageRef.current.height,
+          aspectRatioExtraHeight: SECTION_SIZE_CANVAS_HEIGHT_DIFF,
+        });
       } else if (v.type === "brushStrokes") {
         strokesRef.current = _.cloneDeep(v.value);
       }
