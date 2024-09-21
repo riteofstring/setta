@@ -248,6 +248,7 @@ export function DrawOnImage({ sectionId }) {
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName =
     "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  const canvasClassName = "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2"
 
   return (
     <>
@@ -275,16 +276,6 @@ export function DrawOnImage({ sectionId }) {
           </Slider.Track>
           <Slider.Thumb className={sliderThumbClassName} />
         </Slider.Root>
-        {/* <input
-          id="opacitySlider"
-          type="range"
-          min="0"
-          max="1"
-          step="0.1"
-          value={opacity}
-          
-          className="w-40"
-        /> */}
         <p className="my-auto w-20 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400">
           {opacity.toFixed(1)}
         </p>
@@ -308,11 +299,11 @@ export function DrawOnImage({ sectionId }) {
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseUp}
-          className="absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2"
+          className={canvasClassName}
         />
         <canvas
           ref={draftCanvasRef}
-          className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2"
+          className={`pointer-events-none z-10 ${canvasClassName}`}
         />
       </section>
     </>
