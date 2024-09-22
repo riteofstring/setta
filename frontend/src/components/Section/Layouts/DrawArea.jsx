@@ -66,7 +66,7 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function setCanvasProperties({ doDrawStrokes }) {
-    const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+    const [canvas] = getCanvasAndCtx(canvasRef);
     const [backgroundCanvas, backgroundCtx] =
       getCanvasAndCtx(backgroundCanvasRef);
 
@@ -93,10 +93,6 @@ export function DrawOnImage({ sectionId }) {
       const x = backgroundCanvas.width / 2 - (image.width / 2) * scale;
       const y = backgroundCanvas.height / 2 - (image.height / 2) * scale;
       clearCanvas(backgroundCanvasRef);
-      clearCanvas(canvasRef);
-      if (doDrawStrokes) {
-        drawStrokes(canvas, ctx);
-      }
       backgroundCtx.globalAlpha = 1;
       backgroundCtx.drawImage(
         image,
@@ -124,26 +120,11 @@ export function DrawOnImage({ sectionId }) {
         });
       }
       clearCanvas(backgroundCanvasRef);
-      clearCanvas(canvasRef);
-      if (doDrawStrokes) {
-        drawStrokes(canvas, ctx);
-      }
     }
-  }
 
-  function drawStrokes(canvas, ctx) {
-    const startingProps = _.pick(ctx, [
-      "globalCompositeOperation",
-      "strokeStyle",
-      "globalAlpha",
-      "lineWidth",
-      "lineCap",
-    ]);
-    strokesRef.current.forEach((stroke) => {
-      drawStroke(canvas, ctx, stroke);
-    });
-    for (const [k, v] of Object.entries(startingProps)) {
-      ctx[k] = v;
+    clearCanvas(canvasRef);
+    if (doDrawStrokes) {
+      drawStrokesAndKeepOriginalProps(canvasRef, strokesRef.current);
     }
   }
 
@@ -183,12 +164,11 @@ export function DrawOnImage({ sectionId }) {
   }, [height, width]);
 
   useEffect(() => {
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     if (isEraser) {
       setCanvasProperties({ doDrawStrokes: false });
-      clearCanvas(draftCanvasRef);
       setDraftCanvasProperties();
-      drawStrokes(draftCanvas, dCtx);
+      clearCanvas(draftCanvasRef);
+      drawStrokesAndKeepOriginalProps(draftCanvasRef, strokesRef.current);
     } else {
       setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
@@ -209,27 +189,32 @@ export function DrawOnImage({ sectionId }) {
     return unsub;
   }, []);
 
+  function startNewStroke(firstPoint) {
+    console.log("startNewStroke", firstPoint)
+    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+    strokesRef.current.push({
+      color: isEraser ? dCtx.strokeStyle : color,
+      opacity: isEraser ? 1 : opacity,
+      lineWidth: dCtx.lineWidth,
+      points: [firstPoint],
+      canvasHeight: draftCanvas.height,
+      canvasWidth: draftCanvas.width,
+      globalCompositeOperation: dCtx.globalCompositeOperation,
+    });
+  }
+
   function onMouseDown(e, offsetX, offsetY) {
     // nothing to erase
     if (isEraser && strokesRef.current.length === 0) {
       return;
     }
     setIsDrawing(true);
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     if (offsetX && offsetY) {
-      prevPointRef.current = { offsetX, offsetY };
+      prevPointRef.current = [offsetX, offsetY];
     } else {
       prevPointRef.current = getXY(e);
     }
-    strokesRef.current.push({
-      color: isEraser ? dCtx.strokeStyle : color,
-      opacity: isEraser ? 1 : opacity,
-      lineWidth: dCtx.lineWidth,
-      points: [prevPointRef.current],
-      canvasHeight: draftCanvas.height,
-      canvasWidth: draftCanvas.width,
-      globalCompositeOperation: dCtx.globalCompositeOperation,
-    });
+    startNewStroke(prevPointRef.current);
   }
 
   function onMouseMove(e) {
@@ -243,13 +228,13 @@ export function DrawOnImage({ sectionId }) {
     ctx.lineTo(point[0], point[1]);
     ctx.stroke();
     prevPointRef.current = point;
-    strokesRef.current[strokesRef.current.length - 1].points.push(point);
-    if (strokesRef.current[strokesRef.current.length - 1].points.length >= 50) {
-      console.log("transfering to real canvas");
-      setCanvasProperties({ doDrawStrokes: true });
-      setDraftCanvasProperties();
+    const currStroke = strokesRef.current[strokesRef.current.length - 1];
+    if (!isEraser && currStroke.points.length >= 50) {
+      drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
-      onMouseDown(e);
+      startNewStroke(prevPointRef.current)
+    } else {
+      currStroke.points.push(point);
     }
   }
 
@@ -259,8 +244,7 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
-      setCanvasProperties({ doDrawStrokes: true });
-      setDraftCanvasProperties();
+      drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
     }
     debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
@@ -280,7 +264,7 @@ export function DrawOnImage({ sectionId }) {
 
   function clearStrokes() {
     strokesRef.current = [];
-    setCanvasProperties({ doDrawStrokes: true });
+    clearCanvas(canvasRef);
     clearCanvas(draftCanvasRef);
     debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
@@ -627,6 +611,29 @@ function exportImageToBase64(image, width, height) {
   const tempCtx = tempCanvas.getContext("2d");
   tempCtx.drawImage(image, 0, 0);
   return canvasToBase64(tempCanvas);
+}
+
+function drawStrokesAndKeepOriginalProps(canvasRef, strokes) {
+  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+  const startingProps = _.pick(ctx, [
+    "globalCompositeOperation",
+    "strokeStyle",
+    "globalAlpha",
+    "lineWidth",
+    "lineCap",
+  ]);
+  strokes.forEach((stroke) => {
+    drawStroke(canvas, ctx, stroke);
+  });
+  for (const [k, v] of Object.entries(startingProps)) {
+    ctx[k] = v;
+  }
+}
+
+function drawLatestStroke(canvasRef, strokes) {
+  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+  const currStroke = strokes[strokes.length - 1];
+  drawStroke(canvas, ctx, currStroke);
 }
 
 function drawStroke(canvas, ctx, stroke) {
