@@ -2,7 +2,7 @@ import { DeckContextMenu } from "components/Utils/ContextMenus/DeckContextMenu";
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
 import { GlobalDndContext } from "forks/dnd-kit/GlobalDndContext";
-import ReactFlow from "forks/xyflow/core/container/ReactFlow";
+import { ReactFlow } from "forks/xyflow/core";
 import "forks/xyflow/core/styles/style.css";
 import { useInitGlobalKeyEventListeners } from "state/hooks/keyActivations";
 import { localStorageFns } from "state/hooks/localStorage";
@@ -16,7 +16,11 @@ export function UIPage() {
 
   return (
     <GlobalDndContext>
-      <ReactFlow />
+      <ReactFlow
+        style={reactFlowStyle}
+        nodeDragThreshold={0}
+        className="setta-light dark:setta-dark"
+      />
       <PaneContextMenu />
       <SelectionContextMenu />
       <DeckContextMenu />
@@ -25,3 +29,9 @@ export function UIPage() {
     </GlobalDndContext>
   );
 }
+
+const reactFlowStyle = {
+  // background: "#94a3b8",
+  height: "100%",
+  userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
+};

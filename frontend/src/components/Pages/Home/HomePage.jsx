@@ -1,7 +1,7 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
-import { getNodesBounds } from "forks/xyflow/core/utils/graph";
+import { getNodesBounds } from "forks/xyflow/core";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
 import { forwardRef, useEffect, useState } from "react";

@@ -1,11 +1,17 @@
-import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
+import { NodeWrapper } from "forks/xyflow/core/components/Nodes/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { updateNodeDimensions } from "state/actions/nodeInternals";
 import { shallow } from "zustand/shallow";
-import useVisibleNodes from "../hooks/useVisibleNodes";
-import { containerStyle } from "../styles";
-import type { ReactFlowState } from "../types";
+import useVisibleNodes from "../../hooks/useVisibleNodes";
+import { containerStyle } from "../../styles";
+import type { ReactFlowState } from "../../types";
+import { GraphViewProps } from "../GraphView";
+
+type NodeRendererProps = Pick<
+  GraphViewProps,
+  "selectNodesOnDrag" | "noPanClassName" | "noDragClassName"
+>;
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
@@ -13,7 +19,7 @@ const selector = (s: ReactFlowState) => ({
   elementsSelectable: s.elementsSelectable,
 });
 
-const NodeRenderer = ({}) => {
+const NodeRenderer = (props: NodeRendererProps) => {
   const { nodesDraggable, nodesFocusable, elementsSelectable } = useReactFlow(
     selector,
     shallow,
@@ -73,11 +79,14 @@ const NodeRenderer = ({}) => {
             style={node.style}
             xPos={posX}
             yPos={posY}
+            selectNodesOnDrag={props.selectNodesOnDrag}
             selected={!!node.selected}
             isDraggable={isDraggable}
             isSelectable={isSelectable}
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
+            noDragClassName={props.noDragClassName}
+            noPanClassName={props.noPanClassName}
             initialized={!!node.width && !!node.height}
             zIndex={node.tempZIndex}
           />
