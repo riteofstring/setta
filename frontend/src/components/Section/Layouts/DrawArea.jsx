@@ -31,19 +31,32 @@ export function DrawOnImage({ sectionId }) {
     (x) => x.x[sectionId].size,
     _.isEqual,
   );
-  const backgroundCanvasRef = useRef(null);
-  const canvasRef = useRef(null);
-  const draftCanvasRef = useRef(null);
-  const imageRef = useRef(null);
-  const prevPointRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState("#ff0000");
-  const [opacity, setOpacity] = useState(1);
-  const [brushSize, setBrushSize] = useState(16);
-  const [canvasOpacity, setCanvasOpacity] = useState(0.5);
-  const [eraserBrushSize, setEraserBrushSize] = useState(16);
-  const [isEraser, setIsEraser] = useState(false);
-  const strokesRef = useRef([]);
+
+  async function processLoadedArtifacts() {
+    if (!isLoaded) {
+      return;
+    }
+    console.log(artifacts);
+    for (const v of Object.values(artifacts)) {
+      console.log("v", v);
+      if (v.type === "img") {
+        const image = new Image();
+        image.src = `data:image/png;base64,${v.value}`;
+        await image.decode();
+        imageRef.current = image;
+        setAspectRatioInfo({
+          sectionId,
+          aspectRatio: imageRef.current.width / imageRef.current.height,
+          aspectRatioExtraHeight: SECTION_SIZE_CANVAS_HEIGHT_DIFF,
+          aspectRatioExtraWidth: SECTION_SIZE_CANVAS_WIDTH_DIFF,
+        });
+      } else if (v.type === "brushStrokes") {
+        strokesRef.current = _.cloneDeep(v.value);
+      }
+    }
+    setCanvasProperties({ doDrawStrokes: true });
+    setDraftCanvasProperties();
+  }
 
   function setDraftCanvasProperties() {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
@@ -129,36 +142,6 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  async function processLoadedArtifacts() {
-    if (!isLoaded) {
-      return;
-    }
-    console.log(artifacts);
-    for (const v of Object.values(artifacts)) {
-      console.log("v", v);
-      if (v.type === "img") {
-        const image = new Image();
-        image.src = `data:image/png;base64,${v.value}`;
-        await image.decode();
-        imageRef.current = image;
-        setAspectRatioInfo({
-          sectionId,
-          aspectRatio: imageRef.current.width / imageRef.current.height,
-          aspectRatioExtraHeight: SECTION_SIZE_CANVAS_HEIGHT_DIFF,
-          aspectRatioExtraWidth: SECTION_SIZE_CANVAS_WIDTH_DIFF,
-        });
-      } else if (v.type === "brushStrokes") {
-        strokesRef.current = _.cloneDeep(v.value);
-      }
-    }
-    setCanvasProperties({ doDrawStrokes: true });
-    setDraftCanvasProperties();
-  }
-
-  useDeepCompareEffect(() => {
-    processLoadedArtifacts();
-  }, [Object.keys(artifacts), isLoaded]);
-
   useEffect(() => {
     setCanvasProperties({ doDrawStrokes: true });
     setDraftCanvasProperties();
@@ -177,6 +160,10 @@ export function DrawOnImage({ sectionId }) {
     }
   }, [isEraser, opacity, color, brushSize, eraserBrushSize]);
 
+  useDeepCompareEffect(() => {
+    processLoadedArtifacts();
+  }, [Object.keys(artifacts), isLoaded]);
+
   useEffect(() => {
     const id = base64RequestId(sectionId);
     const unsub = useTemporaryMiscState.subscribe(
@@ -189,6 +176,24 @@ export function DrawOnImage({ sectionId }) {
     );
     return unsub;
   }, []);
+
+  return <Canvases sectionId={sectionId} />;
+}
+
+function Canvases({ sectionId }) {
+  const backgroundCanvasRef = useRef(null);
+  const canvasRef = useRef(null);
+  const draftCanvasRef = useRef(null);
+  const imageRef = useRef(null);
+  const prevPointRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [color, setColor] = useState("#ff0000");
+  const [opacity, setOpacity] = useState(1);
+  const [brushSize, setBrushSize] = useState(16);
+  const [canvasOpacity, setCanvasOpacity] = useState(0.5);
+  const [eraserBrushSize, setEraserBrushSize] = useState(16);
+  const [isEraser, setIsEraser] = useState(false);
+  const strokesRef = useRef([]);
 
   function startNewStroke(firstPoint) {
     console.log("startNewStroke", firstPoint);
