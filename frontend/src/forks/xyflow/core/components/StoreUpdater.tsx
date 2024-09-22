@@ -7,11 +7,10 @@ import type {
   ReactFlowProps,
   ReactFlowState,
   ReactFlowStore,
-} from "../../types";
+} from "../types";
 
 type StoreUpdaterProps = Pick<
   ReactFlowProps,
-  | "nodes"
   | "nodesDraggable"
   | "nodesFocusable"
   | "elementsSelectable"

@@ -21,12 +21,12 @@ import { clearActiveSectionIds } from "state/actions/sections/activeSections";
 import { useSettings } from "state/definitions";
 import { REACT_FLOW_STORE } from "utils/constants";
 import { shallow } from "zustand/shallow";
-import UserSelection from "../../components/UserSelection";
-import { containerStyle } from "../../styles";
-import type { NodeChange, ReactFlowProps, ReactFlowState } from "../../types";
-import { SelectionMode } from "../../types";
-import { getEventPosition } from "../../utils";
-import { getSelectionChanges } from "../../utils/changes";
+import UserSelection from "../components/UserSelection";
+import { containerStyle } from "../styles";
+import type { NodeChange, ReactFlowProps, ReactFlowState } from "../types";
+import { SelectionMode } from "../types";
+import { getEventPosition } from "../utils";
+import { getSelectionChanges } from "../utils/changes";
 
 type PaneProps = {
   isSelecting: boolean;

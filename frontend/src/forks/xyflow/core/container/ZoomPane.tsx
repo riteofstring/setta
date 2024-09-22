@@ -16,16 +16,16 @@ import { setProjectConfigFitViewOnInit } from "state/actions/project/projectConf
 import { useProjectConfig, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { shallow } from "zustand/shallow";
-import useResizeHandler from "../../hooks/useResizeHandler";
-import { containerStyle } from "../../styles";
+import useResizeHandler from "../hooks/useResizeHandler";
+import { containerStyle } from "../styles";
 import {
   CoordinateExtent,
   PanOnScrollMode,
   type ReactFlowState,
   type Viewport,
-} from "../../types";
-import { clamp, isMacOs } from "../../utils";
-import type { FlowRendererProps } from "../FlowRenderer";
+} from "../types";
+import { clamp, isMacOs } from "../utils";
+import type { FlowRendererProps } from "./FlowRenderer";
 
 type ZoomPaneProps = Omit<FlowRendererProps, "">;
 

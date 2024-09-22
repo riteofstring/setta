@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { memo } from "react";
 
-import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection/NodesSelection";
-import { useReactFlow } from "../../store";
-import { GraphViewProps } from "../GraphView";
-import Pane from "../Pane";
-import ZoomPane from "../ZoomPane";
+import { NodesSelectionWrapper } from "forks/xyflow/core/components/NodesSelection";
+import { useReactFlow } from "../store";
+import { GraphViewProps } from "./GraphView";
+import Pane from "./Pane";
+import ZoomPane from "./ZoomPane";
 
 export type FlowRendererProps = Omit<GraphViewProps, "arrowHeadColor"> & {
   children: ReactNode;

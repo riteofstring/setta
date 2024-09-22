@@ -1,9 +1,9 @@
 import { memo } from "react";
 
-import type { ReactFlowProps } from "../../types";
-import FlowRenderer from "../FlowRenderer";
-import NodeRenderer from "../NodeRenderer";
-import ViewportWrapper from "../Viewport";
+import type { ReactFlowProps } from "../types";
+import FlowRenderer from "./FlowRenderer";
+import NodeRenderer from "./NodeRenderer";
+import ViewportWrapper from "./Viewport";
 
 export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
   Required<Pick<ReactFlowProps, "translateExtent">>;

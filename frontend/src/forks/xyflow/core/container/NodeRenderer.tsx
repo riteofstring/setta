@@ -1,11 +1,11 @@
-import { NodeWrapper } from "forks/xyflow/core/components/Nodes/wrapNode";
+import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { updateNodeDimensions } from "state/actions/nodeInternals";
 import { shallow } from "zustand/shallow";
-import useVisibleNodes from "../../hooks/useVisibleNodes";
-import { containerStyle } from "../../styles";
-import type { ReactFlowState } from "../../types";
+import useVisibleNodes from "../hooks/useVisibleNodes";
+import { containerStyle } from "../styles";
+import type { ReactFlowState } from "../types";
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,

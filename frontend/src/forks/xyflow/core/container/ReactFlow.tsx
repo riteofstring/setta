@@ -1,8 +1,8 @@
 import { type CSSProperties } from "react";
-import StoreUpdater from "../../components/StoreUpdater";
-import { infiniteExtent } from "../../store/initialState";
-import { PanOnScrollMode } from "../../types";
-import GraphView from "../GraphView";
+import StoreUpdater from "../components/StoreUpdater";
+import { infiniteExtent } from "../store/initialState";
+import { PanOnScrollMode } from "../types";
+import GraphView from "./GraphView";
 
 const wrapperStyle: CSSProperties = {
   width: "100%",

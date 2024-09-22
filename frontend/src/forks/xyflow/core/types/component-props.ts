@@ -1,4 +1,4 @@
-import type { CoordinateExtent, Node, PanOnScrollMode } from ".";
+import type { CoordinateExtent, PanOnScrollMode } from ".";
 
 export type ReactFlowProps = {
   nodesDraggable?: boolean;
