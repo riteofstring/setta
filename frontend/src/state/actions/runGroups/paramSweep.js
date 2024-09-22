@@ -11,6 +11,12 @@ export function initParamSweep({ id, name }) {
   });
 }
 
+export function addParamSweepCallable({ paramSweepId }) {
+  useParamSweep.setState((state) => {
+    state.x[paramSweepId].sweep.push({ selectedItem: null, params: [] });
+  });
+}
+
 export function setParamSweepSelectedItem({
   paramSweepId,
   selectedItemIdx,

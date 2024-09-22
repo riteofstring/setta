@@ -7,6 +7,7 @@ import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { IoClose } from "react-icons/io5";
 import {
+  addParamSweepCallable,
   addParamSweepParamInfoId,
   addParamSweepValue,
   changeParamSweepParamInfoId,
@@ -27,12 +28,16 @@ function _ParamSweepArea({ sectionId }) {
   const showParamSweepSectionSearch =
     useShowParamSweepSectionSearch(forSectionId);
 
+  function onAddCallableClick() {
+    addParamSweepCallable({ paramSweepId });
+  }
+
   return (
     <>
       <div className="section-main-full-w ml-1.5 flex flex-col gap-6 overflow-y-scroll">
         {paramSweep.map((sweep, idx) => (
           <ParamSweepForOneSelectedItem
-            key={sweep.selectedItem}
+            key={idx}
             sectionId={sectionId}
             forSectionId={forSectionId}
             sweep={sweep}
@@ -42,7 +47,10 @@ function _ParamSweepArea({ sectionId }) {
           />
         ))}
         {showParamSweepSectionSearch && (
-          <button className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+          <button
+            className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
+            onClick={onAddCallableClick}
+          >
             <i className="gg-play-list-add !scale-75" />
             <p>Callable</p>
           </button>
