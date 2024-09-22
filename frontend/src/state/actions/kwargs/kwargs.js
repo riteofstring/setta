@@ -78,7 +78,7 @@ function deleteKwargIds({ sectionId, ids, incrementVersion }) {
 }
 
 export function saveKwargsAsCollection({ sectionId, name }) {
-  const children = getParamIds(sectionId);
+  const { ids: children } = getParamIds(sectionId);
   const collection = newCodeInfo({
     name,
     rcType: C.COLLECTION,
