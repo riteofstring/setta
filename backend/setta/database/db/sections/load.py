@@ -10,12 +10,11 @@ from ..sectionVariants.load import load_section_variants
 from ..uiTypes.load import load_uitypecols, load_uitypes_by_condition
 
 
-def load_sections(dbs, ids):
-    all_ids, child_to_parent_id = get_section_ids(dbs, ids)
+def load_sections(db, ids):
+    all_ids, child_to_parent_id = get_section_ids(db, ids)
 
-    section_id_to_config_count = num_projects_each_section_exists_in(dbs, all_ids)
+    section_id_to_config_count = num_projects_each_section_exists_in(db, all_ids)
 
-    db = dbs.default
     placeholders = ", ".join(["?"] * len(all_ids))
     query = f"""
         SELECT
@@ -94,8 +93,7 @@ def load_sections(dbs, ids):
         itertools.chain.from_iterable([s["variantIds"] for s in sections.values()])
     )
     sectionVariants = {}
-    for k, dbq in dbs.items():
-        sectionVariants = load_section_variants(dbq, variantIds)
+    sectionVariants = load_section_variants(db, variantIds)
 
     uiTypeCols = load_uitypecols(db, [s["uiTypeColId"] for s in sections.values()])
     paramSweeps = load_param_sweeps(
@@ -126,20 +124,19 @@ def load_sections(dbs, ids):
 
 
 # TODO: try using a recursive sql query for this
-def get_section_ids(dbs, top_level_ids):
+def get_section_ids(db, top_level_ids):
     section_id_to_variants = defaultdict(list)
     variant_id_to_children = defaultdict(list)
 
-    for dbq in dbs.values():
-        dbq.execute("SELECT id, originSectionId FROM SectionVariantId")
-        for row in dbq.fetchall():
-            row = dict(row)
-            section_id_to_variants[row["originSectionId"]].append(row["id"])
+    db.execute("SELECT id, originSectionId FROM SectionVariantId")
+    for row in db.fetchall():
+        row = dict(row)
+        section_id_to_variants[row["originSectionId"]].append(row["id"])
 
-        dbq.execute("SELECT idid, childId FROM SectionVariantChildren")
-        for row in dbq.fetchall():
-            row = dict(row)
-            variant_id_to_children[row["idid"]].append(row["childId"])
+    db.execute("SELECT idid, childId FROM SectionVariantChildren")
+    for row in db.fetchall():
+        row = dict(row)
+        variant_id_to_children[row["idid"]].append(row["childId"])
 
     ids = copy.deepcopy(top_level_ids)
     output = copy.deepcopy(top_level_ids)
@@ -162,8 +159,7 @@ def get_section_ids(dbs, top_level_ids):
     return output, child_to_parent_id
 
 
-def load_section_configs(dbs, project_config_id):
-    db = dbs.default
+def load_section_configs(db, project_config_id):
     query = """SELECT sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized
         FROM SectionConfig
         WHERE projectConfigId = :projectConfigId
@@ -193,8 +189,7 @@ def convert_size(x):
     return "auto" if x == -1 else x
 
 
-def num_projects_each_section_exists_in(dbs, section_ids):
-    db = dbs.default
+def num_projects_each_section_exists_in(db, section_ids):
     placeholders = ", ".join(["?"] * len(section_ids))
     query = f"""
         SELECT sectionId, COUNT(DISTINCT projectConfigId) as projectConfigCount
@@ -211,8 +206,7 @@ def num_projects_each_section_exists_in(dbs, section_ids):
     return output
 
 
-def load_artifact_metadata(dbs, section_id, artifact_paths):
-    db = dbs.default
+def load_artifact_metadata(db, section_id, artifact_paths):
     query_params = []
     for a in artifact_paths:
         query_params.extend([section_id, a])

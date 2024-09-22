@@ -18,8 +18,8 @@ from setta.utils.constants import C
 from .utils import get_configs_and_root_folder
 
 
-def export_readable(dbs, filename):
-    configs, root_folder = get_configs_and_root_folder(dbs, filename)
+def export_readable(db, filename):
+    configs, root_folder = get_configs_and_root_folder(db, filename)
     for c in configs:
         export_config(root_folder / "clean", c)
 

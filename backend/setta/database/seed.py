@@ -15,23 +15,23 @@ def load_base_ui_types():
         return json.load(f)
 
 
-def seed_base_ui_types(dbs):
+def seed_base_ui_types(db):
     data = load_base_ui_types()
-    save_ui_types(dbs, data)
+    save_ui_types(db, data)
 
 
-def seed_examples(dbs):
+def seed_examples(db):
     example_jsons = glob.glob(
         str(get_absolute_path(__file__, SEED_FOLDER / "examples/**/*.json"))
     )
     for filepath in example_jsons:
         with open(filepath, "r") as f:
             data = json.load(f)
-        save_project_details(dbs, data)
+        save_project_details(db, data)
 
 
-def seed(dbs, with_examples=False, with_base_ui_types=False):
+def seed(db, with_examples=False, with_base_ui_types=False):
     if with_base_ui_types:
-        seed_base_ui_types(dbs)
+        seed_base_ui_types(db)
     if with_examples:
-        seed_examples(dbs)
+        seed_examples(db)

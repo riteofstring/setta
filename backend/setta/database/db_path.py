@@ -49,19 +49,6 @@ def validate_path(path, create_if_not_exists):
         raise FileNotFoundError(f"{path} not found")
 
 
-def create_alias(name, path, create_if_not_exists):
-    config = load_config()
-    validate_path(path, create_if_not_exists)
-    config["databases"][name] = path
-    save_config(config)
-
-
-def delete_alias(name):
-    config = load_config()
-    config["databases"].pop(name, None)
-    save_config(config)
-
-
 def get_db_path_from_config(name):
     config = load_config()
     if name == C.DEFAULT_DB_ALIAS and name not in config["databases"]:

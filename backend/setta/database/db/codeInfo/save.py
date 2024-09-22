@@ -1,8 +1,7 @@
 from setta.database.utils import dump_keyword_positions_as_string
 
 
-def save_code_info(dbs, codeInfo):
-    db = dbs.default
+def save_code_info(db, codeInfo):
     query = """
         INSERT INTO CodeInfo (id, name, editable, rcType, defaultVal, description, positionalOnly, isPinned, isFrozen, keywordPositions)
         VALUES (:id, :name, :editable, :rcType, :defaultVal, :description, :positionalOnly, :isPinned, :isFrozen, :keywordPositions)

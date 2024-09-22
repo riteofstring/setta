@@ -2,7 +2,7 @@ import copy
 
 from setta.utils.utils import QuoteInsensitiveDict
 
-from ..utils.constants import C, BASE_UI_TYPE_IDS
+from ..utils.constants import BASE_UI_TYPE_IDS, C
 from .find_placeholders import double_braces, needs_generated_python
 from .utils import process_refs
 
@@ -59,7 +59,6 @@ def get_param_ui_type(p, section_id, id):
         ui_type_id = ui_type_col[id]["uiTypeId"]
     ui_type = p["uiTypes"][ui_type_id]
     return ui_type["type"]
-
 
 
 def get_selected_section_variant(p, section_id):

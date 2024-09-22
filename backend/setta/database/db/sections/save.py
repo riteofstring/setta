@@ -1,8 +1,7 @@
 import json
 
 
-def save_sections(dbs, sections):
-    db = dbs.default
+def save_sections(db, sections):
     query = """
         INSERT INTO Section (
             id,
