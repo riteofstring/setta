@@ -15,6 +15,7 @@ import {
 } from "state/actions/runGroups/runGroups";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { useProjectConfig, useRunGroups } from "state/definitions";
+import { localStorageFns } from "state/hooks/localStorage";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -55,16 +56,16 @@ function GlobalParamSweepCode({ sectionId }) {
 
 function GlobalParamSweepGUI() {
   const runGroups = useRunGroups((x) => x.x);
-  const firstRunGroupId = Object.keys(runGroups)[0];
-  const [shownRunGroup, setShownRunGroup] = useState(firstRunGroupId);
+  const [shownRunGroup, setShownRunGroup] =
+    localStorageFns.shownRunGroup.hook();
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
 
   useEffect(() => {
-    if (firstRunGroupId) {
-      setShownRunGroup(firstRunGroupId);
+    if (!shownRunGroup) {
+      setShownRunGroup(Object.keys(runGroups)[0]);
     }
-  }, [firstRunGroupId]);
+  }, []);
 
   return (
     <>
