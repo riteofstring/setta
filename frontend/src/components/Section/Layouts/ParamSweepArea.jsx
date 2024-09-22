@@ -4,7 +4,6 @@ import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
-import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { IoClose } from "react-icons/io5";
 import {
   addParamSweepCallable,
@@ -195,7 +194,13 @@ function ArgItem({
 
   return (
     <>
-      <div className="section-w-full mt-1 flex min-w-0 items-center">
+      <div className="section-w-full mt-1 flex min-w-0 items-center gap-0.5">
+        <button
+          onClick={onMinus}
+          className="nodrag my-auto inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 hover:bg-setta-500 hover:text-white focus-visible:ring-2"
+        >
+          <i className="gg-math-minus" />
+        </button>
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
@@ -203,15 +208,12 @@ function ArgItem({
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
         />
-
-        <div className="ml-auto flex pl-2">
-          <IconButton
-            icon={<AiOutlineMinus />}
-            type="minus"
-            onClick={onMinus}
-          />
-          <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
-        </div>
+        <button
+          onClick={onPlus}
+          className="nodrag my-auto inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 hover:bg-setta-500 hover:text-white focus-visible:ring-2"
+        >
+          <i className="gg-math-plus mr-1.5" />
+        </button>
       </div>
       {paramInfoId &&
         values.map((x, valueIdx) => (

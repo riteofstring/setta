@@ -65,14 +65,23 @@ export function ParamSweepSectionSearch({
   }
 
   return (
-    <SectionSearchCore
-      dataSectionId={forSectionId}
-      visualSectionId={sectionId}
-      selectedItem={selectedItem}
-      onEnter={onEnter}
-      dummyCodeClassName="section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
-      realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
-    />
+    <>
+      <button className="section-search nodrag my-auto inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 hover:bg-setta-500 hover:text-white focus-visible:ring-2  ">
+        <i className="gg-math-minus" />
+      </button>
+      <SectionSearchCore
+        dataSectionId={forSectionId}
+        visualSectionId={sectionId}
+        selectedItem={selectedItem}
+        onEnter={onEnter}
+        s
+        dummyCodeClassName="section-search rounded-2xl border border-solid pl-[23px] border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
+        realCodeClassName="nodrag section-search [&_*]:!outline-0 pl-[13px] cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+      />
+      <button className="section-search nodrag my-auto inline-flex h-4 w-4 cursor-pointer items-center justify-center place-self-end rounded-full bg-transparent p-0 text-setta-600 hover:bg-setta-500 hover:text-white focus-visible:ring-2  ">
+        <i className="gg-math-plus mr-1.5" />
+      </button>
+    </>
   );
 }
 
