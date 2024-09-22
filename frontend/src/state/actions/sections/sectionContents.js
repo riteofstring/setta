@@ -66,7 +66,7 @@ export function getParamIdsToShowInArea(
 
   let topLevelParamIds = [];
   const topLevelParamIdsSet = new Set();
-  let requiredParamIds = new Set();
+  const requiredParamIdsToPaths = {};
   for (const a of ids) {
     // Evalutes to true if:
     // 1. The current param's isPinned matches the isPinned condition
@@ -75,10 +75,10 @@ export function getParamIdsToShowInArea(
     if (
       bothTruthyOrFalsey(cState[a].isPinned, isPinned) &&
       (cState[a].children.length === 0 ||
-        cState[a].children.some((child) => requiredParamIds.has(child)))
+        cState[a].children.some((child) => child in requiredParamIdsToPaths))
     ) {
       for (const p of pathMap[a]) {
-        requiredParamIds.add(p);
+        requiredParamIdsToPaths[p] = pathMap[p];
         if (!topLevelParamIdsSet.has(pathMap[a][0])) {
           topLevelParamIds.push(pathMap[a][0]);
           topLevelParamIdsSet.add(pathMap[a][0]);
@@ -90,5 +90,5 @@ export function getParamIdsToShowInArea(
   // unreverse results
   topLevelParamIds.reverse();
 
-  return { requiredParamIds, topLevelParamIds };
+  return { requiredParamIdsToPaths, topLevelParamIds };
 }
