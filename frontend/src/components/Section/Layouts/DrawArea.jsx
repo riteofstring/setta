@@ -59,7 +59,7 @@ export function DrawOnImage({ sectionId }) {
       dCtx.lineWidth = brushSize;
       dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = opacity;
+      draftCanvas.style.opacity = 1;
     }
   }
 
@@ -130,7 +130,7 @@ export function DrawOnImage({ sectionId }) {
     }
 
     ctx.globalCompositeOperation = "source-over";
-    canvas.style.opacity = opacity;
+    canvas.style.opacity = 1;
   }
 
   function drawStrokes(canvas, ctx) {
@@ -375,19 +375,21 @@ export function DrawOnImage({ sectionId }) {
       </div>
       <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
         <canvas ref={backgroundCanvasRef} className={canvasClassName} />
-        <canvas
-          ref={canvasRef}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          onMouseEnter={onMouseEnter}
-          className={canvasClassName}
-        />
-        <canvas
-          ref={draftCanvasRef}
-          className={`pointer-events-none z-10 ${canvasClassName}`}
-        />
+        <div className="single-cell-child single-cell-container opacity-50">
+          <canvas
+            ref={canvasRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onMouseEnter={onMouseEnter}
+            className={canvasClassName}
+          />
+          <canvas
+            ref={draftCanvasRef}
+            className={`pointer-events-none z-10 ${canvasClassName}`}
+          />
+        </div>
       </section>
     </>
   );
