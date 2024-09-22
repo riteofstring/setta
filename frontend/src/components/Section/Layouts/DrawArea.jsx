@@ -37,6 +37,7 @@ export function DrawOnImage({ sectionId }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
   const [opacity, setOpacity] = useState(0.5);
+  const [brushSize, setBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
 
@@ -47,14 +48,14 @@ export function DrawOnImage({ sectionId }) {
     if (isEraser) {
       dCtx.globalCompositeOperation = "destination-out";
       dCtx.strokeStyle = "rgba(0,0,0,1)";
-      dCtx.lineWidth = 16;
+      dCtx.lineWidth = brushSize;
       dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = 1;
     } else {
       dCtx.globalCompositeOperation = "source-over";
       dCtx.strokeStyle = color;
-      dCtx.lineWidth = 16;
+      dCtx.lineWidth = brushSize;
       dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = opacity;
@@ -174,11 +175,12 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       drawStrokes(draftCanvas, dCtx);
     } else {
+      console.log("brushSize", brushSize);
       setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-  }, [isEraser, opacity, color]);
+  }, [isEraser, opacity, color, brushSize]);
 
   useEffect(() => {
     const id = base64RequestId(sectionId);
@@ -208,6 +210,7 @@ export function DrawOnImage({ sectionId }) {
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
       opacity: isEraser ? 1 : opacity,
+      lineWidth: dCtx.lineWidth,
       points: [prevPointRef.current],
       canvasHeight: draftCanvas.height,
       canvasWidth: draftCanvas.width,
@@ -303,7 +306,12 @@ export function DrawOnImage({ sectionId }) {
           </button>
           <StandardPopover
             popoverContent={
-              <BrushSettings opacity={opacity} setOpacity={setOpacity} />
+              <BrushSettings
+                opacity={opacity}
+                setOpacity={setOpacity}
+                brushSize={brushSize}
+                setBrushSize={setBrushSize}
+              />
             }
             arrowClasses="fill-white dark:fill-setta-800"
             inputClasses="rounded-lg"
@@ -360,7 +368,18 @@ export function DrawOnImage({ sectionId }) {
   );
 }
 
-function BrushSettings({ opacity, setOpacity }) {
+function BrushSettings({ opacity, setOpacity, brushSize, setBrushSize }) {
+  const [localOpacity, setLocalOpacity] = useState(opacity);
+  const [localBrushSize, setLocalBrushSize] = useState(brushSize);
+
+  useEffect(() => {
+    setLocalOpacity(opacity);
+  }, [opacity]);
+
+  useEffect(() => {
+    setLocalBrushSize(brushSize);
+  }, [brushSize]);
+
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
   const sliderTrackClassName =
@@ -385,8 +404,9 @@ function BrushSettings({ opacity, setOpacity }) {
         min={0.1}
         max={1}
         step={0.1}
-        value={opacity}
-        onChange={setOpacity}
+        value={localOpacity}
+        onChange={setLocalOpacity}
+        onCommit={setOpacity}
       />
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Size
@@ -398,11 +418,12 @@ function BrushSettings({ opacity, setOpacity }) {
         sliderThumbClassName={sliderThumbClassName}
         textInputClassName={textInputClassName}
         wrapperDivClass="flex gap-2"
-        min={0.1}
-        max={1}
-        step={0.1}
-        // value={opacity}
-        // onChange={setOpacity}
+        min={1}
+        max={100}
+        step={1}
+        value={localBrushSize}
+        onChange={setLocalBrushSize}
+        onCommit={setBrushSize}
       />
     </div>
   );
@@ -537,7 +558,7 @@ function drawStroke(canvas, ctx, stroke) {
   ctx.globalCompositeOperation = stroke.globalCompositeOperation;
   ctx.strokeStyle = stroke.color;
   ctx.globalAlpha = stroke.opacity;
-  ctx.lineWidth = 16;
+  ctx.lineWidth = stroke.lineWidth;
   ctx.lineCap = "round";
   let prevPoint = stroke.points[0];
   stroke.points.forEach((point) => {

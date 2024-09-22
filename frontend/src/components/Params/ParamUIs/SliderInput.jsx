@@ -55,6 +55,7 @@ export function SliderInput({
   value,
   defaultVal,
   onChange,
+  onCommit,
   min,
   max,
   step,
@@ -72,6 +73,7 @@ export function SliderInput({
         value={value}
         defaultVal={defaultVal}
         onChange={onChange}
+        onCommit={onCommit}
         min={min}
         max={max}
         step={step}
@@ -127,6 +129,7 @@ function SliderOnly({
   value,
   defaultVal,
   onChange,
+  onCommit,
   min,
   max,
   step,
@@ -147,7 +150,8 @@ function SliderOnly({
       max={max}
       step={step}
       disabled={isDisabled}
-      onValueChange={(v) => onChange(v[0])}
+      onValueChange={(v) => onChange?.(v[0])}
+      onValueCommit={(v) => onCommit?.(v[0])}
     >
       <Slider.Track className={sliderTrackClassName}>
         <Slider.Range className={sliderRangeClassName} />
