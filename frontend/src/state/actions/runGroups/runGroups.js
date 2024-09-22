@@ -1,4 +1,4 @@
-import { useRunGroups } from "state/definitions";
+import { useProjectConfig, useRunGroups } from "state/definitions";
 import { getSectionByName } from "state/getters/sectionInfo";
 import { SINGLETON_SECTIONS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
@@ -9,13 +9,17 @@ export function setAllRunGroups(payload) {
 
 export function initRunGroup({ id, name }) {
   useRunGroups.setState((state) => {
-    state.x[id] = { name, selected: 0, sections: {} };
+    state.x[id] = { name, sections: {} };
+  });
+
+  useProjectConfig.setState((state) => {
+    state.runGroupSelection[id] = false;
   });
 }
 
 export function toggleRunGroup(id) {
-  useRunGroups.setState((state) => {
-    state.x[id].selected = !state.x[id].selected;
+  useProjectConfig.setState((state) => {
+    state.runGroupSelection[id] = !state.runGroupSelection[id];
   });
 }
 

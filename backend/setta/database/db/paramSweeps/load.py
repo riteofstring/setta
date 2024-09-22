@@ -18,7 +18,7 @@ def load_param_sweeps(db, ids):
                 "sweep": [],
             }
         curr = output[id]["sweep"]
-        
+
         selectedItemGroupNum = row["selectedItemGroupNum"]
         if selectedItemGroupNum is None:
             continue

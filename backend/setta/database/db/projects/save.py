@@ -29,7 +29,7 @@ def save_project_details(db, p):
     save_project(db, p["projectConfig"])
     save_section_configs(db, p["projectConfig"]["id"], p["sections"])
     update_linked_project_configs(db, p)
-    save_run_groups(db, p["runGroups"])
+    save_run_groups(db, p["projectConfig"], p["runGroups"])
 
 
 def save_project(db, project):

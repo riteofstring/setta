@@ -14,7 +14,7 @@ import {
   toggleRunGroupSectionVersion,
 } from "state/actions/runGroups/runGroups";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
-import { useRunGroups } from "state/definitions";
+import { useProjectConfig, useRunGroups } from "state/definitions";
 import { useGetOverviewListing } from "state/hooks/overview";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -97,13 +97,20 @@ function RunGroupList({
   setShownRunGroup,
   setPreviewRunGroup,
 }) {
+  const runGroupSelection = useProjectConfig(
+    (x) => x.runGroupSelection,
+    _.isEqual,
+  );
+
+  console.log();
+
   return (
     <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
       {Object.entries(runGroups).map(([id, x]) => (
         <CheckboxNextToLabel
           key={id}
           shown={shownRunGroup === id}
-          checked={x.selected}
+          checked={runGroupSelection[id]}
           onChange={() => {
             toggleRunGroup(id);
           }}

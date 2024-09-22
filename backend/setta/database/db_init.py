@@ -182,24 +182,20 @@ CREATE_TABLES_COMMANDS = [
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS RunGroupId (
+    CREATE TABLE IF NOT EXISTS RunGroup (
         id TEXT PRIMARY KEY,
-        name TEXT,
-        projectConfigId TEXT,
-        "order" INTEGER,
-        selected BOOLEAN,
-        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id) ON DELETE CASCADE
+        jsonRepr TEXT
     );
     """,
     """
-    CREATE TABLE IF NOT EXISTS RunGroup (
-        idid TEXT,
-        sectionId TEXT,
-        paramSweepId TEXT,
-        PRIMARY KEY (idid, sectionId, paramSweepId),
-        FOREIGN KEY (idid) REFERENCES RunGroupId(id) ON DELETE CASCADE,
-        FOREIGN KEY (sectionId) REFERENCES Section(id) ON DELETE CASCADE,
-        FOREIGN KEY (paramSweepId) REFERENCES ParamSweepId(id) ON DELETE CASCADE
+    CREATE TABLE IF NOT EXISTS ProjectConfigRunGroup (
+        projectConfigId TEXT KEY,
+        runGroupId TEXT KEY,
+        selected BOOLEAN,
+        "order" INTEGER,
+        PRIMARY KEY (projectConfigId, runGroupId),
+        FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id),
+        FOREIGN KEY (runGroupId) REFERENCES RunGroup(id)
     );
     """,
     """
