@@ -1,7 +1,7 @@
 import json
 
 
-def save_sections(db, sections):
+def save_sections(db, sections, section_variants):
     query = """
         INSERT INTO Section (
             id,
@@ -164,4 +164,28 @@ def save_sections(db, sections):
                     "displayName": a["displayName"],
                 }
             )
+    db.executemany(query, query_params)
+
+    # delete children
+    placeholders = ", ".join(["?"] * len(section_variants))
+    query = f"""
+        DELETE FROM SectionVariantChildren
+        WHERE idid IN ({placeholders});
+    """
+    query_params = list(section_variants.keys())
+    db.execute(query, query_params)
+
+    # add children
+    query = """
+        INSERT INTO SectionVariantChildren (idid, childId, "order")
+        VALUES (:idid, :childId, :order)
+    """
+    query_params = []
+    for idid, variant in section_variants.items():
+        query_params.extend(
+            [
+                {"idid": idid, "childId": x, "order": i}
+                for i, x in enumerate(variant["children"])
+            ]
+        )
     db.executemany(query, query_params)
