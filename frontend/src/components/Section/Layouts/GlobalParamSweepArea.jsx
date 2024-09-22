@@ -315,15 +315,17 @@ function CheckboxNextToLabel({
   onMouseLeave,
 }) {
   return (
-    <li className="group/runitem flex justify-between">
+    <li
+      className="group/runitem flex justify-between"
+      onMouseOver={onMouseOver}
+      onMouseLeave={onMouseLeave}
+    >
       <label
-        className={`flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 hover:!text-blue-500 dark:text-setta-200 `}
-        onMouseOver={onMouseOver}
-        onMouseLeave={onMouseLeave}
+        className={`flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 hover:!text-blue-500 dark:text-setta-200 ${shown ? "font-bold !text-blue-500" : ""}`}
       >
         <input
           type="checkbox"
-          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+          className="h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
           checked={checked}
           onChange={onChange}
         />
@@ -331,7 +333,7 @@ function CheckboxNextToLabel({
         <p className="truncate">{children}</p>
       </label>
       <button
-        className="cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600"
+        className={`cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
         onClick={onClick}
       >
         <i className="gg-pen  " />
