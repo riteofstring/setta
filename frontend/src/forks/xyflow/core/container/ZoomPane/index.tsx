@@ -12,6 +12,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
+import { setProjectConfigFitViewOnInit } from "state/actions/project/projectConfig";
 import { useProjectConfig, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import useResizeHandler from "../../hooks/useResizeHandler";
@@ -84,7 +85,6 @@ const ZoomPane = ({
   noWheelClassName,
   noPanClassName,
 }: ZoomPaneProps) => {
-  const timerId = useRef<ReturnType<typeof setTimeout>>();
   const isZoomingOrPanning = useRef(false);
   const zoomedWithRightMouseButton = useRef(false);
   const zoomPane = useRef<HTMLDivElement>(null);
@@ -96,11 +96,23 @@ const ZoomPane = ({
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const initialViewport = useProjectConfig((x) => x.viewport, _.isEqual);
+  const initialViewport = useProjectConfig(
+    (x) => x.viewport ?? { x: null, y: null, zoom: null },
+    _.isEqual,
+  );
 
   useResizeHandler(zoomPane);
 
   useEffect(() => {
+    // if fitview...
+    if (
+      initialViewport.x === null &&
+      initialViewport.y === null &&
+      initialViewport.zoom === null
+    ) {
+      return;
+    }
+
     if (zoomPane.current) {
       const bbox = zoomPane.current.getBoundingClientRect();
       // .interpolate(interpolate) makes the interpolations linear instead of curved
@@ -262,6 +274,7 @@ const ZoomPane = ({
         }
 
         closeAllContextMenus();
+        setProjectConfigFitViewOnInit(false);
       });
     }
   }, [d3Zoom]);

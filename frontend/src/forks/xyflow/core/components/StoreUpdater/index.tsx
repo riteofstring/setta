@@ -16,8 +16,6 @@ type StoreUpdaterProps = Pick<
   | "nodesFocusable"
   | "elementsSelectable"
   | "translateExtent"
-  | "fitView"
-  | "fitViewOptions"
   | "noPanClassName"
   | "autoPanOnNodeDrag"
   | "nodeDragThreshold"
@@ -57,8 +55,6 @@ const StoreUpdater = ({
   nodesFocusable,
   elementsSelectable,
   translateExtent,
-  fitView,
-  fitViewOptions,
   noPanClassName,
   autoPanOnNodeDrag,
   nodeDragThreshold,
@@ -84,12 +80,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater(
     "elementsSelectable",
     elementsSelectable,
-    useReactFlow.setState,
-  );
-  useDirectStoreUpdater("fitViewOnInit", fitView, useReactFlow.setState);
-  useDirectStoreUpdater(
-    "fitViewOnInitOptions",
-    fitViewOptions,
     useReactFlow.setState,
   );
   useDirectStoreUpdater(

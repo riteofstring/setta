@@ -1,4 +1,5 @@
 from setta.database.utils import aggregate_results
+import json
 
 from ..codeInfo.load import load_code_info_for_sections
 from ..runGroups.load import load_run_groups
@@ -26,9 +27,7 @@ def load_project_config_metadata(db, config_name):
         SELECT
             ProjectConfig.id,
             ProjectConfig.name,
-            ProjectConfig.x,
-            ProjectConfig.y,
-            ProjectConfig.zoom,
+            ProjectConfig.viewport,
             ProjectConfig.isDefault,
             ProjectConfig.shownRunGroup,
             ProjectConfigChildren.childId as childId,
@@ -62,12 +61,17 @@ def load_project_config_metadata(db, config_name):
                 "zIndex": out["childZIndex"][i],
             }
 
+    if out["viewport"]:
+        viewport = json.loads(out["viewport"])
+    else:
+        viewport = None
+
     return {
         "id": out["id"],
         "name": out["name"],
         "isDefault": out["isDefault"],
-        "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
         "children": children,
+        "viewport": viewport,
         "shownRunGroup": out["shownRunGroup"],
     }
 

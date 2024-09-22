@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+import json
 from setta.code_gen.export_selected import (
     get_section_type,
     get_section_variants,
@@ -34,16 +35,14 @@ def save_project_details(db, p):
 
 def save_project(db, project):
     query = """
-        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom)
-        VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom)
+        INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, viewport)
+        VALUES (:id, :name, :previewImgNodes, :isDefault, :viewport)
         ON CONFLICT (id)
         DO UPDATE SET
         name = :name,
         previewImgNodes = :previewImgNodes,
         isDefault = :isDefault,
-        x = :x,
-        y = :y,
-        zoom = :zoom
+        viewport = :viewport
     """
 
     query_params = {
@@ -51,7 +50,7 @@ def save_project(db, project):
         "name": project["name"],
         "previewImgNodes": project["previewImgNodes"],
         "isDefault": project["isDefault"],
-        **project["viewport"],
+        "viewport": json.dumps(project["viewport"]) if project["viewport"] else None,
     }
     db.execute(query, query_params)
 

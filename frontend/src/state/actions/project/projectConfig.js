@@ -19,6 +19,11 @@ export function getProjectConfigMetadata() {
 }
 
 export function setShownRunGroup(runGroupId) {
-  console.log("setShownRunGroup", runGroupId)
   useProjectConfig.setState({ shownRunGroup: runGroupId });
+}
+
+export function setProjectConfigFitViewOnInit(fitViewOnInit) {
+  if (fitViewOnInit) {
+    useProjectConfig.setState({ viewport: null });
+  }
 }

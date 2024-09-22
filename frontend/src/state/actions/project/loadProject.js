@@ -1,5 +1,6 @@
 import { router } from "components/Pages/router";
 import BASE_UI_TYPES from "constants/BaseUITypes.json";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
@@ -51,6 +52,9 @@ export function loadProjectState({
 }) {
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));
+  if (!projectConfig.viewport) {
+    useReactFlow.setState({ fitViewOnInit: true });
+  }
   setNodes(
     _.map(projectConfig.children, (v, k) => ({
       id: k,

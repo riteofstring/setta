@@ -36,8 +36,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       noDragClassName = "nodrag",
       noWheelClassName = "nowheel",
       noPanClassName = "nopan",
-      fitView = false,
-      fitViewOptions,
       autoPanOnNodeDrag = true,
       style,
       id,
@@ -77,8 +75,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           nodesFocusable={nodesFocusable}
           elementsSelectable={elementsSelectable}
           translateExtent={translateExtent}
-          fitView={fitView}
-          fitViewOptions={fitViewOptions}
           noPanClassName={noPanClassName}
           autoPanOnNodeDrag={autoPanOnNodeDrag}
           nodeDragThreshold={nodeDragThreshold}

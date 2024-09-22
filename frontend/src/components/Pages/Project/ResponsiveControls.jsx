@@ -5,17 +5,18 @@ import { IoMapOutline } from "react-icons/io5";
 import { RiLayoutFill } from "react-icons/ri";
 import { TbGrid4X4, TbZoomReset } from "react-icons/tb";
 import { toggleMiniMap, toggleSnapToGrid } from "state/actions/localStorage";
+import { setProjectConfigFitViewOnInit } from "state/actions/project/projectConfig";
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { localStorageFns } from "state/hooks/localStorage";
 
 export function ResponsiveControls() {
   const [overviewWidth] = localStorageFns.overviewTrueWidth.hook();
 
-  // The motion.div style is from https://github.com/wbkd/react-flow/blob/main/src/style.css.
-  // It's the style used inside of Controls.
-  // For some reason it doesn't work unless the motion.div also has the style
   return (
     <Controls
+      onFitView={() => {
+        setProjectConfigFitViewOnInit(true);
+      }}
       style={{ transform: `translateX(${overviewWidth}px)` }}
       className="transition-transform [&>button]:bg-setta-50 dark:[&>button]:border-setta-800 dark:[&>button]:bg-setta-700 dark:[&>button]:text-setta-300 dark:[&_svg]:fill-setta-300"
     >

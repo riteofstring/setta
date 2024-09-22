@@ -147,9 +147,7 @@ CREATE_TABLES_COMMANDS = [
     CREATE TABLE IF NOT EXISTS ProjectConfig (
         id TEXT PRIMARY KEY,
         name TEXT,
-        x REAL DEFAULT 0,
-        y REAL DEFAULT 0,
-        zoom REAL DEFAULT 1,
+        viewport TEXT,
         isDefault BOOLEAN DEFAULT 0,
         previewImgNodes TEXT DEFAULT '[]',
         previewImgColor TEXT,
