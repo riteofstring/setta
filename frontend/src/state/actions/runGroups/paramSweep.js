@@ -96,7 +96,7 @@ export function changeParamSweepParamInfoId({
   useParamSweep.setState((state) => {
     state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx] = {
       paramInfoId,
-      values: [],
+      values: [""],
     };
   });
 }
@@ -117,7 +117,7 @@ export function addParamSweepParamInfoId({
   useParamSweep.setState((state) => {
     state.x[paramSweepId].sweep[actualSelectedItemIdx].params.push({
       paramInfoId,
-      values: [],
+      values: [""],
     });
   });
 }
