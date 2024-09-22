@@ -37,12 +37,11 @@ export function DrawOnImage({ sectionId }) {
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
-  const [opacity, setOpacity] = useState(0.5);
+  const [opacity, setOpacity] = useState(1);
   const [brushSize, setBrushSize] = useState(16);
   const [canvasOpacity, setCanvasOpacity] = useState(0.5);
   const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
-  const [isContinuing, setIsContinuing] = useState(false);
   const strokesRef = useRef([]);
 
   function setDraftCanvasProperties() {
@@ -190,12 +189,12 @@ export function DrawOnImage({ sectionId }) {
     return unsub;
   }, []);
 
-  function startNewStroke(firstPoint, inputOpacity) {
-    console.log("startNewStroke", firstPoint);
+  function startNewStroke(firstPoint) {
+    console.log("startNewStroke", firstPoint)
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
-      opacity: isEraser ? 1 : inputOpacity ?? opacity,
+      opacity: isEraser ? 1 : opacity,
       lineWidth: dCtx.lineWidth,
       points: [firstPoint],
       canvasHeight: draftCanvas.height,
@@ -230,14 +229,10 @@ export function DrawOnImage({ sectionId }) {
     ctx.stroke();
     prevPointRef.current = point;
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-    if (isContinuing && currStroke.points.length >= 10) {
-      startNewStroke(prevPointRef.current);
-      setIsContinuing(false);
-    } else if (!isEraser && currStroke.points.length >= 50) {
+    if (!isEraser && currStroke.points.length >= 50) {
       drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
-      startNewStroke(prevPointRef.current, 0);
-      setIsContinuing(true);
+      startNewStroke(prevPointRef.current)
     } else {
       currStroke.points.push(point);
     }
@@ -249,8 +244,6 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
-      clearCanvas(canvasRef)
-      drawStrokesAndKeepOriginalProps(canvasRef, strokesRef.current);
       drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
     }
