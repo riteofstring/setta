@@ -12,9 +12,9 @@ import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
-import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
-import { calcAutoPan, getEventPosition } from "../../utils";
-import useGetPointerPosition from "../useGetPointerPosition";
+import type { NodeDragItem, UseDragEvent, XYPosition } from "../types";
+import { calcAutoPan, getEventPosition } from "../utils";
+import useGetPointerPosition from "./useGetPointerPosition";
 import { getDragItems, hasSelector } from "./utils";
 
 export type UseDragData = { dx: number; dy: number };
