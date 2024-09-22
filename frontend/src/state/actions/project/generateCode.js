@@ -2,8 +2,14 @@ import {
   computeEVReferences,
   computeInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
+import C from "constants/constants.json";
 import _ from "lodash";
+import { dbGetFreeTerminal } from "requests/terminals";
+import { sendMessage } from "requests/websocket";
+import { useWebsocketConnectionList } from "state/definitions";
+import { INITIAL_MESSAGE, TERMINAL_WEBSOCKETS } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
+import { addSectionInEmptySpace } from "../sections/createSections";
 import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
@@ -23,31 +29,31 @@ export async function runCode() {
   for (const projectVariant of getProjectRuns(project)) {
     Object.assign(projectVariant, computeEVReferences(projectVariant));
     projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
-    // let message = {
-    //   id: codeId,
-    //   messageType: C.WS_RUN_CODE,
-    //   content: projectVariant,
-    // };
-    // if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-    //   sendMessage(message);
-    //   continue;
-    // }
-    // const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
-    // if (res.status === 200) {
-    //   const freeTerminalId = res.data;
-    //   message = JSON.stringify(message);
-    //   if (freeTerminalId) {
-    //     TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
-    //   } else {
-    //     const id = createNewId();
-    //     INITIAL_MESSAGE[id] = message;
-    //     addSectionInEmptySpace({
-    //       type: C.TERMINAL,
-    //       inputSectionProps: { id },
-    //       positionOffset: { x: count * 100, y: 0 },
-    //     });
-    //   }
-    // }
+    let message = {
+      id: codeId,
+      messageType: C.WS_RUN_CODE,
+      content: projectVariant,
+    };
+    if (useWebsocketConnectionList.getState().connectedTo !== "main") {
+      sendMessage(message);
+      continue;
+    }
+    const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
+    if (res.status === 200) {
+      const freeTerminalId = res.data;
+      message = JSON.stringify(message);
+      if (freeTerminalId) {
+        TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
+      } else {
+        const id = createNewId();
+        INITIAL_MESSAGE[id] = message;
+        addSectionInEmptySpace({
+          type: C.TERMINAL,
+          inputSectionProps: { id },
+          positionOffset: { x: count * 100, y: 0 },
+        });
+      }
+    }
     count += 1;
   }
 }
@@ -71,7 +77,6 @@ function* getProjectRuns(project) {
       ) {
         continue;
       }
-      console.log("runGroup", runGroup);
       const sectionParamSweepsAndVersions = [];
       for (const [sectionId, sectionDetails] of Object.entries(
         runGroup.sections,
@@ -113,13 +118,7 @@ function* getProjectRuns(project) {
         }
       }
 
-      console.log(
-        "sectionParamSweepsAndVersions",
-        sectionParamSweepsAndVersions,
-      );
-
       for (const combo of cartesian(...sectionParamSweepsAndVersions)) {
-        console.log("combo", combo)
         const variant = _.cloneDeep(project);
         variant.projectConfig.children = _.pick(
           variant.projectConfig.children,
@@ -133,13 +132,12 @@ function* getProjectRuns(project) {
           variant.paramSweeps,
           combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
         );
-        console.log("variant.projectConfig.children", variant.projectConfig.children)
-        console.log("variant.paramSweeps", variant.paramSweeps)
-        // variant. = _.pick(
-        //   variant.paramSweeps,
-        //   combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
-        // );
-        // yield* getProjectVariants(variant);
+        for (const c of combo) {
+          if (c.versionId) {
+            variant.sections[c.sectionId].variantId = c.versionId;
+          }
+        }
+        yield* getProjectVariants(variant);
       }
     }
   }
