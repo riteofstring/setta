@@ -7,10 +7,11 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import {
-  createNewRunGroup,
+  initRunGroup,
   toggleRunGroup,
-  toggleRunGroupParamSweep,
   toggleRunGroupSection,
+  toggleRunGroupSectionParamSweep,
+  toggleRunGroupSectionVersion,
 } from "state/actions/runGroups/runGroups";
 import { setSectionVariantAttr } from "state/actions/sectionVariants";
 import { useRunGroups } from "state/definitions";
@@ -98,9 +99,9 @@ function RunGroupList({
 }) {
   return (
     <ul className="noscroll nowheel flex flex-grow flex-col overflow-y-scroll">
-      {Object.entries(runGroups).map(([id, x], idx) => (
+      {Object.entries(runGroups).map(([id, x]) => (
         <CheckboxNextToLabel
-          key={idx}
+          key={id}
           shown={shownRunGroup === id}
           checked={x.selected}
           onChange={() => {
@@ -153,7 +154,7 @@ function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
     <div style={{ paddingLeft: `${0.75 * sectionInfo.depth}rem` }}>
       <li className="flex flex-col">
         <CheckboxGroup
-          checked={!_.isNil(runGroupSection)}
+          checked={runGroupSection?.selected ?? false}
           onChange={onSectionCheckboxChange}
         >
           {sectionInfo.name}
@@ -176,17 +177,17 @@ function SectionItem({ sectionInfo, runGroupId, runGroupSection }) {
 function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   const allVersions = useGetSectionVariantNames(sectionInfo.id);
 
-  function getOnParamSweepCheckboxChange(paramSweepId) {
+  function getOnVersionCheckboxChange(versionId) {
     return () =>
-      toggleRunGroupParamSweep({
+      toggleRunGroupSectionVersion({
         id: runGroupId,
         sectionId: sectionInfo.id,
-        paramSweepId,
+        versionId,
       });
   }
 
   function isChecked(id) {
-    return !!runGroupSection?.[id];
+    return !!runGroupSection?.selected && !!runGroupSection?.versions?.[id];
   }
 
   return (
@@ -195,7 +196,7 @@ function _VersionsList({ sectionInfo, runGroupId, runGroupSection }) {
       inputList={allVersions}
       listName="Versions"
       isChecked={isChecked}
-      onChange={getOnParamSweepCheckboxChange}
+      onChange={getOnVersionCheckboxChange}
     />
   );
 }
@@ -207,7 +208,7 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
 
   function getOnParamSweepCheckboxChange(paramSweepId) {
     return () =>
-      toggleRunGroupParamSweep({
+      toggleRunGroupSectionParamSweep({
         id: runGroupId,
         sectionId: sectionInfo.id,
         paramSweepId,
@@ -215,7 +216,7 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
   }
 
   function isChecked(id) {
-    return !!runGroupSection?.[id];
+    return !!runGroupSection?.selected && !!runGroupSection?.paramSweeps?.[id];
   }
 
   return (
@@ -230,21 +231,6 @@ function _ParamSweepVersionsList({ sectionInfo, runGroupId, runGroupSection }) {
 }
 
 const ParamSweepVersionsList = React.memo(_ParamSweepVersionsList, _.isEqual);
-{
-  /* <StandardAccordion
-rootStyles="w-full"
-itemStyles="focus-within:relative focus-within:z-10"
-headerStyles="flex flex-1 cursor-default items-center justify-between mb-2"
-triggerStyles="flex w-full items-center outline-none hover:cursor-pointer rounded-md"
-contentStyles="rounded-xl text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp bg-[rgba(226,_232,_240,_0.2)] overflow-hidden"
-heading={heading}
-value={value}
-defaultValue={defaultValue}
-data-state={open}
->
-{children}
-</StandardAccordion> */
-}
 
 function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
   return (
@@ -349,7 +335,7 @@ function FilterSection() {
 function CreateNewRunGroupButton({ setShownRunGroup }) {
   function onClick() {
     const id = createNewId();
-    createNewRunGroup({ id, name: createRandomName() });
+    initRunGroup({ id, name: createRandomName() });
     setShownRunGroup(id);
   }
 
