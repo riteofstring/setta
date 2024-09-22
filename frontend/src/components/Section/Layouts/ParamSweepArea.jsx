@@ -18,6 +18,7 @@ import {
 import { getParamIds } from "state/actions/sections/sectionContents";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
+import { useNumParams } from "state/hooks/sectionContents";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
@@ -122,7 +123,6 @@ function Args({
       <PlaceholderArgItem
         forSectionId={forSectionId}
         paramSweepId={paramSweepId}
-        objInfoId={objInfoId}
         alreadySelected={alreadySelected}
         selectedItemIdx={selectedItemIdx}
       />
@@ -220,12 +220,9 @@ function ArgItem({
 function PlaceholderArgItem({
   forSectionId,
   paramSweepId,
-  objInfoId,
   alreadySelected,
   selectedItemIdx,
 }) {
-  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
-
   function onButtonClick() {
     addParamSweepParamInfoId({
       paramSweepId,
@@ -234,12 +231,9 @@ function PlaceholderArgItem({
     });
   }
 
-  const thereAreRemainingIds = useCodeInfo(
-    (x) =>
-      alreadySelected.length < x.x[objInfoId ?? codeInfoId].children.length,
-  );
+  const numParams = useNumParams(forSectionId);
 
-  if (!thereAreRemainingIds) {
+  if (alreadySelected.length >= numParams) {
     return null;
   }
   return (
@@ -261,37 +255,13 @@ function ParamCombobox({
   forSectionId,
 }) {
   const initialSelection = paramInfoId;
-  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
 
-  const objParams = useCodeInfo((x) => {
-    const idsAndPaths = getParamIds(
-      forSectionId,
-      x.x,
-      objInfoId,
-      codeInfoId,
-      (p) => p.rcType === C.PARAMETER,
-    );
-    const output = [];
-    for (const f of idsAndPaths) {
-      if (f.id !== paramInfoId && alreadySelected.includes(f.id)) {
-        continue;
-      }
-      if (f.path.length === 1) {
-        output.push({ id: f.id, name: x.x[f.path[0]].name });
-      } else {
-        let name = "";
-        for (const [pathIdx, currId] of f.path.entries()) {
-          if (pathIdx === 0) {
-            name = x.x[currId].name;
-          } else {
-            name += `["${x.x[currId].name}"]`;
-          }
-        }
-        output.push({ id: f.id, name });
-      }
-    }
-    return output;
-  }, _.isEqual);
+  const objParams = useObjParams({
+    objInfoId,
+    paramInfoId,
+    alreadySelected,
+    forSectionId,
+  });
 
   return (
     <IdNameCombobox
@@ -347,4 +317,43 @@ function useShowParamSweepSectionSearch(sectionId) {
     useSectionTypeName(sectionId) === C.GLOBAL_VARIABLES;
 
   return !hideSearch && !_isGlobalVariables;
+}
+
+function useObjParams({
+  objInfoId,
+  paramInfoId,
+  alreadySelected,
+  forSectionId,
+}) {
+  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
+
+  return useCodeInfo((x) => {
+    const idsAndPaths = getParamIds(
+      forSectionId,
+      x.x,
+      objInfoId,
+      codeInfoId,
+      (p) => p.rcType === C.PARAMETER,
+    );
+    const output = [];
+    for (const f of idsAndPaths) {
+      if (f.id !== paramInfoId && alreadySelected.includes(f.id)) {
+        continue;
+      }
+      if (f.path.length === 1) {
+        output.push({ id: f.id, name: x.x[f.path[0]].name });
+      } else {
+        let name = "";
+        for (const [pathIdx, currId] of f.path.entries()) {
+          if (pathIdx === 0) {
+            name = x.x[currId].name;
+          } else {
+            name += `["${x.x[currId].name}"]`;
+          }
+        }
+        output.push({ id: f.id, name });
+      }
+    }
+    return output;
+  }, _.isEqual);
 }
