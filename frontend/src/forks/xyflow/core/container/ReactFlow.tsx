@@ -1,6 +1,4 @@
 import { type CSSProperties } from "react";
-import StoreUpdater from "../components/StoreUpdater";
-import { infiniteExtent } from "../store/initialState";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
 import ViewportWrapper from "./Viewport";
@@ -13,14 +11,7 @@ const wrapperStyle: CSSProperties = {
   userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
-const ReactFlow = ({
-  nodesDraggable,
-  nodesFocusable,
-  elementsSelectable,
-  translateExtent = infiniteExtent,
-  children,
-  autoPanOnNodeDrag = true,
-}) => {
+const ReactFlow = ({ children }) => {
   return (
     <div
       style={wrapperStyle}
@@ -32,13 +23,6 @@ const ReactFlow = ({
           <NodeRenderer />
         </ViewportWrapper>
       </FlowRenderer>
-      <StoreUpdater
-        nodesDraggable={nodesDraggable}
-        nodesFocusable={nodesFocusable}
-        elementsSelectable={elementsSelectable}
-        translateExtent={translateExtent}
-        autoPanOnNodeDrag={autoPanOnNodeDrag}
-      />
       {children}
     </div>
   );
