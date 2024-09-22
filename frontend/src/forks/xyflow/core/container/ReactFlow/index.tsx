@@ -1,7 +1,7 @@
 import { type CSSProperties } from "react";
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
-import { PanOnScrollMode, SelectionMode } from "../../types";
+import { PanOnScrollMode } from "../../types";
 import GraphView from "../GraphView";
 
 const wrapperStyle: CSSProperties = {
@@ -14,7 +14,6 @@ const wrapperStyle: CSSProperties = {
 
 const ReactFlow = ({
   selectionOnDrag = false,
-  selectionMode = SelectionMode.Full,
   selectNodesOnDrag = true,
   nodesDraggable,
   nodesFocusable,
@@ -39,7 +38,6 @@ const ReactFlow = ({
     >
       <GraphView
         selectionOnDrag={selectionOnDrag}
-        selectionMode={selectionMode}
         selectNodesOnDrag={selectNodesOnDrag}
         translateExtent={translateExtent}
         preventScrolling={preventScrolling}

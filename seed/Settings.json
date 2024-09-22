@@ -33,5 +33,6 @@
   "autobackup": false,
   "autobackupFreq": 300,
   "autobackupKeepLastN": 10,
-  "leftSidePaneShiftsMap": true 
+  "leftSidePaneShiftsMap": true,
+  "selectionMode": "partial" 
 }

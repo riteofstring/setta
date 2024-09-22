@@ -1,9 +1,8 @@
-import type { CoordinateExtent, Node, PanOnScrollMode, SelectionMode } from ".";
+import type { CoordinateExtent, Node, PanOnScrollMode } from ".";
 
 export type ReactFlowProps = {
   nodes?: Node[];
   selectionOnDrag?: boolean;
-  selectionMode?: SelectionMode;
   nodesDraggable?: boolean;
   nodesFocusable?: boolean;
   elementsSelectable?: boolean;

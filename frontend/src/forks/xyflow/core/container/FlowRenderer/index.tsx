@@ -17,7 +17,6 @@ export type FlowRendererProps = Omit<
 const FlowRenderer = ({
   children,
   selectionOnDrag,
-  selectionMode,
   elementsSelectable,
   zoomOnScroll,
   zoomOnPinch,
@@ -46,11 +45,7 @@ const FlowRenderer = ({
       translateExtent={translateExtent}
       preventScrolling={preventScrolling}
     >
-      <Pane
-        panOnDrag={panOnDrag}
-        isSelecting={!!isSelecting}
-        selectionMode={selectionMode}
-      >
+      <Pane panOnDrag={panOnDrag} isSelecting={!!isSelecting}>
         {children}
         <NodesSelectionWrapper />
       </Pane>

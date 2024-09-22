@@ -10,7 +10,6 @@ export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
 
 const GraphView = ({
   selectionOnDrag,
-  selectionMode,
   elementsSelectable,
   selectNodesOnDrag,
   translateExtent,
@@ -26,7 +25,6 @@ const GraphView = ({
   return (
     <FlowRenderer
       selectionOnDrag={selectionOnDrag}
-      selectionMode={selectionMode}
       elementsSelectable={elementsSelectable}
       zoomOnScroll={zoomOnScroll}
       zoomOnPinch={zoomOnPinch}
