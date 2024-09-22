@@ -48,7 +48,7 @@ function _ParamSweepArea({ sectionId }) {
               showParamSweepSectionSearch={showParamSweepSectionSearch}
             />
           ))}
-        {/* {paramSweep.length === 0 && !showParamSweepSectionSearch && (
+        {paramSweep.length === 0 && !showParamSweepSectionSearch && (
           <PlaceholderArgItem
             forSectionId={forSectionId}
             paramSweepId={paramSweepId}
@@ -56,7 +56,7 @@ function _ParamSweepArea({ sectionId }) {
             selectedItem={null}
             selectedItemIdx={null}
           />
-        )} */}
+        )}
         {showParamSweepSectionSearch && (
           <button
             className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"
@@ -129,13 +129,13 @@ function Args({
           selectedItemIdx={selectedItemIdx}
         />
       ))}
-      {/* <PlaceholderArgItem
+      <PlaceholderArgItem
         forSectionId={forSectionId}
         paramSweepId={paramSweepId}
         alreadySelected={alreadySelected}
         selectedItem={objInfoId}
         selectedItemIdx={selectedItemIdx}
-      /> */}
+      />
     </section>
   );
 }
@@ -195,15 +195,7 @@ function ArgItem({
 
   return (
     <>
-      <div className="section-w-full ml-8 mt-1 flex min-w-0 items-center">
-        <div className="mr-auto flex">
-          <IconButton
-            icon={<AiOutlineMinus />}
-            type="minus"
-            onClick={onMinus}
-          />
-          <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
-        </div>
+      <div className="section-w-full mt-1 flex min-w-0 items-center">
         <ParamCombobox
           objInfoId={objInfoId}
           paramInfoId={paramInfoId}
@@ -211,6 +203,15 @@ function ArgItem({
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
         />
+
+        <div className="ml-auto flex pl-2">
+          <IconButton
+            icon={<AiOutlineMinus />}
+            type="minus"
+            onClick={onMinus}
+          />
+          <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
+        </div>
       </div>
       {paramInfoId &&
         values.map((x, valueIdx) => (
@@ -301,13 +302,13 @@ function Input({
         icon={<IoClose />}
         bg="bg-transparent"
         color="text-setta-100 dark:text-setta-700 hover:text-setta-500 dark:hover:text-setta-200"
-        twClasses="opacity-75 ml-32 section-left-gutter cursor-pointer place-self-center"
+        twClasses="opacity-75 ml-2 section-left-gutter cursor-pointer place-self-center"
         padding=""
         size="h-[.66rem] w-[.66rem]"
         onClick={onDelete}
         tabIndex="-1"
       />
-      <article className="section-key-right-gutter group/arg-group group/textinput ml-14 grid grid-cols-subgrid items-center justify-between rounded-lg pl-2">
+      <article className="section-key-value group/arg-group group/textinput -mx-2 grid grid-cols-subgrid items-center justify-between rounded-lg px-2">
         <ParamSweepUI
           dataSectionId={forSectionId}
           visualSectionId={sectionId}

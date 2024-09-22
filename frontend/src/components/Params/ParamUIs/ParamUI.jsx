@@ -134,8 +134,8 @@ export function ParamSweepUI({
             defaultVal={defaultVal}
             onChange={onChange}
             isDisabled={isDisabled}
-            dummyCodeClassName="section-key-value self-end grid-row-start-1 ml-3 py-[.125rem] nodrag cursor-text select-text break-words px-0 font-mono text-xs [tab-size:4] [word-break:break-word]"
-            realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] ml-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
+            dummyCodeClassName="section-key-value self-end grid-row-start-1 mx-3 py-[.125rem] nodrag cursor-text select-text break-words px-0 font-mono text-xs [tab-size:4] [word-break:break-word]"
+            realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] mx-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
             language={configLanguage}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
@@ -143,7 +143,7 @@ export function ParamSweepUI({
           {waitingForResult && (
             <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
           )}
-          <span className="section-key-value grid-row-start-1 border-box ml-3 self-end border-b border-setta-100 peer-focus-within/textinput:border-blue-400 dark:border-setta-800" />
+          <span className="section-key-value grid-row-start-1 border-box mx-3 self-end border-b border-setta-100 peer-focus-within/textinput:border-blue-400 dark:border-setta-800" />
         </>
       );
     case C.SLIDER: {

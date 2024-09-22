@@ -1,7 +1,5 @@
-import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { useEffect, useState } from "react";
-import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { itemHasBeenSelectedBefore } from "state/actions/codeInfo";
 import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
@@ -67,20 +65,14 @@ export function ParamSweepSectionSearch({
   }
 
   return (
-    <div className="section-search flex">
-      <div className="mr-auto flex">
-        <IconButton icon={<AiOutlineMinus />} type="minus" />
-        <IconButton icon={<AiOutlinePlus />} type="add" />
-      </div>
-      <SectionSearchCore
-        dataSectionId={forSectionId}
-        visualSectionId={sectionId}
-        selectedItem={selectedItem}
-        onEnter={onEnter}
-        dummyCodeClassName="section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
-        realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
-      />
-    </div>
+    <SectionSearchCore
+      dataSectionId={forSectionId}
+      visualSectionId={sectionId}
+      selectedItem={selectedItem}
+      onEnter={onEnter}
+      dummyCodeClassName="section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-950 dark:focus-visible:border-setta-900 nodrag cursor-text select-text break-words px-[.625rem] font-mono text-xs [tab-size:4] [word-break:break-word]"
+      realCodeClassName="nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] section-search rounded-2xl border border-solid border-setta-100 bg-white py-1 focus-visible:border-white focus-visible:ring-2 dark:border-setta-800 dark:bg-setta-900 dark:focus-visible:border-setta-900 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
+    />
   );
 }
 
