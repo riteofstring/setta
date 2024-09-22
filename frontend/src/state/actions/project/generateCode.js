@@ -114,12 +114,12 @@ function* getProjectRuns(project) {
 function* getProjectVariants(project) {
   const allSweeps = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
-    const curr = [];
     for (const s of details.sweep) {
       if (s.params.length === 0) {
-        curr.push({ selectedItem: s.selectedItem });
+        allSweeps.push([{ selectedItem: s.selectedItem }]);
       } else {
         for (const paramDetails of s.params) {
+          const curr = [];
           for (const value of paramDetails.values) {
             curr.push({
               paramSweepId,
@@ -128,11 +128,11 @@ function* getProjectVariants(project) {
               value,
             });
           }
+          if (curr.length > 0) {
+            allSweeps.push(curr);
+          }
         }
       }
-    }
-    if (curr.length > 0) {
-      allSweeps.push(curr);
     }
   }
 
