@@ -18,7 +18,6 @@ import {
 import { getParamIds } from "state/actions/sections/sectionContents";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
-import { useNumChildlessParams } from "state/hooks/sectionContents";
 import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import { ParamSweepSectionSearch } from "../SectionParts/Search";
@@ -54,6 +53,7 @@ function _ParamSweepArea({ sectionId }) {
             forSectionId={forSectionId}
             paramSweepId={paramSweepId}
             alreadySelected={[]}
+            selectedItem={null}
             selectedItemIdx={null}
           />
         )}
@@ -133,6 +133,7 @@ function Args({
         forSectionId={forSectionId}
         paramSweepId={paramSweepId}
         alreadySelected={alreadySelected}
+        selectedItem={objInfoId}
         selectedItemIdx={selectedItemIdx}
       />
     </section>
@@ -232,6 +233,7 @@ function PlaceholderArgItem({
   forSectionId,
   paramSweepId,
   alreadySelected,
+  selectedItem,
   selectedItemIdx,
 }) {
   function onButtonClick() {
@@ -242,7 +244,7 @@ function PlaceholderArgItem({
     });
   }
 
-  const numParams = useNumChildlessParams(forSectionId);
+  const numParams = useNumChildlessParams(selectedItem, forSectionId);
 
   if (alreadySelected.length >= numParams) {
     return null;
@@ -328,6 +330,16 @@ function useShowParamSweepSectionSearch(sectionId) {
     useSectionTypeName(sectionId) === C.GLOBAL_VARIABLES;
 
   return !hideSearch && !_isGlobalVariables;
+}
+
+export function useNumChildlessParams(selectedItem, sectionId) {
+  const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
+
+  return useCodeInfo((x) => {
+    return getParamIds(sectionId, x.x, selectedItem, codeInfoId).filter(
+      (p) => x.x[p].children.length === 0,
+    ).length;
+  });
 }
 
 function useChildlessObjParams({
