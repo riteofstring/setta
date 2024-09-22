@@ -70,55 +70,28 @@ function* getProjectRuns(project) {
     variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
     yield* getProjectVariants(variant);
   } else {
-    for (const [runGroupId, runGroup] of Object.entries(project.runGroups)) {
-      if (
-        !project.projectConfig.runGroupSelection[runGroupId] ||
-        !Object.values(runGroup.sections).some((s) => s.selected)
-      ) {
+    for (const runGroup of Object.values(project.runGroups)) {
+      if (!runGroup.selected || _.size(runGroup.sections) === 0) {
         continue;
       }
-      const sectionParamSweepsAndVersions = [];
-      for (const [sectionId, sectionDetails] of Object.entries(
+      const sectionParamSweepPairs = [];
+      for (const [sectionId, paramSweeps] of Object.entries(
         runGroup.sections,
       )) {
-        if (!sectionDetails.selected) {
-          continue;
-        }
-
-        const entries = [];
-        for (const [paramSweepId, selected] of Object.entries(
-          sectionDetails.paramSweeps,
-        )) {
-          if (selected) {
-            entries.push({
+        const paramSweepIds = Object.keys(paramSweeps);
+        if (paramSweepIds.length === 0) {
+          sectionParamSweepPairs.push([{ sectionId, paramSweepId: null }]);
+        } else {
+          sectionParamSweepPairs.push(
+            paramSweepIds.map((paramSweepId) => ({
               sectionId,
               paramSweepId,
-              versionId: null,
-            });
-          }
-        }
-        for (const [versionId, selected] of Object.entries(
-          sectionDetails.versions,
-        )) {
-          if (selected) {
-            entries.push({
-              sectionId,
-              paramSweepId: null,
-              versionId,
-            });
-          }
-        }
-
-        if (entries.length === 0) {
-          sectionParamSweepsAndVersions.push([
-            { sectionId, paramSweepId: null, versionId: null },
-          ]);
-        } else {
-          sectionParamSweepsAndVersions.push(entries);
+            })),
+          );
         }
       }
 
-      for (const combo of cartesian(...sectionParamSweepsAndVersions)) {
+      for (const combo of cartesian(...sectionParamSweepPairs)) {
         const variant = _.cloneDeep(project);
         variant.projectConfig.children = _.pick(
           variant.projectConfig.children,
@@ -132,11 +105,6 @@ function* getProjectRuns(project) {
           variant.paramSweeps,
           combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
         );
-        for (const c of combo) {
-          if (c.versionId) {
-            variant.sections[c.sectionId].variantId = c.versionId;
-          }
-        }
         yield* getProjectVariants(variant);
       }
     }
@@ -273,9 +241,4 @@ function* generateCombinations(objects) {
   }
 
   yield* combineGroups(Object.values(groupedByParamSweepId));
-}
-
-function* cartesian(head, ...tail) {
-  const remainder = tail.length ? cartesian(...tail) : [[]];
-  for (let r of remainder) for (let h of head) yield [h, ...r];
 }

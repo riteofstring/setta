@@ -38,7 +38,10 @@ export function getProjectData({ withArtifactMetadata = false }) {
   const uiTypes = useUITypes.getState().x;
   const uiTypeCols = useUITypeCols.getState().y;
   const paramSweeps = useParamSweep.getState().x;
-  const runGroups = useRunGroups.getState().x;
+  const runGroups = _.mapValues(useRunGroups.getState().x, (x) => ({
+    ...x,
+    projectConfigId: projectConfig.id,
+  }));
 
   const sectionInfosState = useSectionInfos.getState();
   const sections = _.mapValues(sectionInfosState.x, (x) => {

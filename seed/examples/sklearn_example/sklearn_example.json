@@ -538,23 +538,23 @@
       "sections": {
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         },
         "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         },
         "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         }
       }
     },
@@ -563,28 +563,28 @@
       "sections": {
         "46dc6cab-03ac-4e73-919d-63b30da0688d": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         },
         "6bce72ee-335b-42f4-9949-af8cd83c9ffe": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         },
         "bea52bce-2689-41d8-a870-fa8fedcfd78a": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         },
         "d96cb110-6f72-435a-b745-2d55e277f983": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         },
         "e209e428-eea6-4e14-b61e-0648ec28dd76": {
           "selected": true,
-          "paramSweeps": {},
-          "versions": {}
+          "paramSweeps": [],
+          "versions": []
         }
       }
     }

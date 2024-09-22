@@ -280,61 +280,35 @@ export function DrawOnImage({ sectionId }) {
     return base64;
   }
 
-  const sliderRootClassName =
-    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
-  const sliderTrackClassName =
-    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
-  const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
-  const sliderThumbClassName =
-    "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
-  // const canvasClassName =
-  //   "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2";
   const canvasClassName = "single-cell-child max-w-full place-self-center";
 
   return (
     <>
-      <div className="section-search section-w-full  flex flex-wrap gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
+      <div className="section-search section-w-full z-10  flex flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
         <input
           id="colorPicker"
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className="min-h-6 min-w-6 cursor-pointer"
+          className="min-h-4 min-w-4 cursor-pointer"
         />
 
-        <Slider.Root
-          id="opacitySlider"
-          // type="range"
-          className={sliderRootClassName}
-          min={0}
-          max={1}
-          step={0.1}
-          value={[opacity]}
-          onValueChange={(v) => setOpacity(v[0])}
-        >
-          <Slider.Track className={sliderTrackClassName}>
-            <Slider.Range className={sliderRangeClassName} />
-          </Slider.Track>
-          <Slider.Thumb className={sliderThumbClassName} />
-        </Slider.Root>
-        <input
-          value={opacity.toFixed(1)}
-          onChange={() => {}}
-          className="my-auto min-w-8 max-w-12 flex-grow rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400"
-        ></input>
         <div className="flex">
           <button
-            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={toggleEraserMode}
           >
-            <i className="gg-pen" />
+            <i className="gg-pen z-" />
           </button>
           <StandardPopover
-            popoverContent="things"
+            popoverContent={
+              <BrushSettings opacity={opacity} setOpacity={setOpacity} />
+            }
             arrowClasses="fill-white dark:fill-setta-800"
             inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
-              <button className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
@@ -346,11 +320,12 @@ export function DrawOnImage({ sectionId }) {
             <i className="gg-erase" />
           </button>
           <StandardPopover
-            popoverContent="things"
+            popoverContent={<EraserSettings />}
             arrowClasses="fill-white dark:fill-setta-800"
             inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
             trigger={
-              <button className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
                 <i className="gg-chevron-down" />
               </button>
             }
@@ -359,7 +334,7 @@ export function DrawOnImage({ sectionId }) {
         </div>
 
         <button
-          className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
+          className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
           onClick={clearStrokes}
         >
           <i className="gg-trash" />
@@ -381,6 +356,113 @@ export function DrawOnImage({ sectionId }) {
         />
       </section>
     </>
+  );
+}
+
+function BrushSettings({ opacity, setOpacity }) {
+  const sliderRootClassName =
+    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
+  const sliderTrackClassName =
+    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
+  const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
+  const sliderThumbClassName =
+    "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  return (
+    <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Opacity
+      </p>
+      <div className="flex gap-2">
+        <Slider.Root
+          id="opacitySlider"
+          // type="range"
+          className={sliderRootClassName}
+          min={0}
+          max={1}
+          step={0.1}
+          value={[opacity]}
+          onValueChange={(v) => setOpacity(v[0])}
+        >
+          <Slider.Track className={sliderTrackClassName}>
+            <Slider.Range className={sliderRangeClassName} />
+          </Slider.Track>
+          <Slider.Thumb className={sliderThumbClassName} />
+        </Slider.Root>
+        <input
+          value={opacity.toFixed(1)}
+          // onChange={() => {}}
+          className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400"
+        />
+      </div>
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Size
+      </p>
+      <div className="flex gap-2">
+        <Slider.Root
+          id="opacitySlider"
+          className={sliderRootClassName}
+          min={0}
+          max={1}
+          step={0.1}
+        >
+          <Slider.Track className={sliderTrackClassName}>
+            <Slider.Range className={sliderRangeClassName} />
+          </Slider.Track>
+          <Slider.Thumb className={sliderThumbClassName} />
+        </Slider.Root>
+        <input className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400" />
+      </div>
+    </div>
+  );
+}
+
+function EraserSettings() {
+  const sliderRootClassName =
+    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
+  const sliderTrackClassName =
+    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
+  const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
+  const sliderThumbClassName =
+    "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  return (
+    <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Opacity
+      </p>
+      <div className="flex gap-2">
+        <Slider.Root
+          id="opacitySlider"
+          className={sliderRootClassName}
+          min={0}
+          max={1}
+          step={0.1}
+        >
+          <Slider.Track className={sliderTrackClassName}>
+            <Slider.Range className={sliderRangeClassName} />
+          </Slider.Track>
+          <Slider.Thumb className={sliderThumbClassName} />
+        </Slider.Root>
+        <input className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400" />
+      </div>
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Size
+      </p>
+      <div className="flex gap-2">
+        <Slider.Root
+          id="opacitySlider"
+          className={sliderRootClassName}
+          min={0}
+          max={1}
+          step={0.1}
+        >
+          <Slider.Track className={sliderTrackClassName}>
+            <Slider.Range className={sliderRangeClassName} />
+          </Slider.Track>
+          <Slider.Thumb className={sliderThumbClassName} />
+        </Slider.Root>
+        <input className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400" />
+      </div>
+    </div>
   );
 }
 
