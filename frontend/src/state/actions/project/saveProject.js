@@ -26,7 +26,13 @@ import { getProjectConfigMetadata } from "./projectConfig";
 
 export function getProjectData({ withArtifactMetadata = false }) {
   const projectConfig = getProjectConfigMetadata();
-  projectConfig.viewport = getViewport();
+  if (projectConfig.viewport) {
+    // If viewport is null, then that means fitView was called.
+    // In that case we would leave viewport as null and store null in the db.
+    // Entering this if statement means fitView wasn't called.
+    // So we update the viewport with the most recent viewport.
+    projectConfig.viewport = getViewport();
+  }
   projectConfig.previewImgNodes = getPreviewImgNodes();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {

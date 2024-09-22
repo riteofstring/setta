@@ -53,7 +53,7 @@ export function loadProjectState({
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));
   if (!projectConfig.viewport) {
-    useReactFlow.setState({ fitViewOnInit: true });
+    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   }
   setNodes(
     _.map(projectConfig.children, (v, k) => ({

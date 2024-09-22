@@ -15,6 +15,7 @@ export function getProjectConfigMetadata() {
     "isDefault",
     "runGroupSelection",
     "shownRunGroup",
+    "viewport",
   ]);
 }
 
