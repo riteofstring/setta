@@ -14,3 +14,10 @@ export async function dbSaveSettings(settings) {
     body: { settings },
   });
 }
+
+export async function dbLoadSettingsProject() {
+  return await post({
+    address: C.ROUTE_LOAD_SETTINGS_PROJECT,
+    body: {},
+  });
+}

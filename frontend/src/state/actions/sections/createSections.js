@@ -129,7 +129,6 @@ function addSectionsToState(sectionInfos, variantProps, position) {
   const sectionIds = _.map(sectionInfos, (x) => x.id);
 
   initManySectionVariantIds({
-    dbSource: C.DEFAULT_DB_ALIAS,
     collectionIds: _.map(sectionInfos, (x) => x.variantId),
     variantProps,
   });

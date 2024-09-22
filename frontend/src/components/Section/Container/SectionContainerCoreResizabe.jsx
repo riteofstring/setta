@@ -23,7 +23,6 @@ export function SectionContainerCoreResizable({
   sectionTypeName,
   isActiveSection,
   isWrongType,
-  dbSourceIsAvailable,
 }) {
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
   const isInfo = sectionTypeName === C.INFO;
@@ -34,9 +33,6 @@ export function SectionContainerCoreResizable({
   const isMinimized = useSectionInfos((x) => x.x[sectionId].isMinimized);
 
   const getOutlineColor = () => {
-    if (!dbSourceIsAvailable) {
-      return "outline-orange-600 dark:outline-orange-400";
-    }
     if (isWrongType) {
       return "outline-red-600 dark:outline-red-400";
     }

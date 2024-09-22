@@ -1,6 +1,10 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import { useCodeInfo, useParamShortcuts } from "state/definitions";
+import {
+  useCodeInfo,
+  useParamShortcuts,
+  useSectionInfos,
+} from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
@@ -27,6 +31,7 @@ export function ParamUI({
   keywordPositions,
   setKeywordPositions,
 }) {
+  const configLanguage = useSectionInfos((x) => x.x[sectionId].configLanguage);
   const uiType = useGetParamUIType(sectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -52,7 +57,7 @@ export function ParamUI({
             onChange={onChange}
             dummyCodeClassName={`section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!_isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
             realCodeClassName={`nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
-            language="python"
+            language={configLanguage}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
             isDisabled={_isDisabled}
@@ -109,6 +114,9 @@ export function ParamSweepUI({
   keywordPositions,
   setKeywordPositions,
 }) {
+  const configLanguage = useSectionInfos(
+    (x) => x.x[dataSectionId].configLanguage,
+  );
   const uiType = useGetParamUIType(dataSectionId, paramInfoId);
   const waitingForResult = useTextFieldWaitingForLSPResult({
     dataSectionId,
@@ -128,7 +136,7 @@ export function ParamSweepUI({
             isDisabled={isDisabled}
             dummyCodeClassName="section-key-value self-end grid-row-start-1 mx-3 py-[.125rem] nodrag cursor-text select-text break-words px-0 font-mono text-xs [tab-size:4] [word-break:break-word]"
             realCodeClassName="section-key-value self-end grid-row-start-1 py-[.125rem] mx-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
-            language="python"
+            language={configLanguage}
             keywordPositions={keywordPositions}
             setKeywordPositions={setKeywordPositions}
           />

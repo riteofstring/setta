@@ -1,5 +1,4 @@
-def delete_project_configs(dbs, ids):
-    db = dbs.default
+def delete_project_configs(db, ids):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
         DELETE FROM ProjectConfig

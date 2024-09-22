@@ -1,6 +1,8 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import { useUITypeCols, useUITypes } from "state/definitions";
 import { initValue } from "state/utils";
+import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { getSectionInfo } from "../../getters/sectionInfo";
 
 export function setAllUITypeCols({ uiTypeCols }) {
@@ -48,7 +50,11 @@ export function updateUITypeCols({ uiTypeCols }) {
 
 function getParamUITypeId(sectionId, paramInfoId) {
   const { uiTypeColId } = getSectionInfo(sectionId);
-  return useUITypeCols.getState().y[uiTypeColId][paramInfoId].uiTypeId;
+  const uiTypeCol = useUITypeCols.getState().y[uiTypeColId];
+  if (paramInfoId.startsWith(C.JSON_SOURCE_PREFIX)) {
+    return BASE_UI_TYPE_IDS[C.TEXT];
+  }
+  return uiTypeCol[paramInfoId].uiTypeId;
 }
 
 export function getParamUIType(sectionId, paramInfoId) {

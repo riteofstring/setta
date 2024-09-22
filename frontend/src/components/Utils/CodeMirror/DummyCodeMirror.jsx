@@ -1,4 +1,5 @@
 import { javascriptLanguage } from "@codemirror/lang-javascript";
+import { jsonLanguage } from "@codemirror/lang-json";
 import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
@@ -200,6 +201,8 @@ function getLanguageParser(language) {
       return pythonLanguage;
     case "javascript":
       return javascriptLanguage;
+    case "json":
+      return jsonLanguage;
     default:
       return null;
   }

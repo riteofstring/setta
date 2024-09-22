@@ -7,7 +7,12 @@ import {
 } from "../sectionVariants";
 
 export function setAllSectionInfos({ sections, sectionConfigs }) {
-  const x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  let x;
+  if (sectionConfigs) {
+    x = _.mapValues(sections, (v, k) => ({ ...v, ...sectionConfigs[k] }));
+  } else {
+    x = sections;
+  }
   useSectionInfos.setState({ x });
 }
 
@@ -55,19 +60,15 @@ export function removeSectionInfos(payload) {
       }
 
       let isStillUsedInAVariant = false;
-      for (const variantsInOneDbSource of Object.values(
+      for (const variantInfo of Object.values(
         useSectionVariants.getState().x,
       )) {
-        for (const variantInfo of Object.values(variantsInOneDbSource)) {
-          if (variantInfo.children.includes(id)) {
-            isStillUsedInAVariant = true;
-            break;
-          }
-        }
-        if (isStillUsedInAVariant) {
+        if (variantInfo.children.includes(id)) {
+          isStillUsedInAVariant = true;
           break;
         }
       }
+
       if (!isStillUsedInAVariant) {
         delete state.x[id];
       }

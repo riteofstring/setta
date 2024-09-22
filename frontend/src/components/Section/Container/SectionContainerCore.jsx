@@ -10,10 +10,7 @@ import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getHighestAncestor } from "state/actions/sections/sectionSizes";
 import { useActiveSection, useParamShortcuts } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import {
-  useGetSectionInfo,
-  useSectionDBSourceIsAvailable,
-} from "state/hooks/sections";
+import { useGetSectionInfo } from "state/hooks/sections";
 import { useSectionTypeName } from "state/hooks/uiTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
@@ -23,7 +20,6 @@ function _SectionContainerCore({ sectionId }) {
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const sectionIsFrozen = useGetSectionInfo(sectionId, "isFrozen");
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const dbSourceIsAvailable = useSectionDBSourceIsAvailable(sectionId);
 
   function onClick(e) {
     if (useParamShortcuts.getState().isSelectingParams) {
@@ -64,7 +60,6 @@ function _SectionContainerCore({ sectionId }) {
         sectionTypeName={sectionTypeName}
         isActiveSection={isActiveSection}
         isWrongType={false} // TODO add the logic for this
-        dbSourceIsAvailable={dbSourceIsAvailable}
       />
     </section>
   );

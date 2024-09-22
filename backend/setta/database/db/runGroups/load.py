@@ -1,6 +1,4 @@
-def load_run_groups(dbs, projectConfigId):
-    db = dbs.default
-
+def load_run_groups(db, projectConfigId):
     query = """
         SELECT RunGroupId.id, RunGroupId.name, RunGroupId.selected, RunGroup.sectionId, RunGroup.paramSweepId
         FROM RunGroupId

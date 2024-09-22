@@ -8,11 +8,11 @@ from setta.database.db.projects.load import load_full_project
 from setta.database.seed import load_base_ui_types
 
 
-def get_configs_and_root_folder(dbs, filename):
+def get_configs_and_root_folder(db, filename):
     # export defaultdict the same way as dict
     yaml.add_representer(defaultdict, Representer.represent_dict)
 
-    configs = load_full_project(dbs)
+    configs = load_full_project(db)
     base_ui_types = load_base_ui_types()
     # merge sectionConfigs into sections
     for c in configs:
