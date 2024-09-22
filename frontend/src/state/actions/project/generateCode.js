@@ -114,18 +114,25 @@ function* getProjectRuns(project) {
 function* getProjectVariants(project) {
   const allSweeps = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
-    for (const sweep of details.sweep) {
-      const curr = [];
-      for (const value of sweep.values) {
-        curr.push({
-          paramSweepId,
-          paramInfoId: sweep.paramInfoId,
-          value,
-        });
+    const curr = [];
+    for (const s of details.sweep) {
+      if (s.params.length === 0) {
+        curr.push({ selectedItem: s.selectedItem });
+      } else {
+        for (const paramDetails of s.params) {
+          for (const value of paramDetails.values) {
+            curr.push({
+              paramSweepId,
+              selectedItem: s.selectedItem,
+              paramInfoId: paramDetails.paramInfoId,
+              value,
+            });
+          }
+        }
       }
-      if (curr.length > 0) {
-        allSweeps.push(curr);
-      }
+    }
+    if (curr.length > 0) {
+      allSweeps.push(curr);
     }
   }
 
@@ -133,12 +140,13 @@ function* getProjectVariants(project) {
     for (const combo of cartesian(...allSweeps)) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
-        const { paramSweepId, paramInfoId, value } = parts;
+        const { paramSweepId, selectedItem, paramInfoId, value } = parts;
         const forSectionId = Object.values(project.sections).find((x) =>
           x.paramSweepIds.includes(paramSweepId),
         ).id;
         const { variantId: sectionVariantId } = project.sections[forSectionId];
         const sectionVariant = variant.sectionVariants[sectionVariantId];
+        sectionVariant.selectedItem = selectedItem;
         sectionVariant.values[paramInfoId].value = value;
       }
       yield variant;
