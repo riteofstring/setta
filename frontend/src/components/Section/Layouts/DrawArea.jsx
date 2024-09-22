@@ -227,7 +227,7 @@ export function DrawOnImage({ sectionId }) {
     }
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
-      opacity: opacity,
+      opacity: isEraser ? 1 : opacity,
       lineWidth: dCtx.lineWidth,
       points: [prevPointRef.current],
       canvasHeight: draftCanvas.height,
