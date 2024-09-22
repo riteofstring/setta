@@ -284,6 +284,7 @@ function ParamCombobox({
       placeholder="Filter & Add Sweep"
       outerDivClasses="section-w-full justify-center not:last-child:mt-3"
       small={true}
+      bg="bg-transparent"
     />
   );
 }

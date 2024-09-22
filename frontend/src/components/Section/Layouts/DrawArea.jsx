@@ -2,6 +2,7 @@ import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   setAspectRatioInfo,
@@ -316,7 +317,7 @@ export function DrawOnImage({ sectionId }) {
               setIsEraser(false);
             }}
           >
-            <i className="gg-pen z-" />
+            <BiPaint />
           </button>
           <StandardPopover
             popoverContent={
@@ -365,6 +366,27 @@ export function DrawOnImage({ sectionId }) {
             header={"Brush Settings"}
           />
         </div>
+
+        <StandardPopover
+          popoverContent={
+            <EraserSettings
+              brushSize={eraserBrushSize}
+              setBrushSize={setEraserBrushSize}
+            />
+          }
+          arrowClasses="fill-white dark:fill-setta-800"
+          inputClasses="rounded-lg"
+          contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+          trigger={
+            <button
+              className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
+              onClick={clearStrokes}
+            >
+              <i className="gg-image" />
+            </button>
+          }
+          header={"Layer Opacity"}
+        />
 
         <button
           className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
