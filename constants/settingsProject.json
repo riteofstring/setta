@@ -15,7 +15,8 @@
         "zIndex": 0
       }
     },
-    "runGroupSelection": {}
+    "runGroupSelection": {},
+    "shownRunGroup": null
   },
   "sectionVariants": {
     "efe36d90-cd07-4588-af5f-0492d01d8da0": {

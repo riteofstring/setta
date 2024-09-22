@@ -6,6 +6,7 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
+import { setShownRunGroup } from "state/actions/project/projectConfig";
 import {
   initRunGroup,
   toggleRunGroup,
@@ -55,16 +56,16 @@ function GlobalParamSweepCode({ sectionId }) {
 
 function GlobalParamSweepGUI() {
   const runGroups = useRunGroups((x) => x.x);
-  const firstRunGroupId = Object.keys(runGroups)[0];
-  const [shownRunGroup, setShownRunGroup] = useState(firstRunGroupId);
+  const shownRunGroup = useProjectConfig((x) => x.shownRunGroup);
   const [previewRunGroup, setPreviewRunGroup] = useState(null);
   const toShow = previewRunGroup ?? shownRunGroup;
+  const firstRunGroupId = Object.keys(runGroups)[0];
 
   useEffect(() => {
-    if (firstRunGroupId) {
+    if (!shownRunGroup && firstRunGroupId) {
       setShownRunGroup(firstRunGroupId);
     }
-  }, [firstRunGroupId]);
+  }, [shownRunGroup, firstRunGroupId]);
 
   return (
     <>

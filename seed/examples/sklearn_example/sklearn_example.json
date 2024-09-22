@@ -64,7 +64,8 @@
     "runGroupSelection": {
       "6a2056d0-214e-4d82-9c91-ee915069c7d4": false,
       "2226fedc-e7fd-4a8f-beee-9b9e91b6dec1": true
-    }
+    },
+    "shownRunGroup": null
   },
   "sectionVariants": {
     "1fc1e842-82fe-4a48-8794-23178822e22e": {
