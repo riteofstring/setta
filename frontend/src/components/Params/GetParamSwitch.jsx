@@ -19,6 +19,7 @@ export function GetParamSwitch({
     _.isEqual,
   );
 
+  // TODO: make this more efficient
   const filteredIds = useSectionParamFilter((x) => {
     const matches = matchSorter(
       requiredParamIdsWithNames,
