@@ -68,10 +68,6 @@ for (const theme of [
 
 export function useCodeMirrorStyle(color) {
   const [darkMode] = localStorageFns.darkMode.hook();
-  return getCodeMirrorStyle(darkMode, color);
-}
-
-export function getCodeMirrorStyle(darkMode, color) {
   if (color === "green") {
     return darkMode ? greenDarkTheme : greenLightTheme;
   }
