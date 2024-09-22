@@ -1,5 +1,4 @@
-def save_run_groups(dbs, run_groups):
-    db = dbs.default
+def save_run_groups(db, run_groups):
     query = """
         INSERT INTO RunGroupId (id, name, projectConfigId, "order", selected)
         VALUES (:id, :name, :projectConfigId, :order, :selected)

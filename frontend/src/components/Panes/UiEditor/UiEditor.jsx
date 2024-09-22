@@ -6,7 +6,6 @@ import { useActiveSection, useUIEditor } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { useRequiredUIEditorTabs } from "state/hooks/uiTypes";
 import {
-  DB_SOURCES_TAB,
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
@@ -15,7 +14,6 @@ import {
   UI_CONFIG_TAB,
   UI_EDITOR,
 } from "utils/constants";
-import { DBSources } from "./DBSources/DBSources";
 import { MarkdownEditor } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
@@ -137,13 +135,13 @@ function InfoTab({ sectionId }) {
   );
 }
 
-function DBSourcesTab({ sectionId }) {
-  return (
-    <TabContent value={DB_SOURCES_TAB}>
-      <DBSources sectionId={sectionId} />
-    </TabContent>
-  );
-}
+// function DBSourcesTab({ sectionId }) {
+//   return (
+//     <TabContent value={DB_SOURCES_TAB}>
+//       <DBSources sectionId={sectionId} />
+//     </TabContent>
+//   );
+// }
 
 function SectionVariantsTab({ sectionId }) {
   return (
@@ -160,8 +158,6 @@ function TabContentSelector({ sectionId, tabName }) {
     return <UIConfigTab sectionId={sectionId} />;
   } else if (tabName === INFO_CONFIG_TAB) {
     return <InfoTab sectionId={sectionId} />;
-  } else if (tabName === DB_SOURCES_TAB) {
-    return <DBSourcesTab sectionId={sectionId} />;
   } else if (tabName === SECTION_VARIANTS_TAB) {
     return <SectionVariantsTab sectionId={sectionId} />;
   } else if (tabName === QUICKINFO_CONFIG_TAB) {

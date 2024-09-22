@@ -24,21 +24,6 @@ export const SINGLETON_SECTIONS = {
   globalParamSweep: null,
 };
 
-// If multiple db sources map to the same db, then this holds that mapping.
-// For example, if "settings" points to the same db as "default"
-// the mapping would be {settings: "default", default: "default"}
-export const DB_SOURCE_MAPPING = {};
-
-export function setDbSourceMapping(newMapping) {
-  const keys = Object.keys(DB_SOURCE_MAPPING);
-  for (const k of keys) {
-    delete DB_SOURCE_MAPPING[k];
-  }
-  for (const [k, v] of Object.entries(newMapping)) {
-    DB_SOURCE_MAPPING[k] = v;
-  }
-}
-
 // constants object
 export const URLS = {};
 export const BASE_UI_TYPE_IDS = {};
@@ -76,7 +61,6 @@ export const QUICKINFO_CONFIG_TAB = "QuickInfoConfig";
 export const UI_CONFIG_TAB = "UIConfig";
 export const INFO_CONFIG_TAB = "InfoConfig";
 export const RUNTIME_CONFIG_TAB = "RuntimeConfig";
-export const DB_SOURCES_TAB = "DBSourcesConfig";
 export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
 
 export const tabNameToPretty = Object.freeze(
@@ -87,7 +71,6 @@ export const tabNameToPretty = Object.freeze(
       [QUICKINFO_CONFIG_TAB]: "Quick Info",
       [INFO_CONFIG_TAB]: "Markdown",
       // [RUNTIME_CONFIG_TAB]: "Runtime",
-      [DB_SOURCES_TAB]: "DB",
       [SECTION_VARIANTS_TAB]: "Ver.",
     }),
   ),
@@ -108,7 +91,7 @@ export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const SETTINGS_PROJECT_NAME = "settings";
-export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`
+export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`;
 
 export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
 

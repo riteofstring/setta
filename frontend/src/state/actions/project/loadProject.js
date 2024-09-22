@@ -6,7 +6,6 @@ import { dbLoadSettingsProject } from "requests/settings";
 import {
   PAGE_LOAD_TYPES,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
-  setDbSourceMapping,
 } from "utils/constants";
 import { setAllCodeInfo } from "../codeInfo";
 import { setNodes } from "../nodeInternals";
@@ -49,9 +48,7 @@ export function loadProjectState({
   uiTypeCols,
   paramSweeps,
   runGroups,
-  dbSourceMapping,
 }) {
-  setDbSourceMapping(dbSourceMapping);
   setAllCodeInfo(codeInfo);
   setProjectConfig(_.omit(projectConfig, ["children"]));
   setNodes(

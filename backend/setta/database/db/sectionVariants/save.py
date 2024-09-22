@@ -1,12 +1,7 @@
 from setta.database.utils import dump_keyword_positions_as_string
 
 
-def save_section_variants(dbs, section_variants):
-    for dbSource, variants_for_one_db in section_variants.items():
-        save_section_variants_to_one_db(dbs[dbSource], variants_for_one_db)
-
-
-def save_section_variants_to_one_db(db, section_variants):
+def save_section_variants(db, section_variants):
     query = """
         INSERT INTO SectionVariantId (id, name, selectedItem, code, keywordPositions)
         VALUES (:id, :name, :selectedItem, :code, :keywordPositions)

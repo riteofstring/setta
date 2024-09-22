@@ -17,23 +17,22 @@ from ..uiTypes.save import save_ui_type_cols, save_ui_types
 from .utils import remove_json_source_data, save_json_source_data
 
 
-def save_project_details(dbs, p):
+def save_project_details(db, p):
     save_json_source_data(p)
     remove_json_source_data(p)
-    save_section_variants(dbs, p["sectionVariants"])
-    save_code_info(dbs, p["codeInfo"])
-    save_ui_types(dbs, p["uiTypes"])
-    save_ui_type_cols(dbs, p["uiTypeCols"])
-    save_param_sweeps(dbs, p["paramSweeps"])
-    save_sections(dbs, p["sections"])
-    save_project(dbs, p["projectConfig"])
-    save_section_configs(dbs, p["projectConfig"]["id"], p["sections"])
-    update_linked_project_configs(dbs, p)
-    save_run_groups(dbs, p["runGroups"])
+    save_section_variants(db, p["sectionVariants"])
+    save_code_info(db, p["codeInfo"])
+    save_ui_types(db, p["uiTypes"])
+    save_ui_type_cols(db, p["uiTypeCols"])
+    save_param_sweeps(db, p["paramSweeps"])
+    save_sections(db, p["sections"])
+    save_project(db, p["projectConfig"])
+    save_section_configs(db, p["projectConfig"]["id"], p["sections"])
+    update_linked_project_configs(db, p)
+    save_run_groups(db, p["runGroups"])
 
 
-def save_project(dbs, project):
-    db = dbs.default
+def save_project(db, project):
     query = """
         INSERT INTO ProjectConfig (id, name, previewImgNodes, isDefault, x, y, zoom)
         VALUES (:id, :name, :previewImgNodes, :isDefault, :x, :y, :zoom)
@@ -92,8 +91,7 @@ def save_project(dbs, project):
     db.executemany(query, query_params)
 
 
-def create_project_config(dbs, name, previewImgColor):
-    db = dbs.default
+def create_project_config(db, name, previewImgColor):
     query = """
         SELECT name
         FROM ProjectConfig
@@ -126,8 +124,7 @@ def create_project_config(dbs, name, previewImgColor):
     return out["name"]
 
 
-def save_project_config_name(dbs, curr_name, new_name):
-    db = dbs.default
+def save_project_config_name(db, curr_name, new_name):
     query = """
         UPDATE ProjectConfig
         SET name = :new_name
@@ -137,9 +134,7 @@ def save_project_config_name(dbs, curr_name, new_name):
     db.execute(query, query_params)
 
 
-def save_section_configs(dbs, project_config_id, sections):
-    db = dbs.default
-
+def save_section_configs(db, project_config_id, sections):
     query_params = []
     for section_id in sections.keys():
         query_params.extend([project_config_id, section_id])
@@ -151,11 +146,10 @@ def save_section_configs(dbs, project_config_id, sections):
     db.execute(query, query_params)
 
     id_pairs = [(project_config_id, s) for s in sections.keys()]
-    insert_section_configs(dbs, sections, id_pairs)
+    insert_section_configs(db, sections, id_pairs)
 
 
-def insert_section_configs(dbs, sections, id_pairs):
-    db = dbs.default
+def insert_section_configs(db, sections, id_pairs):
     query = """
         INSERT INTO SectionConfig (projectConfigId, sectionId, width, height, variantId, paramSweepId, isHorizontalOrientation, pinnedAreaHeight, isMinimized)
         VALUES (:projectConfigId, :sectionId, :width, :height, :variantId, :paramSweepId, :isHorizontalOrientation, :pinnedAreaHeight, :isMinimized)
@@ -185,8 +179,7 @@ def insert_section_configs(dbs, sections, id_pairs):
 # an entry in SectionConfig needs to be added for ALL project configs.
 # Otherwise when loading those other project configs,
 # the data for the new child will be missing.
-def update_linked_project_configs(dbs, project):
-    db = dbs.default
+def update_linked_project_configs(db, project):
     query = """
         SELECT projectConfigId, sectionId
         FROM SectionConfig
@@ -251,7 +244,7 @@ def update_linked_project_configs(dbs, project):
                     ids.add(c)
 
     print("section_configs_to_add", section_configs_to_add, flush=True)
-    insert_section_configs(dbs, project["sections"], section_configs_to_add)
+    insert_section_configs(db, project["sections"], section_configs_to_add)
 
 
 def convert_size(x):

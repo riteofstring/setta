@@ -3,7 +3,6 @@ import {
   useKeywordRegex,
   useSectionInfos,
 } from "state/definitions";
-import { getSectionDBSource } from "state/getters/sectionInfo";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -30,9 +29,8 @@ export function computeEVReferences(project) {
   const cState = useCodeInfo.getState().x;
   for (const sectionId of Object.keys(project["sections"])) {
     paramEVRefs[sectionId] = {};
-    const dbSource = getSectionDBSource(sectionId);
     const { variantId } = useSectionInfos.getState().x[sectionId];
-    const sectionVariant = project["sectionVariants"][dbSource][variantId];
+    const sectionVariant = project["sectionVariants"][variantId];
 
     for (const [paramInfoId, valueInfo] of Object.entries(
       sectionVariant.values,

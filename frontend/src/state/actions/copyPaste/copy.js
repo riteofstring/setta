@@ -9,12 +9,8 @@ import {
   useUITypeCols,
   useUITypes,
 } from "state/definitions";
-import { DB_SOURCE_MAPPING } from "utils/constants";
 import { findAll } from "utils/getDescendants";
-import {
-  getMappedSectionDBSource,
-  getSectionInfo,
-} from "../../getters/sectionInfo";
+import { getSectionInfo } from "../../getters/sectionInfo";
 import { getSectionChildrenAcrossVariants } from "../sectionVariants";
 
 export async function copy() {
@@ -45,7 +41,6 @@ export function copySections(sectionIds) {
     sectionVariants,
     uiTypeCols,
     relativePositions,
-    dbSourceMapping: DB_SOURCE_MAPPING,
   };
 }
 
@@ -119,11 +114,7 @@ function getSectionVariants(sections) {
   const output = {};
   const vState = useSectionVariants.getState().x;
   for (const s of Object.values(sections)) {
-    const dbSource = getMappedSectionDBSource(s.id);
-    if (!(dbSource in output)) {
-      output[dbSource] = {};
-    }
-    Object.assign(output[dbSource], _.pick(vState[dbSource], s.variantIds));
+    Object.assign(output, _.pick(vState, s.variantIds));
   }
   return output;
 }

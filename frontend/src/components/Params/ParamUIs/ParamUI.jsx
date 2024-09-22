@@ -1,6 +1,10 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import C from "constants/constants.json";
-import { useCodeInfo, useParamShortcuts, useSectionInfos } from "state/definitions";
+import {
+  useCodeInfo,
+  useParamShortcuts,
+  useSectionInfos,
+} from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useGetParamUIType } from "state/hooks/uiTypes";
 import { SliderInput, SliderInputConfig } from "./SliderInput";
