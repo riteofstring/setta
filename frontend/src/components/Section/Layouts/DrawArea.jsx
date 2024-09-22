@@ -37,12 +37,11 @@ export function DrawOnImage({ sectionId }) {
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
-  const [opacity, setOpacity] = useState(0.5);
+  const [opacity, setOpacity] = useState(1);
   const [brushSize, setBrushSize] = useState(16);
   const [canvasOpacity, setCanvasOpacity] = useState(0.5);
   const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
-  const [isContinuingStroke, setIsContinuingStroke] = useState(false);
   const strokesRef = useRef([]);
 
   function setDraftCanvasProperties() {
@@ -190,14 +189,13 @@ export function DrawOnImage({ sectionId }) {
     return unsub;
   }, []);
 
-  function startNewStroke(firstPoint, inputOpacity) {
-    console.log("startNewStroke", firstPoint);
+  function startNewStroke(firstPoint) {
+    console.log("startNewStroke", firstPoint)
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
-      opacity: isEraser ? 1 : inputOpacity ?? opacity,
+      opacity: isEraser ? 1 : opacity,
       lineWidth: dCtx.lineWidth,
-      lineCap: dCtx.lineCap,
       points: [firstPoint],
       canvasHeight: draftCanvas.height,
       canvasWidth: draftCanvas.width,
@@ -217,55 +215,26 @@ export function DrawOnImage({ sectionId }) {
       prevPointRef.current = getXY(e);
     }
     startNewStroke(prevPointRef.current);
-    // const ctx = getCtx(draftCanvasRef);
-    // ctx.beginPath();
-    // ctx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
-    // ctx.lineTo(prevPointRef.current[0], prevPointRef.current[1]);
-    // ctx.stroke();
   }
 
   function onMouseMove(e) {
     if (!isDrawing) {
       return;
     }
-    const dCtx = getCtx(draftCanvasRef);
     const point = getXY(e);
+    const ctx = getCtx(draftCanvasRef);
+    ctx.beginPath();
+    ctx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
+    ctx.lineTo(point[0], point[1]);
+    ctx.stroke();
+    prevPointRef.current = point;
     const currStroke = strokesRef.current[strokesRef.current.length - 1];
-
-    if (isContinuingStroke) {
-      // if (
-      //   !doPointsOverlap(
-      //     point,
-      //     prevPointRef.current,
-      //     ctx.lineWidth,
-      //     ctx.lineWidth,
-      //   )
-      // ) {
-      //   prevPointRef.current = point;
-      //   startNewStroke(prevPointRef.current);
-      //   setIsContinuingStroke(false);
-      // }
-    } else if (!isEraser && currStroke.points.length >= 50) {
-      const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+    if (!isEraser && currStroke.points.length >= 50) {
+      drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
-      drawStroke(canvas, ctx, currStroke);
-      // dCtx.beginPath();
-      // dCtx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
-      // dCtx.lineTo(point[0], point[1]);
-      // dCtx.stroke();
-      // startNewStroke(point, 0);
-      // const newStroke = strokesRef.current[strokesRef.current.length - 1];
-      // newStroke.points.push(point);
-      // drawStroke(canvas, ctx, newStroke);
-
-      // setIsContinuingStroke(true);
+      startNewStroke(prevPointRef.current)
     } else {
-      dCtx.beginPath();
-      dCtx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
-      dCtx.lineTo(point[0], point[1]);
-      dCtx.stroke();
-      prevPointRef.current = point;
-      currStroke.points.push(prevPointRef.current);
+      currStroke.points.push(point);
     }
   }
 
@@ -275,11 +244,11 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
-      // drawLatestStroke(canvasRef, strokesRef.current);
+      drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
     }
-    // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
-    // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
+    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
   function onMouseEnter(e) {
@@ -297,7 +266,7 @@ export function DrawOnImage({ sectionId }) {
     strokesRef.current = [];
     clearCanvas(canvasRef);
     clearCanvas(draftCanvasRef);
-    // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
 
   function toBase64() {
@@ -644,19 +613,6 @@ function exportImageToBase64(image, width, height) {
   return canvasToBase64(tempCanvas);
 }
 
-function doPointsOverlap(point1, point2, point1LineWidth, point2LineWidth) {
-  // Calculate the distance between the points
-  const dx = point2[0] - point1[0];
-  const dy = point2[1] - point1[1];
-  const distance = Math.sqrt(dx * dx + dy * dy);
-
-  // Calculate the sum of their radii (half of their lineWidths)
-  const totalRadius = (point1LineWidth + point2LineWidth) / 2;
-
-  // If the distance is less than or equal to the total radius, they overlap
-  return distance <= totalRadius * 0.5;
-}
-
 function drawStrokesAndKeepOriginalProps(canvasRef, strokes) {
   const [canvas, ctx] = getCanvasAndCtx(canvasRef);
   const startingProps = _.pick(ctx, [
@@ -681,7 +637,6 @@ function drawLatestStroke(canvasRef, strokes) {
 }
 
 function drawStroke(canvas, ctx, stroke) {
-  console.log("drawStroke", stroke);
   const scale = Math.min(
     canvas.width / stroke.canvasWidth,
     canvas.height / stroke.canvasHeight,
