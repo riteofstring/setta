@@ -102,7 +102,7 @@ def route_load_full_project(x: ProjectLoadFullRequest, dbq=Depends(get_dbq)):
 @router.post(C.ROUTE_SAVE_PROJECT)
 def route_save_project(x: ProjectSaveRequest, dbq=Depends(get_dbq)):
     with dbq as db:
-        maybe_create_backup(db.default.path)
+        maybe_create_backup(db.path)
         save_project_details(db, x.project)
 
 

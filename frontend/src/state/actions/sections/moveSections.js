@@ -143,8 +143,7 @@ async function maybeMakeCopyOfSection({ sectionId, oldParentId, newParentId }) {
   // have children that include sectionId.
   // If they do include sectionId, then make a copy of sectionId
   // to prevent the possibility of sectionId appearing in 2 places at once.
-  const { variantId: activeVariantId } =
-    getSectionVariantId(oldParentId);
+  const { variantId: activeVariantId } = getSectionVariantId(oldParentId);
   const variantState = useSectionVariants.getState().x;
   let isInOtherVariants = false;
   for (const variantId of variantIds) {
