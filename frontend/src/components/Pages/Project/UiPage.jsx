@@ -16,11 +16,7 @@ export function UIPage() {
 
   return (
     <GlobalDndContext>
-      <ReactFlow
-        style={reactFlowStyle}
-        nodeDragThreshold={0}
-        className="setta-light dark:setta-dark"
-      />
+      <ReactFlow />
       <PaneContextMenu />
       <SelectionContextMenu />
       <DeckContextMenu />
@@ -29,9 +25,3 @@ export function UIPage() {
     </GlobalDndContext>
   );
 }
-
-const reactFlowStyle = {
-  // background: "#94a3b8",
-  height: "100%",
-  userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
-};

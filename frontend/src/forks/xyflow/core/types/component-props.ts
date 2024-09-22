@@ -1,10 +1,4 @@
-import type {
-  CoordinateExtent,
-  FitViewOptions,
-  Node,
-  PanOnScrollMode,
-  SelectionMode,
-} from ".";
+import type { CoordinateExtent, Node, PanOnScrollMode, SelectionMode } from ".";
 
 export type ReactFlowProps = {
   nodes?: Node[];
@@ -26,10 +20,7 @@ export type ReactFlowProps = {
   noDragClassName?: string;
   noWheelClassName?: string;
   noPanClassName?: string;
-  fitView?: boolean;
-  fitViewOptions?: FitViewOptions;
   autoPanOnNodeDrag?: boolean;
-  nodeDragThreshold?: number;
 };
 
 export type ReactFlowRefType = HTMLDivElement;

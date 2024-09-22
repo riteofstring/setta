@@ -1,4 +1,3 @@
-import cc from "classcat";
 import { forwardRef, type CSSProperties } from "react";
 import StoreUpdater from "../../components/StoreUpdater";
 import { infiniteExtent } from "../../store/initialState";
@@ -11,6 +10,7 @@ const wrapperStyle: CSSProperties = {
   height: "100%",
   overflow: "hidden",
   position: "relative",
+  userSelect: "none", //to prevent text from being selected when shift clicking or right-clicking pane
 };
 
 const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
@@ -37,9 +37,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
       noWheelClassName = "nowheel",
       noPanClassName = "nopan",
       autoPanOnNodeDrag = true,
-      style,
-      id,
-      nodeDragThreshold,
       ...rest
     },
     ref,
@@ -47,11 +44,10 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
     return (
       <div
         {...rest}
-        style={{ ...style, ...wrapperStyle }}
+        style={wrapperStyle}
         ref={ref}
-        className={cc(["react-flow", className])}
+        className="react-flow setta-light dark:setta-dark"
         data-testid="rf__wrapper"
-        id={id}
       >
         <GraphView
           selectionOnDrag={selectionOnDrag}
@@ -77,7 +73,6 @@ const ReactFlow = forwardRef<ReactFlowRefType, ReactFlowProps>(
           translateExtent={translateExtent}
           noPanClassName={noPanClassName}
           autoPanOnNodeDrag={autoPanOnNodeDrag}
-          nodeDragThreshold={nodeDragThreshold}
         />
         {children}
       </div>

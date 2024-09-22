@@ -18,7 +18,6 @@ type StoreUpdaterProps = Pick<
   | "translateExtent"
   | "noPanClassName"
   | "autoPanOnNodeDrag"
-  | "nodeDragThreshold"
 >;
 
 const selector = (s: ReactFlowState) => ({
@@ -57,7 +56,6 @@ const StoreUpdater = ({
   translateExtent,
   noPanClassName,
   autoPanOnNodeDrag,
-  nodeDragThreshold,
 }: StoreUpdaterProps) => {
   const { setTranslateExtent, reset } = useReactFlow(selector, shallow);
 
@@ -90,11 +88,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater(
     "autoPanOnNodeDrag",
     autoPanOnNodeDrag,
-    useReactFlow.setState,
-  );
-  useDirectStoreUpdater(
-    "nodeDragThreshold",
-    nodeDragThreshold,
     useReactFlow.setState,
   );
 
