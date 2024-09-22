@@ -68,8 +68,11 @@ function GlobalParamSweepGUI() {
   return (
     <>
       <section className="section-main mb-2 flex min-w-0 flex-col gap-6 overflow-y-scroll @sm/multipane:flex-row  @sm/multipane:overflow-visible">
-        <article className="flex flex-col gap-2 ">
-          <FilterSection />
+        <article className="mt-2 flex flex-col gap-2 ">
+          <h3 className="ml-0.5 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+            Run Groups
+          </h3>
+          {/* <FilterSection /> */}
 
           <RunGroupList
             runGroups={runGroups}
@@ -80,7 +83,10 @@ function GlobalParamSweepGUI() {
           <CreateNewRunGroupButton setShownRunGroup={setShownRunGroup} />
         </article>
         {runGroups[toShow] && (
-          <article className="flex flex-1 flex-col gap-2 overflow-x-hidden ">
+          <article className="mt-2 flex flex-1 flex-col gap-2 overflow-x-hidden">
+            <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+              Sections
+            </h3>
             <FilterSection />
             <SectionList runGroupId={toShow} runGroup={runGroups[toShow]} />
           </article>
@@ -106,9 +112,9 @@ function RunGroupList({
           onChange={() => {
             toggleRunGroup(id);
           }}
-          onClick={() => setShownRunGroup(id)}
           onMouseOver={() => setPreviewRunGroup(id)}
           onMouseLeave={() => setPreviewRunGroup(null)}
+          onClick={() => setShownRunGroup(id)}
         >
           {x.name}
         </CheckboxNextToLabel>
@@ -251,11 +257,11 @@ function _GenericList({ minLength, inputList, listName, isChecked, onChange }) {
     inputList.length > minLength && (
       <>
         <StandardAccordion
-          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700 py-0.5 rounded-lg px-2 ml-4 -mr-2"
+          rootStyles=" hover:bg-white hover:dark:bg-setta-700/10 border border-transparent hover:border-setta-50 dark:hover:border-setta-700  rounded-lg px-2 ml-4 -mr-2 -mt-1"
           itemStyles="focus-within:relative focus-within:z-10"
           headerStyles="flex flex-1 cursor-default items-center justify-between my-1"
-          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md text-xs text-setta-500 dark:text-setta-500 uppercase font-bold "
-          contentStyles="text-xs data-[state=open]:animate-slideDown data-[state=closed]:animate-slideUp overflow-hidden  mb-1"
+          triggerStyles="flex justify-between px-2 -mx-2 w-full items-center outline-none hover:cursor-pointer rounded-md text-xs text-setta-500 dark:text-setta-300"
+          contentStyles="text-xs overflow-hidden  mb-1"
           heading={listName}
           value={listName}
           internalWrapper={false}
@@ -308,14 +314,12 @@ function CheckboxNextToLabel({
   onMouseOver,
   onMouseLeave,
 }) {
-  const font = shown ? "font-bold" : "";
-
   return (
-    <li onMouseLeave={onMouseLeave}>
+    <li className="group/runitem flex justify-between">
       <label
-        className={`${font} flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 dark:text-setta-200 `}
+        className={`flex min-h-6 cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs text-setta-700 hover:!text-blue-500 dark:text-setta-200 `}
         onMouseOver={onMouseOver}
-        onClick={onClick}
+        onMouseLeave={onMouseLeave}
       >
         <input
           type="checkbox"
@@ -326,6 +330,12 @@ function CheckboxNextToLabel({
 
         <p className="truncate">{children}</p>
       </label>
+      <button
+        className="cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600"
+        onClick={onClick}
+      >
+        <i className="gg-pen  " />
+      </button>
     </li>
   );
 }
