@@ -40,9 +40,8 @@ CREATE_TABLES_COMMANDS = [
         social TEXT,
         description TEXT,
         codeLanguage TEXT,
-        configLanguage TEXT,
         isFrozen BOOLEAN,
-        jsonSource TEXT,
+        dbSource TEXT,
         codeInfoId TEXT,
         hideUnpinnedParams BOOLEAN,
         showYaml BOOLEAN,
@@ -258,18 +257,21 @@ def seed_data_exist(db, tablenames):
     return True
 
 
-def maybe_create_tables_and_seed(dbq, with_examples=False, with_base_ui_types=True):
-    dbq.connect()
-    with dbq as db:
-        if not tables_exist(db):
-            create_tables(db)
-        do_seed_examples = with_examples and not seed_data_exist(db, ["UIType"])
+def maybe_create_tables_and_seed(dbs, with_examples=False, with_base_ui_types=True):
+    dbs.connect()
+    with dbs:
+        for db in dbs.values():
+            if not tables_exist(db):
+                create_tables(db)
+        do_seed_examples = with_examples and not seed_data_exist(
+            dbs.default, ["UIType"]
+        )
         do_seed_base_ui_types = with_base_ui_types and not seed_data_exist(
-            db, ["UIType"]
+            dbs.default, ["UIType"]
         )
         seed(
-            db,
+            dbs,
             with_examples=do_seed_examples,
             with_base_ui_types=do_seed_base_ui_types,
         )
-    dbq.disconnect()
+    dbs.disconnect()

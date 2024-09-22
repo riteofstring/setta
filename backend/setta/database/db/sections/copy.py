@@ -15,16 +15,19 @@ def copy_sections(
     section_variant_id_map,
     ui_type_id_map,
     ui_type_col_id_map,
+    dbSourceMapping,
 ):
     new_sections, section_id_map = remap_ids(sections)
     for section in new_sections.values():
+        dbSource = section["dbSource"]
+        dbSource = dbSourceMapping[dbSource if dbSource else C.DEFAULT_DB_ALIAS]
         section["id"] = section_id_map[section["id"]]
         section["codeInfoId"] = code_info_id_map[section["codeInfoId"]]
-        section["variantId"] = section_variant_id_map[section["variantId"]]
+        section["variantId"] = section_variant_id_map[dbSource][section["variantId"]]
         section["uiTypeId"] = ui_type_id_map[section["uiTypeId"]]
         section["uiTypeColId"] = ui_type_col_id_map[section["uiTypeColId"]]
         section["variantIds"] = [
-            section_variant_id_map[x] for x in section["variantIds"]
+            section_variant_id_map[dbSource][x] for x in section["variantIds"]
         ]
         section["nonPresetUITypeIds"] = [
             ui_type_id_map[x] for x in section["nonPresetUITypeIds"]
@@ -49,6 +52,7 @@ def copy_sections_and_other_info(x):
         section_variant_id_map,
         ui_type_id_map,
         ui_type_col_id_map,
+        x["dbSourceMapping"],
     )
     update_section_variant_children(new_section_variants, section_id_map)
 

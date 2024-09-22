@@ -1,12 +1,14 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { HomePage } from "components/Pages/Home/HomePage";
+import { Settings } from "components/Pages/Settings/Settings";
 import { GridContainer } from "components/Utils/atoms/gridContainer/GridContainer";
 import { createBrowserRouter } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
+  SETTINGS_ROUTER_PATH,
 } from "utils/constants";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
@@ -46,8 +48,21 @@ const projectRoute = {
   ),
 };
 
+const settingsRoute = {
+  path: SETTINGS_ROUTER_PATH,
+  element: (
+    <GlobalWrapper>
+      <HeaderContainer path={SETTINGS_ROUTER_PATH} />
+      <GridContainer>
+        <Settings />
+      </GridContainer>
+    </GlobalWrapper>
+  ),
+};
+
 export const router = createBrowserRouter([
   indexRoute,
   homeRoute,
   projectRoute,
+  settingsRoute,
 ]);

@@ -1,8 +1,8 @@
 from fastapi import Request, WebSocket
 
 
-def get_dbq(request: Request):
-    return request.app.state.dbq
+def get_dbs(request: Request):
+    return request.app.state.dbs
 
 
 def get_tasks(request: Request):

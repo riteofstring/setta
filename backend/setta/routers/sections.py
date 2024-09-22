@@ -1,4 +1,3 @@
-import json
 from typing import Dict, List
 
 from fastapi import APIRouter
@@ -23,10 +22,6 @@ class SectionToDictRequest(BaseModel):
     sectionId: str
     pinnedIds: Dict[str, List[str]]
     unpinnedIds: Dict[str, List[str]]
-
-
-class LoadSectionJSONSourceRequest(BaseModel):
-    jsonSource: str
 
 
 @router.post(C.ROUTE_SECTIONS)
@@ -64,9 +59,3 @@ def route_section_to_yaml(x: SectionToDictRequest):
         "unpinned": unpinned.output,
         "prettyUnpinned": unpinned.prettyOutput,
     }
-
-
-@router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
-def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
-    with open(x.jsonSource, "r") as f:
-        return json.load(f)

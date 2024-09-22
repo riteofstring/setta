@@ -90,5 +90,5 @@ const debouncedSetParamEnteredValue = asyncDebounce(
       }
     }
   },
-  50,
+  500,
 );

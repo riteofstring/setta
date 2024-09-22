@@ -7,7 +7,10 @@ function loadAndModifyJson(filePath) {
     // Load the JSON file
     const data = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(data);
-    json.sectionVariants = json.sectionVariants.default;
+    for (const v of Object.values(json.sections)) {
+      v.isMinimized = false;
+      v.pinnedAreaHeight = "auto";
+    }
     // Save the modified JSON back to the file or handle it as needed
     // Uncomment the following line to save changes back to the file
     fs.writeFileSync(filePath, JSON.stringify(json, null, 2), "utf8");

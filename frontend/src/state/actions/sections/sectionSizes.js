@@ -1,6 +1,9 @@
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos, useSectionVariants } from "state/definitions";
-import { getSectionParentId } from "../../getters/sectionInfo";
+import {
+  getMappedSectionDBSource,
+  getSectionParentId,
+} from "../../getters/sectionInfo";
 import { setSectionInfoAttr } from "./sectionInfos";
 import { setSectionSize } from "./setters";
 
@@ -60,7 +63,9 @@ export function getAllSectionChildrenIds(
   while (idx < ids.length) {
     const currId = ids[idx];
     ids.push(
-      ...sectionVariantState[sectionInfoState[currId].variantId].children,
+      ...sectionVariantState[
+        getMappedSectionDBSource(currId, sectionInfoState)
+      ][sectionInfoState[currId].variantId].children,
     );
     idx += 1;
   }

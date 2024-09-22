@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from setta.database.db_init import maybe_create_tables_and_seed
-from setta.database.db_objs import DBQueue
+from setta.database.db_objs import DBs
 from setta.database.settings_file import SettingsFile
 from setta.lsp.reader import LanguageServerReader
 from setta.lsp.server import LanguageServer
@@ -46,18 +46,18 @@ async def lifespan(app: FastAPI):
     app.state.lsp_reader = LanguageServerReader(
         app.state.lsp, app.state.websocket_manager
     )
-    app.state.dbq = DBQueue(
-        C.DB_PATH,
+    app.state.dbs = DBs(
+        C.DB_SPECS,
         C.CREATE_IF_NOT_EXISTS,
     )
 
     maybe_create_tables_and_seed(
-        app.state.dbq,
+        app.state.dbs,
         with_examples=C.WITH_EXAMPLES,
         with_base_ui_types=True,
     )
 
-    app.state.dbq.connect()
+    app.state.dbs.connect()
     await app.state.lsp.start_server()
     await app.state.lsp_reader.start_listener()
     await app.state.lsp_writer.send_initialize_request()

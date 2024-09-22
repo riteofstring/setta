@@ -7,7 +7,7 @@ import {
   createNewCodeInfoAndKeywordPositions,
   setSelectedItem,
 } from "state/actions/sections/setters";
-import { useCodeInfo, useParamSweep, useSectionInfos } from "state/definitions";
+import { useCodeInfo, useParamSweep } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
@@ -80,10 +80,6 @@ function SectionSearchCore({
   dummyCodeClassName,
   realCodeClassName,
 }) {
-  const configLanguage = useSectionInfos(
-    (x) => x.x[dataSectionId].configLanguage,
-  );
-
   const { name: codeInfoName, keywordPositions } = useCodeInfo((x) => {
     if (selectedItem) {
       const { name, keywordPositions } = x.x[selectedItem];
@@ -140,7 +136,7 @@ function SectionSearchCore({
         onEnter={_onEnter}
         onEscape={onEscape}
         onBlur={onBlur}
-        language={configLanguage}
+        language="python"
         keywordPositions={localKeywordPositions}
         setKeywordPositions={setLocalKeywordPositions}
       />

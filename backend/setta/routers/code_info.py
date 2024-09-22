@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from setta.database.db.codeInfo.save import save_code_info
 from setta.utils.constants import C
 
-from .dependencies import get_dbq
+from .dependencies import get_dbs
 
 router = APIRouter()
 
@@ -19,9 +19,9 @@ def route_get_collections_and_modules():
 
 
 @router.post(C.ROUTE_SAVE_CODE_INFO)
-def route_save_code_info(x: SaveCodeInfoRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
-        save_code_info(db, x.codeInfo)
+def route_save_code_info(x: SaveCodeInfoRequest, dbs=Depends(get_dbs)):
+    with dbs:
+        save_code_info(dbs, x.codeInfo)
 
 
 @router.post(C.ROUTE_GET_COLLECTION_DETAILS)
