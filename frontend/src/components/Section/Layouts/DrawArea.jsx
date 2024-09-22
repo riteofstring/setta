@@ -1,4 +1,5 @@
 import * as Slider from "@radix-ui/react-slider";
+import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
@@ -367,51 +368,42 @@ function BrushSettings({ opacity, setOpacity }) {
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName =
     "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  const textInputClassName =
+    "my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400";
   return (
     <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Opacity
       </p>
-      <div className="flex gap-2">
-        <Slider.Root
-          id="opacitySlider"
-          // type="range"
-          className={sliderRootClassName}
-          min={0}
-          max={1}
-          step={0.1}
-          value={[opacity]}
-          onValueChange={(v) => setOpacity(v[0])}
-        >
-          <Slider.Track className={sliderTrackClassName}>
-            <Slider.Range className={sliderRangeClassName} />
-          </Slider.Track>
-          <Slider.Thumb className={sliderThumbClassName} />
-        </Slider.Root>
-        <input
-          value={opacity.toFixed(1)}
-          // onChange={() => {}}
-          className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400"
-        />
-      </div>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={0.1}
+        max={1}
+        step={0.1}
+        value={opacity}
+        onChange={setOpacity}
+      />
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Size
       </p>
-      <div className="flex gap-2">
-        <Slider.Root
-          id="opacitySlider"
-          className={sliderRootClassName}
-          min={0}
-          max={1}
-          step={0.1}
-        >
-          <Slider.Track className={sliderTrackClassName}>
-            <Slider.Range className={sliderRangeClassName} />
-          </Slider.Track>
-          <Slider.Thumb className={sliderThumbClassName} />
-        </Slider.Root>
-        <input className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400" />
-      </div>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={0.1}
+        max={1}
+        step={0.1}
+        // value={opacity}
+        // onChange={setOpacity}
+      />
     </div>
   );
 }

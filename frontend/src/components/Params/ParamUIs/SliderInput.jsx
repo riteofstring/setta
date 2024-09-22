@@ -95,20 +95,18 @@ export function SliderInput({
 function SliderTextField({ className, value, onChange, min, max, step }) {
   const [tempValue, setTempValue] = useState(value);
   function localOnChange(e) {
-    const num = _.toNumber(e.target.value);
-    if (e.target.value === "" || !_.isFinite(num)) {
-      setTempValue(e.target.value);
-    } else {
-      setTempValue(num);
-      onChange(num);
-    }
+    setTempValue(e.target.value);
   }
 
   function onBlur(e) {
     const num = _.toNumber(e.target.value);
     if (e.target.value === "" || !_.isFinite(num)) {
       setTempValue(value);
+      return;
     }
+    const clamped = clamp(num, min, max);
+    setTempValue(clamped);
+    onChange(clamped);
   }
 
   useEffect(() => {
