@@ -2,6 +2,7 @@ import * as Slider from "@radix-ui/react-slider";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   setAspectRatioInfo,
@@ -298,7 +299,7 @@ export function DrawOnImage({ sectionId }) {
             className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
             onClick={toggleEraserMode}
           >
-            <i className="gg-pen z-" />
+            <BiPaint />
           </button>
           <StandardPopover
             popoverContent={
