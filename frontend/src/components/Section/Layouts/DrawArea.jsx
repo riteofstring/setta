@@ -192,14 +192,18 @@ export function DrawOnImage({ sectionId }) {
     return unsub;
   }, []);
 
-  function onMouseDown(e) {
+  function onMouseDown(e, offsetX, offsetY) {
     // nothing to erase
     if (isEraser && strokesRef.current.length === 0) {
       return;
     }
     setIsDrawing(true);
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
-    prevPointRef.current = getXY(e);
+    if (offsetX && offsetY) {
+      prevPointRef.current = { offsetX, offsetY };
+    } else {
+      prevPointRef.current = getXY(e);
+    }
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
       opacity: isEraser ? 1 : opacity,
@@ -236,6 +240,17 @@ export function DrawOnImage({ sectionId }) {
     }
     debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
     debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
+  }
+
+  function onMouseEnter(e) {
+    if (e.buttons === 1) {
+      // have to compute offset this way for some reason
+      // otherwise it's inaccurate
+      const rect = draftCanvasRef.current.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      onMouseDown(e, offsetX, offsetY);
+    }
   }
 
   function toggleEraserMode() {
@@ -357,6 +372,7 @@ export function DrawOnImage({ sectionId }) {
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseUp}
+          onMouseEnter={onMouseEnter}
           className={canvasClassName}
         />
         <canvas
