@@ -326,7 +326,7 @@ function CheckboxNextToLabel({
         <p className="truncate">{children}</p>
       </label>
       <button
-        className={`cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
+        className={`mr-0.5 cursor-pointer text-transparent hover:!text-setta-500 group-hover/runitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/runitem:text-setta-600 ${shown ? "!text-blue-500" : ""}`}
         onClick={onClick}
       >
         <i className="gg-pen  " />
