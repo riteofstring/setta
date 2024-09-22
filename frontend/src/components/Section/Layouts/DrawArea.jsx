@@ -158,7 +158,7 @@ export function DrawOnImage({ sectionId }) {
 
   useDeepCompareEffect(() => {
     processLoadedArtifacts();
-  }, [artifacts, isLoaded]);
+  }, [Object.keys(artifacts), isLoaded]);
 
   useEffect(() => {
     setCanvasProperties({ doDrawStrokes: true });
