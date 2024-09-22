@@ -2,14 +2,8 @@ import {
   computeEVReferences,
   computeInfoToFullName,
 } from "components/Utils/CodeMirror/utils";
-import C from "constants/constants.json";
 import _ from "lodash";
-import { dbGetFreeTerminal } from "requests/terminals";
-import { sendMessage } from "requests/websocket";
-import { useWebsocketConnectionList } from "state/definitions";
-import { INITIAL_MESSAGE, TERMINAL_WEBSOCKETS } from "state/hooks/terminal";
 import { createNewId } from "utils/idNameCreation";
-import { addSectionInEmptySpace } from "../sections/createSections";
 import { getProjectData } from "./saveProject";
 
 export function getProjectDataToGenerateCode({ includeEVReferences = true }) {
@@ -29,31 +23,31 @@ export async function runCode() {
   for (const projectVariant of getProjectRuns(project)) {
     Object.assign(projectVariant, computeEVReferences(projectVariant));
     projectVariant["infoToFullName"] = computeInfoToFullName(projectVariant);
-    let message = {
-      id: codeId,
-      messageType: C.WS_RUN_CODE,
-      content: projectVariant,
-    };
-    if (useWebsocketConnectionList.getState().connectedTo !== "main") {
-      sendMessage(message);
-      continue;
-    }
-    const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
-    if (res.status === 200) {
-      const freeTerminalId = res.data;
-      message = JSON.stringify(message);
-      if (freeTerminalId) {
-        TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
-      } else {
-        const id = createNewId();
-        INITIAL_MESSAGE[id] = message;
-        addSectionInEmptySpace({
-          type: C.TERMINAL,
-          inputSectionProps: { id },
-          positionOffset: { x: count * 100, y: 0 },
-        });
-      }
-    }
+    // let message = {
+    //   id: codeId,
+    //   messageType: C.WS_RUN_CODE,
+    //   content: projectVariant,
+    // };
+    // if (useWebsocketConnectionList.getState().connectedTo !== "main") {
+    //   sendMessage(message);
+    //   continue;
+    // }
+    // const res = await dbGetFreeTerminal(projectVariant.projectConfig.id);
+    // if (res.status === 200) {
+    //   const freeTerminalId = res.data;
+    //   message = JSON.stringify(message);
+    //   if (freeTerminalId) {
+    //     TERMINAL_WEBSOCKETS[freeTerminalId].send(message);
+    //   } else {
+    //     const id = createNewId();
+    //     INITIAL_MESSAGE[id] = message;
+    //     addSectionInEmptySpace({
+    //       type: C.TERMINAL,
+    //       inputSectionProps: { id },
+    //       positionOffset: { x: count * 100, y: 0 },
+    //     });
+    //   }
+    // }
     count += 1;
   }
 }
@@ -70,28 +64,62 @@ function* getProjectRuns(project) {
     variant.paramSweeps = _.pick(variant.paramSweeps, keepParamSweeps);
     yield* getProjectVariants(variant);
   } else {
-    for (const runGroup of Object.values(project.runGroups)) {
-      if (!runGroup.selected || _.size(runGroup.sections) === 0) {
+    for (const [runGroupId, runGroup] of Object.entries(project.runGroups)) {
+      if (
+        !project.projectConfig.runGroupSelection[runGroupId] ||
+        !Object.values(runGroup.sections).some((s) => s.selected)
+      ) {
         continue;
       }
-      const sectionParamSweepPairs = [];
-      for (const [sectionId, paramSweeps] of Object.entries(
+      console.log("runGroup", runGroup);
+      const sectionParamSweepsAndVersions = [];
+      for (const [sectionId, sectionDetails] of Object.entries(
         runGroup.sections,
       )) {
-        const paramSweepIds = Object.keys(paramSweeps);
-        if (paramSweepIds.length === 0) {
-          sectionParamSweepPairs.push([{ sectionId, paramSweepId: null }]);
-        } else {
-          sectionParamSweepPairs.push(
-            paramSweepIds.map((paramSweepId) => ({
+        if (!sectionDetails.selected) {
+          continue;
+        }
+
+        const entries = [];
+        for (const [paramSweepId, selected] of Object.entries(
+          sectionDetails.paramSweeps,
+        )) {
+          if (selected) {
+            entries.push({
               sectionId,
               paramSweepId,
-            })),
-          );
+              versionId: null,
+            });
+          }
+        }
+        for (const [versionId, selected] of Object.entries(
+          sectionDetails.versions,
+        )) {
+          if (selected) {
+            entries.push({
+              sectionId,
+              paramSweepId: null,
+              versionId,
+            });
+          }
+        }
+
+        if (entries.length === 0) {
+          sectionParamSweepsAndVersions.push([
+            { sectionId, paramSweepId: null, versionId: null },
+          ]);
+        } else {
+          sectionParamSweepsAndVersions.push(entries);
         }
       }
 
-      for (const combo of cartesian(...sectionParamSweepPairs)) {
+      console.log(
+        "sectionParamSweepsAndVersions",
+        sectionParamSweepsAndVersions,
+      );
+
+      for (const combo of cartesian(...sectionParamSweepsAndVersions)) {
+        console.log("combo", combo)
         const variant = _.cloneDeep(project);
         variant.projectConfig.children = _.pick(
           variant.projectConfig.children,
@@ -105,7 +133,13 @@ function* getProjectRuns(project) {
           variant.paramSweeps,
           combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
         );
-        yield* getProjectVariants(variant);
+        console.log("variant.projectConfig.children", variant.projectConfig.children)
+        console.log("variant.paramSweeps", variant.paramSweeps)
+        // variant. = _.pick(
+        //   variant.paramSweeps,
+        //   combo.filter((x) => x.paramSweepId).map((x) => x.paramSweepId),
+        // );
+        // yield* getProjectVariants(variant);
       }
     }
   }
@@ -241,4 +275,9 @@ function* generateCombinations(objects) {
   }
 
   yield* combineGroups(Object.values(groupedByParamSweepId));
+}
+
+function* cartesian(head, ...tail) {
+  const remainder = tail.length ? cartesian(...tail) : [[]];
+  for (let r of remainder) for (let h of head) yield [h, ...r];
 }
