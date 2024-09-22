@@ -6,9 +6,6 @@ import { shallow } from "zustand/shallow";
 import useVisibleNodes from "../../hooks/useVisibleNodes";
 import { containerStyle } from "../../styles";
 import type { ReactFlowState } from "../../types";
-import { GraphViewProps } from "../GraphView";
-
-type NodeRendererProps = Pick<GraphViewProps, "selectNodesOnDrag">;
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
@@ -16,7 +13,7 @@ const selector = (s: ReactFlowState) => ({
   elementsSelectable: s.elementsSelectable,
 });
 
-const NodeRenderer = (props: NodeRendererProps) => {
+const NodeRenderer = ({}) => {
   const { nodesDraggable, nodesFocusable, elementsSelectable } = useReactFlow(
     selector,
     shallow,
@@ -76,7 +73,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             style={node.style}
             xPos={posX}
             yPos={posY}
-            selectNodesOnDrag={props.selectNodesOnDrag}
             selected={!!node.selected}
             isDraggable={isDraggable}
             isSelectable={isSelectable}

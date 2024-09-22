@@ -24,7 +24,6 @@ type UseDragParams = {
   disabled?: boolean;
   nodeId?: string;
   isSelectable?: boolean;
-  selectNodesOnDrag?: boolean;
 };
 
 function useDrag({
@@ -32,7 +31,6 @@ function useDrag({
   disabled = false,
   nodeId,
   isSelectable,
-  selectNodesOnDrag,
 }: UseDragParams) {
   const [dragging, setDragging] = useState<boolean>(false);
   const dragItems = useRef<NodeDragItem[]>([]);
@@ -131,14 +129,12 @@ function useDrag({
         dragStarted.current = true;
 
         if (
-          (!selectNodesOnDrag || !isSelectable) &&
+          !isSelectable &&
           !multiSelectionActive &&
-          nodeId
+          nodeId &&
+          !nodeInternals.get(nodeId)?.selected
         ) {
-          if (!nodeInternals.get(nodeId)?.selected) {
-            // we need to reset selected nodes when selectNodesOnDrag=false
-            unselectNodesAndEdges();
-          }
+          unselectNodesAndEdges();
         }
 
         const pointerPos = getPointerPosition(event);
@@ -249,14 +245,7 @@ function useDrag({
         };
       }
     }
-  }, [
-    nodeRef,
-    disabled,
-    isSelectable,
-    nodeId,
-    selectNodesOnDrag,
-    getPointerPosition,
-  ]);
+  }, [nodeRef, disabled, isSelectable, nodeId, getPointerPosition]);
 
   return dragging;
 }

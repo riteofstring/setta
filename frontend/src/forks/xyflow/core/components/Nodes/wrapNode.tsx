@@ -24,7 +24,6 @@ const _NodeWrapper = ({
   isDraggable,
   isSelectable,
   isFocusable,
-  selectNodesOnDrag,
   resizeObserver,
   initialized,
   zIndex,
@@ -65,7 +64,6 @@ const _NodeWrapper = ({
     disabled: !isDraggable,
     nodeId: id,
     isSelectable,
-    selectNodesOnDrag,
   });
 
   return (

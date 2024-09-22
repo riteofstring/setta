@@ -13,8 +13,6 @@ const wrapperStyle: CSSProperties = {
 };
 
 const ReactFlow = ({
-  selectionOnDrag = false,
-  selectNodesOnDrag = true,
   nodesDraggable,
   nodesFocusable,
   elementsSelectable,
@@ -37,8 +35,6 @@ const ReactFlow = ({
       data-testid="rf__wrapper"
     >
       <GraphView
-        selectionOnDrag={selectionOnDrag}
-        selectNodesOnDrag={selectNodesOnDrag}
         translateExtent={translateExtent}
         preventScrolling={preventScrolling}
         zoomOnScroll={zoomOnScroll}

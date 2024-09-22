@@ -27,7 +27,7 @@ import {
 import { clamp, isMacOs } from "../../utils";
 import type { FlowRendererProps } from "../FlowRenderer";
 
-type ZoomPaneProps = Omit<FlowRendererProps, "selectionOnDrag">;
+type ZoomPaneProps = Omit<FlowRendererProps, "">;
 
 const viewChanged = (
   prevViewport: Viewport,

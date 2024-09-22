@@ -6,12 +6,10 @@ import NodeRenderer from "../NodeRenderer";
 import ViewportWrapper from "../Viewport";
 
 export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
-  Required<Pick<ReactFlowProps, "translateExtent" | "selectNodesOnDrag">>;
+  Required<Pick<ReactFlowProps, "translateExtent">>;
 
 const GraphView = ({
-  selectionOnDrag,
   elementsSelectable,
-  selectNodesOnDrag,
   translateExtent,
   preventScrolling,
   zoomOnScroll,
@@ -24,7 +22,6 @@ const GraphView = ({
 }: GraphViewProps) => {
   return (
     <FlowRenderer
-      selectionOnDrag={selectionOnDrag}
       elementsSelectable={elementsSelectable}
       zoomOnScroll={zoomOnScroll}
       zoomOnPinch={zoomOnPinch}
@@ -37,7 +34,7 @@ const GraphView = ({
       preventScrolling={preventScrolling}
     >
       <ViewportWrapper>
-        <NodeRenderer selectNodesOnDrag={selectNodesOnDrag} />
+        <NodeRenderer />
       </ViewportWrapper>
     </FlowRenderer>
   );

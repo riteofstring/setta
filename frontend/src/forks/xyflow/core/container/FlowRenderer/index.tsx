@@ -7,16 +7,12 @@ import { GraphViewProps } from "../GraphView";
 import Pane from "../Pane";
 import ZoomPane from "../ZoomPane";
 
-export type FlowRendererProps = Omit<
-  GraphViewProps,
-  "arrowHeadColor" | "selectNodesOnDrag"
-> & {
+export type FlowRendererProps = Omit<GraphViewProps, "arrowHeadColor"> & {
   children: ReactNode;
 };
 
 const FlowRenderer = ({
   children,
-  selectionOnDrag,
   elementsSelectable,
   zoomOnScroll,
   zoomOnPinch,
@@ -29,8 +25,6 @@ const FlowRenderer = ({
   preventScrolling,
 }: FlowRendererProps) => {
   const selectionKeyPressed = useReactFlow((x) => x.selectionKeyPressed);
-  const isSelecting =
-    selectionKeyPressed || (selectionOnDrag && panOnDrag !== true);
 
   return (
     <ZoomPane
@@ -45,7 +39,7 @@ const FlowRenderer = ({
       translateExtent={translateExtent}
       preventScrolling={preventScrolling}
     >
-      <Pane panOnDrag={panOnDrag} isSelecting={!!isSelecting}>
+      <Pane panOnDrag={panOnDrag} isSelecting={!!selectionKeyPressed}>
         {children}
         <NodesSelectionWrapper />
       </Pane>
