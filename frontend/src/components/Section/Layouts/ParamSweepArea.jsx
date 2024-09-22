@@ -1,10 +1,9 @@
 import { ParamSweepUI } from "components/Params/ParamUIs/ParamUI";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
-import React from "react";
+import React, { useState } from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { IoClose } from "react-icons/io5";
 import {
@@ -58,8 +57,6 @@ function ParamSweepForOneSelectedItem({
   const _isGlobalVariables =
     useSectionTypeName(forSectionId) === C.GLOBAL_VARIABLES;
 
-  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
-
   return (
     <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
       {!hideSearch && !_isGlobalVariables && (
@@ -70,33 +67,14 @@ function ParamSweepForOneSelectedItem({
           paramSweepId={paramSweepId}
         />
       )}
-      {/* <FilterSection /> */}
       <Args
         paramSweepId={paramSweepId}
-        objInfoId={sweep.selectedItem ?? codeInfoId}
+        objInfoId={sweep.selectedItem}
         paramSweep={sweep.params}
         forSectionId={forSectionId}
         sectionId={sectionId}
       />
     </div>
-  );
-}
-
-function FilterSection() {
-  const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
-  // bg-gradient-to-t from-setta-50
-  return (
-    <>
-      <search className="section-args flex min-w-0 items-center rounded-xl border-b border-solid  border-white  px-3 pb-1 shadow-sm dark:border-setta-700">
-        <StandardSearch
-          leftElement={<i className="gg-sort-az !scale-75 text-setta-400" />}
-          placeholder="Filter"
-          inputStyles={inputStyles}
-          outerClasses="flex-1"
-        />
-      </search>
-    </>
   );
 }
 
@@ -113,7 +91,7 @@ function Args({
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
       {paramSweep.map((x, idx) => (
         <ArgItem
-          key={idx}
+          key={x.paramInfoId}
           objInfoId={objInfoId}
           paramSweepId={paramSweepId}
           idx={idx}
@@ -124,6 +102,7 @@ function Args({
         />
       ))}
       <PlaceholderArgItem
+        forSectionId={forSectionId}
         paramSweepId={paramSweepId}
         objInfoId={objInfoId}
         alreadySelected={alreadySelected}
@@ -201,29 +180,53 @@ function ArgItem({
   );
 }
 
-function PlaceholderArgItem({ paramSweepId, objInfoId, alreadySelected }) {
+function PlaceholderArgItem({
+  forSectionId,
+  paramSweepId,
+  objInfoId,
+  alreadySelected,
+}) {
+  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
+  const [showCombobox, setShowCombobox] = useState(false);
+
   function onSelectedItemChange(v, changeByUser, setSelection) {
-    addParamSweepParamInfoId({ paramSweepId, paramInfoId: v });
+    addParamSweepParamInfoId({
+      paramSweepId,
+      selectedItem: objInfoId,
+      paramInfoId: v,
+    });
     setSelection(null);
+    setShowCombobox(false);
+  }
+
+  function onButtonClick() {
+    setShowCombobox(true);
   }
 
   const thereAreRemainingIds = useCodeInfo(
-    (x) => alreadySelected.length < x.x[objInfoId].children.length,
+    (x) =>
+      alreadySelected.length < x.x[objInfoId ?? codeInfoId].children.length,
   );
 
-  return (
-    thereAreRemainingIds && (
-      <button className="section-w-full mt-1 flex cursor-pointer items-center justify-center  gap-0.5 rounded-xl bg-setta-200/30 px-3 py-1 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
-        <i className="gg-add-r -ml-3" />
-        <p>Param</p>
-      </button>
-      // <ParamCombobox
-      //   objInfoId={objInfoId}
-      //   paramInfoId={null}
-      //   onSelectedItemChange={onSelectedItemChange}
-      //   alreadySelected={alreadySelected}
-      // />
-    )
+  if (!thereAreRemainingIds) {
+    return null;
+  }
+  return showCombobox ? (
+    <ParamCombobox
+      objInfoId={objInfoId}
+      paramInfoId={null}
+      onSelectedItemChange={onSelectedItemChange}
+      alreadySelected={alreadySelected}
+      forSectionId={forSectionId}
+    />
+  ) : (
+    <button
+      className="section-w-full mt-1 flex cursor-pointer items-center justify-center  gap-0.5 rounded-xl bg-setta-200/30 px-3 py-1 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+      onClick={onButtonClick}
+    >
+      <i className="gg-add-r -ml-3" />
+      <p>Param</p>
+    </button>
   );
 }
 
@@ -232,12 +235,14 @@ function ParamCombobox({
   paramInfoId,
   alreadySelected = [],
   onSelectedItemChange,
+  forSectionId,
 }) {
   const initialSelection = paramInfoId;
+  const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
 
   const objParams = useCodeInfo((x) => {
     const output = [];
-    for (const c of x.x[objInfoId].children) {
+    for (const c of x.x[objInfoId ?? codeInfoId].children) {
       if (c === paramInfoId || !alreadySelected.includes(c)) {
         output.push(x.x[c]);
       }
