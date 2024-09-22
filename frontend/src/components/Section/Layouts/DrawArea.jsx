@@ -29,6 +29,7 @@ export function DrawOnImage({ sectionId }) {
     (x) => x.x[sectionId].size,
     _.isEqual,
   );
+  const backgroundCanvasRef = useRef(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const imageRef = useRef(null);
@@ -64,56 +65,72 @@ export function DrawOnImage({ sectionId }) {
 
   function setCanvasProperties({ doDrawStrokes }) {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+    const [backgroundCanvas, backgroundCtx] =
+      getCanvasAndCtx(backgroundCanvasRef);
+
     const image = imageRef.current;
     if (image && image.complete) {
       if (width === "auto" || height === "auto") {
-        canvas.width = image.width;
-        canvas.height = image.height;
+        backgroundCanvas.width = image.width;
+        backgroundCanvas.height = image.height;
         setSectionSize(sectionId, {
           width: image.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
           height: image.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
       } else {
-        canvas.width = width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
-        canvas.height = height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
+        backgroundCanvas.width = width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
+        backgroundCanvas.height = height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
       }
+      canvas.width = backgroundCanvas.width;
+      canvas.height = backgroundCanvas.height;
 
       const scale = Math.min(
-        canvas.width / image.width,
-        canvas.height / image.height,
+        backgroundCanvas.width / image.width,
+        backgroundCanvas.height / image.height,
       );
-      const x = canvas.width / 2 - (image.width / 2) * scale;
-      const y = canvas.height / 2 - (image.height / 2) * scale;
+      const x = backgroundCanvas.width / 2 - (image.width / 2) * scale;
+      const y = backgroundCanvas.height / 2 - (image.height / 2) * scale;
+      clearCanvas(backgroundCanvasRef);
       clearCanvas(canvasRef);
       if (doDrawStrokes) {
         drawStrokes(canvas, ctx);
       }
-      ctx.globalCompositeOperation = "destination-over";
-      ctx.globalAlpha = 1;
-      ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
+      backgroundCtx.globalAlpha = 1;
+      backgroundCtx.drawImage(
+        image,
+        x,
+        y,
+        image.width * scale,
+        image.height * scale,
+      );
       ctx.globalCompositeOperation = "source-over";
     } else {
       const [defaultWidth, defaultHeight] = [500, 500];
-      canvas.width =
+      backgroundCanvas.width =
         width === "auto"
           ? defaultWidth
           : width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
-      canvas.height =
+      backgroundCanvas.height =
         height === "auto"
           ? defaultHeight
           : height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
+      canvas.width = backgroundCanvas.width;
+      canvas.height = backgroundCanvas.height;
       if (width === "auto" || height === "auto") {
         setSectionSize(sectionId, {
-          width: canvas.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
-          height: canvas.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
+          width: backgroundCanvas.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
+          height: backgroundCanvas.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
       }
+      clearCanvas(backgroundCanvasRef);
       clearCanvas(canvasRef);
       if (doDrawStrokes) {
         drawStrokes(canvas, ctx);
       }
-      ctx.globalCompositeOperation = "source-over";
     }
+
+    ctx.globalCompositeOperation = "source-over";
+    canvas.style.opacity = opacity;
   }
 
   function drawStrokes(canvas, ctx) {
@@ -208,7 +225,7 @@ export function DrawOnImage({ sectionId }) {
     }
     strokesRef.current.push({
       color: isEraser ? dCtx.strokeStyle : color,
-      opacity: isEraser ? 1 : opacity,
+      opacity: 1,
       lineWidth: dCtx.lineWidth,
       points: [prevPointRef.current],
       canvasHeight: draftCanvas.height,
@@ -357,6 +374,7 @@ export function DrawOnImage({ sectionId }) {
         </button>
       </div>
       <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
+        <canvas ref={backgroundCanvasRef} className={canvasClassName} />
         <canvas
           ref={canvasRef}
           onMouseDown={onMouseDown}
