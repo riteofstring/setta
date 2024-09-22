@@ -1,4 +1,3 @@
-import * as Slider from "@radix-ui/react-slider";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
@@ -38,6 +37,7 @@ export function DrawOnImage({ sectionId }) {
   const [color, setColor] = useState("#ff0000");
   const [opacity, setOpacity] = useState(0.5);
   const [brushSize, setBrushSize] = useState(16);
+  const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
 
@@ -48,7 +48,7 @@ export function DrawOnImage({ sectionId }) {
     if (isEraser) {
       dCtx.globalCompositeOperation = "destination-out";
       dCtx.strokeStyle = "rgba(0,0,0,1)";
-      dCtx.lineWidth = brushSize;
+      dCtx.lineWidth = eraserBrushSize;
       dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = 1;
@@ -175,12 +175,11 @@ export function DrawOnImage({ sectionId }) {
       setDraftCanvasProperties();
       drawStrokes(draftCanvas, dCtx);
     } else {
-      console.log("brushSize", brushSize);
       setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-  }, [isEraser, opacity, color, brushSize]);
+  }, [isEraser, opacity, color, brushSize, eraserBrushSize]);
 
   useEffect(() => {
     const id = base64RequestId(sectionId);
@@ -329,7 +328,12 @@ export function DrawOnImage({ sectionId }) {
             <i className="gg-erase" />
           </button>
           <StandardPopover
-            popoverContent={<EraserSettings />}
+            popoverContent={
+              <EraserSettings
+                brushSize={eraserBrushSize}
+                setBrushSize={setEraserBrushSize}
+              />
+            }
             arrowClasses="fill-white dark:fill-setta-800"
             inputClasses="rounded-lg"
             contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
@@ -429,7 +433,13 @@ function BrushSettings({ opacity, setOpacity, brushSize, setBrushSize }) {
   );
 }
 
-function EraserSettings() {
+function EraserSettings({ brushSize, setBrushSize }) {
+  const [localBrushSize, setLocalBrushSize] = useState(brushSize);
+
+  useEffect(() => {
+    setLocalBrushSize(brushSize);
+  }, [brushSize]);
+
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
   const sliderTrackClassName =
@@ -437,44 +447,44 @@ function EraserSettings() {
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName =
     "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  const textInputClassName =
+    "my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400";
   return (
     <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
-      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+      {/* <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Opacity
       </p>
-      <div className="flex gap-2">
-        <Slider.Root
-          id="opacitySlider"
-          className={sliderRootClassName}
-          min={0}
-          max={1}
-          step={0.1}
-        >
-          <Slider.Track className={sliderTrackClassName}>
-            <Slider.Range className={sliderRangeClassName} />
-          </Slider.Track>
-          <Slider.Thumb className={sliderThumbClassName} />
-        </Slider.Root>
-        <input className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400" />
-      </div>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={0.1}
+        max={1}
+        step={0.1}
+        value={localOpacity}
+        onChange={setLocalOpacity}
+        onCommit={setOpacity}
+      /> */}
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Size
       </p>
-      <div className="flex gap-2">
-        <Slider.Root
-          id="opacitySlider"
-          className={sliderRootClassName}
-          min={0}
-          max={1}
-          step={0.1}
-        >
-          <Slider.Track className={sliderTrackClassName}>
-            <Slider.Range className={sliderRangeClassName} />
-          </Slider.Track>
-          <Slider.Thumb className={sliderThumbClassName} />
-        </Slider.Root>
-        <input className="my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400" />
-      </div>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={1}
+        max={100}
+        step={1}
+        value={localBrushSize}
+        onChange={setLocalBrushSize}
+        onCommit={setBrushSize}
+      />
     </div>
   );
 }
