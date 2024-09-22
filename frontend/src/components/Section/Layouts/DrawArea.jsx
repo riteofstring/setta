@@ -1,5 +1,6 @@
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { BiPaint } from "react-icons/bi";
@@ -263,9 +264,10 @@ export function DrawOnImage({ sectionId }) {
     if (e.buttons === 1) {
       // have to compute offset this way for some reason
       // otherwise it's inaccurate
+      const zoom = getZoom();
       const rect = draftCanvasRef.current.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const offsetY = e.clientY - rect.top;
+      const offsetX = (e.clientX - rect.left) / zoom;
+      const offsetY = (e.clientY - rect.top) / zoom;
       onMouseDown(e, offsetX, offsetY);
     }
   }
