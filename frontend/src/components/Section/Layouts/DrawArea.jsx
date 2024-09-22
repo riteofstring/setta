@@ -256,10 +256,6 @@ export function DrawOnImage({ sectionId }) {
     }
   }
 
-  function toggleEraserMode() {
-    setIsEraser(!isEraser);
-  }
-
   function clearStrokes() {
     strokesRef.current = [];
     setCanvasProperties({ doDrawStrokes: true });
@@ -299,7 +295,9 @@ export function DrawOnImage({ sectionId }) {
         <div className="flex">
           <button
             className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
-            onClick={toggleEraserMode}
+            onClick={() => {
+              setIsEraser(false);
+            }}
           >
             <i className="gg-pen z-" />
           </button>
@@ -324,7 +322,12 @@ export function DrawOnImage({ sectionId }) {
           />
         </div>
         <div className="flex">
-          <button className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
+          <button
+            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            onClick={() => {
+              setIsEraser(true);
+            }}
+          >
             <i className="gg-erase" />
           </button>
           <StandardPopover
