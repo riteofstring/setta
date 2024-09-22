@@ -37,17 +37,26 @@ function _ParamSweepArea({ sectionId }) {
   return (
     <>
       <div className="section-main-full-w ml-1.5 flex flex-col gap-6 overflow-y-scroll">
-        {paramSweep.map((sweep, idx) => (
-          <ParamSweepForOneSelectedItem
-            key={idx}
-            sectionId={sectionId}
+        {paramSweep.length > 0 &&
+          paramSweep.map((sweep, idx) => (
+            <ParamSweepForOneSelectedItem
+              key={idx}
+              sectionId={sectionId}
+              forSectionId={forSectionId}
+              sweep={sweep}
+              paramSweepId={paramSweepId}
+              selectedItemIdx={idx}
+              showParamSweepSectionSearch={showParamSweepSectionSearch}
+            />
+          ))}
+        {paramSweep.length === 0 && !showParamSweepSectionSearch && (
+          <PlaceholderArgItem
             forSectionId={forSectionId}
-            sweep={sweep}
             paramSweepId={paramSweepId}
-            selectedItemIdx={idx}
-            showParamSweepSectionSearch={showParamSweepSectionSearch}
+            alreadySelected={[]}
+            selectedItemIdx={null}
           />
-        ))}
+        )}
         {showParamSweepSectionSearch && (
           <button
             className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900"

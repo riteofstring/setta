@@ -106,8 +106,16 @@ export function addParamSweepParamInfoId({
   selectedItemIdx,
   paramInfoId,
 }) {
+  let actualSelectedItemIdx = selectedItemIdx;
+  if (actualSelectedItemIdx === null) {
+    // special case for a section without callables
+    // that has no params yet.
+    addParamSweepCallable({ paramSweepId });
+    actualSelectedItemIdx = 0;
+  }
+
   useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[selectedItemIdx].params.push({
+    state.x[paramSweepId].sweep[actualSelectedItemIdx].params.push({
       paramInfoId,
       values: [],
     });
