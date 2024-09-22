@@ -93,64 +93,64 @@ const ZoomPane = ({
   const mouseButton = useRef<number>(0);
   const isPanScrolling = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const initialViewport = useProjectConfig(
-    (x) => x.viewport ?? { x: null, y: null, zoom: null },
-    _.isEqual,
-  );
-
   useResizeHandler(zoomPane);
 
   useEffect(() => {
-    // if fitview...
-    if (
-      initialViewport.x === null &&
-      initialViewport.y === null &&
-      initialViewport.zoom === null
-    ) {
-      return;
-    }
+    let doneInit = false;
+    const unsub = useProjectConfig.subscribe(
+      (x) => x.viewport,
+      (viewport) => {
+        if (!viewport && doneInit) {
+          return;
+        }
+        const initialViewport = viewport ?? { x: 0, y: 0, zoom: 1 };
+        if (zoomPane.current) {
+          const bbox = zoomPane.current.getBoundingClientRect();
+          const { minZoom, maxZoom } = useSettings.getState();
+          // .interpolate(interpolate) makes the interpolations linear instead of curved
+          const d3ZoomInstance = zoom()
+            .interpolate(interpolate)
+            .scaleExtent([minZoom, maxZoom])
+            .translateExtent(translateExtent);
+          const selection = select(zoomPane.current as Element).call(
+            d3ZoomInstance,
+          );
+          const updatedTransform = zoomIdentity
+            .translate(initialViewport.x, initialViewport.y)
+            .scale(clamp(initialViewport.zoom, minZoom, maxZoom));
+          const extent: CoordinateExtent = [
+            [0, 0],
+            [bbox.width, bbox.height],
+          ];
 
-    if (zoomPane.current) {
-      const bbox = zoomPane.current.getBoundingClientRect();
-      // .interpolate(interpolate) makes the interpolations linear instead of curved
-      const { minZoom, maxZoom } = useSettings.getState();
-      const d3ZoomInstance = zoom()
-        .interpolate(interpolate)
-        .scaleExtent([minZoom, maxZoom])
-        .translateExtent(translateExtent);
-      const selection = select(zoomPane.current as Element).call(
-        d3ZoomInstance,
-      );
-      const updatedTransform = zoomIdentity
-        .translate(initialViewport.x, initialViewport.y)
-        .scale(clamp(initialViewport.zoom, minZoom, maxZoom));
-      const extent: CoordinateExtent = [
-        [0, 0],
-        [bbox.width, bbox.height],
-      ];
+          const constrainedTransform = d3ZoomInstance.constrain()(
+            updatedTransform,
+            extent,
+            translateExtent,
+          );
+          d3ZoomInstance.transform(selection, constrainedTransform);
+          d3ZoomInstance.wheelDelta(wheelDelta);
 
-      const constrainedTransform = d3ZoomInstance.constrain()(
-        updatedTransform,
-        extent,
-        translateExtent,
-      );
-      d3ZoomInstance.transform(selection, constrainedTransform);
-      d3ZoomInstance.wheelDelta(wheelDelta);
+          useReactFlow.setState({
+            d3Zoom: d3ZoomInstance,
+            d3Selection: selection,
+            d3ZoomHandler: selection.on("wheel.zoom"),
+            // we need to pass transform because zoom handler is not registered when we set the initial transform
+            transform: [
+              constrainedTransform.x,
+              constrainedTransform.y,
+              constrainedTransform.k,
+            ],
+            domNode: zoomPane.current.closest(".react-flow") as HTMLDivElement,
+          });
+          doneInit = true;
+        }
+      },
+      { equalityFn: _.isEqual, fireImmediately: true },
+    );
 
-      useReactFlow.setState({
-        d3Zoom: d3ZoomInstance,
-        d3Selection: selection,
-        d3ZoomHandler: selection.on("wheel.zoom"),
-        // we need to pass transform because zoom handler is not registered when we set the initial transform
-        transform: [
-          constrainedTransform.x,
-          constrainedTransform.y,
-          constrainedTransform.k,
-        ],
-        domNode: zoomPane.current.closest(".react-flow") as HTMLDivElement,
-      });
-    }
-  }, [initialViewport.x, initialViewport.y, initialViewport.zoom]);
+    return unsub;
+  }, []);
 
   useEffect(() => {
     if (d3Selection && d3Zoom) {
