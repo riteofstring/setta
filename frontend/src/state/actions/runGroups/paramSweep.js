@@ -7,126 +7,68 @@ export function setAllParamSweeps(payload) {
 
 export function initParamSweep({ id, name }) {
   useParamSweep.setState((state) => {
-    state.x[id] = { name, sweep: [] };
+    state.x[id] = { name: name, sweep: [] };
   });
 }
 
-export function addParamSweepCallable({ paramSweepId }) {
+export function setParamSweepValue({ paramSweepId, idx, valueIdx, value }) {
   useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep.push({ selectedItem: null, params: [] });
+    state.x[paramSweepId].sweep[idx].values[valueIdx] = value;
   });
 }
 
-export function setParamSweepSelectedItem({
-  paramSweepId,
-  selectedItemIdx,
-  selectedItem,
-}) {
-  useParamSweep.setState((x) => {
-    x.x[paramSweepId].sweep[selectedItemIdx].selectedItem = selectedItem;
-  });
-}
-
-export function setParamSweepValue({
-  paramSweepId,
-  selectedItemIdx,
-  paramIdx,
-  valueIdx,
-  value,
-}) {
+export function addParamSweepValue({ paramSweepId, idx }) {
   useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx].values[
-      valueIdx
-    ] = value;
+    state.x[paramSweepId].sweep[idx].values.push("");
   });
 }
 
-export function addParamSweepValue({
-  paramSweepId,
-  selectedItemIdx,
-  paramIdx,
-}) {
+export function deleteParamSweepValue({ paramSweepId, idx, valueIdx }) {
   useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx].values.push(
-      "",
-    );
-  });
-}
-
-export function deleteParamSweepValue({
-  paramSweepId,
-  selectedItemIdx,
-  paramIdx,
-  valueIdx,
-}) {
-  useParamSweep.setState((state) => {
-    const s = state.x[paramSweepId].sweep[selectedItemIdx];
-    s.params[paramIdx].values = s.params[paramIdx].values.filter(
-      (_, idx) => idx !== valueIdx,
-    );
-    if (s.params[paramIdx].values.length === 0) {
-      s.params = s.params.filter((_, idx) => idx !== paramIdx);
+    const sweep = state.x[paramSweepId].sweep[idx];
+    sweep.values = sweep.values.filter((x, idx) => idx !== valueIdx);
+    if (sweep.values.length === 0) {
+      state.x[paramSweepId].sweep = state.x[paramSweepId].sweep.filter(
+        (x, i) => i !== idx,
+      );
     }
   });
 }
 
-export function deleteLastParamSweepValue({
-  paramSweepId,
-  selectedItemIdx,
-  paramIdx,
-}) {
-  const valueIdx =
-    useParamSweep.getState().x[paramSweepId].sweep[selectedItemIdx].params[
-      paramIdx
-    ].values.length - 1;
+export function deleteLastParamSweepValue({ paramSweepId, idx }) {
+  const state = useParamSweep.getState().x;
   deleteParamSweepValue({
     paramSweepId,
-    selectedItemIdx,
-    paramIdx,
-    valueIdx,
+    idx,
+    valueIdx: state[paramSweepId].sweep[idx].values.length - 1,
   });
 }
 
 export function changeParamSweepParamInfoId({
   paramSweepId,
-  selectedItemIdx,
-  paramIdx,
+  idx,
   paramInfoId,
 }) {
   useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx] = {
-      paramInfoId,
-      values: [""],
-    };
+    if (paramInfoId) {
+      state.x[paramSweepId].sweep[idx] = { paramInfoId, values: [""] };
+    }
   });
 }
 
-export function addParamSweepParamInfoId({
-  paramSweepId,
-  selectedItemIdx,
-  paramInfoId,
-}) {
-  let actualSelectedItemIdx = selectedItemIdx;
-  if (actualSelectedItemIdx === null) {
-    // special case for a section without callables
-    // that has no params yet.
-    addParamSweepCallable({ paramSweepId });
-    actualSelectedItemIdx = 0;
-  }
-
+export function addParamSweepParamInfoId({ paramSweepId, paramInfoId }) {
   useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[actualSelectedItemIdx].params.push({
-      paramInfoId,
-      values: [""],
-    });
+    if (paramInfoId) {
+      state.x[paramSweepId].sweep.push({ paramInfoId, values: [""] });
+    }
   });
 }
 
 export function deleteParamsFromParamSweep({ sectionId, ids }) {
   const { paramSweepId } = getSectionInfo(sectionId);
   useParamSweep.setState((x) => {
-    for (const s of x.x[paramSweepId].sweep) {
-      s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
-    }
+    x.x[paramSweepId].sweep = x.x[paramSweepId].sweep.filter(
+      (y) => !ids.includes(y.paramInfoId),
+    );
   });
 }

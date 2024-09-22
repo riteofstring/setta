@@ -9,12 +9,13 @@ export function useParamSweepInfo(sectionId) {
   const previewParamSweepId = useSectionInfos((x) =>
     forSectionId ? x.x[forSectionId].previewParamSweepId : null,
   );
-
-  const shownParamSweepId = previewParamSweepId ?? paramSweepId;
-  const paramSweep = useParamSweep((x) => x.x[shownParamSweepId], _.isEqual);
+  const paramSweep = useParamSweep(
+    (x) => x.x[previewParamSweepId ?? paramSweepId],
+    _.isEqual,
+  );
 
   return {
-    paramSweepId: shownParamSweepId,
+    paramSweepId,
     paramSweep: paramSweep.sweep,
     forSectionId,
   };

@@ -114,49 +114,32 @@ function* getProjectRuns(project) {
 function* getProjectVariants(project) {
   const allSweeps = [];
   for (const [paramSweepId, details] of Object.entries(project.paramSweeps)) {
-    for (const s of details.sweep) {
-      if (s.params.length === 0) {
-        allSweeps.push({
+    for (const sweep of details.sweep) {
+      const curr = [];
+      for (const value of sweep.values) {
+        curr.push({
           paramSweepId,
-          selectedItem: s.selectedItem,
-          paramInfoId: null,
-          value: null,
+          paramInfoId: sweep.paramInfoId,
+          value,
         });
-      } else {
-        for (const paramDetails of s.params) {
-          if (!paramDetails.paramInfoId) {
-            continue;
-          }
-          for (const value of paramDetails.values) {
-            if (!value) {
-              continue;
-            }
-            allSweeps.push({
-              paramSweepId,
-              selectedItem: s.selectedItem,
-              paramInfoId: paramDetails.paramInfoId,
-              value,
-            });
-          }
-        }
+      }
+      if (curr.length > 0) {
+        allSweeps.push(curr);
       }
     }
   }
 
   if (allSweeps.length > 0) {
-    for (const combo of generateCombinations(allSweeps)) {
+    for (const combo of cartesian(...allSweeps)) {
       const variant = _.cloneDeep(project);
       for (const parts of combo) {
-        const { paramSweepId, selectedItem, paramInfoId, value } = parts;
+        const { paramSweepId, paramInfoId, value } = parts;
         const forSectionId = Object.values(project.sections).find((x) =>
           x.paramSweepIds.includes(paramSweepId),
         ).id;
         const { variantId: sectionVariantId } = project.sections[forSectionId];
         const sectionVariant = variant.sectionVariants[sectionVariantId];
-        sectionVariant.selectedItem = selectedItem;
-        if (paramInfoId) {
-          sectionVariant.values[paramInfoId].value = value;
-        }
+        sectionVariant.values[paramInfoId].value = value;
       }
       yield variant;
     }
@@ -167,78 +150,8 @@ function* getProjectVariants(project) {
   }
 }
 
-function* generateCombinations(objects) {
-  // Group objects by paramSweepId
-  const groupedByParamSweepId = objects.reduce((acc, obj) => {
-    if (!acc[obj.paramSweepId]) {
-      acc[obj.paramSweepId] = [];
-    }
-    acc[obj.paramSweepId].push(obj);
-    return acc;
-  }, {});
-
-  // Generate all possible combinations
-  function* combineGroups(groups, currentCombination = []) {
-    if (groups.length === 0) {
-      yield currentCombination;
-      return;
-    }
-
-    const currentGroup = groups[0];
-    const remainingGroups = groups.slice(1);
-
-    // Group by selectedItem
-    const groupedBySelectedItem = currentGroup.reduce((acc, obj) => {
-      const key = obj.selectedItem || "null";
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(obj);
-      return acc;
-    }, {});
-
-    for (const selectedItemGroup of Object.values(groupedBySelectedItem)) {
-      // Create a set of unique paramInfoIds
-      const uniqueParamInfoIds = new Set(
-        selectedItemGroup.map((obj) => obj.paramInfoId),
-      );
-
-      // Generate all combinations of paramInfoIds for this selectedItem
-      for (const combination of generateCombinations(
-        Array.from(uniqueParamInfoIds),
-        selectedItemGroup,
-      )) {
-        yield* combineGroups(remainingGroups, [
-          ...currentCombination,
-          ...combination,
-        ]);
-      }
-    }
-  }
-
-  // Helper function to generate combinations of paramInfoIds
-  function* generateCombinations(paramInfoIds, objects) {
-    if (paramInfoIds.length === 0) {
-      yield [];
-      return;
-    }
-
-    const currentParamInfoId = paramInfoIds[0];
-    const remainingParamInfoIds = paramInfoIds.slice(1);
-
-    const validObjects = objects.filter(
-      (obj) => obj.paramInfoId === currentParamInfoId,
-    );
-
-    for (const obj of validObjects) {
-      for (const subCombination of generateCombinations(
-        remainingParamInfoIds,
-        objects,
-      )) {
-        yield [obj, ...subCombination];
-      }
-    }
-  }
-
-  yield* combineGroups(Object.values(groupedByParamSweepId));
+// https://stackoverflow.com/a/44012184
+function* cartesian(head, ...tail) {
+  const remainder = tail.length ? cartesian(...tail) : [[]];
+  for (let r of remainder) for (let h of head) yield [h, ...r];
 }
