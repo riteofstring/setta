@@ -31,19 +31,17 @@ export function DrawOnImage({ sectionId }) {
     (x) => x.x[sectionId].size,
     _.isEqual,
   );
+
   const backgroundCanvasRef = useRef(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const imageRef = useRef(null);
-  const prevPointRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
   const [opacity, setOpacity] = useState(1);
   const [brushSize, setBrushSize] = useState(16);
   const [canvasOpacity, setCanvasOpacity] = useState(0.5);
   const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
-  const strokesRef = useRef([]);
 
   function setDraftCanvasProperties() {
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
@@ -190,6 +188,109 @@ export function DrawOnImage({ sectionId }) {
     return unsub;
   }, []);
 
+  return (
+    <>
+      <div className="section-search section-w-full z-10  flex flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
+        <input
+          id="colorPicker"
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          className="min-h-4 min-w-4 cursor-pointer"
+        />
+
+        <div className="flex">
+          <button
+            className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            onClick={() => {
+              setIsEraser(false);
+            }}
+          >
+            <BiPaint />
+          </button>
+          <StandardPopover
+            popoverContent={
+              <BrushSettings
+                opacity={opacity}
+                setOpacity={setOpacity}
+                brushSize={brushSize}
+                setBrushSize={setBrushSize}
+              />
+            }
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+            trigger={
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+                <i className="gg-chevron-down" />
+              </button>
+            }
+            header={"Brush Settings"}
+          />
+        </div>
+        <div className="flex">
+          <button
+            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            onClick={() => {
+              setIsEraser(true);
+            }}
+          >
+            <i className="gg-erase" />
+          </button>
+          <StandardPopover
+            popoverContent={
+              <EraserSettings
+                brushSize={eraserBrushSize}
+                setBrushSize={setEraserBrushSize}
+              />
+            }
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+            trigger={
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+                <i className="gg-chevron-down" />
+              </button>
+            }
+            header={"Brush Settings"}
+          />
+        </div>
+
+        <StandardPopover
+          popoverContent={
+            <CanvasSettings
+              opacity={canvasOpacity}
+              setOpacity={setCanvasOpacity}
+            />
+          }
+          arrowClasses="fill-white dark:fill-setta-800"
+          inputClasses="rounded-lg"
+          contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+          trigger={
+            <button className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white">
+              <i className="gg-image" />
+            </button>
+          }
+          header={"Layer Opacity"}
+        />
+
+        <button
+          className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
+          onClick={clearStrokes}
+        >
+          <i className="gg-trash" />
+        </button>
+      </div>
+      <DrawAreaCanvases />
+    </>
+  );
+}
+
+function DrawAreaCanvases({ backgroundCanvasRef, canvasRef, draftCanvasRef }) {
+  const [isDrawing, setIsDrawing] = useState(false);
+  const strokesRef = useRef([]);
+  const prevPointRef = useRef(null);
+
   function startNewStroke(firstPoint) {
     console.log("startNewStroke", firstPoint);
     const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
@@ -298,120 +399,27 @@ export function DrawOnImage({ sectionId }) {
   const canvasClassName = "single-cell-child max-w-full place-self-center";
 
   return (
-    <>
-      <div className="section-search section-w-full z-10  flex flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
-        <input
-          id="colorPicker"
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className="min-h-4 min-w-4 cursor-pointer"
+    <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
+      <canvas ref={backgroundCanvasRef} className={canvasClassName} />
+      <div
+        className="single-cell-child single-cell-container"
+        style={{ opacity: canvasOpacity }}
+      >
+        <canvas
+          ref={canvasRef}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseUp}
+          onMouseEnter={onMouseEnter}
+          className={canvasClassName}
         />
-
-        <div className="flex">
-          <button
-            className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
-            onClick={() => {
-              setIsEraser(false);
-            }}
-          >
-            <BiPaint />
-          </button>
-          <StandardPopover
-            popoverContent={
-              <BrushSettings
-                opacity={opacity}
-                setOpacity={setOpacity}
-                brushSize={brushSize}
-                setBrushSize={setBrushSize}
-              />
-            }
-            arrowClasses="fill-white dark:fill-setta-800"
-            inputClasses="rounded-lg"
-            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
-            trigger={
-              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
-                <i className="gg-chevron-down" />
-              </button>
-            }
-            header={"Brush Settings"}
-          />
-        </div>
-        <div className="flex">
-          <button
-            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
-            onClick={() => {
-              setIsEraser(true);
-            }}
-          >
-            <i className="gg-erase" />
-          </button>
-          <StandardPopover
-            popoverContent={
-              <EraserSettings
-                brushSize={eraserBrushSize}
-                setBrushSize={setEraserBrushSize}
-              />
-            }
-            arrowClasses="fill-white dark:fill-setta-800"
-            inputClasses="rounded-lg"
-            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
-            trigger={
-              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
-                <i className="gg-chevron-down" />
-              </button>
-            }
-            header={"Brush Settings"}
-          />
-        </div>
-
-        <StandardPopover
-          popoverContent={
-            <CanvasSettings
-              opacity={canvasOpacity}
-              setOpacity={setCanvasOpacity}
-            />
-          }
-          arrowClasses="fill-white dark:fill-setta-800"
-          inputClasses="rounded-lg"
-          contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
-          trigger={
-            <button className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white">
-              <i className="gg-image" />
-            </button>
-          }
-          header={"Layer Opacity"}
+        <canvas
+          ref={draftCanvasRef}
+          className={`pointer-events-none z-10 ${canvasClassName}`}
         />
-
-        <button
-          className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
-          onClick={clearStrokes}
-        >
-          <i className="gg-trash" />
-        </button>
       </div>
-      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
-        <canvas ref={backgroundCanvasRef} className={canvasClassName} />
-        <div
-          className="single-cell-child single-cell-container"
-          style={{ opacity: canvasOpacity }}
-        >
-          <canvas
-            ref={canvasRef}
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
-            onMouseEnter={onMouseEnter}
-            className={canvasClassName}
-          />
-          <canvas
-            ref={draftCanvasRef}
-            className={`pointer-events-none z-10 ${canvasClassName}`}
-          />
-        </div>
-      </section>
-    </>
+    </section>
   );
 }
 
