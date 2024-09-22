@@ -8,10 +8,7 @@ import { containerStyle } from "../../styles";
 import type { ReactFlowState } from "../../types";
 import { GraphViewProps } from "../GraphView";
 
-type NodeRendererProps = Pick<
-  GraphViewProps,
-  "selectNodesOnDrag" | "noPanClassName" | "noDragClassName"
->;
+type NodeRendererProps = Pick<GraphViewProps, "selectNodesOnDrag">;
 
 const selector = (s: ReactFlowState) => ({
   nodesDraggable: s.nodesDraggable,
@@ -85,8 +82,6 @@ const NodeRenderer = (props: NodeRendererProps) => {
             isSelectable={isSelectable}
             isFocusable={isFocusable}
             resizeObserver={resizeObserver}
-            noDragClassName={props.noDragClassName}
-            noPanClassName={props.noPanClassName}
             initialized={!!node.width && !!node.height}
             zIndex={node.tempZIndex}
           />

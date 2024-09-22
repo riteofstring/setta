@@ -14,6 +14,7 @@ import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { setProjectConfigFitViewOnInit } from "state/actions/project/projectConfig";
 import { useProjectConfig, useSettings } from "state/definitions";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { shallow } from "zustand/shallow";
 import useResizeHandler from "../../hooks/useResizeHandler";
 import { containerStyle } from "../../styles";
@@ -26,10 +27,7 @@ import {
 import { clamp, isMacOs } from "../../utils";
 import type { FlowRendererProps } from "../FlowRenderer";
 
-type ZoomPaneProps = Omit<
-  FlowRendererProps,
-  "noDragClassName" | "selectionOnDrag"
->;
+type ZoomPaneProps = Omit<FlowRendererProps, "selectionOnDrag">;
 
 const viewChanged = (
   prevViewport: Viewport,
@@ -82,8 +80,6 @@ const ZoomPane = ({
   translateExtent,
   preventScrolling = true,
   children,
-  noWheelClassName,
-  noPanClassName,
 }: ZoomPaneProps) => {
   const isZoomingOrPanning = useRef(false);
   const zoomedWithRightMouseButton = useRef(false);
@@ -161,7 +157,7 @@ const ZoomPane = ({
         d3Selection.on(
           "wheel.zoom",
           (event: any) => {
-            if (isWrappedWithClass(event, noWheelClassName)) {
+            if (isWrappedWithClass(event, NO_WHEEL_CLASS_NAME)) {
               return false;
             }
             event.preventDefault();
@@ -230,7 +226,7 @@ const ZoomPane = ({
           function (this: any, event: any, d: any) {
             if (
               !preventScrolling ||
-              isWrappedWithClass(event, noWheelClassName)
+              isWrappedWithClass(event, NO_WHEEL_CLASS_NAME)
             ) {
               return null;
             }
@@ -252,7 +248,6 @@ const ZoomPane = ({
     zoomActivationKeyPressed,
     zoomOnPinch,
     preventScrolling,
-    noWheelClassName,
   ]);
 
   useEffect(() => {
@@ -355,7 +350,7 @@ const ZoomPane = ({
 
         // if the target element is inside an element with the nowheel class, we prevent zooming
         if (
-          isWrappedWithClass(event, noWheelClassName) &&
+          isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
           event.type === "wheel"
         ) {
           return false;
@@ -363,7 +358,7 @@ const ZoomPane = ({
 
         // if the target element is inside an element with the nopan class, we prevent panning
         if (
-          isWrappedWithClass(event, noPanClassName) &&
+          isWrappedWithClass(event, NO_PAN_CLASS_NAME) &&
           (event.type !== "wheel" ||
             (panOnScroll &&
               event.type === "wheel" &&

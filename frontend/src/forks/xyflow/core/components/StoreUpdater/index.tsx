@@ -16,7 +16,6 @@ type StoreUpdaterProps = Pick<
   | "nodesFocusable"
   | "elementsSelectable"
   | "translateExtent"
-  | "noPanClassName"
   | "autoPanOnNodeDrag"
 >;
 
@@ -54,7 +53,6 @@ const StoreUpdater = ({
   nodesFocusable,
   elementsSelectable,
   translateExtent,
-  noPanClassName,
   autoPanOnNodeDrag,
 }: StoreUpdaterProps) => {
   const { setTranslateExtent, reset } = useReactFlow(selector, shallow);
@@ -78,11 +76,6 @@ const StoreUpdater = ({
   useDirectStoreUpdater(
     "elementsSelectable",
     elementsSelectable,
-    useReactFlow.setState,
-  );
-  useDirectStoreUpdater(
-    "noPanClassName",
-    noPanClassName,
     useReactFlow.setState,
   );
   useDirectStoreUpdater(

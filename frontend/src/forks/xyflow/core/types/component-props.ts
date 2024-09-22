@@ -17,9 +17,6 @@ export type ReactFlowProps = {
   panOnScrollSpeed?: number;
   panOnScrollMode?: PanOnScrollMode;
   zoomOnDoubleClick?: boolean;
-  noDragClassName?: string;
-  noWheelClassName?: string;
-  noPanClassName?: string;
   autoPanOnNodeDrag?: boolean;
 };
 

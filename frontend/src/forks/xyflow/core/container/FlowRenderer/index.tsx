@@ -28,8 +28,6 @@ const FlowRenderer = ({
   panOnDrag,
   translateExtent,
   preventScrolling,
-  noWheelClassName,
-  noPanClassName,
 }: FlowRendererProps) => {
   const selectionKeyPressed = useReactFlow((x) => x.selectionKeyPressed);
   const isSelecting =
@@ -47,8 +45,6 @@ const FlowRenderer = ({
       panOnDrag={!selectionKeyPressed && panOnDrag}
       translateExtent={translateExtent}
       preventScrolling={preventScrolling}
-      noWheelClassName={noWheelClassName}
-      noPanClassName={noPanClassName}
     >
       <Pane
         panOnDrag={panOnDrag}

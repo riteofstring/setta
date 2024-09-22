@@ -6,17 +6,7 @@ import NodeRenderer from "../NodeRenderer";
 import ViewportWrapper from "../Viewport";
 
 export type GraphViewProps = Omit<ReactFlowProps, "nodes"> &
-  Required<
-    Pick<
-      ReactFlowProps,
-      | "translateExtent"
-      | "selectNodesOnDrag"
-      | "noDragClassName"
-      | "noDragClassName"
-      | "noWheelClassName"
-      | "noPanClassName"
-    >
-  >;
+  Required<Pick<ReactFlowProps, "translateExtent" | "selectNodesOnDrag">>;
 
 const GraphView = ({
   selectionOnDrag,
@@ -32,9 +22,6 @@ const GraphView = ({
   panOnScrollMode,
   zoomOnDoubleClick,
   panOnDrag,
-  noDragClassName,
-  noWheelClassName,
-  noPanClassName,
 }: GraphViewProps) => {
   return (
     <FlowRenderer
@@ -50,16 +37,9 @@ const GraphView = ({
       panOnDrag={panOnDrag}
       translateExtent={translateExtent}
       preventScrolling={preventScrolling}
-      noDragClassName={noDragClassName}
-      noWheelClassName={noWheelClassName}
-      noPanClassName={noPanClassName}
     >
       <ViewportWrapper>
-        <NodeRenderer
-          selectNodesOnDrag={selectNodesOnDrag}
-          noPanClassName={noPanClassName}
-          noDragClassName={noDragClassName}
-        />
+        <NodeRenderer selectNodesOnDrag={selectNodesOnDrag} />
       </ViewportWrapper>
     </FlowRenderer>
   );

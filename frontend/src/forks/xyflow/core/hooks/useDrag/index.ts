@@ -11,6 +11,7 @@ import {
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
+import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import type { NodeDragItem, UseDragEvent, XYPosition } from "../../types";
 import { calcAutoPan, getEventPosition } from "../../utils";
 import useGetPointerPosition from "../useGetPointerPosition";
@@ -21,7 +22,6 @@ export type UseDragData = { dx: number; dy: number };
 type UseDragParams = {
   nodeRef: RefObject<Element>;
   disabled?: boolean;
-  noDragClassName?: string;
   nodeId?: string;
   isSelectable?: boolean;
   selectNodesOnDrag?: boolean;
@@ -30,7 +30,6 @@ type UseDragParams = {
 function useDrag({
   nodeRef,
   disabled = false,
-  noDragClassName,
   nodeId,
   isSelectable,
   selectNodesOnDrag,
@@ -238,8 +237,7 @@ function useDrag({
             const target = event.target as HTMLDivElement;
             const isDraggable =
               !event.button &&
-              (!noDragClassName ||
-                !hasSelector(target, `.${noDragClassName}`, nodeRef));
+              !hasSelector(target, `.${NO_DRAG_CLASS_NAME}`, nodeRef);
 
             return isDraggable;
           });
@@ -254,7 +252,6 @@ function useDrag({
   }, [
     nodeRef,
     disabled,
-    noDragClassName,
     isSelectable,
     nodeId,
     selectNodesOnDrag,
