@@ -220,20 +220,6 @@
           ]
         }
       ]
-    },
-    "4fe62be1-f939-4d84-9c3f-f20412754e0c": {
-      "name": "blueberries",
-      "sweep": [
-        {
-          "selectedItem": null,
-          "params": [
-            {
-              "paramInfoId": "20fe3b32-be65-4b59-9f32-013435901dcc",
-              "values": ["Aaron", "Joseph"]
-            }
-          ]
-        }
-      ]
     }
   },
   "runGroups": {},

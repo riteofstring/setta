@@ -28,18 +28,30 @@ def save_param_sweeps(db, param_sweeps):
         order = 0
         for s in p["sweep"]:
             selectedItem = s["selectedItem"]
-            for param in s["params"]:
-                for value in param["values"]:
-                    query_params.append(
-                        {
-                            "idid": id,
-                            "selectedItem": selectedItem,
-                            "paramInfoId": param["paramInfoId"],
-                            "order": order,
-                            "value": value,
-                        }
-                    )
-                    order += 1
+            if len(s["params"]) == 0:
+                query_params.append(
+                    {
+                        "idid": id,
+                        "selectedItem": selectedItem,
+                        "paramInfoId": None,
+                        "order": order,
+                        "value": None,
+                    }
+                )
+                order += 1
+            else:
+                for param in s["params"]:
+                    for value in param["values"]:
+                        query_params.append(
+                            {
+                                "idid": id,
+                                "selectedItem": selectedItem,
+                                "paramInfoId": param["paramInfoId"],
+                                "order": order,
+                                "value": value,
+                            }
+                        )
+                        order += 1
 
     from pprint import pprint
 
