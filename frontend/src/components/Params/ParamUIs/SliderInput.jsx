@@ -87,6 +87,7 @@ export function SliderInput({
         className={textInputClassName}
         value={value}
         onChange={onChange}
+        onCommit={onCommit}
         min={min}
         max={max}
       />
@@ -94,7 +95,15 @@ export function SliderInput({
   );
 }
 
-function SliderTextField({ className, value, onChange, min, max, step }) {
+function SliderTextField({
+  className,
+  value,
+  onChange,
+  onCommit,
+  min,
+  max,
+  step,
+}) {
   const [tempValue, setTempValue] = useState(value);
   function localOnChange(e) {
     setTempValue(e.target.value);
@@ -108,7 +117,8 @@ function SliderTextField({ className, value, onChange, min, max, step }) {
     }
     const clamped = clamp(num, min, max);
     setTempValue(clamped);
-    onChange(clamped);
+    onChange?.(clamped);
+    onCommit?.(clamped);
   }
 
   useEffect(() => {
