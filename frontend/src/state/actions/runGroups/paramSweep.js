@@ -88,12 +88,10 @@ export function changeParamSweepParamInfoId({
   paramInfoId,
 }) {
   useParamSweep.setState((state) => {
-    if (paramInfoId) {
-      state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx] = {
-        paramInfoId,
-        values: [""],
-      };
-    }
+    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx] = {
+      paramInfoId,
+      values: [""],
+    };
   });
 }
 
@@ -103,12 +101,10 @@ export function addParamSweepParamInfoId({
   paramInfoId,
 }) {
   useParamSweep.setState((state) => {
-    if (paramInfoId) {
-      state.x[paramSweepId].sweep[selectedItemIdx].params.push({
-        paramInfoId,
-        values: [""],
-      });
-    }
+    state.x[paramSweepId].sweep[selectedItemIdx].params.push({
+      paramInfoId,
+      values: [""],
+    });
   });
 }
 

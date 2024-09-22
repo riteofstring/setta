@@ -3,7 +3,7 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
-import React, { useState } from "react";
+import React from "react";
 import { AiOutlineMinus, AiOutlinePlus } from "react-icons/ai";
 import { IoClose } from "react-icons/io5";
 import {
@@ -24,6 +24,9 @@ function _ParamSweepArea({ sectionId }) {
   const { paramSweepId, paramSweep, forSectionId } =
     useParamSweepInfo(sectionId);
 
+  const showParamSweepSectionSearch =
+    useShowParamSweepSectionSearch(forSectionId);
+
   return (
     <>
       <div className="section-main-full-w ml-1.5 flex flex-col gap-6 overflow-y-scroll">
@@ -35,12 +38,15 @@ function _ParamSweepArea({ sectionId }) {
             sweep={sweep}
             paramSweepId={paramSweepId}
             selectedItemIdx={idx}
+            showParamSweepSectionSearch={showParamSweepSectionSearch}
           />
         ))}
-        <button className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
-          <i className="gg-play-list-add !scale-75" />
-          <p>Callable</p>
-        </button>
+        {showParamSweepSectionSearch && (
+          <button className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+            <i className="gg-play-list-add !scale-75" />
+            <p>Callable</p>
+          </button>
+        )}
       </div>
     </>
   );
@@ -54,14 +60,11 @@ function ParamSweepForOneSelectedItem({
   sweep,
   paramSweepId,
   selectedItemIdx,
+  showParamSweepSectionSearch,
 }) {
-  const hideSearch = useSectionInfos((x) => x.x[forSectionId].hideSearch);
-  const _isGlobalVariables =
-    useSectionTypeName(forSectionId) === C.GLOBAL_VARIABLES;
-
   return (
     <div className="section-min-rows section-grid-cols section-grid-sweep-areas grid">
-      {!hideSearch && !_isGlobalVariables && (
+      {showParamSweepSectionSearch && (
         <ParamSweepSectionSearch
           sectionId={sectionId}
           forSectionId={forSectionId}
@@ -96,7 +99,7 @@ function Args({
     <section className="section-row-main nowheel section-w-full section-min-rows grid grid-cols-subgrid gap-y-1 overflow-y-auto overflow-x-clip">
       {paramSweep.map((x, idx) => (
         <ArgItem
-          key={x.paramInfoId}
+          key={idx}
           objInfoId={objInfoId}
           paramSweepId={paramSweepId}
           paramIdx={idx}
@@ -189,17 +192,18 @@ function ArgItem({
           <IconButton icon={<AiOutlinePlus />} type="add" onClick={onPlus} />
         </div>
       </div>
-      {values.map((x, valueIdx) => (
-        <Input
-          forSectionId={forSectionId}
-          paramInfoId={paramInfoId}
-          key={valueIdx}
-          onChange={getOnChange(valueIdx)}
-          onDelete={getOnDelete(valueIdx)}
-          value={x}
-          sectionId={sectionId}
-        />
-      ))}
+      {paramInfoId &&
+        values.map((x, valueIdx) => (
+          <Input
+            forSectionId={forSectionId}
+            paramInfoId={paramInfoId}
+            key={valueIdx}
+            onChange={getOnChange(valueIdx)}
+            onDelete={getOnDelete(valueIdx)}
+            value={x}
+            sectionId={sectionId}
+          />
+        ))}
     </>
   );
 }
@@ -212,20 +216,13 @@ function PlaceholderArgItem({
   selectedItemIdx,
 }) {
   const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
-  const [showCombobox, setShowCombobox] = useState(false);
 
-  function onSelectedItemChange(v, changeByUser, setSelection) {
+  function onButtonClick() {
     addParamSweepParamInfoId({
       paramSweepId,
       selectedItemIdx,
-      paramInfoId: v,
+      paramInfoId: null,
     });
-    setSelection(null);
-    setShowCombobox(false);
-  }
-
-  function onButtonClick() {
-    setShowCombobox(true);
   }
 
   const thereAreRemainingIds = useCodeInfo(
@@ -236,15 +233,7 @@ function PlaceholderArgItem({
   if (!thereAreRemainingIds) {
     return null;
   }
-  return showCombobox ? (
-    <ParamCombobox
-      objInfoId={objInfoId}
-      paramInfoId={null}
-      onSelectedItemChange={onSelectedItemChange}
-      alreadySelected={alreadySelected}
-      forSectionId={forSectionId}
-    />
-  ) : (
+  return (
     <button
       className="section-w-full mt-1 flex cursor-pointer items-center justify-center  gap-0.5 rounded-xl bg-setta-200/30 px-3 py-1 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
       onClick={onButtonClick}
@@ -321,4 +310,12 @@ function Input({
       </article>
     </>
   );
+}
+
+function useShowParamSweepSectionSearch(sectionId) {
+  const hideSearch = useSectionInfos((x) => x.x[sectionId].hideSearch);
+  const _isGlobalVariables =
+    useSectionTypeName(sectionId) === C.GLOBAL_VARIABLES;
+
+  return !hideSearch && !_isGlobalVariables;
 }
