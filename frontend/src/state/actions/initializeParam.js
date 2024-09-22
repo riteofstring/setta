@@ -19,7 +19,7 @@ export function initializeChildParams({
   inputParamIdToUITypeId = {},
 }) {
   console.log("initializeChildParams");
-  const { ids: paramIds } = childFinder(useCodeInfo.getState().x, codeInfoIds);
+  const paramIds = childFinder(useCodeInfo.getState().x, codeInfoIds);
   for (const s of sectionIds) {
     initializeParam(s, paramIds, inputParamIdToUITypeId);
   }

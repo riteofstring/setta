@@ -145,7 +145,7 @@ function setFullParamRegex(
   const codeInfoState = useCodeInfo.getState().x;
   const childParamInfos = paramInfoId
     ? codeInfoState[paramInfoId].children.map((x) => codeInfoState[x])
-    : getParamIds(sectionId)["ids"].map((x) => codeInfoState[x]);
+    : getParamIds(sectionId).map((x) => codeInfoState[x]);
 
   for (const p of childParamInfos) {
     if (!p.name) {

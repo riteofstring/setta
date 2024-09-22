@@ -12,11 +12,11 @@ function _findAllDescendants(
     .filter((x) => stackCondition(allCodeInfo[x]))
     .reverse();
   const visited = new Set();
-  const pathMap = paramPathCondition ? {} : null;
+  const pathMap = paramPathCondition ? new Map() : null;
 
   if (paramPathCondition) {
-    idStack.forEach(
-      (id) => (pathMap[id] = paramPathCondition(allCodeInfo[id]) ? [id] : []),
+    idStack.forEach((id) =>
+      pathMap.set(id, paramPathCondition(allCodeInfo[id]) ? [id] : []),
     );
   }
 
@@ -29,24 +29,31 @@ function _findAllDescendants(
     const currInfo = allCodeInfo[id];
 
     if (outputCondition(currInfo)) {
-      output.push(currInfo.id);
+      if (paramPathCondition) {
+        const currentPath = pathMap.get(id);
+        output.push({ id: currInfo.id, path: [...currentPath] });
+      } else {
+        output.push(currInfo.id);
+      }
     }
 
     if (stackCondition(currInfo)) {
       const children = currInfo.children.slice().reverse();
       if (paramPathCondition) {
-        const currentPath = pathMap[id];
+        const currentPath = pathMap.get(id);
         children.forEach((childId) => {
-          pathMap[childId] = paramPathCondition(allCodeInfo[childId])
-            ? [...currentPath, childId]
-            : [...currentPath];
+          pathMap.set(
+            childId,
+            paramPathCondition(allCodeInfo[childId])
+              ? [...currentPath, childId]
+              : [...currentPath],
+          );
         });
       }
       idStack.push(...children);
     }
   }
-
-  return { ids: output, pathMap };
+  return output;
 }
 
 export function findAllCallables(

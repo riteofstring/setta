@@ -77,7 +77,7 @@ function useAllVisibleParams() {
   return useCodeInfo((x) => {
     const output = [];
     for (const id of allIds) {
-      const { ids: paramIds } = getParamIds(id, x.x);
+      const paramIds = getParamIds(id, x.x);
       for (const p of paramIds) {
         output.push({
           sectionId: id,

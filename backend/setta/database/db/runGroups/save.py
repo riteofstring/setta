@@ -36,15 +36,3 @@ def save_run_groups(db, project_config, run_groups):
             }
         )
     db.executemany(query, query_params)
-
-    query = """
-        UPDATE ProjectConfig 
-        SET shownRunGroup = :shownRunGroup
-        WHERE id = :id
-    """
-
-    query_params = {
-        "id": project_config["id"],
-        "shownRunGroup": project_config["shownRunGroup"],
-    }
-    db.execute(query, query_params)

@@ -1,7 +1,9 @@
-import * as Slider from "@radix-ui/react-slider";
+import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
+import { BiPaint } from "react-icons/bi";
 import { sendToInteractiveTasks } from "state/actions/interactive";
 import {
   setAspectRatioInfo,
@@ -29,13 +31,17 @@ export function DrawOnImage({ sectionId }) {
     (x) => x.x[sectionId].size,
     _.isEqual,
   );
+  const backgroundCanvasRef = useRef(null);
   const canvasRef = useRef(null);
   const draftCanvasRef = useRef(null);
   const imageRef = useRef(null);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("#ff0000");
-  const [opacity, setOpacity] = useState(0.5);
+  const [opacity, setOpacity] = useState(1);
+  const [brushSize, setBrushSize] = useState(16);
+  const [canvasOpacity, setCanvasOpacity] = useState(0.5);
+  const [eraserBrushSize, setEraserBrushSize] = useState(16);
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
 
@@ -46,14 +52,14 @@ export function DrawOnImage({ sectionId }) {
     if (isEraser) {
       dCtx.globalCompositeOperation = "destination-out";
       dCtx.strokeStyle = "rgba(0,0,0,1)";
-      dCtx.lineWidth = 16;
+      dCtx.lineWidth = eraserBrushSize;
       dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = 1;
     } else {
       dCtx.globalCompositeOperation = "source-over";
       dCtx.strokeStyle = color;
-      dCtx.lineWidth = 16;
+      dCtx.lineWidth = brushSize;
       dCtx.lineCap = "round";
       dCtx.globalAlpha = 1;
       draftCanvas.style.opacity = opacity;
@@ -61,72 +67,65 @@ export function DrawOnImage({ sectionId }) {
   }
 
   function setCanvasProperties({ doDrawStrokes }) {
-    const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+    const [canvas] = getCanvasAndCtx(canvasRef);
+    const [backgroundCanvas, backgroundCtx] =
+      getCanvasAndCtx(backgroundCanvasRef);
+
     const image = imageRef.current;
     if (image && image.complete) {
       if (width === "auto" || height === "auto") {
-        canvas.width = image.width;
-        canvas.height = image.height;
+        backgroundCanvas.width = image.width;
+        backgroundCanvas.height = image.height;
         setSectionSize(sectionId, {
           width: image.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
           height: image.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
       } else {
-        canvas.width = width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
-        canvas.height = height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
+        backgroundCanvas.width = width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
+        backgroundCanvas.height = height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
       }
+      canvas.width = backgroundCanvas.width;
+      canvas.height = backgroundCanvas.height;
 
       const scale = Math.min(
-        canvas.width / image.width,
-        canvas.height / image.height,
+        backgroundCanvas.width / image.width,
+        backgroundCanvas.height / image.height,
       );
-      const x = canvas.width / 2 - (image.width / 2) * scale;
-      const y = canvas.height / 2 - (image.height / 2) * scale;
-      clearCanvas(canvasRef);
-      if (doDrawStrokes) {
-        drawStrokes(canvas, ctx);
-      }
-      ctx.globalCompositeOperation = "destination-over";
-      ctx.globalAlpha = 1;
-      ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
-      ctx.globalCompositeOperation = "source-over";
+      const x = backgroundCanvas.width / 2 - (image.width / 2) * scale;
+      const y = backgroundCanvas.height / 2 - (image.height / 2) * scale;
+      clearCanvas(backgroundCanvasRef);
+      backgroundCtx.globalAlpha = 1;
+      backgroundCtx.drawImage(
+        image,
+        x,
+        y,
+        image.width * scale,
+        image.height * scale,
+      );
     } else {
       const [defaultWidth, defaultHeight] = [500, 500];
-      canvas.width =
+      backgroundCanvas.width =
         width === "auto"
           ? defaultWidth
           : width - SECTION_SIZE_CANVAS_WIDTH_DIFF;
-      canvas.height =
+      backgroundCanvas.height =
         height === "auto"
           ? defaultHeight
           : height - SECTION_SIZE_CANVAS_HEIGHT_DIFF;
+      canvas.width = backgroundCanvas.width;
+      canvas.height = backgroundCanvas.height;
       if (width === "auto" || height === "auto") {
         setSectionSize(sectionId, {
-          width: canvas.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
-          height: canvas.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
+          width: backgroundCanvas.width + SECTION_SIZE_CANVAS_WIDTH_DIFF,
+          height: backgroundCanvas.height + SECTION_SIZE_CANVAS_HEIGHT_DIFF,
         });
       }
-      clearCanvas(canvasRef);
-      if (doDrawStrokes) {
-        drawStrokes(canvas, ctx);
-      }
-      ctx.globalCompositeOperation = "source-over";
+      clearCanvas(backgroundCanvasRef);
     }
-  }
 
-  function drawStrokes(canvas, ctx) {
-    const startingProps = _.pick(ctx, [
-      "globalCompositeOperation",
-      "strokeStyle",
-      "globalAlpha",
-      "lineWidth",
-      "lineCap",
-    ]);
-    strokesRef.current.forEach((stroke) => {
-      drawStroke(canvas, ctx, stroke);
-    });
-    for (const [k, v] of Object.entries(startingProps)) {
-      ctx[k] = v;
+    clearCanvas(canvasRef);
+    if (doDrawStrokes) {
+      drawStrokesAndKeepOriginalProps(canvasRef, strokesRef.current);
     }
   }
 
@@ -166,18 +165,17 @@ export function DrawOnImage({ sectionId }) {
   }, [height, width]);
 
   useEffect(() => {
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
     if (isEraser) {
       setCanvasProperties({ doDrawStrokes: false });
-      clearCanvas(draftCanvasRef);
       setDraftCanvasProperties();
-      drawStrokes(draftCanvas, dCtx);
+      clearCanvas(draftCanvasRef);
+      drawStrokesAndKeepOriginalProps(draftCanvasRef, strokesRef.current);
     } else {
       setCanvasProperties({ doDrawStrokes: true });
       setDraftCanvasProperties();
       clearCanvas(draftCanvasRef);
     }
-  }, [isEraser, opacity, color]);
+  }, [isEraser, opacity, color, brushSize, eraserBrushSize]);
 
   useEffect(() => {
     const id = base64RequestId(sectionId);
@@ -192,26 +190,43 @@ export function DrawOnImage({ sectionId }) {
     return unsub;
   }, []);
 
+  function startNewStroke(firstPoint) {
+    console.log("startNewStroke", firstPoint);
+    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+    strokesRef.current.push({
+      color: isEraser ? dCtx.strokeStyle : color,
+      opacity: isEraser ? 1 : opacity,
+      lineWidth: dCtx.lineWidth,
+      points: [firstPoint],
+      canvasHeight: draftCanvas.height,
+      canvasWidth: draftCanvas.width,
+      globalCompositeOperation: dCtx.globalCompositeOperation,
+    });
+  }
+
+  function drawDraftStroke(from, to) {
+    const ctx = getCtx(draftCanvasRef);
+    ctx.beginPath();
+    ctx.moveTo(from[0], from[1]);
+    ctx.lineTo(to[0], to[1]);
+    ctx.stroke();
+  }
+
   function onMouseDown(e, offsetX, offsetY) {
     // nothing to erase
     if (isEraser && strokesRef.current.length === 0) {
       return;
     }
     setIsDrawing(true);
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+    let point;
     if (offsetX && offsetY) {
-      prevPointRef.current = { offsetX, offsetY };
+      point = [offsetX, offsetY];
     } else {
-      prevPointRef.current = getXY(e);
+      point = getXY(e);
     }
-    strokesRef.current.push({
-      color: isEraser ? dCtx.strokeStyle : color,
-      opacity: isEraser ? 1 : opacity,
-      points: [prevPointRef.current],
-      canvasHeight: draftCanvas.height,
-      canvasWidth: draftCanvas.width,
-      globalCompositeOperation: dCtx.globalCompositeOperation,
-    });
+    startNewStroke(point);
+    drawDraftStroke(point, point);
+    prevPointRef.current = point;
   }
 
   function onMouseMove(e) {
@@ -219,13 +234,17 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     const point = getXY(e);
-    const ctx = getCtx(draftCanvasRef);
-    ctx.beginPath();
-    ctx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
-    ctx.lineTo(point[0], point[1]);
-    ctx.stroke();
-    prevPointRef.current = point;
-    strokesRef.current[strokesRef.current.length - 1].points.push(point);
+    const currStroke = strokesRef.current[strokesRef.current.length - 1];
+    if (!isEraser && currStroke.points.length >= 50) {
+      drawLatestStroke(canvasRef, strokesRef.current);
+      clearCanvas(draftCanvasRef);
+      startNewStroke(point);
+      prevPointRef.current = point;
+    } else {
+      drawDraftStroke(prevPointRef.current, point);
+      currStroke.points.push(point);
+      prevPointRef.current = point;
+    }
   }
 
   function onMouseUp() {
@@ -234,8 +253,7 @@ export function DrawOnImage({ sectionId }) {
     }
     setIsDrawing(false);
     if (!isEraser) {
-      setCanvasProperties({ doDrawStrokes: true });
-      setDraftCanvasProperties();
+      drawLatestStroke(canvasRef, strokesRef.current);
       clearCanvas(draftCanvasRef);
     }
     debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
@@ -246,20 +264,17 @@ export function DrawOnImage({ sectionId }) {
     if (e.buttons === 1) {
       // have to compute offset this way for some reason
       // otherwise it's inaccurate
+      const zoom = getZoom();
       const rect = draftCanvasRef.current.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const offsetY = e.clientY - rect.top;
+      const offsetX = (e.clientX - rect.left) / zoom;
+      const offsetY = (e.clientY - rect.top) / zoom;
       onMouseDown(e, offsetX, offsetY);
     }
   }
 
-  function toggleEraserMode() {
-    setIsEraser(!isEraser);
-  }
-
   function clearStrokes() {
     strokesRef.current = [];
-    setCanvasProperties({ doDrawStrokes: true });
+    clearCanvas(canvasRef);
     clearCanvas(draftCanvasRef);
     debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
@@ -280,6 +295,138 @@ export function DrawOnImage({ sectionId }) {
     return base64;
   }
 
+  const canvasClassName = "single-cell-child max-w-full place-self-center";
+
+  return (
+    <>
+      <div className="section-search section-w-full z-10  flex flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
+        <input
+          id="colorPicker"
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          className="min-h-4 min-w-4 cursor-pointer"
+        />
+
+        <div className="flex">
+          <button
+            className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            onClick={() => {
+              setIsEraser(false);
+            }}
+          >
+            <BiPaint />
+          </button>
+          <StandardPopover
+            popoverContent={
+              <BrushSettings
+                opacity={opacity}
+                setOpacity={setOpacity}
+                brushSize={brushSize}
+                setBrushSize={setBrushSize}
+              />
+            }
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+            trigger={
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+                <i className="gg-chevron-down" />
+              </button>
+            }
+            header={"Brush Settings"}
+          />
+        </div>
+        <div className="flex">
+          <button
+            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
+            onClick={() => {
+              setIsEraser(true);
+            }}
+          >
+            <i className="gg-erase" />
+          </button>
+          <StandardPopover
+            popoverContent={
+              <EraserSettings
+                brushSize={eraserBrushSize}
+                setBrushSize={setEraserBrushSize}
+              />
+            }
+            arrowClasses="fill-white dark:fill-setta-800"
+            inputClasses="rounded-lg"
+            contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+            trigger={
+              <button className="flex w-6 cursor-pointer items-center justify-center gap-1 rounded-r-lg border border-setta-300/5 bg-setta-800  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
+                <i className="gg-chevron-down" />
+              </button>
+            }
+            header={"Brush Settings"}
+          />
+        </div>
+
+        <StandardPopover
+          popoverContent={
+            <CanvasSettings
+              opacity={canvasOpacity}
+              setOpacity={setCanvasOpacity}
+            />
+          }
+          arrowClasses="fill-white dark:fill-setta-800"
+          inputClasses="rounded-lg"
+          contentClasses="bg-white dark:bg-setta-800 -mt-4 flex relative px-2 py-1 rounded-lg min-w-48"
+          trigger={
+            <button className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white">
+              <i className="gg-image" />
+            </button>
+          }
+          header={"Layer Opacity"}
+        />
+
+        <button
+          className="flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
+          onClick={clearStrokes}
+        >
+          <i className="gg-trash" />
+        </button>
+      </div>
+      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
+        <canvas ref={backgroundCanvasRef} className={canvasClassName} />
+        <div
+          className="single-cell-child single-cell-container"
+          style={{ opacity: canvasOpacity }}
+        >
+          <canvas
+            ref={canvasRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onMouseEnter={onMouseEnter}
+            className={canvasClassName}
+          />
+          <canvas
+            ref={draftCanvasRef}
+            className={`pointer-events-none z-10 ${canvasClassName}`}
+          />
+        </div>
+      </section>
+    </>
+  );
+}
+
+function BrushSettings({ opacity, setOpacity, brushSize, setBrushSize }) {
+  const [localOpacity, setLocalOpacity] = useState(opacity);
+  const [localBrushSize, setLocalBrushSize] = useState(brushSize);
+
+  useEffect(() => {
+    setLocalOpacity(opacity);
+  }, [opacity]);
+
+  useEffect(() => {
+    setLocalBrushSize(brushSize);
+  }, [brushSize]);
+
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
   const sliderTrackClassName =
@@ -287,100 +434,123 @@ export function DrawOnImage({ sectionId }) {
   const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
   const sliderThumbClassName =
     "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
-  // const canvasClassName =
-  //   "absolute left-1/2 top-1/2 h-auto max-h-full min-h-0 -translate-x-1/2 -translate-y-1/2";
-  const canvasClassName = "single-cell-child max-w-full place-self-center";
-
+  const textInputClassName =
+    "my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400";
   return (
-    <>
-      <div className="section-search section-w-full  flex flex-wrap gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 ">
-        <input
-          id="colorPicker"
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className="min-h-6 min-w-6 cursor-pointer"
-        />
+    <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Opacity
+      </p>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={0.1}
+        max={1}
+        step={0.1}
+        value={localOpacity}
+        onChange={setLocalOpacity}
+        onCommit={setOpacity}
+      />
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Size
+      </p>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={1}
+        max={100}
+        step={1}
+        value={localBrushSize}
+        onChange={setLocalBrushSize}
+        onCommit={setBrushSize}
+      />
+    </div>
+  );
+}
 
-        <Slider.Root
-          id="opacitySlider"
-          // type="range"
-          className={sliderRootClassName}
-          min={0}
-          max={1}
-          step={0.1}
-          value={[opacity]}
-          onValueChange={(v) => setOpacity(v[0])}
-        >
-          <Slider.Track className={sliderTrackClassName}>
-            <Slider.Range className={sliderRangeClassName} />
-          </Slider.Track>
-          <Slider.Thumb className={sliderThumbClassName} />
-        </Slider.Root>
-        <input
-          value={opacity.toFixed(1)}
-          onChange={() => {}}
-          className="my-auto min-w-8 max-w-12 flex-grow rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400"
-        ></input>
-        <div className="flex">
-          <button
-            className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900"
-            onClick={toggleEraserMode}
-          >
-            <i className="gg-pen" />
-          </button>
-          <StandardPopover
-            popoverContent="things"
-            arrowClasses="fill-white dark:fill-setta-800"
-            inputClasses="rounded-lg"
-            trigger={
-              <button className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
-                <i className="gg-chevron-down" />
-              </button>
-            }
-            header={"Brush Settings"}
-          />
-        </div>
-        <div className="flex">
-          <button className="flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-setta-200 dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-setta-900">
-            <i className="gg-erase" />
-          </button>
-          <StandardPopover
-            popoverContent="things"
-            arrowClasses="fill-white dark:fill-setta-800"
-            inputClasses="rounded-lg"
-            trigger={
-              <button className="flex w-6 cursor-pointer  items-center justify-center gap-1 rounded-r-lg border border-setta-300/5  py-1 text-xs text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
-                <i className="gg-chevron-down" />
-              </button>
-            }
-            header={"Brush Settings"}
-          />
-        </div>
+function EraserSettings({ brushSize, setBrushSize }) {
+  const [localBrushSize, setLocalBrushSize] = useState(brushSize);
 
-        <button
-          className="flex w-8 cursor-pointer items-center justify-center gap-1 rounded-lg bg-setta-200/30 py-1 text-xs text-setta-700 hover:bg-red-600 hover:text-white dark:bg-setta-800/50 dark:text-setta-400 dark:hover:bg-red-800 dark:hover:text-white"
-          onClick={clearStrokes}
-        >
-          <i className="gg-trash" />
-        </button>
-      </div>
-      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
-        <canvas
-          ref={canvasRef}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
-          onMouseEnter={onMouseEnter}
-          className={canvasClassName}
-        />
-        <canvas
-          ref={draftCanvasRef}
-          className={`pointer-events-none z-10 ${canvasClassName}`}
-        />
-      </section>
-    </>
+  useEffect(() => {
+    setLocalBrushSize(brushSize);
+  }, [brushSize]);
+
+  const sliderRootClassName =
+    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
+  const sliderTrackClassName =
+    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
+  const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
+  const sliderThumbClassName =
+    "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  const textInputClassName =
+    "my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400";
+  return (
+    <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Size
+      </p>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={1}
+        max={100}
+        step={1}
+        value={localBrushSize}
+        onChange={setLocalBrushSize}
+        onCommit={setBrushSize}
+      />
+    </div>
+  );
+}
+
+function CanvasSettings({ opacity, setOpacity }) {
+  const [localOpacity, setLocalOpacity] = useState(opacity);
+
+  useEffect(() => {
+    setLocalOpacity(opacity);
+  }, [opacity]);
+
+  const sliderRootClassName =
+    "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
+  const sliderTrackClassName =
+    "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
+  const sliderRangeClassName = "absolute h-full rounded-full bg-blue-500";
+  const sliderThumbClassName =
+    "block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:bg-setta-100 focus:border-blue-500 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600";
+  const textInputClassName =
+    "my-auto w-7 rounded-lg border border-solid border-setta-600/10 px-2 py-1 text-center font-mono text-xs text-setta-700 dark:border-setta-600/30 dark:text-setta-400";
+  return (
+    <div className="grid w-full grid-cols-[1fr,_2fr] gap-2">
+      <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
+        Size
+      </p>
+      <SliderInput
+        sliderRootClassName={sliderRootClassName}
+        sliderTrackClassName={sliderTrackClassName}
+        sliderRangeClassName={sliderRangeClassName}
+        sliderThumbClassName={sliderThumbClassName}
+        textInputClassName={textInputClassName}
+        wrapperDivClass="flex gap-2"
+        min={0.1}
+        max={1}
+        step={0.1}
+        value={localOpacity}
+        onChange={setLocalOpacity}
+        onCommit={setOpacity}
+      />
+    </div>
   );
 }
 
@@ -453,6 +623,29 @@ function exportImageToBase64(image, width, height) {
   return canvasToBase64(tempCanvas);
 }
 
+function drawStrokesAndKeepOriginalProps(canvasRef, strokes) {
+  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+  const startingProps = _.pick(ctx, [
+    "globalCompositeOperation",
+    "strokeStyle",
+    "globalAlpha",
+    "lineWidth",
+    "lineCap",
+  ]);
+  strokes.forEach((stroke) => {
+    drawStroke(canvas, ctx, stroke);
+  });
+  for (const [k, v] of Object.entries(startingProps)) {
+    ctx[k] = v;
+  }
+}
+
+function drawLatestStroke(canvasRef, strokes) {
+  const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+  const currStroke = strokes[strokes.length - 1];
+  drawStroke(canvas, ctx, currStroke);
+}
+
 function drawStroke(canvas, ctx, stroke) {
   const scale = Math.min(
     canvas.width / stroke.canvasWidth,
@@ -463,7 +656,7 @@ function drawStroke(canvas, ctx, stroke) {
   ctx.globalCompositeOperation = stroke.globalCompositeOperation;
   ctx.strokeStyle = stroke.color;
   ctx.globalAlpha = stroke.opacity;
-  ctx.lineWidth = 16;
+  ctx.lineWidth = stroke.lineWidth;
   ctx.lineCap = "round";
   let prevPoint = stroke.points[0];
   stroke.points.forEach((point) => {

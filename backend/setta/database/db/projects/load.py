@@ -30,7 +30,6 @@ def load_project_config_metadata(db, config_name):
             ProjectConfig.y,
             ProjectConfig.zoom,
             ProjectConfig.isDefault,
-            ProjectConfig.shownRunGroup,
             ProjectConfigChildren.childId as childId,
             ProjectConfigChildren.x as childX,
             ProjectConfigChildren.y as childY,
@@ -68,7 +67,6 @@ def load_project_config_metadata(db, config_name):
         "isDefault": out["isDefault"],
         "viewport": {"x": out["x"], "y": out["y"], "zoom": out["zoom"]},
         "children": children,
-        "shownRunGroup": out["shownRunGroup"],
     }
 
 

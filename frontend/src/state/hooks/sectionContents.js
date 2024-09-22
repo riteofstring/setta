@@ -21,7 +21,7 @@ export function useGetParamInfosThatHaveNames(sectionId) {
   const codeInfoId = useGetSectionInfo(sectionId, "codeInfoId");
 
   return useCodeInfo((x) => {
-    const { ids } = getParamIds(sectionId, x.x, selectedItem, codeInfoId);
+    const ids = getParamIds(sectionId, x.x, selectedItem, codeInfoId);
     const haveName = [];
     for (const id of ids) {
       if (x.x[id].name) {
@@ -46,7 +46,7 @@ export function useGetSelectedCollectionsForSectionConfig(sectionId) {
 }
 
 export function useHasParams(sectionId) {
-  return useCodeInfo((x) => getParamIds(sectionId, x.x)["ids"].length > 0);
+  return useCodeInfo((x) => getParamIds(sectionId, x.x).length > 0);
 }
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {

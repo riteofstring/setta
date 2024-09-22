@@ -20,27 +20,26 @@ export function getParamIds(
     _selectedItem === undefined
       ? getSectionSelectedItem(sectionId)
       : _selectedItem;
-
-  const { ids: objParamInfoIds, pathMap: objParamPathMap } = selectedItem
+  const objParamInfoIds = selectedItem
     ? findAllParametersOfCallables(cState, [selectedItem], paramPathCondition)
-    : { ids: [], pathMap: {} };
+    : [];
 
   if (!selectedItem) {
     const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
-    const { ids: paramCollectionIds, pathMap: paramPathMap } =
-      findAllParametersOfNotCallables(cState, [codeInfoId], paramPathCondition);
-    return {
-      ids: [...objParamInfoIds, ...paramCollectionIds],
-      pathMap: { ...objParamPathMap, ...paramPathMap },
-    };
+    const paramCollectionIds = findAllParametersOfNotCallables(
+      cState,
+      [codeInfoId],
+      paramPathCondition,
+    );
+    return [...objParamInfoIds, ...paramCollectionIds];
   } else {
-    return { ids: objParamInfoIds, pathMap: objParamPathMap };
+    return objParamInfoIds;
   }
 }
 
 export function getParamInfos(sectionId, _cState = null) {
   const cState = _cState ?? useCodeInfo.getState().x;
-  const { ids } = getParamIds(sectionId, cState);
+  const ids = getParamIds(sectionId, cState);
   return ids.map((x) => cState[x]);
 }
 
@@ -55,33 +54,33 @@ export function getParamIdsToShowInArea(
   const selectedItem = _selectedItem ?? getSectionInfo(sectionId).selectedItem;
   const codeInfoId = _codeInfoId ?? getSectionInfo(sectionId).codeInfoId;
 
-  const { ids, pathMap } = getParamIds(
+  const allIdsAndPaths = getParamIds(
     sectionId,
     cState,
     selectedItem,
     codeInfoId,
     (p) => p.rcType === C.PARAMETER,
   );
-  ids.reverse();
+  allIdsAndPaths.reverse();
 
   let topLevelParamIds = [];
   const topLevelParamIdsSet = new Set();
-  const requiredParamIdsToPaths = {};
-  for (const a of ids) {
+  let requiredParamIds = new Set();
+  for (const a of allIdsAndPaths) {
     // Evalutes to true if:
     // 1. The current param's isPinned matches the isPinned condition
     // 2. And: either the param has no children or at least one of its children is required
-    // This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
+    // This logic is why it's REQUIRED for allIdsAndPaths to be reversed (processed starting with children up to ancestors)
     if (
-      bothTruthyOrFalsey(cState[a].isPinned, isPinned) &&
-      (cState[a].children.length === 0 ||
-        cState[a].children.some((child) => child in requiredParamIdsToPaths))
+      bothTruthyOrFalsey(cState[a.id].isPinned, isPinned) &&
+      (cState[a.id].children.length === 0 ||
+        cState[a.id].children.some((child) => requiredParamIds.has(child)))
     ) {
-      for (const p of pathMap[a]) {
-        requiredParamIdsToPaths[p] = pathMap[p];
-        if (!topLevelParamIdsSet.has(pathMap[a][0])) {
-          topLevelParamIds.push(pathMap[a][0]);
-          topLevelParamIdsSet.add(pathMap[a][0]);
+      for (const p of a.path) {
+        requiredParamIds.add(p);
+        if (!topLevelParamIdsSet.has(a.path[0])) {
+          topLevelParamIds.push(a.path[0]);
+          topLevelParamIdsSet.add(a.path[0]);
         }
       }
     }
@@ -90,5 +89,5 @@ export function getParamIdsToShowInArea(
   // unreverse results
   topLevelParamIds.reverse();
 
-  return { requiredParamIdsToPaths, topLevelParamIds };
+  return { requiredParamIds, topLevelParamIds };
 }
