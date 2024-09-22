@@ -31,7 +31,6 @@ export function DrawOnImage({ sectionId }) {
   );
   const backgroundCanvasRef = useRef(null);
   const canvasRef = useRef(null);
-  const draftCanvasRef = useRef(null);
   const imageRef = useRef(null);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -42,28 +41,7 @@ export function DrawOnImage({ sectionId }) {
   const [isEraser, setIsEraser] = useState(false);
   const strokesRef = useRef([]);
 
-  function setDraftCanvasProperties() {
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
-    draftCanvas.width = canvasRef.current.width;
-    draftCanvas.height = canvasRef.current.height;
-    if (isEraser) {
-      dCtx.globalCompositeOperation = "destination-out";
-      dCtx.strokeStyle = "rgba(0,0,0,1)";
-      dCtx.lineWidth = eraserBrushSize;
-      dCtx.lineCap = "round";
-      dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = 1;
-    } else {
-      dCtx.globalCompositeOperation = "source-over";
-      dCtx.strokeStyle = color;
-      dCtx.lineWidth = brushSize;
-      dCtx.lineCap = "round";
-      dCtx.globalAlpha = 1;
-      draftCanvas.style.opacity = opacity;
-    }
-  }
-
-  function setCanvasProperties({ doDrawStrokes }) {
+  function setCanvasProperties() {
     const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     const [backgroundCanvas, backgroundCtx] =
       getCanvasAndCtx(backgroundCanvasRef);
@@ -92,9 +70,7 @@ export function DrawOnImage({ sectionId }) {
       const y = backgroundCanvas.height / 2 - (image.height / 2) * scale;
       clearCanvas(backgroundCanvasRef);
       clearCanvas(canvasRef);
-      if (doDrawStrokes) {
-        drawStrokes(canvas, ctx);
-      }
+      drawStrokes(canvas, ctx);
       backgroundCtx.globalAlpha = 1;
       backgroundCtx.drawImage(
         image,
@@ -124,16 +100,32 @@ export function DrawOnImage({ sectionId }) {
       }
       clearCanvas(backgroundCanvasRef);
       clearCanvas(canvasRef);
-      if (doDrawStrokes) {
-        drawStrokes(canvas, ctx);
-      }
+      drawStrokes(canvas, ctx);
     }
+    setCanvasDrawingProperties();
+  }
 
-    ctx.globalCompositeOperation = "source-over";
-    canvas.style.opacity = opacity;
+  function setCanvasDrawingProperties() {
+    const [canvas, ctx] = getCanvasAndCtx(canvasRef);
+    if (isEraser) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+      ctx.lineWidth = eraserBrushSize;
+      ctx.lineCap = "round";
+      ctx.globalAlpha = 1;
+      canvas.style.opacity = 1;
+    } else {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = "round";
+      ctx.globalAlpha = opacity;
+      canvas.style.opacity = 1;
+    }
   }
 
   function drawStrokes(canvas, ctx) {
+    console.log("drawStrokes", strokesRef.current);
     const startingProps = _.pick(ctx, [
       "globalCompositeOperation",
       "strokeStyle",
@@ -171,8 +163,7 @@ export function DrawOnImage({ sectionId }) {
         strokesRef.current = _.cloneDeep(v.value);
       }
     }
-    setCanvasProperties({ doDrawStrokes: true });
-    setDraftCanvasProperties();
+    setCanvasProperties();
   }
 
   useDeepCompareEffect(() => {
@@ -180,22 +171,11 @@ export function DrawOnImage({ sectionId }) {
   }, [Object.keys(artifacts), isLoaded]);
 
   useEffect(() => {
-    setCanvasProperties({ doDrawStrokes: true });
-    setDraftCanvasProperties();
+    setCanvasProperties();
   }, [height, width]);
 
   useEffect(() => {
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
-    if (isEraser) {
-      setCanvasProperties({ doDrawStrokes: false });
-      clearCanvas(draftCanvasRef);
-      setDraftCanvasProperties();
-      drawStrokes(draftCanvas, dCtx);
-    } else {
-      setCanvasProperties({ doDrawStrokes: true });
-      setDraftCanvasProperties();
-      clearCanvas(draftCanvasRef);
-    }
+    setCanvasDrawingProperties();
   }, [isEraser, opacity, color, brushSize, eraserBrushSize]);
 
   useEffect(() => {
@@ -217,20 +197,20 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     setIsDrawing(true);
-    const [draftCanvas, dCtx] = getCanvasAndCtx(draftCanvasRef);
+    const [canvas, ctx] = getCanvasAndCtx(canvasRef);
     if (offsetX && offsetY) {
       prevPointRef.current = { offsetX, offsetY };
     } else {
       prevPointRef.current = getXY(e);
     }
     strokesRef.current.push({
-      color: isEraser ? dCtx.strokeStyle : color,
-      opacity: 1,
-      lineWidth: dCtx.lineWidth,
+      color: isEraser ? ctx.strokeStyle : color,
+      opacity: opacity,
+      lineWidth: ctx.lineWidth,
       points: [prevPointRef.current],
-      canvasHeight: draftCanvas.height,
-      canvasWidth: draftCanvas.width,
-      globalCompositeOperation: dCtx.globalCompositeOperation,
+      canvasHeight: canvas.height,
+      canvasWidth: canvas.width,
+      globalCompositeOperation: ctx.globalCompositeOperation,
     });
   }
 
@@ -239,7 +219,7 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     const point = getXY(e);
-    const ctx = getCtx(draftCanvasRef);
+    const ctx = getCtx(canvasRef);
     ctx.beginPath();
     ctx.moveTo(prevPointRef.current[0], prevPointRef.current[1]);
     ctx.lineTo(point[0], point[1]);
@@ -253,20 +233,15 @@ export function DrawOnImage({ sectionId }) {
       return;
     }
     setIsDrawing(false);
-    if (!isEraser) {
-      setCanvasProperties({ doDrawStrokes: true });
-      setDraftCanvasProperties();
-      clearCanvas(draftCanvasRef);
-    }
-    debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
-    debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
+    // debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
+    // debouncedSendDrawingToInteractiveTasks(sectionId, toBase64);
   }
 
   function onMouseEnter(e) {
     if (e.buttons === 1) {
       // have to compute offset this way for some reason
       // otherwise it's inaccurate
-      const rect = draftCanvasRef.current.getBoundingClientRect();
+      const rect = canvasRef.current.getBoundingClientRect();
       const offsetX = e.clientX - rect.left;
       const offsetY = e.clientY - rect.top;
       onMouseDown(e, offsetX, offsetY);
@@ -275,8 +250,7 @@ export function DrawOnImage({ sectionId }) {
 
   function clearStrokes() {
     strokesRef.current = [];
-    setCanvasProperties({ doDrawStrokes: true });
-    clearCanvas(draftCanvasRef);
+    setCanvasProperties();
     debouncedSetBrushStrokesArtifact(sectionId, strokesRef.current);
   }
 
@@ -374,9 +348,8 @@ export function DrawOnImage({ sectionId }) {
         </button>
       </div>
       <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
-        <canvas ref={backgroundCanvasRef} className={canvasClassName} />
         <canvas
-          ref={canvasRef}
+          ref={backgroundCanvasRef}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
@@ -385,7 +358,7 @@ export function DrawOnImage({ sectionId }) {
           className={canvasClassName}
         />
         <canvas
-          ref={draftCanvasRef}
+          ref={canvasRef}
           className={`pointer-events-none z-10 ${canvasClassName}`}
         />
       </section>
