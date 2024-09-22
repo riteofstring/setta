@@ -164,7 +164,9 @@ function ArgItem({
   }
 
   function onPlus() {
-    addParamSweepValue({ paramSweepId, selectedItemIdx, paramIdx });
+    if (paramInfoId) {
+      addParamSweepValue({ paramSweepId, selectedItemIdx, paramIdx });
+    }
   }
 
   function onMinus() {

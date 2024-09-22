@@ -213,11 +213,13 @@ CREATE_TABLES_COMMANDS = [
     """
     CREATE TABLE IF NOT EXISTS ParamSweep (
         idid TEXT,
+        selectedItemGroupNum INTEGER,
+        paramInfoGroupNum INTEGER,
         selectedItem TEXT,
         paramInfoId TEXT,
         "order" INTEGER,
         value TEXT,
-        PRIMARY KEY (idid, selectedItem, paramInfoId, "order"),
+        PRIMARY KEY (idid, "order"),
         FOREIGN KEY (idid) REFERENCES ParamSweepId(id) ON DELETE CASCADE,
         FOREIGN KEY (selectedItem) REFERENCES CodeInfo(id) ON DELETE CASCADE,
         FOREIGN KEY (paramInfoId) REFERENCES CodeInfo(id) ON DELETE CASCADE
