@@ -4,7 +4,7 @@ import { findAllParameters } from "utils/getDescendants";
 
 export function getAllSelectedParams(sectionId) {
   const codeInfoState = useCodeInfo.getState().x;
-  const { ids } = findAllParameters(codeInfoState, [
+  const ids = findAllParameters(codeInfoState, [
     getSectionInfo(sectionId).codeInfoId,
   ]);
   return ids.map((x) => codeInfoState[x]).filter((x) => x.isSelected);

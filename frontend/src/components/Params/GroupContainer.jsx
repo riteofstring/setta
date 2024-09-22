@@ -45,7 +45,7 @@ function _ParamGroupContainer({ sectionId }) {
 }
 
 function GetPinnedParams({ sectionId, setDidUpdate, outerRef }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
+  const { requiredParamIds, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     true,
   );
@@ -61,7 +61,7 @@ function GetPinnedParams({ sectionId, setDidUpdate, outerRef }) {
       <ResizablePinnedArea
         sectionId={sectionId}
         topLevelParamIds={topLevelParamIds}
-        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        requiredParamIds={requiredParamIds}
         setDidUpdate={setDidUpdate}
         outerRef={outerRef}
       />
@@ -72,7 +72,7 @@ function GetPinnedParams({ sectionId, setDidUpdate, outerRef }) {
 function ResizablePinnedArea({
   sectionId,
   topLevelParamIds,
-  requiredParamIdsToPaths,
+  requiredParamIds,
   setDidUpdate,
   outerRef,
 }) {
@@ -125,7 +125,7 @@ function ResizablePinnedArea({
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={topLevelParamIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          requiredParamIds={requiredParamIds}
           setDidUpdate={setDidUpdate}
         />
       </div>
@@ -140,7 +140,7 @@ function GetParams({ sectionId, setDidUpdate }) {
   //   isPinned: false,
   // });
 
-  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
+  const { requiredParamIds, topLevelParamIds } = useParamIdsToShowInArea(
     sectionId,
     false,
   );
@@ -149,7 +149,7 @@ function GetParams({ sectionId, setDidUpdate }) {
     <GetParamSwitch
       sectionId={sectionId}
       paramIds={topLevelParamIds}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      requiredParamIds={requiredParamIds}
       setDidUpdate={setDidUpdate}
     />
   );
