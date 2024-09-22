@@ -4,13 +4,6 @@ import cc from "classcat";
 import { pointer, select } from "d3-selection";
 import type { D3ZoomEvent } from "d3-zoom";
 import { zoom, zoomIdentity } from "d3-zoom";
-import {
-  CoordinateExtent,
-  getBoundsOfRects,
-  getNodesBounds,
-  Panel,
-  Rect,
-} from "forks/xyflow/core";
 import useVisibleNodes from "forks/xyflow/core/hooks/useVisibleNodes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { MouseEvent } from "react";
@@ -18,6 +11,10 @@ import { memo, useEffect, useRef } from "react";
 import { useNodeInternals } from "state/definitions";
 import { localStorageFns } from "state/hooks/localStorage";
 import { shallow } from "zustand/shallow";
+import Panel from "../core/components/Panel";
+import { CoordinateExtent, Rect } from "../core/types";
+import { getBoundsOfRects } from "../core/utils";
+import { getNodesBounds } from "../core/utils/graph";
 import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
 import type { MiniMapProps } from "./types";
 
