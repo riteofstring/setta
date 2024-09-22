@@ -1,8 +1,9 @@
 import { type CSSProperties } from "react";
 import StoreUpdater from "../components/StoreUpdater";
 import { infiniteExtent } from "../store/initialState";
-import { PanOnScrollMode } from "../types";
-import GraphView from "./GraphView";
+import FlowRenderer from "./FlowRenderer";
+import NodeRenderer from "./NodeRenderer";
+import ViewportWrapper from "./Viewport";
 
 const wrapperStyle: CSSProperties = {
   width: "100%",
@@ -17,14 +18,6 @@ const ReactFlow = ({
   nodesFocusable,
   elementsSelectable,
   translateExtent = infiniteExtent,
-  preventScrolling = true,
-  zoomOnScroll = true,
-  zoomOnPinch = true,
-  panOnScroll = false,
-  panOnScrollSpeed = 0.5,
-  panOnScrollMode = PanOnScrollMode.Free,
-  zoomOnDoubleClick = true,
-  panOnDrag = true,
   children,
   autoPanOnNodeDrag = true,
 }) => {
@@ -34,17 +27,11 @@ const ReactFlow = ({
       className="react-flow setta-light dark:setta-dark"
       data-testid="rf__wrapper"
     >
-      <GraphView
-        translateExtent={translateExtent}
-        preventScrolling={preventScrolling}
-        zoomOnScroll={zoomOnScroll}
-        zoomOnPinch={zoomOnPinch}
-        zoomOnDoubleClick={zoomOnDoubleClick}
-        panOnScroll={panOnScroll}
-        panOnScrollSpeed={panOnScrollSpeed}
-        panOnScrollMode={panOnScrollMode}
-        panOnDrag={panOnDrag}
-      />
+      <FlowRenderer>
+        <ViewportWrapper>
+          <NodeRenderer />
+        </ViewportWrapper>
+      </FlowRenderer>
       <StoreUpdater
         nodesDraggable={nodesDraggable}
         nodesFocusable={nodesFocusable}

@@ -17,6 +17,7 @@ import { useProjectConfig, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { shallow } from "zustand/shallow";
 import useResizeHandler from "../hooks/useResizeHandler";
+import { infiniteExtent } from "../store/initialState";
 import { containerStyle } from "../styles";
 import {
   CoordinateExtent,
@@ -77,7 +78,7 @@ const ZoomPane = ({
   zoomOnDoubleClick = true,
   elementsSelectable,
   panOnDrag = true,
-  translateExtent,
+  translateExtent = infiniteExtent,
   preventScrolling = true,
   children,
 }: ZoomPaneProps) => {
