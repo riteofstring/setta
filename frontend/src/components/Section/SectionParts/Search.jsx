@@ -2,12 +2,13 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { useEffect, useState } from "react";
 import { getKeywordPositionsAndEVRefs } from "requests/sections";
 import { itemHasBeenSelectedBefore } from "state/actions/codeInfo";
+import { setParamSweepSelectedItem } from "state/actions/runGroups/paramSweep";
 import {
   createCodeInfoChildren,
   createNewCodeInfoAndKeywordPositions,
   setSelectedItem,
 } from "state/actions/sections/setters";
-import { useCodeInfo, useParamSweep, useSectionInfos } from "state/definitions";
+import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { asyncDebounce } from "utils/utils";
@@ -34,6 +35,7 @@ export function ParamSweepSectionSearch({
   forSectionId,
   selectedItem,
   paramSweepId,
+  selectedItemIdx,
 }) {
   async function onEnter(value) {
     let newSelectedItem;
@@ -55,8 +57,10 @@ export function ParamSweepSectionSearch({
       newSelectedItem = prevSelected;
     }
 
-    useParamSweep.setState((x) => {
-      x.x[paramSweepId].selectedItem = newSelectedItem;
+    setParamSweepSelectedItem({
+      paramSweepId,
+      selectedItemIdx,
+      selectedItem: newSelectedItem,
     });
   }
 

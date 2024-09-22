@@ -7,68 +7,107 @@ export function setAllParamSweeps(payload) {
 
 export function initParamSweep({ id, name }) {
   useParamSweep.setState((state) => {
-    state.x[id] = { name: name, sweep: [] };
+    state.x[id] = { name, sweep: [] };
   });
 }
 
-export function setParamSweepValue({ paramSweepId, idx, valueIdx, value }) {
-  useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[idx].values[valueIdx] = value;
+export function setParamSweepSelectedItem({
+  paramSweepId,
+  selectedItemIdx,
+  selectedItem,
+}) {
+  useParamSweep.setState((x) => {
+    x.x[paramSweepId].sweep[selectedItemIdx].selectedItem = selectedItem;
   });
 }
 
-export function addParamSweepValue({ paramSweepId, idx }) {
+export function setParamSweepValue({
+  paramSweepId,
+  selectedItemIdx,
+  paramIdx,
+  valueIdx,
+  value,
+}) {
   useParamSweep.setState((state) => {
-    state.x[paramSweepId].sweep[idx].values.push("");
+    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx].values[
+      valueIdx
+    ] = value;
   });
 }
 
-export function deleteParamSweepValue({ paramSweepId, idx, valueIdx }) {
+export function addParamSweepValue({
+  paramSweepId,
+  selectedItemIdx,
+  paramIdx,
+}) {
   useParamSweep.setState((state) => {
-    const sweep = state.x[paramSweepId].sweep[idx];
-    sweep.values = sweep.values.filter((x, idx) => idx !== valueIdx);
-    if (sweep.values.length === 0) {
-      state.x[paramSweepId].sweep = state.x[paramSweepId].sweep.filter(
-        (x, i) => i !== idx,
-      );
+    state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx].values.push(
+      "",
+    );
+  });
+}
+
+export function deleteParamSweepValue({
+  paramSweepId,
+  selectedItemIdx,
+  paramIdx,
+  valueIdx,
+}) {
+  useParamSweep.setState((state) => {
+    const s = state.x[paramSweepId].sweep[selectedItemIdx];
+    s.params[paramIdx].values = s.params[paramIdx].values.filter(
+      (_, idx) => idx !== valueIdx,
+    );
+    if (s.params[paramIdx].values.length === 0) {
+      s.params = s.params.filter((_, idx) => idx !== paramIdx);
     }
   });
 }
 
-export function deleteLastParamSweepValue({ paramSweepId, idx }) {
-  const state = useParamSweep.getState().x;
+export function deleteLastParamSweepValue({
+  paramSweepId,
+  selectedItemIdx,
+  paramIdx,
+}) {
+  const valueIdx =
+    useParamSweep.getState().x[paramSweepId].sweep[selectedItemIdx].params[
+      paramIdx
+    ].values.length - 1;
   deleteParamSweepValue({
     paramSweepId,
-    idx,
-    valueIdx: state[paramSweepId].sweep[idx].values.length - 1,
+    selectedItemIdx,
+    paramIdx,
+    valueIdx,
   });
 }
 
 export function changeParamSweepParamInfoId({
   paramSweepId,
-  idx,
+  selectedItemIdx,
+  paramIdx,
   paramInfoId,
 }) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
-      state.x[paramSweepId].sweep[idx] = { paramInfoId, values: [""] };
+      state.x[paramSweepId].sweep[selectedItemIdx].params[paramIdx] = {
+        paramInfoId,
+        values: [""],
+      };
     }
   });
 }
 
 export function addParamSweepParamInfoId({
   paramSweepId,
-  selectedItem,
+  selectedItemIdx,
   paramInfoId,
 }) {
   useParamSweep.setState((state) => {
     if (paramInfoId) {
-      const sweep = state.x[paramSweepId].sweep;
-      for (const s of sweep) {
-        if (s.selectedItem === selectedItem) {
-          s.params.push({ paramInfoId, values: [""] });
-        }
-      }
+      state.x[paramSweepId].sweep[selectedItemIdx].params.push({
+        paramInfoId,
+        values: [""],
+      });
     }
   });
 }
@@ -76,8 +115,8 @@ export function addParamSweepParamInfoId({
 export function deleteParamsFromParamSweep({ sectionId, ids }) {
   const { paramSweepId } = getSectionInfo(sectionId);
   useParamSweep.setState((x) => {
-    x.x[paramSweepId].sweep = x.x[paramSweepId].sweep.filter(
-      (y) => !ids.includes(y.paramInfoId),
-    );
+    for (const s of x.x[paramSweepId].sweep) {
+      s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
+    }
   });
 }

@@ -27,13 +27,14 @@ function _ParamSweepArea({ sectionId }) {
   return (
     <>
       <div className="section-main-full-w ml-1.5 flex flex-col gap-6 overflow-y-scroll">
-        {paramSweep.map((sweep) => (
+        {paramSweep.map((sweep, idx) => (
           <ParamSweepForOneSelectedItem
             key={sweep.selectedItem}
-            section={sectionId}
+            sectionId={sectionId}
             forSectionId={forSectionId}
             sweep={sweep}
             paramSweepId={paramSweepId}
+            selectedItemIdx={idx}
           />
         ))}
         <button className="-mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-solid border-setta-500 px-3 py-1.5 text-xs font-bold uppercase text-setta-700 hover:bg-setta-200  dark:text-setta-400 dark:hover:bg-setta-900">
@@ -52,6 +53,7 @@ function ParamSweepForOneSelectedItem({
   forSectionId,
   sweep,
   paramSweepId,
+  selectedItemIdx,
 }) {
   const hideSearch = useSectionInfos((x) => x.x[forSectionId].hideSearch);
   const _isGlobalVariables =
@@ -65,6 +67,7 @@ function ParamSweepForOneSelectedItem({
           forSectionId={forSectionId}
           selectedItem={sweep.selectedItem}
           paramSweepId={paramSweepId}
+          selectedItemIdx={selectedItemIdx}
         />
       )}
       <Args
@@ -73,6 +76,7 @@ function ParamSweepForOneSelectedItem({
         paramSweep={sweep.params}
         forSectionId={forSectionId}
         sectionId={sectionId}
+        selectedItemIdx={selectedItemIdx}
       />
     </div>
   );
@@ -84,6 +88,7 @@ function Args({
   paramSweep,
   forSectionId,
   sectionId,
+  selectedItemIdx,
 }) {
   const alreadySelected = paramSweep.map((x) => x.paramInfoId);
 
@@ -94,11 +99,12 @@ function Args({
           key={x.paramInfoId}
           objInfoId={objInfoId}
           paramSweepId={paramSweepId}
-          idx={idx}
+          paramIdx={idx}
           singleParamSweep={x}
           alreadySelected={alreadySelected}
           forSectionId={forSectionId}
           sectionId={sectionId}
+          selectedItemIdx={selectedItemIdx}
         />
       ))}
       <PlaceholderArgItem
@@ -106,6 +112,7 @@ function Args({
         paramSweepId={paramSweepId}
         objInfoId={objInfoId}
         alreadySelected={alreadySelected}
+        selectedItemIdx={selectedItemIdx}
       />
     </section>
   );
@@ -114,34 +121,51 @@ function Args({
 function ArgItem({
   objInfoId,
   paramSweepId,
-  idx,
+  paramIdx,
   singleParamSweep,
   alreadySelected,
   forSectionId,
   sectionId,
-  unused = false,
+  selectedItemIdx,
 }) {
   const { paramInfoId, values } = singleParamSweep;
 
   function getOnChange(valueIdx) {
     return (v) =>
-      setParamSweepValue({ paramSweepId, idx, valueIdx, value: _.toString(v) });
+      setParamSweepValue({
+        paramSweepId,
+        selectedItemIdx,
+        paramIdx,
+        valueIdx,
+        value: _.toString(v),
+      });
   }
 
   function getOnDelete(valueIdx) {
-    return () => deleteParamSweepValue({ paramSweepId, idx, valueIdx });
+    return () =>
+      deleteParamSweepValue({
+        paramSweepId,
+        selectedItemIdx,
+        paramIdx,
+        valueIdx,
+      });
   }
 
   function onPlus() {
-    addParamSweepValue({ paramSweepId, idx });
+    addParamSweepValue({ paramSweepId, selectedItemIdx, paramIdx });
   }
 
   function onMinus() {
-    deleteLastParamSweepValue({ paramSweepId, idx });
+    deleteLastParamSweepValue({ paramSweepId, selectedItemIdx, paramIdx });
   }
 
   function onSelectedItemChange(v) {
-    changeParamSweepParamInfoId({ paramSweepId, idx, paramInfoId: v });
+    changeParamSweepParamInfoId({
+      paramSweepId,
+      selectedItemIdx,
+      paramIdx,
+      paramInfoId: v,
+    });
   }
   // <article className="nodrag nowheel section-key-value auto-rows-min grid grid-cols-subgrid py-1">
 
@@ -185,6 +209,7 @@ function PlaceholderArgItem({
   paramSweepId,
   objInfoId,
   alreadySelected,
+  selectedItemIdx,
 }) {
   const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
   const [showCombobox, setShowCombobox] = useState(false);
@@ -192,7 +217,7 @@ function PlaceholderArgItem({
   function onSelectedItemChange(v, changeByUser, setSelection) {
     addParamSweepParamInfoId({
       paramSweepId,
-      selectedItem: objInfoId,
+      selectedItemIdx,
       paramInfoId: v,
     });
     setSelection(null);
