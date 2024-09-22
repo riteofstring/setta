@@ -296,6 +296,9 @@ export function DrawOnImage({ sectionId }) {
   }
 
   const canvasClassName = "single-cell-child max-w-full place-self-center";
+  const cursorIcon = isEraser
+    ? "cursor-[url(../../../../erase.svg),_pointer]"
+    : "cursor-[url(../../../../pen.svg),_pointer]";
 
   return (
     <>
@@ -403,7 +406,7 @@ export function DrawOnImage({ sectionId }) {
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseUp}
             onMouseEnter={onMouseEnter}
-            className={canvasClassName}
+            className={`${cursorIcon} ${canvasClassName}`}
           />
           <canvas
             ref={draftCanvasRef}
