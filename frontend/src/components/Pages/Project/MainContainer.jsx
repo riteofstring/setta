@@ -1,3 +1,4 @@
+import { useCodeMirrorStyleLoader } from "components/utils/CodeMirror/useCodeMirrorStyleLoader";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useEffect } from "react";
 import { dbRequestTypeCheck } from "requests/sections";
@@ -21,6 +22,7 @@ export function MainContainer() {
 
 function LoadingSpinner({ children }) {
   const doneLoading = useLoadProjectConfig();
+  useCodeMirrorStyleLoader(doneLoading);
 
   useEffect(() => {
     if (doneLoading) {
