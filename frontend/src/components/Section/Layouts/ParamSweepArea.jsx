@@ -15,6 +15,7 @@ import {
   deleteParamSweepValue,
   setParamSweepValue,
 } from "state/actions/runGroups/paramSweep";
+import { getParamIds } from "state/actions/sections/sectionContents";
 import { useCodeInfo, useSectionInfos } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import { useGetSectionInfo } from "state/hooks/sections";
@@ -263,10 +264,30 @@ function ParamCombobox({
   const codeInfoId = useGetSectionInfo(forSectionId, "codeInfoId");
 
   const objParams = useCodeInfo((x) => {
+    const idsAndPaths = getParamIds(
+      forSectionId,
+      x.x,
+      objInfoId,
+      codeInfoId,
+      (p) => p.rcType === C.PARAMETER,
+    );
     const output = [];
-    for (const c of x.x[objInfoId ?? codeInfoId].children) {
-      if (c === paramInfoId || !alreadySelected.includes(c)) {
-        output.push(x.x[c]);
+    for (const f of idsAndPaths) {
+      if (f.id !== paramInfoId && alreadySelected.includes(f.id)) {
+        continue;
+      }
+      if (f.path.length === 1) {
+        output.push({ id: f.id, name: x.x[f.path[0]].name });
+      } else {
+        let name = "";
+        for (const [pathIdx, currId] of f.path.entries()) {
+          if (pathIdx === 0) {
+            name = x.x[currId].name;
+          } else {
+            name += `["${x.x[currId].name}"]`;
+          }
+        }
+        output.push({ id: f.id, name });
       }
     }
     return output;
